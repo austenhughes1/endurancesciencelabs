@@ -1,0 +1,38 @@
+// ─────────────────────────────────────────────────────────────
+//  firestore.rules
+//  Paste this entire block into:
+//  Firebase Console → Firestore Database → Rules → Edit rules
+//
+//  BEFORE PASTING: replace YOUR_ADMIN_UID with your actual UID.
+//  Find it at: Firebase Console → Authentication → Users →
+//  click your user → copy the User UID value shown.
+// ─────────────────────────────────────────────────────────────
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Computed ranges (male + female) ──────────────────────
+    // Anyone can READ — the public StrideScope analyzer fetches
+    // computed_ranges/male and computed_ranges/female on load.
+    // Only the admin account can WRITE.
+    match /computed_ranges/{sex} {
+      allow read:  if true;
+      allow write: if request.auth != null
+                   && request.auth.uid == "YOUR_ADMIN_UID"
+                   && sex in ["male", "female"];
+    }
+
+    // ── Reference sessions ───────────────────────────────────
+    // Only the admin can read or write raw session data.
+    match /reference_sessions/{sessionId} {
+      allow read, write: if request.auth != null
+                         && request.auth.uid == "YOUR_ADMIN_UID";
+    }
+
+    // ── Deny everything else ─────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
