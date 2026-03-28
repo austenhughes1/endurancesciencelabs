@@ -441,7 +441,6 @@ nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:st
 // ══════════════════════════════════════════════════════════
 //  FIREBASE CONFIG — paste your values to enable live ranges
 // ══════════════════════════════════════════════════════════
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyDh4LorLQx1DPovQIA4HM3127fAYpyuaY8",
   authDomain: "es-form-labs.firebaseapp.com",
@@ -494,7 +493,7 @@ function gradeVal(val, metricKey, phaseKey) {
 // ── Firebase + range fetching ─────────────────────────────
 async function initFirebase() {
   try {
-    if (FIREBASE_CONFIG.apiKey === 'AIzaSyDh4LorLQx1DPovQIA4HM3127fAYpyuaY8') return;
+    if (FIREBASE_CONFIG.apiKey === 'YOUR_API_KEY') return;
     if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
     const db = firebase.firestore();
     // Fetch both sex ranges in parallel
@@ -599,8 +598,30 @@ dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');co
 function startWithFile(file){
   document.getElementById('screen-upload').style.display='none';
   document.getElementById('hdr-file').textContent=file.name;
-  videoEl=document.getElementById('video');videoEl.src=URL.createObjectURL(file);videoEl.load();
-  videoEl.addEventListener('loadedmetadata',()=>{document.getElementById('screen-scanning').style.display='flex';autoScan();},{once:true});
+  videoEl=document.getElementById('video');
+
+  let started=false;
+  function beginScan(){
+    if(started) return;
+    started=true;
+    videoEl.removeEventListener('loadedmetadata', beginScan);
+    videoEl.removeEventListener('loadeddata',     beginScan);
+    videoEl.removeEventListener('canplay',        beginScan);
+    clearTimeout(fallbackTimer);
+    document.getElementById('screen-scanning').style.display='flex';
+    autoScan();
+  }
+
+  // Whichever fires first wins — handles HEVC, MOV, and slow codecs
+  videoEl.addEventListener('loadedmetadata', beginScan, {once:true});
+  videoEl.addEventListener('loadeddata',     beginScan, {once:true});
+  videoEl.addEventListener('canplay',        beginScan, {once:true});
+
+  // Hard 8s timeout if none of the above fire
+  const fallbackTimer = setTimeout(()=>{ if(!started){ console.warn('StrideScope: metadata timeout, scanning anyway'); beginScan(); } }, 8000);
+
+  videoEl.src=URL.createObjectURL(file);
+  videoEl.load();
 }
 
 // Auto scan
