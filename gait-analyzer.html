@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gait Analyzer — Endurance Science Labs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#06080d;--panel:#0d1020;--panel2:#131828;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+  --cyan:#00e5c8;--left:#00d4aa;--right:#ff6b35;--gold:#f5c842;--purple:#8b7cf8;
+  --text:#dde1ef;--muted:#3e4460;--muted2:#6e7a9a;
+  --good:#22c78a;--warn:#f5a623;--bad:#f55050;
+  --ui:'Syne',system-ui,sans-serif;--mono:'Space Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--ui);background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse-border{0%,100%{border-color:rgba(245,166,35,.3)}50%{border-color:rgba(245,166,35,.7)}}
+
+/* Loader */
+#loader{position:fixed;inset:0;background:rgba(6,8,13,.96);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:2000}
+.spinner{width:36px;height:36px;border:3px solid var(--border2);border-top-color:var(--cyan);border-radius:50%;animation:spin .7s linear infinite}
+.ld-title{font-size:14px;font-weight:700}
+.ld-sub{font-size:11px;color:var(--muted2);font-family:var(--mono)}
+
+/* Header */
+header{height:52px;padding:0 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:300;background:rgba(6,8,13,.97);backdrop-filter:blur(10px)}
+.logo{width:30px;height:30px;background:var(--cyan);border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:13px;color:#000;flex-shrink:0}
+.brand{font-size:15px;font-weight:700;letter-spacing:-.3px}.brand em{color:var(--cyan);font-style:normal}
+#hdr-file{font-size:11px;color:var(--muted2);font-family:var(--mono);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.btn-ghost{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;font-size:11px;font-weight:600;font-family:var(--ui);border-radius:7px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;transition:all .15s}
+.btn-ghost:hover{border-color:var(--cyan);color:var(--cyan)}
+
+/* Upload */
+#screen-upload{display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 52px);padding:40px}
+.drop-zone{border:1.5px dashed rgba(0,229,200,.22);border-radius:22px;padding:70px 80px;text-align:center;cursor:pointer;max-width:500px;width:100%;background:rgba(0,229,200,.02);transition:all .2s}
+.drop-zone:hover,.drop-zone.over{border-color:var(--cyan);background:rgba(0,229,200,.06)}
+.dz-icon{width:64px;height:64px;border-radius:18px;background:rgba(0,229,200,.12);display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:28px}
+.dz-title{font-size:22px;font-weight:800;margin-bottom:10px}
+.dz-sub{color:var(--muted2);font-size:13px;line-height:1.7}
+#file-input{display:none}
+.btn-main{display:inline-flex;align-items:center;gap:7px;margin-top:24px;padding:12px 26px;background:var(--cyan);color:#000;font-weight:700;font-size:13px;font-family:var(--ui);border:none;border-radius:10px;cursor:pointer;transition:opacity .15s}
+.btn-main:hover{opacity:.85}
+.dz-hint{margin-top:14px;font-size:10px;color:var(--muted);font-family:var(--mono)}
+
+/* Scanning */
+#screen-scanning{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 52px);gap:24px;padding:40px}
+.scan-card{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:32px 36px;width:100%;max-width:500px}
+.scan-title{font-size:20px;font-weight:800;margin-bottom:5px}
+.scan-sub{font-size:13px;color:var(--muted2);margin-bottom:24px;line-height:1.6}
+.scan-preview{width:100%;aspect-ratio:16/9;background:#000;border-radius:10px;overflow:hidden;margin-bottom:18px;position:relative}
+.scan-preview canvas{width:100%;height:100%;object-fit:contain;display:block}
+.scan-preview-label{position:absolute;bottom:8px;left:10px;font-size:9px;color:var(--muted2);font-family:var(--mono);background:rgba(6,8,13,.82);padding:2px 8px;border-radius:4px}
+.scan-bar-track{height:4px;background:var(--panel2);border-radius:2px;overflow:hidden}
+.scan-bar-fill{height:100%;background:var(--cyan);border-radius:2px;width:0%;transition:width .3s ease}
+.scan-step{font-size:10px;color:var(--muted2);font-family:var(--mono);margin-top:8px;min-height:14px}
+.scan-phase-list{margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.spl-item{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);padding:5px 8px;background:var(--panel2);border-radius:7px;border:1px solid var(--border)}
+.spl-item.found{color:var(--text);border-color:rgba(34,199,138,.2);background:rgba(34,199,138,.04)}
+.spl-item.not-found{color:var(--warn);border-color:rgba(245,166,35,.25);background:rgba(245,166,35,.04)}
+.spl-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.spl-item.found .spl-dot{background:var(--good)}
+.spl-item.not-found .spl-dot{background:var(--warn)}
+.spl-name{flex:1;font-size:10px}
+.spl-time{font-family:var(--mono);font-size:9px;color:var(--muted)}
+.spl-item.found .spl-time{color:var(--cyan)}
+.spl-item.not-found .spl-time{color:var(--warn)}
+
+/* Diagnostic */
+#scan-diag{margin-top:12px;padding:8px 10px;background:var(--panel2);border-radius:8px;font-size:10px;color:var(--muted2);font-family:var(--mono);line-height:1.7;display:none}
+
+/* Phases screen */
+#screen-phases{display:none;padding:28px 24px 80px;max-width:1440px;margin:0 auto}
+
+/* Instruction banner */
+.instr-banner{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px 22px;margin-bottom:24px;display:flex;gap:20px;align-items:flex-start}
+.instr-icon{font-size:22px;flex-shrink:0;margin-top:2px}
+.instr-title{font-size:14px;font-weight:700;margin-bottom:6px}
+.instr-text{font-size:12px;color:var(--muted2);line-height:1.75;margin-bottom:10px}
+.instr-steps{display:flex;flex-direction:column;gap:5px}
+.instr-step{display:flex;align-items:flex-start;gap:9px;font-size:12px;color:var(--muted2);line-height:1.55}
+.instr-step-num{width:18px;height:18px;border-radius:50%;background:rgba(0,229,200,.12);border:1px solid rgba(0,229,200,.25);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--cyan);flex-shrink:0;margin-top:1px;font-family:var(--mono)}
+.instr-legend{display:flex;gap:14px;align-items:center;margin-top:12px;flex-wrap:wrap}
+.il-item{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted2);font-weight:600}
+.il-swatch{width:10px;height:10px;border-radius:50%}
+
+/* Scan summary */
+.scan-summary{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:20px;display:flex;gap:20px;flex-wrap:wrap;font-size:11px;color:var(--muted2);font-family:var(--mono)}
+.ss-item strong{color:var(--cyan)}
+.ss-item.warn strong{color:var(--warn)}
+
+/* Phase groups */
+.phase-groups{display:flex;flex-direction:column;gap:20px}
+.phase-group{display:flex;flex-direction:column;gap:10px}
+.phase-group-label{font-size:10px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);padding-left:2px;display:flex;align-items:center;gap:8px}
+.phase-group-label::after{content:'';flex:1;height:1px;background:var(--border)}
+.phase-group-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+
+/* Phase card */
+.phase-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;transition:border-color .2s,transform .15s,opacity .3s}
+.phase-card:hover{border-color:rgba(0,229,200,.35);transform:translateY(-1px)}
+.phase-card.dimmed{opacity:.4;pointer-events:none}
+.phase-card.undetected{border-color:rgba(245,166,35,.3);animation:pulse-border 2s ease infinite}
+.phase-card.undetected:hover{border-color:rgba(245,166,35,.7)}
+.pc-hdr{padding:12px 14px 10px;display:flex;align-items:center;gap:9px;border-bottom:1px solid var(--border)}
+.pc-num{width:20px;height:20px;border-radius:50%;background:rgba(0,229,200,.12);border:1px solid rgba(0,229,200,.28);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--cyan);flex-shrink:0;font-family:var(--mono)}
+.phase-card.undetected .pc-num{background:rgba(245,166,35,.12);border-color:rgba(245,166,35,.35);color:var(--warn)}
+.pc-name-wrap{flex:1;min-width:0}
+.pc-name{font-size:12px;font-weight:700}
+.pc-desc{font-size:9px;color:var(--muted2);font-family:var(--mono);margin-top:1px}
+.pc-badge{font-size:8px;font-family:var(--mono);padding:2px 7px;border-radius:10px;flex-shrink:0;font-weight:700}
+.pc-badge.ok{background:rgba(34,199,138,.1);color:var(--good);border:1px solid rgba(34,199,138,.22)}
+.pc-badge.pending{background:rgba(62,68,96,.2);color:var(--muted2);border:1px solid var(--border)}
+.pc-badge.analyzing{background:rgba(139,124,248,.1);color:var(--purple);border:1px solid rgba(139,124,248,.25)}
+.pc-badge.manual{background:rgba(245,166,35,.1);color:var(--warn);border:1px solid rgba(245,166,35,.25)}
+.pc-canvas-wrap{background:#000;position:relative}
+.pc-canvas{width:100%;display:block}
+.pc-loading{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(6,8,13,.65)}
+.pc-loading.show{display:flex}
+.pc-mini-spinner{width:20px;height:20px;border:2px solid var(--border2);border-top-color:var(--cyan);border-radius:50%;animation:spin .7s linear infinite}
+.pc-placeholder{width:100%;aspect-ratio:16/9;background:rgba(245,166,35,.04);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border-top:1px solid rgba(245,166,35,.1);border-bottom:1px solid rgba(245,166,35,.1)}
+.pc-placeholder-icon{font-size:22px;opacity:.4}
+.pc-placeholder-text{font-size:11px;color:var(--warn);font-weight:600}
+.pc-placeholder-sub{font-size:10px;color:var(--muted2);font-family:var(--mono)}
+.pc-footer{padding:9px 13px;display:flex;align-items:center;justify-content:space-between}
+.pc-time-display{font-family:var(--mono);font-size:11px;color:var(--cyan)}
+.phase-card.undetected .pc-time-display{color:var(--warn)}
+.pc-expand-hint{font-size:10px;color:var(--muted)}
+.phase-card.undetected .pc-expand-hint{color:var(--warn);font-weight:600}
+.pc-metrics-mini{padding:8px 13px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:5px}
+.mm-item{font-size:9px;font-family:var(--mono);padding:2px 7px;border-radius:9px;background:var(--panel2);border:1px solid var(--border)}
+.mm-item.good{color:var(--good);border-color:rgba(34,199,138,.2)}
+.mm-item.warn{color:var(--warn);border-color:rgba(245,166,35,.2)}
+.mm-item.bad{color:var(--bad);border-color:rgba(245,80,80,.2)}
+.mm-item.na{color:var(--muted)}
+
+/* Expand overlay */
+#expand-overlay{position:fixed;inset:0;background:rgba(6,8,13,.9);z-index:400;display:none;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}
+#expand-overlay.open{display:flex}
+.expand-panel{background:var(--panel);border:1px solid var(--border2);border-radius:20px;width:100%;max-width:980px;max-height:calc(100vh - 32px);overflow-y:auto;display:flex;flex-direction:column}
+.ep-hdr{padding:15px 20px 13px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0;position:sticky;top:0;background:var(--panel);z-index:10;border-radius:20px 20px 0 0}
+.ep-num{width:28px;height:28px;border-radius:50%;background:rgba(0,229,200,.12);border:1px solid rgba(0,229,200,.3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--cyan);flex-shrink:0;font-family:var(--mono)}
+.ep-hdr.undetected .ep-num{background:rgba(245,166,35,.12);border-color:rgba(245,166,35,.35);color:var(--warn)}
+.ep-name{font-size:16px;font-weight:800}
+.ep-desc{font-size:11px;color:var(--muted2);font-family:var(--mono);margin-top:1px}
+.ep-undetected-badge{display:none;align-items:center;gap:6px;font-size:11px;color:var(--warn);font-weight:700;background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.25);border-radius:8px;padding:4px 12px;font-family:var(--mono)}
+.ep-hdr.undetected .ep-undetected-badge{display:flex}
+.ep-close{margin-left:auto;width:32px;height:32px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+.ep-close:hover{border-color:var(--bad);color:var(--bad)}
+.ep-undetected-notice{margin:16px 16px 0;background:rgba(245,166,35,.06);border:1px solid rgba(245,166,35,.2);border-radius:12px;padding:14px 16px;display:none}
+.ep-undetected-notice.show{display:block}
+.eun-title{font-size:13px;font-weight:700;color:var(--warn);margin-bottom:5px}
+.eun-text{font-size:12px;color:var(--muted2);line-height:1.7}
+.ep-body{display:grid;grid-template-columns:1fr 340px;gap:0;flex:1}
+@media(max-width:700px){.ep-body{grid-template-columns:1fr}}
+.ep-canvas-side{padding:16px;border-right:1px solid var(--border)}
+.ep-canvas-wrap{background:#000;border-radius:10px;overflow:hidden;position:relative;margin-bottom:14px}
+.ep-canvas{width:100%;display:block;min-height:180px}
+.ep-loading{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(6,8,13,.7)}
+.ep-loading.show{display:flex}
+.ep-spinner{width:28px;height:28px;border:2.5px solid var(--border2);border-top-color:var(--cyan);border-radius:50%;animation:spin .7s linear infinite}
+.scrub-section{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.scrub-label{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.scrub-main{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.ep-scrubber{flex:1;-webkit-appearance:none;height:4px;background:var(--panel);border-radius:2px;outline:none;cursor:pointer}
+.ep-scrubber::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;background:var(--cyan);border-radius:50%;cursor:pointer;box-shadow:0 0 0 4px rgba(0,229,200,.15)}
+.ep-time{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--cyan);min-width:52px;text-align:right;flex-shrink:0}
+.step-btns{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.step-btn{padding:5px 11px;font-size:11px;font-weight:700;font-family:var(--mono);border-radius:7px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;transition:all .15s;user-select:none}
+.step-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.step-label{font-size:10px;color:var(--muted);margin:0 1px}
+.re-btn{margin-left:auto;display:inline-flex;align-items:center;gap:6px;padding:7px 16px;font-size:11px;font-weight:700;font-family:var(--ui);border-radius:8px;border:1px solid rgba(0,229,200,.3);background:rgba(0,229,200,.08);color:var(--cyan);cursor:pointer;transition:all .15s}
+.re-btn:hover{background:rgba(0,229,200,.15)}
+.re-btn:disabled{opacity:.35;cursor:not-allowed}
+.scrub-nav{display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);flex-wrap:wrap}
+.scrub-nav-label{font-size:10px;color:var(--muted);font-family:var(--mono)}
+.nav-phase-btns{display:flex;gap:5px;flex-wrap:wrap;margin-left:auto}
+.nav-phase-btn{padding:3px 8px;font-size:9px;font-family:var(--mono);border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;transition:all .15s;white-space:nowrap}
+.nav-phase-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.nav-phase-btn.cur{background:rgba(0,229,200,.1);color:var(--cyan);border-color:rgba(0,229,200,.3)}
+.nav-phase-btn.undetected{border-color:rgba(245,166,35,.3);color:var(--warn)}
+.ep-info-side{padding:16px;display:flex;flex-direction:column;gap:14px;overflow-y:auto}
+.pi-card{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.pi-label{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.pi-title{font-size:13px;font-weight:700;color:var(--cyan);margin-bottom:6px}
+.pi-desc{font-size:12px;color:var(--muted2);line-height:1.7;margin-bottom:10px}
+.pi-checks{display:flex;flex-direction:column;gap:6px}
+.pi-check{display:flex;align-items:flex-start;gap:8px;font-size:11px;color:var(--muted2);line-height:1.55}
+.pi-check-icon{color:var(--cyan);font-size:10px;flex-shrink:0;margin-top:2px}
+.pi-tip{margin-top:10px;padding:8px 10px;background:rgba(0,229,200,.05);border:1px solid rgba(0,229,200,.12);border-radius:8px;font-size:11px;color:rgba(0,229,200,.75);line-height:1.6;font-family:var(--mono)}
+.ep-metrics-card{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.ep-m-label{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.ep-metric{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.ep-metric:last-child{margin-bottom:0}
+.ep-ml{font-size:11px;color:var(--muted2);display:flex;align-items:center;gap:7px;font-weight:600}
+.ep-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.ep-mv{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--muted)}
+.ep-mv.good{color:var(--good)}.ep-mv.warn{color:var(--warn)}.ep-mv.bad{color:var(--bad)}
+.ep-mv-hint{font-size:9px;color:var(--muted);margin-top:1px;text-align:right;font-family:var(--mono)}
+.ep-no-data{font-size:11px;color:var(--muted);font-family:var(--mono);text-align:center;padding:10px 0}
+
+/* Summary */
+.summary{margin-top:44px;padding-top:32px;border-top:1px solid var(--border)}
+.summary-title{font-size:19px;font-weight:800;margin-bottom:4px}
+.summary-sub{font-size:12px;color:var(--muted2);margin-bottom:20px}
+.summary-scroll{overflow-x:auto}
+.stbl{width:100%;border-collapse:collapse;font-size:12px;min-width:700px}
+.stbl th{padding:9px 12px;text-align:left;font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;background:var(--panel);cursor:pointer;transition:color .15s}
+.stbl th:hover{color:var(--cyan)}
+.stbl th.th-group-start{border-left:2px solid var(--border2)}
+.stbl th.th-left{color:rgba(0,212,170,.8)}.stbl th.th-right{color:rgba(255,107,53,.8)}
+.stbl th.undetected-col{opacity:.6}
+.stbl td{padding:9px 12px;border-bottom:1px solid var(--border)}
+.stbl td.td-group-start{border-left:2px solid var(--border2)}
+.stbl tr:last-child td{border-bottom:none}
+.stbl tr:hover td{background:rgba(255,255,255,.015)}
+.row-label{color:var(--muted2);font-weight:600;font-size:11px;white-space:nowrap}
+.sv{font-family:var(--mono);font-weight:700;font-size:13px}
+.sv.good{color:var(--good)}.sv.warn{color:var(--warn)}.sv.bad{color:var(--bad)}.sv.na{color:var(--muted)}
+.legend-strip{display:flex;gap:18px;align-items:center;margin-top:14px;flex-wrap:wrap}
+.ls-item{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted2);font-weight:600}
+.ls-dot{width:8px;height:8px;border-radius:50%}
+</style>
+</head>
+<body>
+
+<div id="loader">
+  <div class="spinner"></div>
+  <div class="ld-title">Loading pose estimation model</div>
+  <div class="ld-sub">MoveNet Thunder · runs entirely in your browser</div>
+</div>
+
+<nav style="height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:sticky;top:0;z-index:300;background:rgba(6,8,13,.97);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)">
+  <a href="index.html" style="display:flex;align-items:center;gap:11px;text-decoration:none;flex-shrink:0;margin-right:32px">
+    <div style="width:32px;height:32px;background:var(--cyan);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:13px;color:#000">ESL</div>
+    <div style="font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.3px;line-height:1.2">
+      Endurance Science Labs
+      <span style="display:block;font-size:9px;font-weight:500;color:var(--muted2);letter-spacing:.5px;text-transform:uppercase;font-family:var(--mono)">Evidence-based endurance coaching</span>
+    </div>
+  </a>
+  <div style="display:flex;align-items:center;gap:2px;flex:1">
+    <a href="index.html"         style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600;color:var(--muted2);text-decoration:none;transition:all .15s;border:1px solid transparent" onmouseover="this.style.color='var(--text)';this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.color='var(--muted2)';this.style.background='transparent'">Home</a>
+    <a href="gait-analyzer.html" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600;color:var(--cyan);text-decoration:none;background:rgba(0,229,200,.07);border:1px solid rgba(0,229,200,.15)">StrideScope</a>
+    <a href="#"                  style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600;color:var(--muted2);text-decoration:none;border:1px solid transparent">Coaching <span style="font-size:8px;font-weight:700;letter-spacing:.4px;font-family:var(--mono);background:rgba(110,122,154,.15);color:var(--muted2);border-radius:4px;padding:1px 5px">SOON</span></a>
+    <a href="#"                  style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600;color:var(--muted2);text-decoration:none;border:1px solid transparent">Metabolic Testing <span style="font-size:8px;font-weight:700;letter-spacing:.4px;font-family:var(--mono);background:rgba(110,122,154,.15);color:var(--muted2);border-radius:4px;padding:1px 5px">SOON</span></a>
+    <a href="#"                  style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600;color:var(--muted2);text-decoration:none;border:1px solid transparent">Training Plans <span style="font-size:8px;font-weight:700;letter-spacing:.4px;font-family:var(--mono);background:rgba(110,122,154,.15);color:var(--muted2);border-radius:4px;padding:1px 5px">SOON</span></a>
+  </div>
+  <span id="hdr-file" style="font-size:11px;color:var(--muted2);font-family:var(--mono);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+  <div style="display:flex;align-items:center;gap:10px;margin-left:12px">
+    <button class="btn-ghost" id="btn-rescan" onclick="rescan()" style="display:none">⟳ Re-scan</button>
+    <button class="btn-ghost" onclick="resetApp()">↩ New video</button>
+  </div>
+</nav>
+
+<div id="screen-upload">
+  <div class="drop-zone" id="drop-zone">
+    <div class="dz-icon">▶</div>
+    <div class="dz-title">Drop a running video</div>
+    <p class="dz-sub">Side-view footage gives the best results. Treadmill or outdoor track both work. Everything processes locally — nothing is uploaded.</p>
+    <input type="file" id="file-input" accept="video/*">
+    <button class="btn-main" onclick="document.getElementById('file-input').click()">＋ Choose video file</button>
+    <p class="dz-hint">MP4 · MOV · WebM · Fully private · No upload</p>
+  </div>
+</div>
+
+<div id="screen-scanning">
+  <div class="scan-card">
+    <div class="scan-title">Scanning stride phases</div>
+    <div class="scan-sub">Analyzing your video for all 7 key moments of the running gait cycle.</div>
+    <div class="scan-preview">
+      <canvas id="scan-canvas"></canvas>
+      <div class="scan-preview-label" id="scan-label">Preparing…</div>
+    </div>
+    <div class="scan-bar-track"><div class="scan-bar-fill" id="scan-bar"></div></div>
+    <div class="scan-step" id="scan-step">Preparing…</div>
+    <div class="scan-phase-list" id="scan-phase-list"></div>
+    <div id="scan-diag"></div>
+  </div>
+</div>
+
+<div id="screen-phases">
+  <div class="instr-banner">
+    <div class="instr-icon">◎</div>
+    <div style="flex:1">
+      <div class="instr-title">How to review and adjust each phase</div>
+      <div class="instr-text">The algorithm has detected key moments across 7 phases of your gait cycle. Phases with an amber border were <strong>not auto-detected</strong> and need a frame selected manually.</div>
+      <div class="instr-steps">
+        <div class="instr-step"><div class="instr-step-num">1</div><span><strong>Click any phase card</strong> to open a focused view with phase-specific guidance on what to look for.</span></div>
+        <div class="instr-step"><div class="instr-step-num">2</div><span><strong>Drag the scrubber</strong> to move through the video. Use ±1f / ±5f buttons for frame-by-frame precision.</span></div>
+        <div class="instr-step"><div class="instr-step-num">3</div><span><strong>Click ↻ Analyze</strong> once you've found the right frame — angles update immediately.</span></div>
+        <div class="instr-step"><div class="instr-step-num">4</div><span><strong>Amber cards</strong> were not auto-detected — open them and manually select the best frame for that phase.</span></div>
+      </div>
+      <div class="instr-legend">
+        <div class="il-item"><div class="il-swatch" style="background:var(--left)"></div>Left side</div>
+        <div class="il-item"><div class="il-swatch" style="background:var(--right)"></div>Right side</div>
+        <div class="il-item"><div class="il-swatch" style="background:var(--gold)"></div>Trunk lean</div>
+        <div class="il-item"><div class="il-swatch" style="background:var(--good)"></div>Elite range</div>
+        <div class="il-item"><div class="il-swatch" style="background:var(--warn)"></div>Moderate deviation</div>
+        <div class="il-item"><div class="il-swatch" style="background:var(--bad)"></div>Notable deviation</div>
+      </div>
+    </div>
+  </div>
+  <div id="scan-summary-bar" class="scan-summary" style="display:none"></div>
+  <div class="phase-groups" id="phase-groups"></div>
+  <div class="summary">
+    <div class="summary-title">Angle comparison across all phases</div>
+    <div class="summary-sub">All angles in degrees, graded against elite running benchmarks. Click any column header to open that phase.</div>
+    <div class="summary-scroll">
+      <table class="stbl" id="summary-table"><thead></thead><tbody></tbody></table>
+    </div>
+    <div class="legend-strip">
+      <div class="ls-item"><div class="ls-dot" style="background:var(--good)"></div>Elite range</div>
+      <div class="ls-item"><div class="ls-dot" style="background:var(--warn)"></div>Moderate deviation</div>
+      <div class="ls-item"><div class="ls-dot" style="background:var(--bad)"></div>Notable deviation</div>
+      <div class="ls-item"><div class="ls-dot" style="background:var(--muted)"></div>Not analyzed</div>
+    </div>
+  </div>
+</div>
+
+<!-- Expand overlay -->
+<div id="expand-overlay">
+  <div class="expand-panel">
+    <div class="ep-hdr" id="ep-hdr">
+      <div class="ep-num" id="ep-num">1</div>
+      <div style="flex:1"><div class="ep-name" id="ep-name">Phase</div><div class="ep-desc" id="ep-desc"></div></div>
+      <div class="ep-undetected-badge">⚠ Not auto-detected</div>
+      <button class="ep-close" onclick="closeExpand()">✕</button>
+    </div>
+    <div class="ep-undetected-notice" id="ep-undetected-notice">
+      <div class="eun-title">⚠ This phase was not automatically detected</div>
+      <div class="eun-text">Use the scrubber to find the best matching frame, then click ↻ Analyze. The guide on the right explains what to look for.</div>
+    </div>
+    <div class="ep-body">
+      <div class="ep-canvas-side">
+        <div class="ep-canvas-wrap">
+          <canvas class="ep-canvas" id="ep-canvas"></canvas>
+          <div class="ep-loading" id="ep-loading"><div class="ep-spinner"></div></div>
+        </div>
+        <div class="scrub-section">
+          <div class="scrub-label">Frame adjustment</div>
+          <div class="scrub-main">
+            <input type="range" class="ep-scrubber" id="ep-scrubber" min="0" max="1" step="0.04" value="0" oninput="epScrub(this.value)">
+            <span class="ep-time" id="ep-time">0.00s</span>
+          </div>
+          <div class="step-btns">
+            <button class="step-btn" onclick="epStep(-5)">−5f</button>
+            <button class="step-btn" onclick="epStep(-1)">−1f</button>
+            <span class="step-label">frame</span>
+            <button class="step-btn" onclick="epStep(1)">+1f</button>
+            <button class="step-btn" onclick="epStep(5)">+5f</button>
+            <button class="re-btn" id="ep-re-btn" onclick="epReanalyze()">↻ Analyze</button>
+          </div>
+          <div class="scrub-nav">
+            <span class="scrub-nav-label">jump to:</span>
+            <div class="nav-phase-btns" id="nav-phase-btns"></div>
+          </div>
+        </div>
+      </div>
+      <div class="ep-info-side">
+        <div class="pi-card">
+          <div class="pi-label">Phase guide</div>
+          <div class="pi-title" id="ep-guide-title"></div>
+          <div class="pi-desc" id="ep-guide-desc"></div>
+          <div class="pi-checks" id="ep-guide-checks"></div>
+          <div class="pi-tip" id="ep-guide-tip"></div>
+        </div>
+        <div class="ep-metrics-card">
+          <div class="ep-m-label">Measured angles</div>
+          <div id="ep-metrics"><div class="ep-no-data">Analyze a frame to see angles</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<video id="video" style="display:none" playsinline></video>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+<script>
+'use strict';
+
+const LEFT_KPS  = new Set([1,3,5,7,9,11,13,15]);
+const RIGHT_KPS = new Set([2,4,6,8,10,12,14,16]);
+const MIN_CONF  = 0.25;
+const SKELETON  = [[5,7],[7,9],[6,8],[8,10],[5,6],[11,12],[5,11],[6,12],[11,13],[13,15],[12,14],[14,16],[0,5],[0,6]];
+
+const PHASE_DEFS = [
+  { key:'l_foot',  label:'L foot strike',  desc:'Left initial contact with ground',  side:'left',
+    guide:{ title:'Left foot strike', desc:'The instant the left foot first contacts the ground — start of left stance phase.',
+      checks:['Left ankle at or near lowest point on screen','Slight knee bend at contact — not locked straight','Foot lands close to under the hip, not far in front','Trunk upright or slightly forward-leaning'],
+      tip:'If the foot looks extended far in front, scrub slightly forward to the true contact moment.' }},
+  { key:'r_foot',  label:'R foot strike',  desc:'Right initial contact with ground', side:'right',
+    guide:{ title:'Right foot strike', desc:'The instant the right foot first contacts the ground. Compare with left to identify asymmetries.',
+      checks:['Right ankle at or near lowest point','Slight knee bend at contact','Hips level — watch for excessive drop on stance side','Foot lands roughly under the right hip'],
+      tip:'Compare with left foot strike to check for asymmetries in foot position and knee angle.' }},
+  { key:'l_toe',   label:'L toe-off',      desc:'Left foot leaving the ground',      side:'left',
+    guide:{ title:'Left toe-off', desc:'The moment the left foot pushes off. Hip extension is at maximum here — the key propulsion moment.',
+      checks:['Left leg extended behind the body — hip in full extension','Ankle plantarflexed (pushing through the toes)','Left heel visibly raised, drive through forefoot','Opposite leg in mid-swing, driving forward'],
+      tip:'Toe-off is where propulsive power is generated. Limited hip extension indicates reduced push-off efficiency.' }},
+  { key:'r_toe',   label:'R toe-off',      desc:'Right foot leaving the ground',     side:'right',
+    guide:{ title:'Right toe-off', desc:'The moment the right foot pushes off. Mirror of left toe-off — compare both sides for asymmetry.',
+      checks:['Right leg extended behind the body','Right ankle plantarflexed (toes pushing off)','Right heel raised with drive through forefoot','Opposite leg in mid-swing'],
+      tip:'Compare with left toe-off — differences in hip extension between sides point to strength or mobility asymmetries.' }},
+  { key:'mid',     label:'Mid-stance',     desc:'Body directly over support foot',   side:'center',
+    guide:{ title:'Mid-stance', desc:'The body passes directly over the supporting foot. One foot grounded under the hip; the other in mid-swing.',
+      checks:['Stance foot roughly under the hip','Swing leg in mid-flight, knee elevated','Trunk vertical or slightly forward — lateral lean signals weakness','Arms in natural opposite-arm swing'],
+      tip:'This is the key frame for trunk lean and hip drop (Trendelenburg sign) — the foundation of running economy.' }},
+  { key:'peak_kf', label:'Peak knee flex', desc:'Maximum knee bend during swing',    side:'center',
+    guide:{ title:'Peak knee flexion', desc:'Maximum knee bend on the swing leg, just after toe-off when the leg folds up beneath the runner.',
+      checks:['Swing knee at its highest and most bent position','Elite runners pull heel close to glutes — tight, compact swing','Stance leg extended behind the body','Compare symmetry between left and right swing'],
+      tip:'A lazy, low swing increases ground contact time and metabolic cost. Elite runners show a very tight heel-to-glute clearance here.' }},
+  { key:'swing',   label:'Terminal swing', desc:'Leg extended just before landing',  side:'center',
+    guide:{ title:'Terminal swing', desc:'Just before the foot contacts the ground again. Swing leg reaching forward, knee extending.',
+      checks:['Swing leg reaching forward — thigh angled down','Knee extending but not fully locked','Foot dorsiflexed (toes pulled up) ready for contact','Opposite arm driving back to balance the leg swing'],
+      tip:'Overstriding is most visible here. The foot should reach forward but land under the center of mass, not far in front.' }},
+];
+
+const PHASE_GROUPS = [
+  { label:'Foot strike', keys:['l_foot','r_foot'] },
+  { label:'Toe-off',     keys:['l_toe','r_toe'] },
+  { label:'Swing cycle', keys:['mid','peak_kf','swing'] },
+];
+
+const SUMMARY_COL_ORDER = ['l_foot','r_foot','l_toe','r_toe','mid','peak_kf','swing'];
+const GROUP_STARTS       = new Set(['l_foot','l_toe','mid']);
+
+const METRIC_ROWS = [
+  {key:'trunk', label:'Trunk lean',  dot:'var(--gold)',  good:[5,20],       fmt:v=>`${v>0?'+':''}${v.toFixed(1)}°`, hint:'Elite: 5–20° fwd'},
+  {key:'lKnee', label:'L knee',     dot:'var(--left)',  good:[120,175],    fmt:v=>`${v.toFixed(0)}°`,               hint:'Phase-dependent'},
+  {key:'rKnee', label:'R knee',     dot:'var(--right)', good:[120,175],    fmt:v=>`${v.toFixed(0)}°`,               hint:'Phase-dependent'},
+  {key:'lHip',  label:'L hip',      dot:'var(--left)',  good:[140,185],    fmt:v=>`${v.toFixed(0)}°`,               hint:'Stance: 160–180°'},
+  {key:'rHip',  label:'R hip',      dot:'var(--right)', good:[140,185],    fmt:v=>`${v.toFixed(0)}°`,               hint:'Stance: 160–180°'},
+  {key:'lElbow',label:'L elbow',    dot:'var(--left)',  good:[80,110],     fmt:v=>`${v.toFixed(0)}°`,               hint:'Elite: 80–110°'},
+  {key:'rElbow',label:'R elbow',    dot:'var(--right)', good:[80,110],     fmt:v=>`${v.toFixed(0)}°`,               hint:'Elite: 80–110°'},
+  {key:'lFoot', label:'L foot off.',dot:'var(--left)',  good:[-0.15,0.15], fmt:v=>`${v>0?'+':''}${v.toFixed(2)}`,  hint:'+ = under body'},
+  {key:'rFoot', label:'R foot off.',dot:'var(--right)', good:[-0.15,0.15], fmt:v=>`${v>0?'+':''}${v.toFixed(2)}`,  hint:'+ = under body'},
+];
+
+let detector   = null;
+let videoEl    = null;
+let phases     = {};       // keyed by phase key, always has all 7 entries
+let expandKey  = null;
+let epCurrentT = 0;
+let epAnalyzing= false;
+const epDbt    = {};
+
+// ── Pre-initialize all phases as undetected ───────────────
+// This is called first so we always have a valid phases object
+// even if everything else fails.
+function initPhases(midT) {
+  const t = (typeof midT === 'number' && isFinite(midT)) ? midT : 0;
+  PHASE_DEFS.forEach(def => {
+    phases[def.key] = { ...def, t, detected: false, kps: null, metrics: null };
+  });
+}
+
+// ── Model ─────────────────────────────────────────────────
+async function initModel() {
+  try {
+    await tf.ready();
+    detector = await poseDetection.createDetector(
+      poseDetection.SupportedModels.MoveNet,
+      { modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER }
+    );
+    document.getElementById('loader').style.display = 'none';
+  } catch(e) {
+    document.getElementById('loader').innerHTML =
+      `<div style="color:var(--bad);font-size:14px;font-weight:600">Model failed to load</div>
+       <div style="font-size:11px;color:var(--muted2);margin-top:8px">${e.message}</div>
+       <div style="font-size:11px;color:var(--muted);margin-top:6px">Check your internet connection and reload.</div>`;
+  }
+}
+
+// ── File handling ─────────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', e => {
+  if (e.target.files[0]) startWithFile(e.target.files[0]);
+});
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('over');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('video/')) startWithFile(f);
+});
+
+function startWithFile(file) {
+  document.getElementById('screen-upload').style.display = 'none';
+  document.getElementById('hdr-file').textContent = file.name;
+  videoEl = document.getElementById('video');
+  videoEl.src = URL.createObjectURL(file);
+  videoEl.load();
+  videoEl.addEventListener('loadedmetadata', () => {
+    document.getElementById('screen-scanning').style.display = 'flex';
+    autoScan();
+  }, { once: true });
+}
+
+// ── Auto scan ─────────────────────────────────────────────
+async function autoScan() {
+  // Safely get duration
+  let dur = videoEl.duration;
+  if (!isFinite(dur) || isNaN(dur) || dur <= 0) {
+    // Wait a moment and try again
+    await new Promise(r => setTimeout(r, 500));
+    dur = videoEl.duration;
+  }
+  if (!isFinite(dur) || isNaN(dur) || dur <= 0) dur = 30; // fallback
+
+  const midT = dur / 2;
+
+  // Pre-initialize all phases BEFORE anything else
+  initPhases(midT);
+
+  const N = 30;
+  const samples = [];
+
+  document.getElementById('scan-phase-list').innerHTML = PHASE_DEFS.map(p =>
+    `<div class="spl-item" id="spl-${p.key}">
+       <div class="spl-dot"></div>
+       <span class="spl-name">${p.label}</span>
+       <span class="spl-time" id="spl-t-${p.key}">—</span>
+     </div>`).join('');
+
+  const sc   = document.getElementById('scan-canvas');
+  const sctx = sc.getContext('2d');
+  let posesFound = 0;
+
+  for (let i = 0; i < N; i++) {
+    const t = Math.min((i + 0.5) * (dur / N), dur - 0.05);
+    document.getElementById('scan-bar').style.width  = Math.round(i / N * 100) + '%';
+    document.getElementById('scan-step').textContent = `Scanning frame ${i+1} of ${N} · ${t.toFixed(2)}s`;
+    document.getElementById('scan-label').textContent = `${t.toFixed(2)}s`;
+
+    await seekTo(t);
+
+    // Draw raw frame first
+    sc.width  = Math.min(400, videoEl.videoWidth  || 400);
+    sc.height = Math.min(225, videoEl.videoHeight || 225);
+    if (videoEl.videoWidth > 0) {
+      sc.height = Math.round(sc.width * videoEl.videoHeight / videoEl.videoWidth);
+    }
+    try { sctx.drawImage(videoEl, 0, 0, sc.width, sc.height); } catch(e) {}
+
+    // Detect pose — try both canvas and video element as input
+    let poses = null;
+    try { poses = await detector.estimatePoses(sc); } catch(e) {}
+    if (!poses || !poses.length) {
+      try { poses = await detector.estimatePoses(videoEl); } catch(e) {}
+    }
+
+    if (!poses || !poses.length) continue;
+    posesFound++;
+
+    const kps = poses[0].keypoints;
+    const sx  = sc.width  / (videoEl.videoWidth  || sc.width);
+    const sy  = sc.height / (videoEl.videoHeight || sc.height);
+    drawMiniSkeleton(sctx, kps, sx, sy);
+
+    const g = idx => (kps[idx] && kps[idx].score >= MIN_CONF) ? kps[idx] : null;
+    const lAn=g(15), rAn=g(16), lKn=g(13), lHi=g(11), rHi=g(12), lSh=g(5), rSh=g(6), rKn=g(14);
+
+    const lKnAngle = (lHi&&lKn&&lAn) ? calcAngle(lHi,lKn,lAn) : null;
+    const lHipExt  = (lSh&&lHi&&lKn) ? calcAngle(lSh,lHi,lKn) : null;
+    const rHipExt  = (rSh&&rHi&&rKn) ? calcAngle(rSh,rHi,rKn) : null;
+
+    samples.push({ t,
+      lAnkleY: lAn ? lAn.y : undefined,
+      rAnkleY: rAn ? rAn.y : undefined,
+      lHipExt, rHipExt, lKnAngle, kps });
+  }
+
+  document.getElementById('scan-bar').style.width  = '100%';
+  document.getElementById('scan-step').textContent = `Done · ${posesFound}/${N} frames had a detected pose`;
+
+  // Show diagnostic
+  const diag = document.getElementById('scan-diag');
+  diag.style.display = 'block';
+  diag.textContent   = `Video: ${videoEl.videoWidth}×${videoEl.videoHeight} · ${dur.toFixed(1)}s · Poses detected: ${posesFound}/${N} frames · Samples with ankles: ${samples.filter(s=>s.lAnkleY!==undefined).length}`;
+
+  // Detect phases — wrapped in try/catch so a crash doesn't kill rendering
+  try {
+    findPhases(samples, dur);
+  } catch(e) {
+    console.error('findPhases error:', e);
+    // phases already pre-initialized as all-undetected — safe to continue
+  }
+
+  // Update scanning checklist
+  PHASE_DEFS.forEach(def => {
+    const ph   = phases[def.key];
+    const item = document.getElementById(`spl-${def.key}`);
+    const tEl  = document.getElementById(`spl-t-${def.key}`);
+    if (!item || !tEl) return;
+    if (ph && ph.detected) {
+      item.classList.add('found');
+      tEl.textContent = ph.t.toFixed(2) + 's';
+    } else {
+      item.classList.add('not-found');
+      tEl.textContent = 'manual';
+    }
+  });
+
+  await new Promise(r => setTimeout(r, 800));
+  document.getElementById('screen-scanning').style.display = 'none';
+  document.getElementById('screen-phases').style.display   = 'block';
+  document.getElementById('btn-rescan').style.display = 'inline-flex';
+
+  // Show scan summary in phases screen
+  const detected = PHASE_DEFS.filter(d => phases[d.key]?.detected).length;
+  const summBar  = document.getElementById('scan-summary-bar');
+  summBar.style.display = 'flex';
+  summBar.innerHTML = `
+    <span class="ss-item">Video: <strong>${videoEl.videoWidth}×${videoEl.videoHeight}</strong></span>
+    <span class="ss-item">Duration: <strong>${dur.toFixed(1)}s</strong></span>
+    <span class="ss-item ${posesFound < 5 ? 'warn' : ''}">Poses detected: <strong>${posesFound}/${N} frames</strong></span>
+    <span class="ss-item">Phases auto-detected: <strong>${detected}/7</strong></span>
+    ${posesFound < 5 ? '<span class="ss-item warn"><strong>⚠ Low detection — try a clearer side-view video</strong></span>' : ''}`;
+
+  // Build UI — this is now safe because phases always has all 7 keys
+  buildPhaseGroups();
+  buildSummaryTable();
+
+  // Analyze detected phases
+  for (const def of PHASE_DEFS) {
+    if (phases[def.key]?.detected) {
+      await analyzeCard(def.key);
+    }
+  }
+}
+
+// ── Phase detection ───────────────────────────────────────
+// Modifies the global `phases` object in-place.
+// phases is always pre-initialized before this runs.
+function findPhases(samples, dur) {
+  if (!samples.length) return; // nothing to do — leave all as undetected
+
+  const claimed = () => new Set(
+    Object.values(phases).filter(p => p && p.detected).map(p => p.t)
+  );
+
+  const det = (key, sample) => {
+    if (!sample || !sample.t == null) return;
+    phases[key] = { ...phases[key], ...sample, detected: true };
+  };
+
+  const withLA = samples.filter(s => s.lAnkleY !== undefined && isFinite(s.lAnkleY));
+  const withRA = samples.filter(s => s.rAnkleY !== undefined && isFinite(s.rAnkleY));
+  const withKn = samples.filter(s => s.lKnAngle !== null && s.lKnAngle !== undefined && isFinite(s.lKnAngle));
+  const withLH = samples.filter(s => s.lHipExt  !== null && s.lHipExt  !== undefined && isFinite(s.lHipExt));
+  const withRH = samples.filter(s => s.rHipExt  !== null && s.rHipExt  !== undefined && isFinite(s.rHipExt));
+
+  // 1. L foot strike: max lAnkleY
+  if (withLA.length) det('l_foot', withLA.reduce((a,b) => b.lAnkleY > a.lAnkleY ? b : a));
+
+  // 2. R foot strike: max rAnkleY, separated from L
+  if (withRA.length) {
+    const lT   = phases.l_foot?.detected ? phases.l_foot.t : -99;
+    const pool = withRA.filter(s => Math.abs(s.t - lT) > 0.08);
+    if (pool.length) det('r_foot', pool.reduce((a,b) => b.rAnkleY > a.rAnkleY ? b : a));
+  }
+
+  // 3. L toe-off: max L hip extension, after L foot strike
+  if (withLH.length) {
+    const lFT  = phases.l_foot?.detected ? phases.l_foot.t : 0;
+    const pool = withLH.filter(s => s.t > lFT + 0.05);
+    const src  = pool.length >= 2 ? pool : withLH;
+    const best = src.reduce((a,b) => b.lHipExt > a.lHipExt ? b : a);
+    if (!claimed().has(best.t)) det('l_toe', best);
+  }
+
+  // 4. R toe-off: max R hip extension, after R foot strike
+  if (withRH.length) {
+    const rFT  = phases.r_foot?.detected ? phases.r_foot.t : 0;
+    const pool = withRH.filter(s => s.t > rFT + 0.05);
+    const src  = pool.length >= 2 ? pool : withRH;
+    const best = src.reduce((a,b) => b.rHipExt > a.rHipExt ? b : a);
+    if (!claimed().has(best.t)) det('r_toe', best);
+  }
+
+  // 5. Mid-stance: temporal midpoint not already claimed
+  const sorted = [...samples].sort((a,b) => a.t - b.t);
+  let foundMid = false;
+  for (let off = 0; off < sorted.length && !foundMid; off++) {
+    for (const d of [0, 1, -1]) {
+      const idx = Math.floor(sorted.length / 2) + d * off;
+      if (idx < 0 || idx >= sorted.length) continue;
+      const s = sorted[idx];
+      if (s && !claimed().has(s.t)) {
+        det('mid', s);
+        foundMid = true;
+        break;
+      }
+    }
+  }
+
+  // 6. Peak knee flex: min lKnAngle not already claimed
+  if (withKn.length) {
+    const byKnee = [...withKn].sort((a,b) => a.lKnAngle - b.lKnAngle);
+    const best   = byKnee.find(s => !claimed().has(s.t));
+    if (best) det('peak_kf', best);
+  }
+
+  // 7. Terminal swing: max lKnAngle not already claimed
+  if (withKn.length) {
+    const byKnee = [...withKn].sort((a,b) => b.lKnAngle - a.lKnAngle);
+    const best   = byKnee.find(s => !claimed().has(s.t));
+    if (best) det('swing', best);
+  }
+}
+
+// ── Build phase groups ────────────────────────────────────
+function buildPhaseGroups() {
+  const container = document.getElementById('phase-groups');
+  container.innerHTML = '';
+
+  PHASE_GROUPS.forEach(grp => {
+    const section = document.createElement('div');
+    section.className = 'phase-group';
+    const labelDiv = document.createElement('div');
+    labelDiv.className = 'phase-group-label';
+    labelDiv.textContent = grp.label;
+    const cardRow = document.createElement('div');
+    cardRow.className = 'phase-group-cards';
+    section.appendChild(labelDiv);
+    section.appendChild(cardRow);
+    container.appendChild(section);
+
+    grp.keys.forEach(key => {
+      try {
+        const ph  = phases[key];
+        const idx = PHASE_DEFS.findIndex(d => d.key === key);
+        if (!ph) { console.warn('Missing phase:', key); return; }
+
+        const card = document.createElement('div');
+        card.className = 'phase-card' + (ph.detected ? '' : ' undetected');
+        card.id = `card-${key}`;
+
+        if (ph.detected) {
+          card.innerHTML = `
+            <div class="pc-hdr">
+              <div class="pc-num">${idx+1}</div>
+              <div class="pc-name-wrap"><div class="pc-name">${ph.label}</div><div class="pc-desc">${ph.desc}</div></div>
+              <div class="pc-badge pending" id="badge-${key}">pending</div>
+            </div>
+            <div class="pc-canvas-wrap">
+              <canvas class="pc-canvas" id="canvas-${key}"></canvas>
+              <div class="pc-loading" id="loading-${key}"><div class="pc-mini-spinner"></div></div>
+            </div>
+            <div class="pc-footer">
+              <span class="pc-time-display" id="ptime-${key}">${ph.t.toFixed(2)}s</span>
+              <span class="pc-expand-hint">↗ Click to adjust</span>
+            </div>
+            <div class="pc-metrics-mini" id="metrics-mini-${key}"></div>`;
+
+          // Seed canvas with detected frame
+          const W = videoEl.videoWidth || 640;
+          const H = videoEl.videoHeight || 360;
+          seekTo(ph.t).then(() => {
+            const canvas = document.getElementById(`canvas-${key}`);
+            if (!canvas) return;
+            canvas.width = W; canvas.height = H;
+            try { canvas.getContext('2d').drawImage(videoEl,0,0,W,H); } catch(e) {}
+            if (ph.kps) drawPose(canvas.getContext('2d'), ph.kps, W, H);
+          }).catch(() => {});
+        } else {
+          card.innerHTML = `
+            <div class="pc-hdr">
+              <div class="pc-num">${idx+1}</div>
+              <div class="pc-name-wrap"><div class="pc-name">${ph.label}</div><div class="pc-desc">${ph.desc}</div></div>
+              <div class="pc-badge manual" id="badge-${key}">manual</div>
+            </div>
+            <div class="pc-placeholder">
+              <div class="pc-placeholder-icon">⚠</div>
+              <div class="pc-placeholder-text">Not auto-detected</div>
+              <div class="pc-placeholder-sub">Click to manually select a frame</div>
+            </div>
+            <div class="pc-footer">
+              <span class="pc-time-display" id="ptime-${key}">—</span>
+              <span class="pc-expand-hint">↗ Select frame</span>
+            </div>
+            <div class="pc-metrics-mini" id="metrics-mini-${key}"></div>`;
+        }
+
+        card.addEventListener('click', () => openExpand(key));
+        cardRow.appendChild(card);
+      } catch(e) {
+        console.error('Error building card for', key, e);
+      }
+    });
+  });
+}
+
+// ── Card analysis ─────────────────────────────────────────
+async function analyzeCard(key) {
+  if (!detector || !videoEl) return;
+  const ph = phases[key];
+  if (!ph) return;
+
+  const badge   = document.getElementById(`badge-${key}`);
+  const loading = document.getElementById(`loading-${key}`);
+  if (badge)  { badge.className = 'pc-badge analyzing'; badge.textContent = 'analyzing'; }
+  if (loading) loading.classList.add('show');
+
+  await seekTo(ph.t);
+  const canvas = document.getElementById(`canvas-${key}`);
+  if (!canvas) { if (loading) loading.classList.remove('show'); return; }
+
+  const W = videoEl.videoWidth || 640;
+  const H = videoEl.videoHeight || 360;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  try { ctx.drawImage(videoEl, 0, 0, W, H); } catch(e) {}
+
+  let poses;
+  try { poses = await detector.estimatePoses(canvas); } catch(e) {}
+  if (!poses || !poses.length) {
+    try { poses = await detector.estimatePoses(videoEl); } catch(e) {}
+  }
+
+  if (!poses || !poses.length) {
+    if (badge)  { badge.className = 'pc-badge manual'; badge.textContent = 'no pose'; }
+    if (loading) loading.classList.remove('show');
+    return;
+  }
+
+  const kps    = poses[0].keypoints;
+  ph.kps       = kps;
+  ph.metrics   = computeMetrics(kps);
+  drawPose(ctx, kps, W, H);
+  renderMiniMetrics(key, ph.metrics);
+  updateSummaryCol(key);
+
+  if (badge)  { badge.className = 'pc-badge ok'; badge.textContent = 'analyzed'; }
+  if (loading) loading.classList.remove('show');
+}
+
+function renderMiniMetrics(key, m) {
+  const el = document.getElementById(`metrics-mini-${key}`);
+  if (!el) return;
+  el.innerHTML = [METRIC_ROWS[0],METRIC_ROWS[1],METRIC_ROWS[2]].map(r => {
+    const v=m[r.key], g=gradeVal(v,r.good), d=v!=null?r.fmt(v):'—';
+    return `<span class="mm-item ${g||'na'}">${r.label} ${d}</span>`;
+  }).join('');
+}
+
+// ── Expand panel ──────────────────────────────────────────
+function openExpand(key) {
+  expandKey  = key;
+  const ph   = phases[key];
+  const idx  = PHASE_DEFS.findIndex(d => d.key === key);
+  epCurrentT = ph.t || 0;
+
+  document.getElementById('expand-overlay').classList.add('open');
+
+  const isUndet = !ph.detected || !ph.kps;
+  const hdr     = document.getElementById('ep-hdr');
+  hdr.className = 'ep-hdr' + (isUndet ? ' undetected' : '');
+  document.getElementById('ep-num').textContent  = idx + 1;
+  document.getElementById('ep-name').textContent = ph.label;
+  document.getElementById('ep-desc').textContent = ph.desc;
+  document.getElementById('ep-undetected-notice').className =
+    'ep-undetected-notice' + (isUndet ? ' show' : '');
+
+  const scrub = document.getElementById('ep-scrubber');
+  const dur   = videoEl.duration || 30;
+  scrub.min   = 0;
+  scrub.max   = isFinite(dur) ? dur : 30;
+  scrub.step  = 0.04;
+  scrub.value = epCurrentT;
+  document.getElementById('ep-time').textContent = epCurrentT.toFixed(2) + 's';
+
+  const guide = ph.guide || PHASE_DEFS[0].guide;
+  document.getElementById('ep-guide-title').textContent = guide.title;
+  document.getElementById('ep-guide-desc').textContent  = guide.desc;
+  document.getElementById('ep-guide-checks').innerHTML  = guide.checks.map(c =>
+    `<div class="pi-check"><span class="pi-check-icon">◆</span><span>${c}</span></div>`).join('');
+  document.getElementById('ep-guide-tip').textContent   = 'Tip: ' + guide.tip;
+
+  document.getElementById('nav-phase-btns').innerHTML = PHASE_DEFS.map((def,i) => {
+    const p = phases[def.key];
+    return `<button class="nav-phase-btn ${def.key===key?'cur':''} ${!p?.detected?'undetected':''}"
+              onclick="openExpand('${def.key}')">${i+1}. ${def.label}</button>`;
+  }).join('');
+
+  if (ph.metrics) renderExpandMetrics(ph.metrics);
+  else document.getElementById('ep-metrics').innerHTML = '<div class="ep-no-data">Click ↻ Analyze to measure angles</div>';
+
+  drawExpandFrame(epCurrentT, ph.kps);
+  document.querySelectorAll('.phase-card').forEach(c => {
+    c.classList.toggle('dimmed', c.id !== `card-${key}`);
+  });
+  document.addEventListener('keydown', onExpandKey);
+}
+
+function closeExpand() {
+  document.getElementById('expand-overlay').classList.remove('open');
+  document.querySelectorAll('.phase-card').forEach(c => c.classList.remove('dimmed'));
+  expandKey = null;
+  document.removeEventListener('keydown', onExpandKey);
+}
+function onExpandKey(e) { if (e.key === 'Escape') closeExpand(); }
+document.getElementById('expand-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('expand-overlay')) closeExpand();
+});
+
+async function drawExpandFrame(t, kps) {
+  const canvas = document.getElementById('ep-canvas');
+  const W = videoEl.videoWidth || 640;
+  const H = videoEl.videoHeight || 360;
+  canvas.width = W; canvas.height = H;
+  await seekTo(t);
+  const ctx = canvas.getContext('2d');
+  try { ctx.drawImage(videoEl, 0, 0, W, H); } catch(e) {}
+  if (kps) drawPose(ctx, kps, W, H);
+}
+
+function epScrub(val) {
+  epCurrentT = parseFloat(val);
+  document.getElementById('ep-time').textContent = epCurrentT.toFixed(2) + 's';
+  if (phases[expandKey]) phases[expandKey].t = epCurrentT;
+  const ptEl = document.getElementById(`ptime-${expandKey}`);
+  if (ptEl) ptEl.textContent = epCurrentT.toFixed(2) + 's';
+  clearTimeout(epDbt.t);
+  epDbt.t = setTimeout(() => drawExpandFrame(epCurrentT, phases[expandKey]?.kps), 100);
+}
+
+function epStep(frames) {
+  const scrub = document.getElementById('ep-scrubber');
+  const newT  = Math.max(parseFloat(scrub.min), Math.min(parseFloat(scrub.max), epCurrentT + frames * 0.04));
+  scrub.value = newT;
+  epScrub(newT);
+}
+
+async function epReanalyze() {
+  if (!detector || epAnalyzing) return;
+  epAnalyzing = true;
+  const btn     = document.getElementById('ep-re-btn');
+  const loading = document.getElementById('ep-loading');
+  btn.disabled  = true; btn.textContent = 'Analyzing…';
+  loading.classList.add('show');
+
+  await seekTo(epCurrentT);
+  const canvas = document.getElementById('ep-canvas');
+  const W = videoEl.videoWidth || 640;
+  const H = videoEl.videoHeight || 360;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  try { ctx.drawImage(videoEl, 0, 0, W, H); } catch(e) {}
+
+  let poses;
+  try { poses = await detector.estimatePoses(canvas); } catch(e) {}
+  if (!poses || !poses.length) {
+    try { poses = await detector.estimatePoses(videoEl); } catch(e) {}
+  }
+  loading.classList.remove('show');
+
+  if (!poses || !poses.length) {
+    document.getElementById('ep-metrics').innerHTML = '<div class="ep-no-data">No pose detected — try a different frame</div>';
+    btn.disabled = false; btn.textContent = '↻ Analyze'; epAnalyzing = false; return;
+  }
+
+  const kps = poses[0].keypoints;
+  const ph  = phases[expandKey];
+  ph.kps     = kps;
+  ph.metrics = computeMetrics(kps);
+  ph.detected= true;
+
+  drawPose(ctx, kps, W, H);
+  renderExpandMetrics(ph.metrics);
+
+  // Update overview card
+  const ovCard = document.getElementById(`card-${expandKey}`);
+  if (ovCard) ovCard.classList.remove('undetected');
+
+  // Rebuild card if it had placeholder
+  let ovCanvas = document.getElementById(`canvas-${expandKey}`);
+  if (!ovCanvas && ovCard) {
+    const def = PHASE_DEFS.find(d => d.key === expandKey);
+    const idx = PHASE_DEFS.findIndex(d => d.key === expandKey);
+    ovCard.innerHTML = `
+      <div class="pc-hdr">
+        <div class="pc-num">${idx+1}</div>
+        <div class="pc-name-wrap"><div class="pc-name">${def.label}</div><div class="pc-desc">${def.desc}</div></div>
+        <div class="pc-badge ok" id="badge-${expandKey}">analyzed</div>
+      </div>
+      <div class="pc-canvas-wrap">
+        <canvas class="pc-canvas" id="canvas-${expandKey}"></canvas>
+        <div class="pc-loading" id="loading-${expandKey}"><div class="pc-mini-spinner"></div></div>
+      </div>
+      <div class="pc-footer">
+        <span class="pc-time-display" id="ptime-${expandKey}">${epCurrentT.toFixed(2)}s</span>
+        <span class="pc-expand-hint">↗ Click to adjust</span>
+      </div>
+      <div class="pc-metrics-mini" id="metrics-mini-${expandKey}"></div>`;
+    ovCard.addEventListener('click', () => openExpand(expandKey));
+    ovCanvas = document.getElementById(`canvas-${expandKey}`);
+  }
+
+  if (ovCanvas) {
+    ovCanvas.width = W; ovCanvas.height = H;
+    try { ovCanvas.getContext('2d').drawImage(canvas, 0, 0); } catch(e) {}
+  }
+
+  const badge = document.getElementById(`badge-${expandKey}`);
+  if (badge) { badge.className = 'pc-badge ok'; badge.textContent = 'analyzed'; }
+  renderMiniMetrics(expandKey, ph.metrics);
+  updateSummaryCol(expandKey);
+  const ptEl = document.getElementById(`ptime-${expandKey}`);
+  if (ptEl) { ptEl.textContent = epCurrentT.toFixed(2) + 's'; ptEl.style.color = 'var(--cyan)'; }
+
+  btn.disabled = false; btn.textContent = '↻ Analyze'; epAnalyzing = false;
+}
+
+function renderExpandMetrics(m) {
+  document.getElementById('ep-metrics').innerHTML = METRIC_ROWS.map(r => {
+    const v=m[r.key], g=gradeVal(v,r.good), d=v!=null?r.fmt(v):'—';
+    return `<div class="ep-metric">
+      <div class="ep-ml"><div class="ep-dot" style="background:${r.dot}"></div>${r.label}</div>
+      <div style="text-align:right"><div class="ep-mv ${g}">${d}</div><div class="ep-mv-hint">${r.hint}</div></div>
+    </div>`;
+  }).join('');
+}
+
+// ── Drawing ───────────────────────────────────────────────
+function drawPose(ctx, kps, W, H) {
+  ctx.save();
+  SKELETON.forEach(([a,b]) => {
+    const ka=kps[a], kb=kps[b];
+    if (!ka||!kb||ka.score<MIN_CONF||kb.score<MIN_CONF) return;
+    ctx.beginPath(); ctx.moveTo(ka.x,ka.y); ctx.lineTo(kb.x,kb.y);
+    ctx.strokeStyle = LEFT_KPS.has(a)&&LEFT_KPS.has(b)?'#00d4aa':RIGHT_KPS.has(a)&&RIGHT_KPS.has(b)?'#ff6b35':'#8b7cf8';
+    ctx.lineWidth=Math.max(2,W*.003); ctx.lineCap='round'; ctx.globalAlpha=.85; ctx.stroke();
+  });
+  ctx.globalAlpha = 1;
+  const r = Math.max(4, W*.007);
+  kps.forEach((k,i) => {
+    if (!k||k.score<MIN_CONF) return;
+    ctx.beginPath(); ctx.arc(k.x,k.y,r,0,2*Math.PI);
+    ctx.fillStyle = i<5?'#fff':LEFT_KPS.has(i)?'#00d4aa':'#ff6b35';
+    ctx.fill(); ctx.strokeStyle='rgba(0,0,0,.55)'; ctx.lineWidth=Math.max(1.5,W*.002); ctx.stroke();
+  });
+  drawAngles(ctx, kps, W);
+  ctx.restore();
+}
+function drawAngles(ctx, kps, W) {
+  const r = Math.max(28, W*.046);
+  const p = i => (kps[i]&&kps[i].score>=MIN_CONF) ? kps[i] : null;
+  const lSh=p(5),rSh=p(6),lHi=p(11),rHi=p(12),lKn=p(13),rKn=p(14),lAn=p(15),rAn=p(16),lEl=p(7),rEl=p(8),lWr=p(9),rWr=p(10);
+  if (lSh&&rSh&&lHi&&rHi) {
+    const shM={x:(lSh.x+rSh.x)/2,y:(lSh.y+rSh.y)/2};
+    const hiM={x:(lHi.x+rHi.x)/2,y:(lHi.y+rHi.y)/2};
+    const lean=Math.atan2(shM.x-hiM.x,hiM.y-shM.y)*180/Math.PI;
+    ctx.save();
+    ctx.beginPath(); ctx.moveTo(hiM.x,hiM.y); ctx.lineTo(shM.x,shM.y);
+    ctx.strokeStyle='#f5c842'; ctx.lineWidth=Math.max(2,W*.003);
+    ctx.setLineDash([Math.max(5,W*.006),Math.max(3,W*.004)]); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(hiM.x,hiM.y); ctx.lineTo(hiM.x,hiM.y-Math.abs(hiM.y-shM.y));
+    ctx.strokeStyle='rgba(245,200,66,.22)'; ctx.lineWidth=Math.max(1,W*.001);
+    ctx.setLineDash([4,4]); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+    drawLabel(ctx,`${lean>0?'+':''}${lean.toFixed(1)}°`,(shM.x+hiM.x)/2+r*.8,(shM.y+hiM.y)/2,'#f5c842',W);
+  }
+  if(lHi&&lKn&&lAn) arcAt(ctx,lKn,lHi,lAn,'#00d4aa',r,W);
+  if(rHi&&rKn&&rAn) arcAt(ctx,rKn,rHi,rAn,'#ff6b35',r,W);
+  if(lSh&&lHi&&lKn) arcAt(ctx,lHi,lSh,lKn,'#00b890',r*.72,W);
+  if(rSh&&rHi&&rKn) arcAt(ctx,rHi,rSh,rKn,'#e05520',r*.72,W);
+  if(lSh&&lEl&&lWr) arcAt(ctx,lEl,lSh,lWr,'#00c0a0',r*.62,W);
+  if(rSh&&rEl&&rWr) arcAt(ctx,rEl,rSh,rWr,'#e06030',r*.62,W);
+}
+function arcAt(ctx,vertex,p1,p2,color,r,W) {
+  const angle=calcAngle(p1,vertex,p2); if(!angle) return;
+  const a1=Math.atan2(p1.y-vertex.y,p1.x-vertex.x);
+  const a2=Math.atan2(p2.y-vertex.y,p2.x-vertex.x);
+  let diff=a2-a1; while(diff>Math.PI)diff-=2*Math.PI; while(diff<-Math.PI)diff+=2*Math.PI;
+  ctx.save();
+  ctx.beginPath(); ctx.moveTo(vertex.x,vertex.y); ctx.arc(vertex.x,vertex.y,r,a1,a2,diff<0); ctx.closePath();
+  ctx.fillStyle=color+'15'; ctx.fill();
+  ctx.beginPath(); ctx.arc(vertex.x,vertex.y,r,a1,a2,diff<0);
+  ctx.strokeStyle=color; ctx.lineWidth=Math.max(1.5,r*.045); ctx.stroke(); ctx.restore();
+  const midA=a1+diff/2;
+  drawLabel(ctx,`${angle.toFixed(0)}°`,vertex.x+(r+r*.55)*Math.cos(midA),vertex.y+(r+r*.55)*Math.sin(midA),color,W);
+}
+function drawLabel(ctx,text,x,y,color,W) {
+  ctx.save();
+  const fs=Math.max(11,Math.min(17,W*.018));
+  ctx.font=`700 ${fs}px 'Space Mono','Courier New',monospace`;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  const tw=ctx.measureText(text).width,pw=tw+9,ph=fs+7;
+  ctx.fillStyle='rgba(6,8,13,.84)';
+  ctx.beginPath(); if(ctx.roundRect)ctx.roundRect(x-pw/2,y-ph/2,pw,ph,3); else ctx.rect(x-pw/2,y-ph/2,pw,ph);
+  ctx.fill(); ctx.fillStyle=color; ctx.fillText(text,x,y); ctx.restore();
+}
+function drawMiniSkeleton(ctx,kps,sx,sy) {
+  SKELETON.forEach(([a,b]) => {
+    const ka=kps[a], kb=kps[b];
+    if(!ka||!kb||ka.score<MIN_CONF||kb.score<MIN_CONF) return;
+    ctx.beginPath(); ctx.moveTo(ka.x*sx,ka.y*sy); ctx.lineTo(kb.x*sx,kb.y*sy);
+    ctx.strokeStyle=LEFT_KPS.has(a)&&LEFT_KPS.has(b)?'#00d4aa':RIGHT_KPS.has(a)&&RIGHT_KPS.has(b)?'#ff6b35':'#8b7cf8';
+    ctx.lineWidth=1.5; ctx.globalAlpha=.8; ctx.stroke();
+  });
+  ctx.globalAlpha=1;
+  kps.forEach((k,i) => {
+    if(!k||k.score<MIN_CONF) return;
+    ctx.beginPath(); ctx.arc(k.x*sx,k.y*sy,2.5,0,2*Math.PI);
+    ctx.fillStyle=i<5?'#fff':LEFT_KPS.has(i)?'#00d4aa':'#ff6b35'; ctx.fill();
+  });
+}
+
+// ── Math ──────────────────────────────────────────────────
+function calcAngle(a,b,c) {
+  if (!a||!b||!c) return null;
+  const ba={x:a.x-b.x,y:a.y-b.y}, bc={x:c.x-b.x,y:c.y-b.y};
+  const dot=ba.x*bc.x+ba.y*bc.y, mag=Math.hypot(ba.x,ba.y)*Math.hypot(bc.x,bc.y);
+  if (!mag||!isFinite(mag)) return null;
+  return Math.acos(Math.max(-1,Math.min(1,dot/mag)))*180/Math.PI;
+}
+function computeMetrics(kps) {
+  const g = i => (kps[i]&&kps[i].score>=MIN_CONF) ? kps[i] : null;
+  const m = {};
+  const lSh=g(5),rSh=g(6),lHi=g(11),rHi=g(12),lKn=g(13),rKn=g(14),lAn=g(15),rAn=g(16),lEl=g(7),rEl=g(8),lWr=g(9),rWr=g(10),nose=g(0);
+  if (lSh&&rSh&&lHi&&rHi) {
+    const shM={x:(lSh.x+rSh.x)/2,y:(lSh.y+rSh.y)/2};
+    const hiM={x:(lHi.x+rHi.x)/2,y:(lHi.y+rHi.y)/2};
+    m.trunk = Math.atan2(shM.x-hiM.x, hiM.y-shM.y)*180/Math.PI;
+    const th = Math.abs(hiM.y-shM.y);
+    const dir = (nose&&nose.x>hiM.x) ? 1 : -1;
+    if (lAn&&th>0) m.lFoot = dir*(lAn.x-hiM.x)/th;
+    if (rAn&&th>0) m.rFoot = dir*(rAn.x-hiM.x)/th;
+  }
+  const lKnA = calcAngle(g(11),g(13),g(15)); if(lKnA!==null) m.lKnee=lKnA;
+  const rKnA = calcAngle(g(12),g(14),g(16)); if(rKnA!==null) m.rKnee=rKnA;
+  const lHiA = calcAngle(g(5), g(11),g(13)); if(lHiA!==null) m.lHip=lHiA;
+  const rHiA = calcAngle(g(6), g(12),g(14)); if(rHiA!==null) m.rHip=rHiA;
+  const lElA = calcAngle(g(5), g(7), g(9));  if(lElA!==null) m.lElbow=lElA;
+  const rElA = calcAngle(g(6), g(8), g(10)); if(rElA!==null) m.rElbow=rElA;
+  return m;
+}
+function gradeVal(val,good) {
+  if (val===undefined||val===null||!isFinite(val)) return '';
+  if (val>=good[0]&&val<=good[1]) return 'good';
+  if (val<good[0]-25||val>good[1]+30) return 'bad';
+  return 'warn';
+}
+
+// ── Summary table ─────────────────────────────────────────
+function buildSummaryTable() {
+  const tbl = document.getElementById('summary-table');
+  const thCls = key => {
+    const ph   = phases[key];
+    const gs   = GROUP_STARTS.has(key) ? ' th-group-start' : '';
+    const side = ph?.side==='left' ? ' th-left' : ph?.side==='right' ? ' th-right' : '';
+    const ud   = !ph?.detected ? ' undetected-col' : '';
+    return `th${gs}${side}${ud}`;
+  };
+  tbl.querySelector('thead').innerHTML = `<tr>
+    <th>Metric</th>
+    ${SUMMARY_COL_ORDER.map((k,i) => {
+      const ph  = phases[k];
+      const idx = PHASE_DEFS.findIndex(d=>d.key===k);
+      return `<th class="${thCls(k)}" onclick="openExpand('${k}')" title="Click to open">
+        ${idx+1}. ${ph?.label||k}${!ph?.detected?' ⚠':''}</th>`;
+    }).join('')}
+  </tr>`;
+  tbl.querySelector('tbody').innerHTML = METRIC_ROWS.map(r =>
+    `<tr><td class="row-label">${r.label}</td>
+    ${SUMMARY_COL_ORDER.map(k => {
+      const gs = GROUP_STARTS.has(k) ? ' td-group-start' : '';
+      return `<td class="${gs}" id="sc-${k}-${r.key}"><span class="sv na">—</span></td>`;
+    }).join('')}</tr>`).join('');
+}
+function updateSummaryCol(key) {
+  const m = phases[key]?.metrics; if(!m) return;
+  METRIC_ROWS.forEach(r => {
+    const cell = document.getElementById(`sc-${key}-${r.key}`); if(!cell) return;
+    const v=m[r.key], g=gradeVal(v,r.good), d=v!=null?r.fmt(v):'—';
+    cell.innerHTML = `<span class="sv ${g||'na'}">${d}</span>`;
+  });
+}
+
+// ── Seek ──────────────────────────────────────────────────
+function seekTo(t) {
+  return new Promise(resolve => {
+    let done = false;
+    const finish = () => { if(!done){ done=true; videoEl.removeEventListener('seeked',finish); setTimeout(resolve,40); } };
+    videoEl.addEventListener('seeked', finish);
+    setTimeout(finish, 1500);
+    videoEl.currentTime = Math.max(0, t);
+  });
+}
+
+// ── App controls ──────────────────────────────────────────
+async function rescan() {
+  closeExpand();
+  document.getElementById('screen-phases').style.display   = 'none';
+  document.getElementById('scan-bar').style.width          = '0%';
+  document.getElementById('scan-phase-list').innerHTML     = '';
+  document.getElementById('scan-step').textContent         = 'Preparing…';
+  document.getElementById('scan-diag').style.display       = 'none';
+  document.getElementById('scan-summary-bar').style.display= 'none';
+  document.getElementById('screen-scanning').style.display = 'flex';
+  phases = {};
+  await autoScan();
+}
+function resetApp() {
+  closeExpand(); phases = {};
+  document.getElementById('screen-phases').style.display   = 'none';
+  document.getElementById('screen-scanning').style.display = 'none';
+  document.getElementById('screen-upload').style.display   = 'flex';
+  document.getElementById('hdr-file').textContent          = '';
+  document.getElementById('btn-rescan').style.display      = 'none';
+  document.getElementById('phase-groups').innerHTML        = '';
+  if (videoEl) { videoEl.pause(); videoEl.src = ''; }
+}
+
+initModel();
+</script>
+</body>
+</html>

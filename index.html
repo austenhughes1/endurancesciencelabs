@@ -3,992 +3,439 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gait Analyzer — Prototype</title>
+<title>Endurance Science Labs</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg:       #06080d;
-  --panel:    #0c0f18;
-  --panel2:   #111520;
-  --border:   rgba(255,255,255,0.07);
-  --border2:  rgba(255,255,255,0.12);
-  --cyan:     #00e5c8;
-  --left:     #00d4aa;
-  --right:    #ff6b35;
-  --gold:     #f5c842;
-  --purple:   #8b7cf8;
-  --text:     #dde1ef;
-  --muted:    #4a5270;
-  --muted2:   #7480a0;
-  --good:     #22c78a;
-  --warn:     #f5a623;
-  --bad:      #f55050;
-  --font-ui:  'Syne', system-ui, sans-serif;
-  --font-mono:'Space Mono', 'Courier New', monospace;
+  --bg:     #06080d;
+  --panel:  #0d1020;
+  --panel2: #131828;
+  --border: rgba(255,255,255,0.07);
+  --border2:rgba(255,255,255,0.13);
+  --cyan:   #00e5c8;
+  --gold:   #f5c842;
+  --purple: #8b7cf8;
+  --coral:  #ff6b35;
+  --text:   #dde1ef;
+  --muted:  #3e4460;
+  --muted2: #6e7a9a;
+  --good:   #22c78a;
+  --ui:   'Syne', system-ui, sans-serif;
+  --mono: 'Space Mono', monospace;
 }
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:var(--font-ui);background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;-webkit-font-smoothing:antialiased}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: var(--ui); background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
 
-/* ── Header ─────────────────────────────────────── */
-header{
-  height:52px;padding:0 20px;border-bottom:1px solid var(--border);
-  display:flex;align-items:center;gap:12px;position:relative;z-index:10;
-  background:rgba(6,8,13,0.95);backdrop-filter:blur(8px);
+/* ── Nav ───────────────────────────────────────────────── */
+nav {
+  height: 58px; padding: 0 32px;
+  display: flex; align-items: center; gap: 0;
+  position: sticky; top: 0; z-index: 200;
+  background: rgba(6,8,13,0.96); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
 }
-.logo{
-  width:30px;height:30px;background:var(--cyan);border-radius:7px;
-  display:flex;align-items:center;justify-content:center;
-  font-family:var(--font-mono);font-weight:700;font-size:13px;color:#000;flex-shrink:0;
+.nav-logo {
+  display: flex; align-items: center; gap: 11px;
+  text-decoration: none; flex-shrink: 0; margin-right: 32px;
 }
-.brand{font-size:15px;font-weight:700;letter-spacing:-0.3px;color:var(--text)}
-.brand span{color:var(--cyan)}
-.badge{
-  margin-left:auto;font-size:10px;font-weight:600;letter-spacing:0.6px;
-  background:rgba(0,229,200,0.1);color:var(--cyan);border:1px solid rgba(0,229,200,0.25);
-  border-radius:20px;padding:3px 10px;font-family:var(--font-mono);
+.nav-logo-mark {
+  width: 32px; height: 32px; background: var(--cyan); border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-weight: 700; font-size: 13px; color: #000;
 }
+.nav-logo-text { font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: -.3px; line-height: 1.2; }
+.nav-logo-text span { display: block; font-size: 9px; font-weight: 500; color: var(--muted2); letter-spacing: .5px; text-transform: uppercase; font-family: var(--mono); }
+.nav-links { display: flex; align-items: center; gap: 2px; flex: 1; }
+.nav-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: 8px;
+  font-size: 13px; font-weight: 600; color: var(--muted2);
+  text-decoration: none; transition: all .15s; white-space: nowrap;
+  position: relative; border: 1px solid transparent;
+}
+.nav-link:hover { color: var(--text); background: rgba(255,255,255,.04); }
+.nav-link.active { color: var(--cyan); background: rgba(0,229,200,.07); border-color: rgba(0,229,200,.15); }
+.nav-link .soon {
+  font-size: 8px; font-weight: 700; letter-spacing: .4px; font-family: var(--mono);
+  background: rgba(110,122,154,.15); color: var(--muted2); border-radius: 4px;
+  padding: 1px 5px; text-transform: uppercase;
+}
+.nav-cta {
+  margin-left: auto; flex-shrink: 0;
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 18px; background: var(--cyan); color: #000;
+  font-weight: 700; font-size: 12px; font-family: var(--ui);
+  border: none; border-radius: 9px; cursor: pointer;
+  text-decoration: none; transition: opacity .15s; letter-spacing: .2px;
+}
+.nav-cta:hover { opacity: .85; }
 
-/* ── Upload screen ───────────────────────────────── */
-#screen-upload{
-  display:flex;align-items:center;justify-content:center;
-  min-height:calc(100vh - 52px);padding:40px;
+/* ── Hero ──────────────────────────────────────────────── */
+.hero {
+  min-height: calc(100vh - 58px);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 80px 32px; text-align: center; position: relative; overflow: hidden;
 }
-.drop-card{
-  border:1.5px dashed rgba(0,229,200,0.25);border-radius:20px;padding:64px 80px;
-  text-align:center;cursor:pointer;max-width:480px;width:100%;
-  background:rgba(0,229,200,0.03);transition:all 0.2s;position:relative;
+/* Subtle grid background */
+.hero::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(0,229,200,.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,229,200,.03) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black 40%, transparent 100%);
 }
-.drop-card:hover,.drop-card.over{border-color:var(--cyan);background:rgba(0,229,200,0.06)}
-.drop-icon{
-  width:60px;height:60px;border-radius:16px;background:rgba(0,229,200,0.12);
-  display:flex;align-items:center;justify-content:center;margin:0 auto 22px;
-  font-size:26px;
+/* Glow */
+.hero::after {
+  content: '';
+  position: absolute; top: 10%; left: 50%; transform: translateX(-50%);
+  width: 600px; height: 400px;
+  background: radial-gradient(ellipse, rgba(0,229,200,.07) 0%, transparent 70%);
+  pointer-events: none;
 }
-.drop-card h2{font-size:20px;font-weight:700;margin-bottom:10px;color:var(--text)}
-.drop-card p{color:var(--muted2);font-size:13px;line-height:1.65}
-.drop-card input{display:none}
-.btn-main{
-  display:inline-flex;align-items:center;gap:7px;margin-top:22px;padding:10px 22px;
-  background:var(--cyan);color:#000;font-weight:700;font-size:13px;font-family:var(--font-ui);
-  border:none;border-radius:9px;cursor:pointer;transition:opacity 0.15s;letter-spacing:0.2px;
+.hero-eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase;
+  color: var(--cyan); font-family: var(--mono);
+  background: rgba(0,229,200,.08); border: 1px solid rgba(0,229,200,.18);
+  border-radius: 20px; padding: 5px 14px; margin-bottom: 28px;
+  position: relative; z-index: 1;
 }
-.btn-main:hover{opacity:0.85}
-.drop-card .hint{margin-top:14px;font-size:11px;color:var(--muted);font-family:var(--font-mono)}
+.hero-eyebrow::before { content: '◉'; font-size: 10px; }
+.hero-title {
+  font-size: clamp(42px, 7vw, 76px); font-weight: 800;
+  line-height: 1.05; letter-spacing: -2px;
+  color: var(--text); margin-bottom: 24px;
+  position: relative; z-index: 1;
+}
+.hero-title em { font-style: normal; color: var(--cyan); }
+.hero-sub {
+  font-size: clamp(15px, 2vw, 18px); color: var(--muted2); line-height: 1.75;
+  max-width: 560px; margin: 0 auto 44px;
+  position: relative; z-index: 1;
+}
+.hero-actions {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center;
+  position: relative; z-index: 1;
+}
+.btn-primary {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 14px 28px; background: var(--cyan); color: #000;
+  font-weight: 700; font-size: 14px; font-family: var(--ui);
+  border: none; border-radius: 11px; cursor: pointer;
+  text-decoration: none; transition: opacity .15s; letter-spacing: .2px;
+}
+.btn-primary:hover { opacity: .85; }
+.btn-secondary {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 14px 28px; color: var(--muted2);
+  font-weight: 600; font-size: 14px; font-family: var(--ui);
+  border: 1px solid var(--border2); border-radius: 11px; cursor: pointer;
+  text-decoration: none; transition: all .15s; background: transparent;
+}
+.btn-secondary:hover { color: var(--text); border-color: rgba(255,255,255,.25); }
+.hero-stats {
+  display: flex; align-items: center; gap: 40px;
+  margin-top: 64px; position: relative; z-index: 1;
+  flex-wrap: wrap; justify-content: center;
+}
+.hero-stat { text-align: center; }
+.hero-stat-val { font-size: 28px; font-weight: 800; color: var(--text); letter-spacing: -1px; line-height: 1; }
+.hero-stat-val em { font-style: normal; color: var(--cyan); }
+.hero-stat-label { font-size: 11px; color: var(--muted2); margin-top: 5px; font-family: var(--mono); }
+.hero-stat-divider { width: 1px; height: 36px; background: var(--border2); }
 
-/* ── Workspace ───────────────────────────────────── */
-#screen-workspace{display:none;flex-direction:column;height:calc(100vh - 52px)}
-.ws-body{display:flex;flex:1;overflow:hidden}
+/* ── Section common ────────────────────────────────────── */
+section { padding: 96px 32px; max-width: 1200px; margin: 0 auto; }
+.section-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--cyan); font-family: var(--mono); margin-bottom: 14px;
+}
+.section-title { font-size: clamp(28px, 4vw, 42px); font-weight: 800; letter-spacing: -1px; margin-bottom: 14px; }
+.section-sub { font-size: 15px; color: var(--muted2); line-height: 1.7; max-width: 540px; }
 
-/* Left panel */
-#panel-video{
-  width:288px;min-width:240px;border-right:1px solid var(--border);
-  display:flex;flex-direction:column;background:var(--panel);overflow:hidden;
+/* ── Services grid ─────────────────────────────────────── */
+.services-header { margin-bottom: 48px; }
+.services-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.service-card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 18px; padding: 28px; position: relative;
+  text-decoration: none; color: inherit;
+  transition: border-color .2s, transform .15s;
+  display: flex; flex-direction: column; gap: 0;
+  overflow: hidden;
 }
-.ph{
-  padding:10px 14px;border-bottom:1px solid var(--border);
-  font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);
-  display:flex;align-items:center;justify-content:space-between;
+.service-card::before {
+  content: ''; position: absolute; inset: 0; border-radius: 18px; opacity: 0;
+  transition: opacity .2s;
 }
-.video-wrap{background:#000;flex-shrink:0;position:relative}
-#video{width:100%;display:block;max-height:240px;object-fit:contain;background:#000}
-.vc{padding:12px 14px;border-bottom:1px solid var(--border)}
-.scrub-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-#scrubber{
-  flex:1;-webkit-appearance:none;height:3px;background:var(--panel2);border-radius:2px;
-  outline:none;cursor:pointer;
+.service-card:hover { transform: translateY(-2px); }
+.service-card.live { border-color: rgba(0,229,200,.2); }
+.service-card.live::before { background: radial-gradient(ellipse at top left, rgba(0,229,200,.06), transparent 60%); }
+.service-card.live:hover { border-color: rgba(0,229,200,.4); }
+.service-card.live::before { opacity: 1; }
+.service-card.soon { cursor: default; }
+.service-card.soon:hover { transform: none; }
+.sc-icon {
+  width: 48px; height: 48px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; margin-bottom: 20px; flex-shrink: 0;
 }
-#scrubber::-webkit-slider-thumb{
-  -webkit-appearance:none;width:13px;height:13px;background:var(--cyan);
-  border-radius:50%;cursor:pointer;
+.sc-icon.cyan   { background: rgba(0,229,200,.12); }
+.sc-icon.gold   { background: rgba(245,200,66,.12); }
+.sc-icon.purple { background: rgba(139,124,248,.12); }
+.sc-icon.coral  { background: rgba(255,107,53,.12); }
+.sc-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 9px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+  font-family: var(--mono); border-radius: 6px; padding: 2px 8px; margin-bottom: 12px;
+  width: fit-content;
 }
-.time{font-size:10px;color:var(--muted);font-family:var(--font-mono);min-width:72px;text-align:right}
-.btn-row{display:flex;gap:7px;flex-wrap:wrap}
-.btn{
-  display:inline-flex;align-items:center;gap:5px;padding:6px 11px;
-  font-size:11px;font-weight:600;font-family:var(--font-ui);border-radius:7px;
-  border:1px solid var(--border2);background:transparent;color:var(--text);
-  cursor:pointer;transition:all 0.15s;white-space:nowrap;letter-spacing:0.2px;
+.sc-badge.live { background: rgba(34,199,138,.1); color: var(--good); border: 1px solid rgba(34,199,138,.22); }
+.sc-badge.soon { background: rgba(110,122,154,.12); color: var(--muted2); border: 1px solid var(--border2); }
+.sc-badge.members { background: rgba(139,124,248,.1); color: var(--purple); border: 1px solid rgba(139,124,248,.22); }
+.sc-title { font-size: 18px; font-weight: 800; margin-bottom: 8px; letter-spacing: -.3px; }
+.sc-desc { font-size: 13px; color: var(--muted2); line-height: 1.7; flex: 1; }
+.sc-action {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 22px; font-size: 12px; font-weight: 700; color: var(--cyan);
+  text-decoration: none; transition: gap .15s;
 }
-.btn:hover{border-color:var(--cyan);color:var(--cyan)}
-.btn:disabled{opacity:0.35;cursor:not-allowed;pointer-events:none}
-.btn-hi{background:rgba(0,229,200,0.1);color:var(--cyan);border-color:rgba(0,229,200,0.3)}
-.btn-hi:hover{background:rgba(0,229,200,0.18)}
-.btn-sm{padding:3px 8px;font-size:10px}
+.service-card:hover .sc-action { gap: 10px; }
+.sc-action.disabled { color: var(--muted); pointer-events: none; }
 
-/* Phase section */
-#phase-area{flex:1;overflow-y:auto;padding:12px 14px}
-.sec-title{
-  font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
-  color:var(--muted);margin-bottom:10px;
-}
-.phase-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.phase-thumb{
-  background:var(--panel2);border:1px solid var(--border);border-radius:8px;
-  overflow:hidden;cursor:pointer;transition:border-color 0.15s;
-}
-.phase-thumb:hover,.phase-thumb.active{border-color:var(--cyan)}
-.phase-thumb canvas{width:100%;display:block}
-.phase-thumb .pl{
-  padding:4px 7px;font-size:9px;color:var(--muted2);
-  font-family:var(--font-mono);text-align:center;
-}
-.phase-empty{
-  grid-column:span 2;padding:20px 0;text-align:center;
-  color:var(--muted);font-size:12px;line-height:1.7;
-}
+/* ── Divider ───────────────────────────────────────────── */
+.section-divider { border: none; border-top: 1px solid var(--border); margin: 0 32px; }
 
-/* Center panel */
-#panel-canvas{flex:1;display:flex;flex-direction:column;background:#000;overflow:hidden}
-.canvas-wrap{
-  flex:1;display:flex;align-items:center;justify-content:center;
-  overflow:hidden;position:relative;
+/* ── How it works ──────────────────────────────────────── */
+.hiw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 24px; margin-top: 48px; }
+.hiw-step { display: flex; flex-direction: column; gap: 14px; }
+.hiw-num {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: rgba(0,229,200,.1); border: 1px solid rgba(0,229,200,.22);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: var(--cyan); font-family: var(--mono);
 }
-#analysis-canvas{max-width:100%;max-height:100%;display:none;object-fit:contain}
-.canvas-ph{
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:12px;color:var(--muted);text-align:center;
-}
-.canvas-ph-icon{font-size:48px;opacity:0.12;line-height:1}
-.canvas-ph-text{font-size:13px;line-height:1.7}
-.canvas-ph-text strong{color:var(--muted2);font-weight:600}
+.hiw-title { font-size: 15px; font-weight: 700; }
+.hiw-desc { font-size: 13px; color: var(--muted2); line-height: 1.7; }
 
-/* Right panel */
-#panel-metrics{
-  width:252px;min-width:200px;border-left:1px solid var(--border);
-  display:flex;flex-direction:column;background:var(--panel);overflow-y:auto;
+/* ── Philosophy ────────────────────────────────────────── */
+.philosophy-wrap {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 20px;
+  padding: 56px 64px; display: grid; grid-template-columns: 1fr 1fr; gap: 64px;
+  align-items: center;
 }
-.mg{padding:13px 15px;border-bottom:1px solid var(--border)}
-.mg-title{
-  font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
-  color:var(--muted);margin-bottom:12px;
+@media(max-width:700px){ .philosophy-wrap { grid-template-columns:1fr; padding:36px 28px; gap:32px; } }
+.philosophy-quote {
+  font-size: clamp(20px, 3vw, 28px); font-weight: 700; line-height: 1.4;
+  letter-spacing: -.5px; color: var(--text);
 }
-.mi{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-.mi:last-of-type{margin-bottom:0}
-.mi-label{
-  display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted2);font-weight:500;
-}
-.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
-.dl{background:var(--left)}.dr{background:var(--right)}.dc{background:var(--purple)}
-.mv{
-  font-family:var(--font-mono);font-size:17px;font-weight:700;color:var(--muted);
-  letter-spacing:-0.5px;
-}
-.mv.good{color:var(--good)}.mv.warn{color:var(--warn)}.mv.bad{color:var(--bad)}
-.mv.val{color:var(--text)}
-.mbar{height:2px;background:var(--panel2);border-radius:1px;margin-top:4px;overflow:hidden}
-.mbar-fill{height:100%;border-radius:1px;transition:width 0.5s ease}
-.mhint{font-size:9px;color:var(--muted);margin-top:5px;font-family:var(--font-mono)}
+.philosophy-quote em { font-style: normal; color: var(--cyan); }
+.philosophy-attr { margin-top: 20px; font-size: 12px; color: var(--muted2); font-family: var(--mono); }
+.philosophy-points { display: flex; flex-direction: column; gap: 20px; }
+.pp-item { display: flex; align-items: flex-start; gap: 14px; }
+.pp-icon { width: 8px; height: 8px; border-radius: 50%; background: var(--cyan); flex-shrink: 0; margin-top: 6px; }
+.pp-text { font-size: 14px; color: var(--muted2); line-height: 1.7; }
+.pp-text strong { color: var(--text); font-weight: 600; }
 
-/* Legend in header */
-.legend{display:flex;gap:14px;align-items:center}
-.li{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted2);font-weight:600}
-.lline{width:14px;height:2px;border-radius:1px}
-
-/* Status bar */
-#status{
-  height:34px;padding:0 16px;border-top:1px solid var(--border);
-  display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);
-  background:var(--panel);flex-shrink:0;
+/* ── Footer ────────────────────────────────────────────── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 40px 32px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 20px;
 }
-.sdot{width:6px;height:6px;border-radius:50%;background:var(--muted);flex-shrink:0}
-.sdot.loading{background:var(--warn);animation:blink 1s ease infinite}
-.sdot.ready{background:var(--good)}
-.sdot.busy{background:var(--purple);animation:blink 0.6s ease infinite}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:0.35}}
-#status-note{margin-left:auto;font-family:var(--font-mono);font-size:9px}
-
-/* Model loader overlay */
-#loader{
-  position:fixed;inset:0;background:rgba(6,8,13,0.93);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:1000;
+.footer-brand { display: flex; align-items: center; gap: 10px; }
+.footer-logo {
+  width: 26px; height: 26px; background: var(--cyan); border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-weight: 700; font-size: 11px; color: #000;
 }
-.spinner{
-  width:38px;height:38px;border:3px solid var(--border2);
-  border-top-color:var(--cyan);border-radius:50%;
-  animation:spin 0.75s linear infinite;
-}
-@keyframes spin{to{transform:rotate(360deg)}}
-.loader-text{font-size:14px;font-weight:600;color:var(--text)}
-.loader-sub{font-size:11px;color:var(--muted);font-family:var(--font-mono)}
+.footer-name { font-size: 13px; font-weight: 700; }
+.footer-copy { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+.footer-links { display: flex; gap: 20px; }
+.footer-link { font-size: 12px; color: var(--muted2); text-decoration: none; transition: color .15s; }
+.footer-link:hover { color: var(--text); }
 </style>
 </head>
 <body>
 
-<!-- Loading overlay -->
-<div id="loader">
-  <div class="spinner"></div>
-  <div class="loader-text">Loading pose estimation model</div>
-  <div class="loader-sub">MoveNet Thunder · ~5 MB · runs locally in your browser</div>
-</div>
+<!-- ── Navigation ──────────────────────────────────────── -->
+<nav>
+  <a href="index.html" class="nav-logo">
+    <div class="nav-logo-mark">ESL</div>
+    <div class="nav-logo-text">
+      Endurance Science Labs
+      <span>Evidence-based endurance coaching</span>
+    </div>
+  </a>
+  <div class="nav-links">
+    <a href="index.html"          class="nav-link active">Home</a>
+    <a href="gait-analyzer.html"  class="nav-link">StrideScope</a>
+    <a href="#"                   class="nav-link">Coaching <span class="soon">Soon</span></a>
+    <a href="#"                   class="nav-link">Metabolic Testing <span class="soon">Soon</span></a>
+    <a href="#"                   class="nav-link">Training Plans <span class="soon">Soon</span></a>
+  </div>
+  <a href="gait-analyzer.html" class="nav-cta">Try StrideScope →</a>
+</nav>
 
-<header>
-  <div class="logo">GA</div>
-  <div class="brand">Gait<span>Analyzer</span></div>
-  <span class="badge">PROTOTYPE v0.1</span>
-</header>
-
-<!-- ── Upload Screen ─────────────────────────────── -->
-<div id="screen-upload">
-  <div class="drop-card" id="drop-card">
-    <div class="drop-icon">▶</div>
-    <h2>Drop a running video</h2>
-    <p>Upload a side-view video of a runner. Best results with a clean side angle — treadmill or outdoor track both work.</p>
-    <input type="file" id="file-input" accept="video/*">
-    <button class="btn-main" onclick="document.getElementById('file-input').click()">
-      ＋ Choose video file
-    </button>
-    <p class="hint">MP4 · MOV · WebM · Processed entirely in your browser</p>
+<!-- ── Hero ────────────────────────────────────────────── -->
+<div class="hero">
+  <div class="hero-eyebrow">Endurance Science Labs</div>
+  <h1 class="hero-title">
+    Train smarter.<br>Race <em>faster.</em>
+  </h1>
+  <p class="hero-sub">
+    Evidence-based coaching, biomechanical analysis, and metabolic testing — built for serious endurance athletes who want to understand their physiology, not just follow a plan.
+  </p>
+  <div class="hero-actions">
+    <a href="gait-analyzer.html" class="btn-primary">Try StrideScope free →</a>
+    <a href="#services" class="btn-secondary">Explore services</a>
+  </div>
+  <div class="hero-stats">
+    <div class="hero-stat">
+      <div class="hero-stat-val">7<em>+</em></div>
+      <div class="hero-stat-label">Gait phases analyzed</div>
+    </div>
+    <div class="hero-stat-divider"></div>
+    <div class="hero-stat">
+      <div class="hero-stat-val">100<em>%</em></div>
+      <div class="hero-stat-label">Browser-based · Private</div>
+    </div>
+    <div class="hero-stat-divider"></div>
+    <div class="hero-stat">
+      <div class="hero-stat-val">0<em>$</em></div>
+      <div class="hero-stat-label">To try StrideScope</div>
+    </div>
   </div>
 </div>
 
-<!-- ── Workspace ─────────────────────────────────── -->
-<div id="screen-workspace">
-  <div class="ws-body">
+<hr class="section-divider">
 
-    <!-- Left: video + phases -->
-    <div id="panel-video">
-      <div class="ph">
-        Source Video
-        <button class="btn btn-sm" onclick="resetApp()">↩ Change</button>
-      </div>
-      <div class="video-wrap">
-        <video id="video" playsinline></video>
-      </div>
-      <div class="vc">
-        <div class="scrub-row">
-          <button class="btn btn-sm" id="play-btn" onclick="togglePlay()">▶</button>
-          <input type="range" id="scrubber" min="0" max="1000" value="0">
-          <span class="time" id="time-disp">0.00 / 0.00</span>
-        </div>
-        <div class="btn-row">
-          <button class="btn btn-hi" id="btn-analyze" onclick="analyzeFrame()">⬡ Analyze frame</button>
-          <button class="btn" id="btn-auto" onclick="autoDetect()">⟳ Auto phases</button>
-        </div>
-      </div>
-      <div id="phase-area">
-        <div class="sec-title">Stride phases</div>
-        <div class="phase-grid" id="phase-grid">
-          <div class="phase-empty">Click <strong>Auto phases</strong> to scan<br>the video for key stride moments</div>
-        </div>
-      </div>
+<!-- ── Services ────────────────────────────────────────── -->
+<section id="services">
+  <div class="services-header">
+    <div class="section-label">Services</div>
+    <h2 class="section-title">Everything you need to improve</h2>
+    <p class="section-sub">A growing suite of tools and services built around the science of endurance performance.</p>
+  </div>
+  <div class="services-grid">
+
+    <!-- StrideScope -->
+    <a href="gait-analyzer.html" class="service-card live">
+      <div class="sc-icon cyan">◉</div>
+      <div class="sc-badge live">● Live</div>
+      <div class="sc-title">StrideScope</div>
+      <p class="sc-desc">Upload a running video and get instant biomechanical analysis across 7 key gait phases — skeleton overlay, joint angles, and phase-specific coaching cues. Runs entirely in your browser.</p>
+      <span class="sc-action">Open StrideScope →</span>
+    </a>
+
+    <!-- Coaching -->
+    <div class="service-card soon">
+      <div class="sc-icon gold">◈</div>
+      <div class="sc-badge soon">Coming soon</div>
+      <div class="sc-title">1-on-1 Coaching</div>
+      <p class="sc-desc">Personalized training plans built around your race goals, lifestyle, and physiology. Weekly check-ins, adaptive planning, and direct access to your coach.</p>
+      <span class="sc-action disabled">Notify me →</span>
     </div>
 
-    <!-- Center: canvas -->
-    <div id="panel-canvas">
-      <div class="ph">
-        Analysis View
-        <div class="legend">
-          <div class="li"><div class="lline" style="background:var(--left)"></div>Left</div>
-          <div class="li"><div class="lline" style="background:var(--right)"></div>Right</div>
-          <div class="li"><div class="lline" style="background:var(--gold)"></div>Angles</div>
-        </div>
-      </div>
-      <div class="canvas-wrap" id="canvas-wrap">
-        <div class="canvas-ph" id="canvas-ph">
-          <div class="canvas-ph-icon">◉</div>
-          <div class="canvas-ph-text">
-            Scrub to any frame and click<br>
-            <strong>⬡ Analyze frame</strong>
-          </div>
-        </div>
-        <canvas id="analysis-canvas"></canvas>
-      </div>
+    <!-- Metabolic Testing -->
+    <div class="service-card soon">
+      <div class="sc-icon purple">⬡</div>
+      <div class="sc-badge soon">Coming soon</div>
+      <div class="sc-title">Metabolic Testing</div>
+      <p class="sc-desc">VO₂ max, lactate threshold, and fat oxidation testing to identify your exact training zones and fuel utilization — the foundation of precise endurance training.</p>
+      <span class="sc-action disabled">Notify me →</span>
     </div>
 
-    <!-- Right: metrics -->
-    <div id="panel-metrics">
-      <div class="ph">Metrics</div>
-
-      <div class="mg">
-        <div class="mg-title">Body position</div>
-        <div class="mi">
-          <div class="mi-label"><div class="dot dc"></div>Trunk lean</div>
-          <div class="mv" id="m-trunk">—</div>
-        </div>
-        <div class="mbar"><div class="mbar-fill" id="b-trunk" style="width:0%;background:var(--purple)"></div></div>
-        <div class="mhint" id="h-trunk"></div>
-      </div>
-
-      <div class="mg">
-        <div class="mg-title">Knee flexion</div>
-        <div class="mi">
-          <div class="mi-label"><div class="dot dl"></div>Left knee</div>
-          <div class="mv" id="m-lk">—</div>
-        </div>
-        <div class="mbar"><div class="mbar-fill" id="b-lk" style="width:0%;background:var(--left)"></div></div>
-        <div class="mi" style="margin-top:10px">
-          <div class="mi-label"><div class="dot dr"></div>Right knee</div>
-          <div class="mv" id="m-rk">—</div>
-        </div>
-        <div class="mbar"><div class="mbar-fill" id="b-rk" style="width:0%;background:var(--right)"></div></div>
-      </div>
-
-      <div class="mg">
-        <div class="mg-title">Hip flexion</div>
-        <div class="mi">
-          <div class="mi-label"><div class="dot dl"></div>Left hip</div>
-          <div class="mv" id="m-lh">—</div>
-        </div>
-        <div class="mbar"><div class="mbar-fill" id="b-lh" style="width:0%;background:var(--left)"></div></div>
-        <div class="mi" style="margin-top:10px">
-          <div class="mi-label"><div class="dot dr"></div>Right hip</div>
-          <div class="mv" id="m-rh">—</div>
-        </div>
-        <div class="mbar"><div class="mbar-fill" id="b-rh" style="width:0%;background:var(--right)"></div></div>
-      </div>
-
-      <div class="mg">
-        <div class="mg-title">Arm swing (elbow)</div>
-        <div class="mi">
-          <div class="mi-label"><div class="dot dl"></div>Left elbow</div>
-          <div class="mv" id="m-le">—</div>
-        </div>
-        <div class="mbar"><div class="mbar-fill" id="b-le" style="width:0%;background:var(--left)"></div></div>
-        <div class="mi" style="margin-top:10px">
-          <div class="mi-label"><div class="dot dr"></div>Right elbow</div>
-          <div class="mv" id="m-re">—</div>
-        </div>
-        <div class="mbar"><div class="mbar-fill" id="b-re" style="width:0%;background:var(--right)"></div></div>
-      </div>
-
-      <div class="mg">
-        <div class="mg-title">Foot strike offset</div>
-        <div class="mi">
-          <div class="mi-label"><div class="dot dl"></div>Left foot</div>
-          <div class="mv" id="m-lf">—</div>
-        </div>
-        <div class="mi" style="margin-top:6px">
-          <div class="mi-label"><div class="dot dr"></div>Right foot</div>
-          <div class="mv" id="m-rf">—</div>
-        </div>
-        <div class="mhint">+ = under body  — = overstride</div>
-      </div>
-
-      <div class="mg">
-        <div class="mg-title">Frame info</div>
-        <div class="mi">
-          <div class="mi-label" style="color:var(--muted)">Timestamp</div>
-          <div class="mv" id="m-ts" style="font-size:13px">—</div>
-        </div>
-        <div class="mi">
-          <div class="mi-label" style="color:var(--muted)">Keypoints</div>
-          <div class="mv" id="m-kp" style="font-size:13px">—</div>
-        </div>
-        <div class="mi">
-          <div class="mi-label" style="color:var(--muted)">Avg confidence</div>
-          <div class="mv" id="m-cf" style="font-size:13px">—</div>
-        </div>
-      </div>
+    <!-- Training Plans -->
+    <div class="service-card soon">
+      <div class="sc-icon coral">▶</div>
+      <div class="sc-badge members">Members only</div>
+      <div class="sc-title">Training Plans</div>
+      <p class="sc-desc">Science-backed plans for 5K through ultramarathon. Built with periodization principles and structured around real-world athlete schedules — not one-size-fits-all templates.</p>
+      <span class="sc-action disabled">Coming soon →</span>
     </div>
 
   </div>
-  <div id="status">
-    <div class="sdot" id="sdot"></div>
-    <span id="status-text">Initializing…</span>
-    <span id="status-note">All processing runs locally · No data is uploaded</span>
+</section>
+
+<hr class="section-divider">
+
+<!-- ── How StrideScope works ────────────────────────────── -->
+<section id="how-it-works">
+  <div class="section-label">StrideScope</div>
+  <h2 class="section-title">Biomechanical analysis in minutes</h2>
+  <p class="section-sub">No specialist equipment. No lab visit. Just a side-view video of you running and a browser.</p>
+  <div class="hiw-grid">
+    <div class="hiw-step">
+      <div class="hiw-num">01</div>
+      <div class="hiw-title">Upload a video</div>
+      <p class="hiw-desc">Drop any side-view running clip — treadmill or outdoor. MP4, MOV, or WebM. Your video never leaves your device.</p>
+    </div>
+    <div class="hiw-step">
+      <div class="hiw-num">02</div>
+      <div class="hiw-title">Automatic phase detection</div>
+      <p class="hiw-desc">The tool scans your video and identifies 7 key gait phases: left and right foot strike, left and right toe-off, mid-stance, peak knee flex, and terminal swing.</p>
+    </div>
+    <div class="hiw-step">
+      <div class="hiw-num">03</div>
+      <div class="hiw-title">Review and refine</div>
+      <p class="hiw-desc">Each phase card shows the detected frame with skeleton overlay and angle arcs. Scrub frame-by-frame to perfect any phase, with phase-specific coaching guidance built in.</p>
+    </div>
+    <div class="hiw-step">
+      <div class="hiw-num">04</div>
+      <div class="hiw-title">Read your angles</div>
+      <p class="hiw-desc">Trunk lean, knee flexion, hip extension, elbow angle, and foot strike offset — compared across all 7 phases in a single summary table.</p>
+    </div>
   </div>
-</div>
+</section>
+
+<hr class="section-divider">
+
+<!-- ── Philosophy ───────────────────────────────────────── -->
+<section id="philosophy">
+  <div class="philosophy-wrap">
+    <div>
+      <div class="section-label" style="margin-bottom:20px">Our philosophy</div>
+      <p class="philosophy-quote">
+        "Most athletes train by feel. The best athletes train by <em>understanding.</em>"
+      </p>
+      <p class="philosophy-attr">— Endurance Science Labs</p>
+    </div>
+    <div class="philosophy-points">
+      <div class="pp-item">
+        <div class="pp-icon"></div>
+        <p class="pp-text"><strong>Data without context is noise.</strong> Every metric we surface comes with an explanation of what it means for your performance and how to act on it.</p>
+      </div>
+      <div class="pp-item">
+        <div class="pp-icon"></div>
+        <p class="pp-text"><strong>Physiology is individual.</strong> Reference ranges are starting points. The goal is to build a database of your own benchmarks over time.</p>
+      </div>
+      <div class="pp-item">
+        <div class="pp-icon"></div>
+        <p class="pp-text"><strong>Accessibility matters.</strong> Lab-grade analysis shouldn't require a lab. We're building tools that bring the science to any athlete, anywhere.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ───────────────────────────────────────────── -->
+<footer>
+  <div class="footer-brand">
+    <div class="footer-logo">ESL</div>
+    <div class="footer-name">Endurance Science Labs</div>
+  </div>
+  <div class="footer-links">
+    <a href="index.html" class="footer-link">Home</a>
+    <a href="gait-analyzer.html" class="footer-link">StrideScope</a>
+    <a href="#" class="footer-link">Contact</a>
+  </div>
+  <div class="footer-copy">© 2025 Endurance Science Labs</div>
+</footer>
 
-<!-- TensorFlow.js + MoveNet -->
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
-<script>
-'use strict';
-
-// ── Constants ────────────────────────────────────────────
-const MIN_CONF = 0.25;
-
-const KP = {
-  NOSE:0,L_EYE:1,R_EYE:2,L_EAR:3,R_EAR:4,
-  L_SH:5,R_SH:6,L_EL:7,R_EL:8,L_WR:9,R_WR:10,
-  L_HI:11,R_HI:12,L_KN:13,R_KN:14,L_AN:15,R_AN:16
-};
-
-const LEFT_KPS  = new Set([1,3,5,7,9,11,13,15]);
-const RIGHT_KPS = new Set([2,4,6,8,10,12,14,16]);
-
-const SKELETON = [
-  [KP.L_SH, KP.L_EL],[KP.L_EL, KP.L_WR],
-  [KP.R_SH, KP.R_EL],[KP.R_EL, KP.R_WR],
-  [KP.L_SH, KP.R_SH],[KP.L_HI, KP.R_HI],
-  [KP.L_SH, KP.L_HI],[KP.R_SH, KP.R_HI],
-  [KP.L_HI, KP.L_KN],[KP.L_KN, KP.L_AN],
-  [KP.R_HI, KP.R_KN],[KP.R_KN, KP.R_AN],
-  [KP.NOSE, KP.L_SH],[KP.NOSE, KP.R_SH],
-];
-
-// ── State ────────────────────────────────────────────────
-let detector = null;
-let videoEl  = null;
-let busy     = false;
-
-// ── Model loading ────────────────────────────────────────
-async function initModel() {
-  setStatus('loading', 'Loading MoveNet pose model…');
-  try {
-    await tf.ready();
-    detector = await poseDetection.createDetector(
-      poseDetection.SupportedModels.MoveNet,
-      { modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER }
-    );
-    document.getElementById('loader').style.display = 'none';
-    setStatus('ready', 'Model ready — upload a video to begin');
-  } catch(e) {
-    document.getElementById('loader').innerHTML =
-      `<div style="color:#f55050;font-size:14px">Failed to load model</div>
-       <div style="font-size:12px;color:#4a5270;margin-top:6px">${e.message}</div>
-       <div style="font-size:11px;color:#4a5270;margin-top:8px">Make sure you're connected to the internet for the first load.</div>`;
-  }
-}
-
-// ── Video setup ──────────────────────────────────────────
-function setupVideo(file) {
-  videoEl = document.getElementById('video');
-  videoEl.src = URL.createObjectURL(file);
-  videoEl.load();
-
-  videoEl.addEventListener('loadedmetadata', () => {
-    document.getElementById('scrubber').max = Math.floor(videoEl.duration * 100);
-    updateTime();
-    document.getElementById('screen-upload').style.display = 'none';
-    const ws = document.getElementById('screen-workspace');
-    ws.style.display = 'flex';
-    setStatus('ready', `Video loaded · ${videoEl.videoWidth}×${videoEl.videoHeight} · ${videoEl.duration.toFixed(1)}s`);
-  });
-
-  videoEl.addEventListener('timeupdate', () => {
-    document.getElementById('scrubber').value = Math.floor(videoEl.currentTime * 100);
-    updateTime();
-  });
-  videoEl.addEventListener('ended', () => {
-    document.getElementById('play-btn').textContent = '▶';
-  });
-}
-
-function togglePlay() {
-  if (!videoEl) return;
-  const btn = document.getElementById('play-btn');
-  if (videoEl.paused) { videoEl.play(); btn.textContent = '⏸'; }
-  else { videoEl.pause(); btn.textContent = '▶'; }
-}
-
-document.getElementById('scrubber').addEventListener('input', e => {
-  if (videoEl) { videoEl.currentTime = e.target.value / 100; updateTime(); }
-});
-
-function updateTime() {
-  if (!videoEl) return;
-  const fmt = s => s.toFixed(2);
-  document.getElementById('time-disp').textContent =
-    `${fmt(videoEl.currentTime)} / ${fmt(videoEl.duration||0)}`;
-}
-
-// ── Core: analyze current frame ──────────────────────────
-async function analyzeFrame() {
-  if (!detector || !videoEl || busy) return;
-  if (videoEl.readyState < 2) return;
-  busy = true;
-  videoEl.pause();
-  document.getElementById('play-btn').textContent = '▶';
-  setStatus('busy', `Analyzing frame at ${videoEl.currentTime.toFixed(2)}s…`);
-
-  const canvas = document.getElementById('analysis-canvas');
-  const ctx    = canvas.getContext('2d');
-  const W = videoEl.videoWidth, H = videoEl.videoHeight;
-  canvas.width  = W;
-  canvas.height = H;
-  ctx.drawImage(videoEl, 0, 0, W, H);
-
-  let poses;
-  try { poses = await detector.estimatePoses(canvas); }
-  catch(e) { setStatus('ready','Pose detection error: '+e.message); busy=false; return; }
-
-  showCanvas();
-
-  if (!poses || poses.length === 0) {
-    setStatus('ready','No pose detected — try a clearer side-view frame');
-    busy = false; return;
-  }
-
-  const kps = poses[0].keypoints;
-  drawPose(ctx, kps, W, H);
-
-  const metrics = computeMetrics(kps);
-  renderMetrics(metrics, videoEl.currentTime);
-
-  const vis = kps.filter(k => k.score >= MIN_CONF).length;
-  const avg = kps.reduce((s,k)=>s+k.score,0)/kps.length;
-  setMeta(vis, avg, videoEl.currentTime);
-  setStatus('ready', `Frame analyzed · ${vis}/17 keypoints · avg confidence ${(avg*100).toFixed(0)}%`);
-  busy = false;
-}
-
-function showCanvas() {
-  document.getElementById('canvas-ph').style.display = 'none';
-  document.getElementById('analysis-canvas').style.display = 'block';
-}
-
-// ── Drawing: skeleton + angles ───────────────────────────
-function drawPose(ctx, kps, W, H) {
-  ctx.save();
-
-  // Skeleton connections
-  SKELETON.forEach(([i,j]) => {
-    const a = kps[i], b = kps[j];
-    if (!a||!b||a.score<MIN_CONF||b.score<MIN_CONF) return;
-    const isL = LEFT_KPS.has(i) && LEFT_KPS.has(j);
-    const isR = RIGHT_KPS.has(i) && RIGHT_KPS.has(j);
-    ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
-    ctx.strokeStyle = isL ? '#00d4aa' : isR ? '#ff6b35' : '#7c8cf8';
-    ctx.lineWidth   = Math.max(2, W * 0.003);
-    ctx.lineCap     = 'round';
-    ctx.globalAlpha = 0.85;
-    ctx.stroke();
-  });
-  ctx.globalAlpha = 1;
-
-  // Keypoint dots
-  const r = Math.max(5, W * 0.007);
-  kps.forEach((k, i) => {
-    if (!k || k.score < MIN_CONF) return;
-    const col = i<5 ? '#fff' : LEFT_KPS.has(i) ? '#00d4aa' : '#ff6b35';
-    ctx.beginPath();
-    ctx.arc(k.x, k.y, r, 0, 2*Math.PI);
-    ctx.fillStyle   = col;
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
-    ctx.lineWidth   = Math.max(1.5, W*0.002);
-    ctx.stroke();
-  });
-
-  drawAngles(ctx, kps, W, H);
-  ctx.restore();
-}
-
-function connColor(i, j) {
-  if (LEFT_KPS.has(i)  && LEFT_KPS.has(j))  return '#00d4aa';
-  if (RIGHT_KPS.has(i) && RIGHT_KPS.has(j)) return '#ff6b35';
-  return '#8b7cf8';
-}
-
-function drawAngles(ctx, kps, W, H) {
-  const r = Math.max(30, W * 0.048);
-  const p = i => (kps[i] && kps[i].score >= MIN_CONF) ? kps[i] : null;
-
-  const lSh=p(5),rSh=p(6),lHi=p(11),rHi=p(12);
-  const lKn=p(13),rKn=p(14),lAn=p(15),rAn=p(16);
-  const lEl=p(7),rEl=p(8),lWr=p(9),rWr=p(10);
-
-  // Trunk lean line + angle label
-  if (lSh&&rSh&&lHi&&rHi) {
-    const shMid = {x:(lSh.x+rSh.x)/2, y:(lSh.y+rSh.y)/2};
-    const hiMid = {x:(lHi.x+rHi.x)/2, y:(lHi.y+rHi.y)/2};
-    const lean  = Math.atan2(shMid.x-hiMid.x, hiMid.y-shMid.y)*180/Math.PI;
-
-    // Trunk line (dashed gold)
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(hiMid.x, hiMid.y);
-    ctx.lineTo(shMid.x, shMid.y);
-    ctx.strokeStyle = '#f5c842';
-    ctx.lineWidth = Math.max(2, W*0.003);
-    ctx.setLineDash([Math.max(5,W*0.006), Math.max(3,W*0.004)]);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // Vertical reference
-    const vLen = Math.abs(hiMid.y - shMid.y);
-    ctx.beginPath();
-    ctx.moveTo(hiMid.x, hiMid.y);
-    ctx.lineTo(hiMid.x, hiMid.y - vLen);
-    ctx.strokeStyle = 'rgba(245,200,66,0.28)';
-    ctx.lineWidth = Math.max(1, W*0.0012);
-    ctx.setLineDash([4,4]);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.restore();
-
-    // Label beside trunk midpoint
-    const mx = (shMid.x+hiMid.x)/2 + r*0.9;
-    const my = (shMid.y+hiMid.y)/2;
-    drawLabel(ctx, `${lean>0?'+':''}${lean.toFixed(1)}°`, mx, my, '#f5c842', W);
-  }
-
-  // Angle arcs
-  if (lHi&&lKn&&lAn) arcAt(ctx, lKn, lHi, lAn, '#00d4aa', r, W);
-  if (rHi&&rKn&&rAn) arcAt(ctx, rKn, rHi, rAn, '#ff6b35', r, W);
-  if (lSh&&lHi&&lKn) arcAt(ctx, lHi, lSh, lKn, '#00b890', r*0.75, W);
-  if (rSh&&rHi&&rKn) arcAt(ctx, rHi, rSh, rKn, '#e05520', r*0.75, W);
-  if (lSh&&lEl&&lWr) arcAt(ctx, lEl, lSh, lWr, '#00c4a0', r*0.65, W);
-  if (rSh&&rEl&&rWr) arcAt(ctx, rEl, rSh, rWr, '#e06030', r*0.65, W);
-}
-
-function arcAt(ctx, vertex, p1, p2, color, r, W) {
-  const angle = calcAngle(p1, vertex, p2);
-  if (angle === null) return;
-
-  const a1 = Math.atan2(p1.y-vertex.y, p1.x-vertex.x);
-  const a2 = Math.atan2(p2.y-vertex.y, p2.x-vertex.x);
-  let diff = a2 - a1;
-  while (diff >  Math.PI) diff -= 2*Math.PI;
-  while (diff < -Math.PI) diff += 2*Math.PI;
-  const ccw = diff < 0;
-
-  ctx.save();
-  // Sector fill
-  ctx.beginPath();
-  ctx.moveTo(vertex.x, vertex.y);
-  ctx.arc(vertex.x, vertex.y, r, a1, a2, ccw);
-  ctx.closePath();
-  ctx.fillStyle = color+'18';
-  ctx.fill();
-
-  // Arc stroke
-  ctx.beginPath();
-  ctx.arc(vertex.x, vertex.y, r, a1, a2, ccw);
-  ctx.strokeStyle = color;
-  ctx.lineWidth = Math.max(1.5, r*0.045);
-  ctx.stroke();
-  ctx.restore();
-
-  // Label at arc midpoint
-  const midA = a1 + diff/2;
-  const lx = vertex.x + (r + r*0.6) * Math.cos(midA);
-  const ly = vertex.y + (r + r*0.6) * Math.sin(midA);
-  drawLabel(ctx, `${angle.toFixed(0)}°`, lx, ly, color, W);
-}
-
-function drawLabel(ctx, text, x, y, color, W) {
-  ctx.save();
-  const fs = Math.max(11, Math.min(17, W*0.018));
-  ctx.font = `700 ${fs}px 'Space Mono','Courier New',monospace`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  const tw = ctx.measureText(text).width;
-  const pw = tw+8, ph = fs+6;
-
-  ctx.fillStyle = 'rgba(6,8,13,0.82)';
-  ctx.beginPath();
-  if (ctx.roundRect) {
-    ctx.roundRect(x-pw/2, y-ph/2, pw, ph, 3);
-  } else {
-    ctx.rect(x-pw/2, y-ph/2, pw, ph);
-  }
-  ctx.fill();
-
-  ctx.fillStyle = color;
-  ctx.fillText(text, x, y);
-  ctx.restore();
-}
-
-// ── Angle math ────────────────────────────────────────────
-function calcAngle(a, b, c) {
-  const ba = {x:a.x-b.x, y:a.y-b.y};
-  const bc = {x:c.x-b.x, y:c.y-b.y};
-  const dot = ba.x*bc.x + ba.y*bc.y;
-  const mag = Math.hypot(ba.x,ba.y) * Math.hypot(bc.x,bc.y);
-  return mag===0 ? null : Math.acos(Math.max(-1,Math.min(1,dot/mag))) * 180/Math.PI;
-}
-
-// ── Metrics ───────────────────────────────────────────────
-function computeMetrics(kps) {
-  const get = i => (kps[i]&&kps[i].score>=MIN_CONF) ? kps[i] : null;
-  const m = {};
-  const lSh=get(5),rSh=get(6),lHi=get(11),rHi=get(12);
-  const lKn=get(13),rKn=get(14),lAn=get(15),rAn=get(16);
-  const lEl=get(7),rEl=get(8),lWr=get(9),rWr=get(10);
-  const nose=get(0);
-
-  if (lSh&&rSh&&lHi&&rHi) {
-    const shM={x:(lSh.x+rSh.x)/2,y:(lSh.y+rSh.y)/2};
-    const hiM={x:(lHi.x+rHi.x)/2,y:(lHi.y+rHi.y)/2};
-    m.trunk = Math.atan2(shM.x-hiM.x, hiM.y-shM.y)*180/Math.PI;
-
-    // Detect facing direction to sign foot offset correctly
-    const faceRight = nose ? nose.x > hiM.x : true;
-    const dir = faceRight ? 1 : -1;
-
-    const torsoH = val => {
-      const ref = lSh && lHi ? Math.abs(lHi.y-lSh.y)
-                : rSh && rHi ? Math.abs(rHi.y-rSh.y) : 0;
-      return ref;
-    };
-    const th = torsoH();
-
-    if (lAn&&lHi&&th>0) m.lFoot = dir*(lAn.x-lHi.x)/th;
-    if (rAn&&rHi&&th>0) m.rFoot = dir*(rAn.x-rHi.x)/th;
-  }
-
-  if (lHi&&lKn&&lAn) m.lKnee = calcAngle(lHi,lKn,lAn);
-  if (rHi&&rKn&&rAn) m.rKnee = calcAngle(rHi,rKn,rAn);
-  if (lSh&&lHi&&lKn) m.lHip  = calcAngle(lSh,lHi,lKn);
-  if (rSh&&rHi&&rKn) m.rHip  = calcAngle(rSh,rHi,rKn);
-  if (lSh&&lEl&&lWr) m.lElbow= calcAngle(lSh,lEl,lWr);
-  if (rSh&&rEl&&rWr) m.rElbow= calcAngle(rSh,rEl,rWr);
-  return m;
-}
-
-// ── Render metrics panel ──────────────────────────────────
-function renderMetrics(m, t) {
-  // trunk: good 5-20°, warn 0-5 or 20-30, bad outside
-  setMV('m-trunk','b-trunk', m.trunk, '°', -20,30, [5,20], 'var(--purple)');
-  if (m.trunk!==undefined) {
-    const v = m.trunk;
-    document.getElementById('h-trunk').textContent =
-      v < 0 ? 'Slight backward lean' :
-      v < 5 ? 'Nearly vertical — slight forward lean helps' :
-      v < 20 ? 'Good forward lean range' :
-      'Excessive forward lean';
-  }
-
-  setMV('m-lk','b-lk', m.lKnee, '°', 60,180,[120,175],'var(--left)');
-  setMV('m-rk','b-rk', m.rKnee, '°', 60,180,[120,175],'var(--right)');
-  setMV('m-lh','b-lh', m.lHip,  '°', 90,200,[140,185],'var(--left)');
-  setMV('m-rh','b-rh', m.rHip,  '°', 90,200,[140,185],'var(--right)');
-  setMV('m-le','b-le', m.lElbow,'°', 30,160,[80,110],'var(--left)');
-  setMV('m-re','b-re', m.rElbow,'°', 30,160,[80,110],'var(--right)');
-
-  setFS('m-lf', m.lFoot);
-  setFS('m-rf', m.rFoot);
-}
-
-function setMV(id, bid, val, unit, min, max, good, barColor) {
-  const el = document.getElementById(id);
-  const bar = bid ? document.getElementById(bid) : null;
-  if (val===undefined||val===null) {
-    el.textContent='—'; el.className='mv'; if(bar) bar.style.width='0%'; return;
-  }
-  el.textContent = `${val.toFixed(1)}${unit}`;
-  const pct = Math.min(100, Math.max(0, (val-min)/(max-min)*100));
-  if (bar) { bar.style.width=pct+'%'; bar.style.background=barColor; }
-  if (val>=good[0]&&val<=good[1]) el.className='mv good';
-  else if (val<good[0]-25||val>good[1]+25) el.className='mv bad';
-  else el.className='mv warn';
-}
-
-function setFS(id, val) {
-  const el = document.getElementById(id);
-  if (val===undefined||val===null) { el.textContent='—'; el.className='mv'; return; }
-  el.textContent = `${val>0?'+':''}${val.toFixed(2)}`;
-  el.className = 'mv ' + (Math.abs(val)<0.15 ? 'good' : val<-0.25 ? 'bad' : 'warn');
-}
-
-function setMeta(vis, avg, t) {
-  const ts = document.getElementById('m-ts');
-  ts.textContent = t.toFixed(2)+'s';
-  ts.className = 'mv val';
-  const kp = document.getElementById('m-kp');
-  kp.textContent = `${vis}/17`;
-  kp.className = 'mv '+(vis>12?'good':vis>8?'warn':'bad');
-  const cf = document.getElementById('m-cf');
-  cf.textContent = (avg*100).toFixed(0)+'%';
-  cf.className = 'mv '+(avg>0.65?'good':avg>0.45?'warn':'bad');
-}
-
-// ── Auto stride phase detection ───────────────────────────
-async function autoDetect() {
-  if (!detector||!videoEl||busy) return;
-  busy = true;
-  videoEl.pause();
-  document.getElementById('play-btn').textContent = '▶';
-  const btn = document.getElementById('btn-auto');
-  btn.disabled = true; btn.textContent = '↻ Scanning…';
-
-  const dur = videoEl.duration;
-  const N = 20;
-  const samples = [];
-
-  for (let i=0; i<N; i++) {
-    const t = (i + 0.5) * (dur / N);
-    setStatus('busy', `Scanning ${i+1}/${N} frames (${t.toFixed(1)}s)…`);
-    await seekTo(t);
-
-    let poses;
-    try { poses = await detector.estimatePoses(videoEl); }
-    catch(e) { continue; }
-    if (!poses||poses.length===0) continue;
-
-    const kps = poses[0].keypoints;
-    const lAn=kps[15], rAn=kps[16], lKn=kps[13], lHi=kps[11];
-    if (!lAn||!rAn||lAn.score<MIN_CONF||rAn.score<MIN_CONF) continue;
-
-    // Capture thumbnail
-    const tw=160, th=Math.round(160*videoEl.videoHeight/videoEl.videoWidth);
-    const tc=document.createElement('canvas');
-    tc.width=tw; tc.height=th;
-    tc.getContext('2d').drawImage(videoEl,0,0,tw,th);
-
-    const lKnAngle = (lKn&&lKn.score>=MIN_CONF&&lHi&&lHi.score>=MIN_CONF&&lAn.score>=MIN_CONF)
-      ? calcAngle({x:lHi.x,y:lHi.y},{x:lKn.x,y:lKn.y},{x:lAn.x,y:lAn.y}) : null;
-
-    samples.push({ t, lAnkleY:lAn.y, rAnkleY:rAn.y, lAnkleX:lAn.x,
-      lKnAngle, kps, thumb:tc });
-  }
-
-  if (samples.length < 4) {
-    setStatus('ready', 'Not enough detected poses — try a video with a clearer side view');
-    btn.disabled=false; btn.textContent='⟳ Auto phases'; busy=false; return;
-  }
-
-  // Find key moments
-  const phases = [];
-  const withKnee = samples.filter(s=>s.lKnAngle!==null);
-  if (withKnee.length > 1) {
-    const maxK = withKnee.reduce((a,b)=>b.lKnAngle>a.lKnAngle?b:a);
-    const minK = withKnee.reduce((a,b)=>b.lKnAngle<a.lKnAngle?b:a);
-    phases.push({...maxK, label:'Terminal swing'});
-    if (Math.abs(minK.t-maxK.t)>0.08) phases.push({...minK, label:'Peak knee flex'});
-  }
-  const minLA = samples.reduce((a,b)=>b.lAnkleY>a.lAnkleY?b:a);
-  if (!phases.some(p=>Math.abs(p.t-minLA.t)<0.08)) phases.push({...minLA,label:'L foot strike'});
-  const minRA = samples.reduce((a,b)=>b.rAnkleY>a.rAnkleY?b:a);
-  if (!phases.some(p=>Math.abs(p.t-minRA.t)<0.08)) phases.push({...minRA,label:'R foot strike'});
-  // Pick a "mid-stance" candidate: time roughly between strikes
-  const sorted = [...samples].sort((a,b)=>a.t-b.t);
-  const mid = sorted[Math.floor(sorted.length/2)];
-  if (!phases.some(p=>Math.abs(p.t-mid.t)<0.1)) phases.push({...mid, label:'Mid-stance'});
-
-  phases.sort((a,b)=>a.t-b.t);
-
-  // Render thumbnails
-  const grid = document.getElementById('phase-grid');
-  grid.innerHTML = '';
-  phases.forEach(ph => {
-    const div = document.createElement('div');
-    div.className = 'phase-thumb';
-
-    // Draw mini skeleton on thumb
-    const mc = document.createElement('canvas');
-    mc.width=ph.thumb.width; mc.height=ph.thumb.height;
-    const mctx = mc.getContext('2d');
-    mctx.drawImage(ph.thumb,0,0);
-    const sx=ph.thumb.width/videoEl.videoWidth, sy=ph.thumb.height/videoEl.videoHeight;
-    const scaledKps = ph.kps.map(k=>({x:k.x*sx,y:k.y*sy,score:k.score}));
-    drawMiniSkeleton(mctx, scaledKps);
-
-    const lbl = document.createElement('div');
-    lbl.className='pl';
-    lbl.textContent=`${ph.label} · ${ph.t.toFixed(2)}s`;
-
-    div.appendChild(mc); div.appendChild(lbl);
-    div.addEventListener('click', () => {
-      document.querySelectorAll('.phase-thumb').forEach(t=>t.classList.remove('active'));
-      div.classList.add('active');
-      loadPhase(ph);
-    });
-    grid.appendChild(div);
-  });
-
-  setStatus('ready', `Found ${phases.length} key stride phases — click any thumbnail to analyze`);
-  btn.disabled=false; btn.textContent='⟳ Auto phases'; busy=false;
-}
-
-function drawMiniSkeleton(ctx, kps) {
-  SKELETON.forEach(([i,j])=>{
-    const a=kps[i],b=kps[j];
-    if(!a||!b||a.score<MIN_CONF||b.score<MIN_CONF) return;
-    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
-    ctx.strokeStyle=connColor(i,j);
-    ctx.lineWidth=1.5; ctx.globalAlpha=0.88; ctx.stroke();
-  });
-  ctx.globalAlpha=1;
-  kps.forEach((k,i)=>{
-    if(!k||k.score<MIN_CONF) return;
-    ctx.beginPath();
-    ctx.arc(k.x,k.y,2.5,0,2*Math.PI);
-    ctx.fillStyle=i<5?'#fff':LEFT_KPS.has(i)?'#00d4aa':'#ff6b35';
-    ctx.fill();
-  });
-}
-
-function loadPhase(ph) {
-  const canvas = document.getElementById('analysis-canvas');
-  const ctx    = canvas.getContext('2d');
-  const W=videoEl.videoWidth, H=videoEl.videoHeight;
-  canvas.width=W; canvas.height=H;
-  ctx.drawImage(ph.thumb, 0, 0, W, H); // upscale thumb for display
-
-  // Redraw from full-size canvas — seek and re-analyze for accuracy
-  seekTo(ph.t).then(async ()=>{
-    canvas.getContext('2d').drawImage(videoEl,0,0,W,H);
-    let poses;
-    try { poses = await detector.estimatePoses(canvas); } catch(e){ return; }
-    if (!poses||!poses.length) {
-      // Fall back to stored keypoints
-      drawPose(ctx, ph.kps, W, H);
-      renderMetrics(computeMetrics(ph.kps), ph.t);
-    } else {
-      const kps = poses[0].keypoints;
-      drawPose(ctx, kps, W, H);
-      renderMetrics(computeMetrics(kps), ph.t);
-      const vis=kps.filter(k=>k.score>=MIN_CONF).length;
-      setMeta(vis, kps.reduce((s,k)=>s+k.score,0)/kps.length, ph.t);
-    }
-  });
-
-  showCanvas();
-}
-
-// ── Seek helper ───────────────────────────────────────────
-function seekTo(t) {
-  return new Promise(resolve => {
-    let done = false;
-    const finish = () => { if(!done){done=true;videoEl.removeEventListener('seeked',finish);setTimeout(resolve,40);} };
-    videoEl.addEventListener('seeked', finish);
-    setTimeout(finish, 1200);
-    videoEl.currentTime = t;
-  });
-}
-
-// ── Status ────────────────────────────────────────────────
-function setStatus(state, msg) {
-  const dot  = document.getElementById('sdot');
-  const text = document.getElementById('status-text');
-  dot.className  = 'sdot ' + state;
-  text.textContent = msg;
-}
-
-// ── File input + drag & drop ──────────────────────────────
-document.getElementById('file-input').addEventListener('change', e => {
-  if (e.target.files[0]) setupVideo(e.target.files[0]);
-});
-const dc = document.getElementById('drop-card');
-dc.addEventListener('dragover', e=>{ e.preventDefault(); dc.classList.add('over'); });
-dc.addEventListener('dragleave', ()=>dc.classList.remove('over'));
-dc.addEventListener('drop', e=>{
-  e.preventDefault(); dc.classList.remove('over');
-  const f=e.dataTransfer.files[0];
-  if (f&&f.type.startsWith('video/')) setupVideo(f);
-});
-
-function resetApp() {
-  document.getElementById('screen-workspace').style.display='none';
-  document.getElementById('screen-upload').style.display='flex';
-  document.getElementById('analysis-canvas').style.display='none';
-  document.getElementById('canvas-ph').style.display='flex';
-  document.getElementById('phase-grid').innerHTML=
-    '<div class="phase-empty">Click <strong>Auto phases</strong> to scan<br>the video for key stride moments</div>';
-  if (videoEl) { videoEl.pause(); videoEl.src=''; }
-  // Reset all metrics
-  ['m-trunk','m-lk','m-rk','m-lh','m-rh','m-le','m-re','m-lf','m-rf','m-ts','m-kp','m-cf']
-    .forEach(id=>{ const el=document.getElementById(id); el.textContent='—'; el.className='mv'; });
-  setStatus('ready','Model ready — upload a video to begin');
-}
-
-// ── Keyboard shortcuts ────────────────────────────────────
-document.addEventListener('keydown', e => {
-  if (!videoEl) return;
-  if (e.key===' ') { e.preventDefault(); togglePlay(); }
-  if (e.key==='ArrowLeft')  videoEl.currentTime = Math.max(0, videoEl.currentTime-0.1);
-  if (e.key==='ArrowRight') videoEl.currentTime = Math.min(videoEl.duration, videoEl.currentTime+0.1);
-  if (e.key==='Enter') analyzeFrame();
-});
-
-// ── Boot ──────────────────────────────────────────────────
-initModel();
-</script>
 </body>
 </html>
