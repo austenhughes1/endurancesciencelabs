@@ -494,7 +494,7 @@ function gradeVal(val, metricKey, phaseKey) {
 // ── Firebase + range fetching ─────────────────────────────
 async function initFirebase() {
   try {
-    if (FIREBASE_CONFIG.apiKey === 'YOUR_API_KEY') return;
+    if (FIREBASE_CONFIG.apiKey === 'AIzaSyDh4LorLQx1DPovQIA4HM3127fAYpyuaY8') return;
     if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
     const db = firebase.firestore();
     // Fetch both sex ranges in parallel
