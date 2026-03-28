@@ -725,6 +725,10 @@ async function autoScan(){
     if(!poses||!poses.length){try{poses=await detector.estimatePoses(videoEl);}catch(e){}}
     if(!poses||!poses.length)continue;
     posesFound++;
+    // After first detected pose, warn early if not side-view
+    if(posesFound===1 && !isSideView(poses[0].keypoints)){
+      document.getElementById('scan-step').textContent='⚠ Front or back view detected — side view gives best results';
+    }
     const kps=poses[0].keypoints;
     drawMiniSkeleton(sctx,kps,sc.width/(videoEl.videoWidth||sc.width),sc.height/(videoEl.videoHeight||sc.height));
     const g=idx=>(kps[idx]&&kps[idx].score>=MIN_CONF)?kps[idx]:null;
@@ -838,8 +842,9 @@ async function analyzeCard(key){
   let poses=null;try{poses=await detector.estimatePoses(canvas);}catch(e){}
   if(!poses||!poses.length){try{poses=await detector.estimatePoses(videoEl);}catch(e){}}
   if(!poses||!poses.length){if(badge){badge.className='pc-badge manual';badge.textContent='no pose';}if(loading)loading.classList.remove('show');return;}
-  const kps=poses[0].keypoints;ph.kps=kps;ph.metrics=computeMetrics(kps);
-  drawPose(ctx,kps,W,H);renderMiniMetrics(key,ph.metrics);updateSummaryCol(key);updateSaveSection();
+  const kps=poses[0].keypoints;ph.kps=kps;ph.metrics=computeMetrics(kps);ph.sideView=isSideView(kps);
+  drawPose(ctx,kps,W,H);
+  if(!ph.sideView){renderSideViewWarning(key);}else{renderMiniMetrics(key,ph.metrics);updateSummaryCol(key);}updateSaveSection();
   if(badge){badge.className='pc-badge ok';badge.textContent='analyzed';}if(loading)loading.classList.remove('show');
 }
 
@@ -896,8 +901,14 @@ async function epReanalyze(){
   if(!poses||!poses.length){try{poses=await detector.estimatePoses(videoEl);}catch(e){}}
   loading.classList.remove('show');
   if(!poses||!poses.length){document.getElementById('ep-metrics').innerHTML='<div class="ep-no-data">No pose detected — try a different frame</div>';btn.disabled=false;btn.textContent='↻ Analyze';epAnalyzing=false;return;}
-  const kps=poses[0].keypoints;const ph=phases[expandKey];ph.kps=kps;ph.metrics=computeMetrics(kps);ph.detected=true;
-  drawPose(ctx,kps,W,H);renderExpandMetrics(ph.metrics);
+  const kps=poses[0].keypoints;const ph=phases[expandKey];ph.kps=kps;ph.metrics=computeMetrics(kps);ph.detected=true;ph.sideView=isSideView(kps);
+  drawPose(ctx,kps,W,H);
+  if(!ph.sideView){
+    document.getElementById('ep-metrics').innerHTML=
+      '<div class="ep-no-data" style="color:var(--warn)">⚠ Side view required for angle analysis — this frame appears to be front or back facing</div>';
+  } else {
+    renderExpandMetrics(ph.metrics);
+  }
   const ovCard=document.getElementById(`card-${expandKey}`);if(ovCard)ovCard.classList.remove('undetected');
   let ovCanvas=document.getElementById(`canvas-${expandKey}`);
   if(!ovCanvas&&ovCard){
@@ -919,12 +930,53 @@ function renderExpandMetrics(m){
 }
 
 // Drawing
+// Returns true if keypoints indicate a side-view shot.
+// Heuristic: in side view, left & right hips have similar x-coords (stacked).
+// In front/back view they are spread wide. We normalise by torso height.
+function isSideView(kps){
+  const MIN = 0.25;
+  const lHi = (kps[11]&&kps[11].score>=MIN) ? kps[11] : null;
+  const rHi = (kps[12]&&kps[12].score>=MIN) ? kps[12] : null;
+  const lSh = (kps[5] &&kps[5].score>=MIN)  ? kps[5]  : null;
+  const rSh = (kps[6] &&kps[6].score>=MIN)  ? kps[6]  : null;
+  if(!lHi||!rHi) return true; // can't tell — don't block
+  // Hip horizontal spread normalised by torso height
+  const hipSpread = Math.abs(lHi.x - rHi.x);
+  const torsoH = (lSh&&rSh)
+    ? Math.abs(((lSh.y+rSh.y)/2) - ((lHi.y+rHi.y)/2))
+    : Math.abs(lHi.y - rHi.y) * 2 || 100;
+  const ratio = hipSpread / (torsoH || 100);
+  // Side view: ratio < 0.45  |  Front/back: ratio > 0.55
+  return ratio < 0.45;
+}
+
 function drawPose(ctx,kps,W,H){
   ctx.save();
   SKELETON.forEach(([a,b])=>{const ka=kps[a],kb=kps[b];if(!ka||!kb||ka.score<MIN_CONF||kb.score<MIN_CONF)return;ctx.beginPath();ctx.moveTo(ka.x,ka.y);ctx.lineTo(kb.x,kb.y);ctx.strokeStyle=LEFT_KPS.has(a)&&LEFT_KPS.has(b)?'#00d4aa':RIGHT_KPS.has(a)&&RIGHT_KPS.has(b)?'#ff6b35':'#8b7cf8';ctx.lineWidth=Math.max(2,W*.003);ctx.lineCap='round';ctx.globalAlpha=.85;ctx.stroke();});
   ctx.globalAlpha=1;const r=Math.max(4,W*.007);
   kps.forEach((k,i)=>{if(!k||k.score<MIN_CONF)return;ctx.beginPath();ctx.arc(k.x,k.y,r,0,2*Math.PI);ctx.fillStyle=i<5?'#fff':LEFT_KPS.has(i)?'#00d4aa':'#ff6b35';ctx.fill();ctx.strokeStyle='rgba(0,0,0,.55)';ctx.lineWidth=Math.max(1.5,W*.002);ctx.stroke();});
-  drawAngles(ctx,kps,W);ctx.restore();
+  // Only draw angle overlays for side-view footage
+  if(isSideView(kps)){
+    drawAngles(ctx,kps,W);
+  } else {
+    // Draw a non-intrusive notice on the frame
+    ctx.save();
+    const fs=Math.max(12,Math.min(18,W*.02));
+    ctx.font=`700 ${fs}px 'Space Mono','Courier New',monospace`;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    const msg='Side view required for angle analysis';
+    const tw=ctx.measureText(msg).width+20;
+    const bh=fs+12;
+    ctx.fillStyle='rgba(6,8,13,.82)';
+    ctx.beginPath();
+    if(ctx.roundRect)ctx.roundRect(W/2-tw/2,H-bh-12,tw,bh,6);
+    else ctx.rect(W/2-tw/2,H-bh-12,tw,bh);
+    ctx.fill();
+    ctx.fillStyle='#f5a623';
+    ctx.fillText(msg,W/2,H-bh/2-12);
+    ctx.restore();
+  }
+  ctx.restore();
 }
 function drawAngles(ctx,kps,W){
   const r=Math.max(28,W*.046);const p=i=>(kps[i]&&kps[i].score>=MIN_CONF)?kps[i]:null;
