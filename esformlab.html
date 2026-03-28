@@ -511,7 +511,6 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 // ══════════════════════════════════════════════════════════
 //  FIREBASE CONFIG — paste your values here
 // ══════════════════════════════════════════════════════════
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyDh4LorLQx1DPovQIA4HM3127fAYpyuaY8",
   authDomain: "es-form-labs.firebaseapp.com",
@@ -677,8 +676,29 @@ function startWithFile(file){
   document.getElementById('screen-upload').style.display='none';
   document.getElementById('hdr-file').textContent=file.name;
   videoEl=document.getElementById('video');
-  videoEl.src=URL.createObjectURL(file);videoEl.load();
-  videoEl.addEventListener('loadedmetadata',()=>{document.getElementById('screen-scanning').style.display='flex';autoScan();},{once:true});
+
+  let started=false;
+  function beginScan(){
+    if(started) return;
+    started=true;
+    videoEl.removeEventListener('loadedmetadata', beginScan);
+    videoEl.removeEventListener('loadeddata',     beginScan);
+    videoEl.removeEventListener('canplay',        beginScan);
+    clearTimeout(fallbackTimer);
+    document.getElementById('screen-scanning').style.display='flex';
+    autoScan();
+  }
+
+  // Whichever fires first wins — handles HEVC, MOV, and slow codecs
+  videoEl.addEventListener('loadedmetadata', beginScan, {once:true});
+  videoEl.addEventListener('loadeddata',     beginScan, {once:true});
+  videoEl.addEventListener('canplay',        beginScan, {once:true});
+
+  // Hard 8s timeout if none of the above fire
+  const fallbackTimer = setTimeout(()=>{ if(!started){ console.warn('ESFormLab: metadata timeout, scanning anyway'); beginScan(); } }, 8000);
+
+  videoEl.src=URL.createObjectURL(file);
+  videoEl.load();
 }
 
 // Auto scan
