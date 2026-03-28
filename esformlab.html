@@ -495,7 +495,7 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
   </div>
 </div>
 
-<video id="video" style="display:none" playsinline></video>
+<video id="video" style="display:none" playsinline preload="metadata"></video>
 
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -707,7 +707,7 @@ async function autoScan(){
   if(!isFinite(dur)||isNaN(dur)||dur<=0){await new Promise(r=>setTimeout(r,500));dur=videoEl.duration;}
   if(!isFinite(dur)||isNaN(dur)||dur<=0)dur=30;
   initPhases(dur/2);
-  const N=30,samples=[];
+  const N=40,samples=[];
   document.getElementById('scan-phase-list').innerHTML=PHASE_DEFS.map(p=>`<div class="spl-item" id="spl-${p.key}"><div class="spl-dot"></div><span class="spl-name">${p.label}</span><span class="spl-time" id="spl-t-${p.key}">—</span></div>`).join('');
   const sc=document.getElementById('scan-canvas'),sctx=sc.getContext('2d');
   let posesFound=0;
@@ -738,6 +738,15 @@ async function autoScan(){
   document.getElementById('scan-step').textContent=`Done · ${posesFound}/${N} frames detected`;
   const diag=document.getElementById('scan-diag');diag.style.display='block';
   diag.textContent=`${videoEl.videoWidth}×${videoEl.videoHeight} · ${dur.toFixed(1)}s · Poses: ${posesFound}/${N}`;
+
+  // Detect sparse keyframes: if many samples share the same timestamp, warn the user
+  const uniqueTimes = new Set(samples.map(s=>Math.round(s.t*4)/4));
+  if(samples.length > 5 && uniqueTimes.size < samples.length * 0.5){
+    diag.innerHTML += '<br>⚠ Sparse keyframes detected — this video may have been exported with infrequent keyframes. ' +
+      'For best results, re-export at original quality or use HandBrake to convert to H.264 MP4 with keyframe interval 1s.';
+    diag.style.borderLeft = '3px solid var(--warn)';
+    diag.style.paddingLeft = '10px';
+  }
   try{findPhases(samples,dur);}catch(e){console.error('findPhases:',e);}
   PHASE_DEFS.forEach(def=>{
     const ph=phases[def.key];const item=document.getElementById(`spl-${def.key}`);const tEl=document.getElementById(`spl-t-${def.key}`);
@@ -1033,7 +1042,28 @@ function computeRanges(sessions){
 }
 
 // Seek
-function seekTo(t){return new Promise(resolve=>{let done=false;const finish=()=>{if(!done){done=true;videoEl.removeEventListener('seeked',finish);setTimeout(resolve,40);}};videoEl.addEventListener('seeked',finish);setTimeout(finish,1500);videoEl.currentTime=Math.max(0,t);});}
+function seekTo(t){
+  return new Promise(resolve=>{
+    let done=false;
+    const finish=()=>{
+      if(done) return;
+      done=true;
+      videoEl.removeEventListener('seeked', finish);
+      clearTimeout(timer);
+      // Small settle delay — edited videos sometimes need a frame to render
+      setTimeout(resolve, 60);
+    };
+    videoEl.addEventListener('seeked', finish, {once:true});
+    // 3s timeout — edited/VFR videos with sparse keyframes can be slow to seek
+    const timer = setTimeout(()=>{
+      if(!done){
+        console.warn('seekTo timeout at', t.toFixed(2)+'s — continuing');
+        finish();
+      }
+    }, 3000);
+    videoEl.currentTime = Math.max(0, Math.min(t, (videoEl.duration||9999) - 0.05));
+  });
+}
 
 // Reset
 async function rescan(){closeExpand();phases={};document.getElementById('screen-phases').style.display='none';document.getElementById('summary-section').style.display='none';document.getElementById('save-section').style.display='none';document.getElementById('scan-bar').style.width='0%';document.getElementById('scan-phase-list').innerHTML='';document.getElementById('scan-step').textContent='Preparing…';document.getElementById('scan-diag').style.display='none';document.getElementById('scan-summary-bar').style.display='none';document.getElementById('screen-scanning').style.display='flex';document.getElementById('btn-rescan').style.display='none';await autoScan();}
