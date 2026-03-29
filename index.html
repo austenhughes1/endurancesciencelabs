@@ -3,267 +3,157 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Endurance Science Labs</title>
+<title>Endurance Science Labs — Evidence-Based Endurance Coaching</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,600&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
-:root {
-  --bg:     #06080d;
-  --panel:  #0d1020;
-  --panel2: #131828;
-  --border: rgba(255,255,255,0.07);
-  --border2:rgba(255,255,255,0.13);
-  --cyan:   #00e5c8;
-  --gold:   #f5c842;
-  --purple: #8b7cf8;
-  --coral:  #ff6b35;
-  --text:   #dde1ef;
-  --muted:  #3e4460;
-  --muted2: #6e7a9a;
-  --good:   #22c78a;
-  --ui:   'Syne', system-ui, sans-serif;
-  --mono: 'Space Mono', monospace;
+:root{
+  --bg:#06080d;--panel:#0d1020;--panel2:#131828;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.14);
+  --cyan:#00e5c8;--gold:#f5c842;--coral:#ff6b35;--purple:#8b7cf8;
+  --text:#e2e6f3;--muted:#4a5270;--muted2:#8490b0;--good:#22c78a;
+  --display:'Fraunces',Georgia,serif;
+  --body:'DM Sans',system-ui,sans-serif;
+  --mono:'Space Mono',monospace;
 }
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
-body { font-family: var(--ui); background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--body);background:var(--bg);color:var(--text);min-height:100vh;font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
 
-/* ── Nav ───────────────────────────────────────────────── */
-nav {
-  height: 58px; padding: 0 32px;
-  display: flex; align-items: center; gap: 0;
-  position: sticky; top: 0; z-index: 200;
-  background: rgba(6,8,13,0.96); backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border);
-}
-.nav-logo {
-  display: flex; align-items: center; gap: 11px;
-  text-decoration: none; flex-shrink: 0; margin-right: 32px;
-}
-.nav-logo-mark {
-  width: 32px; height: 32px; background: var(--cyan); border-radius: 8px;
-  display: flex; align-items: center; justify-content: center;
-  font-family: var(--mono); font-weight: 700; font-size: 13px; color: #000;
-}
-.nav-logo-text { font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: -.3px; line-height: 1.2; }
-.nav-logo-text span { display: block; font-size: 9px; font-weight: 500; color: var(--muted2); letter-spacing: .5px; text-transform: uppercase; font-family: var(--mono); }
-.nav-links { display: flex; align-items: center; gap: 2px; flex: 1; }
-.nav-link {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 14px; border-radius: 8px;
-  font-size: 13px; font-weight: 600; color: var(--muted2);
-  text-decoration: none; transition: all .15s; white-space: nowrap;
-  position: relative; border: 1px solid transparent;
-}
-.nav-link:hover { color: var(--text); background: rgba(255,255,255,.04); }
-.nav-link.active { color: var(--cyan); background: rgba(0,229,200,.07); border-color: rgba(0,229,200,.15); }
-.nav-link .soon {
-  font-size: 8px; font-weight: 700; letter-spacing: .4px; font-family: var(--mono);
-  background: rgba(110,122,154,.15); color: var(--muted2); border-radius: 4px;
-  padding: 1px 5px; text-transform: uppercase;
-}
-.nav-cta {
-  margin-left: auto; flex-shrink: 0;
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 8px 18px; background: var(--cyan); color: #000;
-  font-weight: 700; font-size: 12px; font-family: var(--ui);
-  border: none; border-radius: 9px; cursor: pointer;
-  text-decoration: none; transition: opacity .15s; letter-spacing: .2px;
-}
-.nav-cta:hover { opacity: .85; }
+/* Nav */
+nav{height:64px;padding:0 36px;display:flex;align-items:center;gap:0;position:sticky;top:0;z-index:200;background:rgba(6,8,13,.96);backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
+.nav-logo{display:flex;align-items:center;gap:12px;text-decoration:none;flex-shrink:0;margin-right:36px}
+.nav-logo-mark{width:34px;height:34px;background:var(--cyan);border-radius:9px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:13px;color:#000}
+.nav-logo-text{font-family:var(--display);font-size:17px;font-weight:600;color:var(--text);letter-spacing:-.2px;line-height:1.2}
+.nav-logo-text span{display:block;font-family:var(--body);font-size:11px;font-weight:400;color:var(--muted2);letter-spacing:.3px;font-style:italic}
+.nav-links{display:flex;align-items:center;gap:2px;flex:1}
+.nav-link{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:9px;font-size:15px;font-weight:500;color:var(--muted2);text-decoration:none;transition:all .15s;border:1px solid transparent}
+.nav-link:hover{color:var(--text);background:rgba(255,255,255,.04)}
+.nav-link.active{color:var(--cyan);background:rgba(0,229,200,.07);border-color:rgba(0,229,200,.15)}
+.nav-link .soon{font-size:9px;font-weight:600;letter-spacing:.4px;font-family:var(--mono);background:rgba(110,122,154,.15);color:var(--muted2);border-radius:4px;padding:2px 6px;text-transform:uppercase}
+.nav-cta{margin-left:auto;flex-shrink:0;display:inline-flex;align-items:center;gap:7px;padding:10px 22px;background:var(--cyan);color:#000;font-weight:600;font-size:14px;font-family:var(--body);border:none;border-radius:10px;cursor:pointer;text-decoration:none;transition:opacity .15s}
+.nav-cta:hover{opacity:.85}
 
-/* ── Hero ──────────────────────────────────────────────── */
-.hero {
-  min-height: calc(100vh - 58px);
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: 80px 32px; text-align: center; position: relative; overflow: hidden;
-}
-/* Subtle grid background */
-.hero::before {
-  content: '';
-  position: absolute; inset: 0;
-  background-image:
-    linear-gradient(rgba(0,229,200,.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0,229,200,.03) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black 40%, transparent 100%);
-}
-/* Glow */
-.hero::after {
-  content: '';
-  position: absolute; top: 10%; left: 50%; transform: translateX(-50%);
-  width: 600px; height: 400px;
-  background: radial-gradient(ellipse, rgba(0,229,200,.07) 0%, transparent 70%);
-  pointer-events: none;
-}
-.hero-eyebrow {
-  display: inline-flex; align-items: center; gap: 8px;
-  font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase;
-  color: var(--cyan); font-family: var(--mono);
-  background: rgba(0,229,200,.08); border: 1px solid rgba(0,229,200,.18);
-  border-radius: 20px; padding: 5px 14px; margin-bottom: 28px;
-  position: relative; z-index: 1;
-}
-.hero-eyebrow::before { content: '◉'; font-size: 10px; }
-.hero-title {
-  font-size: clamp(42px, 7vw, 76px); font-weight: 800;
-  line-height: 1.05; letter-spacing: -2px;
-  color: var(--text); margin-bottom: 24px;
-  position: relative; z-index: 1;
-}
-.hero-title em { font-style: normal; color: var(--cyan); }
-.hero-sub {
-  font-size: clamp(15px, 2vw, 18px); color: var(--muted2); line-height: 1.75;
-  max-width: 560px; margin: 0 auto 44px;
-  position: relative; z-index: 1;
-}
-.hero-actions {
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center;
-  position: relative; z-index: 1;
-}
-.btn-primary {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 14px 28px; background: var(--cyan); color: #000;
-  font-weight: 700; font-size: 14px; font-family: var(--ui);
-  border: none; border-radius: 11px; cursor: pointer;
-  text-decoration: none; transition: opacity .15s; letter-spacing: .2px;
-}
-.btn-primary:hover { opacity: .85; }
-.btn-secondary {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 14px 28px; color: var(--muted2);
-  font-weight: 600; font-size: 14px; font-family: var(--ui);
-  border: 1px solid var(--border2); border-radius: 11px; cursor: pointer;
-  text-decoration: none; transition: all .15s; background: transparent;
-}
-.btn-secondary:hover { color: var(--text); border-color: rgba(255,255,255,.25); }
-.hero-stats {
-  display: flex; align-items: center; gap: 40px;
-  margin-top: 64px; position: relative; z-index: 1;
-  flex-wrap: wrap; justify-content: center;
-}
-.hero-stat { text-align: center; }
-.hero-stat-val { font-size: 28px; font-weight: 800; color: var(--text); letter-spacing: -1px; line-height: 1; }
-.hero-stat-val em { font-style: normal; color: var(--cyan); }
-.hero-stat-label { font-size: 11px; color: var(--muted2); margin-top: 5px; font-family: var(--mono); }
-.hero-stat-divider { width: 1px; height: 36px; background: var(--border2); }
+/* Hero — two column */
+.hero{min-height:calc(100vh - 64px);display:grid;grid-template-columns:1fr 1fr;align-items:center;overflow:hidden}
+@media(max-width:900px){.hero{grid-template-columns:1fr;min-height:auto}}
+.hero-left{padding:80px 60px 80px 36px;display:flex;flex-direction:column;position:relative;z-index:1}
+.hero-left::before{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(0,229,200,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,200,.025) 1px,transparent 1px);background-size:52px 52px;mask-image:linear-gradient(to right,transparent,black 30%,black 70%,transparent);pointer-events:none}
+.hero-eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;letter-spacing:.7px;text-transform:uppercase;color:var(--cyan);font-family:var(--mono);background:rgba(0,229,200,.08);border:1px solid rgba(0,229,200,.2);border-radius:20px;padding:5px 14px;margin-bottom:28px;width:fit-content}
+.hero-title{font-family:var(--display);font-size:clamp(44px,5.5vw,72px);font-weight:700;line-height:1.08;letter-spacing:-1.5px;color:var(--text);margin-bottom:22px}
+.hero-title em{font-style:italic;color:var(--cyan)}
+.hero-sub{font-size:18px;color:var(--muted2);line-height:1.8;max-width:480px;margin-bottom:40px;font-weight:400}
+.hero-actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:56px}
+.btn-primary{display:inline-flex;align-items:center;gap:8px;padding:15px 30px;background:var(--cyan);color:#000;font-weight:600;font-size:16px;font-family:var(--body);border:none;border-radius:12px;cursor:pointer;text-decoration:none;transition:opacity .15s}
+.btn-primary:hover{opacity:.85}
+.btn-secondary{display:inline-flex;align-items:center;gap:8px;padding:15px 30px;color:var(--muted2);font-size:16px;font-weight:500;font-family:var(--body);border:1px solid var(--border2);border-radius:12px;cursor:pointer;text-decoration:none;transition:all .15s;background:transparent}
+.btn-secondary:hover{color:var(--text);border-color:rgba(255,255,255,.25)}
+.hero-stats{display:flex;align-items:center;gap:36px;flex-wrap:wrap}
+.hero-stat-val{font-family:var(--display);font-size:32px;font-weight:700;color:var(--text);letter-spacing:-1px;line-height:1}
+.hero-stat-val em{font-style:normal;color:var(--cyan)}
+.hero-stat-label{font-size:13px;color:var(--muted2);margin-top:5px}
+.hero-stat-divider{width:1px;height:40px;background:var(--border2)}
 
-/* ── Section common ────────────────────────────────────── */
-section { padding: 96px 32px; max-width: 1200px; margin: 0 auto; }
-.section-label {
-  font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
-  color: var(--cyan); font-family: var(--mono); margin-bottom: 14px;
-}
-.section-title { font-size: clamp(28px, 4vw, 42px); font-weight: 800; letter-spacing: -1px; margin-bottom: 14px; }
-.section-sub { font-size: 15px; color: var(--muted2); line-height: 1.7; max-width: 540px; }
+/* Hero photo collage */
+.hero-right{position:relative;height:100%;min-height:600px;overflow:hidden}
+.hero-photo-grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;height:100%;gap:4px}
+.hp{overflow:hidden;position:relative}
+.hp img{width:100%;height:100%;object-fit:cover;display:block;filter:brightness(.88) saturate(1.1);transition:transform .4s ease}
+.hp:hover img{transform:scale(1.04)}
+.hp-1{grid-row:span 2}
+.hero-overlay{position:absolute;inset:0;background:linear-gradient(to right,rgba(6,8,13,1) 0%,rgba(6,8,13,.35) 35%,transparent 60%);pointer-events:none}
+.hero-right::after{content:'';position:absolute;bottom:0;left:0;right:0;height:120px;background:linear-gradient(to top,var(--bg),transparent);pointer-events:none;z-index:1}
 
-/* ── Services grid ─────────────────────────────────────── */
-.services-header { margin-bottom: 48px; }
-.services-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
-.service-card {
-  background: var(--panel); border: 1px solid var(--border);
-  border-radius: 18px; padding: 28px; position: relative;
-  text-decoration: none; color: inherit;
-  transition: border-color .2s, transform .15s;
-  display: flex; flex-direction: column; gap: 0;
-  overflow: hidden;
-}
-.service-card::before {
-  content: ''; position: absolute; inset: 0; border-radius: 18px; opacity: 0;
-  transition: opacity .2s;
-}
-.service-card:hover { transform: translateY(-2px); }
-.service-card.live { border-color: rgba(0,229,200,.2); }
-.service-card.live::before { background: radial-gradient(ellipse at top left, rgba(0,229,200,.06), transparent 60%); }
-.service-card.live:hover { border-color: rgba(0,229,200,.4); }
-.service-card.live::before { opacity: 1; }
-.service-card.soon { cursor: default; }
-.service-card.soon:hover { transform: none; }
-.sc-icon {
-  width: 48px; height: 48px; border-radius: 14px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 22px; margin-bottom: 20px; flex-shrink: 0;
-}
-.sc-icon.cyan   { background: rgba(0,229,200,.12); }
-.sc-icon.gold   { background: rgba(245,200,66,.12); }
-.sc-icon.purple { background: rgba(139,124,248,.12); }
-.sc-icon.coral  { background: rgba(255,107,53,.12); }
-.sc-badge {
-  display: inline-flex; align-items: center; gap: 5px;
-  font-size: 9px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
-  font-family: var(--mono); border-radius: 6px; padding: 2px 8px; margin-bottom: 12px;
-  width: fit-content;
-}
-.sc-badge.live { background: rgba(34,199,138,.1); color: var(--good); border: 1px solid rgba(34,199,138,.22); }
-.sc-badge.soon { background: rgba(110,122,154,.12); color: var(--muted2); border: 1px solid var(--border2); }
-.sc-badge.members { background: rgba(139,124,248,.1); color: var(--purple); border: 1px solid rgba(139,124,248,.22); }
-.sc-title { font-size: 18px; font-weight: 800; margin-bottom: 8px; letter-spacing: -.3px; }
-.sc-desc { font-size: 13px; color: var(--muted2); line-height: 1.7; flex: 1; }
-.sc-action {
-  display: inline-flex; align-items: center; gap: 6px;
-  margin-top: 22px; font-size: 12px; font-weight: 700; color: var(--cyan);
-  text-decoration: none; transition: gap .15s;
-}
-.service-card:hover .sc-action { gap: 10px; }
-.sc-action.disabled { color: var(--muted); pointer-events: none; }
+/* Divider */
+.divider{border:none;border-top:1px solid var(--border);margin:0 36px}
 
-/* ── Divider ───────────────────────────────────────────── */
-.section-divider { border: none; border-top: 1px solid var(--border); margin: 0 32px; }
+/* Sections */
+section{padding:96px 36px;max-width:1240px;margin:0 auto}
+.section-label{font-size:11px;font-weight:600;letter-spacing:.9px;text-transform:uppercase;color:var(--cyan);font-family:var(--mono);margin-bottom:14px}
+.section-title{font-family:var(--display);font-size:clamp(30px,3.5vw,48px);font-weight:700;letter-spacing:-.8px;margin-bottom:16px;line-height:1.15}
+.section-sub{font-size:18px;color:var(--muted2);line-height:1.8;max-width:560px;font-weight:400}
 
-/* ── How it works ──────────────────────────────────────── */
-.hiw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 24px; margin-top: 48px; }
-.hiw-step { display: flex; flex-direction: column; gap: 14px; }
-.hiw-num {
-  width: 36px; height: 36px; border-radius: 10px;
-  background: rgba(0,229,200,.1); border: 1px solid rgba(0,229,200,.22);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 13px; font-weight: 700; color: var(--cyan); font-family: var(--mono);
-}
-.hiw-title { font-size: 15px; font-weight: 700; }
-.hiw-desc { font-size: 13px; color: var(--muted2); line-height: 1.7; }
+/* Services */
+.services-header{margin-bottom:52px}
+.services-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:18px}
+.service-card{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:32px;text-decoration:none;color:inherit;transition:border-color .2s,transform .15s;display:flex;flex-direction:column;position:relative;overflow:hidden}
+.service-card.live{border-color:rgba(0,229,200,.22)}
+.service-card.live::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at top left,rgba(0,229,200,.06),transparent 60%)}
+.service-card.live:hover{border-color:rgba(0,229,200,.45);transform:translateY(-2px)}
+.service-card.soon{cursor:default}
+.sc-icon{width:52px;height:52px;border-radius:15px;display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:22px;flex-shrink:0}
+.sc-icon.cyan{background:rgba(0,229,200,.12)}.sc-icon.gold{background:rgba(245,200,66,.12)}.sc-icon.purple{background:rgba(139,124,248,.12)}.sc-icon.coral{background:rgba(255,107,53,.12)}
+.sc-badge{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;font-family:var(--mono);border-radius:6px;padding:3px 9px;margin-bottom:14px;width:fit-content}
+.sc-badge.live{background:rgba(34,199,138,.1);color:var(--good);border:1px solid rgba(34,199,138,.22)}
+.sc-badge.soon{background:rgba(110,122,154,.12);color:var(--muted2);border:1px solid var(--border2)}
+.sc-badge.members{background:rgba(139,124,248,.1);color:var(--purple);border:1px solid rgba(139,124,248,.22)}
+.sc-title{font-family:var(--display);font-size:22px;font-weight:600;margin-bottom:10px;letter-spacing:-.2px}
+.sc-desc{font-size:16px;color:var(--muted2);line-height:1.75;flex:1;font-weight:400}
+.sc-action{display:inline-flex;align-items:center;gap:7px;margin-top:24px;font-size:14px;font-weight:600;color:var(--cyan);text-decoration:none;transition:gap .15s}
+.service-card:hover .sc-action{gap:11px}
+.sc-action.disabled{color:var(--muted);pointer-events:none}
 
-/* ── Philosophy ────────────────────────────────────────── */
-.philosophy-wrap {
-  background: var(--panel); border: 1px solid var(--border); border-radius: 20px;
-  padding: 56px 64px; display: grid; grid-template-columns: 1fr 1fr; gap: 64px;
-  align-items: center;
-}
-@media(max-width:700px){ .philosophy-wrap { grid-template-columns:1fr; padding:36px 28px; gap:32px; } }
-.philosophy-quote {
-  font-size: clamp(20px, 3vw, 28px); font-weight: 700; line-height: 1.4;
-  letter-spacing: -.5px; color: var(--text);
-}
-.philosophy-quote em { font-style: normal; color: var(--cyan); }
-.philosophy-attr { margin-top: 20px; font-size: 12px; color: var(--muted2); font-family: var(--mono); }
-.philosophy-points { display: flex; flex-direction: column; gap: 20px; }
-.pp-item { display: flex; align-items: flex-start; gap: 14px; }
-.pp-icon { width: 8px; height: 8px; border-radius: 50%; background: var(--cyan); flex-shrink: 0; margin-top: 6px; }
-.pp-text { font-size: 14px; color: var(--muted2); line-height: 1.7; }
-.pp-text strong { color: var(--text); font-weight: 600; }
+/* Photo strip */
+.photo-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:56px}
+.ps-item{border-radius:16px;overflow:hidden;position:relative;aspect-ratio:4/5}
+.ps-item img{width:100%;height:100%;object-fit:cover;display:block;filter:brightness(.85) saturate(1.05);transition:transform .5s ease}
+.ps-item:hover img{transform:scale(1.04)}
+.ps-cap{position:absolute;bottom:0;left:0;right:0;padding:24px 20px 20px;background:linear-gradient(to top,rgba(6,8,13,.92) 0%,transparent 100%)}
+.ps-cap-text{font-size:16px;color:var(--text);font-weight:500;line-height:1.5}
+.ps-cap-sub{font-size:13px;color:var(--muted2);margin-top:4px}
 
-/* ── Footer ────────────────────────────────────────────── */
-footer {
-  border-top: 1px solid var(--border);
-  padding: 40px 32px;
-  display: flex; align-items: center; justify-content: space-between;
-  flex-wrap: wrap; gap: 20px;
-}
-.footer-brand { display: flex; align-items: center; gap: 10px; }
-.footer-logo {
-  width: 26px; height: 26px; background: var(--cyan); border-radius: 6px;
-  display: flex; align-items: center; justify-content: center;
-  font-family: var(--mono); font-weight: 700; font-size: 11px; color: #000;
-}
-.footer-name { font-size: 13px; font-weight: 700; }
-.footer-copy { font-size: 11px; color: var(--muted); font-family: var(--mono); }
-.footer-links { display: flex; gap: 20px; }
-.footer-link { font-size: 12px; color: var(--muted2); text-decoration: none; transition: color .15s; }
-.footer-link:hover { color: var(--text); }
+/* Athlete scroll */
+.athletes-section{padding:80px 0;overflow:hidden;position:relative}
+.athletes-label{font-size:11px;font-weight:600;letter-spacing:.9px;text-transform:uppercase;color:var(--cyan);font-family:var(--mono);margin-bottom:16px;padding:0 36px}
+.athletes-title{font-family:var(--display);font-size:clamp(26px,3vw,40px);font-weight:700;letter-spacing:-.5px;margin-bottom:10px;padding:0 36px;max-width:600px;line-height:1.2}
+.athletes-sub{font-size:17px;color:var(--muted2);line-height:1.75;padding:0 36px;max-width:520px;margin-bottom:40px;font-weight:400}
+.athletes-scroll{display:flex;gap:16px;padding:0 36px;overflow-x:auto;scrollbar-width:none}
+.athletes-scroll::-webkit-scrollbar{display:none}
+.athlete-card{flex-shrink:0;width:280px;border-radius:18px;overflow:hidden;position:relative;aspect-ratio:3/4}
+.athlete-card img{width:100%;height:100%;object-fit:cover;filter:brightness(.82) saturate(1.1);transition:transform .4s ease;display:block}
+.athlete-card:hover img{transform:scale(1.05)}
+.athlete-card-cap{position:absolute;bottom:0;left:0;right:0;padding:28px 20px 20px;background:linear-gradient(to top,rgba(6,8,13,.9) 0%,transparent 100%)}
+.athlete-card-name{font-size:15px;font-weight:600;color:var(--text)}
+.athlete-card-sub{font-size:13px;color:var(--muted2);margin-top:4px}
+
+/* How it works */
+.hiw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:28px;margin-top:52px}
+.hiw-step{display:flex;flex-direction:column;gap:16px}
+.hiw-num{width:40px;height:40px;border-radius:12px;background:rgba(0,229,200,.1);border:1px solid rgba(0,229,200,.22);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--cyan);font-family:var(--mono)}
+.hiw-title{font-family:var(--display);font-size:19px;font-weight:600;letter-spacing:-.2px}
+.hiw-desc{font-size:16px;color:var(--muted2);line-height:1.75;font-weight:400}
+
+/* Philosophy */
+.philosophy-wrap{background:var(--panel);border:1px solid var(--border);border-radius:22px;padding:60px 68px;display:grid;grid-template-columns:1fr 1fr;gap:68px;align-items:center}
+@media(max-width:800px){.philosophy-wrap{grid-template-columns:1fr;padding:40px 32px;gap:36px}}
+.philosophy-quote{font-family:var(--display);font-size:clamp(22px,2.8vw,32px);font-weight:600;line-height:1.45;letter-spacing:-.3px;color:var(--text)}
+.philosophy-quote em{font-style:italic;color:var(--cyan)}
+.philosophy-attr{margin-top:22px;font-size:14px;color:var(--muted2);font-family:var(--mono)}
+.philosophy-points{display:flex;flex-direction:column;gap:24px}
+.pp-item{display:flex;align-items:flex-start;gap:16px}
+.pp-icon{width:8px;height:8px;border-radius:50%;background:var(--cyan);flex-shrink:0;margin-top:8px}
+.pp-text{font-size:16px;color:var(--muted2);line-height:1.8}
+.pp-text strong{color:var(--text);font-weight:600}
+
+/* CTA band */
+.cta-band{background:linear-gradient(135deg,rgba(0,229,200,.08) 0%,rgba(139,124,248,.08) 100%);border:1px solid rgba(0,229,200,.15);border-radius:22px;padding:56px 60px;text-align:center;margin:0 36px 80px}
+.cta-band-title{font-family:var(--display);font-size:clamp(26px,3vw,42px);font-weight:700;letter-spacing:-.5px;margin-bottom:14px}
+.cta-band-sub{font-size:18px;color:var(--muted2);margin-bottom:32px;max-width:480px;margin-left:auto;margin-right:auto;line-height:1.7}
+.cta-band-actions{display:flex;align-items:center;gap:14px;justify-content:center;flex-wrap:wrap}
+
+/* Footer */
+footer{border-top:1px solid var(--border);padding:44px 36px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px}
+.footer-brand{display:flex;align-items:center;gap:11px}
+.footer-logo{width:28px;height:28px;background:var(--cyan);border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:11px;color:#000}
+.footer-name{font-family:var(--display);font-size:15px;font-weight:600}
+.footer-copy{font-size:13px;color:var(--muted);font-family:var(--mono)}
+.footer-links{display:flex;gap:22px}
+.footer-link{font-size:14px;color:var(--muted2);text-decoration:none;transition:color .15s}
+.footer-link:hover{color:var(--text)}
 </style>
 </head>
 <body>
 
-<!-- ── Navigation ──────────────────────────────────────── -->
 <nav>
   <a href="index.html" class="nav-logo">
     <div class="nav-logo-mark">ESL</div>
@@ -273,166 +163,246 @@ footer {
     </div>
   </a>
   <div class="nav-links">
-    <a href="index.html"          class="nav-link active">Home</a>
-    <a href="gait-analyzer.html"  class="nav-link">StrideScope</a>
-    <a href="#"                   class="nav-link">Coaching <span class="soon">Soon</span></a>
-    <a href="#"                   class="nav-link">Metabolic Testing <span class="soon">Soon</span></a>
-    <a href="#"                   class="nav-link">Training Plans <span class="soon">Soon</span></a>
+    <a href="index.html"         class="nav-link active">Home</a>
+    <a href="gait-analyzer.html" class="nav-link">StrideScope</a>
+    <a href="#"                  class="nav-link">Coaching <span class="soon">Soon</span></a>
+    <a href="#"                  class="nav-link">Metabolic Testing <span class="soon">Soon</span></a>
+    <a href="#"                  class="nav-link">Training Plans <span class="soon">Soon</span></a>
   </div>
-  <a href="gait-analyzer.html" class="nav-cta">Try StrideScope →</a>
+  <a href="gait-analyzer.html" class="nav-cta">Try StrideScope free →</a>
 </nav>
 
-<!-- ── Hero ────────────────────────────────────────────── -->
+<!-- Hero -->
 <div class="hero">
-  <div class="hero-eyebrow">Endurance Science Labs</div>
-  <h1 class="hero-title">
-    Train smarter.<br>Race <em>faster.</em>
-  </h1>
-  <p class="hero-sub">
-    Evidence-based coaching, biomechanical analysis, and metabolic testing — built for serious endurance athletes who want to understand their physiology, not just follow a plan.
-  </p>
-  <div class="hero-actions">
-    <a href="gait-analyzer.html" class="btn-primary">Try StrideScope free →</a>
-    <a href="#services" class="btn-secondary">Explore services</a>
+  <div class="hero-left">
+    <div class="hero-eyebrow">◉ Endurance Science Labs</div>
+    <h1 class="hero-title">Train smarter.<br>Race <em>faster.</em></h1>
+    <p class="hero-sub">Evidence-based coaching, biomechanical analysis, and metabolic testing — built for endurance athletes who want to truly understand their body, not just follow a plan.</p>
+    <div class="hero-actions">
+      <a href="gait-analyzer.html" class="btn-primary">Try StrideScope free →</a>
+      <a href="#services" class="btn-secondary">Explore services</a>
+    </div>
+    <div class="hero-stats">
+      <div>
+        <div class="hero-stat-val">7<em>+</em></div>
+        <div class="hero-stat-label">Gait phases analyzed</div>
+      </div>
+      <div class="hero-stat-divider"></div>
+      <div>
+        <div class="hero-stat-val">100<em>%</em></div>
+        <div class="hero-stat-label">In-browser · Private</div>
+      </div>
+      <div class="hero-stat-divider"></div>
+      <div>
+        <div class="hero-stat-val">0<em>$</em></div>
+        <div class="hero-stat-label">To try StrideScope</div>
+      </div>
+    </div>
   </div>
-  <div class="hero-stats">
-    <div class="hero-stat">
-      <div class="hero-stat-val">7<em>+</em></div>
-      <div class="hero-stat-label">Gait phases analyzed</div>
+  <div class="hero-right">
+    <div class="hero-photo-grid">
+      <div class="hp hp-1">
+        <img src="https://images.unsplash.com/photo-1571008887538-b36bb32f4571?auto=format&fit=crop&w=600&q=80" alt="Runner on track">
+      </div>
+      <div class="hp">
+        <img src="https://images.unsplash.com/photo-1552674605-db6ffd4facb5?auto=format&fit=crop&w=600&q=80" alt="Trail runner">
+      </div>
+      <div class="hp">
+        <img src="https://images.unsplash.com/photo-1538805060782-008c7e98a3f7?auto=format&fit=crop&w=600&q=80" alt="Marathon runner">
+      </div>
     </div>
-    <div class="hero-stat-divider"></div>
-    <div class="hero-stat">
-      <div class="hero-stat-val">100<em>%</em></div>
-      <div class="hero-stat-label">Browser-based · Private</div>
-    </div>
-    <div class="hero-stat-divider"></div>
-    <div class="hero-stat">
-      <div class="hero-stat-val">0<em>$</em></div>
-      <div class="hero-stat-label">To try StrideScope</div>
-    </div>
+    <div class="hero-overlay"></div>
   </div>
 </div>
 
-<hr class="section-divider">
+<hr class="divider">
 
-<!-- ── Services ────────────────────────────────────────── -->
+<!-- Services -->
 <section id="services">
   <div class="services-header">
     <div class="section-label">Services</div>
-    <h2 class="section-title">Everything you need to improve</h2>
-    <p class="section-sub">A growing suite of tools and services built around the science of endurance performance.</p>
+    <h2 class="section-title">Everything you need to run better</h2>
+    <p class="section-sub">A growing suite of tools and services built around the science of endurance performance — for athletes of all levels.</p>
   </div>
   <div class="services-grid">
-
-    <!-- StrideScope -->
     <a href="gait-analyzer.html" class="service-card live">
       <div class="sc-icon cyan">◉</div>
-      <div class="sc-badge live">● Live</div>
+      <div class="sc-badge live">● Live now</div>
       <div class="sc-title">StrideScope</div>
-      <p class="sc-desc">Upload a running video and get instant biomechanical analysis across 7 key gait phases — skeleton overlay, joint angles, and phase-specific coaching cues. Runs entirely in your browser.</p>
+      <p class="sc-desc">Upload a running video and get instant biomechanical analysis across 7 key gait phases — skeleton overlay, joint angles, and plain-language coaching cues. Runs entirely in your browser.</p>
       <span class="sc-action">Open StrideScope →</span>
     </a>
-
-    <!-- Coaching -->
     <div class="service-card soon">
       <div class="sc-icon gold">◈</div>
       <div class="sc-badge soon">Coming soon</div>
       <div class="sc-title">1-on-1 Coaching</div>
-      <p class="sc-desc">Personalized training plans built around your race goals, lifestyle, and physiology. Weekly check-ins, adaptive planning, and direct access to your coach.</p>
-      <span class="sc-action disabled">Notify me →</span>
+      <p class="sc-desc">Personalized training built around your race goals, schedule, and physiology. Weekly check-ins, adaptive planning, and direct access to your coach — not a chatbot.</p>
+      <span class="sc-action disabled">Notify me when available →</span>
     </div>
-
-    <!-- Metabolic Testing -->
     <div class="service-card soon">
       <div class="sc-icon purple">⬡</div>
       <div class="sc-badge soon">Coming soon</div>
       <div class="sc-title">Metabolic Testing</div>
-      <p class="sc-desc">VO₂ max, lactate threshold, and fat oxidation testing to identify your exact training zones and fuel utilization — the foundation of precise endurance training.</p>
-      <span class="sc-action disabled">Notify me →</span>
+      <p class="sc-desc">VO₂ max, lactate threshold, and fat oxidation testing to pinpoint your exact training zones — the foundation of intelligent, data-driven endurance training.</p>
+      <span class="sc-action disabled">Notify me when available →</span>
     </div>
-
-    <!-- Training Plans -->
     <div class="service-card soon">
       <div class="sc-icon coral">▶</div>
       <div class="sc-badge members">Members only</div>
       <div class="sc-title">Training Plans</div>
-      <p class="sc-desc">Science-backed plans for 5K through ultramarathon. Built with periodization principles and structured around real-world athlete schedules — not one-size-fits-all templates.</p>
+      <p class="sc-desc">Science-backed plans for 5K through ultramarathon, built with real periodization principles around your schedule — not generic templates repurposed from elsewhere.</p>
       <span class="sc-action disabled">Coming soon →</span>
     </div>
+  </div>
 
+  <div class="photo-strip">
+    <div class="ps-item">
+      <img src="https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?auto=format&fit=crop&w=800&q=80" alt="Runner at sunrise">
+      <div class="ps-cap">
+        <div class="ps-cap-text">From first 5K to marathon PR</div>
+        <div class="ps-cap-sub">Athletes of every level and background</div>
+      </div>
+    </div>
+    <div class="ps-item">
+      <img src="https://images.unsplash.com/photo-1502224562085-639556652f33?auto=format&fit=crop&w=800&q=80" alt="Marathon finish">
+      <div class="ps-cap">
+        <div class="ps-cap-text">Race day confidence</div>
+        <div class="ps-cap-sub">Built through training, not guesswork</div>
+      </div>
+    </div>
+    <div class="ps-item">
+      <img src="https://images.unsplash.com/photo-1508215885820-4585e56135c8?auto=format&fit=crop&w=800&q=80" alt="Runners group">
+      <div class="ps-cap">
+        <div class="ps-cap-text">Science for every runner</div>
+        <div class="ps-cap-sub">Not just the elites</div>
+      </div>
+    </div>
   </div>
 </section>
 
-<hr class="section-divider">
+<hr class="divider">
 
-<!-- ── How StrideScope works ────────────────────────────── -->
+<!-- Who this is for -->
+<div class="athletes-section">
+  <div class="athletes-label">Who this is for</div>
+  <div class="athletes-title">Runners who want answers, not just miles</div>
+  <p class="athletes-sub">Whether you're chasing your first half marathon or trying to break 2:30, understanding your body is the edge that matters.</p>
+  <div class="athletes-scroll">
+    <div class="athlete-card">
+      <img src="https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=560&q=80" alt="Recreational runner">
+      <div class="athlete-card-cap">
+        <div class="athlete-card-name">Recreational runners</div>
+        <div class="athlete-card-sub">Chasing PRs and staying healthy</div>
+      </div>
+    </div>
+    <div class="athlete-card">
+      <img src="https://images.unsplash.com/photo-1470010762743-1fa2363f65ca?auto=format&fit=crop&w=560&q=80" alt="Masters athlete">
+      <div class="athlete-card-cap">
+        <div class="athlete-card-name">Masters athletes</div>
+        <div class="athlete-card-sub">Running stronger with age</div>
+      </div>
+    </div>
+    <div class="athlete-card">
+      <img src="https://images.unsplash.com/photo-1486218119243-13883505764c?auto=format&fit=crop&w=560&q=80" alt="Trail runner">
+      <div class="athlete-card-cap">
+        <div class="athlete-card-name">Trail & ultra runners</div>
+        <div class="athlete-card-sub">Efficiency over long distances</div>
+      </div>
+    </div>
+    <div class="athlete-card">
+      <img src="https://images.unsplash.com/photo-1461897104016-0b3b00cc81ee?auto=format&fit=crop&w=560&q=80" alt="Returning runner">
+      <div class="athlete-card-cap">
+        <div class="athlete-card-name">Returning from injury</div>
+        <div class="athlete-card-sub">Understanding what went wrong</div>
+      </div>
+    </div>
+    <div class="athlete-card">
+      <img src="https://images.unsplash.com/photo-1556817411-31ae72fa3ea0?auto=format&fit=crop&w=560&q=80" alt="Competitive runner">
+      <div class="athlete-card-cap">
+        <div class="athlete-card-name">Competitive runners</div>
+        <div class="athlete-card-sub">Finding the marginal gains</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- How StrideScope works -->
 <section id="how-it-works">
   <div class="section-label">StrideScope</div>
   <h2 class="section-title">Biomechanical analysis in minutes</h2>
-  <p class="section-sub">No specialist equipment. No lab visit. Just a side-view video of you running and a browser.</p>
+  <p class="section-sub">No specialist equipment. No lab visit. A side-view video and a browser is all you need.</p>
   <div class="hiw-grid">
     <div class="hiw-step">
       <div class="hiw-num">01</div>
-      <div class="hiw-title">Upload a video</div>
+      <div class="hiw-title">Upload your video</div>
       <p class="hiw-desc">Drop any side-view running clip — treadmill or outdoor. MP4, MOV, or WebM. Your video never leaves your device.</p>
     </div>
     <div class="hiw-step">
       <div class="hiw-num">02</div>
-      <div class="hiw-title">Automatic phase detection</div>
+      <div class="hiw-title">7 phases detected</div>
       <p class="hiw-desc">The tool scans your video and identifies 7 key gait phases: left and right foot strike, left and right toe-off, mid-stance, peak knee flex, and terminal swing.</p>
     </div>
     <div class="hiw-step">
       <div class="hiw-num">03</div>
       <div class="hiw-title">Review and refine</div>
-      <p class="hiw-desc">Each phase card shows the detected frame with skeleton overlay and angle arcs. Scrub frame-by-frame to perfect any phase, with phase-specific coaching guidance built in.</p>
+      <p class="hiw-desc">Each phase shows a skeleton overlay with angle arcs. Scrub frame-by-frame to perfect any phase, with plain-language coaching guidance built in for each one.</p>
     </div>
     <div class="hiw-step">
       <div class="hiw-num">04</div>
-      <div class="hiw-title">Read your angles</div>
-      <p class="hiw-desc">Trunk lean, knee flexion, hip extension, elbow angle, and foot strike offset — compared across all 7 phases in a single summary table.</p>
+      <div class="hiw-title">Read your results</div>
+      <p class="hiw-desc">Trunk lean, knee angles, hip extension, arm swing, and foot strike position — compared across all 7 phases and graded against reference ranges from elite runners.</p>
     </div>
   </div>
 </section>
 
-<hr class="section-divider">
+<hr class="divider">
 
-<!-- ── Philosophy ───────────────────────────────────────── -->
+<!-- Philosophy -->
 <section id="philosophy">
   <div class="philosophy-wrap">
     <div>
-      <div class="section-label" style="margin-bottom:20px">Our philosophy</div>
-      <p class="philosophy-quote">
-        "Most athletes train by feel. The best athletes train by <em>understanding.</em>"
-      </p>
+      <div class="section-label" style="margin-bottom:22px">Our philosophy</div>
+      <p class="philosophy-quote">"Most athletes train by feel. The best athletes train by <em>understanding.</em>"</p>
       <p class="philosophy-attr">— Endurance Science Labs</p>
     </div>
     <div class="philosophy-points">
       <div class="pp-item">
         <div class="pp-icon"></div>
-        <p class="pp-text"><strong>Data without context is noise.</strong> Every metric we surface comes with an explanation of what it means for your performance and how to act on it.</p>
+        <p class="pp-text"><strong>Data without context is noise.</strong> Every number we surface comes with an explanation of what it means for your performance and how to act on it.</p>
       </div>
       <div class="pp-item">
         <div class="pp-icon"></div>
-        <p class="pp-text"><strong>Physiology is individual.</strong> Reference ranges are starting points. The goal is to build a database of your own benchmarks over time.</p>
+        <p class="pp-text"><strong>Physiology is individual.</strong> Reference ranges are starting points. The goal is to build a picture of your own body over time — not compare you to an abstract average.</p>
       </div>
       <div class="pp-item">
         <div class="pp-icon"></div>
-        <p class="pp-text"><strong>Accessibility matters.</strong> Lab-grade analysis shouldn't require a lab. We're building tools that bring the science to any athlete, anywhere.</p>
+        <p class="pp-text"><strong>Accessibility matters.</strong> Lab-grade analysis shouldn't require a lab. We're building tools that bring the science to any athlete, anywhere, at any level.</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ── Footer ───────────────────────────────────────────── -->
+<!-- CTA -->
+<div class="cta-band">
+  <h2 class="cta-band-title">Ready to understand your running?</h2>
+  <p class="cta-band-sub">StrideScope is free to use. No signup, no upload, no data stored. Drop a video and see your gait in a new way.</p>
+  <div class="cta-band-actions">
+    <a href="gait-analyzer.html" class="btn-primary">Open StrideScope →</a>
+    <a href="#services" class="btn-secondary">See all services</a>
+  </div>
+</div>
+
 <footer>
   <div class="footer-brand">
     <div class="footer-logo">ESL</div>
     <div class="footer-name">Endurance Science Labs</div>
   </div>
   <div class="footer-links">
-    <a href="index.html" class="footer-link">Home</a>
+    <a href="index.html"         class="footer-link">Home</a>
     <a href="gait-analyzer.html" class="footer-link">StrideScope</a>
-    <a href="#" class="footer-link">Contact</a>
+    <a href="#"                  class="footer-link">Contact</a>
   </div>
   <div class="footer-copy">© 2025 Endurance Science Labs</div>
 </footer>
