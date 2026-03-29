@@ -578,10 +578,10 @@ async function signOut(){ await auth.signOut(); resetApp(); }
 async function loadDatasetStats() {
   try {
     const [mSnap,fSnap] = await Promise.all([
-      db.collection('reference_sessions').where('sex','==','male').count().get(),
-      db.collection('reference_sessions').where('sex','==','female').count().get(),
+      db.collection('reference_sessions').where('sex','==','male').get(),
+      db.collection('reference_sessions').where('sex','==','female').get(),
     ]);
-    const mN = mSnap.data().count, fN = fSnap.data().count;
+    const mN = mSnap.size, fN = fSnap.size;
     document.getElementById('hdr-male-count').textContent   = mN;
     document.getElementById('hdr-female-count').textContent = fN;
     document.getElementById('ds-male-count').textContent    = mN;
