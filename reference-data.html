@@ -445,6 +445,14 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
         <div class="ds-updated" id="ds-updated"></div>
       </div>
       <button class="save-btn" id="save-btn" onclick="saveSession()" disabled>◉ Save session</button>
+      <div class="vet-panel" id="vet-panel">
+        <div class="vet-title" id="vet-title"></div>
+        <div class="vet-items" id="vet-items"></div>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:12px">
+          <div class="vet-note" id="vet-note"></div>
+          <button class="vet-save-anyway" id="vet-save-anyway" onclick="saveSession(true)">Save anyway</button>
+        </div>
+      </div>
       <div class="save-notice" id="save-notice"></div>
       <div class="save-error"  id="save-error"></div>
     </div>
