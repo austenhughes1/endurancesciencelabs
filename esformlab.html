@@ -283,6 +283,18 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 .save-btn:disabled{opacity:.35;cursor:not-allowed}
 .save-btn.saving{background:var(--panel2);color:var(--purple);border:1px solid rgba(139,124,248,.3)}
 .save-btn.saved{background:rgba(34,199,138,.15);color:var(--good);border:1px solid rgba(34,199,138,.3)}
+.vet-panel{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:16px;margin-top:14px;display:none}
+.vet-panel.show{display:block}
+.vet-title{font-size:12px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.vet-item{display:flex;align-items:flex-start;gap:9px;font-size:11px;margin-bottom:8px;line-height:1.6;font-family:var(--mono);padding:6px 8px;border-radius:7px}
+.vet-item:last-child{margin-bottom:0}
+.vet-item.warn{background:rgba(245,166,35,.07);color:var(--warn);border:1px solid rgba(245,166,35,.2)}
+.vet-item.error{background:rgba(245,80,80,.07);color:var(--bad);border:1px solid rgba(245,80,80,.2)}
+.vet-item.ok{background:rgba(34,199,138,.07);color:var(--good);border:1px solid rgba(34,199,138,.2)}
+.vet-action-row{display:flex;align-items:center;gap:10px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)}
+.vet-save-anyway{padding:6px 14px;font-size:11px;font-weight:700;font-family:var(--ui);border-radius:7px;border:1px solid rgba(245,166,35,.4);background:transparent;color:var(--warn);cursor:pointer;transition:all .15s}
+.vet-save-anyway:hover{background:rgba(245,166,35,.1)}
+.vet-note{font-size:10px;color:var(--muted2);font-family:var(--mono);flex:1}
 .save-notice{font-size:11px;color:var(--good);font-family:var(--mono);text-align:right;display:none;animation:fadeIn .3s ease}
 .save-notice.show{display:block}
 .save-error{font-size:11px;color:var(--bad);font-family:var(--mono);text-align:right;display:none}
@@ -1033,9 +1045,149 @@ function updateSaveSection(){
 // ══════════════════════════════════════════════════════════
 //  SAVE & RANGE COMPUTATION
 // ══════════════════════════════════════════════════════════
-async function saveSession(){
+// ══════════════════════════════════════════════════════════
+//  DATA VETTING — outlier detection + anatomical plausibility
+// ══════════════════════════════════════════════════════════
+
+// Anatomical plausibility hard limits (physically impossible outside these)
+const PLAUSIBILITY = {
+  trunk:  {min:-45,  max:60,   label:'Trunk lean'},
+  lKnee:  {min:30,   max:185,  label:'L knee angle'},
+  rKnee:  {min:30,   max:185,  label:'R knee angle'},
+  lHip:   {min:60,   max:210,  label:'L hip angle'},
+  rHip:   {min:60,   max:210,  label:'R hip angle'},
+  lElbow: {min:20,   max:175,  label:'L elbow angle'},
+  rElbow: {min:20,   max:175,  label:'R elbow angle'},
+  lFoot:  {min:-1.5, max:1.5,  label:'L foot offset'},
+  rFoot:  {min:-1.5, max:1.5,  label:'R foot offset'},
+};
+
+// IQR-based outlier detection against existing dataset for this sex
+async function fetchExistingValues(sex, phaseKey, metricKey){
+  try{
+    const snap = await db.collection('reference_sessions')
+      .where('sex','==',sex).get();
+    return snap.docs
+      .map(d=>d.data().phases?.[phaseKey]?.[metricKey])
+      .filter(v=>v!==undefined&&v!==null&&isFinite(v));
+  }catch(e){ return []; }
+}
+
+function iqrOutlierCheck(value, existingValues, metricLabel, phaseLabel){
+  if(existingValues.length < 6) return null; // not enough data to judge
+  const sorted = [...existingValues].sort((a,b)=>a-b);
+  const q1 = sorted[Math.floor(sorted.length*0.25)];
+  const q3 = sorted[Math.floor(sorted.length*0.75)];
+  const iqr = q3 - q1;
+  const lo  = q1 - 2.0 * iqr; // using 2x for sport data (wider than standard 1.5x)
+  const hi  = q3 + 2.0 * iqr;
+  if(value < lo || value > hi){
+    const pct = value < lo ? Math.round((lo-value)/iqr*10)/10 : Math.round((value-hi)/iqr*10)/10;
+    return `${metricLabel} at ${phaseLabel} (${value.toFixed(1)}) is ${pct} IQR outside the existing dataset range (${lo.toFixed(1)}–${hi.toFixed(1)})`;
+  }
+  return null;
+}
+
+async function vetSessionData(){
+  const warnings = [];   // amber — unusual but possible
+  const errors   = [];   // red — likely wrong / physically implausible
+
+  // 1. Anatomical plausibility checks (fast, no network)
+  PHASE_DEFS.forEach(def=>{
+    const m = phases[def.key]?.metrics;
+    if(!m) return;
+    METRIC_ROWS.forEach(metric=>{
+      const v     = m[metric.key];
+      const limit = PLAUSIBILITY[metric.key];
+      if(v==null||!limit) return;
+      if(v < limit.min || v > limit.max){
+        errors.push(`${limit.label} at "${def.label}" = ${v.toFixed(1)}° — outside physically possible range (${limit.min}–${limit.max}). This frame is likely wrong.`);
+      }
+    });
+  });
+
+  // 2. IQR outlier checks against existing dataset (async, per metric)
+  if(selectedSex && errors.length === 0){ // skip if already have errors
+    const checks = [];
+    for(const def of PHASE_DEFS){
+      const m = phases[def.key]?.metrics;
+      if(!m) continue;
+      for(const metric of METRIC_ROWS){
+        const v = m[metric.key];
+        if(v==null) continue;
+        checks.push(
+          fetchExistingValues(selectedSex, def.key, metric.key).then(existing=>{
+            const msg = iqrOutlierCheck(v, existing, metric.label, def.label);
+            if(msg) warnings.push(msg);
+          })
+        );
+      }
+    }
+    await Promise.all(checks);
+  }
+
+  // 3. Symmetry check — flag large L/R differences
+  const symPairs = [
+    ['lKnee','rKnee','Knee angle'],['lHip','rHip','Hip angle'],
+    ['lElbow','rElbow','Elbow angle'],
+  ];
+  PHASE_DEFS.forEach(def=>{
+    const m=phases[def.key]?.metrics;if(!m)return;
+    symPairs.forEach(([l,r,label])=>{
+      const lv=m[l],rv=m[r];
+      if(lv==null||rv==null)return;
+      const diff=Math.abs(lv-rv);
+      if(diff>35) warnings.push(`Large ${label} asymmetry at "${def.label}" (L:${lv.toFixed(0)}° vs R:${rv.toFixed(0)}° — ${diff.toFixed(0)}° difference). Double-check this phase is correctly identified.`);
+    });
+  });
+
+  return {warnings, errors};
+}
+
+async function saveSession(skipVetting=false){
   const athlete=document.getElementById('meta-athlete')?.value.trim();
   if(!selectedSex||!athlete){document.getElementById('save-error').textContent='Sex and athlete name are both required.';document.getElementById('save-error').className='save-error show';return;}
+
+  // Run data vetting unless explicitly skipped
+  if(!skipVetting){
+    document.getElementById('save-btn').disabled=true;
+    document.getElementById('save-btn').textContent='Checking data…';
+    const {warnings,errors} = await vetSessionData();
+    document.getElementById('save-btn').disabled=false;
+    document.getElementById('save-btn').textContent='◉ Save session';
+
+    if(warnings.length>0||errors.length>0){
+      const vetPanel = document.getElementById('vet-panel');
+      const vetItems = document.getElementById('vet-items');
+      const vetNote  = document.getElementById('vet-note');
+      const vetTitle = document.getElementById('vet-title');
+      const vetSaveAnyway = document.getElementById('vet-save-anyway');
+
+      vetPanel.className='vet-panel show';
+      vetTitle.textContent = errors.length>0
+        ? `⛔ ${errors.length} plausibility error${errors.length>1?'s':''} found`
+        : `⚠ ${warnings.length} data warning${warnings.length>1?'s':''} found`;
+
+      vetItems.innerHTML=[
+        ...errors.map(e=>`<div class="vet-item error">⛔ ${e}</div>`),
+        ...warnings.map(w=>`<div class="vet-item warn">⚠ ${w}</div>`),
+      ].join('');
+
+      if(errors.length>0){
+        vetNote.textContent='Errors indicate this data may be incorrect. Please re-check the flagged phases before saving.';
+        vetSaveAnyway.style.display='none';
+      } else {
+        vetNote.textContent='Warnings are advisory — the data may still be valid. Save anyway if you're confident in this session.';
+        vetSaveAnyway.style.display='inline-flex';
+      }
+      return; // stop here — user must review
+    }
+    // All clear
+    document.getElementById('vet-panel').className='vet-panel';
+  } else {
+    document.getElementById('vet-panel').className='vet-panel';
+  }
+
   const saveBtn=document.getElementById('save-btn'),saveNotice=document.getElementById('save-notice'),saveError=document.getElementById('save-error');
   saveBtn.className='save-btn saving';saveBtn.textContent='Saving…';saveBtn.disabled=true;
   saveNotice.className='save-notice';saveError.className='save-error';

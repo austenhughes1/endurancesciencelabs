@@ -157,6 +157,70 @@ nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:st
 .mm-item{font-size:9px;font-family:var(--mono);padding:2px 7px;border-radius:9px;background:var(--panel2);border:1px solid var(--border)}
 .mm-item.good{color:var(--good);border-color:rgba(34,199,138,.2)}.mm-item.warn{color:var(--warn);border-color:rgba(245,166,35,.2)}.mm-item.bad{color:var(--bad);border-color:rgba(245,80,80,.2)}.mm-item.na{color:var(--muted)}
 
+/* Bigger instruction banner text */
+.instr-banner{padding:22px 26px}
+.instr-title{font-size:18px !important;font-weight:800 !important;margin-bottom:10px !important}
+.instr-text{font-size:14px !important;line-height:1.8 !important;margin-bottom:14px !important}
+.instr-step{font-size:13px !important;line-height:1.65 !important}
+.instr-step-num{width:22px !important;height:22px !important;font-size:11px !important;flex-shrink:0;margin-top:2px !important}
+
+/* Detection quality pill on cards */
+.dq-pill{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-family:var(--mono);padding:2px 7px;border-radius:8px;margin-top:6px}
+.dq-pill.strong{background:rgba(34,199,138,.1);color:var(--good);border:1px solid rgba(34,199,138,.2)}
+.dq-pill.fair{background:rgba(245,166,35,.08);color:var(--warn);border:1px solid rgba(245,166,35,.2)}
+.dq-pill.weak{background:rgba(245,80,80,.08);color:var(--bad);border:1px solid rgba(245,80,80,.2)}
+
+/* Phase guide — bigger and more prominent */
+.pi-card{background:rgba(0,229,200,.04) !important;border:1px solid rgba(0,229,200,.18) !important}
+.pi-title{font-size:16px !important;margin-bottom:10px !important}
+.pi-desc{font-size:14px !important;line-height:1.8 !important;margin-bottom:14px !important}
+.pi-check{font-size:13px !important;line-height:1.65 !important}
+.pi-check-icon{font-size:12px !important;margin-top:3px !important}
+.pi-tip{font-size:12px !important;line-height:1.75 !important;padding:12px 14px !important}
+
+/* Measurements section — collapsible, tucked at bottom */
+.ep-measurements-toggle{
+  width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:10px;
+  padding:10px 14px;font-size:12px;font-weight:600;color:var(--muted2);cursor:pointer;
+  display:flex;align-items:center;justify-content:space-between;
+  font-family:var(--ui);transition:border-color .15s;text-align:left;
+}
+.ep-measurements-toggle:hover{border-color:rgba(0,229,200,.3);color:var(--text)}
+.ep-measurements-toggle .toggle-arrow{font-size:10px;transition:transform .2s}
+.ep-measurements-toggle.open .toggle-arrow{transform:rotate(180deg)}
+.ep-measurements-body{display:none;padding-top:10px}
+.ep-measurements-body.open{display:block}
+.ep-measurements-note{font-size:11px;color:var(--muted2);font-family:var(--mono);margin-bottom:10px;line-height:1.6}
+
+/* Complete Analysis button — sticky at bottom when all phases done */
+#complete-analysis-bar{
+  position:fixed;bottom:0;left:0;right:0;z-index:500;
+  padding:16px 32px;
+  background:rgba(6,8,13,.96);backdrop-filter:blur(12px);
+  border-top:1px solid var(--border2);
+  display:none;align-items:center;justify-content:space-between;gap:20px;
+}
+#complete-analysis-bar.show{display:flex}
+.ca-left{}
+.ca-title{font-size:15px;font-weight:700;color:var(--text)}
+.ca-sub{font-size:12px;color:var(--muted2);margin-top:2px;font-family:var(--mono)}
+.btn-complete{
+  display:inline-flex;align-items:center;gap:9px;
+  padding:14px 32px;background:var(--cyan);color:#000;
+  font-weight:700;font-size:15px;font-family:var(--ui);
+  border:none;border-radius:12px;cursor:pointer;transition:opacity .15s;
+  white-space:nowrap;flex-shrink:0;
+}
+.btn-complete:hover{opacity:.85}
+.phases-done-count{font-size:12px;color:var(--muted2);font-family:var(--mono)}
+
+/* Summary reveal */
+#summary-reveal{display:none}
+#summary-reveal.visible{display:block}
+
+/* Extra bottom padding when bar is showing */
+body.bar-showing #screen-phases{padding-bottom:120px}
+
 /* Expand overlay */
 #expand-overlay{position:fixed;inset:0;background:rgba(6,8,13,.9);z-index:400;display:none;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}
 #expand-overlay.open{display:flex}
@@ -337,12 +401,13 @@ nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:st
   <div class="instr-banner">
     <div class="instr-icon">◎</div>
     <div style="flex:1">
-      <div class="instr-title">How to review and adjust each phase</div>
-      <div class="instr-text">7 key gait moments detected. Phases with an amber border were not auto-detected and need a frame selected manually.</div>
+      <div class="instr-title">Review and adjust each phase before completing your analysis</div>
+      <div class="instr-text">The automatic detection makes a best guess at each phase, but it's not perfect — especially in shorter or edited clips. <strong>Before completing your analysis, check each phase card and adjust the frame if needed.</strong> The right frame for each phase makes a real difference in the accuracy of your results.</div>
       <div class="instr-steps">
-        <div class="instr-step"><div class="instr-step-num">1</div><span><strong>Click any phase card</strong> to open a focused view with phase-specific guidance.</span></div>
-        <div class="instr-step"><div class="instr-step-num">2</div><span><strong>Drag the scrubber</strong> to move through the video. Use ±1f / ±5f buttons for precision.</span></div>
-        <div class="instr-step"><div class="instr-step-num">3</div><span><strong>Click ↻ Analyze</strong> once you've found the right frame — angles update immediately.</span></div>
+        <div class="instr-step"><div class="instr-step-num">1</div><span><strong>Click any phase card</strong> to open a detailed view. Each card includes a plain-language description of exactly what to look for in that phase, with coaching notes specific to that moment of the gait cycle.</span></div>
+        <div class="instr-step"><div class="instr-step-num">2</div><span><strong>Drag the scrubber</strong> to find the best frame. Use the ±1f and ±5f buttons for precise, frame-by-frame control.</span></div>
+        <div class="instr-step"><div class="instr-step-num">3</div><span><strong>Click ↻ Analyze</strong> once you've found the right frame — the overlay and results update immediately.</span></div>
+        <div class="instr-step"><div class="instr-step-num">4</div><span><strong>When all phases look right</strong>, click the Complete Analysis button that appears at the bottom to generate your full summary report.</span></div>
       </div>
       <div class="instr-legend">
         <div class="il-item"><div class="il-swatch" style="background:var(--left)"></div>Left side</div>
@@ -356,9 +421,18 @@ nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:st
   </div>
   <div id="scan-summary-bar" class="scan-summary"></div>
   <div class="phase-groups" id="phase-groups"></div>
+<!-- Complete Analysis sticky bar -->
+<div id="complete-analysis-bar">
+  <div class="ca-left">
+    <div class="ca-title">All phases analyzed — ready to complete</div>
+    <div class="ca-sub" id="ca-sub">Review the summary below to finalize your analysis</div>
+  </div>
+  <button class="btn-complete" onclick="completeAnalysis()">◉ Complete analysis →</button>
+</div>
+
   <div class="summary">
-    <div class="summary-title">Angle comparison across all phases</div>
-    <div class="summary-sub">All angles in degrees. Graded against <span id="range-source-label">reference</span> ranges. Click any column to open that phase.</div>
+    <div class="summary-title" id="summary-title" style="font-size:22px">Your gait analysis report</div>
+    <div class="summary-sub" style="font-size:15px">All angles below are measured in degrees and graded against reference ranges from elite runners. Click any column header to open and re-examine that phase.</div>
     <div class="summary-scroll">
       <table class="stbl" id="summary-table"><thead></thead><tbody></tbody></table>
     </div>
@@ -418,9 +492,23 @@ nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:st
           <div class="pi-checks" id="ep-guide-checks"></div>
           <div class="pi-tip"   id="ep-guide-tip"></div>
         </div>
-        <div class="ep-metrics-card">
-          <div class="ep-m-label">Measured angles</div>
-          <div id="ep-metrics"><div class="ep-no-data">Analyze a frame to see angles</div></div>
+        <!-- Detection quality -->
+        <div id="ep-quality-card" style="background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;display:none">
+          <div style="font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;font-family:var(--mono)">Detection quality</div>
+          <div id="ep-quality-display"></div>
+          <div style="font-size:11px;color:var(--muted2);margin-top:8px;font-family:var(--mono);line-height:1.6" id="ep-quality-note"></div>
+        </div>
+
+        <!-- Measurements — collapsible, not the focus -->
+        <div style="margin-top:4px">
+          <button class="ep-measurements-toggle" id="ep-meas-toggle" onclick="toggleMeasurements()">
+            <span>Current measurements <span style="color:var(--muted);font-weight:400;font-size:11px">(estimated angles)</span></span>
+            <span class="toggle-arrow">▼</span>
+          </button>
+          <div class="ep-measurements-body" id="ep-meas-body">
+            <div class="ep-measurements-note">These are the calculated angle values for this frame. They are estimates based on pose detection — accuracy depends on video quality, camera angle, and keypoint confidence.</div>
+            <div id="ep-metrics"><div class="ep-no-data">Analyze a frame to see angles</div></div>
+          </div>
         </div>
       </div>
     </div>
@@ -759,6 +847,7 @@ async function analyzeCard(key){
   drawPose(ctx,kps,W,H);
   if(!ph.sideView){renderSideViewWarning(key);}else{renderMiniMetrics(key,ph.metrics);updateSummaryCol(key);}
   if(badge){badge.className='pc-badge ok';badge.textContent='analyzed';}if(loading)loading.classList.remove('show');
+  checkAllAnalyzed();
 }
 
 function renderMiniMetrics(key,m){
@@ -784,6 +873,7 @@ function openExpand(key){
   document.getElementById('nav-phase-btns').innerHTML=PHASE_DEFS.map((def,i)=>`<button class="nav-phase-btn ${def.key===key?'cur':''} ${!phases[def.key]?.detected?'undetected':''}" onclick="openExpand('${def.key}')">${i+1}. ${def.label}</button>`).join('');
   if(ph.metrics)renderExpandMetrics(ph.metrics);else document.getElementById('ep-metrics').innerHTML='<div class="ep-no-data">Click ↻ Analyze to measure angles</div>';
   drawExpandFrame(epCurrentT,ph.kps);
+  renderQualityCard(ph.kps);
   document.querySelectorAll('.phase-card').forEach(c=>c.classList.toggle('dimmed',c.id!==`card-${key}`));
   document.addEventListener('keydown',onExpandKey);
 }
@@ -836,7 +926,9 @@ async function epReanalyze(){
   const badge=document.getElementById(`badge-${expandKey}`);if(badge){badge.className='pc-badge ok';badge.textContent='analyzed';}
   renderMiniMetrics(expandKey,ph.metrics);updateSummaryCol(expandKey);
   const ptEl=document.getElementById(`ptime-${expandKey}`);if(ptEl){ptEl.textContent=epCurrentT.toFixed(2)+'s';ptEl.style.color='var(--cyan)';}
+  renderQualityCard(kps);
   btn.disabled=false;btn.textContent='↻ Analyze';epAnalyzing=false;
+  checkAllAnalyzed();
 }
 function renderExpandMetrics(m){
   document.getElementById('ep-metrics').innerHTML=METRIC_ROWS.map(r=>{const v=m[r.key],g=gradeVal(v,r.key,expandKey||'mid'),d=v!=null?r.fmt(v):'—';return `<div class="ep-metric"><div class="ep-ml"><div class="ep-dot" style="background:${r.dot}"></div>${r.label}</div><div style="text-align:right"><div class="ep-mv ${g}">${d}</div><div class="ep-mv-hint">${r.hint}</div></div></div>`;}).join('');
