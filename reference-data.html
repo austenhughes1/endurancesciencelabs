@@ -535,25 +535,33 @@ const FIREBASE_CONFIG = {
 const MIN_N = 5; // minimum sessions before a metric range is reliable
 
 // ── Firebase init ─────────────────────────────────────────
-firebase.initializeApp(FIREBASE_CONFIG);
-const auth = firebase.auth();
-const db   = firebase.firestore();
+let auth, db;
+try {
+  firebase.initializeApp(FIREBASE_CONFIG);
+  auth = firebase.auth();
+  db   = firebase.firestore();
+} catch(e) {
+  console.error('Firebase init failed:', e.message);
+}
 
 // ── Auth ──────────────────────────────────────────────────
-auth.onAuthStateChanged(user => {
-  if (user) {
-    document.getElementById('auth-overlay').style.display = 'none';
-    document.getElementById('loader').style.display = 'flex';
-    initModel();
-    loadDatasetStats();
-  }
-});
+if (auth) {
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      document.getElementById('auth-overlay').style.display = 'none';
+      document.getElementById('loader').style.display = 'flex';
+      initModel();
+      loadDatasetStats();
+    }
+  });
+}
 
 async function signIn() {
-  const email = document.getElementById('auth-email').value.trim();
-  const pw    = document.getElementById('auth-password').value;
   const errEl = document.getElementById('auth-error');
   const btn   = document.getElementById('auth-btn');
+  if (!auth) { errEl.textContent='Firebase failed to load. Check your network connection and reload.'; return; }
+  const email = document.getElementById('auth-email').value.trim();
+  const pw    = document.getElementById('auth-password').value;
   errEl.textContent = '';
   if (!email||!pw){errEl.textContent='Enter email and password.';return;}
   btn.disabled=true;btn.textContent='Signing in…';
