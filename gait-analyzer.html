@@ -666,6 +666,81 @@ const epDbt={};
 
 function initPhases(midT){const t=(typeof midT==='number'&&isFinite(midT))?midT:0;PHASE_DEFS.forEach(def=>{phases[def.key]={...def,t,detected:false,kps:null,metrics:null};});}
 
+// ── UI helpers ────────────────────────────────────────────
+function toggleMeasurements(){
+  const body   = document.getElementById('ep-meas-body');
+  const toggle = document.getElementById('ep-meas-toggle');
+  if(!body||!toggle) return;
+  const open = body.classList.toggle('open');
+  toggle.classList.toggle('open', open);
+}
+
+function getDetectionQuality(kps){
+  if(!kps) return null;
+  const relevant = [5,6,7,8,11,12,13,14,15,16];
+  const scores = relevant.map(i=>kps[i]?.score||0);
+  const avg = scores.reduce((a,b)=>a+b,0)/scores.length;
+  const min = Math.min(...scores);
+  if(avg>=0.72&&min>=0.4)  return {level:'strong',label:'Strong detection', note:'Keypoint confidence is high — measurements are reliable for this frame.'};
+  if(avg>=0.5 &&min>=0.25) return {level:'fair',  label:'Fair detection',   note:'Some keypoints have moderate confidence. Results are usable but consider re-checking the frame.'};
+  return                          {level:'weak',   label:'Weak detection',   note:'Several keypoints have low confidence. Try a different frame with less motion blur or obstruction.'};
+}
+
+function renderQualityCard(kps){
+  const qCard = document.getElementById('ep-quality-card');
+  const qDisp = document.getElementById('ep-quality-display');
+  const qNote = document.getElementById('ep-quality-note');
+  if(!qCard) return;
+  if(!kps){ qCard.style.display='none'; return; }
+  const q = getDetectionQuality(kps);
+  if(!q){ qCard.style.display='none'; return; }
+  qCard.style.display='block';
+  qDisp.innerHTML=`<span class="dq-pill ${q.level}">◉ ${q.label}</span>`;
+  qNote.textContent=q.note;
+}
+
+function renderSideViewWarning(key){
+  const el=document.getElementById(`metrics-mini-${key}`);
+  if(el) el.innerHTML='<span class="mm-item" style="color:var(--warn);border-color:rgba(245,166,35,.3);background:rgba(245,166,35,.05)">⚠ Side view required for angle analysis</span>';
+  // Still put dashes in summary so it's not blank
+  METRIC_ROWS.forEach(r=>{
+    const cell=document.getElementById(`sc-${key}-${r.key}`);
+    if(cell) cell.innerHTML='<span class="sv na" title="Front/back view — angle not meaningful">—</span>';
+  });
+}
+
+function checkAllAnalyzed(){
+  const analyzed = PHASE_DEFS.filter(d=>phases[d.key]?.metrics);
+  const bar = document.getElementById('complete-analysis-bar');
+  const sub = document.getElementById('ca-sub');
+  if(!bar) return;
+  if(analyzed.length>=7){
+    bar.classList.add('show');
+    document.body.classList.add('bar-showing');
+    if(sub) sub.textContent='All 7 phases analyzed — scroll down to see your full report';
+  } else if(analyzed.length>=3){
+    bar.classList.add('show');
+    document.body.classList.add('bar-showing');
+    if(sub) sub.textContent=`${analyzed.length} of 7 phases analyzed — keep refining or complete now`;
+  } else {
+    bar.classList.remove('show');
+    document.body.classList.remove('bar-showing');
+  }
+}
+
+function completeAnalysis(){
+  const sumEl = document.querySelector('.summary');
+  if(sumEl){
+    sumEl.scrollIntoView({behavior:'smooth',block:'start'});
+    sumEl.style.transition='box-shadow .4s';
+    sumEl.style.boxShadow='0 0 0 2px rgba(0,229,200,.4)';
+    setTimeout(()=>{sumEl.style.boxShadow='none';},1800);
+  }
+  const bar = document.getElementById('complete-analysis-bar');
+  if(bar) bar.classList.remove('show');
+  document.body.classList.remove('bar-showing');
+}
+
 async function initModel(){
   initFirebase(); // fetch live ranges in parallel
   try{
@@ -951,8 +1026,9 @@ function isSideView(kps){
     ? Math.abs(((lSh.y+rSh.y)/2) - ((lHi.y+rHi.y)/2))
     : Math.abs(lHi.y - rHi.y) * 2 || 100;
   const ratio = hipSpread / (torsoH || 100);
-  // Side view: ratio < 0.45  |  Front/back: ratio > 0.55
-  return ratio < 0.45;
+  // Side view: ratio < 0.7  |  Clear front/back: ratio > 0.9
+  // Be generous — only flag obvious front/back views, not slightly angled shots
+  return ratio < 0.7;
 }
 
 function drawPose(ctx,kps,W,H){
