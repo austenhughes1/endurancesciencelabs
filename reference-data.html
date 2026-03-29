@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ESFormLab — Reference Data Collection</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#06080d;--panel:#0d1020;--panel2:#131828;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+  --cyan:#00e5c8;--left:#00d4aa;--right:#ff6b35;--gold:#f5c842;--purple:#8b7cf8;
+  --text:#dde1ef;--muted:#3e4460;--muted2:#6e7a9a;
+  --good:#22c78a;--warn:#f5a623;--bad:#f55050;
+  --male:#5b9cf8;--female:#f87db0;
+  --ui:'Syne',system-ui,sans-serif;--mono:'Space Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--ui);background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse-border{0%,100%{border-color:rgba(245,166,35,.3)}50%{border-color:rgba(245,166,35,.7)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* Auth */
+#auth-overlay{position:fixed;inset:0;background:var(--bg);z-index:9000;display:flex;align-items:center;justify-content:center;padding:40px}
+.auth-card{background:var(--panel);border:1px solid var(--border2);border-radius:20px;padding:44px 48px;width:100%;max-width:400px;text-align:center}
+.auth-logo{width:52px;height:52px;background:var(--purple);border-radius:14px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:16px;color:#fff;margin:0 auto 20px}
+.auth-title{font-size:20px;font-weight:800;margin-bottom:6px}
+.auth-sub{font-size:12px;color:var(--muted2);margin-bottom:28px;line-height:1.6}
+.auth-field{width:100%;background:var(--panel2);border:1px solid var(--border2);border-radius:9px;padding:11px 14px;font-size:13px;color:var(--text);font-family:var(--mono);outline:none;transition:border-color .15s;margin-bottom:10px;display:block}
+.auth-field:focus{border-color:var(--purple)}
+.auth-btn{width:100%;padding:12px;background:var(--purple);color:#fff;font-weight:700;font-size:13px;font-family:var(--ui);border:none;border-radius:9px;cursor:pointer;transition:opacity .15s;margin-top:4px}
+.auth-btn:hover{opacity:.85}
+.auth-btn:disabled{opacity:.4;cursor:not-allowed}
+.auth-error{font-size:11px;color:var(--bad);font-family:var(--mono);margin-top:8px;min-height:16px}
+.auth-note{font-size:10px;color:var(--muted);margin-top:16px;font-family:var(--mono);line-height:1.6}
+
+/* Loader */
+#loader{position:fixed;inset:0;background:rgba(6,8,13,.96);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:2000;display:none}
+.spinner{width:36px;height:36px;border:3px solid var(--border2);border-top-color:var(--purple);border-radius:50%;animation:spin .7s linear infinite}
+.ld-title{font-size:14px;font-weight:700}
+.ld-sub{font-size:11px;color:var(--muted2);font-family:var(--mono)}
+
+/* Header */
+header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:300;background:rgba(6,8,13,.97);backdrop-filter:blur(10px)}
+.logo{width:32px;height:32px;background:var(--purple);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:11px;color:#fff;flex-shrink:0}
+.brand{font-size:15px;font-weight:700;letter-spacing:-.3px}
+.brand em{color:var(--purple);font-style:normal}
+.brand-sub{font-size:9px;color:var(--muted2);font-family:var(--mono);letter-spacing:.4px;text-transform:uppercase;margin-top:1px}
+.hdr-stats{display:flex;align-items:center;gap:6px;margin-left:24px}
+.hdr-stat-group{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:5px 12px}
+.hdr-stat{text-align:center}
+.hdr-stat-val{font-size:15px;font-weight:800;font-family:var(--mono);line-height:1}
+.hdr-stat-val.male{color:var(--male)}
+.hdr-stat-val.female{color:var(--female)}
+.hdr-stat-label{font-size:8px;color:var(--muted2);margin-top:2px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.4px}
+.hdr-divider{width:1px;height:24px;background:var(--border2)}
+#hdr-file{font-size:11px;color:var(--muted2);font-family:var(--mono);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:auto}
+.hdr-right{display:flex;align-items:center;gap:8px;margin-left:12px}
+.btn-ghost{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;font-size:11px;font-weight:600;font-family:var(--ui);border-radius:7px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;transition:all .15s}
+.btn-ghost:hover{border-color:var(--purple);color:var(--purple)}
+.btn-signout{color:var(--bad) !important}.btn-signout:hover{border-color:var(--bad) !important}
+
+/* Metadata bar */
+#metadata-bar{background:var(--panel);border-bottom:1px solid var(--border);padding:12px 22px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.meta-label{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--purple);font-family:var(--mono);white-space:nowrap;flex-shrink:0}
+
+/* Sex toggle */
+.sex-toggle{display:flex;background:var(--panel2);border:1px solid var(--border2);border-radius:9px;overflow:hidden;flex-shrink:0}
+.sex-btn{padding:7px 16px;font-size:12px;font-weight:700;font-family:var(--ui);border:none;background:transparent;cursor:pointer;transition:all .15s;color:var(--muted2);display:flex;align-items:center;gap:5px}
+.sex-btn:hover{color:var(--text)}
+.sex-btn.active-male{background:rgba(91,156,248,.18);color:var(--male)}
+.sex-btn.active-female{background:rgba(248,125,176,.18);color:var(--female)}
+.sex-divider{width:1px;background:var(--border2);align-self:stretch}
+
+.meta-field{background:var(--panel2);border:1px solid var(--border2);border-radius:8px;padding:7px 12px;font-size:12px;color:var(--text);font-family:var(--ui);outline:none;transition:border-color .15s}
+.meta-field:focus{border-color:var(--purple)}
+.meta-field::placeholder{color:var(--muted)}
+#meta-athlete{width:200px}
+#meta-event{width:160px}
+#meta-pace{width:110px}
+#meta-notes{width:220px}
+.meta-req-note{font-size:10px;color:var(--muted);font-family:var(--mono)}
+
+/* Sex indicator pill shown in header once set */
+.sex-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;font-family:var(--mono);border:1px solid;display:none}
+.sex-pill.male{background:rgba(91,156,248,.12);color:var(--male);border-color:rgba(91,156,248,.3)}
+.sex-pill.female{background:rgba(248,125,176,.12);color:var(--female);border-color:rgba(248,125,176,.3)}
+
+/* Upload */
+#screen-upload{display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 108px);padding:40px}
+.drop-zone{border:1.5px dashed rgba(139,124,248,.25);border-radius:22px;padding:60px 80px;text-align:center;cursor:pointer;max-width:480px;width:100%;background:rgba(139,124,248,.02);transition:all .2s}
+.drop-zone:hover,.drop-zone.over{border-color:var(--purple);background:rgba(139,124,248,.06)}
+.dz-icon{width:60px;height:60px;border-radius:18px;background:rgba(139,124,248,.12);display:flex;align-items:center;justify-content:center;margin:0 auto 22px;font-size:26px}
+.dz-title{font-size:20px;font-weight:800;margin-bottom:8px}
+.dz-sub{color:var(--muted2);font-size:13px;line-height:1.7}
+.dz-sex-warning{display:none;margin-top:16px;padding:10px 14px;background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.25);border-radius:9px;font-size:12px;color:var(--warn);font-weight:600}
+#file-input{display:none}
+.btn-main{display:inline-flex;align-items:center;gap:7px;margin-top:20px;padding:11px 24px;background:var(--purple);color:#fff;font-weight:700;font-size:13px;font-family:var(--ui);border:none;border-radius:9px;cursor:pointer;transition:opacity .15s}
+.btn-main:hover{opacity:.85}
+.btn-main:disabled{opacity:.4;cursor:not-allowed}
+.dz-hint{margin-top:12px;font-size:10px;color:var(--muted);font-family:var(--mono)}
+
+/* Scanning */
+#screen-scanning{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 108px);gap:24px;padding:40px}
+.scan-card{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:32px 36px;width:100%;max-width:500px}
+.scan-title{font-size:20px;font-weight:800;margin-bottom:5px}
+.scan-sub{font-size:13px;color:var(--muted2);margin-bottom:24px;line-height:1.6}
+.scan-preview{width:100%;aspect-ratio:16/9;background:#000;border-radius:10px;overflow:hidden;margin-bottom:18px;position:relative}
+.scan-preview canvas{width:100%;height:100%;object-fit:contain;display:block}
+.scan-preview-label{position:absolute;bottom:8px;left:10px;font-size:9px;color:var(--muted2);font-family:var(--mono);background:rgba(6,8,13,.82);padding:2px 8px;border-radius:4px}
+.scan-bar-track{height:4px;background:var(--panel2);border-radius:2px;overflow:hidden}
+.scan-bar-fill{height:100%;background:var(--purple);border-radius:2px;width:0%;transition:width .3s ease}
+.scan-step{font-size:10px;color:var(--muted2);font-family:var(--mono);margin-top:8px;min-height:14px}
+.scan-phase-list{margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.spl-item{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);padding:5px 8px;background:var(--panel2);border-radius:7px;border:1px solid var(--border)}
+.spl-item.found{color:var(--text);border-color:rgba(34,199,138,.2);background:rgba(34,199,138,.04)}
+.spl-item.not-found{color:var(--warn);border-color:rgba(245,166,35,.25);background:rgba(245,166,35,.04)}
+.spl-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.spl-item.found .spl-dot{background:var(--good)}
+.spl-item.not-found .spl-dot{background:var(--warn)}
+.spl-name{flex:1;font-size:10px}
+.spl-time{font-family:var(--mono);font-size:9px;color:var(--muted)}
+.spl-item.found .spl-time{color:var(--purple)}
+.spl-item.not-found .spl-time{color:var(--warn)}
+#scan-diag{margin-top:12px;padding:8px 10px;background:var(--panel2);border-radius:8px;font-size:10px;color:var(--muted2);font-family:var(--mono);line-height:1.7;display:none}
+
+/* Phases */
+#screen-phases{display:none;padding:24px 24px 0;max-width:1440px;margin:0 auto}
+.instr-banner{background:var(--panel);border:1px solid rgba(139,124,248,.2);border-radius:14px;padding:14px 20px;margin-bottom:20px;display:flex;gap:14px;align-items:flex-start}
+.instr-icon{font-size:20px;flex-shrink:0;margin-top:1px}
+.instr-title{font-size:13px;font-weight:700;margin-bottom:4px;color:var(--purple)}
+.instr-text{font-size:12px;color:var(--muted2);line-height:1.7}
+.scan-summary{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:18px;display:none;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--muted2);font-family:var(--mono)}
+.ss-item strong{color:var(--purple)}
+.ss-item.warn strong{color:var(--warn)}
+.ss-item.male strong{color:var(--male)}
+.ss-item.female strong{color:var(--female)}
+.phase-groups{display:flex;flex-direction:column;gap:20px}
+.phase-group{display:flex;flex-direction:column;gap:10px}
+.phase-group-label{font-size:10px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);padding-left:2px;display:flex;align-items:center;gap:8px}
+.phase-group-label::after{content:'';flex:1;height:1px;background:var(--border)}
+.phase-group-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.phase-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;transition:border-color .2s,transform .15s,opacity .3s}
+.phase-card:hover{border-color:rgba(139,124,248,.4);transform:translateY(-1px)}
+.phase-card.dimmed{opacity:.4;pointer-events:none}
+.phase-card.undetected{border-color:rgba(245,166,35,.3);animation:pulse-border 2s ease infinite}
+.pc-hdr{padding:12px 14px 10px;display:flex;align-items:center;gap:9px;border-bottom:1px solid var(--border)}
+.pc-num{width:20px;height:20px;border-radius:50%;background:rgba(139,124,248,.12);border:1px solid rgba(139,124,248,.28);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--purple);flex-shrink:0;font-family:var(--mono)}
+.phase-card.undetected .pc-num{background:rgba(245,166,35,.12);border-color:rgba(245,166,35,.35);color:var(--warn)}
+.pc-name-wrap{flex:1;min-width:0}
+.pc-name{font-size:12px;font-weight:700}
+.pc-desc{font-size:9px;color:var(--muted2);font-family:var(--mono);margin-top:1px}
+.pc-badge{font-size:8px;font-family:var(--mono);padding:2px 7px;border-radius:10px;flex-shrink:0;font-weight:700}
+.pc-badge.ok{background:rgba(34,199,138,.1);color:var(--good);border:1px solid rgba(34,199,138,.22)}
+.pc-badge.pending{background:rgba(62,68,96,.2);color:var(--muted2);border:1px solid var(--border)}
+.pc-badge.analyzing{background:rgba(139,124,248,.1);color:var(--purple);border:1px solid rgba(139,124,248,.25)}
+.pc-badge.manual{background:rgba(245,166,35,.1);color:var(--warn);border:1px solid rgba(245,166,35,.25)}
+.pc-canvas-wrap{background:#000;position:relative}
+.pc-canvas{width:100%;display:block}
+.pc-loading{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(6,8,13,.65)}
+.pc-loading.show{display:flex}
+.pc-mini-spinner{width:20px;height:20px;border:2px solid var(--border2);border-top-color:var(--purple);border-radius:50%;animation:spin .7s linear infinite}
+.pc-placeholder{width:100%;aspect-ratio:16/9;background:rgba(245,166,35,.04);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+.pc-placeholder-icon{font-size:22px;opacity:.4}
+.pc-placeholder-text{font-size:11px;color:var(--warn);font-weight:600}
+.pc-placeholder-sub{font-size:10px;color:var(--muted2);font-family:var(--mono)}
+.pc-footer{padding:9px 13px;display:flex;align-items:center;justify-content:space-between}
+.pc-time-display{font-family:var(--mono);font-size:11px;color:var(--purple)}
+.phase-card.undetected .pc-time-display{color:var(--warn)}
+.pc-expand-hint{font-size:10px;color:var(--muted)}
+.pc-metrics-mini{padding:8px 13px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:5px}
+.mm-item{font-size:9px;font-family:var(--mono);padding:2px 7px;border-radius:9px;background:var(--panel2);border:1px solid var(--border);color:var(--muted)}
+
+/* Expand overlay */
+#expand-overlay{position:fixed;inset:0;background:rgba(6,8,13,.9);z-index:400;display:none;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}
+#expand-overlay.open{display:flex}
+.expand-panel{background:var(--panel);border:1px solid var(--border2);border-radius:20px;width:100%;max-width:980px;max-height:calc(100vh - 32px);overflow-y:auto;display:flex;flex-direction:column}
+.ep-hdr{padding:15px 20px 13px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0;position:sticky;top:0;background:var(--panel);z-index:10;border-radius:20px 20px 0 0}
+.ep-num{width:28px;height:28px;border-radius:50%;background:rgba(139,124,248,.12);border:1px solid rgba(139,124,248,.3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--purple);flex-shrink:0;font-family:var(--mono)}
+.ep-hdr.undetected .ep-num{background:rgba(245,166,35,.12);border-color:rgba(245,166,35,.35);color:var(--warn)}
+.ep-name{font-size:16px;font-weight:800}
+.ep-desc{font-size:11px;color:var(--muted2);font-family:var(--mono);margin-top:1px}
+.ep-undetected-badge{display:none;align-items:center;gap:6px;font-size:11px;color:var(--warn);font-weight:700;background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.25);border-radius:8px;padding:4px 12px;font-family:var(--mono)}
+.ep-hdr.undetected .ep-undetected-badge{display:flex}
+.ep-close{margin-left:auto;width:32px;height:32px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+.ep-close:hover{border-color:var(--bad);color:var(--bad)}
+.ep-undetected-notice{margin:16px 16px 0;background:rgba(245,166,35,.06);border:1px solid rgba(245,166,35,.2);border-radius:12px;padding:14px 16px;display:none}
+.ep-undetected-notice.show{display:block}
+.eun-title{font-size:13px;font-weight:700;color:var(--warn);margin-bottom:5px}
+.eun-text{font-size:12px;color:var(--muted2);line-height:1.7}
+.ep-body{display:grid;grid-template-columns:1fr 340px;gap:0;flex:1}
+@media(max-width:700px){.ep-body{grid-template-columns:1fr}}
+.ep-canvas-side{padding:16px;border-right:1px solid var(--border)}
+.ep-canvas-wrap{background:#000;border-radius:10px;overflow:hidden;position:relative;margin-bottom:14px}
+.ep-canvas{width:100%;display:block;min-height:180px}
+.ep-loading{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(6,8,13,.7)}
+.ep-loading.show{display:flex}
+.ep-spinner{width:28px;height:28px;border:2.5px solid var(--border2);border-top-color:var(--purple);border-radius:50%;animation:spin .7s linear infinite}
+.scrub-section{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.scrub-label{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.scrub-main{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.ep-scrubber{flex:1;-webkit-appearance:none;height:4px;background:var(--panel);border-radius:2px;outline:none;cursor:pointer}
+.ep-scrubber::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;background:var(--purple);border-radius:50%;cursor:pointer;box-shadow:0 0 0 4px rgba(139,124,248,.18)}
+.ep-time{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--purple);min-width:52px;text-align:right;flex-shrink:0}
+.step-btns{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.step-btn{padding:5px 11px;font-size:11px;font-weight:700;font-family:var(--mono);border-radius:7px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;transition:all .15s;user-select:none}
+.step-btn:hover{border-color:var(--purple);color:var(--purple)}
+.step-label{font-size:10px;color:var(--muted);margin:0 1px}
+.re-btn{margin-left:auto;display:inline-flex;align-items:center;gap:6px;padding:7px 16px;font-size:11px;font-weight:700;font-family:var(--ui);border-radius:8px;border:1px solid rgba(139,124,248,.3);background:rgba(139,124,248,.08);color:var(--purple);cursor:pointer;transition:all .15s}
+.re-btn:hover{background:rgba(139,124,248,.15)}
+.re-btn:disabled{opacity:.35;cursor:not-allowed}
+.scrub-nav{display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);flex-wrap:wrap}
+.scrub-nav-label{font-size:10px;color:var(--muted);font-family:var(--mono)}
+.nav-phase-btns{display:flex;gap:5px;flex-wrap:wrap;margin-left:auto}
+.nav-phase-btn{padding:3px 8px;font-size:9px;font-family:var(--mono);border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;transition:all .15s;white-space:nowrap}
+.nav-phase-btn:hover{border-color:var(--purple);color:var(--purple)}
+.nav-phase-btn.cur{background:rgba(139,124,248,.1);color:var(--purple);border-color:rgba(139,124,248,.3)}
+.nav-phase-btn.undetected{border-color:rgba(245,166,35,.3);color:var(--warn)}
+.ep-info-side{padding:16px;display:flex;flex-direction:column;gap:14px;overflow-y:auto}
+.pi-card{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.pi-label{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.pi-title{font-size:13px;font-weight:700;color:var(--purple);margin-bottom:6px}
+.pi-desc{font-size:12px;color:var(--muted2);line-height:1.7;margin-bottom:10px}
+.pi-checks{display:flex;flex-direction:column;gap:6px}
+.pi-check{display:flex;align-items:flex-start;gap:8px;font-size:11px;color:var(--muted2);line-height:1.55}
+.pi-check-icon{color:var(--purple);font-size:10px;flex-shrink:0;margin-top:2px}
+.pi-tip{margin-top:10px;padding:8px 10px;background:rgba(139,124,248,.05);border:1px solid rgba(139,124,248,.15);border-radius:8px;font-size:11px;color:rgba(139,124,248,.8);line-height:1.6;font-family:var(--mono)}
+.ep-metrics-card{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.ep-m-label{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.ep-metric{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.ep-metric:last-child{margin-bottom:0}
+.ep-ml{font-size:11px;color:var(--muted2);display:flex;align-items:center;gap:7px;font-weight:600}
+.ep-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.ep-mv{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--text)}
+.ep-mv-hint{font-size:9px;color:var(--muted);margin-top:1px;text-align:right;font-family:var(--mono)}
+.ep-no-data{font-size:11px;color:var(--muted);font-family:var(--mono);text-align:center;padding:10px 0}
+
+/* Summary table */
+#summary-section{padding:24px 24px;max-width:1440px;margin:0 auto}
+.summary-title{font-size:17px;font-weight:800;margin-bottom:4px}
+.summary-sub{font-size:12px;color:var(--muted2);margin-bottom:16px}
+.summary-scroll{overflow-x:auto}
+.stbl{width:100%;border-collapse:collapse;font-size:12px;min-width:700px}
+.stbl th{padding:9px 12px;text-align:left;font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;background:var(--panel);cursor:pointer;transition:color .15s}
+.stbl th:hover{color:var(--purple)}
+.stbl th.th-group-start{border-left:2px solid var(--border2)}
+.stbl th.th-left{color:rgba(0,212,170,.8)}.stbl th.th-right{color:rgba(255,107,53,.8)}
+.stbl td{padding:9px 12px;border-bottom:1px solid var(--border)}
+.stbl td.td-group-start{border-left:2px solid var(--border2)}
+.stbl tr:last-child td{border-bottom:none}
+.stbl tr:hover td{background:rgba(255,255,255,.015)}
+.row-label{color:var(--muted2);font-weight:600;font-size:11px;white-space:nowrap}
+.sv{font-family:var(--mono);font-weight:700;font-size:13px;color:var(--text)}.sv.na{color:var(--muted)}
+
+/* Save section */
+#save-section{padding:24px 24px 60px;max-width:1440px;margin:0 auto;border-top:1px solid var(--border)}
+.save-wrap{background:var(--panel);border:1px solid rgba(139,124,248,.25);border-radius:20px;padding:28px 32px;display:grid;grid-template-columns:1fr auto;gap:28px;align-items:start}
+@media(max-width:700px){.save-wrap{grid-template-columns:1fr}}
+.save-title{font-size:17px;font-weight:800;margin-bottom:5px}
+.save-sub{font-size:13px;color:var(--muted2);line-height:1.7;margin-bottom:18px}
+.phase-completion{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px}
+.pc-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:9px;font-weight:700;font-family:var(--mono);border:1px solid var(--border);background:var(--panel2);color:var(--muted2)}
+.pc-pill.done{background:rgba(34,199,138,.08);color:var(--good);border-color:rgba(34,199,138,.2)}
+.pc-pill.missing{background:rgba(245,166,35,.06);color:var(--warn);border-color:rgba(245,166,35,.2)}
+.save-meta-summary{font-size:11px;color:var(--muted2);font-family:var(--mono);line-height:2}
+.save-meta-summary strong{color:var(--text)}
+.save-meta-summary .sex-male{color:var(--male);font-weight:700}
+.save-meta-summary .sex-female{color:var(--female);font-weight:700}
+.save-right{display:flex;flex-direction:column;align-items:flex-end;gap:16px;min-width:220px}
+.dataset-stats{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;width:100%}
+.ds-title{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);font-family:var(--mono);margin-bottom:10px}
+.ds-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.ds-row:last-child{margin-bottom:0}
+.ds-sex-label{font-size:11px;color:var(--muted2);font-family:var(--mono);display:flex;align-items:center;gap:6px}
+.ds-sex-dot{width:7px;height:7px;border-radius:50%}
+.ds-sex-num{font-size:18px;font-weight:800;font-family:var(--mono);line-height:1}
+.ds-sex-num.male{color:var(--male)}.ds-sex-num.female{color:var(--female)}
+.ds-updated{font-size:9px;color:var(--muted);font-family:var(--mono);margin-top:10px;text-align:right}
+.save-btn{display:inline-flex;align-items:center;gap:8px;padding:13px 26px;background:var(--purple);color:#fff;font-weight:700;font-size:14px;font-family:var(--ui);border:none;border-radius:11px;cursor:pointer;transition:opacity .15s;white-space:nowrap}
+.save-btn:hover{opacity:.85}
+.save-btn:disabled{opacity:.35;cursor:not-allowed}
+.save-btn.saving{background:var(--panel2);color:var(--purple);border:1px solid rgba(139,124,248,.3)}
+.save-btn.saved{background:rgba(34,199,138,.15);color:var(--good);border:1px solid rgba(34,199,138,.3)}
+.vet-panel{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:16px;margin-top:14px;display:none}
+.vet-panel.show{display:block}
+.vet-title{font-size:12px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.vet-item{display:flex;align-items:flex-start;gap:9px;font-size:11px;margin-bottom:8px;line-height:1.6;font-family:var(--mono);padding:6px 8px;border-radius:7px}
+.vet-item:last-child{margin-bottom:0}
+.vet-item.warn{background:rgba(245,166,35,.07);color:var(--warn);border:1px solid rgba(245,166,35,.2)}
+.vet-item.error{background:rgba(245,80,80,.07);color:var(--bad);border:1px solid rgba(245,80,80,.2)}
+.vet-item.ok{background:rgba(34,199,138,.07);color:var(--good);border:1px solid rgba(34,199,138,.2)}
+.vet-action-row{display:flex;align-items:center;gap:10px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)}
+.vet-save-anyway{padding:6px 14px;font-size:11px;font-weight:700;font-family:var(--ui);border-radius:7px;border:1px solid rgba(245,166,35,.4);background:transparent;color:var(--warn);cursor:pointer;transition:all .15s}
+.vet-save-anyway:hover{background:rgba(245,166,35,.1)}
+.vet-note{font-size:10px;color:var(--muted2);font-family:var(--mono);flex:1}
+.save-notice{font-size:11px;color:var(--good);font-family:var(--mono);text-align:right;display:none;animation:fadeIn .3s ease}
+.save-notice.show{display:block}
+.save-error{font-size:11px;color:var(--bad);font-family:var(--mono);text-align:right;display:none}
+.save-error.show{display:block}
+</style>
+</head>
+<body>
+
+<!-- Auth overlay -->
+<div id="auth-overlay">
+  <div class="auth-card">
+    <div class="auth-logo">EFL</div>
+    <div class="auth-title">ESFormLab</div>
+    <p class="auth-sub">Private reference data collection.<br>Sign in with your admin account to continue.</p>
+    <input type="email"    class="auth-field" id="auth-email"    placeholder="Email" autocomplete="email">
+    <input type="password" class="auth-field" id="auth-password" placeholder="Password"
+      onkeydown="if(event.key==='Enter') signIn()">
+    <button class="auth-btn" id="auth-btn" onclick="signIn()">Sign in</button>
+    <div class="auth-error" id="auth-error"></div>
+    <p class="auth-note">Restricted to authorized accounts only.</p>
+  </div>
+</div>
+
+<!-- Loader -->
+<div id="loader">
+  <div class="spinner"></div>
+  <div class="ld-title">Loading pose estimation model</div>
+  <div class="ld-sub">MoveNet Thunder · runs entirely in your browser</div>
+</div>
+
+<!-- Header -->
+<header>
+  <div class="logo">EFL</div>
+  <div>
+    <div class="brand">ES<em>FormLab</em></div>
+    <div class="brand-sub">Reference data collection</div>
+  </div>
+  <div class="hdr-stats">
+    <div class="hdr-stat-group">
+      <div class="hdr-stat">
+        <div class="hdr-stat-val male" id="hdr-male-count">—</div>
+        <div class="hdr-stat-label">male sessions</div>
+      </div>
+      <div class="hdr-divider"></div>
+      <div class="hdr-stat">
+        <div class="hdr-stat-val female" id="hdr-female-count">—</div>
+        <div class="hdr-stat-label">female sessions</div>
+      </div>
+    </div>
+  </div>
+  <span id="hdr-file"></span>
+  <div class="hdr-right">
+    <button class="btn-ghost" id="btn-rescan" onclick="rescan()" style="display:none">⟳ Re-scan</button>
+    <button class="btn-ghost" onclick="resetApp()">↩ New video</button>
+    <button class="btn-ghost btn-signout" onclick="signOut()">Sign out</button>
+  </div>
+</header>
+
+<!-- Metadata bar -->
+<div id="metadata-bar">
+  <div class="meta-label">Session</div>
+
+  <!-- Sex toggle — required -->
+  <div class="sex-toggle">
+    <button class="sex-btn" id="sex-btn-male"   onclick="setSex('male')">♂ Male</button>
+    <div class="sex-divider"></div>
+    <button class="sex-btn" id="sex-btn-female" onclick="setSex('female')">♀ Female</button>
+  </div>
+
+  <input type="text" class="meta-field" id="meta-athlete" placeholder="Athlete name / label *">
+  <input type="text" class="meta-field" id="meta-event"   placeholder="Race / event">
+  <input type="text" class="meta-field" id="meta-pace"    placeholder="Approx. pace">
+  <input type="text" class="meta-field" id="meta-notes"   placeholder="Notes">
+  <span class="meta-req-note">* sex + athlete name required to save</span>
+</div>
+
+<!-- Upload -->
+<div id="screen-upload">
+  <div class="drop-zone" id="drop-zone">
+    <div class="dz-icon">◉</div>
+    <div class="dz-title">Drop a reference video</div>
+    <p class="dz-sub">Upload side-view footage of an elite marathoner. Set the athlete sex above first — data is stored separately for male and female reference populations.</p>
+    <div class="dz-sex-warning" id="dz-sex-warning">⚠ Select male or female above before uploading</div>
+    <input type="file" id="file-input" accept="video/*">
+    <button class="btn-main" id="upload-btn" onclick="handleUploadClick()">＋ Choose video file</button>
+    <p class="dz-hint">MP4 · MOV · WebM · Processed locally</p>
+  </div>
+</div>
+
+<!-- Scanning -->
+<div id="screen-scanning">
+  <div class="scan-card">
+    <div class="scan-title">Scanning stride phases</div>
+    <div class="scan-sub">Analyzing video for all 7 key moments of the running gait cycle.</div>
+    <div class="scan-preview">
+      <canvas id="scan-canvas"></canvas>
+      <div class="scan-preview-label" id="scan-label">Preparing…</div>
+    </div>
+    <div class="scan-bar-track"><div class="scan-bar-fill" id="scan-bar"></div></div>
+    <div class="scan-step" id="scan-step">Preparing…</div>
+    <div class="scan-phase-list" id="scan-phase-list"></div>
+    <div id="scan-diag"></div>
+  </div>
+</div>
+
+<!-- Phases -->
+<div id="screen-phases">
+  <div class="instr-banner">
+    <div class="instr-icon">◈</div>
+    <div>
+      <div class="instr-title">Reference data collection mode</div>
+      <div class="instr-text">Adjust each phase to the correct frame, click ↻ Analyze on each, then save. Only save once you're confident every frame is accurate — this data directly sets the public analyzer's grading ranges.</div>
+    </div>
+  </div>
+  <div id="scan-summary-bar" class="scan-summary"></div>
+  <div class="phase-groups" id="phase-groups"></div>
+</div>
+
+<!-- Summary table -->
+<div id="summary-section" style="display:none">
+  <div class="summary-title">Measured angles — this session</div>
+  <div class="summary-sub">Review all angles carefully before saving. These values will be added to the reference dataset.</div>
+  <div class="summary-scroll">
+    <table class="stbl" id="summary-table"><thead></thead><tbody></tbody></table>
+  </div>
+</div>
+
+<!-- Save section -->
+<div id="save-section" style="display:none">
+  <div class="save-wrap">
+    <div>
+      <div class="save-title">Save reference session</div>
+      <p class="save-sub">Once saved, angles from this session are added to the reference dataset for this sex, and the public gait analyzer's grading ranges update automatically.</p>
+      <div class="phase-completion" id="phase-completion"></div>
+      <div class="save-meta-summary" id="save-meta-summary"></div>
+    </div>
+    <div class="save-right">
+      <div class="dataset-stats">
+        <div class="ds-title">Dataset</div>
+        <div class="ds-row">
+          <div class="ds-sex-label"><div class="ds-sex-dot" style="background:var(--male)"></div>Male</div>
+          <div class="ds-sex-num male" id="ds-male-count">—</div>
+        </div>
+        <div class="ds-row">
+          <div class="ds-sex-label"><div class="ds-sex-dot" style="background:var(--female)"></div>Female</div>
+          <div class="ds-sex-num female" id="ds-female-count">—</div>
+        </div>
+        <div class="ds-updated" id="ds-updated"></div>
+      </div>
+      <button class="save-btn" id="save-btn" onclick="saveSession()" disabled>◉ Save session</button>
+      <div class="save-notice" id="save-notice"></div>
+      <div class="save-error"  id="save-error"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Expand overlay -->
+<div id="expand-overlay">
+  <div class="expand-panel">
+    <div class="ep-hdr" id="ep-hdr">
+      <div class="ep-num" id="ep-num">1</div>
+      <div style="flex:1"><div class="ep-name" id="ep-name">Phase</div><div class="ep-desc" id="ep-desc"></div></div>
+      <div class="ep-undetected-badge">⚠ Not auto-detected</div>
+      <button class="ep-close" onclick="closeExpand()">✕</button>
+    </div>
+    <div class="ep-undetected-notice" id="ep-undetected-notice">
+      <div class="eun-title">⚠ Not automatically detected</div>
+      <div class="eun-text">Use the scrubber to find the best frame, then click ↻ Analyze.</div>
+    </div>
+    <div class="ep-body">
+      <div class="ep-canvas-side">
+        <div class="ep-canvas-wrap">
+          <canvas class="ep-canvas" id="ep-canvas"></canvas>
+          <div class="ep-loading" id="ep-loading"><div class="ep-spinner"></div></div>
+        </div>
+        <div class="scrub-section">
+          <div class="scrub-label">Frame adjustment</div>
+          <div class="scrub-main">
+            <input type="range" class="ep-scrubber" id="ep-scrubber" min="0" max="1" step="0.04" value="0" oninput="epScrub(this.value)">
+            <span class="ep-time" id="ep-time">0.00s</span>
+          </div>
+          <div class="step-btns">
+            <button class="step-btn" onclick="epStep(-5)">−5f</button>
+            <button class="step-btn" onclick="epStep(-1)">−1f</button>
+            <span class="step-label">frame</span>
+            <button class="step-btn" onclick="epStep(1)">+1f</button>
+            <button class="step-btn" onclick="epStep(5)">+5f</button>
+            <button class="re-btn" id="ep-re-btn" onclick="epReanalyze()">↻ Analyze</button>
+          </div>
+          <div class="scrub-nav">
+            <span class="scrub-nav-label">jump to:</span>
+            <div class="nav-phase-btns" id="nav-phase-btns"></div>
+          </div>
+        </div>
+      </div>
+      <div class="ep-info-side">
+        <div class="pi-card">
+          <div class="pi-label">Phase guide</div>
+          <div class="pi-title" id="ep-guide-title"></div>
+          <div class="pi-desc"  id="ep-guide-desc"></div>
+          <div class="pi-checks" id="ep-guide-checks"></div>
+          <div class="pi-tip"   id="ep-guide-tip"></div>
+        </div>
+        <div class="ep-metrics-card">
+          <div class="ep-m-label">Measured angles</div>
+          <div id="ep-metrics"><div class="ep-no-data">Analyze a frame to see angles</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<video id="video" style="display:none" playsinline preload="metadata"></video>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<!-- TF.js + MoveNet -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+
+<script>
+'use strict';
+
+// ══════════════════════════════════════════════════════════
+//  FIREBASE CONFIG — paste your values here
+// ══════════════════════════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDh4LorLQx1DPovQIA4HM3127fAYpyuaY8",
+  authDomain: "es-form-labs.firebaseapp.com",
+  projectId: "es-form-labs",
+  storageBucket: "es-form-labs.firebasestorage.app",
+  messagingSenderId: "215373817428",
+  appId: "1:215373817428:web:9a80d81815f6843ce2afc1",
+  measurementId: "G-P2RRN15M8K"
+};
+const MIN_N = 5; // minimum sessions before a metric range is reliable
+
+// ── Firebase init ─────────────────────────────────────────
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+// ── Auth ──────────────────────────────────────────────────
+auth.onAuthStateChanged(user => {
+  if (user) {
+    document.getElementById('auth-overlay').style.display = 'none';
+    document.getElementById('loader').style.display = 'flex';
+    initModel();
+    loadDatasetStats();
+  }
+});
+
+async function signIn() {
+  const email = document.getElementById('auth-email').value.trim();
+  const pw    = document.getElementById('auth-password').value;
+  const errEl = document.getElementById('auth-error');
+  const btn   = document.getElementById('auth-btn');
+  errEl.textContent = '';
+  if (!email||!pw){errEl.textContent='Enter email and password.';return;}
+  btn.disabled=true;btn.textContent='Signing in…';
+  try {
+    await auth.signInWithEmailAndPassword(email, pw);
+  } catch(e) {
+    errEl.textContent = e.code==='auth/invalid-credential' ? 'Invalid email or password.' : e.message;
+    btn.disabled=false;btn.textContent='Sign in';
+  }
+}
+async function signOut(){ await auth.signOut(); resetApp(); }
+
+// ── Dataset stats ─────────────────────────────────────────
+async function loadDatasetStats() {
+  try {
+    const [mSnap,fSnap] = await Promise.all([
+      db.collection('reference_sessions').where('sex','==','male').count().get(),
+      db.collection('reference_sessions').where('sex','==','female').count().get(),
+    ]);
+    const mN = mSnap.data().count, fN = fSnap.data().count;
+    document.getElementById('hdr-male-count').textContent   = mN;
+    document.getElementById('hdr-female-count').textContent = fN;
+    document.getElementById('ds-male-count').textContent    = mN;
+    document.getElementById('ds-female-count').textContent  = fN;
+
+    // Latest update timestamp
+    const rangesSnap = await Promise.allSettled([
+      db.collection('computed_ranges').doc('male').get(),
+      db.collection('computed_ranges').doc('female').get(),
+    ]);
+    const dates = rangesSnap
+      .filter(r=>r.status==='fulfilled'&&r.value.exists)
+      .map(r=>r.value.data().lastUpdated?.toDate())
+      .filter(Boolean)
+      .sort((a,b)=>b-a);
+    if (dates.length) {
+      document.getElementById('ds-updated').textContent =
+        'Last updated ' + dates[0].toLocaleDateString();
+    }
+  } catch(e){ console.warn('loadDatasetStats:', e); }
+}
+
+// ══════════════════════════════════════════════════════════
+//  SEX SELECTION
+// ══════════════════════════════════════════════════════════
+let selectedSex = null; // 'male' | 'female'
+
+function setSex(sex) {
+  selectedSex = sex;
+  document.getElementById('sex-btn-male').className   = 'sex-btn' + (sex==='male'   ? ' active-male'   : '');
+  document.getElementById('sex-btn-female').className = 'sex-btn' + (sex==='female' ? ' active-female' : '');
+  document.getElementById('dz-sex-warning').style.display = 'none';
+  updateSaveSection();
+}
+
+function handleUploadClick() {
+  if (!selectedSex) {
+    document.getElementById('dz-sex-warning').style.display = 'block';
+    return;
+  }
+  document.getElementById('file-input').click();
+}
+
+// ══════════════════════════════════════════════════════════
+//  GAIT ANALYSIS ENGINE
+// ══════════════════════════════════════════════════════════
+const LEFT_KPS  = new Set([1,3,5,7,9,11,13,15]);
+const RIGHT_KPS = new Set([2,4,6,8,10,12,14,16]);
+const MIN_CONF  = 0.25;
+const SKELETON  = [[5,7],[7,9],[6,8],[8,10],[5,6],[11,12],[5,11],[6,12],[11,13],[13,15],[12,14],[14,16],[0,5],[0,6]];
+
+const PHASE_DEFS = [
+  {key:'l_foot', label:'L foot strike', desc:'Left initial contact with ground',  side:'left',  guide:{title:'Left foot strike',   desc:'The instant the left foot first contacts the ground — start of left stance phase.',checks:['Left ankle at or near lowest point','Slight knee bend at contact — not locked','Foot lands close to under the hip','Trunk upright or slightly forward'],tip:'If the foot looks extended far in front, scrub slightly forward to the true contact moment.'}},
+  {key:'r_foot', label:'R foot strike', desc:'Right initial contact with ground', side:'right', guide:{title:'Right foot strike',  desc:'The instant the right foot first contacts the ground.',checks:['Right ankle at or near lowest point','Slight knee bend at contact','Hips level — watch for excessive drop','Foot lands roughly under the hip'],tip:'Compare with left foot strike for asymmetries.'}},
+  {key:'l_toe',  label:'L toe-off',     desc:'Left foot leaving the ground',      side:'left',  guide:{title:'Left toe-off',       desc:'The moment the left foot pushes off. Hip extension is at maximum.',checks:['Left leg extended behind the body','Ankle plantarflexed (pushing through toes)','Left heel visibly raised','Opposite leg in mid-swing'],tip:'Toe-off is where propulsive power is generated. Limited hip extension = reduced push-off efficiency.'}},
+  {key:'r_toe',  label:'R toe-off',     desc:'Right foot leaving the ground',     side:'right', guide:{title:'Right toe-off',      desc:'The moment the right foot pushes off.',checks:['Right leg extended behind the body','Right ankle plantarflexed','Right heel raised','Opposite leg in mid-swing'],tip:'Compare with left toe-off for asymmetries in hip extension.'}},
+  {key:'mid',    label:'Mid-stance',    desc:'Body directly over support foot',   side:'center',guide:{title:'Mid-stance',         desc:'The body passes directly over the supporting foot.',checks:['Stance foot roughly under the hip','Swing leg in mid-flight','Trunk vertical or slightly forward','Arms in natural opposite-arm swing'],tip:'Key frame for trunk lean and hip drop — the foundation of running economy.'}},
+  {key:'peak_kf',label:'Peak knee flex',desc:'Maximum knee bend during swing',    side:'center',guide:{title:'Peak knee flexion',  desc:'Maximum knee bend on the swing leg, just after toe-off.',checks:['Swing knee at highest and most bent position','Elite runners pull heel close to glutes','Stance leg extended behind body','Symmetry between left and right swing'],tip:'A lazy, low swing increases ground contact time and metabolic cost.'}},
+  {key:'swing',  label:'Terminal swing',desc:'Leg extended just before landing',  side:'center',guide:{title:'Terminal swing',     desc:'Just before the foot contacts the ground again.',checks:['Swing leg reaching forward','Knee extending but not fully locked','Foot dorsiflexed ready for contact','Opposite arm driving back'],tip:'Overstriding is most visible here — foot should land under center of mass.'}},
+];
+
+const PHASE_GROUPS = [
+  {label:'Foot strike', keys:['l_foot','r_foot']},
+  {label:'Toe-off',     keys:['l_toe','r_toe']},
+  {label:'Swing cycle', keys:['mid','peak_kf','swing']},
+];
+const SUMMARY_COL_ORDER = ['l_foot','r_foot','l_toe','r_toe','mid','peak_kf','swing'];
+const GROUP_STARTS       = new Set(['l_foot','l_toe','mid']);
+
+const METRIC_ROWS = [
+  {key:'trunk', label:'Trunk lean',  dot:'var(--gold)',  fmt:v=>`${v>0?'+':''}${v.toFixed(1)}°`},
+  {key:'lKnee', label:'L knee',     dot:'var(--left)',  fmt:v=>`${v.toFixed(0)}°`},
+  {key:'rKnee', label:'R knee',     dot:'var(--right)', fmt:v=>`${v.toFixed(0)}°`},
+  {key:'lHip',  label:'L hip',      dot:'var(--left)',  fmt:v=>`${v.toFixed(0)}°`},
+  {key:'rHip',  label:'R hip',      dot:'var(--right)', fmt:v=>`${v.toFixed(0)}°`},
+  {key:'lElbow',label:'L elbow',    dot:'var(--left)',  fmt:v=>`${v.toFixed(0)}°`},
+  {key:'rElbow',label:'R elbow',    dot:'var(--right)', fmt:v=>`${v.toFixed(0)}°`},
+  {key:'lFoot', label:'L foot off.',dot:'var(--left)',  fmt:v=>`${v>0?'+':''}${v.toFixed(2)}`},
+  {key:'rFoot', label:'R foot off.',dot:'var(--right)', fmt:v=>`${v>0?'+':''}${v.toFixed(2)}`},
+];
+
+let detector=null,videoEl=null,phases={};
+let expandKey=null,epCurrentT=0,epAnalyzing=false;
+const epDbt={};
+
+function initPhases(midT){
+  const t=(typeof midT==='number'&&isFinite(midT))?midT:0;
+  PHASE_DEFS.forEach(def=>{phases[def.key]={...def,t,detected:false,kps:null,metrics:null};});
+}
+
+function renderSideViewWarning(key){
+  const el=document.getElementById(`metrics-mini-${key}`);
+  if(el) el.innerHTML='<span class="mm-item" style="color:var(--warn);border-color:rgba(245,166,35,.3);background:rgba(245,166,35,.05)">⚠ Side view required</span>';
+}
+function getDetectionQuality(kps){
+  if(!kps) return null;
+  const scores=[5,6,7,8,11,12,13,14,15,16].map(i=>kps[i]?.score||0);
+  const avg=scores.reduce((a,b)=>a+b,0)/scores.length,min=Math.min(...scores);
+  if(avg>=0.72&&min>=0.4) return {level:'strong',label:'Strong detection'};
+  if(avg>=0.5&&min>=0.25)  return {level:'fair',  label:'Fair detection'};
+  return                         {level:'weak',   label:'Weak detection'};
+}
+function renderQualityCard(kps){ /* stub for esformlab */ }
+async function initModel(){
+  try{
+    await tf.ready();
+    detector=await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,{modelType:poseDetection.movenet.modelType.SINGLEPOSE_THUNDER});
+    document.getElementById('loader').style.display='none';
+  }catch(e){
+    document.getElementById('loader').innerHTML=`<div style="color:var(--bad);font-size:14px;font-weight:600">Model failed to load</div><div style="font-size:11px;color:var(--muted2);margin-top:8px">${e.message}</div>`;
+  }
+}
+
+// File handling
+document.getElementById('file-input').addEventListener('change',e=>{if(e.target.files[0])startWithFile(e.target.files[0]);});
+const dz=document.getElementById('drop-zone');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+dz.addEventListener('drop',e=>{
+  e.preventDefault();dz.classList.remove('over');
+  if(!selectedSex){document.getElementById('dz-sex-warning').style.display='block';return;}
+  const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('video/'))startWithFile(f);
+});
+function startWithFile(file){
+  document.getElementById('screen-upload').style.display='none';
+  document.getElementById('hdr-file').textContent=file.name;
+  videoEl=document.getElementById('video');
+
+  let started=false;
+  function beginScan(){
+    if(started) return;
+    started=true;
+    videoEl.removeEventListener('loadedmetadata', beginScan);
+    videoEl.removeEventListener('loadeddata',     beginScan);
+    videoEl.removeEventListener('canplay',        beginScan);
+    clearTimeout(fallbackTimer);
+    document.getElementById('screen-scanning').style.display='flex';
+    autoScan();
+  }
+
+  // Whichever fires first wins — handles HEVC, MOV, and slow codecs
+  videoEl.addEventListener('loadedmetadata', beginScan, {once:true});
+  videoEl.addEventListener('loadeddata',     beginScan, {once:true});
+  videoEl.addEventListener('canplay',        beginScan, {once:true});
+
+  // Hard 8s timeout if none of the above fire
+  const fallbackTimer = setTimeout(()=>{ if(!started){ console.warn('ESFormLab: metadata timeout, scanning anyway'); beginScan(); } }, 8000);
+
+  videoEl.src=URL.createObjectURL(file);
+  videoEl.load();
+}
+
+// Auto scan
+async function autoScan(){
+  let dur=videoEl.duration;
+  if(!isFinite(dur)||isNaN(dur)||dur<=0){await new Promise(r=>setTimeout(r,500));dur=videoEl.duration;}
+  if(!isFinite(dur)||isNaN(dur)||dur<=0)dur=30;
+  initPhases(dur/2);
+  const N=40,samples=[];
+  document.getElementById('scan-phase-list').innerHTML=PHASE_DEFS.map(p=>`<div class="spl-item" id="spl-${p.key}"><div class="spl-dot"></div><span class="spl-name">${p.label}</span><span class="spl-time" id="spl-t-${p.key}">—</span></div>`).join('');
+  const sc=document.getElementById('scan-canvas'),sctx=sc.getContext('2d');
+  let posesFound=0;
+  for(let i=0;i<N;i++){
+    const t=Math.min((i+.5)*(dur/N),dur-.05);
+    document.getElementById('scan-bar').style.width=Math.round(i/N*100)+'%';
+    document.getElementById('scan-step').textContent=`Scanning frame ${i+1} of ${N} · ${t.toFixed(2)}s`;
+    document.getElementById('scan-label').textContent=`${t.toFixed(2)}s`;
+    await seekTo(t);
+    sc.width=Math.min(400,videoEl.videoWidth||400);sc.height=Math.min(225,videoEl.videoHeight||225);
+    if(videoEl.videoWidth>0)sc.height=Math.round(sc.width*videoEl.videoHeight/videoEl.videoWidth);
+    try{sctx.drawImage(videoEl,0,0,sc.width,sc.height);}catch(e){}
+    let poses=null;
+    try{poses=await detector.estimatePoses(sc);}catch(e){}
+    if(!poses||!poses.length){try{poses=await detector.estimatePoses(videoEl);}catch(e){}}
+    if(!poses||!poses.length)continue;
+    posesFound++;
+    // After first detected pose, warn early if not side-view
+    if(posesFound===1 && !isSideView(poses[0].keypoints)){
+      document.getElementById('scan-step').textContent='⚠ Front or back view detected — side view gives best results';
+    }
+    const kps=poses[0].keypoints;
+    drawMiniSkeleton(sctx,kps,sc.width/(videoEl.videoWidth||sc.width),sc.height/(videoEl.videoHeight||sc.height));
+    const g=idx=>(kps[idx]&&kps[idx].score>=MIN_CONF)?kps[idx]:null;
+    const lAn=g(15),rAn=g(16),lKn=g(13),lHi=g(11),rHi=g(12),lSh=g(5),rSh=g(6),rKn=g(14);
+    const lKnAngle=(lHi&&lKn&&lAn)?calcAngle(lHi,lKn,lAn):null;
+    const lHipExt=(lSh&&lHi&&lKn)?calcAngle(lSh,lHi,lKn):null;
+    const rHipExt=(rSh&&rHi&&rKn)?calcAngle(rSh,rHi,rKn):null;
+    samples.push({t,lAnkleY:lAn?.y,rAnkleY:rAn?.y,lHipExt,rHipExt,lKnAngle,kps});
+  }
+  document.getElementById('scan-bar').style.width='100%';
+  document.getElementById('scan-step').textContent=`Done · ${posesFound}/${N} frames detected`;
+  const diag=document.getElementById('scan-diag');diag.style.display='block';
+  diag.textContent=`${videoEl.videoWidth}×${videoEl.videoHeight} · ${dur.toFixed(1)}s · Poses: ${posesFound}/${N}`;
+
+  // Detect sparse keyframes: if many samples share the same timestamp, warn the user
+  const uniqueTimes = new Set(samples.map(s=>Math.round(s.t*4)/4));
+  if(samples.length > 5 && uniqueTimes.size < samples.length * 0.5){
+    diag.innerHTML += '<br>⚠ Sparse keyframes detected — this video may have been exported with infrequent keyframes. ' +
+      'For best results, re-export at original quality or use HandBrake to convert to H.264 MP4 with keyframe interval 1s.';
+    diag.style.borderLeft = '3px solid var(--warn)';
+    diag.style.paddingLeft = '10px';
+  }
+  try{findPhases(samples,dur);}catch(e){console.error('findPhases:',e);}
+  PHASE_DEFS.forEach(def=>{
+    const ph=phases[def.key];const item=document.getElementById(`spl-${def.key}`);const tEl=document.getElementById(`spl-t-${def.key}`);
+    if(!item||!tEl)return;
+    if(ph?.detected){item.classList.add('found');tEl.textContent=ph.t.toFixed(2)+'s';}
+    else{item.classList.add('not-found');tEl.textContent='manual';}
+  });
+  await new Promise(r=>setTimeout(r,700));
+  document.getElementById('screen-scanning').style.display='none';
+  document.getElementById('screen-phases').style.display='block';
+  document.getElementById('summary-section').style.display='block';
+  document.getElementById('save-section').style.display='block';
+  document.getElementById('btn-rescan').style.display='inline-flex';
+  const detected=PHASE_DEFS.filter(d=>phases[d.key]?.detected).length;
+  const sb=document.getElementById('scan-summary-bar');sb.style.display='flex';
+  const sexClass=selectedSex||'';
+  sb.innerHTML=`<span class="ss-item">Video: <strong>${videoEl.videoWidth}×${videoEl.videoHeight}</strong></span>
+    <span class="ss-item">Duration: <strong>${dur.toFixed(1)}s</strong></span>
+    <span class="ss-item ${posesFound<5?'warn':''}">Poses: <strong>${posesFound}/${N}</strong></span>
+    <span class="ss-item">Auto-detected: <strong>${detected}/7 phases</strong></span>
+    <span class="ss-item ${sexClass}">Dataset: <strong>${selectedSex||'not set'}</strong></span>`;
+  buildPhaseGroups();buildSummaryTable();updateSaveSection();
+  for(const def of PHASE_DEFS){if(phases[def.key]?.detected)await analyzeCard(def.key);}
+}
+
+// Phase detection
+function findPhases(samples,dur){
+  if(!samples.length)return;
+  const claimed=()=>new Set(Object.values(phases).filter(p=>p?.detected).map(p=>p.t));
+  const det=(key,s)=>{if(s)phases[key]={...phases[key],...s,detected:true};};
+  const withLA=samples.filter(s=>s.lAnkleY!==undefined&&isFinite(s.lAnkleY));
+  const withRA=samples.filter(s=>s.rAnkleY!==undefined&&isFinite(s.rAnkleY));
+  const withKn=samples.filter(s=>s.lKnAngle!==null&&s.lKnAngle!==undefined&&isFinite(s.lKnAngle));
+  const withLH=samples.filter(s=>s.lHipExt!==null&&s.lHipExt!==undefined&&isFinite(s.lHipExt));
+  const withRH=samples.filter(s=>s.rHipExt!==null&&s.rHipExt!==undefined&&isFinite(s.rHipExt));
+  if(withLA.length)det('l_foot',withLA.reduce((a,b)=>b.lAnkleY>a.lAnkleY?b:a));
+  if(withRA.length){const lT=phases.l_foot?.detected?phases.l_foot.t:-99;const pool=withRA.filter(s=>Math.abs(s.t-lT)>.08);if(pool.length)det('r_foot',pool.reduce((a,b)=>b.rAnkleY>a.rAnkleY?b:a));}
+  if(withLH.length){const lFT=phases.l_foot?.detected?phases.l_foot.t:0;const pool=withLH.filter(s=>s.t>lFT+.05);const src=pool.length>=2?pool:withLH;const best=src.reduce((a,b)=>b.lHipExt>a.lHipExt?b:a);if(!claimed().has(best.t))det('l_toe',best);}
+  if(withRH.length){const rFT=phases.r_foot?.detected?phases.r_foot.t:0;const pool=withRH.filter(s=>s.t>rFT+.05);const src=pool.length>=2?pool:withRH;const best=src.reduce((a,b)=>b.rHipExt>a.rHipExt?b:a);if(!claimed().has(best.t))det('r_toe',best);}
+  const sorted=[...samples].sort((a,b)=>a.t-b.t);let foundMid=false;
+  for(let off=0;off<sorted.length&&!foundMid;off++){for(const d of[0,1,-1]){const idx=Math.floor(sorted.length/2)+d*off;if(idx<0||idx>=sorted.length)continue;const s=sorted[idx];if(s&&!claimed().has(s.t)){det('mid',s);foundMid=true;break;}}}
+  if(withKn.length){const s=[...withKn].sort((a,b)=>a.lKnAngle-b.lKnAngle).find(s=>!claimed().has(s.t));if(s)det('peak_kf',s);}
+  if(withKn.length){const s=[...withKn].sort((a,b)=>b.lKnAngle-a.lKnAngle).find(s=>!claimed().has(s.t));if(s)det('swing',s);}
+}
+
+// Phase grid
+function buildPhaseGroups(){
+  const container=document.getElementById('phase-groups');container.innerHTML='';
+  PHASE_GROUPS.forEach(grp=>{
+    const section=document.createElement('div');section.className='phase-group';
+    const labelDiv=document.createElement('div');labelDiv.className='phase-group-label';labelDiv.textContent=grp.label;
+    const cardRow=document.createElement('div');cardRow.className='phase-group-cards';
+    section.appendChild(labelDiv);section.appendChild(cardRow);container.appendChild(section);
+    grp.keys.forEach(key=>{
+      try{
+        const ph=phases[key];const idx=PHASE_DEFS.findIndex(d=>d.key===key);if(!ph)return;
+        const card=document.createElement('div');
+        card.className='phase-card'+(ph.detected?'':' undetected');card.id=`card-${key}`;
+        if(ph.detected){
+          card.innerHTML=`<div class="pc-hdr"><div class="pc-num">${idx+1}</div><div class="pc-name-wrap"><div class="pc-name">${ph.label}</div><div class="pc-desc">${ph.desc}</div></div><div class="pc-badge pending" id="badge-${key}">pending</div></div>
+            <div class="pc-canvas-wrap"><canvas class="pc-canvas" id="canvas-${key}"></canvas><div class="pc-loading" id="loading-${key}"><div class="pc-mini-spinner"></div></div></div>
+            <div class="pc-footer"><span class="pc-time-display" id="ptime-${key}">${ph.t.toFixed(2)}s</span><span class="pc-expand-hint">↗ Click to adjust</span></div>
+            <div class="pc-metrics-mini" id="metrics-mini-${key}"></div>`;
+          const W=videoEl.videoWidth||640,H=videoEl.videoHeight||360;
+          seekTo(ph.t).then(()=>{const c=document.getElementById(`canvas-${key}`);if(!c)return;c.width=W;c.height=H;try{c.getContext('2d').drawImage(videoEl,0,0,W,H);}catch(e){}if(ph.kps)drawPose(c.getContext('2d'),ph.kps,W,H);}).catch(()=>{});
+        }else{
+          card.innerHTML=`<div class="pc-hdr"><div class="pc-num">${idx+1}</div><div class="pc-name-wrap"><div class="pc-name">${ph.label}</div><div class="pc-desc">${ph.desc}</div></div><div class="pc-badge manual" id="badge-${key}">manual</div></div>
+            <div class="pc-placeholder"><div class="pc-placeholder-icon">⚠</div><div class="pc-placeholder-text">Not auto-detected</div><div class="pc-placeholder-sub">Click to manually select a frame</div></div>
+            <div class="pc-footer"><span class="pc-time-display" id="ptime-${key}">—</span><span class="pc-expand-hint" style="color:var(--warn);font-weight:600">↗ Select frame</span></div>
+            <div class="pc-metrics-mini" id="metrics-mini-${key}"></div>`;
+        }
+        card.addEventListener('click',()=>openExpand(key));cardRow.appendChild(card);
+      }catch(e){console.error('card error',key,e);}
+    });
+  });
+}
+
+async function analyzeCard(key){
+  if(!detector||!videoEl)return;const ph=phases[key];if(!ph)return;
+  const badge=document.getElementById(`badge-${key}`),loading=document.getElementById(`loading-${key}`);
+  if(badge){badge.className='pc-badge analyzing';badge.textContent='analyzing';}
+  if(loading)loading.classList.add('show');
+  await seekTo(ph.t);
+  const canvas=document.getElementById(`canvas-${key}`);
+  if(!canvas){if(loading)loading.classList.remove('show');return;}
+  const W=videoEl.videoWidth||640,H=videoEl.videoHeight||360;
+  canvas.width=W;canvas.height=H;const ctx=canvas.getContext('2d');
+  try{ctx.drawImage(videoEl,0,0,W,H);}catch(e){}
+  let poses=null;try{poses=await detector.estimatePoses(canvas);}catch(e){}
+  if(!poses||!poses.length){try{poses=await detector.estimatePoses(videoEl);}catch(e){}}
+  if(!poses||!poses.length){if(badge){badge.className='pc-badge manual';badge.textContent='no pose';}if(loading)loading.classList.remove('show');return;}
+  const kps=poses[0].keypoints;ph.kps=kps;ph.metrics=computeMetrics(kps);ph.sideView=isSideView(kps);
+  drawPose(ctx,kps,W,H);
+  if(!ph.sideView){renderSideViewWarning(key);}else{renderMiniMetrics(key,ph.metrics);updateSummaryCol(key);}updateSaveSection();
+  if(badge){badge.className='pc-badge ok';badge.textContent='analyzed';}if(loading)loading.classList.remove('show');
+}
+
+function renderMiniMetrics(key,m){
+  const el=document.getElementById(`metrics-mini-${key}`);if(!el)return;
+  el.innerHTML=[METRIC_ROWS[0],METRIC_ROWS[1],METRIC_ROWS[2]].map(r=>{const v=m[r.key],d=v!=null?r.fmt(v):'—';return `<span class="mm-item na">${r.label} ${d}</span>`;}).join('');
+}
+
+// Expand panel
+function openExpand(key){
+  expandKey=key;const ph=phases[key];const idx=PHASE_DEFS.findIndex(d=>d.key===key);epCurrentT=ph.t||0;
+  document.getElementById('expand-overlay').classList.add('open');
+  const isUndet=!ph.detected||!ph.kps;
+  document.getElementById('ep-hdr').className='ep-hdr'+(isUndet?' undetected':'');
+  document.getElementById('ep-num').textContent=idx+1;document.getElementById('ep-name').textContent=ph.label;document.getElementById('ep-desc').textContent=ph.desc;
+  document.getElementById('ep-undetected-notice').className='ep-undetected-notice'+(isUndet?' show':'');
+  const scrub=document.getElementById('ep-scrubber');const dur=videoEl.duration||30;
+  scrub.min=0;scrub.max=isFinite(dur)?dur:30;scrub.step=0.04;scrub.value=epCurrentT;
+  document.getElementById('ep-time').textContent=epCurrentT.toFixed(2)+'s';
+  const guide=ph.guide||PHASE_DEFS[0].guide;
+  document.getElementById('ep-guide-title').textContent=guide.title;document.getElementById('ep-guide-desc').textContent=guide.desc;
+  document.getElementById('ep-guide-checks').innerHTML=guide.checks.map(c=>`<div class="pi-check"><span class="pi-check-icon">◆</span><span>${c}</span></div>`).join('');
+  document.getElementById('ep-guide-tip').textContent='Tip: '+guide.tip;
+  document.getElementById('nav-phase-btns').innerHTML=PHASE_DEFS.map((def,i)=>`<button class="nav-phase-btn ${def.key===key?'cur':''} ${!phases[def.key]?.detected?'undetected':''}" onclick="openExpand('${def.key}')">${i+1}. ${def.label}</button>`).join('');
+  if(ph.metrics)renderExpandMetrics(ph.metrics);else document.getElementById('ep-metrics').innerHTML='<div class="ep-no-data">Click ↻ Analyze to measure angles</div>';
+  drawExpandFrame(epCurrentT,ph.kps);
+  document.querySelectorAll('.phase-card').forEach(c=>c.classList.toggle('dimmed',c.id!==`card-${key}`));
+  document.addEventListener('keydown',onExpandKey);
+}
+function closeExpand(){document.getElementById('expand-overlay').classList.remove('open');document.querySelectorAll('.phase-card').forEach(c=>c.classList.remove('dimmed'));expandKey=null;document.removeEventListener('keydown',onExpandKey);}
+function onExpandKey(e){if(e.key==='Escape')closeExpand();}
+document.getElementById('expand-overlay').addEventListener('click',e=>{if(e.target===document.getElementById('expand-overlay'))closeExpand();});
+
+async function drawExpandFrame(t,kps){
+  const canvas=document.getElementById('ep-canvas');const W=videoEl.videoWidth||640,H=videoEl.videoHeight||360;
+  canvas.width=W;canvas.height=H;await seekTo(t);const ctx=canvas.getContext('2d');
+  try{ctx.drawImage(videoEl,0,0,W,H);}catch(e){}if(kps)drawPose(ctx,kps,W,H);
+}
+function epScrub(val){
+  epCurrentT=parseFloat(val);document.getElementById('ep-time').textContent=epCurrentT.toFixed(2)+'s';
+  if(phases[expandKey])phases[expandKey].t=epCurrentT;
+  const ptEl=document.getElementById(`ptime-${expandKey}`);if(ptEl)ptEl.textContent=epCurrentT.toFixed(2)+'s';
+  clearTimeout(epDbt.t);epDbt.t=setTimeout(()=>drawExpandFrame(epCurrentT,phases[expandKey]?.kps),100);
+}
+function epStep(frames){const scrub=document.getElementById('ep-scrubber');const newT=Math.max(parseFloat(scrub.min),Math.min(parseFloat(scrub.max),epCurrentT+frames*.04));scrub.value=newT;epScrub(newT);}
+async function epReanalyze(){
+  if(!detector||epAnalyzing)return;epAnalyzing=true;
+  const btn=document.getElementById('ep-re-btn'),loading=document.getElementById('ep-loading');
+  btn.disabled=true;btn.textContent='Analyzing…';loading.classList.add('show');
+  await seekTo(epCurrentT);
+  const canvas=document.getElementById('ep-canvas');const W=videoEl.videoWidth||640,H=videoEl.videoHeight||360;
+  canvas.width=W;canvas.height=H;const ctx=canvas.getContext('2d');try{ctx.drawImage(videoEl,0,0,W,H);}catch(e){}
+  let poses=null;try{poses=await detector.estimatePoses(canvas);}catch(e){}
+  if(!poses||!poses.length){try{poses=await detector.estimatePoses(videoEl);}catch(e){}}
+  loading.classList.remove('show');
+  if(!poses||!poses.length){document.getElementById('ep-metrics').innerHTML='<div class="ep-no-data">No pose detected — try a different frame</div>';btn.disabled=false;btn.textContent='↻ Analyze';epAnalyzing=false;return;}
+  const kps=poses[0].keypoints;const ph=phases[expandKey];ph.kps=kps;ph.metrics=computeMetrics(kps);ph.detected=true;ph.sideView=isSideView(kps);
+  drawPose(ctx,kps,W,H);
+  if(!ph.sideView){
+    document.getElementById('ep-metrics').innerHTML=
+      '<div class="ep-no-data" style="color:var(--warn)">⚠ Side view required for angle analysis — this frame appears to be front or back facing</div>';
+  } else {
+    renderExpandMetrics(ph.metrics);
+  }
+  const ovCard=document.getElementById(`card-${expandKey}`);if(ovCard)ovCard.classList.remove('undetected');
+  let ovCanvas=document.getElementById(`canvas-${expandKey}`);
+  if(!ovCanvas&&ovCard){
+    const def=PHASE_DEFS.find(d=>d.key===expandKey);const idx=PHASE_DEFS.findIndex(d=>d.key===expandKey);
+    ovCard.innerHTML=`<div class="pc-hdr"><div class="pc-num">${idx+1}</div><div class="pc-name-wrap"><div class="pc-name">${def.label}</div><div class="pc-desc">${def.desc}</div></div><div class="pc-badge ok" id="badge-${expandKey}">analyzed</div></div>
+      <div class="pc-canvas-wrap"><canvas class="pc-canvas" id="canvas-${expandKey}"></canvas><div class="pc-loading" id="loading-${expandKey}"><div class="pc-mini-spinner"></div></div></div>
+      <div class="pc-footer"><span class="pc-time-display" id="ptime-${expandKey}">${epCurrentT.toFixed(2)}s</span><span class="pc-expand-hint">↗ Click to adjust</span></div>
+      <div class="pc-metrics-mini" id="metrics-mini-${expandKey}"></div>`;
+    ovCard.addEventListener('click',()=>openExpand(expandKey));ovCanvas=document.getElementById(`canvas-${expandKey}`);
+  }
+  if(ovCanvas){ovCanvas.width=W;ovCanvas.height=H;try{ovCanvas.getContext('2d').drawImage(canvas,0,0);}catch(e){}}
+  const badge=document.getElementById(`badge-${expandKey}`);if(badge){badge.className='pc-badge ok';badge.textContent='analyzed';}
+  renderMiniMetrics(expandKey,ph.metrics);updateSummaryCol(expandKey);
+  const ptEl=document.getElementById(`ptime-${expandKey}`);if(ptEl){ptEl.textContent=epCurrentT.toFixed(2)+'s';ptEl.style.color='var(--purple)';}
+  updateSaveSection();btn.disabled=false;btn.textContent='↻ Analyze';epAnalyzing=false;
+}
+function renderExpandMetrics(m){
+  document.getElementById('ep-metrics').innerHTML=METRIC_ROWS.map(r=>{const v=m[r.key],d=v!=null?r.fmt(v):'—';return `<div class="ep-metric"><div class="ep-ml"><div class="ep-dot" style="background:${r.dot}"></div>${r.label}</div><div style="text-align:right"><div class="ep-mv">${d}</div></div></div>`;}).join('');
+}
+
+// Drawing
+// Returns true if keypoints indicate a side-view shot.
+// Heuristic: in side view, left & right hips have similar x-coords (stacked).
+// In front/back view they are spread wide. We normalise by torso height.
+function isSideView(kps){
+  const MIN = 0.25;
+  const lHi = (kps[11]&&kps[11].score>=MIN) ? kps[11] : null;
+  const rHi = (kps[12]&&kps[12].score>=MIN) ? kps[12] : null;
+  const lSh = (kps[5] &&kps[5].score>=MIN)  ? kps[5]  : null;
+  const rSh = (kps[6] &&kps[6].score>=MIN)  ? kps[6]  : null;
+  if(!lHi||!rHi) return true; // can't tell — don't block
+  // Hip horizontal spread normalised by torso height
+  const hipSpread = Math.abs(lHi.x - rHi.x);
+  const torsoH = (lSh&&rSh)
+    ? Math.abs(((lSh.y+rSh.y)/2) - ((lHi.y+rHi.y)/2))
+    : Math.abs(lHi.y - rHi.y) * 2 || 100;
+  const ratio = hipSpread / (torsoH || 100);
+  // Side view: ratio < 0.7  |  Clear front/back: ratio > 0.9
+  return ratio < 0.7;
+}
+
+function drawPose(ctx,kps,W,H){
+  ctx.save();
+  SKELETON.forEach(([a,b])=>{const ka=kps[a],kb=kps[b];if(!ka||!kb||ka.score<MIN_CONF||kb.score<MIN_CONF)return;ctx.beginPath();ctx.moveTo(ka.x,ka.y);ctx.lineTo(kb.x,kb.y);ctx.strokeStyle=LEFT_KPS.has(a)&&LEFT_KPS.has(b)?'#00d4aa':RIGHT_KPS.has(a)&&RIGHT_KPS.has(b)?'#ff6b35':'#8b7cf8';ctx.lineWidth=Math.max(2,W*.003);ctx.lineCap='round';ctx.globalAlpha=.85;ctx.stroke();});
+  ctx.globalAlpha=1;const r=Math.max(4,W*.007);
+  kps.forEach((k,i)=>{if(!k||k.score<MIN_CONF)return;ctx.beginPath();ctx.arc(k.x,k.y,r,0,2*Math.PI);ctx.fillStyle=i<5?'#fff':LEFT_KPS.has(i)?'#00d4aa':'#ff6b35';ctx.fill();ctx.strokeStyle='rgba(0,0,0,.55)';ctx.lineWidth=Math.max(1.5,W*.002);ctx.stroke();});
+  // Only draw angle overlays for side-view footage
+  if(isSideView(kps)){
+    drawAngles(ctx,kps,W);
+  } else {
+    // Draw a non-intrusive notice on the frame
+    ctx.save();
+    const fs=Math.max(12,Math.min(18,W*.02));
+    ctx.font=`700 ${fs}px 'Space Mono','Courier New',monospace`;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    const msg='Side view required for angle analysis';
+    const tw=ctx.measureText(msg).width+20;
+    const bh=fs+12;
+    ctx.fillStyle='rgba(6,8,13,.82)';
+    ctx.beginPath();
+    if(ctx.roundRect)ctx.roundRect(W/2-tw/2,H-bh-12,tw,bh,6);
+    else ctx.rect(W/2-tw/2,H-bh-12,tw,bh);
+    ctx.fill();
+    ctx.fillStyle='#f5a623';
+    ctx.fillText(msg,W/2,H-bh/2-12);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+function drawAngles(ctx,kps,W){
+  const r=Math.max(28,W*.046);const p=i=>(kps[i]&&kps[i].score>=MIN_CONF)?kps[i]:null;
+  const lSh=p(5),rSh=p(6),lHi=p(11),rHi=p(12),lKn=p(13),rKn=p(14),lAn=p(15),rAn=p(16),lEl=p(7),rEl=p(8),lWr=p(9),rWr=p(10);
+  if(lSh&&rSh&&lHi&&rHi){const shM={x:(lSh.x+rSh.x)/2,y:(lSh.y+rSh.y)/2},hiM={x:(lHi.x+rHi.x)/2,y:(lHi.y+rHi.y)/2};const lean=Math.atan2(shM.x-hiM.x,hiM.y-shM.y)*180/Math.PI;ctx.save();ctx.beginPath();ctx.moveTo(hiM.x,hiM.y);ctx.lineTo(shM.x,shM.y);ctx.strokeStyle='#f5c842';ctx.lineWidth=Math.max(2,W*.003);ctx.setLineDash([Math.max(5,W*.006),Math.max(3,W*.004)]);ctx.stroke();ctx.setLineDash([]);ctx.beginPath();ctx.moveTo(hiM.x,hiM.y);ctx.lineTo(hiM.x,hiM.y-Math.abs(hiM.y-shM.y));ctx.strokeStyle='rgba(245,200,66,.22)';ctx.lineWidth=Math.max(1,W*.001);ctx.setLineDash([4,4]);ctx.stroke();ctx.setLineDash([]);ctx.restore();drawLabel(ctx,`${lean>0?'+':''}${lean.toFixed(1)}°`,(shM.x+hiM.x)/2+r*.8,(shM.y+hiM.y)/2,'#f5c842',W);}
+  if(lHi&&lKn&&lAn)arcAt(ctx,lKn,lHi,lAn,'#00d4aa',r,W);if(rHi&&rKn&&rAn)arcAt(ctx,rKn,rHi,rAn,'#ff6b35',r,W);
+  if(lSh&&lHi&&lKn)arcAt(ctx,lHi,lSh,lKn,'#00b890',r*.72,W);if(rSh&&rHi&&rKn)arcAt(ctx,rHi,rSh,rKn,'#e05520',r*.72,W);
+  if(lSh&&lEl&&lWr)arcAt(ctx,lEl,lSh,lWr,'#00c0a0',r*.62,W);if(rSh&&rEl&&rWr)arcAt(ctx,rEl,rSh,rWr,'#e06030',r*.62,W);
+}
+function arcAt(ctx,vertex,p1,p2,color,r,W){const angle=calcAngle(p1,vertex,p2);if(!angle)return;const a1=Math.atan2(p1.y-vertex.y,p1.x-vertex.x),a2=Math.atan2(p2.y-vertex.y,p2.x-vertex.x);let diff=a2-a1;while(diff>Math.PI)diff-=2*Math.PI;while(diff<-Math.PI)diff+=2*Math.PI;ctx.save();ctx.beginPath();ctx.moveTo(vertex.x,vertex.y);ctx.arc(vertex.x,vertex.y,r,a1,a2,diff<0);ctx.closePath();ctx.fillStyle=color+'15';ctx.fill();ctx.beginPath();ctx.arc(vertex.x,vertex.y,r,a1,a2,diff<0);ctx.strokeStyle=color;ctx.lineWidth=Math.max(1.5,r*.045);ctx.stroke();ctx.restore();const midA=a1+diff/2;drawLabel(ctx,`${angle.toFixed(0)}°`,vertex.x+(r+r*.55)*Math.cos(midA),vertex.y+(r+r*.55)*Math.sin(midA),color,W);}
+function drawLabel(ctx,text,x,y,color,W){ctx.save();const fs=Math.max(11,Math.min(17,W*.018));ctx.font=`700 ${fs}px 'Space Mono','Courier New',monospace`;ctx.textAlign='center';ctx.textBaseline='middle';const tw=ctx.measureText(text).width,pw=tw+9,ph=fs+7;ctx.fillStyle='rgba(6,8,13,.84)';ctx.beginPath();if(ctx.roundRect)ctx.roundRect(x-pw/2,y-ph/2,pw,ph,3);else ctx.rect(x-pw/2,y-ph/2,pw,ph);ctx.fill();ctx.fillStyle=color;ctx.fillText(text,x,y);ctx.restore();}
+function drawMiniSkeleton(ctx,kps,sx,sy){SKELETON.forEach(([a,b])=>{const ka=kps[a],kb=kps[b];if(!ka||!kb||ka.score<MIN_CONF||kb.score<MIN_CONF)return;ctx.beginPath();ctx.moveTo(ka.x*sx,ka.y*sy);ctx.lineTo(kb.x*sx,kb.y*sy);ctx.strokeStyle=LEFT_KPS.has(a)&&LEFT_KPS.has(b)?'#00d4aa':RIGHT_KPS.has(a)&&RIGHT_KPS.has(b)?'#ff6b35':'#8b7cf8';ctx.lineWidth=1.5;ctx.globalAlpha=.8;ctx.stroke();});ctx.globalAlpha=1;kps.forEach((k,i)=>{if(!k||k.score<MIN_CONF)return;ctx.beginPath();ctx.arc(k.x*sx,k.y*sy,2.5,0,2*Math.PI);ctx.fillStyle=i<5?'#fff':LEFT_KPS.has(i)?'#00d4aa':'#ff6b35';ctx.fill();});}
+
+// Math
+function calcAngle(a,b,c){if(!a||!b||!c)return null;const ba={x:a.x-b.x,y:a.y-b.y},bc={x:c.x-b.x,y:c.y-b.y};const dot=ba.x*bc.x+ba.y*bc.y,mag=Math.hypot(ba.x,ba.y)*Math.hypot(bc.x,bc.y);if(!mag||!isFinite(mag))return null;return Math.acos(Math.max(-1,Math.min(1,dot/mag)))*180/Math.PI;}
+function computeMetrics(kps){
+  const g=i=>(kps[i]&&kps[i].score>=MIN_CONF)?kps[i]:null;const m={};
+  const lSh=g(5),rSh=g(6),lHi=g(11),rHi=g(12),lAn=g(15),rAn=g(16),nose=g(0);
+  if(lSh&&rSh&&lHi&&rHi){const shM={x:(lSh.x+rSh.x)/2,y:(lSh.y+rSh.y)/2},hiM={x:(lHi.x+rHi.x)/2,y:(lHi.y+rHi.y)/2};m.trunk=Math.atan2(shM.x-hiM.x,hiM.y-shM.y)*180/Math.PI;const th=Math.abs(hiM.y-shM.y),dir=(nose&&nose.x>hiM.x)?1:-1;if(lAn&&th>0)m.lFoot=dir*(lAn.x-hiM.x)/th;if(rAn&&th>0)m.rFoot=dir*(rAn.x-hiM.x)/th;}
+  const lKnA=calcAngle(g(11),g(13),g(15));if(lKnA!==null)m.lKnee=lKnA;
+  const rKnA=calcAngle(g(12),g(14),g(16));if(rKnA!==null)m.rKnee=rKnA;
+  const lHiA=calcAngle(g(5),g(11),g(13));if(lHiA!==null)m.lHip=lHiA;
+  const rHiA=calcAngle(g(6),g(12),g(14));if(rHiA!==null)m.rHip=rHiA;
+  const lElA=calcAngle(g(5),g(7),g(9));if(lElA!==null)m.lElbow=lElA;
+  const rElA=calcAngle(g(6),g(8),g(10));if(rElA!==null)m.rElbow=rElA;
+  return m;
+}
+
+// Summary table
+function buildSummaryTable(){
+  const tbl=document.getElementById('summary-table');
+  tbl.querySelector('thead').innerHTML=`<tr><th>Metric</th>${SUMMARY_COL_ORDER.map((k,i)=>{const ph=phases[k];const idx=PHASE_DEFS.findIndex(d=>d.key===k);const gs=GROUP_STARTS.has(k)?' th-group-start':'';const side=ph?.side==='left'?' th-left':ph?.side==='right'?' th-right':'';return `<th class="${gs}${side}" onclick="openExpand('${k}')">${idx+1}. ${ph?.label||k}${!ph?.detected?' ⚠':''}</th>`;}).join('')}</tr>`;
+  tbl.querySelector('tbody').innerHTML=METRIC_ROWS.map(r=>`<tr><td class="row-label">${r.label}</td>${SUMMARY_COL_ORDER.map(k=>`<td class="${GROUP_STARTS.has(k)?'td-group-start':''}" id="sc-${k}-${r.key}"><span class="sv na">—</span></td>`).join('')}</tr>`).join('');
+}
+function updateSummaryCol(key){
+  const m=phases[key]?.metrics;if(!m)return;
+  METRIC_ROWS.forEach(r=>{const cell=document.getElementById(`sc-${key}-${r.key}`);if(!cell)return;const v=m[r.key],d=v!=null?r.fmt(v):'—';cell.innerHTML=`<span class="sv">${d}</span>`;});
+}
+
+// Save section
+function updateSaveSection(){
+  const analyzed=PHASE_DEFS.filter(d=>phases[d.key]?.metrics);
+  const pillEl=document.getElementById('phase-completion');
+  if(pillEl)pillEl.innerHTML=PHASE_DEFS.map(def=>{const done=!!phases[def.key]?.metrics;return `<span class="pc-pill ${done?'done':'missing'}">${done?'✓':'○'} ${def.label}</span>`;}).join('');
+  const athlete=document.getElementById('meta-athlete')?.value.trim();
+  const sexDisplay=selectedSex?`<span class="sex-${selectedSex}">${selectedSex.charAt(0).toUpperCase()+selectedSex.slice(1)}</span>`:'<span style="color:var(--warn)">Not set</span>';
+  const metaEl=document.getElementById('save-meta-summary');
+  if(metaEl)metaEl.innerHTML=`<strong>Sex:</strong> ${sexDisplay}<br><strong>Athlete:</strong> ${athlete||'<span style="color:var(--warn)">Not set — required</span>'}<br>${document.getElementById('meta-event')?.value?`<strong>Event:</strong> ${document.getElementById('meta-event').value}<br>`:''}<strong>Phases analyzed:</strong> ${analyzed.length}/${PHASE_DEFS.length}`;
+  const saveBtn=document.getElementById('save-btn');
+  if(saveBtn)saveBtn.disabled=!(selectedSex&&athlete&&analyzed.length>=3);
+}
+['meta-athlete','meta-event','meta-pace','meta-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('input',updateSaveSection);});
+
+// ══════════════════════════════════════════════════════════
+//  SAVE & RANGE COMPUTATION
+// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
+//  DATA VETTING — outlier detection + anatomical plausibility
+// ══════════════════════════════════════════════════════════
+
+// Anatomical plausibility hard limits (physically impossible outside these)
+const PLAUSIBILITY = {
+  trunk:  {min:-45,  max:60,   label:'Trunk lean'},
+  lKnee:  {min:30,   max:185,  label:'L knee angle'},
+  rKnee:  {min:30,   max:185,  label:'R knee angle'},
+  lHip:   {min:60,   max:210,  label:'L hip angle'},
+  rHip:   {min:60,   max:210,  label:'R hip angle'},
+  lElbow: {min:20,   max:175,  label:'L elbow angle'},
+  rElbow: {min:20,   max:175,  label:'R elbow angle'},
+  lFoot:  {min:-1.5, max:1.5,  label:'L foot offset'},
+  rFoot:  {min:-1.5, max:1.5,  label:'R foot offset'},
+};
+
+// IQR-based outlier detection against existing dataset for this sex
+async function fetchExistingValues(sex, phaseKey, metricKey){
+  try{
+    const snap = await db.collection('reference_sessions')
+      .where('sex','==',sex).get();
+    return snap.docs
+      .map(d=>d.data().phases?.[phaseKey]?.[metricKey])
+      .filter(v=>v!==undefined&&v!==null&&isFinite(v));
+  }catch(e){ return []; }
+}
+
+function iqrOutlierCheck(value, existingValues, metricLabel, phaseLabel){
+  if(existingValues.length < 6) return null; // not enough data to judge
+  const sorted = [...existingValues].sort((a,b)=>a-b);
+  const q1 = sorted[Math.floor(sorted.length*0.25)];
+  const q3 = sorted[Math.floor(sorted.length*0.75)];
+  const iqr = q3 - q1;
+  const lo  = q1 - 2.0 * iqr; // using 2x for sport data (wider than standard 1.5x)
+  const hi  = q3 + 2.0 * iqr;
+  if(value < lo || value > hi){
+    const pct = value < lo ? Math.round((lo-value)/iqr*10)/10 : Math.round((value-hi)/iqr*10)/10;
+    return `${metricLabel} at ${phaseLabel} (${value.toFixed(1)}) is ${pct} IQR outside the existing dataset range (${lo.toFixed(1)}–${hi.toFixed(1)})`;
+  }
+  return null;
+}
+
+async function vetSessionData(){
+  const warnings = [];   // amber — unusual but possible
+  const errors   = [];   // red — likely wrong / physically implausible
+
+  // 1. Anatomical plausibility checks (fast, no network)
+  PHASE_DEFS.forEach(def=>{
+    const m = phases[def.key]?.metrics;
+    if(!m) return;
+    METRIC_ROWS.forEach(metric=>{
+      const v     = m[metric.key];
+      const limit = PLAUSIBILITY[metric.key];
+      if(v==null||!limit) return;
+      if(v < limit.min || v > limit.max){
+        errors.push(`${limit.label} at "${def.label}" = ${v.toFixed(1)}° — outside physically possible range (${limit.min}–${limit.max}). This frame is likely wrong.`);
+      }
+    });
+  });
+
+  // 2. IQR outlier checks against existing dataset (async, per metric)
+  if(selectedSex && errors.length === 0){ // skip if already have errors
+    const checks = [];
+    for(const def of PHASE_DEFS){
+      const m = phases[def.key]?.metrics;
+      if(!m) continue;
+      for(const metric of METRIC_ROWS){
+        const v = m[metric.key];
+        if(v==null) continue;
+        checks.push(
+          fetchExistingValues(selectedSex, def.key, metric.key).then(existing=>{
+            const msg = iqrOutlierCheck(v, existing, metric.label, def.label);
+            if(msg) warnings.push(msg);
+          })
+        );
+      }
+    }
+    await Promise.all(checks);
+  }
+
+  // 3. Symmetry check — flag large L/R differences
+  const symPairs = [
+    ['lKnee','rKnee','Knee angle'],['lHip','rHip','Hip angle'],
+    ['lElbow','rElbow','Elbow angle'],
+  ];
+  PHASE_DEFS.forEach(def=>{
+    const m=phases[def.key]?.metrics;if(!m)return;
+    symPairs.forEach(([l,r,label])=>{
+      const lv=m[l],rv=m[r];
+      if(lv==null||rv==null)return;
+      const diff=Math.abs(lv-rv);
+      if(diff>35) warnings.push(`Large ${label} asymmetry at "${def.label}" (L:${lv.toFixed(0)}° vs R:${rv.toFixed(0)}° — ${diff.toFixed(0)}° difference). Double-check this phase is correctly identified.`);
+    });
+  });
+
+  return {warnings, errors};
+}
+
+async function saveSession(skipVetting=false){
+  const athlete=document.getElementById('meta-athlete')?.value.trim();
+  if(!selectedSex||!athlete){document.getElementById('save-error').textContent='Sex and athlete name are both required.';document.getElementById('save-error').className='save-error show';return;}
+
+  // Run data vetting unless explicitly skipped
+  if(!skipVetting){
+    document.getElementById('save-btn').disabled=true;
+    document.getElementById('save-btn').textContent='Checking data…';
+    const {warnings,errors} = await vetSessionData();
+    document.getElementById('save-btn').disabled=false;
+    document.getElementById('save-btn').textContent='◉ Save session';
+
+    if(warnings.length>0||errors.length>0){
+      const vetPanel = document.getElementById('vet-panel');
+      const vetItems = document.getElementById('vet-items');
+      const vetNote  = document.getElementById('vet-note');
+      const vetTitle = document.getElementById('vet-title');
+      const vetSaveAnyway = document.getElementById('vet-save-anyway');
+
+      vetPanel.className='vet-panel show';
+      vetTitle.textContent = errors.length>0
+        ? `⛔ ${errors.length} plausibility error${errors.length>1?'s':''} found`
+        : `⚠ ${warnings.length} data warning${warnings.length>1?'s':''} found`;
+
+      vetItems.innerHTML=[
+        ...errors.map(e=>`<div class="vet-item error">⛔ ${e}</div>`),
+        ...warnings.map(w=>`<div class="vet-item warn">⚠ ${w}</div>`),
+      ].join('');
+
+      if(errors.length>0){
+        vetNote.textContent='Errors indicate this data may be incorrect. Please re-check the flagged phases before saving.';
+        vetSaveAnyway.style.display='none';
+      } else {
+        vetNote.textContent='Warnings are advisory — the data may still be valid. Save anyway if you're confident in this session.';
+        vetSaveAnyway.style.display='inline-flex';
+      }
+      return; // stop here — user must review
+    }
+    // All clear
+    document.getElementById('vet-panel').className='vet-panel';
+  } else {
+    document.getElementById('vet-panel').className='vet-panel';
+  }
+
+  const saveBtn=document.getElementById('save-btn'),saveNotice=document.getElementById('save-notice'),saveError=document.getElementById('save-error');
+  saveBtn.className='save-btn saving';saveBtn.textContent='Saving…';saveBtn.disabled=true;
+  saveNotice.className='save-notice';saveError.className='save-error';
+  try{
+    // Write session
+    const sessionData={
+      timestamp:firebase.firestore.FieldValue.serverTimestamp(),
+      sex:selectedSex,
+      athlete,
+      event:document.getElementById('meta-event')?.value.trim()||'',
+      pace:document.getElementById('meta-pace')?.value.trim()||'',
+      notes:document.getElementById('meta-notes')?.value.trim()||'',
+      videoWidth:videoEl.videoWidth||0,videoHeight:videoEl.videoHeight||0,
+      phases:{}
+    };
+    PHASE_DEFS.forEach(def=>{const m=phases[def.key]?.metrics;if(m)sessionData.phases[def.key]={...m};});
+    await db.collection('reference_sessions').add(sessionData);
+
+    // Recompute ranges for this sex only
+    const allSnap=await db.collection('reference_sessions').where('sex','==',selectedSex).get();
+    const allSessions=allSnap.docs.map(d=>d.data());
+    const newRanges=computeRanges(allSessions);
+    await db.collection('computed_ranges').doc(selectedSex).set({
+      lastUpdated:firebase.firestore.FieldValue.serverTimestamp(),
+      sex:selectedSex,sampleCount:allSessions.length,phases:newRanges,
+    });
+
+    // Update counts
+    await loadDatasetStats();
+    saveBtn.className='save-btn saved';saveBtn.textContent='✓ Saved';
+    saveNotice.textContent=`Session saved to ${selectedSex} dataset (${allSessions.length} total sessions).`;
+    saveNotice.className='save-notice show';
+    setTimeout(()=>{saveBtn.className='save-btn';saveBtn.textContent='◉ Save session';saveBtn.disabled=false;},3000);
+  }catch(e){
+    console.error('saveSession:',e);
+    saveError.textContent='Save failed: '+e.message;saveError.className='save-error show';
+    saveBtn.className='save-btn';saveBtn.textContent='◉ Save session';saveBtn.disabled=false;
+  }
+}
+
+// Range computation: Bessel's-corrected SD, returns per-phase per-metric stats
+function computeRanges(sessions){
+  const result={};
+  PHASE_DEFS.forEach(def=>{
+    result[def.key]={};
+    METRIC_ROWS.forEach(metric=>{
+      const values=sessions.map(s=>s.phases?.[def.key]?.[metric.key]).filter(v=>v!==undefined&&v!==null&&isFinite(v)&&!isNaN(v));
+      if(values.length<MIN_N){result[def.key][metric.key]={n:values.length,reliable:false};return;}
+      const n=values.length,mean=values.reduce((a,b)=>a+b,0)/n;
+      const variance=values.reduce((a,b)=>a+(b-mean)**2,0)/(n-1);
+      const sd=Math.sqrt(variance);
+      result[def.key][metric.key]={n,reliable:true,mean:+mean.toFixed(4),sd:+sd.toFixed(4),green:[+(mean-sd).toFixed(4),+(mean+sd).toFixed(4)],warn:[+(mean-2*sd).toFixed(4),+(mean+2*sd).toFixed(4)]};
+    });
+  });
+  return result;
+}
+
+// Seek
+function seekTo(t){
+  return new Promise(resolve=>{
+    let done=false;
+    const finish=()=>{
+      if(done) return;
+      done=true;
+      videoEl.removeEventListener('seeked', finish);
+      clearTimeout(timer);
+      // Small settle delay — edited videos sometimes need a frame to render
+      setTimeout(resolve, 60);
+    };
+    videoEl.addEventListener('seeked', finish, {once:true});
+    // 3s timeout — edited/VFR videos with sparse keyframes can be slow to seek
+    const timer = setTimeout(()=>{
+      if(!done){
+        console.warn('seekTo timeout at', t.toFixed(2)+'s — continuing');
+        finish();
+      }
+    }, 3000);
+    videoEl.currentTime = Math.max(0, Math.min(t, (videoEl.duration||9999) - 0.05));
+  });
+}
+
+// Reset
+async function rescan(){closeExpand();phases={};document.getElementById('screen-phases').style.display='none';document.getElementById('summary-section').style.display='none';document.getElementById('save-section').style.display='none';document.getElementById('scan-bar').style.width='0%';document.getElementById('scan-phase-list').innerHTML='';document.getElementById('scan-step').textContent='Preparing…';document.getElementById('scan-diag').style.display='none';document.getElementById('scan-summary-bar').style.display='none';document.getElementById('screen-scanning').style.display='flex';document.getElementById('btn-rescan').style.display='none';await autoScan();}
+function resetApp(){closeExpand();phases={};['screen-phases','summary-section','save-section'].forEach(id=>document.getElementById(id).style.display='none');document.getElementById('screen-upload').style.display='flex';document.getElementById('hdr-file').textContent='';document.getElementById('btn-rescan').style.display='none';document.getElementById('phase-groups').innerHTML='';document.getElementById('scan-summary-bar').style.display='none';document.getElementById('save-notice').className='save-notice';document.getElementById('save-error').className='save-error';const saveBtn=document.getElementById('save-btn');if(saveBtn){saveBtn.className='save-btn';saveBtn.textContent='◉ Save session';saveBtn.disabled=true;}if(videoEl){videoEl.pause();videoEl.src='';}}
+</script>
+</body>
+</html>

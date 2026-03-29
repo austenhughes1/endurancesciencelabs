@@ -13,7 +13,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ── Computed ranges (male + female) ──────────────────────
-    // Anyone can READ — the public StrideScope analyzer fetches
+    // Anyone can READ — the public ESFormLab analyzer fetches
     // computed_ranges/male and computed_ranges/female on load.
     // Only the admin account can WRITE.
     match /computed_ranges/{sex} {
