@@ -1198,7 +1198,7 @@ async function saveSession(skipVetting=false){
         vetNote.textContent='Errors indicate this data may be incorrect. Please re-check the flagged phases before saving.';
         vetSaveAnyway.style.display='none';
       } else {
-        vetNote.textContent='Warnings are advisory — the data may still be valid. Save anyway if you're confident in this session.';
+        vetNote.textContent='Warnings are advisory \u2014 the data may still be valid. Save anyway if you\u2019re confident in this session.';
         vetSaveAnyway.style.display='inline-flex';
       }
       return; // stop here — user must review
