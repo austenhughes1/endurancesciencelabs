@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ESFormLab — Endurance Science Labs</title>
+<title>esFormLab — Endurance Science Labs</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#06080d;--panel:#0d1020;--panel2:#131828;
@@ -14,7 +14,7 @@
   --text:#dde1ef;--muted:#3e4460;--muted2:#6e7a9a;
   --good:#22c78a;--warn:#f5a623;--bad:#f55050;
   --male:#5b9cf8;--female:#f87db0;
-  --ui:'Syne',system-ui,sans-serif;--mono:'Space Mono',monospace;
+  --ui:'Inter',system-ui,sans-serif;--mono:'Space Mono',monospace;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--ui);background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
@@ -389,7 +389,7 @@ body.bar-showing #screen-phases{padding-bottom:120px}
   </a>
   <div class="nav-links">
     <a href="index.html"          class="nav-link">Home</a>
-    <a href="esformlab.html"  class="nav-link active">ESFormLab</a>
+    <a href="esformlab.html"  class="nav-link active">esFormLab</a>
     <a href="#"                   class="nav-link">Coaching <span class="soon">Soon</span></a>
     <a href="#"                   class="nav-link">Metabolic Testing <span class="soon">Soon</span></a>
     <a href="#"                   class="nav-link">Training Plans <span class="soon">Soon</span></a>
@@ -815,9 +815,9 @@ async function initFirebase() {
     if (fSnap.status==='fulfilled'&&fSnap.value.exists) liveRanges.female = fSnap.value.data().phases||null;
     var mN = liveRanges.male   ? Object.keys(liveRanges.male).length   : 0;
     var fN = liveRanges.female ? Object.keys(liveRanges.female).length : 0;
-    console.log('ESFormLab: loaded live ranges -- male phases: '+mN+', female phases: '+fN);
+    console.log('esFormLab: loaded live ranges -- male phases: '+mN+', female phases: '+fN);
     updateRangesStatus();
-  } catch(e) { console.warn('ESFormLab: could not fetch live ranges.', e.message); }
+  } catch(e) { console.warn('esFormLab: could not fetch live ranges.', e.message); }
 }
 
 // -- Sex selection --
@@ -1177,7 +1177,7 @@ function startAllVideos() {
     vidEl.addEventListener('loadedmetadata', begin, {once:true});
     vidEl.addEventListener('loadeddata',     begin, {once:true});
     vidEl.addEventListener('canplay',        begin, {once:true});
-    var ft = setTimeout(function(){ if(!started){ console.warn('ESFormLab: metadata timeout for '+file.name); begin(); } }, 8000);
+    var ft = setTimeout(function(){ if(!started){ console.warn('esFormLab: metadata timeout for '+file.name); begin(); } }, 8000);
     vidEl.src = URL.createObjectURL(file);
     vidEl.load();
   }

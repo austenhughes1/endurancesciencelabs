@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ESFormLab — Reference Data Collection</title>
+<title>esFormLab — Reference Data Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -307,7 +307,7 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 <div id="auth-overlay">
   <div class="auth-card">
     <div class="auth-logo">EFL</div>
-    <div class="auth-title">ESFormLab</div>
+    <div class="auth-title">esFormLab</div>
     <p class="auth-sub">Private reference data collection.<br>Sign in with your admin account to continue.</p>
     <input type="email"    class="auth-field" id="auth-email"    placeholder="Email" autocomplete="email">
     <input type="password" class="auth-field" id="auth-password" placeholder="Password"
@@ -736,7 +736,7 @@ function startWithFile(file){
   videoEl.addEventListener('canplay',        beginScan, {once:true});
 
   // Hard 8s timeout if none of the above fire
-  const fallbackTimer = setTimeout(()=>{ if(!started){ console.warn('ESFormLab: metadata timeout, scanning anyway'); beginScan(); } }, 8000);
+  const fallbackTimer = setTimeout(()=>{ if(!started){ console.warn('esFormLab: metadata timeout, scanning anyway'); beginScan(); } }, 8000);
 
   videoEl.src=URL.createObjectURL(file);
   videoEl.load();
