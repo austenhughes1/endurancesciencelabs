@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Endurance Science Labs — Coaching</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#06080d;--panel:#0d1020;--panel2:#131828;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+  --cyan:#00e5c8;--gold:#f5c842;--coral:#ff6b35;--purple:#8b7cf8;
+  --text:#dde1ef;--muted:#3e4460;--muted2:#6e7a9a;
+  --good:#22c78a;--warn:#f5a623;--bad:#f55050;
+  --ui:'Inter',system-ui,sans-serif;--mono:'Space Mono',monospace;--body:'DM Sans',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--ui);background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ── Auth ───────────────────────────────────────────── */
+#auth-overlay{position:fixed;inset:0;background:var(--bg);z-index:9000;display:flex;align-items:center;justify-content:center;padding:40px}
+.auth-card{background:var(--panel);border:1px solid var(--border2);border-radius:20px;padding:44px 48px;width:100%;max-width:420px;text-align:center}
+.auth-logo{width:52px;height:52px;background:var(--cyan);border-radius:14px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:14px;color:#000;margin:0 auto 20px}
+.auth-title{font-size:20px;font-weight:800;margin-bottom:6px}
+.auth-sub{font-size:12px;color:var(--muted2);margin-bottom:28px;line-height:1.6}
+.auth-field{width:100%;background:var(--panel2);border:1px solid var(--border2);border-radius:9px;padding:11px 14px;font-size:13px;color:var(--text);font-family:var(--mono);outline:none;transition:border-color .15s;margin-bottom:10px;display:block}
+.auth-field:focus{border-color:var(--cyan)}
+.auth-btn{width:100%;padding:12px;background:var(--cyan);color:#000;font-weight:700;font-size:13px;font-family:var(--ui);border:none;border-radius:9px;cursor:pointer;transition:opacity .15s;margin-top:4px}
+.auth-btn:hover{opacity:.85}
+.auth-btn:disabled{opacity:.4;cursor:not-allowed}
+.auth-error{font-size:11px;color:var(--bad);font-family:var(--mono);margin-top:8px;min-height:16px}
+.auth-note{font-size:10px;color:var(--muted);margin-top:16px;font-family:var(--mono);line-height:1.6}
+.auth-toggle{font-size:11px;color:var(--cyan);cursor:pointer;margin-top:14px;font-family:var(--mono)}
+.auth-toggle:hover{text-decoration:underline}
+
+/* ── Header ─────────────────────────────────────────── */
+header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:300;background:rgba(6,8,13,.97);backdrop-filter:blur(10px)}
+.logo{width:32px;height:32px;background:var(--cyan);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:11px;color:#000;flex-shrink:0;text-decoration:none}
+.brand{font-size:15px;font-weight:700;letter-spacing:-.3px}
+.brand em{color:var(--cyan);font-style:normal}
+.role-badge{font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;font-family:var(--mono);padding:3px 8px;border-radius:5px;margin-left:4px}
+.role-badge.coach{background:rgba(139,124,248,.18);color:var(--purple)}
+.role-badge.athlete{background:rgba(0,229,200,.12);color:var(--cyan)}
+.hdr-right{display:flex;align-items:center;gap:8px;margin-left:auto}
+.btn-ghost{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;font-size:11px;font-weight:600;font-family:var(--ui);border-radius:7px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;transition:all .15s}
+.btn-ghost:hover{border-color:var(--cyan);color:var(--cyan)}
+.btn-signout{color:var(--bad) !important}.btn-signout:hover{border-color:var(--bad) !important}
+.btn-primary{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;font-size:12px;font-weight:700;font-family:var(--ui);border-radius:8px;border:none;background:var(--cyan);color:#000;cursor:pointer;transition:opacity .15s}
+.btn-primary:hover{opacity:.85}
+
+/* ── Layout ─────────────────────────────────────────── */
+#app{display:none}
+.layout{display:flex;height:calc(100vh - 54px);overflow:hidden}
+.sidebar{width:260px;border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;background:var(--panel)}
+.sidebar-header{padding:16px 18px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.sidebar-title{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--cyan);font-family:var(--mono)}
+.athlete-list{flex:1;overflow-y:auto;padding:8px}
+.athlete-item{padding:10px 14px;border-radius:10px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:10px;margin-bottom:2px}
+.athlete-item:hover{background:rgba(255,255,255,.04)}
+.athlete-item.active{background:rgba(0,229,200,.08);border:1px solid rgba(0,229,200,.18)}
+.athlete-item:not(.active){border:1px solid transparent}
+.athlete-avatar{width:32px;height:32px;border-radius:50%;background:var(--panel2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--muted2);font-family:var(--mono);flex-shrink:0}
+.athlete-name{font-size:13px;font-weight:600}
+.athlete-meta{font-size:10px;color:var(--muted2);font-family:var(--mono);margin-top:1px}
+.athlete-strava{color:var(--coral);font-size:9px;font-family:var(--mono);font-weight:700}
+
+/* ── Main content ───────────────────────────────────── */
+.main{flex:1;overflow-y:auto;padding:24px 28px;display:flex;flex-direction:column}
+.main-empty{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:var(--muted2)}
+.main-empty-icon{font-size:40px;opacity:.3}
+.main-empty-text{font-size:14px;font-family:var(--mono)}
+
+/* ── Plan header ────────────────────────────────────── */
+.plan-header{display:flex;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+.plan-athlete-name{font-size:22px;font-weight:800;letter-spacing:-.3px}
+.plan-race{font-size:12px;color:var(--muted2);font-family:var(--mono);display:flex;align-items:center;gap:8px}
+.plan-race-name{color:var(--gold)}
+.plan-actions{margin-left:auto;display:flex;gap:8px}
+
+/* ── Calendar nav ───────────────────────────────────── */
+.cal-nav{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.cal-nav-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--muted2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.cal-nav-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.cal-month{font-size:16px;font-weight:700;min-width:180px;text-align:center}
+.cal-today-btn{font-size:11px;font-weight:600;font-family:var(--mono);color:var(--cyan);cursor:pointer;background:none;border:1px solid rgba(0,229,200,.25);border-radius:6px;padding:4px 10px;transition:all .15s}
+.cal-today-btn:hover{background:rgba(0,229,200,.08)}
+
+/* ── Calendar grid ──────────────────────────────────── */
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border-radius:12px;overflow:hidden;flex:1;grid-auto-rows:1fr}
+.cal-day-header{background:var(--panel);padding:8px;text-align:center;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono)}
+.cal-day{background:var(--panel);padding:8px;min-height:90px;cursor:pointer;transition:background .15s;position:relative;display:flex;flex-direction:column}
+.cal-day:hover{background:var(--panel2)}
+.cal-day.today{box-shadow:inset 0 0 0 1px var(--cyan)}
+.cal-day.other-month{opacity:.35}
+.cal-day.other-month:hover{opacity:.5}
+.cal-date{font-size:11px;font-weight:700;font-family:var(--mono);margin-bottom:4px;display:flex;align-items:center;gap:4px}
+.cal-date .today-dot{width:6px;height:6px;border-radius:50%;background:var(--cyan)}
+.cal-workouts{flex:1;display:flex;flex-direction:column;gap:2px;overflow:hidden}
+.cal-tag{font-size:9px;font-family:var(--mono);padding:2px 5px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.4}
+.cal-tag.midweek{background:rgba(139,124,248,.15);color:var(--purple)}
+.cal-tag.weekend{background:rgba(0,229,200,.12);color:var(--cyan)}
+.cal-tag.long-run{background:rgba(245,200,66,.12);color:var(--gold)}
+.cal-tag.ancillary{background:rgba(255,255,255,.05);color:var(--muted2)}
+.cal-tag.strava{background:rgba(255,107,53,.12);color:var(--coral)}
+.cal-week-miles{font-size:9px;font-family:var(--mono);color:var(--muted2);margin-top:auto;padding-top:3px}
+.cal-week-miles span{color:var(--cyan);font-weight:700}
+
+/* ── Workout panel (slide-in) ───────────────────────── */
+.panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:none;opacity:0;transition:opacity .2s}
+.panel-overlay.open{display:block;opacity:1}
+.workout-panel{position:fixed;top:0;right:-500px;width:460px;max-width:100vw;height:100vh;background:var(--panel);border-left:1px solid var(--border2);z-index:501;transition:right .25s ease;display:flex;flex-direction:column;overflow:hidden}
+.workout-panel.open{right:0}
+.wp-header{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.wp-close{width:32px;height:32px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--muted2);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.wp-close:hover{border-color:var(--bad);color:var(--bad)}
+.wp-title{font-size:15px;font-weight:700}
+.wp-date{font-size:11px;color:var(--muted2);font-family:var(--mono)}
+.wp-weeks{font-size:10px;color:var(--gold);font-family:var(--mono);font-weight:700}
+.wp-body{flex:1;overflow-y:auto;padding:20px 24px}
+.wp-section{margin-bottom:20px}
+.wp-label{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono);margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.wp-label .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.wp-label .dot.midweek{background:var(--purple)}
+.wp-label .dot.weekend{background:var(--cyan)}
+.wp-label .dot.long-run{background:var(--gold)}
+.wp-label .dot.ancillary{background:var(--muted2)}
+.wp-label .dot.notes{background:var(--warn)}
+.wp-label .dot.miles{background:var(--good)}
+.wp-textarea{width:100%;background:var(--panel2);border:1px solid var(--border2);border-radius:9px;padding:10px 14px;font-size:12px;color:var(--text);font-family:var(--ui);outline:none;transition:border-color .15s;resize:vertical;min-height:60px;line-height:1.5}
+.wp-textarea:focus{border-color:var(--cyan)}
+.wp-textarea[readonly]{opacity:.6;cursor:default}
+.wp-input{width:100%;background:var(--panel2);border:1px solid var(--border2);border-radius:9px;padding:10px 14px;font-size:12px;color:var(--text);font-family:var(--mono);outline:none;transition:border-color .15s}
+.wp-input:focus{border-color:var(--cyan)}
+.wp-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
+.wp-save-status{font-size:10px;font-family:var(--mono);color:var(--good);margin-right:auto;display:flex;align-items:center;gap:4px;opacity:0;transition:opacity .3s}
+.wp-save-status.show{opacity:1}
+
+/* ── Strava section in panel ────────────────────────── */
+.strava-section{margin-top:24px;padding-top:20px;border-top:1px solid var(--border)}
+.strava-header{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.strava-logo{font-size:14px;font-weight:800;color:var(--coral);font-family:var(--mono)}
+.strava-stat{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)}
+.strava-stat-label{font-size:11px;color:var(--muted2);font-family:var(--mono)}
+.strava-stat-val{font-size:12px;font-weight:700;font-family:var(--mono);color:var(--coral)}
+
+/* ── Add athlete modal ──────────────────────────────── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:600;display:none;align-items:center;justify-content:center;padding:40px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--panel);border:1px solid var(--border2);border-radius:16px;padding:32px;width:100%;max-width:400px}
+.modal-title{font-size:17px;font-weight:800;margin-bottom:4px}
+.modal-sub{font-size:11px;color:var(--muted2);margin-bottom:20px;font-family:var(--mono);line-height:1.5}
+.modal-field{width:100%;background:var(--panel2);border:1px solid var(--border2);border-radius:9px;padding:10px 14px;font-size:13px;color:var(--text);font-family:var(--ui);outline:none;transition:border-color .15s;margin-bottom:10px;display:block}
+.modal-field:focus{border-color:var(--cyan)}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.modal-error{font-size:11px;color:var(--bad);font-family:var(--mono);margin-top:8px;min-height:16px}
+
+/* ── Week summary row ───────────────────────────────── */
+.cal-week-summary{background:var(--panel2);padding:6px 10px;grid-column:1/-1;display:flex;align-items:center;gap:16px;min-height:auto}
+.cal-week-summary .ws-label{font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-family:var(--mono)}
+.cal-week-summary .ws-miles{font-size:12px;font-weight:800;font-family:var(--mono);color:var(--cyan)}
+.cal-week-summary .ws-weeks{font-size:10px;color:var(--gold);font-family:var(--mono);font-weight:700}
+
+/* ── Responsive ─────────────────────────────────────── */
+@media(max-width:900px){
+  .sidebar{width:220px}
+  .workout-panel{width:100vw}
+}
+@media(max-width:640px){
+  .layout{flex-direction:column}
+  .sidebar{width:100%;height:auto;max-height:160px;border-right:none;border-bottom:1px solid var(--border)}
+  .athlete-list{display:flex;flex-direction:row;overflow-x:auto;padding:6px}
+  .athlete-item{flex-shrink:0;padding:8px 12px}
+  .main{padding:16px}
+  .cal-day{min-height:70px;padding:4px}
+  .cal-tag{font-size:8px}
+}
+</style>
+</head>
+<body>
+
+<!-- ── Auth overlay ─────────────────────────────────── -->
+<div id="auth-overlay">
+  <div class="auth-card">
+    <div class="auth-logo">ESL</div>
+    <div class="auth-title" id="auth-title">Sign in</div>
+    <p class="auth-sub" id="auth-sub">Access your training dashboard.</p>
+    <input type="email" class="auth-field" id="auth-email" placeholder="Email" autocomplete="email">
+    <input type="password" class="auth-field" id="auth-password" placeholder="Password"
+      onkeydown="if(event.key==='Enter') authAction()">
+    <div id="auth-name-row" style="display:none">
+      <input type="text" class="auth-field" id="auth-name" placeholder="Full name" autocomplete="name">
+    </div>
+    <button class="auth-btn" id="auth-btn" onclick="authAction()">Sign in</button>
+    <div class="auth-error" id="auth-error"></div>
+    <div class="auth-toggle" id="auth-toggle" onclick="toggleAuthMode()">Need an account? Sign up</div>
+    <p class="auth-note">Athletes: use the credentials your coach provided.</p>
+  </div>
+</div>
+
+<!-- ── App ──────────────────────────────────────────── -->
+<div id="app">
+<header>
+  <a href="index.html" class="logo">ESL</a>
+  <div>
+    <div class="brand">Endurance Science <em>Labs</em></div>
+  </div>
+  <span class="role-badge" id="role-badge"></span>
+  <div class="hdr-right">
+    <span id="hdr-user" style="font-size:12px;color:var(--muted2);font-family:var(--mono)"></span>
+    <button class="btn-ghost btn-signout" onclick="doSignOut()">Sign out</button>
+  </div>
+</header>
+
+<!-- Coach layout -->
+<div class="layout" id="coach-layout" style="display:none">
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <span class="sidebar-title">Athletes</span>
+      <button class="btn-ghost" onclick="openAddAthlete()" style="padding:4px 10px;font-size:10px">+ Add</button>
+    </div>
+    <div class="athlete-list" id="athlete-list"></div>
+  </div>
+  <div class="main" id="coach-main">
+    <div class="main-empty" id="coach-empty">
+      <div class="main-empty-icon">◇</div>
+      <div class="main-empty-text">Select an athlete to view their plan</div>
+    </div>
+    <div id="coach-calendar" style="display:none"></div>
+  </div>
+</div>
+
+<!-- Athlete layout -->
+<div class="layout" id="athlete-layout" style="display:none">
+  <div class="main" id="athlete-main">
+    <div id="athlete-calendar"></div>
+  </div>
+</div>
+</div>
+
+<!-- ── Workout edit panel ──────────────────────────── -->
+<div class="panel-overlay" id="panel-overlay" onclick="closeWorkoutPanel()"></div>
+<div class="workout-panel" id="workout-panel">
+  <div class="wp-header">
+    <button class="wp-close" onclick="closeWorkoutPanel()">✕</button>
+    <div>
+      <div class="wp-title" id="wp-title"></div>
+      <div class="wp-date" id="wp-date"></div>
+      <div class="wp-weeks" id="wp-weeks"></div>
+    </div>
+  </div>
+  <div class="wp-body">
+    <div class="wp-section">
+      <div class="wp-label"><span class="dot miles"></span>Miles / Week</div>
+      <input class="wp-input" id="wp-miles" type="text" placeholder="e.g. 60-65">
+    </div>
+    <div class="wp-section">
+      <div class="wp-label"><span class="dot midweek"></span>Midweek Session</div>
+      <textarea class="wp-textarea" id="wp-midweek" placeholder="e.g. 6-7×3:00 @ threshold, 1:00 float between"></textarea>
+    </div>
+    <div class="wp-section">
+      <div class="wp-label"><span class="dot weekend"></span>Weekend Session</div>
+      <textarea class="wp-textarea" id="wp-weekend" placeholder="e.g. 4-5×600 @ controlled 3k effort"></textarea>
+    </div>
+    <div class="wp-section">
+      <div class="wp-label"><span class="dot long-run"></span>Long Run</div>
+      <textarea class="wp-textarea" id="wp-longrun" placeholder="e.g. 11-13"></textarea>
+    </div>
+    <div class="wp-section">
+      <div class="wp-label"><span class="dot ancillary"></span>Ancillary Work</div>
+      <textarea class="wp-textarea" id="wp-ancillary" placeholder="e.g. 6-8×:15-:20 hill sprints"></textarea>
+    </div>
+    <div class="wp-section">
+      <div class="wp-label"><span class="dot notes"></span>Notes</div>
+      <textarea class="wp-textarea" id="wp-notes" placeholder="Any notes for the athlete..."></textarea>
+    </div>
+
+    <!-- Strava data (read-only, shown when available) -->
+    <div class="strava-section" id="wp-strava" style="display:none">
+      <div class="strava-header">
+        <span class="strava-logo">STRAVA</span>
+        <span style="font-size:10px;color:var(--muted2);font-family:var(--mono)">Auto-synced activity</span>
+      </div>
+      <div id="wp-strava-data"></div>
+    </div>
+  </div>
+  <div class="wp-footer" id="wp-footer">
+    <div class="wp-save-status" id="wp-save-status">✓ Saved</div>
+    <button class="btn-ghost" onclick="closeWorkoutPanel()">Cancel</button>
+    <button class="btn-primary" id="wp-save-btn" onclick="saveWorkout()">Save workout</button>
+  </div>
+</div>
+
+<!-- ── Add athlete modal ───────────────────────────── -->
+<div class="modal-overlay" id="add-athlete-modal">
+  <div class="modal">
+    <div class="modal-title">Add athlete</div>
+    <div class="modal-sub">Create an account for a new athlete. They'll use these credentials to sign in and see their plan.</div>
+    <input class="modal-field" id="aa-name" placeholder="Athlete name" autocomplete="off">
+    <input class="modal-field" id="aa-email" placeholder="Athlete email" type="email" autocomplete="off">
+    <input class="modal-field" id="aa-password" placeholder="Temporary password" type="text" autocomplete="off">
+    <input class="modal-field" id="aa-race" placeholder="Race name (optional)" autocomplete="off">
+    <input class="modal-field" id="aa-racedate" placeholder="Race date (optional, YYYY-MM-DD)" type="date" autocomplete="off">
+    <div class="modal-error" id="aa-error"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeAddAthlete()">Cancel</button>
+      <button class="btn-primary" id="aa-btn" onclick="createAthlete()">Create athlete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Firebase SDKs ───────────────────────────────── -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<script>
+'use strict';
+
+// ══════════════════════════════════════════════════════════
+//  CONFIG
+// ══════════════════════════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDh4LorLQx1DPovQIA4HM3127fAYpyuaY8",
+  authDomain: "es-form-labs.firebaseapp.com",
+  projectId: "es-form-labs",
+  storageBucket: "es-form-labs.firebasestorage.app",
+  messagingSenderId: "215373817428",
+  appId: "1:215373817428:web:9a80d81815f6843ce2afc1",
+  measurementId: "G-P2RRN15M8K"
+};
+
+const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+// ── Firebase init ─────────────────────────────────────
+let auth, db;
+try {
+  firebase.initializeApp(FIREBASE_CONFIG);
+  auth = firebase.auth();
+  db   = firebase.firestore();
+} catch(e) {
+  console.error('Firebase init failed:', e.message);
+}
+
+// ══════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════
+let currentUser = null;
+let userDoc = null;
+let isCoach = false;
+let selectedAthleteUid = null;
+let selectedAthletePlan = null;
+let viewYear, viewMonth; // 0-indexed month
+let workoutsCache = {};  // { 'YYYY-MM-DD': workoutData }
+let stravaCache = {};    // { 'YYYY-MM-DD': [activities] }
+let editingDate = null;
+let authMode = 'signin'; // 'signin' or 'signup'
+
+// ══════════════════════════════════════════════════════════
+//  AUTH
+// ══════════════════════════════════════════════════════════
+function toggleAuthMode() {
+  authMode = authMode === 'signin' ? 'signup' : 'signin';
+  document.getElementById('auth-title').textContent = authMode === 'signin' ? 'Sign in' : 'Create account';
+  document.getElementById('auth-sub').textContent = authMode === 'signin'
+    ? 'Access your training dashboard.'
+    : 'Set up your athlete account.';
+  document.getElementById('auth-btn').textContent = authMode === 'signin' ? 'Sign in' : 'Create account';
+  document.getElementById('auth-toggle').textContent = authMode === 'signin'
+    ? 'Need an account? Sign up'
+    : 'Already have an account? Sign in';
+  document.getElementById('auth-name-row').style.display = authMode === 'signup' ? 'block' : 'none';
+  document.getElementById('auth-error').textContent = '';
+}
+
+async function authAction() {
+  const errEl = document.getElementById('auth-error');
+  const btn = document.getElementById('auth-btn');
+  if (!auth) { errEl.textContent = 'Firebase failed to load.'; return; }
+  const email = document.getElementById('auth-email').value.trim();
+  const pw = document.getElementById('auth-password').value;
+  errEl.textContent = '';
+  if (!email || !pw) { errEl.textContent = 'Enter email and password.'; return; }
+
+  btn.disabled = true;
+  btn.textContent = authMode === 'signin' ? 'Signing in…' : 'Creating account…';
+
+  try {
+    if (authMode === 'signup') {
+      const name = document.getElementById('auth-name').value.trim();
+      if (!name) { errEl.textContent = 'Enter your name.'; btn.disabled = false; btn.textContent = 'Create account'; return; }
+      const cred = await auth.createUserWithEmailAndPassword(email, pw);
+      // Create user doc as athlete
+      await db.collection('users').doc(cred.user.uid).set({
+        email,
+        displayName: name,
+        role: 'athlete',
+        coachUid: null,
+        stravaAthleteId: null,
+        stravaConnected: false,
+        raceDate: null,
+        raceName: null,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } else {
+      await auth.signInWithEmailAndPassword(email, pw);
+    }
+  } catch(e) {
+    const msg = e.code === 'auth/invalid-credential' ? 'Invalid email or password.'
+      : e.code === 'auth/email-already-in-use' ? 'Email already in use.'
+      : e.code === 'auth/weak-password' ? 'Password must be at least 6 characters.'
+      : e.message;
+    errEl.textContent = msg;
+    btn.disabled = false;
+    btn.textContent = authMode === 'signin' ? 'Sign in' : 'Create account';
+  }
+}
+
+async function doSignOut() {
+  await auth.signOut();
+  currentUser = null;
+  userDoc = null;
+  selectedAthleteUid = null;
+  selectedAthletePlan = null;
+  workoutsCache = {};
+  stravaCache = {};
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('auth-overlay').style.display = 'flex';
+  document.getElementById('coach-layout').style.display = 'none';
+  document.getElementById('athlete-layout').style.display = 'none';
+}
+
+if (auth) {
+  auth.onAuthStateChanged(async user => {
+    if (user) {
+      currentUser = user;
+      document.getElementById('auth-overlay').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      await loadUserDoc(user);
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+//  USER DOC & ROLE ROUTING
+// ══════════════════════════════════════════════════════════
+async function loadUserDoc(user) {
+  const doc = await db.collection('users').doc(user.uid).get();
+  if (!doc.exists) {
+    // First-time sign-in without a doc — create as athlete
+    userDoc = {
+      email: user.email,
+      displayName: user.email.split('@')[0],
+      role: 'athlete',
+      coachUid: null,
+      stravaConnected: false,
+      raceDate: null,
+      raceName: null
+    };
+    await db.collection('users').doc(user.uid).set({
+      ...userDoc,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } else {
+    userDoc = doc.data();
+  }
+
+  isCoach = userDoc.role === 'coach';
+  document.getElementById('hdr-user').textContent = userDoc.displayName || user.email;
+
+  const badge = document.getElementById('role-badge');
+  badge.textContent = isCoach ? 'Coach' : 'Athlete';
+  badge.className = 'role-badge ' + (isCoach ? 'coach' : 'athlete');
+
+  // Init calendar to current month
+  const now = new Date();
+  viewYear = now.getFullYear();
+  viewMonth = now.getMonth();
+
+  if (isCoach) {
+    document.getElementById('coach-layout').style.display = 'flex';
+    document.getElementById('athlete-layout').style.display = 'none';
+    loadAthleteList();
+  } else {
+    document.getElementById('coach-layout').style.display = 'none';
+    document.getElementById('athlete-layout').style.display = 'flex';
+    loadAthleteDashboard();
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  COACH: ATHLETE LIST
+// ══════════════════════════════════════════════════════════
+async function loadAthleteList() {
+  const snap = await db.collection('users')
+    .where('coachUid', '==', currentUser.uid)
+    .get();
+
+  const list = document.getElementById('athlete-list');
+  list.innerHTML = '';
+
+  if (snap.empty) {
+    list.innerHTML = '<div style="padding:16px;text-align:center;font-size:11px;color:var(--muted2);font-family:var(--mono)">No athletes yet.<br>Click + Add to get started.</div>';
+    return;
+  }
+
+  snap.forEach(doc => {
+    const d = doc.data();
+    const initials = (d.displayName || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+    const item = document.createElement('div');
+    item.className = 'athlete-item' + (selectedAthleteUid === doc.id ? ' active' : '');
+    item.onclick = () => selectAthlete(doc.id, d);
+    item.innerHTML = `
+      <div class="athlete-avatar">${initials}</div>
+      <div>
+        <div class="athlete-name">${esc(d.displayName || d.email)}</div>
+        <div class="athlete-meta">${d.raceName ? esc(d.raceName) : 'No race set'}</div>
+        ${d.stravaConnected ? '<div class="athlete-strava">STRAVA ✓</div>' : ''}
+      </div>`;
+    list.appendChild(item);
+  });
+}
+
+async function selectAthlete(uid, data) {
+  selectedAthleteUid = uid;
+  workoutsCache = {};
+  stravaCache = {};
+
+  // Update active state in sidebar
+  document.querySelectorAll('.athlete-item').forEach(el => el.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+
+  // Load or create training plan
+  const planSnap = await db.collection('trainingPlans')
+    .where('athleteUid', '==', uid)
+    .where('coachUid', '==', currentUser.uid)
+    .limit(1)
+    .get();
+
+  if (planSnap.empty) {
+    // Create a plan
+    const planRef = await db.collection('trainingPlans').add({
+      athleteUid: uid,
+      coachUid: currentUser.uid,
+      raceName: data.raceName || '',
+      raceDate: data.raceDate || '',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    selectedAthletePlan = { id: planRef.id, raceName: data.raceName || '', raceDate: data.raceDate || '' };
+  } else {
+    const planDoc = planSnap.docs[0];
+    selectedAthletePlan = { id: planDoc.id, ...planDoc.data() };
+  }
+
+  document.getElementById('coach-empty').style.display = 'none';
+  document.getElementById('coach-calendar').style.display = 'block';
+
+  await loadWorkoutsForMonth();
+  renderCalendar('coach-calendar', true);
+}
+
+// ══════════════════════════════════════════════════════════
+//  ATHLETE: OWN DASHBOARD
+// ══════════════════════════════════════════════════════════
+async function loadAthleteDashboard() {
+  // Find the plan assigned to this athlete
+  const planSnap = await db.collection('trainingPlans')
+    .where('athleteUid', '==', currentUser.uid)
+    .limit(1)
+    .get();
+
+  if (planSnap.empty) {
+    document.getElementById('athlete-calendar').innerHTML = `
+      <div class="main-empty">
+        <div class="main-empty-icon">◇</div>
+        <div class="main-empty-text">No training plan assigned yet.<br>Your coach will set one up for you.</div>
+      </div>`;
+    return;
+  }
+
+  const planDoc = planSnap.docs[0];
+  selectedAthletePlan = { id: planDoc.id, ...planDoc.data() };
+  selectedAthleteUid = currentUser.uid;
+
+  await loadWorkoutsForMonth();
+  await loadStravaForMonth();
+  renderCalendar('athlete-calendar', false);
+}
+
+// ══════════════════════════════════════════════════════════
+//  FIRESTORE: LOAD WORKOUTS
+// ══════════════════════════════════════════════════════════
+async function loadWorkoutsForMonth() {
+  if (!selectedAthletePlan) return;
+
+  // Get first and last day shown on calendar (including overflow)
+  const firstDay = getCalendarStart(viewYear, viewMonth);
+  const lastDay = getCalendarEnd(viewYear, viewMonth);
+  const startStr = dateToStr(firstDay);
+  const endStr = dateToStr(lastDay);
+
+  const snap = await db.collection('trainingPlans')
+    .doc(selectedAthletePlan.id)
+    .collection('workouts')
+    .where('date', '>=', startStr)
+    .where('date', '<=', endStr)
+    .get();
+
+  workoutsCache = {};
+  snap.forEach(doc => {
+    const d = doc.data();
+    workoutsCache[d.date] = { id: doc.id, ...d };
+  });
+}
+
+async function loadStravaForMonth() {
+  if (!selectedAthletePlan) return;
+
+  const firstDay = getCalendarStart(viewYear, viewMonth);
+  const lastDay = getCalendarEnd(viewYear, viewMonth);
+  const startStr = dateToStr(firstDay);
+  const endStr = dateToStr(lastDay);
+
+  const snap = await db.collection('trainingPlans')
+    .doc(selectedAthletePlan.id)
+    .collection('stravaActivities')
+    .where('date', '>=', startStr)
+    .where('date', '<=', endStr)
+    .get();
+
+  stravaCache = {};
+  snap.forEach(doc => {
+    const d = doc.data();
+    if (!stravaCache[d.date]) stravaCache[d.date] = [];
+    stravaCache[d.date].push(d);
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+//  CALENDAR RENDERING
+// ══════════════════════════════════════════════════════════
+function getCalendarStart(year, month) {
+  const first = new Date(year, month, 1);
+  let dow = first.getDay(); // 0=Sun
+  dow = dow === 0 ? 6 : dow - 1; // convert to Mon=0
+  const start = new Date(first);
+  start.setDate(start.getDate() - dow);
+  return start;
+}
+
+function getCalendarEnd(year, month) {
+  const start = getCalendarStart(year, month);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 41); // 6 weeks
+  return end;
+}
+
+function dateToStr(d) {
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function weeksUntil(dateStr, raceDate) {
+  if (!raceDate) return null;
+  const d = new Date(dateStr);
+  const r = new Date(raceDate);
+  const diff = Math.round((r - d) / (7 * 24 * 60 * 60 * 1000));
+  return diff >= 0 ? diff : null;
+}
+
+function renderCalendar(containerId, editable) {
+  const container = document.getElementById(containerId);
+  const raceDate = selectedAthletePlan?.raceDate || null;
+  const athleteName = editable
+    ? (document.querySelector('.athlete-item.active .athlete-name')?.textContent || 'Athlete')
+    : (userDoc.displayName || 'My Training');
+  const raceName = selectedAthletePlan?.raceName || '';
+
+  const todayStr = dateToStr(new Date());
+  const start = getCalendarStart(viewYear, viewMonth);
+
+  let html = `
+    <div class="plan-header">
+      <div class="plan-athlete-name">${esc(athleteName)}</div>
+      ${raceName ? `<div class="plan-race"><span class="plan-race-name">${esc(raceName)}</span>${raceDate ? ' · ' + raceDate : ''}</div>` : ''}
+      ${editable ? `<div class="plan-actions">
+        <button class="btn-ghost" onclick="openEditRace()">✎ Race info</button>
+      </div>` : ''}
+    </div>
+    <div class="cal-nav">
+      <button class="cal-nav-btn" onclick="navMonth(-1)">‹</button>
+      <div class="cal-month">${MONTHS[viewMonth]} ${viewYear}</div>
+      <button class="cal-nav-btn" onclick="navMonth(1)">›</button>
+      <button class="cal-today-btn" onclick="navToday()">Today</button>
+    </div>
+    <div class="cal-grid">`;
+
+  // Day headers
+  DAYS.forEach(d => { html += `<div class="cal-day-header">${d}</div>`; });
+
+  // Day cells (6 weeks = 42 days)
+  const cursor = new Date(start);
+  for (let week = 0; week < 6; week++) {
+    let weekMiles = null;
+
+    for (let day = 0; day < 7; day++) {
+      const dateStr = dateToStr(cursor);
+      const isOtherMonth = cursor.getMonth() !== viewMonth;
+      const isToday = dateStr === todayStr;
+      const workout = workoutsCache[dateStr];
+      const stravaActs = stravaCache[dateStr] || [];
+
+      // Track first workout with milesPerWeek for the week summary
+      if (workout?.milesPerWeek && !weekMiles) weekMiles = workout.milesPerWeek;
+
+      let classes = 'cal-day';
+      if (isOtherMonth) classes += ' other-month';
+      if (isToday) classes += ' today';
+
+      html += `<div class="${classes}" onclick="${editable ? `openWorkoutPanel('${dateStr}')` : `openWorkoutPanel('${dateStr}', true)`}">`;
+      html += `<div class="cal-date">${cursor.getDate()}${isToday ? '<span class="today-dot"></span>' : ''}</div>`;
+      html += `<div class="cal-workouts">`;
+
+      // Prescribed workouts
+      if (workout) {
+        if (workout.midweekSession) html += `<div class="cal-tag midweek">${esc(truncate(workout.midweekSession, 35))}</div>`;
+        if (workout.weekendSession) html += `<div class="cal-tag weekend">${esc(truncate(workout.weekendSession, 35))}</div>`;
+        if (workout.longRun) html += `<div class="cal-tag long-run">Long: ${esc(truncate(workout.longRun, 30))}</div>`;
+        if (workout.ancillaryWork) html += `<div class="cal-tag ancillary">${esc(truncate(workout.ancillaryWork, 30))}</div>`;
+      }
+
+      // Strava activities
+      stravaActs.forEach(a => {
+        const mi = (a.distance / 1609.34).toFixed(1);
+        html += `<div class="cal-tag strava">▲ ${mi}mi ${a.averagePace || ''}</div>`;
+      });
+
+      html += `</div>`; // .cal-workouts
+
+      // Week miles on Monday cell
+      if (day === 0 && workout?.milesPerWeek) {
+        html += `<div class="cal-week-miles"><span>${esc(String(workout.milesPerWeek))}</span> mi/wk</div>`;
+      }
+
+      html += `</div>`; // .cal-day
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    // Week summary row
+    const weeksBefore = raceDate ? weeksUntil(dateToStr(new Date(cursor.getTime() - 7*24*60*60*1000)), raceDate) : null;
+    html += `<div class="cal-week-summary">`;
+    if (weekMiles) html += `<span class="ws-label">Target</span><span class="ws-miles">${esc(String(weekMiles))} mi</span>`;
+    if (weeksBefore !== null && weeksBefore >= 0) html += `<span class="ws-weeks">${weeksBefore} weeks out</span>`;
+    html += `</div>`;
+  }
+
+  html += `</div>`; // .cal-grid
+  container.innerHTML = html;
+}
+
+async function navMonth(delta) {
+  viewMonth += delta;
+  if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+  if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+  await loadWorkoutsForMonth();
+  if (!isCoach) await loadStravaForMonth();
+  renderCalendar(isCoach ? 'coach-calendar' : 'athlete-calendar', isCoach);
+}
+
+async function navToday() {
+  const now = new Date();
+  viewYear = now.getFullYear();
+  viewMonth = now.getMonth();
+  await loadWorkoutsForMonth();
+  if (!isCoach) await loadStravaForMonth();
+  renderCalendar(isCoach ? 'coach-calendar' : 'athlete-calendar', isCoach);
+}
+
+// ══════════════════════════════════════════════════════════
+//  WORKOUT PANEL
+// ══════════════════════════════════════════════════════════
+function openWorkoutPanel(dateStr, readonly) {
+  editingDate = dateStr;
+  const d = new Date(dateStr + 'T12:00:00');
+  const dayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()];
+  const raceDate = selectedAthletePlan?.raceDate;
+  const wb = weeksUntil(dateStr, raceDate);
+
+  document.getElementById('wp-title').textContent = dayName;
+  document.getElementById('wp-date').textContent = dateStr;
+  document.getElementById('wp-weeks').textContent = wb !== null ? `${wb} weeks before race` : '';
+
+  // Populate fields
+  const workout = workoutsCache[dateStr] || {};
+  document.getElementById('wp-miles').value = workout.milesPerWeek || '';
+  document.getElementById('wp-midweek').value = workout.midweekSession || '';
+  document.getElementById('wp-weekend').value = workout.weekendSession || '';
+  document.getElementById('wp-longrun').value = workout.longRun || '';
+  document.getElementById('wp-ancillary').value = workout.ancillaryWork || '';
+  document.getElementById('wp-notes').value = workout.notes || '';
+
+  // Readonly for athletes
+  const fields = ['wp-miles','wp-midweek','wp-weekend','wp-longrun','wp-ancillary','wp-notes'];
+  fields.forEach(id => {
+    const el = document.getElementById(id);
+    if (readonly) {
+      el.setAttribute('readonly', '');
+    } else {
+      el.removeAttribute('readonly');
+    }
+  });
+
+  // Show/hide save button
+  document.getElementById('wp-footer').style.display = readonly ? 'none' : 'flex';
+
+  // Strava data
+  const stravaActs = stravaCache[dateStr] || [];
+  const stravaSection = document.getElementById('wp-strava');
+  if (stravaActs.length > 0) {
+    stravaSection.style.display = 'block';
+    let sh = '';
+    stravaActs.forEach(a => {
+      const mi = (a.distance / 1609.34).toFixed(2);
+      const dur = formatDuration(a.movingTime);
+      sh += `
+        <div style="margin-bottom:12px">
+          <div style="font-size:13px;font-weight:700;color:var(--coral);margin-bottom:6px">${esc(a.name)}</div>
+          <div class="strava-stat"><span class="strava-stat-label">Distance</span><span class="strava-stat-val">${mi} mi</span></div>
+          <div class="strava-stat"><span class="strava-stat-label">Duration</span><span class="strava-stat-val">${dur}</span></div>
+          ${a.averagePace ? `<div class="strava-stat"><span class="strava-stat-label">Avg Pace</span><span class="strava-stat-val">${a.averagePace}</span></div>` : ''}
+          ${a.averageHeartrate ? `<div class="strava-stat"><span class="strava-stat-label">Avg HR</span><span class="strava-stat-val">${a.averageHeartrate} bpm</span></div>` : ''}
+          ${a.totalElevationGain ? `<div class="strava-stat"><span class="strava-stat-label">Elevation</span><span class="strava-stat-val">${Math.round(a.totalElevationGain * 3.281)} ft</span></div>` : ''}
+        </div>`;
+    });
+    document.getElementById('wp-strava-data').innerHTML = sh;
+  } else {
+    stravaSection.style.display = 'none';
+  }
+
+  document.getElementById('wp-save-status').classList.remove('show');
+  document.getElementById('panel-overlay').classList.add('open');
+  document.getElementById('workout-panel').classList.add('open');
+}
+
+function closeWorkoutPanel() {
+  document.getElementById('panel-overlay').classList.remove('open');
+  document.getElementById('workout-panel').classList.remove('open');
+  editingDate = null;
+}
+
+async function saveWorkout() {
+  if (!editingDate || !selectedAthletePlan) return;
+  const btn = document.getElementById('wp-save-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  const data = {
+    date: editingDate,
+    milesPerWeek: document.getElementById('wp-miles').value.trim() || null,
+    midweekSession: document.getElementById('wp-midweek').value.trim() || null,
+    weekendSession: document.getElementById('wp-weekend').value.trim() || null,
+    longRun: document.getElementById('wp-longrun').value.trim() || null,
+    ancillaryWork: document.getElementById('wp-ancillary').value.trim() || null,
+    notes: document.getElementById('wp-notes').value.trim() || null,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  const existing = workoutsCache[editingDate];
+  const workoutsRef = db.collection('trainingPlans').doc(selectedAthletePlan.id).collection('workouts');
+
+  try {
+    if (existing?.id) {
+      await workoutsRef.doc(existing.id).update(data);
+      workoutsCache[editingDate] = { ...existing, ...data };
+    } else {
+      const ref = await workoutsRef.add(data);
+      workoutsCache[editingDate] = { id: ref.id, ...data };
+    }
+
+    // Update plan timestamp
+    await db.collection('trainingPlans').doc(selectedAthletePlan.id).update({
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    document.getElementById('wp-save-status').classList.add('show');
+    setTimeout(() => document.getElementById('wp-save-status').classList.remove('show'), 2000);
+
+    // Re-render calendar
+    renderCalendar(isCoach ? 'coach-calendar' : 'athlete-calendar', isCoach);
+  } catch(e) {
+    console.error('Save failed:', e);
+    alert('Failed to save: ' + e.message);
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Save workout';
+}
+
+// ══════════════════════════════════════════════════════════
+//  ADD ATHLETE (COACH)
+// ══════════════════════════════════════════════════════════
+function openAddAthlete() {
+  document.getElementById('add-athlete-modal').classList.add('open');
+  document.getElementById('aa-name').value = '';
+  document.getElementById('aa-email').value = '';
+  document.getElementById('aa-password').value = '';
+  document.getElementById('aa-race').value = '';
+  document.getElementById('aa-racedate').value = '';
+  document.getElementById('aa-error').textContent = '';
+}
+
+function closeAddAthlete() {
+  document.getElementById('add-athlete-modal').classList.remove('open');
+}
+
+async function createAthlete() {
+  const errEl = document.getElementById('aa-error');
+  const btn = document.getElementById('aa-btn');
+  const name = document.getElementById('aa-name').value.trim();
+  const email = document.getElementById('aa-email').value.trim();
+  const password = document.getElementById('aa-password').value;
+  const raceName = document.getElementById('aa-race').value.trim();
+  const raceDate = document.getElementById('aa-racedate').value;
+
+  if (!name || !email || !password) {
+    errEl.textContent = 'Name, email, and password are required.';
+    return;
+  }
+  if (password.length < 6) {
+    errEl.textContent = 'Password must be at least 6 characters.';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Creating…';
+  errEl.textContent = '';
+
+  try {
+    // We need to create the athlete's Firebase Auth account.
+    // Since client-side Firebase Auth signs in the new user automatically,
+    // we need to preserve the coach's session.
+    const coachEmail = currentUser.email;
+
+    // Store coach credentials temporarily - we'll re-auth after
+    // Actually, the cleanest approach: use a secondary Firebase app instance
+    const secondaryApp = firebase.initializeApp(FIREBASE_CONFIG, 'secondary-' + Date.now());
+    const secondaryAuth = secondaryApp.auth();
+
+    const cred = await secondaryAuth.createUserWithEmailAndPassword(email, password);
+    const athleteUid = cred.user.uid;
+
+    // Create user doc
+    await db.collection('users').doc(athleteUid).set({
+      email,
+      displayName: name,
+      role: 'athlete',
+      coachUid: currentUser.uid,
+      stravaAthleteId: null,
+      stravaConnected: false,
+      raceDate: raceDate || null,
+      raceName: raceName || null,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    // Create training plan
+    await db.collection('trainingPlans').add({
+      athleteUid,
+      coachUid: currentUser.uid,
+      raceName: raceName || '',
+      raceDate: raceDate || '',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    // Sign out and delete the secondary app
+    await secondaryAuth.signOut();
+    await secondaryApp.delete();
+
+    closeAddAthlete();
+    loadAthleteList();
+  } catch(e) {
+    const msg = e.code === 'auth/email-already-in-use' ? 'Email already in use.'
+      : e.code === 'auth/weak-password' ? 'Password must be at least 6 characters.'
+      : e.message;
+    errEl.textContent = msg;
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Create athlete';
+}
+
+// ══════════════════════════════════════════════════════════
+//  EDIT RACE INFO
+// ══════════════════════════════════════════════════════════
+function openEditRace() {
+  // Reuse the add-athlete modal structure with different content
+  const modal = document.getElementById('add-athlete-modal');
+  modal.querySelector('.modal-title').textContent = 'Edit race info';
+  modal.querySelector('.modal-sub').textContent = 'Update the target race for this athlete.';
+
+  document.getElementById('aa-name').parentElement.style.display = 'none';
+  document.getElementById('aa-email').parentElement.style.display = 'none';
+  document.getElementById('aa-password').parentElement.style.display = 'none';
+
+  document.getElementById('aa-race').value = selectedAthletePlan?.raceName || '';
+  document.getElementById('aa-racedate').value = selectedAthletePlan?.raceDate || '';
+  document.getElementById('aa-error').textContent = '';
+
+  const btn = document.getElementById('aa-btn');
+  btn.textContent = 'Update';
+  btn.onclick = async () => {
+    const raceName = document.getElementById('aa-race').value.trim();
+    const raceDate = document.getElementById('aa-racedate').value;
+    btn.disabled = true;
+
+    await db.collection('trainingPlans').doc(selectedAthletePlan.id).update({
+      raceName, raceDate, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await db.collection('users').doc(selectedAthleteUid).update({ raceName, raceDate });
+
+    selectedAthletePlan.raceName = raceName;
+    selectedAthletePlan.raceDate = raceDate;
+
+    btn.disabled = false;
+    closeAddAthlete();
+    renderCalendar('coach-calendar', true);
+
+    // Reset modal for add-athlete use
+    resetAddAthleteModal();
+  };
+
+  modal.classList.add('open');
+}
+
+function resetAddAthleteModal() {
+  const modal = document.getElementById('add-athlete-modal');
+  modal.querySelector('.modal-title').textContent = 'Add athlete';
+  modal.querySelector('.modal-sub').textContent = "Create an account for a new athlete. They'll use these credentials to sign in and see their plan.";
+
+  document.getElementById('aa-name').parentElement.style.display = '';
+  document.getElementById('aa-email').parentElement.style.display = '';
+  document.getElementById('aa-password').parentElement.style.display = '';
+
+  const btn = document.getElementById('aa-btn');
+  btn.textContent = 'Create athlete';
+  btn.onclick = createAthlete;
+}
+
+// ══════════════════════════════════════════════════════════
+//  UTILITIES
+// ══════════════════════════════════════════════════════════
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function truncate(s, n) {
+  return s.length > n ? s.slice(0, n) + '…' : s;
+}
+
+function formatDuration(seconds) {
+  if (!seconds) return '--';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  return `${m}:${String(s).padStart(2,'0')}`;
+}
+
+// Keyboard shortcut: Escape closes panels
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeWorkoutPanel();
+    closeAddAthlete();
+  }
+});
+</script>
+</body>
+</html>

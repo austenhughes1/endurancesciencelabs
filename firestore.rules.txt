@@ -30,6 +30,50 @@ service cloud.firestore {
                          && request.auth.uid == "YOUR_ADMIN_UID";
     }
 
+    // ── User profiles ────────────────────────────────────────
+    // Users can read/write their own profile.
+    // Coach (admin) can read profiles of athletes assigned to them.
+    match /users/{userId} {
+      allow read: if request.auth != null
+                  && (request.auth.uid == userId
+                      || resource.data.coachUid == request.auth.uid);
+      allow create: if request.auth != null;
+      allow update: if request.auth != null
+                    && (request.auth.uid == userId
+                        || request.auth.uid == resource.data.coachUid);
+    }
+
+    // ── Training plans ───────────────────────────────────────
+    match /trainingPlans/{planId} {
+      // Coach who owns the plan can read/write.
+      // Athlete the plan belongs to can read.
+      allow read: if request.auth != null
+                  && (resource.data.coachUid == request.auth.uid
+                      || resource.data.athleteUid == request.auth.uid);
+      allow create: if request.auth != null;
+      allow update: if request.auth != null
+                    && resource.data.coachUid == request.auth.uid;
+
+      // ── Workouts subcollection ─────────────────────────────
+      match /workouts/{workoutId} {
+        allow read: if request.auth != null
+                    && (get(/databases/$(database)/documents/trainingPlans/$(planId)).data.coachUid == request.auth.uid
+                        || get(/databases/$(database)/documents/trainingPlans/$(planId)).data.athleteUid == request.auth.uid);
+        allow write: if request.auth != null
+                     && get(/databases/$(database)/documents/trainingPlans/$(planId)).data.coachUid == request.auth.uid;
+      }
+
+      // ── Strava activities subcollection ────────────────────
+      match /stravaActivities/{activityId} {
+        allow read: if request.auth != null
+                    && (get(/databases/$(database)/documents/trainingPlans/$(planId)).data.coachUid == request.auth.uid
+                        || get(/databases/$(database)/documents/trainingPlans/$(planId)).data.athleteUid == request.auth.uid);
+        // Athlete can write their own Strava data (or a Cloud Function)
+        allow write: if request.auth != null
+                     && get(/databases/$(database)/documents/trainingPlans/$(planId)).data.athleteUid == request.auth.uid;
+      }
+    }
+
     // ── Deny everything else ─────────────────────────────────
     match /{document=**} {
       allow read, write: if false;

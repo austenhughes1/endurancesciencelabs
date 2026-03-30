@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>esFormLab — Reference Data Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#06080d;--panel:#0d1020;--panel2:#131828;
@@ -14,7 +14,7 @@
   --text:#dde1ef;--muted:#3e4460;--muted2:#6e7a9a;
   --good:#22c78a;--warn:#f5a623;--bad:#f55050;
   --male:#5b9cf8;--female:#f87db0;
-  --ui:'Syne',system-ui,sans-serif;--mono:'Space Mono',monospace;
+  --ui:'Inter',system-ui,sans-serif;--mono:'Space Mono',monospace;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--ui);background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
@@ -127,11 +127,10 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 #scan-diag{margin-top:12px;padding:8px 10px;background:var(--panel2);border-radius:8px;font-size:10px;color:var(--muted2);font-family:var(--mono);line-height:1.7;display:none}
 
 /* Phases */
-#screen-phases{display:none;padding:24px 24px 0;max-width:1440px;margin:0 auto}
-.instr-banner{background:var(--panel);border:1px solid rgba(139,124,248,.2);border-radius:14px;padding:14px 20px;margin-bottom:20px;display:flex;gap:14px;align-items:flex-start}
-.instr-icon{font-size:20px;flex-shrink:0;margin-top:1px}
-.instr-title{font-size:13px;font-weight:700;margin-bottom:4px;color:var(--purple)}
-.instr-text{font-size:12px;color:var(--muted2);line-height:1.7}
+#screen-phases{display:none;padding:28px 24px 80px;max-width:1440px;margin:0 auto}
+.instr-banner{background:linear-gradient(135deg,rgba(139,124,248,.06) 0%,rgba(0,229,200,.04) 100%);border:2px solid rgba(139,124,248,.25);border-radius:18px;padding:28px 32px;margin-bottom:28px}
+.instr-title{font-size:18px;font-weight:800;margin-bottom:8px;color:var(--text)}
+.instr-text{font-size:14px;color:var(--muted2);line-height:1.8}
 .scan-summary{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:18px;display:none;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--muted2);font-family:var(--mono)}
 .ss-item strong{color:var(--purple)}
 .ss-item.warn strong{color:var(--warn)}
@@ -171,7 +170,8 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 .phase-card.undetected .pc-time-display{color:var(--warn)}
 .pc-expand-hint{font-size:10px;color:var(--muted)}
 .pc-metrics-mini{padding:8px 13px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:5px}
-.mm-item{font-size:9px;font-family:var(--mono);padding:2px 7px;border-radius:9px;background:var(--panel2);border:1px solid var(--border);color:var(--muted)}
+.mm-item{font-size:9px;font-family:var(--mono);padding:2px 7px;border-radius:9px;background:var(--panel2);border:1px solid var(--border);color:var(--muted2)}
+.mm-item.na{color:var(--muted)}
 
 /* Expand overlay */
 #expand-overlay{position:fixed;inset:0;background:rgba(6,8,13,.9);z-index:400;display:none;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}
@@ -190,7 +190,7 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 .ep-undetected-notice.show{display:block}
 .eun-title{font-size:13px;font-weight:700;color:var(--warn);margin-bottom:5px}
 .eun-text{font-size:12px;color:var(--muted2);line-height:1.7}
-.ep-body{display:grid;grid-template-columns:1fr 340px;gap:0;flex:1}
+.ep-body{display:grid;grid-template-columns:1fr 400px;gap:0;flex:1}
 @media(max-width:700px){.ep-body{grid-template-columns:1fr}}
 .ep-canvas-side{padding:16px;border-right:1px solid var(--border)}
 .ep-canvas-wrap{background:#000;border-radius:10px;overflow:hidden;position:relative;margin-bottom:14px}
@@ -219,34 +219,35 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 .nav-phase-btn.cur{background:rgba(139,124,248,.1);color:var(--purple);border-color:rgba(139,124,248,.3)}
 .nav-phase-btn.undetected{border-color:rgba(245,166,35,.3);color:var(--warn)}
 .ep-info-side{padding:16px;display:flex;flex-direction:column;gap:14px;overflow-y:auto}
-.pi-card{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.pi-card{background:rgba(139,124,248,.04);border:1px solid rgba(139,124,248,.18);border-radius:12px;padding:14px 16px}
 .pi-label{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
-.pi-title{font-size:13px;font-weight:700;color:var(--purple);margin-bottom:6px}
-.pi-desc{font-size:12px;color:var(--muted2);line-height:1.7;margin-bottom:10px}
+.pi-title{font-size:16px;font-weight:700;color:var(--purple);margin-bottom:10px}
+.pi-desc{font-size:14px;color:var(--muted2);line-height:1.8;margin-bottom:14px}
 .pi-checks{display:flex;flex-direction:column;gap:6px}
-.pi-check{display:flex;align-items:flex-start;gap:8px;font-size:11px;color:var(--muted2);line-height:1.55}
-.pi-check-icon{color:var(--purple);font-size:10px;flex-shrink:0;margin-top:2px}
-.pi-tip{margin-top:10px;padding:8px 10px;background:rgba(139,124,248,.05);border:1px solid rgba(139,124,248,.15);border-radius:8px;font-size:11px;color:rgba(139,124,248,.8);line-height:1.6;font-family:var(--mono)}
+.pi-check{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--muted2);line-height:1.65}
+.pi-check-icon{color:var(--purple);font-size:12px;flex-shrink:0;margin-top:3px}
+.pi-tip{margin-top:10px;padding:12px 14px;background:rgba(139,124,248,.05);border:1px solid rgba(139,124,248,.15);border-radius:8px;font-size:12px;color:rgba(139,124,248,.8);line-height:1.75;font-family:var(--mono)}
 .ep-metrics-card{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
 .ep-m-label{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
 .ep-metric{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .ep-metric:last-child{margin-bottom:0}
 .ep-ml{font-size:11px;color:var(--muted2);display:flex;align-items:center;gap:7px;font-weight:600}
 .ep-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
-.ep-mv{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--text)}
+.ep-mv{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--muted2)}
 .ep-mv-hint{font-size:9px;color:var(--muted);margin-top:1px;text-align:right;font-family:var(--mono)}
 .ep-no-data{font-size:11px;color:var(--muted);font-family:var(--mono);text-align:center;padding:10px 0}
 
 /* Summary table */
-#summary-section{padding:24px 24px;max-width:1440px;margin:0 auto}
-.summary-title{font-size:17px;font-weight:800;margin-bottom:4px}
-.summary-sub{font-size:12px;color:var(--muted2);margin-bottom:16px}
+#summary-section{padding:28px 24px;max-width:1440px;margin:0 auto}
+.summary-title{font-size:19px;font-weight:800;margin-bottom:4px}
+.summary-sub{font-size:14px;color:var(--muted2);margin-bottom:20px}
 .summary-scroll{overflow-x:auto}
 .stbl{width:100%;border-collapse:collapse;font-size:12px;min-width:700px}
 .stbl th{padding:9px 12px;text-align:left;font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;background:var(--panel);cursor:pointer;transition:color .15s}
 .stbl th:hover{color:var(--purple)}
 .stbl th.th-group-start{border-left:2px solid var(--border2)}
 .stbl th.th-left{color:rgba(0,212,170,.8)}.stbl th.th-right{color:rgba(255,107,53,.8)}
+.stbl th.undetected-col{opacity:.6}
 .stbl td{padding:9px 12px;border-bottom:1px solid var(--border)}
 .stbl td.td-group-start{border-left:2px solid var(--border2)}
 .stbl tr:last-child td{border-bottom:none}
@@ -416,11 +417,8 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 <!-- Phases -->
 <div id="screen-phases">
   <div class="instr-banner">
-    <div class="instr-icon">◈</div>
-    <div>
-      <div class="instr-title">Reference data collection mode</div>
-      <div class="instr-text">Adjust each phase to the correct frame, click ↻ Analyze on each, then save. Only save once you're confident every frame is accurate — this data directly sets the public analyzer's grading ranges.</div>
-    </div>
+    <div class="instr-title">Reference data collection mode</div>
+    <div class="instr-text">Adjust each phase to the correct frame, click &#8635; Analyze on each, and get every card to <strong>Strong detection</strong> before saving. Only save once you are confident every frame is accurate — this data directly sets the public analyzer's grading ranges.</div>
   </div>
   <div id="scan-summary-bar" class="scan-summary"></div>
   <div class="phase-groups" id="phase-groups"></div>
