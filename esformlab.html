@@ -698,8 +698,8 @@ const DEFAULTS = {
   rKnee: {green:[120,175],warn:[90,185]},
   lHip:  {green:[140,185],warn:[110,200]},
   rHip:  {green:[140,185],warn:[110,200]},
-  lElbow:{green:[80,110], warn:[60,130]},
-  rElbow:{green:[80,110], warn:[60,130]},
+  lElbow:{green:[50,110], warn:[20,130]},
+  rElbow:{green:[50,110], warn:[20,130]},
   lFoot: {green:[-0.15,0.15],warn:[-0.3,0.3]},
   rFoot: {green:[-0.15,0.15],warn:[-0.3,0.3]},
 };
@@ -866,10 +866,9 @@ const PHASE_DEFS = [
 ];
 
 const PHASE_GROUPS = [
-  {label:'Stride & propulsion', keys:['l_foot','r_foot','l_toe','r_toe','swing']},
-  {label:'Posture & trunk', keys:['mid']},
+  {label:'Stride & propulsion', keys:['l_foot','r_foot','l_toe','r_toe']},
+  {label:'Posture, trunk & arm mechanics', keys:['mid','swing','peak_kf']},
   {label:'Hip & lateral mechanics', keys:['mid_front','mid_back']},
-  {label:'Arm mechanics', keys:['peak_kf']},
 ];
 
 const SUMMARY_COL_ORDER = ['l_foot','r_foot','l_toe','r_toe','mid','peak_kf','swing'];
