@@ -746,6 +746,17 @@ const METRIC_ROWS = [
   {key:'rFoot', label:'R foot off.',dot:'var(--right)', fmt:v=>`${v>0?'+':''}${v.toFixed(2)}`,   hint:'+ = under body'},
 ];
 
+const PHASE_METRICS = {
+  l_foot:  ['trunk','lKnee','lHip','lFoot','lElbow'],
+  r_foot:  ['trunk','rKnee','rHip','rFoot','rElbow'],
+  l_toe:   ['trunk','lHip','lKnee','lElbow'],
+  r_toe:   ['trunk','rHip','rKnee','rElbow'],
+  mid:     ['trunk','lKnee','rKnee','lHip','rHip','lElbow','rElbow'],
+  peak_kf: ['trunk','lKnee','rHip','lElbow'],
+  swing:   ['trunk','lKnee','lFoot','lElbow'],
+};
+function isRelevant(phaseKey, metricKey){ const pm=PHASE_METRICS[phaseKey]; return !pm || pm.includes(metricKey); }
+
 let detector=null,videoEl=null,phases={};
 let expandKey=null,epCurrentT=0,epAnalyzing=false;
 const epDbt={};
@@ -1013,7 +1024,8 @@ async function analyzeCard(key){
 
 function renderMiniMetrics(key,m){
   const el=document.getElementById(`metrics-mini-${key}`);if(!el)return;
-  el.innerHTML=[METRIC_ROWS[0],METRIC_ROWS[1],METRIC_ROWS[2]].map(r=>{const v=m[r.key],d=v!=null?r.fmt(v):'—',sym=v!=null?positionSymbol(v,r.key,key):'';return `<span class="mm-item ${v==null?'na':''}">${sym} ${r.label} ${d}</span>`;}).join('');
+  const relevant=METRIC_ROWS.filter(r=>isRelevant(key,r.key)).slice(0,3);
+  el.innerHTML=relevant.map(r=>{const v=m[r.key],d=v!=null?r.fmt(v):'—',sym=v!=null?positionSymbol(v,r.key,key):'';return `<span class="mm-item ${v==null?'na':''}">${sym} ${r.label} ${d}</span>`;}).join('');
 }
 
 // Expand panel
@@ -1092,11 +1104,12 @@ async function epReanalyze(){
   checkAllAnalyzed();
 }
 function renderExpandMetrics(m){
-  document.getElementById('ep-metrics').innerHTML=METRIC_ROWS.map(r=>{
+  const pk=expandKey||'mid';
+  document.getElementById('ep-metrics').innerHTML=METRIC_ROWS.filter(r=>isRelevant(pk,r.key)).map(r=>{
     const v=m[r.key],d=v!=null?r.fmt(v):'—';
     const bio=METRIC_BIO[r.key]||'';
-    const bell=v!=null?buildBellCurveSVG(v,r.key,expandKey||'mid',r.fmt):'';
-    const pos=v!=null?positionLabel(v,r.key,expandKey||'mid'):'';
+    const bell=v!=null?buildBellCurveSVG(v,r.key,pk,r.fmt):'';
+    const pos=v!=null?positionLabel(v,r.key,pk):'';
     return `<div class="ep-metric-block">
       <div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:${r.dot}"></div><strong>${r.label}</strong></div>
       <div class="ep-metric-bio">${bio}</div>
@@ -1187,7 +1200,9 @@ function buildSummaryTable(){
 }
 function updateSummaryCol(key){
   const m=phases[key]?.metrics;if(!m)return;
-  METRIC_ROWS.forEach(r=>{const cell=document.getElementById(`sc-${key}-${r.key}`);if(!cell)return;const v=m[r.key],d=v!=null?r.fmt(v):'—';const pos=v!=null?positionLabel(v,r.key,key):'';const sym=v!=null?positionSymbol(v,r.key,key):'';cell.innerHTML=v!=null?`<span class="sv">${sym} ${d}<span class="sv-pos">${pos}</span></span>`:`<span class="sv na">—</span>`;});
+  METRIC_ROWS.forEach(r=>{const cell=document.getElementById(`sc-${key}-${r.key}`);if(!cell)return;
+    if(!isRelevant(key,r.key)){cell.innerHTML=`<span class="sv na" title="Not applicable for this phase">—</span>`;return;}
+    const v=m[r.key],d=v!=null?r.fmt(v):'—';const pos=v!=null?positionLabel(v,r.key,key):'';const sym=v!=null?positionSymbol(v,r.key,key):'';cell.innerHTML=v!=null?`<span class="sv">${sym} ${d}<span class="sv-pos">${pos}</span></span>`:`<span class="sv na">—</span>`;});
 }
 
 // Seek
