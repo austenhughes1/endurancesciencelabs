@@ -76,6 +76,16 @@ nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:st
 .dz-icon{width:44px;height:44px;border-radius:14px;background:rgba(0,229,200,.12);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:20px}
 .dz-title{font-size:15px;font-weight:800;margin-bottom:6px}
 .dz-sub{color:var(--muted2);font-size:11px;line-height:1.7}
+.dz-tip{font-size:10px;color:var(--muted);line-height:1.65;margin-top:10px;text-align:left;border-top:1px solid var(--border);padding-top:8px}
+.dz-tip strong{color:var(--muted2)}
+.video-tips{margin-top:20px;background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:22px 26px}
+.video-tips-title{font-size:14px;font-weight:800;margin-bottom:12px;color:var(--text)}
+.video-tips-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:700px){.video-tips-grid{grid-template-columns:1fr}}
+.video-tip-item{font-size:12px;color:var(--muted2);line-height:1.75;display:flex;align-items:flex-start;gap:8px}
+.video-tip-item strong{color:var(--text)}
+.vt-icon{flex-shrink:0;margin-top:2px;font-size:12px}
+.video-tips-note{margin-top:14px;font-size:11px;color:var(--muted);line-height:1.7;border-top:1px solid var(--border);padding-top:12px;font-family:var(--mono)}
 .dz-required{font-size:9px;font-weight:700;color:var(--warn);font-family:var(--mono);letter-spacing:.5px;text-transform:uppercase;margin-top:8px}
 .dz-loaded-info{display:none;margin-top:10px;font-size:11px;color:var(--good);font-family:var(--mono);word-break:break-all}
 .drop-zone.loaded .dz-loaded-info{display:block}
@@ -177,7 +187,10 @@ nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:st
 .pc-video-badge.back-badge{background:rgba(245,200,66,.08);color:var(--gold);border:1px solid rgba(245,200,66,.15)}
 .pc-detects{font-size:9px;color:var(--muted);font-family:var(--mono);padding:2px 14px 6px}
 
-/* (instruction banner styles are in .instr-banner block above) */
+/* Leg swap warning */
+.leg-swap-warn{margin:6px 13px 4px;padding:8px 12px;background:rgba(245,166,35,.06);border:1px solid rgba(245,166,35,.25);border-radius:9px;font-size:12px;color:var(--warn);line-height:1.65;font-weight:600}
+.leg-swap-warn-expand{margin:0 0 14px;padding:14px 18px;background:rgba(245,166,35,.06);border:1.5px solid rgba(245,166,35,.3);border-radius:12px;font-size:14px;color:var(--warn);line-height:1.75}
+.leg-swap-warn-expand strong{color:var(--text)}
 
 /* Detection quality — large prominent display */
 .dq-pill{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-family:var(--mono);padding:2px 7px;border-radius:8px;margin-top:6px}
@@ -424,6 +437,7 @@ body.bar-showing #screen-phases{padding-bottom:120px}
           <div class="dz-icon">&#9654;</div>
           <div class="dz-title">Side view</div>
           <p class="dz-sub">Film from directly beside the runner</p>
+          <div class="dz-tip"><strong>Best:</strong> Someone moving alongside you at the same pace.<br><strong>Good:</strong> Someone panning the camera to follow you.<br><strong>OK:</strong> Stationary camera, you run past it.</div>
           <div class="dz-required">REQUIRED</div>
           <div class="dz-loaded-info" id="dz-info-side"></div>
         </div>
@@ -432,6 +446,7 @@ body.bar-showing #screen-phases{padding-bottom:120px}
           <div class="dz-icon">&#9673;</div>
           <div class="dz-title">Front view</div>
           <p class="dz-sub">Film from directly in front</p>
+          <div class="dz-tip"><strong>Run straight toward the camera.</strong> Do not run at an angle -- even a slight angle will skew hip drop and knee alignment measurements and produce inaccurate results.</div>
           <div class="dz-required">REQUIRED</div>
           <div class="dz-loaded-info" id="dz-info-front"></div>
         </div>
@@ -440,11 +455,25 @@ body.bar-showing #screen-phases{padding-bottom:120px}
           <div class="dz-icon">&#9679;</div>
           <div class="dz-title">Back view</div>
           <p class="dz-sub">Film from directly behind</p>
+          <div class="dz-tip"><strong>Run straight away from the camera.</strong> Same as the front view -- keep the camera dead center behind you, not at an angle. This confirms hip mechanics from a second viewpoint.</div>
           <div class="dz-required">REQUIRED</div>
           <div class="dz-loaded-info" id="dz-info-back"></div>
         </div>
 
       </div>
+
+      <!-- General video tips -->
+      <div class="video-tips">
+        <div class="video-tips-title">Recording tips for the best results</div>
+        <div class="video-tips-grid">
+          <div class="video-tip-item"><span class="vt-icon">&#9201;</span><span><strong>Keep clips short: 3 to 8 seconds.</strong> We only sample 20-40 frames from each video, so longer clips just add unnecessary footage. A few seconds of steady running is ideal.</span></div>
+          <div class="video-tip-item"><span class="vt-icon">&#128247;</span><span><strong>Stay close to the camera.</strong> The runner should fill most of the frame. If you are too far away, the pose model cannot accurately identify joint positions.</span></div>
+          <div class="video-tip-item"><span class="vt-icon">&#9888;</span><span><strong>Nothing should block your body.</strong> Treadmill handrails, other runners, or objects in front of you will hide joints and reduce detection accuracy. If filming on a treadmill, position the camera so the display and handrails are not covering your arms or legs.</span></div>
+          <div class="video-tip-item"><span class="vt-icon">&#127939;</span><span><strong>Consider filming both outdoors and on a treadmill.</strong> Treadmill running can change your form -- your stride length, foot strike, and trunk lean may differ from outdoor running. If you want a complete picture, analyze one of each and compare the results.</span></div>
+        </div>
+        <div class="video-tips-note">All video processing happens locally in your browser. Nothing is uploaded or stored anywhere.</div>
+      </div>
+
       <input type="file" id="file-input-side" accept="video/*" style="display:none">
       <input type="file" id="file-input-front" accept="video/*" style="display:none">
       <input type="file" id="file-input-back" accept="video/*" style="display:none">
@@ -514,6 +543,7 @@ body.bar-showing #screen-phases{padding-bottom:120px}
       <div class="instr-callout-icon">&#9432;</div>
       <div class="instr-callout-text">
         <strong>Why does this matter?</strong> The accuracy of your final report depends entirely on the quality of these frames. A frame with weak detection or the wrong moment selected will produce inaccurate angles and unreliable coaching cues. Taking a minute to check each card is the difference between useful feedback and noise.
+        <br><br>If you are consistently getting weak detection across multiple cards, the issue is usually the video itself -- the runner may be too far from the camera, partially blocked by equipment, or the clip may have too much motion blur. Re-recording a short, close, clear clip will help more than adjusting frames.
       </div>
     </div>
 
@@ -599,6 +629,9 @@ body.bar-showing #screen-phases{padding-bottom:120px}
         </div>
       </div>
       <div class="ep-info-side">
+        <!-- Leg swap warning (if applicable) -->
+        <div class="leg-swap-warn-expand" id="ep-leg-swap-warning" style="display:none"></div>
+
         <!-- Detection quality — large and prominent, first thing you see -->
         <div id="ep-quality-card" style="display:none"></div>
 
@@ -956,6 +989,76 @@ function renderSideViewWarning(key){
     var cell=document.getElementById('sc-'+key+'-'+r.key);
     if(cell) cell.innerHTML='<span class="sv na" title="Front/back view -- angle not meaningful">--</span>';
   });
+}
+
+// -- Leg swap detection --
+// For L/R phases, check if the angles suggest the wrong leg was captured.
+// Returns null if OK, or a warning string if swapped.
+function checkLegSwap(key, m) {
+  if(!m) return null;
+
+  if(key === 'l_foot') {
+    // At L foot strike, left ankle should be lower (higher y) than right ankle.
+    // Proxy: left foot offset should be more positive/forward than right (or at least similar).
+    // More reliable: left knee should be more extended (larger angle) than right at contact.
+    if(m.lKnee != null && m.rKnee != null && m.rKnee > m.lKnee + 20) {
+      return 'This looks like a right foot strike, not left. The right knee is more extended than the left, which usually means the right foot is the one contacting the ground. Use the scrubber to find the moment when the left foot hits.';
+    }
+  }
+  if(key === 'r_foot') {
+    if(m.lKnee != null && m.rKnee != null && m.lKnee > m.rKnee + 20) {
+      return 'This looks like a left foot strike, not right. The left knee is more extended than the right. Use the scrubber to find the moment when the right foot hits.';
+    }
+  }
+  if(key === 'l_toe') {
+    // At L toe-off, left hip should be more extended (larger angle) than right.
+    if(m.lHip != null && m.rHip != null && m.rHip > m.lHip + 15) {
+      return 'This looks like a right-side toe-off, not left. The right hip is more extended than the left, which means the right leg is pushing off. Use the scrubber to find the moment when the left foot leaves the ground.';
+    }
+  }
+  if(key === 'r_toe') {
+    if(m.lHip != null && m.rHip != null && m.lHip > m.rHip + 15) {
+      return 'This looks like a left-side toe-off, not right. The left hip is more extended than the right. Use the scrubber to find the moment when the right foot leaves the ground.';
+    }
+  }
+  return null;
+}
+
+// Render leg swap warning on a phase card (mini) and store it on the phase object
+function renderLegSwapWarning(key, m) {
+  var warn = checkLegSwap(key, m);
+  phases[key].legSwapWarning = warn;
+  var warnEl = document.getElementById('leg-swap-'+key);
+  if(warn) {
+    if(!warnEl) {
+      var card = document.getElementById('card-'+key);
+      if(card) {
+        var div = document.createElement('div');
+        div.className = 'leg-swap-warn';
+        div.id = 'leg-swap-'+key;
+        div.innerHTML = '&#9888; '+warn;
+        card.appendChild(div);
+      }
+    } else {
+      warnEl.innerHTML = '&#9888; '+warn;
+      warnEl.style.display = 'block';
+    }
+  } else {
+    if(warnEl) warnEl.style.display = 'none';
+  }
+}
+
+// Render leg swap warning in the expand panel
+function renderExpandLegSwapWarning(key) {
+  var warnEl = document.getElementById('ep-leg-swap-warning');
+  var warn = phases[key] ? phases[key].legSwapWarning : null;
+  if(!warnEl) return;
+  if(warn) {
+    warnEl.innerHTML = '&#9888; <strong>Possible wrong leg selected:</strong> '+warn;
+    warnEl.style.display = 'block';
+  } else {
+    warnEl.style.display = 'none';
+  }
 }
 
 function checkAllAnalyzed(){
@@ -1342,7 +1445,7 @@ async function analyzeCard(key){
   } else {
     ph.metrics=computeMetrics(kps);ph.sideView=isSideView(kps);
     drawPose(ctx,kps,W,H);
-    if(!ph.sideView){renderSideViewWarning(key);}else{renderMiniMetrics(key,ph.metrics);updateSummaryCol(key);}
+    if(!ph.sideView){renderSideViewWarning(key);}else{renderMiniMetrics(key,ph.metrics);updateSummaryCol(key);renderLegSwapWarning(key,ph.metrics);}
   }
   if(badge){badge.className='pc-badge ok';badge.textContent='analyzed';}if(loading)loading.classList.remove('show');
   checkAllAnalyzed();
@@ -1356,17 +1459,20 @@ function renderMiniMetrics(key,m){
 
 function renderMiniMetricsFrontBack(key, fbm) {
   var el=document.getElementById('metrics-mini-'+key);if(!el)return;
+  var isFront = (key === 'mid_front');
   var items = [];
   if(fbm.hipDropAbs !== undefined && fbm.hipDropAbs !== null) {
     items.push('<span class="mm-item">Hip drop: '+(fbm.hipDropAbs*100).toFixed(0)+'%</span>');
   }
-  var maxCross = Math.max(fbm.lWristCross||0, fbm.rWristCross||0);
-  if(maxCross > 0.05) {
-    items.push('<span class="mm-item">Arm crossing: detected</span>');
-  }
-  var maxValgus = Math.max(fbm.lKneeValgus||0, fbm.rKneeValgus||0);
-  if(maxValgus > 0.05) {
-    items.push('<span class="mm-item">Knee valgus: detected</span>');
+  if(isFront) {
+    var maxCross = Math.max(fbm.lWristCross||0, fbm.rWristCross||0);
+    if(maxCross > 0.05) {
+      items.push('<span class="mm-item">Arm crossing: detected</span>');
+    }
+    var maxValgus = Math.max(fbm.lKneeValgus||0, fbm.rKneeValgus||0);
+    if(maxValgus > 0.05) {
+      items.push('<span class="mm-item">Knee valgus: detected</span>');
+    }
   }
   if(items.length===0) {
     items.push('<span class="mm-item">Avg confidence: '+(fbm.avgConfidence||0).toFixed(2)+'</span>');
@@ -1415,6 +1521,7 @@ function openExpand(key){
   }
   drawExpandFrame(epCurrentT,ph.kps);
   renderQualityCard(ph.kps);
+  renderExpandLegSwapWarning(key);
   document.querySelectorAll('.phase-card').forEach(function(c){c.classList.toggle('dimmed',c.id!=='card-'+key);});
   document.addEventListener('keydown',onExpandKey);
 }
@@ -1469,7 +1576,9 @@ async function epReanalyze(){
       renderExpandMetrics(ph.metrics);
     }
     renderMiniMetrics(expandKey,ph.metrics);updateSummaryCol(expandKey);
+    renderLegSwapWarning(expandKey,ph.metrics);
   }
+  renderExpandLegSwapWarning(expandKey);
 
   var ovCard=document.getElementById('card-'+expandKey);if(ovCard)ovCard.classList.remove('undetected');
   var ovCanvas=document.getElementById('canvas-'+expandKey);
@@ -1515,29 +1624,37 @@ function renderExpandMetrics(m){
 }
 
 function renderExpandMetricsFrontBack(fbm) {
+  var isFront = (expandKey === 'mid_front');
   var html = '';
+
   html += '<div class="ep-metric-block">';
   html += '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:var(--purple)"></div><strong>Hip drop</strong></div>';
-  html += '<div class="ep-metric-bio">Contralateral pelvis drop during single-leg stance, indicating glute medius strength.</div>';
+  html += '<div class="ep-metric-bio">Contralateral pelvis drop during single-leg stance, indicating glute medius strength.'+(isFront?'':' This back view is used to confirm hip drop findings from the front view.')+'</div>';
   html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(fbm.hipDropAbs!==null?(fbm.hipDropAbs*100).toFixed(1)+'% of torso height':'--')+'</span>';
   if(fbm.hipDrop!==null) html += ' -- <span style="color:var(--muted2)">'+(fbm.hipDrop>0?'Left hip lower':'Right hip lower')+'</span>';
   html += '</div></div>';
 
-  html += '<div class="ep-metric-block">';
-  html += '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:var(--left)"></div><strong>L wrist crossing</strong></div>';
-  html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(fbm.lWristCross!==null?(fbm.lWristCross*100).toFixed(1)+'% of shoulder width':'--')+'</span></div></div>';
+  if(isFront) {
+    html += '<div class="ep-metric-block">';
+    html += '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:var(--left)"></div><strong>L wrist crossing</strong></div>';
+    html += '<div class="ep-metric-bio">How far the left wrist crosses the body midline during arm swing. Crossing creates rotational forces the core must counteract.</div>';
+    html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(fbm.lWristCross!==null?(fbm.lWristCross*100).toFixed(1)+'% of shoulder width':'--')+'</span></div></div>';
 
-  html += '<div class="ep-metric-block">';
-  html += '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:var(--right)"></div><strong>R wrist crossing</strong></div>';
-  html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(fbm.rWristCross!==null?(fbm.rWristCross*100).toFixed(1)+'% of shoulder width':'--')+'</span></div></div>';
+    html += '<div class="ep-metric-block">';
+    html += '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:var(--right)"></div><strong>R wrist crossing</strong></div>';
+    html += '<div class="ep-metric-bio">How far the right wrist crosses the body midline during arm swing.</div>';
+    html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(fbm.rWristCross!==null?(fbm.rWristCross*100).toFixed(1)+'% of shoulder width':'--')+'</span></div></div>';
 
-  html += '<div class="ep-metric-block">';
-  html += '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:var(--left)"></div><strong>L knee valgus</strong></div>';
-  html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(fbm.lKneeValgus!==null?(fbm.lKneeValgus*100).toFixed(1)+'% of hip width':'--')+'</span></div></div>';
+    html += '<div class="ep-metric-block">';
+    html += '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:var(--left)"></div><strong>L knee valgus</strong></div>';
+    html += '<div class="ep-metric-bio">Medial deviation of the left knee from the hip-ankle line. Inward collapse increases stress on the knee.</div>';
+    html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(fbm.lKneeValgus!==null?(fbm.lKneeValgus*100).toFixed(1)+'% of hip width':'--')+'</span></div></div>';
 
-  html += '<div class="ep-metric-block">';
-  html += '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:var(--right)"></div><strong>R knee valgus</strong></div>';
-  html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(fbm.rKneeValgus!==null?(fbm.rKneeValgus*100).toFixed(1)+'% of hip width':'--')+'</span></div></div>';
+    html += '<div class="ep-metric-block">';
+    html += '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:var(--right)"></div><strong>R knee valgus</strong></div>';
+    html += '<div class="ep-metric-bio">Medial deviation of the right knee from the hip-ankle line.</div>';
+    html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(fbm.rKneeValgus!==null?(fbm.rKneeValgus*100).toFixed(1)+'% of hip width':'--')+'</span></div></div>';
+  }
 
   html += '<div class="ep-metric-block">';
   html += '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:var(--cyan)"></div><strong>Avg confidence</strong></div>';
@@ -1641,22 +1758,28 @@ function computeFrontBackMetrics(kps) {
     }
   }
 
-  // Wrist crossing: how far each wrist crosses the body midline
+  // Wrist crossing: how far each wrist crosses the body CENTER LINE
+  // In MoveNet, "left" keypoints are the subject's left. In a front-facing
+  // camera, the subject's left appears on the viewer's right side.
+  // Crossing = the wrist passes the body midline toward the OPPOSITE side.
+  // We measure this by checking if the wrist moves past midline in the
+  // direction of the opposite shoulder.
   if(lSh && rSh) {
     var shoulderWidth = Math.abs(lSh.x - rSh.x);
     var bodyMidX = (lSh.x + rSh.x) / 2;
     if(shoulderWidth > 10) {
-      // Left wrist crosses midline when it goes to the right side
+      // Left wrist crosses midline when it moves toward the RIGHT shoulder side
+      // Direction from left shoulder toward right shoulder:
+      var lToR = rSh.x - lSh.x; // positive if rSh is to the right of lSh
       if(lWr) {
-        var lCross = (lWr.x - bodyMidX) / shoulderWidth;
-        // Positive means crossed (left wrist past midline to right side)
-        // But which direction depends on camera: for front view, left wrist going rightward (higher x) crosses midline
-        result.lWristCross = Math.max(0, lCross);
+        // How far past midline in the lToR direction (normalized by shoulder width)
+        var lPast = (lWr.x - bodyMidX) * Math.sign(lToR) / shoulderWidth;
+        result.lWristCross = Math.max(0, lPast);
       }
-      // Right wrist crosses midline when it goes to the left side
+      // Right wrist crosses midline when it moves toward the LEFT shoulder side
       if(rWr) {
-        var rCross = (bodyMidX - rWr.x) / shoulderWidth;
-        result.rWristCross = Math.max(0, rCross);
+        var rPast = (rWr.x - bodyMidX) * Math.sign(-lToR) / shoulderWidth;
+        result.rWristCross = Math.max(0, rPast);
       }
     }
   }
