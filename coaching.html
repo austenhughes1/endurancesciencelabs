@@ -80,73 +80,65 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 .plan-race-name{color:var(--gold)}
 .plan-actions{margin-left:auto;display:flex;gap:8px}
 
-/* ── Calendar nav ───────────────────────────────────── */
-.cal-nav{display:flex;align-items:center;gap:12px;margin-bottom:16px}
-.cal-nav-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--muted2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
-.cal-nav-btn:hover{border-color:var(--cyan);color:var(--cyan)}
-.cal-month{font-size:16px;font-weight:700;min-width:180px;text-align:center}
-.cal-today-btn{font-size:11px;font-weight:600;font-family:var(--mono);color:var(--cyan);cursor:pointer;background:none;border:1px solid rgba(0,229,200,.25);border-radius:6px;padding:4px 10px;transition:all .15s}
-.cal-today-btn:hover{background:rgba(0,229,200,.08)}
+/* ── Week nav ───────────────────────────────────────── */
+.week-nav{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.week-nav-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--muted2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.week-nav-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.week-nav-range{font-size:14px;font-weight:700;min-width:200px;text-align:center}
+.week-today-btn{font-size:11px;font-weight:600;font-family:var(--mono);color:var(--cyan);cursor:pointer;background:none;border:1px solid rgba(0,229,200,.25);border-radius:6px;padding:4px 10px;transition:all .15s}
+.week-today-btn:hover{background:rgba(0,229,200,.08)}
 
-/* ── Calendar grid ──────────────────────────────────── */
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border-radius:12px;overflow:hidden;flex:1;grid-auto-rows:1fr}
-.cal-day-header{background:var(--panel);padding:8px;text-align:center;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono)}
-.cal-day{background:var(--panel);padding:8px;min-height:90px;cursor:pointer;transition:background .15s;position:relative;display:flex;flex-direction:column}
-.cal-day:hover{background:var(--panel2)}
-.cal-day.today{box-shadow:inset 0 0 0 1px var(--cyan)}
-.cal-day.other-month{opacity:.35}
-.cal-day.other-month:hover{opacity:.5}
-.cal-date{font-size:11px;font-weight:700;font-family:var(--mono);margin-bottom:4px;display:flex;align-items:center;gap:4px}
-.cal-date .today-dot{width:6px;height:6px;border-radius:50%;background:var(--cyan)}
-.cal-workouts{flex:1;display:flex;flex-direction:column;gap:2px;overflow:hidden}
-.cal-tag{font-size:9px;font-family:var(--mono);padding:2px 5px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.4}
-.cal-tag.midweek{background:rgba(139,124,248,.15);color:var(--purple)}
-.cal-tag.weekend{background:rgba(0,229,200,.12);color:var(--cyan)}
-.cal-tag.long-run{background:rgba(245,200,66,.12);color:var(--gold)}
-.cal-tag.ancillary{background:rgba(255,255,255,.05);color:var(--muted2)}
-.cal-tag.strava{background:rgba(255,107,53,.12);color:var(--coral)}
-.cal-week-miles{font-size:9px;font-family:var(--mono);color:var(--muted2);margin-top:auto;padding-top:3px}
-.cal-week-miles span{color:var(--cyan);font-weight:700}
+/* ── Week cards ─────────────────────────────────────── */
+.weeks-container{display:flex;flex-direction:column;gap:16px;flex:1}
+.week-card{background:var(--panel);border:1px solid var(--border2);border-radius:14px;overflow:hidden;animation:fadeIn .3s ease}
+.week-card.current-week{border-color:rgba(0,229,200,.3);box-shadow:0 0 20px rgba(0,229,200,.06)}
+.wk-header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);background:var(--panel2)}
+.wk-date{font-size:13px;font-weight:700}
+.wk-weeks-out{font-size:10px;font-weight:700;color:var(--gold);font-family:var(--mono);padding:2px 8px;background:rgba(245,200,66,.1);border-radius:4px}
+.wk-miles-badge{margin-left:auto;display:flex;align-items:center;gap:8px}
+.wk-miles-target{font-size:12px;font-weight:700;font-family:var(--mono);color:var(--cyan)}
+.wk-miles-actual{font-size:11px;font-family:var(--mono);color:var(--coral)}
+.wk-save-indicator{font-size:10px;font-family:var(--mono);color:var(--good);opacity:0;transition:opacity .3s}
+.wk-save-indicator.show{opacity:1}
 
-/* ── Workout panel (slide-in) ───────────────────────── */
-.panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:none;opacity:0;transition:opacity .2s}
-.panel-overlay.open{display:block;opacity:1}
-.workout-panel{position:fixed;top:0;right:-500px;width:460px;max-width:100vw;height:100vh;background:var(--panel);border-left:1px solid var(--border2);z-index:501;transition:right .25s ease;display:flex;flex-direction:column;overflow:hidden}
-.workout-panel.open{right:0}
-.wp-header{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
-.wp-close{width:32px;height:32px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--muted2);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
-.wp-close:hover{border-color:var(--bad);color:var(--bad)}
-.wp-title{font-size:15px;font-weight:700}
-.wp-date{font-size:11px;color:var(--muted2);font-family:var(--mono)}
-.wp-weeks{font-size:10px;color:var(--gold);font-family:var(--mono);font-weight:700}
-.wp-body{flex:1;overflow-y:auto;padding:20px 24px}
-.wp-section{margin-bottom:20px}
-.wp-label{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono);margin-bottom:6px;display:flex;align-items:center;gap:6px}
-.wp-label .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.wp-label .dot.midweek{background:var(--purple)}
-.wp-label .dot.weekend{background:var(--cyan)}
-.wp-label .dot.long-run{background:var(--gold)}
-.wp-label .dot.ancillary{background:var(--muted2)}
-.wp-label .dot.notes{background:var(--warn)}
-.wp-label .dot.miles{background:var(--good)}
-.wp-textarea{width:100%;background:var(--panel2);border:1px solid var(--border2);border-radius:9px;padding:10px 14px;font-size:12px;color:var(--text);font-family:var(--ui);outline:none;transition:border-color .15s;resize:vertical;min-height:60px;line-height:1.5}
-.wp-textarea:focus{border-color:var(--cyan)}
-.wp-textarea[readonly]{opacity:.6;cursor:default}
-.wp-input{width:100%;background:var(--panel2);border:1px solid var(--border2);border-radius:9px;padding:10px 14px;font-size:12px;color:var(--text);font-family:var(--mono);outline:none;transition:border-color .15s}
-.wp-input:focus{border-color:var(--cyan)}
-.wp-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
-.wp-save-status{font-size:10px;font-family:var(--mono);color:var(--good);margin-right:auto;display:flex;align-items:center;gap:4px;opacity:0;transition:opacity .3s}
-.wp-save-status.show{opacity:1}
+.wk-body{padding:16px 20px;display:flex;flex-direction:column;gap:16px}
 
-/* ── Strava section in panel ────────────────────────── */
-.strava-section{margin-top:24px;padding-top:20px;border-top:1px solid var(--border)}
-.strava-header{display:flex;align-items:center;gap:8px;margin-bottom:12px}
-.strava-logo{font-size:14px;font-weight:800;color:var(--coral);font-family:var(--mono)}
-.strava-stat{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)}
-.strava-stat-label{font-size:11px;color:var(--muted2);font-family:var(--mono)}
-.strava-stat-val{font-size:12px;font-weight:700;font-family:var(--mono);color:var(--coral)}
+/* ── Field block (coach prescription + athlete response) */
+.field-block{display:flex;flex-direction:column;gap:6px}
+.field-label{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono);display:flex;align-items:center;gap:6px}
+.field-label .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.field-label .dot.miles{background:var(--good)}
+.field-label .dot.midweek{background:var(--purple)}
+.field-label .dot.weekend{background:var(--cyan)}
+.field-label .dot.long-run{background:var(--gold)}
+.field-label .dot.ancillary{background:var(--muted2)}
+.field-label .dot.notes{background:var(--warn)}
 
-/* ── Add athlete modal ──────────────────────────────── */
+.field-coach{width:100%;background:var(--panel2);border:1px solid var(--border2);border-radius:9px;padding:10px 14px;font-size:12px;color:var(--text);font-family:var(--ui);outline:none;transition:border-color .15s;resize:vertical;min-height:42px;line-height:1.5}
+.field-coach:focus{border-color:var(--cyan)}
+.field-coach[readonly]{cursor:default}
+.field-coach.miles-input{font-family:var(--mono);min-height:unset;resize:none}
+
+/* Athlete response area below coach field */
+.field-athlete{display:flex;flex-direction:column;gap:4px;margin-top:2px}
+.field-athlete-label{font-size:9px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;font-family:var(--mono);color:var(--muted);display:flex;align-items:center;gap:4px}
+.field-athlete-label .athlete-icon{color:var(--cyan);font-size:10px}
+.field-athlete-input{width:100%;background:rgba(0,229,200,.04);border:1px solid rgba(0,229,200,.12);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--text);font-family:var(--ui);outline:none;transition:border-color .15s;resize:vertical;min-height:34px;line-height:1.5}
+.field-athlete-input:focus{border-color:var(--cyan)}
+.field-athlete-input[readonly]{cursor:default}
+.field-athlete-input::placeholder{color:var(--muted)}
+
+/* Strava miles summary */
+.strava-miles{display:flex;align-items:center;gap:6px;padding:6px 10px;background:rgba(255,107,53,.06);border:1px solid rgba(255,107,53,.15);border-radius:8px;margin-top:2px}
+.strava-miles-icon{font-size:11px;font-weight:800;color:var(--coral);font-family:var(--mono)}
+.strava-miles-val{font-size:13px;font-weight:800;font-family:var(--mono);color:var(--coral)}
+.strava-miles-label{font-size:10px;color:var(--muted2);font-family:var(--mono)}
+
+/* ── Strava daily breakdown (inside miles field) ────── */
+.strava-days{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.strava-day{font-size:9px;font-family:var(--mono);padding:2px 6px;border-radius:4px;background:rgba(255,107,53,.08);color:var(--coral)}
+
+/* ── Modals ─────────────────────────────────────────── */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:600;display:none;align-items:center;justify-content:center;padding:40px}
 .modal-overlay.open{display:flex}
 .modal{background:var(--panel);border:1px solid var(--border2);border-radius:16px;padding:32px;width:100%;max-width:400px}
@@ -157,16 +149,9 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
 .modal-error{font-size:11px;color:var(--bad);font-family:var(--mono);margin-top:8px;min-height:16px}
 
-/* ── Week summary row ───────────────────────────────── */
-.cal-week-summary{background:var(--panel2);padding:6px 10px;grid-column:1/-1;display:flex;align-items:center;gap:16px;min-height:auto}
-.cal-week-summary .ws-label{font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-family:var(--mono)}
-.cal-week-summary .ws-miles{font-size:12px;font-weight:800;font-family:var(--mono);color:var(--cyan)}
-.cal-week-summary .ws-weeks{font-size:10px;color:var(--gold);font-family:var(--mono);font-weight:700}
-
 /* ── Responsive ─────────────────────────────────────── */
 @media(max-width:900px){
   .sidebar{width:220px}
-  .workout-panel{width:100vw}
 }
 @media(max-width:640px){
   .layout{flex-direction:column}
@@ -174,8 +159,6 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
   .athlete-list{display:flex;flex-direction:row;overflow-x:auto;padding:6px}
   .athlete-item{flex-shrink:0;padding:8px 12px}
   .main{padding:16px}
-  .cal-day{min-height:70px;padding:4px}
-  .cal-tag{font-size:8px}
 }
 </style>
 </head>
@@ -228,69 +211,16 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
       <div class="main-empty-icon">◇</div>
       <div class="main-empty-text">Select an athlete to view their plan</div>
     </div>
-    <div id="coach-calendar" style="display:none"></div>
+    <div id="coach-weeks" style="display:none"></div>
   </div>
 </div>
 
 <!-- Athlete layout -->
 <div class="layout" id="athlete-layout" style="display:none">
   <div class="main" id="athlete-main">
-    <div id="athlete-calendar"></div>
+    <div id="athlete-weeks"></div>
   </div>
 </div>
-</div>
-
-<!-- ── Workout edit panel ──────────────────────────── -->
-<div class="panel-overlay" id="panel-overlay" onclick="closeWorkoutPanel()"></div>
-<div class="workout-panel" id="workout-panel">
-  <div class="wp-header">
-    <button class="wp-close" onclick="closeWorkoutPanel()">✕</button>
-    <div>
-      <div class="wp-title" id="wp-title"></div>
-      <div class="wp-date" id="wp-date"></div>
-      <div class="wp-weeks" id="wp-weeks"></div>
-    </div>
-  </div>
-  <div class="wp-body">
-    <div class="wp-section">
-      <div class="wp-label"><span class="dot miles"></span>Miles / Week</div>
-      <input class="wp-input" id="wp-miles" type="text" placeholder="e.g. 60-65">
-    </div>
-    <div class="wp-section">
-      <div class="wp-label"><span class="dot midweek"></span>Midweek Session</div>
-      <textarea class="wp-textarea" id="wp-midweek" placeholder="e.g. 6-7×3:00 @ threshold, 1:00 float between"></textarea>
-    </div>
-    <div class="wp-section">
-      <div class="wp-label"><span class="dot weekend"></span>Weekend Session</div>
-      <textarea class="wp-textarea" id="wp-weekend" placeholder="e.g. 4-5×600 @ controlled 3k effort"></textarea>
-    </div>
-    <div class="wp-section">
-      <div class="wp-label"><span class="dot long-run"></span>Long Run</div>
-      <textarea class="wp-textarea" id="wp-longrun" placeholder="e.g. 11-13"></textarea>
-    </div>
-    <div class="wp-section">
-      <div class="wp-label"><span class="dot ancillary"></span>Ancillary Work</div>
-      <textarea class="wp-textarea" id="wp-ancillary" placeholder="e.g. 6-8×:15-:20 hill sprints"></textarea>
-    </div>
-    <div class="wp-section">
-      <div class="wp-label"><span class="dot notes"></span>Notes</div>
-      <textarea class="wp-textarea" id="wp-notes" placeholder="Any notes for the athlete..."></textarea>
-    </div>
-
-    <!-- Strava data (read-only, shown when available) -->
-    <div class="strava-section" id="wp-strava" style="display:none">
-      <div class="strava-header">
-        <span class="strava-logo">STRAVA</span>
-        <span style="font-size:10px;color:var(--muted2);font-family:var(--mono)">Auto-synced activity</span>
-      </div>
-      <div id="wp-strava-data"></div>
-    </div>
-  </div>
-  <div class="wp-footer" id="wp-footer">
-    <div class="wp-save-status" id="wp-save-status">✓ Saved</div>
-    <button class="btn-ghost" onclick="closeWorkoutPanel()">Cancel</button>
-    <button class="btn-primary" id="wp-save-btn" onclick="saveWorkout()">Save workout</button>
-  </div>
 </div>
 
 <!-- ── Add athlete modal ───────────────────────────── -->
@@ -353,8 +283,9 @@ const FIREBASE_CONFIG = {
   measurementId: "G-P2RRN15M8K"
 };
 
-const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const WEEKS_VISIBLE = 8; // how many week cards to show at once
 
 // ── Firebase init ─────────────────────────────────────
 let auth, db;
@@ -373,12 +304,13 @@ let currentUser = null;
 let userDoc = null;
 let isCoach = false;
 let selectedAthleteUid = null;
+let selectedAthleteData = null;
 let selectedAthletePlan = null;
-let viewYear, viewMonth; // 0-indexed month
-let workoutsCache = {};  // { 'YYYY-MM-DD': workoutData }
+let weekOffset = 0; // 0 = current week is first card shown
+let workoutsCache = {};  // { 'YYYY-MM-DD': workoutData } keyed by week Monday date
 let stravaCache = {};    // { 'YYYY-MM-DD': [activities] }
-let editingDate = null;
-let authMode = 'signin'; // 'signin' or 'signup'
+let savingWeeks = {};    // debounce timers per weekKey
+let authMode = 'signin';
 
 // ══════════════════════════════════════════════════════════
 //  AUTH
@@ -414,16 +346,10 @@ async function authAction() {
       const name = document.getElementById('auth-name').value.trim();
       if (!name) { errEl.textContent = 'Enter your name.'; btn.disabled = false; btn.textContent = 'Create account'; return; }
       const cred = await auth.createUserWithEmailAndPassword(email, pw);
-      // Create user doc as athlete
       await db.collection('users').doc(cred.user.uid).set({
-        email,
-        displayName: name,
-        role: 'athlete',
-        coachUid: null,
-        stravaAthleteId: null,
-        stravaConnected: false,
-        raceDate: null,
-        raceName: null,
+        email, displayName: name, role: 'athlete', coachUid: null,
+        gender: null, dob: null, stravaAthleteId: null, stravaConnected: false,
+        raceDate: null, raceName: null,
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
     } else {
@@ -442,12 +368,9 @@ async function authAction() {
 
 async function doSignOut() {
   await auth.signOut();
-  currentUser = null;
-  userDoc = null;
-  selectedAthleteUid = null;
-  selectedAthletePlan = null;
-  workoutsCache = {};
-  stravaCache = {};
+  currentUser = null; userDoc = null;
+  selectedAthleteUid = null; selectedAthletePlan = null;
+  workoutsCache = {}; stravaCache = {};
   document.getElementById('app').style.display = 'none';
   document.getElementById('auth-overlay').style.display = 'flex';
   document.getElementById('coach-layout').style.display = 'none';
@@ -471,19 +394,12 @@ if (auth) {
 async function loadUserDoc(user) {
   const doc = await db.collection('users').doc(user.uid).get();
   if (!doc.exists) {
-    // First-time sign-in without a doc — create as athlete
     userDoc = {
-      email: user.email,
-      displayName: user.email.split('@')[0],
-      role: 'athlete',
-      coachUid: null,
-      stravaConnected: false,
-      raceDate: null,
-      raceName: null
+      email: user.email, displayName: user.email.split('@')[0],
+      role: 'athlete', coachUid: null, stravaConnected: false, raceDate: null, raceName: null
     };
     await db.collection('users').doc(user.uid).set({
-      ...userDoc,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      ...userDoc, createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
   } else {
     userDoc = doc.data();
@@ -496,10 +412,7 @@ async function loadUserDoc(user) {
   badge.textContent = isCoach ? 'Coach' : 'Athlete';
   badge.className = 'role-badge ' + (isCoach ? 'coach' : 'athlete');
 
-  // Init calendar to current month
-  const now = new Date();
-  viewYear = now.getFullYear();
-  viewMonth = now.getMonth();
+  weekOffset = 0;
 
   if (isCoach) {
     document.getElementById('coach-layout').style.display = 'flex';
@@ -533,7 +446,8 @@ async function loadAthleteList() {
     const initials = (d.displayName || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
     const item = document.createElement('div');
     item.className = 'athlete-item' + (selectedAthleteUid === doc.id ? ' active' : '');
-    item.onclick = () => selectAthlete(doc.id, d);
+    item.dataset.uid = doc.id;
+    item.onclick = () => selectAthlete(doc.id, d, item);
     item.innerHTML = `
       <div class="athlete-avatar">${initials}</div>
       <div>
@@ -545,14 +459,15 @@ async function loadAthleteList() {
   });
 }
 
-async function selectAthlete(uid, data) {
+async function selectAthlete(uid, data, el) {
   selectedAthleteUid = uid;
+  selectedAthleteData = data;
   workoutsCache = {};
   stravaCache = {};
+  weekOffset = 0;
 
-  // Update active state in sidebar
-  document.querySelectorAll('.athlete-item').forEach(el => el.classList.remove('active'));
-  event.currentTarget.classList.add('active');
+  document.querySelectorAll('.athlete-item').forEach(e => e.classList.remove('active'));
+  el.classList.add('active');
 
   // Load or create training plan
   const planSnap = await db.collection('trainingPlans')
@@ -562,12 +477,9 @@ async function selectAthlete(uid, data) {
     .get();
 
   if (planSnap.empty) {
-    // Create a plan
     const planRef = await db.collection('trainingPlans').add({
-      athleteUid: uid,
-      coachUid: currentUser.uid,
-      raceName: data.raceName || '',
-      raceDate: data.raceDate || '',
+      athleteUid: uid, coachUid: currentUser.uid,
+      raceName: data.raceName || '', raceDate: data.raceDate || '',
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
@@ -578,24 +490,23 @@ async function selectAthlete(uid, data) {
   }
 
   document.getElementById('coach-empty').style.display = 'none';
-  document.getElementById('coach-calendar').style.display = 'block';
+  document.getElementById('coach-weeks').style.display = 'block';
 
-  await loadWorkoutsForMonth();
-  renderCalendar('coach-calendar', true);
+  await loadWorkouts();
+  renderWeeks('coach-weeks', true);
 }
 
 // ══════════════════════════════════════════════════════════
 //  ATHLETE: OWN DASHBOARD
 // ══════════════════════════════════════════════════════════
 async function loadAthleteDashboard() {
-  // Find the plan assigned to this athlete
   const planSnap = await db.collection('trainingPlans')
     .where('athleteUid', '==', currentUser.uid)
     .limit(1)
     .get();
 
   if (planSnap.empty) {
-    document.getElementById('athlete-calendar').innerHTML = `
+    document.getElementById('athlete-weeks').innerHTML = `
       <div class="main-empty">
         <div class="main-empty-icon">◇</div>
         <div class="main-empty-text">No training plan assigned yet.<br>Your coach will set one up for you.</div>
@@ -606,45 +517,89 @@ async function loadAthleteDashboard() {
   const planDoc = planSnap.docs[0];
   selectedAthletePlan = { id: planDoc.id, ...planDoc.data() };
   selectedAthleteUid = currentUser.uid;
+  selectedAthleteData = userDoc;
 
-  await loadWorkoutsForMonth();
-  await loadStravaForMonth();
-  renderCalendar('athlete-calendar', false);
+  await loadWorkouts();
+  await loadStrava();
+  renderWeeks('athlete-weeks', false);
 }
 
 // ══════════════════════════════════════════════════════════
-//  FIRESTORE: LOAD WORKOUTS
+//  DATE HELPERS
 // ══════════════════════════════════════════════════════════
-async function loadWorkoutsForMonth() {
+function getMonday(d) {
+  const date = new Date(d);
+  const day = date.getDay();
+  const diff = day === 0 ? -6 : 1 - day; // Monday = 1
+  date.setDate(date.getDate() + diff);
+  date.setHours(0,0,0,0);
+  return date;
+}
+
+function dateToStr(d) {
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function addDays(d, n) {
+  const r = new Date(d);
+  r.setDate(r.getDate() + n);
+  return r;
+}
+
+function formatDateRange(monday) {
+  const sun = addDays(monday, 6);
+  const mStr = `${MONTHS[monday.getMonth()]} ${monday.getDate()}`;
+  const sStr = monday.getMonth() === sun.getMonth()
+    ? `${sun.getDate()}`
+    : `${MONTHS[sun.getMonth()]} ${sun.getDate()}`;
+  return `${mStr} – ${sStr}, ${sun.getFullYear()}`;
+}
+
+function weeksUntil(monday, raceDate) {
+  if (!raceDate) return null;
+  const r = new Date(raceDate);
+  const diff = Math.round((r - monday) / (7 * 24 * 60 * 60 * 1000));
+  return diff >= 0 ? diff : null;
+}
+
+function getWeekMonday(offset) {
+  const today = new Date();
+  const thisMonday = getMonday(today);
+  return addDays(thisMonday, offset * 7);
+}
+
+// ══════════════════════════════════════════════════════════
+//  FIRESTORE: LOAD DATA
+// ══════════════════════════════════════════════════════════
+async function loadWorkouts() {
   if (!selectedAthletePlan) return;
 
-  // Get first and last day shown on calendar (including overflow)
-  const firstDay = getCalendarStart(viewYear, viewMonth);
-  const lastDay = getCalendarEnd(viewYear, viewMonth);
-  const startStr = dateToStr(firstDay);
-  const endStr = dateToStr(lastDay);
+  const startMon = getWeekMonday(weekOffset);
+  const endSun = addDays(getWeekMonday(weekOffset + WEEKS_VISIBLE - 1), 6);
+  const startStr = dateToStr(startMon);
+  const endStr = dateToStr(endSun);
 
   const snap = await db.collection('trainingPlans')
     .doc(selectedAthletePlan.id)
     .collection('workouts')
-    .where('date', '>=', startStr)
-    .where('date', '<=', endStr)
+    .where('weekStart', '>=', startStr)
+    .where('weekStart', '<=', endStr)
     .get();
 
-  workoutsCache = {};
+  // Keep existing cache, merge new
   snap.forEach(doc => {
     const d = doc.data();
-    workoutsCache[d.date] = { id: doc.id, ...d };
+    workoutsCache[d.weekStart] = { id: doc.id, ...d };
   });
 }
 
-async function loadStravaForMonth() {
+async function loadStrava() {
   if (!selectedAthletePlan) return;
 
-  const firstDay = getCalendarStart(viewYear, viewMonth);
-  const lastDay = getCalendarEnd(viewYear, viewMonth);
-  const startStr = dateToStr(firstDay);
-  const endStr = dateToStr(lastDay);
+  const startMon = getWeekMonday(weekOffset);
+  const endSun = addDays(getWeekMonday(weekOffset + WEEKS_VISIBLE - 1), 6);
+  const startStr = dateToStr(startMon);
+  const endStr = dateToStr(endSun);
 
   const snap = await db.collection('trainingPlans')
     .doc(selectedAthletePlan.id)
@@ -653,7 +608,6 @@ async function loadStravaForMonth() {
     .where('date', '<=', endStr)
     .get();
 
-  stravaCache = {};
   snap.forEach(doc => {
     const d = doc.data();
     if (!stravaCache[d.date]) stravaCache[d.date] = [];
@@ -662,46 +616,21 @@ async function loadStravaForMonth() {
 }
 
 // ══════════════════════════════════════════════════════════
-//  CALENDAR RENDERING
+//  RENDER WEEKS
 // ══════════════════════════════════════════════════════════
-function getCalendarStart(year, month) {
-  const first = new Date(year, month, 1);
-  let dow = first.getDay(); // 0=Sun
-  dow = dow === 0 ? 6 : dow - 1; // convert to Mon=0
-  const start = new Date(first);
-  start.setDate(start.getDate() - dow);
-  return start;
-}
-
-function getCalendarEnd(year, month) {
-  const start = getCalendarStart(year, month);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 41); // 6 weeks
-  return end;
-}
-
-function dateToStr(d) {
-  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-}
-
-function weeksUntil(dateStr, raceDate) {
-  if (!raceDate) return null;
-  const d = new Date(dateStr);
-  const r = new Date(raceDate);
-  const diff = Math.round((r - d) / (7 * 24 * 60 * 60 * 1000));
-  return diff >= 0 ? diff : null;
-}
-
-function renderCalendar(containerId, editable) {
+function renderWeeks(containerId, editable) {
   const container = document.getElementById(containerId);
   const raceDate = selectedAthletePlan?.raceDate || null;
   const athleteName = editable
-    ? (document.querySelector('.athlete-item.active .athlete-name')?.textContent || 'Athlete')
+    ? (selectedAthleteData?.displayName || 'Athlete')
     : (userDoc.displayName || 'My Training');
   const raceName = selectedAthletePlan?.raceName || '';
+  const todayMonday = getMonday(new Date());
+  const todayMondayStr = dateToStr(todayMonday);
 
-  const todayStr = dateToStr(new Date());
-  const start = getCalendarStart(viewYear, viewMonth);
+  // Navigation range
+  const firstMonday = getWeekMonday(weekOffset);
+  const lastMonday = getWeekMonday(weekOffset + WEEKS_VISIBLE - 1);
 
   let html = `
     <div class="plan-header">
@@ -711,213 +640,249 @@ function renderCalendar(containerId, editable) {
         <button class="btn-ghost" onclick="openEditRace()">✎ Race info</button>
       </div>` : ''}
     </div>
-    <div class="cal-nav">
-      <button class="cal-nav-btn" onclick="navMonth(-1)">‹</button>
-      <div class="cal-month">${MONTHS[viewMonth]} ${viewYear}</div>
-      <button class="cal-nav-btn" onclick="navMonth(1)">›</button>
-      <button class="cal-today-btn" onclick="navToday()">Today</button>
+    <div class="week-nav">
+      <button class="week-nav-btn" onclick="navWeeks(-${WEEKS_VISIBLE})">‹</button>
+      <div class="week-nav-range">${formatDateRange(firstMonday)} → ${formatDateRange(lastMonday)}</div>
+      <button class="week-nav-btn" onclick="navWeeks(${WEEKS_VISIBLE})">›</button>
+      <button class="week-today-btn" onclick="navWeeksToday()">This week</button>
     </div>
-    <div class="cal-grid">`;
+    <div class="weeks-container">`;
 
-  // Day headers
-  DAYS.forEach(d => { html += `<div class="cal-day-header">${d}</div>`; });
+  for (let i = 0; i < WEEKS_VISIBLE; i++) {
+    const monday = getWeekMonday(weekOffset + i);
+    const mondayStr = dateToStr(monday);
+    const isCurrent = mondayStr === todayMondayStr;
+    const wb = weeksUntil(monday, raceDate);
+    const workout = workoutsCache[mondayStr] || {};
 
-  // Day cells (6 weeks = 42 days)
-  const cursor = new Date(start);
-  for (let week = 0; week < 6; week++) {
-    let weekMiles = null;
-
-    for (let day = 0; day < 7; day++) {
-      const dateStr = dateToStr(cursor);
-      const isOtherMonth = cursor.getMonth() !== viewMonth;
-      const isToday = dateStr === todayStr;
-      const workout = workoutsCache[dateStr];
-      const stravaActs = stravaCache[dateStr] || [];
-
-      // Track first workout with milesPerWeek for the week summary
-      if (workout?.milesPerWeek && !weekMiles) weekMiles = workout.milesPerWeek;
-
-      let classes = 'cal-day';
-      if (isOtherMonth) classes += ' other-month';
-      if (isToday) classes += ' today';
-
-      html += `<div class="${classes}" onclick="${editable ? `openWorkoutPanel('${dateStr}')` : `openWorkoutPanel('${dateStr}', true)`}">`;
-      html += `<div class="cal-date">${cursor.getDate()}${isToday ? '<span class="today-dot"></span>' : ''}</div>`;
-      html += `<div class="cal-workouts">`;
-
-      // Prescribed workouts
-      if (workout) {
-        if (workout.midweekSession) html += `<div class="cal-tag midweek">${esc(truncate(workout.midweekSession, 35))}</div>`;
-        if (workout.weekendSession) html += `<div class="cal-tag weekend">${esc(truncate(workout.weekendSession, 35))}</div>`;
-        if (workout.longRun) html += `<div class="cal-tag long-run">Long: ${esc(truncate(workout.longRun, 30))}</div>`;
-        if (workout.ancillaryWork) html += `<div class="cal-tag ancillary">${esc(truncate(workout.ancillaryWork, 30))}</div>`;
-      }
-
-      // Strava activities
-      stravaActs.forEach(a => {
-        const mi = (a.distance / 1609.34).toFixed(1);
-        html += `<div class="cal-tag strava">▲ ${mi}mi ${a.averagePace || ''}</div>`;
+    // Sum strava miles for this week (Mon-Sun)
+    let stravaMiles = 0;
+    let stravaDays = [];
+    for (let d = 0; d < 7; d++) {
+      const dayDate = addDays(monday, d);
+      const dayStr = dateToStr(dayDate);
+      const acts = stravaCache[dayStr] || [];
+      acts.forEach(a => {
+        const mi = a.distance / 1609.34;
+        stravaMiles += mi;
+        stravaDays.push({ day: DAY_NAMES[dayDate.getDay()], mi: mi.toFixed(1), name: a.name || '' });
       });
-
-      html += `</div>`; // .cal-workouts
-
-      // Week miles on Monday cell
-      if (day === 0 && workout?.milesPerWeek) {
-        html += `<div class="cal-week-miles"><span>${esc(String(workout.milesPerWeek))}</span> mi/wk</div>`;
-      }
-
-      html += `</div>`; // .cal-day
-      cursor.setDate(cursor.getDate() + 1);
     }
 
-    // Week summary row
-    const weeksBefore = raceDate ? weeksUntil(dateToStr(new Date(cursor.getTime() - 7*24*60*60*1000)), raceDate) : null;
-    html += `<div class="cal-week-summary">`;
-    if (weekMiles) html += `<span class="ws-label">Target</span><span class="ws-miles">${esc(String(weekMiles))} mi</span>`;
-    if (weeksBefore !== null && weeksBefore >= 0) html += `<span class="ws-weeks">${weeksBefore} weeks out</span>`;
-    html += `</div>`;
+    html += `
+    <div class="week-card${isCurrent ? ' current-week' : ''}" id="wk-${mondayStr}">
+      <div class="wk-header">
+        <div class="wk-date">${formatDateRange(monday)}</div>
+        ${wb !== null ? `<div class="wk-weeks-out">${wb} weeks out</div>` : ''}
+        <div class="wk-miles-badge">
+          ${workout.milesPerWeek ? `<span class="wk-miles-target">Target: ${esc(workout.milesPerWeek)} mi</span>` : ''}
+          ${stravaMiles > 0 ? `<span class="wk-miles-actual">Actual: ${stravaMiles.toFixed(1)} mi</span>` : ''}
+          <span class="wk-save-indicator" id="save-${mondayStr}">✓ Saved</span>
+        </div>
+      </div>
+      <div class="wk-body">
+
+        <!-- Miles/Week -->
+        <div class="field-block">
+          <div class="field-label"><span class="dot miles"></span>Miles / Week</div>
+          <input class="field-coach miles-input" id="miles-${mondayStr}"
+            value="${esc(workout.milesPerWeek || '')}"
+            placeholder="e.g. 60-65"
+            ${editable ? `oninput="debounceSave('${mondayStr}')"` : 'readonly'}>
+          ${stravaMiles > 0 ? `
+          <div class="strava-miles">
+            <span class="strava-miles-icon">▲</span>
+            <span class="strava-miles-val">${stravaMiles.toFixed(1)} mi</span>
+            <span class="strava-miles-label">logged this week</span>
+          </div>
+          ${stravaDays.length > 0 ? `<div class="strava-days">${stravaDays.map(s => `<span class="strava-day">${s.day}: ${s.mi}mi</span>`).join('')}</div>` : ''}
+          ` : ''}
+        </div>
+
+        <!-- Midweek Session -->
+        <div class="field-block">
+          <div class="field-label"><span class="dot midweek"></span>Midweek Session</div>
+          <textarea class="field-coach" id="midweek-${mondayStr}"
+            placeholder="e.g. 6-7×3:00 @ threshold, 1:00 float between"
+            ${editable ? `oninput="debounceSave('${mondayStr}')"` : 'readonly'}>${esc(workout.midweekSession || '')}</textarea>
+          <div class="field-athlete">
+            <div class="field-athlete-label"><span class="athlete-icon">◆</span> Athlete notes</div>
+            <textarea class="field-athlete-input" id="midweek-notes-${mondayStr}"
+              placeholder="How did it go? Any adjustments?"
+              ${!editable ? `oninput="debounceSaveAthleteNotes('${mondayStr}')"` : 'readonly'}>${esc(workout.athleteMidweekNotes || '')}</textarea>
+          </div>
+        </div>
+
+        <!-- Weekend Session -->
+        <div class="field-block">
+          <div class="field-label"><span class="dot weekend"></span>Weekend Session</div>
+          <textarea class="field-coach" id="weekend-${mondayStr}"
+            placeholder="e.g. 4-5×600 @ controlled 3k effort"
+            ${editable ? `oninput="debounceSave('${mondayStr}')"` : 'readonly'}>${esc(workout.weekendSession || '')}</textarea>
+          <div class="field-athlete">
+            <div class="field-athlete-label"><span class="athlete-icon">◆</span> Athlete notes</div>
+            <textarea class="field-athlete-input" id="weekend-notes-${mondayStr}"
+              placeholder="How did it go? Any adjustments?"
+              ${!editable ? `oninput="debounceSaveAthleteNotes('${mondayStr}')"` : 'readonly'}>${esc(workout.athleteWeekendNotes || '')}</textarea>
+          </div>
+        </div>
+
+        <!-- Long Run -->
+        <div class="field-block">
+          <div class="field-label"><span class="dot long-run"></span>Long Run</div>
+          <textarea class="field-coach" id="longrun-${mondayStr}"
+            placeholder="e.g. 11-13"
+            ${editable ? `oninput="debounceSave('${mondayStr}')"` : 'readonly'}>${esc(workout.longRun || '')}</textarea>
+          <div class="field-athlete">
+            <div class="field-athlete-label"><span class="athlete-icon">◆</span> Athlete notes</div>
+            <textarea class="field-athlete-input" id="longrun-notes-${mondayStr}"
+              placeholder="How did it feel?"
+              ${!editable ? `oninput="debounceSaveAthleteNotes('${mondayStr}')"` : 'readonly'}>${esc(workout.athleteLongRunNotes || '')}</textarea>
+          </div>
+        </div>
+
+        <!-- Ancillary Work -->
+        <div class="field-block">
+          <div class="field-label"><span class="dot ancillary"></span>Ancillary Work</div>
+          <textarea class="field-coach" id="ancillary-${mondayStr}"
+            placeholder="e.g. 6-8×:15-:20 hill sprints"
+            ${editable ? `oninput="debounceSave('${mondayStr}')"` : 'readonly'}>${esc(workout.ancillaryWork || '')}</textarea>
+          <div class="field-athlete">
+            <div class="field-athlete-label"><span class="athlete-icon">◆</span> Athlete notes</div>
+            <textarea class="field-athlete-input" id="ancillary-notes-${mondayStr}"
+              placeholder="Completed? Notes?"
+              ${!editable ? `oninput="debounceSaveAthleteNotes('${mondayStr}')"` : 'readonly'}>${esc(workout.athleteAncillaryNotes || '')}</textarea>
+          </div>
+        </div>
+
+        <!-- Coach Notes -->
+        <div class="field-block">
+          <div class="field-label"><span class="dot notes"></span>Notes</div>
+          <textarea class="field-coach" id="notes-${mondayStr}"
+            placeholder="General notes for the week..."
+            ${editable ? `oninput="debounceSave('${mondayStr}')"` : 'readonly'}>${esc(workout.notes || '')}</textarea>
+          <div class="field-athlete">
+            <div class="field-athlete-label"><span class="athlete-icon">◆</span> Athlete notes</div>
+            <textarea class="field-athlete-input" id="notes-athlete-${mondayStr}"
+              placeholder="Questions, how you're feeling, etc."
+              ${!editable ? `oninput="debounceSaveAthleteNotes('${mondayStr}')"` : 'readonly'}>${esc(workout.athleteNotes || '')}</textarea>
+          </div>
+        </div>
+
+      </div>
+    </div>`;
   }
 
-  html += `</div>`; // .cal-grid
+  html += `</div>`; // .weeks-container
   container.innerHTML = html;
 }
 
-async function navMonth(delta) {
-  viewMonth += delta;
-  if (viewMonth > 11) { viewMonth = 0; viewYear++; }
-  if (viewMonth < 0) { viewMonth = 11; viewYear--; }
-  await loadWorkoutsForMonth();
-  if (!isCoach) await loadStravaForMonth();
-  renderCalendar(isCoach ? 'coach-calendar' : 'athlete-calendar', isCoach);
+// ══════════════════════════════════════════════════════════
+//  WEEK NAVIGATION
+// ══════════════════════════════════════════════════════════
+async function navWeeks(delta) {
+  weekOffset += delta;
+  await loadWorkouts();
+  if (!isCoach) await loadStrava();
+  renderWeeks(isCoach ? 'coach-weeks' : 'athlete-weeks', isCoach);
 }
 
-async function navToday() {
-  const now = new Date();
-  viewYear = now.getFullYear();
-  viewMonth = now.getMonth();
-  await loadWorkoutsForMonth();
-  if (!isCoach) await loadStravaForMonth();
-  renderCalendar(isCoach ? 'coach-calendar' : 'athlete-calendar', isCoach);
+async function navWeeksToday() {
+  weekOffset = 0;
+  await loadWorkouts();
+  if (!isCoach) await loadStrava();
+  renderWeeks(isCoach ? 'coach-weeks' : 'athlete-weeks', isCoach);
 }
 
 // ══════════════════════════════════════════════════════════
-//  WORKOUT PANEL
+//  SAVE: COACH WORKOUTS (auto-save with debounce)
 // ══════════════════════════════════════════════════════════
-function openWorkoutPanel(dateStr, readonly) {
-  editingDate = dateStr;
-  const d = new Date(dateStr + 'T12:00:00');
-  const dayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()];
-  const raceDate = selectedAthletePlan?.raceDate;
-  const wb = weeksUntil(dateStr, raceDate);
-
-  document.getElementById('wp-title').textContent = dayName;
-  document.getElementById('wp-date').textContent = dateStr;
-  document.getElementById('wp-weeks').textContent = wb !== null ? `${wb} weeks before race` : '';
-
-  // Populate fields
-  const workout = workoutsCache[dateStr] || {};
-  document.getElementById('wp-miles').value = workout.milesPerWeek || '';
-  document.getElementById('wp-midweek').value = workout.midweekSession || '';
-  document.getElementById('wp-weekend').value = workout.weekendSession || '';
-  document.getElementById('wp-longrun').value = workout.longRun || '';
-  document.getElementById('wp-ancillary').value = workout.ancillaryWork || '';
-  document.getElementById('wp-notes').value = workout.notes || '';
-
-  // Readonly for athletes
-  const fields = ['wp-miles','wp-midweek','wp-weekend','wp-longrun','wp-ancillary','wp-notes'];
-  fields.forEach(id => {
-    const el = document.getElementById(id);
-    if (readonly) {
-      el.setAttribute('readonly', '');
-    } else {
-      el.removeAttribute('readonly');
-    }
-  });
-
-  // Show/hide save button
-  document.getElementById('wp-footer').style.display = readonly ? 'none' : 'flex';
-
-  // Strava data
-  const stravaActs = stravaCache[dateStr] || [];
-  const stravaSection = document.getElementById('wp-strava');
-  if (stravaActs.length > 0) {
-    stravaSection.style.display = 'block';
-    let sh = '';
-    stravaActs.forEach(a => {
-      const mi = (a.distance / 1609.34).toFixed(2);
-      const dur = formatDuration(a.movingTime);
-      sh += `
-        <div style="margin-bottom:12px">
-          <div style="font-size:13px;font-weight:700;color:var(--coral);margin-bottom:6px">${esc(a.name)}</div>
-          <div class="strava-stat"><span class="strava-stat-label">Distance</span><span class="strava-stat-val">${mi} mi</span></div>
-          <div class="strava-stat"><span class="strava-stat-label">Duration</span><span class="strava-stat-val">${dur}</span></div>
-          ${a.averagePace ? `<div class="strava-stat"><span class="strava-stat-label">Avg Pace</span><span class="strava-stat-val">${a.averagePace}</span></div>` : ''}
-          ${a.averageHeartrate ? `<div class="strava-stat"><span class="strava-stat-label">Avg HR</span><span class="strava-stat-val">${a.averageHeartrate} bpm</span></div>` : ''}
-          ${a.totalElevationGain ? `<div class="strava-stat"><span class="strava-stat-label">Elevation</span><span class="strava-stat-val">${Math.round(a.totalElevationGain * 3.281)} ft</span></div>` : ''}
-        </div>`;
-    });
-    document.getElementById('wp-strava-data').innerHTML = sh;
-  } else {
-    stravaSection.style.display = 'none';
-  }
-
-  document.getElementById('wp-save-status').classList.remove('show');
-  document.getElementById('panel-overlay').classList.add('open');
-  document.getElementById('workout-panel').classList.add('open');
+function debounceSave(weekKey) {
+  if (savingWeeks[weekKey]) clearTimeout(savingWeeks[weekKey]);
+  savingWeeks[weekKey] = setTimeout(() => saveWeek(weekKey), 800);
 }
 
-function closeWorkoutPanel() {
-  document.getElementById('panel-overlay').classList.remove('open');
-  document.getElementById('workout-panel').classList.remove('open');
-  editingDate = null;
-}
-
-async function saveWorkout() {
-  if (!editingDate || !selectedAthletePlan) return;
-  const btn = document.getElementById('wp-save-btn');
-  btn.disabled = true;
-  btn.textContent = 'Saving…';
+async function saveWeek(weekKey) {
+  if (!selectedAthletePlan) return;
 
   const data = {
-    date: editingDate,
-    milesPerWeek: document.getElementById('wp-miles').value.trim() || null,
-    midweekSession: document.getElementById('wp-midweek').value.trim() || null,
-    weekendSession: document.getElementById('wp-weekend').value.trim() || null,
-    longRun: document.getElementById('wp-longrun').value.trim() || null,
-    ancillaryWork: document.getElementById('wp-ancillary').value.trim() || null,
-    notes: document.getElementById('wp-notes').value.trim() || null,
+    weekStart: weekKey,
+    milesPerWeek: document.getElementById(`miles-${weekKey}`)?.value.trim() || null,
+    midweekSession: document.getElementById(`midweek-${weekKey}`)?.value.trim() || null,
+    weekendSession: document.getElementById(`weekend-${weekKey}`)?.value.trim() || null,
+    longRun: document.getElementById(`longrun-${weekKey}`)?.value.trim() || null,
+    ancillaryWork: document.getElementById(`ancillary-${weekKey}`)?.value.trim() || null,
+    notes: document.getElementById(`notes-${weekKey}`)?.value.trim() || null,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   };
 
-  const existing = workoutsCache[editingDate];
-  const workoutsRef = db.collection('trainingPlans').doc(selectedAthletePlan.id).collection('workouts');
+  const existing = workoutsCache[weekKey];
+  const ref = db.collection('trainingPlans').doc(selectedAthletePlan.id).collection('workouts');
 
   try {
     if (existing?.id) {
-      await workoutsRef.doc(existing.id).update(data);
-      workoutsCache[editingDate] = { ...existing, ...data };
+      await ref.doc(existing.id).update(data);
+      workoutsCache[weekKey] = { ...existing, ...data };
     } else {
-      const ref = await workoutsRef.add(data);
-      workoutsCache[editingDate] = { id: ref.id, ...data };
+      const newRef = await ref.add(data);
+      workoutsCache[weekKey] = { id: newRef.id, ...data };
     }
 
-    // Update plan timestamp
-    await db.collection('trainingPlans').doc(selectedAthletePlan.id).update({
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-
-    document.getElementById('wp-save-status').classList.add('show');
-    setTimeout(() => document.getElementById('wp-save-status').classList.remove('show'), 2000);
-
-    // Re-render calendar
-    renderCalendar(isCoach ? 'coach-calendar' : 'athlete-calendar', isCoach);
+    // Flash save indicator
+    const indicator = document.getElementById(`save-${weekKey}`);
+    if (indicator) {
+      indicator.classList.add('show');
+      setTimeout(() => indicator.classList.remove('show'), 1500);
+    }
   } catch(e) {
     console.error('Save failed:', e);
-    alert('Failed to save: ' + e.message);
   }
+}
 
-  btn.disabled = false;
-  btn.textContent = 'Save workout';
+// ══════════════════════════════════════════════════════════
+//  SAVE: ATHLETE NOTES (auto-save with debounce)
+// ══════════════════════════════════════════════════════════
+function debounceSaveAthleteNotes(weekKey) {
+  const timerKey = 'athlete-' + weekKey;
+  if (savingWeeks[timerKey]) clearTimeout(savingWeeks[timerKey]);
+  savingWeeks[timerKey] = setTimeout(() => saveAthleteNotes(weekKey), 800);
+}
+
+async function saveAthleteNotes(weekKey) {
+  if (!selectedAthletePlan) return;
+
+  const data = {
+    weekStart: weekKey,
+    athleteMidweekNotes: document.getElementById(`midweek-notes-${weekKey}`)?.value.trim() || null,
+    athleteWeekendNotes: document.getElementById(`weekend-notes-${weekKey}`)?.value.trim() || null,
+    athleteLongRunNotes: document.getElementById(`longrun-notes-${weekKey}`)?.value.trim() || null,
+    athleteAncillaryNotes: document.getElementById(`ancillary-notes-${weekKey}`)?.value.trim() || null,
+    athleteNotes: document.getElementById(`notes-athlete-${weekKey}`)?.value.trim() || null,
+    athleteUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  const existing = workoutsCache[weekKey];
+  const ref = db.collection('trainingPlans').doc(selectedAthletePlan.id).collection('workouts');
+
+  try {
+    if (existing?.id) {
+      await ref.doc(existing.id).update(data);
+      workoutsCache[weekKey] = { ...existing, ...data };
+    } else {
+      // Athlete can only add notes to weeks that already have a coach prescription
+      // Create the doc with just athlete notes
+      const newRef = await ref.add(data);
+      workoutsCache[weekKey] = { id: newRef.id, ...data };
+    }
+
+    const indicator = document.getElementById(`save-${weekKey}`);
+    if (indicator) {
+      indicator.classList.add('show');
+      setTimeout(() => indicator.classList.remove('show'), 1500);
+    }
+  } catch(e) {
+    console.error('Save athlete notes failed:', e);
+  }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -964,45 +929,26 @@ async function createAthlete() {
   errEl.textContent = '';
 
   try {
-    // We need to create the athlete's Firebase Auth account.
-    // Since client-side Firebase Auth signs in the new user automatically,
-    // we need to preserve the coach's session.
-    const coachEmail = currentUser.email;
-
-    // Store coach credentials temporarily - we'll re-auth after
-    // Actually, the cleanest approach: use a secondary Firebase app instance
     const secondaryApp = firebase.initializeApp(FIREBASE_CONFIG, 'secondary-' + Date.now());
     const secondaryAuth = secondaryApp.auth();
-
     const cred = await secondaryAuth.createUserWithEmailAndPassword(email, password);
     const athleteUid = cred.user.uid;
 
-    // Create user doc
     await db.collection('users').doc(athleteUid).set({
-      email,
-      displayName: name,
-      role: 'athlete',
-      coachUid: currentUser.uid,
-      gender,
-      dob: dob || null,
-      stravaAthleteId: null,
-      stravaConnected: false,
-      raceDate: null,
-      raceName: null,
+      email, displayName: name, role: 'athlete', coachUid: currentUser.uid,
+      gender, dob: dob || null,
+      stravaAthleteId: null, stravaConnected: false,
+      raceDate: null, raceName: null,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
 
-    // Create training plan
     await db.collection('trainingPlans').add({
-      athleteUid,
-      coachUid: currentUser.uid,
-      raceName: '',
-      raceDate: '',
+      athleteUid, coachUid: currentUser.uid,
+      raceName: '', raceDate: '',
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
 
-    // Sign out and delete the secondary app
     await secondaryAuth.signOut();
     await secondaryApp.delete();
 
@@ -1045,12 +991,10 @@ async function saveRaceInfo() {
       raceName, raceDate, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     await db.collection('users').doc(selectedAthleteUid).update({ raceName, raceDate });
-
     selectedAthletePlan.raceName = raceName;
     selectedAthletePlan.raceDate = raceDate;
-
     closeEditRace();
-    renderCalendar('coach-calendar', true);
+    renderWeeks('coach-weeks', true);
   } catch(e) {
     document.getElementById('rm-error').textContent = e.message;
   }
@@ -1061,13 +1005,10 @@ async function saveRaceInfo() {
 //  UTILITIES
 // ══════════════════════════════════════════════════════════
 function esc(s) {
+  if (!s) return '';
   const d = document.createElement('div');
   d.textContent = s;
   return d.innerHTML;
-}
-
-function truncate(s, n) {
-  return s.length > n ? s.slice(0, n) + '…' : s;
 }
 
 function formatDuration(seconds) {
@@ -1079,10 +1020,8 @@ function formatDuration(seconds) {
   return `${m}:${String(s).padStart(2,'0')}`;
 }
 
-// Keyboard shortcut: Escape closes panels
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    closeWorkoutPanel();
     closeAddAthlete();
     closeEditRace();
   }
