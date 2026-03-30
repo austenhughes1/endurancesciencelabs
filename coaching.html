@@ -301,12 +301,33 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
     <input class="modal-field" id="aa-name" placeholder="Athlete name" autocomplete="off">
     <input class="modal-field" id="aa-email" placeholder="Athlete email" type="email" autocomplete="off">
     <input class="modal-field" id="aa-password" placeholder="Temporary password" type="text" autocomplete="off">
-    <input class="modal-field" id="aa-race" placeholder="Race name (optional)" autocomplete="off">
-    <input class="modal-field" id="aa-racedate" placeholder="Race date (optional, YYYY-MM-DD)" type="date" autocomplete="off">
+    <select class="modal-field" id="aa-gender" style="cursor:pointer;appearance:auto">
+      <option value="" disabled selected>Gender</option>
+      <option value="male">Male</option>
+      <option value="female">Female</option>
+    </select>
+    <input class="modal-field" id="aa-dob" type="date" autocomplete="off" style="color:var(--muted)" onfocus="this.style.color='var(--text)'" onchange="this.style.color=this.value?'var(--text)':'var(--muted)'">
+    <label for="aa-dob" style="font-size:10px;color:var(--muted2);font-family:var(--mono);margin-top:-6px;margin-bottom:10px;display:block">Date of birth</label>
     <div class="modal-error" id="aa-error"></div>
     <div class="modal-actions">
       <button class="btn-ghost" onclick="closeAddAthlete()">Cancel</button>
       <button class="btn-primary" id="aa-btn" onclick="createAthlete()">Create athlete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Edit race modal ──────────────────────────────── -->
+<div class="modal-overlay" id="race-modal">
+  <div class="modal">
+    <div class="modal-title">Edit race info</div>
+    <div class="modal-sub">Update the target race for this athlete's training plan.</div>
+    <input class="modal-field" id="rm-race" placeholder="Race name" autocomplete="off">
+    <input class="modal-field" id="rm-racedate" type="date" autocomplete="off">
+    <label for="rm-racedate" style="font-size:10px;color:var(--muted2);font-family:var(--mono);margin-top:-6px;margin-bottom:10px;display:block">Race date</label>
+    <div class="modal-error" id="rm-error"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeEditRace()">Cancel</button>
+      <button class="btn-primary" id="rm-btn" onclick="saveRaceInfo()">Save</button>
     </div>
   </div>
 </div>
@@ -907,8 +928,8 @@ function openAddAthlete() {
   document.getElementById('aa-name').value = '';
   document.getElementById('aa-email').value = '';
   document.getElementById('aa-password').value = '';
-  document.getElementById('aa-race').value = '';
-  document.getElementById('aa-racedate').value = '';
+  document.getElementById('aa-gender').selectedIndex = 0;
+  document.getElementById('aa-dob').value = '';
   document.getElementById('aa-error').textContent = '';
 }
 
@@ -922,11 +943,15 @@ async function createAthlete() {
   const name = document.getElementById('aa-name').value.trim();
   const email = document.getElementById('aa-email').value.trim();
   const password = document.getElementById('aa-password').value;
-  const raceName = document.getElementById('aa-race').value.trim();
-  const raceDate = document.getElementById('aa-racedate').value;
+  const gender = document.getElementById('aa-gender').value;
+  const dob = document.getElementById('aa-dob').value;
 
   if (!name || !email || !password) {
     errEl.textContent = 'Name, email, and password are required.';
+    return;
+  }
+  if (!gender) {
+    errEl.textContent = 'Please select a gender.';
     return;
   }
   if (password.length < 6) {
@@ -958,10 +983,12 @@ async function createAthlete() {
       displayName: name,
       role: 'athlete',
       coachUid: currentUser.uid,
+      gender,
+      dob: dob || null,
       stravaAthleteId: null,
       stravaConnected: false,
-      raceDate: raceDate || null,
-      raceName: raceName || null,
+      raceDate: null,
+      raceName: null,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
 
@@ -969,8 +996,8 @@ async function createAthlete() {
     await db.collection('trainingPlans').add({
       athleteUid,
       coachUid: currentUser.uid,
-      raceName: raceName || '',
-      raceDate: raceDate || '',
+      raceName: '',
+      raceDate: '',
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
@@ -996,26 +1023,24 @@ async function createAthlete() {
 //  EDIT RACE INFO
 // ══════════════════════════════════════════════════════════
 function openEditRace() {
-  // Reuse the add-athlete modal structure with different content
-  const modal = document.getElementById('add-athlete-modal');
-  modal.querySelector('.modal-title').textContent = 'Edit race info';
-  modal.querySelector('.modal-sub').textContent = 'Update the target race for this athlete.';
+  const modal = document.getElementById('race-modal');
+  document.getElementById('rm-race').value = selectedAthletePlan?.raceName || '';
+  document.getElementById('rm-racedate').value = selectedAthletePlan?.raceDate || '';
+  document.getElementById('rm-error').textContent = '';
+  modal.classList.add('open');
+}
 
-  document.getElementById('aa-name').parentElement.style.display = 'none';
-  document.getElementById('aa-email').parentElement.style.display = 'none';
-  document.getElementById('aa-password').parentElement.style.display = 'none';
+function closeEditRace() {
+  document.getElementById('race-modal').classList.remove('open');
+}
 
-  document.getElementById('aa-race').value = selectedAthletePlan?.raceName || '';
-  document.getElementById('aa-racedate').value = selectedAthletePlan?.raceDate || '';
-  document.getElementById('aa-error').textContent = '';
+async function saveRaceInfo() {
+  const btn = document.getElementById('rm-btn');
+  const raceName = document.getElementById('rm-race').value.trim();
+  const raceDate = document.getElementById('rm-racedate').value;
+  btn.disabled = true;
 
-  const btn = document.getElementById('aa-btn');
-  btn.textContent = 'Update';
-  btn.onclick = async () => {
-    const raceName = document.getElementById('aa-race').value.trim();
-    const raceDate = document.getElementById('aa-racedate').value;
-    btn.disabled = true;
-
+  try {
     await db.collection('trainingPlans').doc(selectedAthletePlan.id).update({
       raceName, raceDate, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
@@ -1024,29 +1049,12 @@ function openEditRace() {
     selectedAthletePlan.raceName = raceName;
     selectedAthletePlan.raceDate = raceDate;
 
-    btn.disabled = false;
-    closeAddAthlete();
+    closeEditRace();
     renderCalendar('coach-calendar', true);
-
-    // Reset modal for add-athlete use
-    resetAddAthleteModal();
-  };
-
-  modal.classList.add('open');
-}
-
-function resetAddAthleteModal() {
-  const modal = document.getElementById('add-athlete-modal');
-  modal.querySelector('.modal-title').textContent = 'Add athlete';
-  modal.querySelector('.modal-sub').textContent = "Create an account for a new athlete. They'll use these credentials to sign in and see their plan.";
-
-  document.getElementById('aa-name').parentElement.style.display = '';
-  document.getElementById('aa-email').parentElement.style.display = '';
-  document.getElementById('aa-password').parentElement.style.display = '';
-
-  const btn = document.getElementById('aa-btn');
-  btn.textContent = 'Create athlete';
-  btn.onclick = createAthlete;
+  } catch(e) {
+    document.getElementById('rm-error').textContent = e.message;
+  }
+  btn.disabled = false;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1076,6 +1084,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     closeWorkoutPanel();
     closeAddAthlete();
+    closeEditRace();
   }
 });
 </script>
