@@ -45,7 +45,7 @@ nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:st
 
 /* Upload */
 #screen-upload{display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 58px);padding:40px}
-.upload-card{background:var(--panel);border:1px solid var(--border);border-radius:22px;width:100%;max-width:520px;overflow:hidden}
+.upload-card{background:var(--panel);border:1px solid var(--border);border-radius:22px;width:100%;max-width:1000px;overflow:hidden}
 
 /* Sex selector */
 .sex-select-section{padding:28px 32px 0}
@@ -69,14 +69,20 @@ nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:st
 
 /* Drop zone (inside card) */
 .drop-zone-inner{padding:28px 32px 32px}
-.drop-zone{border:1.5px dashed rgba(0,229,200,.22);border-radius:16px;padding:36px 24px;text-align:center;cursor:pointer;background:rgba(0,229,200,.02);transition:all .2s}
+.drop-zones-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.drop-zone{border:1.5px dashed rgba(0,229,200,.22);border-radius:16px;padding:24px 16px;text-align:center;cursor:pointer;background:rgba(0,229,200,.02);transition:all .2s}
 .drop-zone:hover,.drop-zone.over{border-color:var(--cyan);background:rgba(0,229,200,.06)}
-.dz-icon{width:52px;height:52px;border-radius:16px;background:rgba(0,229,200,.12);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:24px}
-.dz-title{font-size:18px;font-weight:800;margin-bottom:8px}
-.dz-sub{color:var(--muted2);font-size:12px;line-height:1.7}
-#file-input{display:none}
+.drop-zone.loaded{border-color:var(--good);border-style:solid;background:rgba(34,199,138,.04)}
+.dz-icon{width:44px;height:44px;border-radius:14px;background:rgba(0,229,200,.12);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:20px}
+.dz-title{font-size:15px;font-weight:800;margin-bottom:6px}
+.dz-sub{color:var(--muted2);font-size:11px;line-height:1.7}
+.dz-required{font-size:9px;font-weight:700;color:var(--warn);font-family:var(--mono);letter-spacing:.5px;text-transform:uppercase;margin-top:8px}
+.dz-loaded-info{display:none;margin-top:10px;font-size:11px;color:var(--good);font-family:var(--mono);word-break:break-all}
+.drop-zone.loaded .dz-loaded-info{display:block}
+.drop-zone.loaded .dz-required{display:none}
 .btn-main{display:inline-flex;align-items:center;gap:7px;margin-top:18px;padding:11px 22px;background:var(--cyan);color:#000;font-weight:700;font-size:13px;font-family:var(--ui);border:none;border-radius:9px;cursor:pointer;transition:opacity .15s}
 .btn-main:hover{opacity:.85}
+.btn-main:disabled{opacity:.35;cursor:not-allowed}
 .dz-hint{margin-top:11px;font-size:10px;color:var(--muted);font-family:var(--mono)}
 .ranges-badge{display:inline-flex;align-items:center;gap:6px;margin-top:12px;font-size:10px;font-family:var(--mono);padding:3px 10px;border-radius:20px;border:1px solid var(--border)}
 .ranges-badge.live-male{color:var(--male);border-color:rgba(91,156,248,.3);background:rgba(91,156,248,.08)}
@@ -156,6 +162,11 @@ nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:st
 .pc-metrics-mini{padding:8px 13px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:5px}
 .mm-item{font-size:9px;font-family:var(--mono);padding:2px 7px;border-radius:9px;background:var(--panel2);border:1px solid var(--border);color:var(--muted2)}
 .mm-item.na{color:var(--muted)}
+.pc-video-badge{font-size:8px;font-family:var(--mono);padding:1px 6px;border-radius:6px;font-weight:700;margin-left:auto;flex-shrink:0}
+.pc-video-badge.side-badge{background:rgba(0,229,200,.08);color:var(--cyan);border:1px solid rgba(0,229,200,.15)}
+.pc-video-badge.front-badge{background:rgba(139,124,248,.08);color:var(--purple);border:1px solid rgba(139,124,248,.15)}
+.pc-video-badge.back-badge{background:rgba(245,200,66,.08);color:var(--gold);border:1px solid rgba(245,200,66,.15)}
+.pc-detects{font-size:9px;color:var(--muted);font-family:var(--mono);padding:2px 14px 6px}
 
 /* Bigger instruction banner text */
 .instr-banner{padding:22px 26px}
@@ -170,7 +181,7 @@ nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:st
 .dq-pill.fair{background:rgba(245,166,35,.08);color:var(--warn);border:1px solid rgba(245,166,35,.2)}
 .dq-pill.weak{background:rgba(245,80,80,.08);color:var(--bad);border:1px solid rgba(245,80,80,.2)}
 
-/* Phase guide — bigger and more prominent */
+/* Phase guide -- bigger and more prominent */
 .pi-card{background:rgba(0,229,200,.04) !important;border:1px solid rgba(0,229,200,.18) !important}
 .pi-title{font-size:16px !important;margin-bottom:10px !important}
 .pi-desc{font-size:14px !important;line-height:1.8 !important;margin-bottom:14px !important}
@@ -178,7 +189,7 @@ nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:st
 .pi-check-icon{font-size:12px !important;margin-top:3px !important}
 .pi-tip{font-size:12px !important;line-height:1.75 !important;padding:12px 14px !important}
 
-/* Measurements section — collapsible, tucked at bottom */
+/* Measurements section -- collapsible, tucked at bottom */
 .ep-measurements-toggle{
   width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:10px;
   padding:10px 14px;font-size:12px;font-weight:600;color:var(--muted2);cursor:pointer;
@@ -192,7 +203,7 @@ nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:st
 .ep-measurements-body.open{display:block}
 .ep-measurements-note{font-size:11px;color:var(--muted2);font-family:var(--mono);margin-bottom:10px;line-height:1.6}
 
-/* Complete Analysis button — sticky at bottom when all phases done */
+/* Complete Analysis button -- sticky at bottom when all phases done */
 #complete-analysis-bar{
   position:fixed;bottom:0;left:0;right:0;z-index:500;
   padding:16px 32px;
@@ -314,6 +325,23 @@ body.bar-showing #screen-phases{padding-bottom:120px}
 .legend-strip{display:flex;gap:18px;align-items:center;margin-top:14px;flex-wrap:wrap}
 .ls-item{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted2);font-weight:600}
 .ls-dot{width:8px;height:8px;border-radius:50%}
+
+/* Report */
+.report-section{margin-top:32px;padding-top:28px;border-top:1px solid var(--border)}
+.report-section-title{font-size:18px;font-weight:800;margin-bottom:16px}
+.report-issues-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-bottom:32px}
+.issue-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px 20px}
+.issue-card.detected{border-color:rgba(245,166,35,.3)}
+.issue-card.detected.notable{border-color:rgba(245,80,80,.35)}
+.issue-card-hdr{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.issue-card-title{font-size:14px;font-weight:700}
+.issue-severity{font-size:12px;font-weight:700;font-family:var(--mono)}
+.issue-severity.notable{color:var(--bad)}
+.issue-severity.mild{color:var(--warn)}
+.issue-severity.clear{color:var(--good)}
+.issue-card-text{font-size:13px;color:var(--muted2);line-height:1.75}
+.issue-card.not-detected{opacity:.6}
+.issue-card.not-detected .issue-card-title{color:var(--muted2)}
 </style>
 </head>
 <body>
@@ -339,8 +367,8 @@ body.bar-showing #screen-phases{padding-bottom:120px}
   </div>
   <span id="hdr-file"></span>
   <div class="hdr-right">
-    <button class="btn-ghost" id="btn-rescan" onclick="rescan()" style="display:none">⟳ Re-scan</button>
-    <button class="btn-ghost" onclick="resetApp()">↩ New video</button>
+    <button class="btn-ghost" id="btn-rescan" onclick="rescan()" style="display:none">&#10227; Re-scan</button>
+    <button class="btn-ghost" onclick="resetApp()">&#8617; New video</button>
   </div>
 </nav>
 
@@ -350,37 +378,63 @@ body.bar-showing #screen-phases{padding-bottom:120px}
 
     <!-- Sex selector -->
     <div class="sex-select-section">
-      <span class="sex-select-label">Step 1 — Select athlete sex for grading ranges</span>
+      <span class="sex-select-label">Step 1 -- Select athlete sex for grading ranges</span>
       <div class="sex-select-row">
         <div class="sex-card" id="sex-card-male" onclick="setSex('male')">
-          <div class="sex-card-icon">♂</div>
+          <div class="sex-card-icon">&#9794;</div>
           <div class="sex-card-label">Male</div>
           <div class="sex-card-sub">Uses male reference ranges</div>
         </div>
         <div class="sex-card" id="sex-card-female" onclick="setSex('female')">
-          <div class="sex-card-icon">♀</div>
+          <div class="sex-card-icon">&#9792;</div>
           <div class="sex-card-label">Female</div>
           <div class="sex-card-sub">Uses female reference ranges</div>
         </div>
       </div>
       <div class="sex-skip">
-        <button class="sex-skip-btn" onclick="setSex(null)">Skip — use general defaults</button>
+        <button class="sex-skip-btn" onclick="setSex(null)">Skip -- use general defaults</button>
       </div>
       <div class="sex-range-note" id="ranges-status">Selecting a sex loads the relevant reference dataset for angle grading.</div>
     </div>
 
     <div class="sex-divider"></div>
 
-    <!-- Drop zone -->
+    <!-- Drop zones - 3 in a row -->
     <div class="drop-zone-inner">
-      <span class="sex-select-label">Step 2 — Upload video</span>
-      <div class="drop-zone" id="drop-zone">
-        <div class="dz-icon">▶</div>
-        <div class="dz-title">Drop a running video</div>
-        <p class="dz-sub">Side-view footage gives the best results. Treadmill or outdoor track both work. Everything processes locally — nothing is uploaded.</p>
-        <input type="file" id="file-input" accept="video/*">
-        <button class="btn-main" onclick="document.getElementById('file-input').click()">＋ Choose video file</button>
-        <p class="dz-hint">MP4 · MOV · WebM · Fully private · No data uploaded</p>
+      <span class="sex-select-label">Step 2 -- Upload videos (all three required)</span>
+      <div class="drop-zones-row">
+
+        <div class="drop-zone" id="drop-zone-side" onclick="document.getElementById('file-input-side').click()" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="handleDrop(event,'side')">
+          <div class="dz-icon">&#9654;</div>
+          <div class="dz-title">Side view</div>
+          <p class="dz-sub">Film from directly beside the runner</p>
+          <div class="dz-required">REQUIRED</div>
+          <div class="dz-loaded-info" id="dz-info-side"></div>
+        </div>
+
+        <div class="drop-zone" id="drop-zone-front" onclick="document.getElementById('file-input-front').click()" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="handleDrop(event,'front')">
+          <div class="dz-icon">&#9673;</div>
+          <div class="dz-title">Front view</div>
+          <p class="dz-sub">Film from directly in front</p>
+          <div class="dz-required">REQUIRED</div>
+          <div class="dz-loaded-info" id="dz-info-front"></div>
+        </div>
+
+        <div class="drop-zone" id="drop-zone-back" onclick="document.getElementById('file-input-back').click()" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="handleDrop(event,'back')">
+          <div class="dz-icon">&#9679;</div>
+          <div class="dz-title">Back view</div>
+          <p class="dz-sub">Film from directly behind</p>
+          <div class="dz-required">REQUIRED</div>
+          <div class="dz-loaded-info" id="dz-info-back"></div>
+        </div>
+
+      </div>
+      <input type="file" id="file-input-side" accept="video/*" style="display:none">
+      <input type="file" id="file-input-front" accept="video/*" style="display:none">
+      <input type="file" id="file-input-back" accept="video/*" style="display:none">
+      <div style="text-align:center;margin-top:18px">
+        <button class="btn-main" id="btn-analyze-all" onclick="startAllVideos()" disabled>Analyze all three &#8594;</button>
+        <p class="dz-hint">MP4 / MOV / WebM -- Fully private -- No data uploaded</p>
       </div>
     </div>
 
@@ -391,13 +445,13 @@ body.bar-showing #screen-phases{padding-bottom:120px}
 <div id="screen-scanning">
   <div class="scan-card">
     <div class="scan-title">Scanning stride phases</div>
-    <div class="scan-sub">Analyzing your video for all 7 key moments of the running gait cycle.</div>
+    <div class="scan-sub" id="scan-sub-text">Analyzing your videos for key moments of the running gait cycle.</div>
     <div class="scan-preview">
       <canvas id="scan-canvas"></canvas>
-      <div class="scan-preview-label" id="scan-label">Preparing…</div>
+      <div class="scan-preview-label" id="scan-label">Preparing...</div>
     </div>
     <div class="scan-bar-track"><div class="scan-bar-fill" id="scan-bar"></div></div>
-    <div class="scan-step" id="scan-step">Preparing…</div>
+    <div class="scan-step" id="scan-step">Preparing...</div>
     <div class="scan-phase-list" id="scan-phase-list"></div>
     <div id="scan-diag"></div>
   </div>
@@ -406,23 +460,23 @@ body.bar-showing #screen-phases{padding-bottom:120px}
 <!-- Phases -->
 <div id="screen-phases">
   <div class="instr-banner">
-    <div class="instr-icon">◎</div>
+    <div class="instr-icon">&#9678;</div>
     <div style="flex:1">
       <div class="instr-title">Review and adjust each phase before completing your analysis</div>
-      <div class="instr-text">The automatic detection makes a best guess at each phase, but it's not perfect — especially in shorter or edited clips. <strong>Before completing your analysis, check each phase card and adjust the frame if needed.</strong> The right frame for each phase makes a real difference in the accuracy of your results.</div>
+      <div class="instr-text">The automatic detection makes a best guess at each phase, but it is not perfect -- especially in shorter or edited clips. <strong>Before completing your analysis, check each phase card and adjust the frame if needed.</strong> The right frame for each phase makes a real difference in the accuracy of your results.</div>
       <div class="instr-steps">
         <div class="instr-step"><div class="instr-step-num">1</div><span><strong>Click any phase card</strong> to open a detailed view. Each card includes a plain-language description of exactly what to look for in that phase, with coaching notes specific to that moment of the gait cycle.</span></div>
-        <div class="instr-step"><div class="instr-step-num">2</div><span><strong>Drag the scrubber</strong> to find the best frame. Use the ±1f and ±5f buttons for precise, frame-by-frame control.</span></div>
-        <div class="instr-step"><div class="instr-step-num">3</div><span><strong>Click ↻ Analyze</strong> once you've found the right frame — the overlay and results update immediately.</span></div>
-        <div class="instr-step"><div class="instr-step-num">4</div><span><strong>When all phases look right</strong>, click the Complete Analysis button that appears at the bottom to generate your full summary report.</span></div>
+        <div class="instr-step"><div class="instr-step-num">2</div><span><strong>Drag the scrubber</strong> to find the best frame. Use the +/-1f and +/-5f buttons for precise, frame-by-frame control.</span></div>
+        <div class="instr-step"><div class="instr-step-num">3</div><span><strong>Click &#8635; Analyze</strong> once you have found the right frame -- the overlay and results update immediately.</span></div>
+        <div class="instr-step"><div class="instr-step-num">4</div><span><strong>When all phases look right</strong>, click the Complete Analysis button that appears at the bottom to generate your full report.</span></div>
       </div>
       <div class="instr-legend">
         <div class="il-item"><div class="il-swatch" style="background:var(--left)"></div>Left side</div>
         <div class="il-item"><div class="il-swatch" style="background:var(--right)"></div>Right side</div>
         <div class="il-item"><div class="il-swatch" style="background:var(--gold)"></div>Trunk lean</div>
-        <div class="il-item">▸ Within range</div>
-        <div class="il-item">▴ Above range</div>
-        <div class="il-item">▾ Below range</div>
+        <div class="il-item">&#9656; Within range</div>
+        <div class="il-item">&#9652; Above range</div>
+        <div class="il-item">&#9662; Below range</div>
       </div>
     </div>
   </div>
@@ -431,23 +485,30 @@ body.bar-showing #screen-phases{padding-bottom:120px}
 <!-- Complete Analysis sticky bar -->
 <div id="complete-analysis-bar">
   <div class="ca-left">
-    <div class="ca-title">All phases analyzed — ready to complete</div>
-    <div class="ca-sub" id="ca-sub">Review the summary below to finalize your analysis</div>
+    <div class="ca-title">All phases analyzed -- ready to complete</div>
+    <div class="ca-sub" id="ca-sub">Review the report below to finalize your analysis</div>
   </div>
-  <button class="btn-complete" onclick="completeAnalysis()">◉ Complete analysis →</button>
+  <button class="btn-complete" onclick="completeAnalysis()">&#9673; Complete analysis &#8594;</button>
 </div>
 
-  <div class="summary">
-    <div class="summary-title" id="summary-title" style="font-size:22px">Your gait analysis report</div>
+  <!-- Report: What we found -->
+  <div id="report-section" class="report-section" style="display:none">
+    <div class="report-section-title">What we found</div>
+    <div class="report-issues-grid" id="report-issues-grid"></div>
+  </div>
+
+  <!-- Summary table (side view measurements) -->
+  <div class="summary" id="summary-section" style="display:none">
+    <div class="summary-title" id="summary-title" style="font-size:22px">Side view measurements</div>
     <div class="summary-sub" style="font-size:15px">All angles below are measured in degrees and compared to reference ranges from elite runners. Click any column header to open and re-examine that phase.</div>
     <div class="summary-scroll">
       <table class="stbl" id="summary-table"><thead></thead><tbody></tbody></table>
     </div>
     <div class="legend-strip">
-      <div class="ls-item"><span style="font-family:var(--mono);font-size:10px;color:var(--muted2)">▸ Within range</span> · value falls inside elite reference band</div>
-      <div class="ls-item"><span style="font-family:var(--mono);font-size:10px;color:var(--muted2)">▴ Above range</span> · value is above elite reference band</div>
-      <div class="ls-item"><span style="font-family:var(--mono);font-size:10px;color:var(--muted2)">▾ Below range</span> · value is below elite reference band</div>
-      <div class="ls-item"><span style="font-family:var(--mono);font-size:10px;color:var(--muted)">— Not analyzed</span></div>
+      <div class="ls-item"><span style="font-family:var(--mono);font-size:10px;color:var(--muted2)">&#9656; Within range</span> -- value falls inside elite reference band</div>
+      <div class="ls-item"><span style="font-family:var(--mono);font-size:10px;color:var(--muted2)">&#9652; Above range</span> -- value is above elite reference band</div>
+      <div class="ls-item"><span style="font-family:var(--mono);font-size:10px;color:var(--muted2)">&#9662; Below range</span> -- value is below elite reference band</div>
+      <div class="ls-item"><span style="font-family:var(--mono);font-size:10px;color:var(--muted)">-- Not analyzed</span></div>
     </div>
   </div>
 </div>
@@ -458,12 +519,12 @@ body.bar-showing #screen-phases{padding-bottom:120px}
     <div class="ep-hdr" id="ep-hdr">
       <div class="ep-num" id="ep-num">1</div>
       <div style="flex:1"><div class="ep-name" id="ep-name">Phase</div><div class="ep-desc" id="ep-desc"></div></div>
-      <div class="ep-undetected-badge">⚠ Not auto-detected</div>
-      <button class="ep-close" onclick="closeExpand()">✕</button>
+      <div class="ep-undetected-badge">&#9888; Not auto-detected</div>
+      <button class="ep-close" onclick="closeExpand()">&#10005;</button>
     </div>
     <div class="ep-undetected-notice" id="ep-undetected-notice">
-      <div class="eun-title">⚠ Not automatically detected</div>
-      <div class="eun-text">Use the scrubber to find the best matching frame, then click ↻ Analyze.</div>
+      <div class="eun-title">&#9888; Not automatically detected</div>
+      <div class="eun-text">Use the scrubber to find the best matching frame, then click &#8635; Analyze.</div>
     </div>
     <div class="ep-body">
       <div class="ep-canvas-side">
@@ -478,12 +539,12 @@ body.bar-showing #screen-phases{padding-bottom:120px}
             <span class="ep-time" id="ep-time">0.00s</span>
           </div>
           <div class="step-btns">
-            <button class="step-btn" onclick="epStep(-5)">−5f</button>
-            <button class="step-btn" onclick="epStep(-1)">−1f</button>
+            <button class="step-btn" onclick="epStep(-5)">-5f</button>
+            <button class="step-btn" onclick="epStep(-1)">-1f</button>
             <span class="step-label">frame</span>
             <button class="step-btn" onclick="epStep(1)">+1f</button>
             <button class="step-btn" onclick="epStep(5)">+5f</button>
-            <button class="re-btn" id="ep-re-btn" onclick="epReanalyze()">↻ Analyze</button>
+            <button class="re-btn" id="ep-re-btn" onclick="epReanalyze()">&#8635; Analyze</button>
           </div>
           <div class="scrub-nav">
             <span class="scrub-nav-label">jump to:</span>
@@ -510,7 +571,7 @@ body.bar-showing #screen-phases{padding-bottom:120px}
         <div style="margin-top:4px">
           <button class="ep-measurements-toggle open" id="ep-meas-toggle" onclick="toggleMeasurements()">
             <span>Angle measurements <span style="color:var(--muted);font-weight:400;font-size:11px">(compared to elite reference)</span></span>
-            <span class="toggle-arrow">▼</span>
+            <span class="toggle-arrow">&#9660;</span>
           </button>
           <div class="ep-measurements-body open" id="ep-meas-body">
             <div class="ep-measurements-note">Estimated angles for this frame compared to elite reference ranges. The bell curve shows where your value falls relative to the reference population. Accuracy depends on video quality, camera angle, and keypoint confidence.</div>
@@ -522,9 +583,11 @@ body.bar-showing #screen-phases{padding-bottom:120px}
   </div>
 </div>
 
-<video id="video" style="display:none" playsinline preload="metadata"></video>
+<video id="video-side" style="display:none" playsinline preload="metadata"></video>
+<video id="video-front" style="display:none" playsinline preload="metadata"></video>
+<video id="video-back" style="display:none" playsinline preload="metadata"></video>
 
-<!-- Firebase (read-only — fetches computed ranges) -->
+<!-- Firebase (read-only -- fetches computed ranges) -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
@@ -533,9 +596,9 @@ body.bar-showing #screen-phases{padding-bottom:120px}
 <script>
 'use strict';
 
-// ══════════════════════════════════════════════════════════
-//  FIREBASE CONFIG — paste your values to enable live ranges
-// ══════════════════════════════════════════════════════════
+// ==============================================================
+//  FIREBASE CONFIG
+// ==============================================================
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyDh4LorLQx1DPovQIA4HM3127fAYpyuaY8",
   authDomain: "es-form-labs.firebaseapp.com",
@@ -547,12 +610,11 @@ const FIREBASE_CONFIG = {
 };
 const MIN_N = 5;
 
-// ── Ranges state ──────────────────────────────────────────
-// Keyed by sex: liveRanges['male'] / liveRanges['female']
+// -- Ranges state --
 const liveRanges = { male: null, female: null };
 let selectedSex  = null; // 'male' | 'female' | null
 
-// Hardcoded defaults (used when no live range available or sex not selected)
+// Hardcoded defaults
 const DEFAULTS = {
   trunk: {green:[5,20],   warn:[-10,30]},
   lKnee: {green:[120,175],warn:[90,185]},
@@ -566,33 +628,34 @@ const DEFAULTS = {
 };
 
 function getRange(phaseKey, metricKey) {
-  const sexRanges = selectedSex ? liveRanges[selectedSex] : null;
+  var sexRanges = selectedSex ? liveRanges[selectedSex] : null;
   if (sexRanges) {
-    const r = sexRanges[phaseKey]?.[metricKey];
+    var r = sexRanges[phaseKey] ? sexRanges[phaseKey][metricKey] : null;
     if (r && r.reliable && r.n >= MIN_N && r.green && r.warn) {
       return {green:r.green, warn:r.warn, source:'live', n:r.n};
     }
   }
-  const d = DEFAULTS[metricKey] || {green:[0,0],warn:[0,0]};
-  return {...d, source:'default', n:0};
+  var d = DEFAULTS[metricKey] || {green:[0,0],warn:[0,0]};
+  return {green:d.green, warn:d.warn, source:'default', n:0};
 }
 
 function positionLabel(val, metricKey, phaseKey) {
   if (val===undefined||val===null||!isFinite(val)) return '';
-  const {green} = getRange(phaseKey||'mid', metricKey||'trunk');
+  var rng = getRange(phaseKey||'mid', metricKey||'trunk');
+  var green = rng.green;
   if (val>=green[0]&&val<=green[1]) return 'Within range';
   if (val<green[0]) return 'Below range';
   return 'Above range';
 }
 function positionSymbol(val, metricKey, phaseKey) {
-  const p = positionLabel(val, metricKey, phaseKey);
-  if (p==='Within range') return '▸';
-  if (p==='Below range')  return '▾';
-  if (p==='Above range')  return '▴';
+  var p = positionLabel(val, metricKey, phaseKey);
+  if (p==='Within range') return '\u25b8';
+  if (p==='Below range')  return '\u25be';
+  if (p==='Above range')  return '\u25b4';
   return '';
 }
 
-// ── Biomechanical descriptions per metric ────────────────
+// -- Biomechanical descriptions per metric --
 const METRIC_BIO = {
   trunk:  'Trunk lean affects load transfer to the glutes and braking force at foot strike. A moderate forward lean is typical of efficient running.',
   lKnee:  'Left knee angle reflects shock absorption at contact and drive during push-off. It varies significantly by gait phase.',
@@ -605,220 +668,245 @@ const METRIC_BIO = {
   rFoot:  'Right foot offset describes where the foot lands relative to the hip. Landing closer to under the hip reduces braking forces.',
 };
 
-// ── Bell curve SVG builder ───────────────────────────────
+// -- Bell curve SVG builder --
 function getRangeStats(phaseKey, metricKey) {
-  const sexRanges = selectedSex ? liveRanges[selectedSex] : null;
+  var sexRanges = selectedSex ? liveRanges[selectedSex] : null;
   if (sexRanges) {
-    const r = sexRanges[phaseKey]?.[metricKey];
+    var r = sexRanges[phaseKey] ? sexRanges[phaseKey][metricKey] : null;
     if (r && r.reliable && r.n >= MIN_N && r.mean != null && r.sd != null && r.sd > 0) {
       return {mean: r.mean, sd: r.sd, source: 'live', n: r.n};
     }
   }
-  // Back-calculate from hardcoded green range: SD = range_width / 3
-  const d = DEFAULTS[metricKey] || {green:[0,0]};
-  const mean = (d.green[0] + d.green[1]) / 2;
-  const sd   = (d.green[1] - d.green[0]) / 3;
-  return {mean, sd: sd || 1, source: 'default', n: 0};
+  var d = DEFAULTS[metricKey] || {green:[0,0]};
+  var mean = (d.green[0] + d.green[1]) / 2;
+  var sd   = (d.green[1] - d.green[0]) / 3;
+  return {mean: mean, sd: sd || 1, source: 'default', n: 0};
 }
 
 function buildBellCurveSVG(val, metricKey, phaseKey, fmtFn) {
   if (val===undefined||val===null||!isFinite(val)) return '';
-  const {mean, sd, source} = getRangeStats(phaseKey||'mid', metricKey||'trunk');
-  const {green} = getRange(phaseKey||'mid', metricKey||'trunk');
-  const W=220, H=72, PAD_L=10, PAD_R=10, CURVE_H=40, BASE_Y=54;
-  // x-domain: mean ± 3.5 SD
-  const xMin=mean-3.5*sd, xRange=7*sd;
-  const toX=v=>PAD_L+(v-xMin)/xRange*(W-PAD_L-PAD_R);
-  // Gaussian curve points
-  const pts=[];
-  for(let i=0;i<=60;i++){
-    const x=xMin+(xRange*i/60);
-    const z=(x-mean)/sd;
-    const y=Math.exp(-0.5*z*z);
+  var stats = getRangeStats(phaseKey||'mid', metricKey||'trunk');
+  var mean = stats.mean, sd = stats.sd;
+  var rng = getRange(phaseKey||'mid', metricKey||'trunk');
+  var green = rng.green;
+  var W=220, H=72, PAD_L=10, PAD_R=10, CURVE_H=40, BASE_Y=54;
+  var xMin=mean-3.5*sd, xRange=7*sd;
+  var toX=function(v){return PAD_L+(v-xMin)/xRange*(W-PAD_L-PAD_R);};
+  var pts=[];
+  for(var i=0;i<=60;i++){
+    var x=xMin+(xRange*i/60);
+    var z=(x-mean)/sd;
+    var y=Math.exp(-0.5*z*z);
     pts.push({px:toX(x), py:BASE_Y-y*CURVE_H});
   }
-  const curvePath='M'+pts.map(p=>`${p.px.toFixed(1)},${p.py.toFixed(1)}`).join('L');
-  // Shaded reference band (green range mapped to curve)
-  const bL=Math.max(toX(green[0]),PAD_L), bR=Math.min(toX(green[1]),W-PAD_R);
-  const bandPts=[];
-  for(let i=0;i<=30;i++){
-    const x=green[0]+(green[1]-green[0])*i/30;
-    const z=(x-mean)/sd;
-    const y=Math.exp(-0.5*z*z);
-    bandPts.push({px:toX(x), py:BASE_Y-y*CURVE_H});
+  var curvePath='M'+pts.map(function(p){return p.px.toFixed(1)+','+p.py.toFixed(1);}).join('L');
+  var bL=Math.max(toX(green[0]),PAD_L), bR=Math.min(toX(green[1]),W-PAD_R);
+  var bandPts=[];
+  for(var i2=0;i2<=30;i2++){
+    var x2=green[0]+(green[1]-green[0])*i2/30;
+    var z2=(x2-mean)/sd;
+    var y2=Math.exp(-0.5*z2*z2);
+    bandPts.push({px:toX(x2), py:BASE_Y-y2*CURVE_H});
   }
-  const bandPath='M'+bandPts[0].px.toFixed(1)+','+BASE_Y+' L'+bandPts.map(p=>`${p.px.toFixed(1)},${p.py.toFixed(1)}`).join('L')+` L${bandPts[bandPts.length-1].px.toFixed(1)},${BASE_Y} Z`;
-  // Athlete value marker
-  const vx=Math.max(PAD_L,Math.min(W-PAD_R,toX(val)));
-  const fmtVal=fmtFn?fmtFn(val):val.toFixed(1);
-  // Elite avg position
-  const mx=toX(mean);
-  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">
-    <path d="${curvePath} L${pts[pts.length-1].px.toFixed(1)},${BASE_Y} L${pts[0].px.toFixed(1)},${BASE_Y} Z" fill="rgba(100,120,160,.08)" stroke="none"/>
-    <path d="${bandPath}" fill="rgba(100,120,160,.18)" stroke="none"/>
-    <path d="${curvePath}" fill="none" stroke="rgba(100,120,160,.35)" stroke-width="1.5"/>
-    <line x1="${vx.toFixed(1)}" y1="${BASE_Y-CURVE_H-4}" x2="${vx.toFixed(1)}" y2="${BASE_Y}" stroke="var(--text)" stroke-width="1.5" stroke-dasharray="3,2"/>
-    <text x="${vx.toFixed(1)}" y="${BASE_Y-CURVE_H-8}" class="bell-label bell-label-you" text-anchor="middle" font-size="9">${fmtVal}</text>
-    <text x="${mx.toFixed(1)}" y="${BASE_Y+11}" class="bell-label" text-anchor="middle" font-size="8">Elite avg</text>
-    <line x1="${mx.toFixed(1)}" y1="${BASE_Y-2}" x2="${mx.toFixed(1)}" y2="${BASE_Y+3}" stroke="var(--muted)" stroke-width="1"/>
-  </svg>`;
+  var bandPath='M'+bandPts[0].px.toFixed(1)+','+BASE_Y+' L'+bandPts.map(function(p){return p.px.toFixed(1)+','+p.py.toFixed(1);}).join('L')+' L'+bandPts[bandPts.length-1].px.toFixed(1)+','+BASE_Y+' Z';
+  var vx=Math.max(PAD_L,Math.min(W-PAD_R,toX(val)));
+  var fmtVal=fmtFn?fmtFn(val):val.toFixed(1);
+  var mx=toX(mean);
+  return '<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg" style="display:block">'+
+    '<path d="'+curvePath+' L'+pts[pts.length-1].px.toFixed(1)+','+BASE_Y+' L'+pts[0].px.toFixed(1)+','+BASE_Y+' Z" fill="rgba(100,120,160,.08)" stroke="none"/>'+
+    '<path d="'+bandPath+'" fill="rgba(100,120,160,.18)" stroke="none"/>'+
+    '<path d="'+curvePath+'" fill="none" stroke="rgba(100,120,160,.35)" stroke-width="1.5"/>'+
+    '<line x1="'+vx.toFixed(1)+'" y1="'+(BASE_Y-CURVE_H-4)+'" x2="'+vx.toFixed(1)+'" y2="'+BASE_Y+'" stroke="var(--text)" stroke-width="1.5" stroke-dasharray="3,2"/>'+
+    '<text x="'+vx.toFixed(1)+'" y="'+(BASE_Y-CURVE_H-8)+'" class="bell-label bell-label-you" text-anchor="middle" font-size="9">'+fmtVal+'</text>'+
+    '<text x="'+mx.toFixed(1)+'" y="'+(BASE_Y+11)+'" class="bell-label" text-anchor="middle" font-size="8">Elite avg</text>'+
+    '<line x1="'+mx.toFixed(1)+'" y1="'+(BASE_Y-2)+'" x2="'+mx.toFixed(1)+'" y2="'+(BASE_Y+3)+'" stroke="var(--muted)" stroke-width="1"/>'+
+  '</svg>';
 }
 
-// ── Firebase + range fetching ─────────────────────────────
+// -- Firebase + range fetching --
 async function initFirebase() {
   try {
     if (FIREBASE_CONFIG.apiKey === 'YOUR_API_KEY') return;
     if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
-    const db = firebase.firestore();
-    // Fetch both sex ranges in parallel
-    const [mSnap, fSnap] = await Promise.allSettled([
+    var db = firebase.firestore();
+    var results = await Promise.allSettled([
       db.collection('computed_ranges').doc('male').get(),
       db.collection('computed_ranges').doc('female').get(),
     ]);
+    var mSnap = results[0], fSnap = results[1];
     if (mSnap.status==='fulfilled'&&mSnap.value.exists) liveRanges.male   = mSnap.value.data().phases||null;
     if (fSnap.status==='fulfilled'&&fSnap.value.exists) liveRanges.female = fSnap.value.data().phases||null;
-    const mN = liveRanges.male   ? Object.keys(liveRanges.male).length   : 0;
-    const fN = liveRanges.female ? Object.keys(liveRanges.female).length : 0;
-    console.log(`ESFormLab: loaded live ranges — male phases: ${mN}, female phases: ${fN}`);
+    var mN = liveRanges.male   ? Object.keys(liveRanges.male).length   : 0;
+    var fN = liveRanges.female ? Object.keys(liveRanges.female).length : 0;
+    console.log('ESFormLab: loaded live ranges -- male phases: '+mN+', female phases: '+fN);
     updateRangesStatus();
   } catch(e) { console.warn('ESFormLab: could not fetch live ranges.', e.message); }
 }
 
-// ── Sex selection ─────────────────────────────────────────
+// -- Sex selection --
 function setSex(sex) {
   selectedSex = sex;
   document.getElementById('sex-card-male').className   = 'sex-card' + (sex==='male'?   ' active-male':'');
   document.getElementById('sex-card-female').className = 'sex-card' + (sex==='female'? ' active-female':'');
   updateRangesStatus();
-  // Re-grade any already-analyzed phases
-  PHASE_DEFS.forEach(def => { if (phases[def.key]?.metrics) { updateSummaryCol(def.key); } });
+  PHASE_DEFS.forEach(function(def) { if (phases[def.key] && phases[def.key].metrics) { updateSummaryCol(def.key); } });
 }
 
 function updateRangesStatus() {
-  const el = document.getElementById('ranges-status');
+  var el = document.getElementById('ranges-status');
   if (!el) return;
   if (!selectedSex) { el.className='sex-range-note'; el.textContent='Selecting a sex loads the relevant reference dataset for angle grading.'; return; }
-  const r = liveRanges[selectedSex];
+  var r = liveRanges[selectedSex];
   if (r) {
-    const n = Object.values(r).flatMap(p=>Object.values(p)).filter(m=>m?.reliable).reduce((a,m)=>a+(m.n||0),0);
-    el.className=`sex-range-note`;
-    el.innerHTML = `<span style="color:var(--${selectedSex}==='male'?'--male':'--female'})">✓</span> Live ${selectedSex} ranges loaded`;
+    el.className='sex-range-note';
+    el.innerHTML = '<span style="color:var(--good)">&#10003;</span> Live ' + selectedSex + ' ranges loaded';
   } else {
     el.className='sex-range-note';
-    el.textContent = `${selectedSex.charAt(0).toUpperCase()+selectedSex.slice(1)} ranges selected — using defaults until reference data is collected.`;
+    el.textContent = selectedSex.charAt(0).toUpperCase()+selectedSex.slice(1) + ' ranges selected -- using defaults until reference data is collected.';
   }
-  // Update summary label
-  const srcLabel = document.getElementById('range-source-label');
-  if (srcLabel && selectedSex) srcLabel.textContent = `${selectedSex} elite`;
+  var srcLabel = document.getElementById('range-source-label');
+  if (srcLabel && selectedSex) srcLabel.textContent = selectedSex + ' elite';
 }
 
-// ══════════════════════════════════════════════════════════
+// ==============================================================
 //  GAIT ENGINE
-// ══════════════════════════════════════════════════════════
+// ==============================================================
 const LEFT_KPS  = new Set([1,3,5,7,9,11,13,15]);
 const RIGHT_KPS = new Set([2,4,6,8,10,12,14,16]);
 const MIN_CONF  = 0.25;
 const SKELETON  = [[5,7],[7,9],[6,8],[8,10],[5,6],[11,12],[5,11],[6,12],[11,13],[13,15],[12,14],[14,16],[0,5],[0,6]];
 
 const PHASE_DEFS = [
-  {key:'l_foot', label:'L foot strike', desc:'Left initial contact with ground',  side:'left',  guide:{title:'Left foot strike',  desc:'The instant the left foot first contacts the ground.',checks:['Left ankle at or near lowest point','Slight knee bend at contact','Foot lands close to under the hip','Trunk upright or slightly forward'],tip:'If the foot looks extended far in front, scrub slightly forward to the true contact moment.'}},
-  {key:'r_foot', label:'R foot strike', desc:'Right initial contact with ground', side:'right', guide:{title:'Right foot strike', desc:'The instant the right foot first contacts the ground.',checks:['Right ankle at or near lowest point','Slight knee bend at contact','Hips level — watch for excessive drop','Foot lands roughly under the hip'],tip:'Compare with left foot strike for asymmetries.'}},
-  {key:'l_toe',  label:'L toe-off',     desc:'Left foot leaving the ground',      side:'left',  guide:{title:'Left toe-off',      desc:'The moment the left foot pushes off. Hip extension is at maximum.',checks:['Left leg extended behind the body','Ankle plantarflexed (pushing through toes)','Left heel visibly raised','Opposite leg in mid-swing'],tip:'Toe-off is where propulsive power is generated.'}},
-  {key:'r_toe',  label:'R toe-off',     desc:'Right foot leaving the ground',     side:'right', guide:{title:'Right toe-off',     desc:'The moment the right foot pushes off.',checks:['Right leg extended behind the body','Right ankle plantarflexed','Right heel raised','Opposite leg in mid-swing'],tip:'Compare with left toe-off for asymmetries.'}},
-  {key:'mid',    label:'Mid-stance',    desc:'Body directly over support foot',   side:'center',guide:{title:'Mid-stance',        desc:'The body passes directly over the supporting foot.',checks:['Stance foot roughly under the hip','Swing leg in mid-flight','Trunk vertical or slightly forward','Arms in natural opposite-arm swing'],tip:'Key frame for trunk lean and hip drop.'}},
-  {key:'peak_kf',label:'Peak knee flex',desc:'Maximum knee bend during swing',    side:'center',guide:{title:'Peak knee flexion', desc:'Maximum knee bend on the swing leg, just after toe-off.',checks:['Swing knee at highest and most bent position','Elite runners pull heel close to glutes','Stance leg extended behind body','Symmetry between sides'],tip:'A lazy, low swing increases ground contact time and metabolic cost.'}},
-  {key:'swing',  label:'Terminal swing',desc:'Leg extended just before landing',  side:'center',guide:{title:'Terminal swing',    desc:'Just before the foot contacts the ground again.',checks:['Swing leg reaching forward','Knee extending but not fully locked','Foot dorsiflexed ready for contact','Opposite arm driving back'],tip:'Overstriding is most visible here.'}},
+  {key:'l_foot',    label:'L foot strike',      desc:'Left initial contact with ground',         videoKey:'side',  side:'left',   detectsIssue:'Overstriding', guide:{title:'Left foot strike',  desc:'The instant the left foot first contacts the ground.',checks:['Left ankle at or near lowest point','Slight knee bend at contact','Foot lands close to under the hip','Trunk upright or slightly forward'],tip:'If the foot looks extended far in front, scrub slightly forward to the true contact moment.'}},
+  {key:'r_foot',    label:'R foot strike',      desc:'Right initial contact with ground',        videoKey:'side',  side:'right',  detectsIssue:'Overstriding', guide:{title:'Right foot strike', desc:'The instant the right foot first contacts the ground.',checks:['Right ankle at or near lowest point','Slight knee bend at contact','Hips level -- watch for excessive drop','Foot lands roughly under the hip'],tip:'Compare with left foot strike for asymmetries.'}},
+  {key:'l_toe',     label:'L toe-off',          desc:'Left foot leaving the ground',             videoKey:'side',  side:'left',   detectsIssue:'Hip extension', guide:{title:'Left toe-off',      desc:'The moment the left foot pushes off. Hip extension is at maximum.',checks:['Left leg extended behind the body','Ankle plantarflexed (pushing through toes)','Left heel visibly raised','Opposite leg in mid-swing'],tip:'Toe-off is where propulsive power is generated.'}},
+  {key:'r_toe',     label:'R toe-off',          desc:'Right foot leaving the ground',            videoKey:'side',  side:'right',  detectsIssue:'Hip extension', guide:{title:'Right toe-off',     desc:'The moment the right foot pushes off.',checks:['Right leg extended behind the body','Right ankle plantarflexed','Right heel raised','Opposite leg in mid-swing'],tip:'Compare with left toe-off for asymmetries.'}},
+  {key:'mid',       label:'Mid-stance',         desc:'Body directly over support foot',          videoKey:'side',  side:'center', detectsIssue:'Trunk position', guide:{title:'Mid-stance',        desc:'The body passes directly over the supporting foot.',checks:['Stance foot roughly under the hip','Swing leg in mid-flight','Trunk vertical or slightly forward','Arms in natural opposite-arm swing'],tip:'Key frame for trunk lean and hip drop.'}},
+  {key:'mid_front', label:'Mid-stance (front)', desc:'Frontal view during single-leg stance',    videoKey:'front', side:'center', detectsIssue:'Hip drop, arm crossing, knee valgus', guide:{title:'Mid-stance (front view)', desc:'A frontal view during single-leg stance, used to assess hip drop, arm position, and knee alignment.',checks:['One foot clearly on the ground','Hips visible and roughly level','Both arms visible','Knees visible -- watch for inward collapse'],tip:'Look for the moment when the runner is on one leg with the other in mid-swing.'}},
+  {key:'mid_back',  label:'Mid-stance (back)',  desc:'Rear view during single-leg stance',       videoKey:'back',  side:'center', detectsIssue:'Hip drop confirmation', guide:{title:'Mid-stance (back view)', desc:'A rear view during single-leg stance, used to confirm hip drop findings from the front view.',checks:['One foot on the ground','Hips visible','Pelvis level visible','Good lighting on the back'],tip:'This confirms or contradicts what the front view shows for hip mechanics.'}},
+  {key:'peak_kf',   label:'Peak knee flex',     desc:'Maximum knee bend during swing',           videoKey:'side',  side:'center', detectsIssue:'Arm angle', guide:{title:'Peak knee flexion', desc:'Maximum knee bend on the swing leg, just after toe-off.',checks:['Swing knee at highest and most bent position','Elite runners pull heel close to glutes','Stance leg extended behind body','Symmetry between sides'],tip:'A lazy, low swing increases ground contact time and metabolic cost.'}},
+  {key:'swing',     label:'Terminal swing',     desc:'Leg extended just before landing',         videoKey:'side',  side:'center', detectsIssue:'Overstriding visibility', guide:{title:'Terminal swing',    desc:'Just before the foot contacts the ground again.',checks:['Swing leg reaching forward','Knee extending but not fully locked','Foot dorsiflexed ready for contact','Opposite arm driving back'],tip:'Overstriding is most visible here.'}},
 ];
 
-const PHASE_GROUPS = [{label:'Foot strike',keys:['l_foot','r_foot']},{label:'Toe-off',keys:['l_toe','r_toe']},{label:'Swing cycle',keys:['mid','peak_kf','swing']}];
+const PHASE_GROUPS = [
+  {label:'Stride & propulsion', keys:['l_foot','r_foot','l_toe','r_toe','swing']},
+  {label:'Posture & trunk', keys:['mid']},
+  {label:'Hip & lateral mechanics', keys:['mid_front','mid_back']},
+  {label:'Arm mechanics', keys:['peak_kf']},
+];
+
 const SUMMARY_COL_ORDER = ['l_foot','r_foot','l_toe','r_toe','mid','peak_kf','swing'];
 const GROUP_STARTS       = new Set(['l_foot','l_toe','mid']);
 
 const METRIC_ROWS = [
-  {key:'trunk', label:'Trunk lean',  dot:'var(--gold)',  fmt:v=>`${v>0?'+':''}${v.toFixed(1)}°`, hint:'Elite: 5–20° fwd'},
-  {key:'lKnee', label:'L knee',     dot:'var(--left)',  fmt:v=>`${v.toFixed(0)}°`,               hint:'Phase-dependent'},
-  {key:'rKnee', label:'R knee',     dot:'var(--right)', fmt:v=>`${v.toFixed(0)}°`,               hint:'Phase-dependent'},
-  {key:'lHip',  label:'L hip',      dot:'var(--left)',  fmt:v=>`${v.toFixed(0)}°`,               hint:'Stance: 160–180°'},
-  {key:'rHip',  label:'R hip',      dot:'var(--right)', fmt:v=>`${v.toFixed(0)}°`,               hint:'Stance: 160–180°'},
-  {key:'lElbow',label:'L elbow',    dot:'var(--left)',  fmt:v=>`${v.toFixed(0)}°`,               hint:'Elite: 80–110°'},
-  {key:'rElbow',label:'R elbow',    dot:'var(--right)', fmt:v=>`${v.toFixed(0)}°`,               hint:'Elite: 80–110°'},
-  {key:'lFoot', label:'L foot off.',dot:'var(--left)',  fmt:v=>`${v>0?'+':''}${v.toFixed(2)}`,   hint:'+ = under body'},
-  {key:'rFoot', label:'R foot off.',dot:'var(--right)', fmt:v=>`${v>0?'+':''}${v.toFixed(2)}`,   hint:'+ = under body'},
+  {key:'trunk', label:'Trunk lean',  dot:'var(--gold)',  fmt:function(v){return (v>0?'+':'')+v.toFixed(1)+'\u00b0';}, hint:'Elite: 5-20 fwd'},
+  {key:'lKnee', label:'L knee',     dot:'var(--left)',  fmt:function(v){return v.toFixed(0)+'\u00b0';},               hint:'Phase-dependent'},
+  {key:'rKnee', label:'R knee',     dot:'var(--right)', fmt:function(v){return v.toFixed(0)+'\u00b0';},               hint:'Phase-dependent'},
+  {key:'lHip',  label:'L hip',      dot:'var(--left)',  fmt:function(v){return v.toFixed(0)+'\u00b0';},               hint:'Stance: 160-180'},
+  {key:'rHip',  label:'R hip',      dot:'var(--right)', fmt:function(v){return v.toFixed(0)+'\u00b0';},               hint:'Stance: 160-180'},
+  {key:'lElbow',label:'L elbow',    dot:'var(--left)',  fmt:function(v){return v.toFixed(0)+'\u00b0';},               hint:'Elite: 80-110'},
+  {key:'rElbow',label:'R elbow',    dot:'var(--right)', fmt:function(v){return v.toFixed(0)+'\u00b0';},               hint:'Elite: 80-110'},
+  {key:'lFoot', label:'L foot off.',dot:'var(--left)',  fmt:function(v){return (v>0?'+':'')+v.toFixed(2);},           hint:'+ = under body'},
+  {key:'rFoot', label:'R foot off.',dot:'var(--right)', fmt:function(v){return (v>0?'+':'')+v.toFixed(2);},           hint:'+ = under body'},
 ];
 
 const PHASE_METRICS = {
-  l_foot:  ['trunk','lKnee','lHip','lFoot','lElbow'],
-  r_foot:  ['trunk','rKnee','rHip','rFoot','rElbow'],
-  l_toe:   ['trunk','lHip','lKnee','lElbow'],
-  r_toe:   ['trunk','rHip','rKnee','rElbow'],
-  mid:     ['trunk','lKnee','rKnee','lHip','rHip','lElbow','rElbow'],
-  peak_kf: ['trunk','lKnee','rHip','lElbow'],
-  swing:   ['trunk','lKnee','lFoot','lElbow'],
+  l_foot:    ['trunk','lKnee','lHip','lFoot','lElbow'],
+  r_foot:    ['trunk','rKnee','rHip','rFoot','rElbow'],
+  l_toe:     ['trunk','lHip','lKnee','lElbow'],
+  r_toe:     ['trunk','rHip','rKnee','rElbow'],
+  mid:       ['trunk','lKnee','rKnee','lHip','rHip','lElbow','rElbow'],
+  mid_front: [],
+  mid_back:  [],
+  peak_kf:   ['trunk','lKnee','rHip','lElbow'],
+  swing:     ['trunk','lKnee','lFoot','lElbow'],
 };
-function isRelevant(phaseKey, metricKey){ const pm=PHASE_METRICS[phaseKey]; return !pm || pm.includes(metricKey); }
+function isRelevant(phaseKey, metricKey){ var pm=PHASE_METRICS[phaseKey]; return !pm || pm.length===0 || pm.includes(metricKey); }
 
-let detector=null,videoEl=null,phases={};
-let expandKey=null,epCurrentT=0,epAnalyzing=false;
+// -- Video elements & file management --
+var videoEls = {side: null, front: null, back: null};
+var uploadedFiles = {side: null, front: null, back: null};
+
+let detector=null, phases={};
+let expandKey=null, epCurrentT=0, epAnalyzing=false;
 const epDbt={};
 
-function initPhases(midT){const t=(typeof midT==='number'&&isFinite(midT))?midT:0;PHASE_DEFS.forEach(def=>{phases[def.key]={...def,t,detected:false,kps:null,metrics:null};});}
+function getVideoElForPhase(key) {
+  var def = PHASE_DEFS.find(function(d){return d.key===key;});
+  if (!def) return videoEls.side;
+  return videoEls[def.videoKey] || videoEls.side;
+}
 
-// ── UI helpers ────────────────────────────────────────────
+function getVideoKeyForPhase(key) {
+  var def = PHASE_DEFS.find(function(d){return d.key===key;});
+  return def ? def.videoKey : 'side';
+}
+
+function initPhases(midT){
+  var t=(typeof midT==='number'&&isFinite(midT))?midT:0;
+  PHASE_DEFS.forEach(function(def){
+    phases[def.key]={key:def.key, label:def.label, desc:def.desc, videoKey:def.videoKey, side:def.side, detectsIssue:def.detectsIssue, guide:def.guide, t:t, detected:false, kps:null, metrics:null, frontBackMetrics:null, sideView:true};
+  });
+}
+
+// -- UI helpers --
 function toggleMeasurements(){
-  const body   = document.getElementById('ep-meas-body');
-  const toggle = document.getElementById('ep-meas-toggle');
+  var body   = document.getElementById('ep-meas-body');
+  var toggle = document.getElementById('ep-meas-toggle');
   if(!body||!toggle) return;
-  const open = body.classList.toggle('open');
+  var open = body.classList.toggle('open');
   toggle.classList.toggle('open', open);
 }
 
 function getDetectionQuality(kps){
   if(!kps) return null;
-  const relevant = [5,6,7,8,11,12,13,14,15,16];
-  const scores = relevant.map(i=>kps[i]?.score||0);
-  const avg = scores.reduce((a,b)=>a+b,0)/scores.length;
-  const min = Math.min(...scores);
-  if(avg>=0.72&&min>=0.4)  return {level:'strong',label:'Strong detection', note:'Keypoint confidence is high — measurements are reliable for this frame.'};
+  var relevant = [5,6,7,8,11,12,13,14,15,16];
+  var scores = relevant.map(function(i){return (kps[i] && kps[i].score) || 0;});
+  var avg = scores.reduce(function(a,b){return a+b;},0)/scores.length;
+  var min = Math.min.apply(null, scores);
+  if(avg>=0.72&&min>=0.4)  return {level:'strong',label:'Strong detection', note:'Keypoint confidence is high -- measurements are reliable for this frame.'};
   if(avg>=0.5 &&min>=0.25) return {level:'fair',  label:'Fair detection',   note:'Some keypoints have moderate confidence. Results are usable but consider re-checking the frame.'};
   return                          {level:'weak',   label:'Weak detection',   note:'Several keypoints have low confidence. Try a different frame with less motion blur or obstruction.'};
 }
 
 function renderQualityCard(kps){
-  const qCard = document.getElementById('ep-quality-card');
-  const qDisp = document.getElementById('ep-quality-display');
-  const qNote = document.getElementById('ep-quality-note');
+  var qCard = document.getElementById('ep-quality-card');
+  var qDisp = document.getElementById('ep-quality-display');
+  var qNote = document.getElementById('ep-quality-note');
   if(!qCard) return;
   if(!kps){ qCard.style.display='none'; return; }
-  const q = getDetectionQuality(kps);
+  var q = getDetectionQuality(kps);
   if(!q){ qCard.style.display='none'; return; }
   qCard.style.display='block';
-  qDisp.innerHTML=`<span class="dq-pill ${q.level}">◉ ${q.label}</span>`;
+  qDisp.innerHTML='<span class="dq-pill '+q.level+'">&#9673; '+q.label+'</span>';
   qNote.textContent=q.note;
 }
 
 function renderSideViewWarning(key){
-  const el=document.getElementById(`metrics-mini-${key}`);
-  if(el) el.innerHTML='<span class="mm-item" style="color:var(--warn);border-color:rgba(245,166,35,.3);background:rgba(245,166,35,.05)">⚠ Side view required for angle analysis</span>';
-  // Still put dashes in summary so it's not blank
-  METRIC_ROWS.forEach(r=>{
-    const cell=document.getElementById(`sc-${key}-${r.key}`);
-    if(cell) cell.innerHTML='<span class="sv na" title="Front/back view — angle not meaningful">—</span>';
+  var el=document.getElementById('metrics-mini-'+key);
+  if(el) el.innerHTML='<span class="mm-item" style="color:var(--warn);border-color:rgba(245,166,35,.3);background:rgba(245,166,35,.05)">&#9888; Side view required for angle analysis</span>';
+  METRIC_ROWS.forEach(function(r){
+    var cell=document.getElementById('sc-'+key+'-'+r.key);
+    if(cell) cell.innerHTML='<span class="sv na" title="Front/back view -- angle not meaningful">--</span>';
   });
 }
 
 function checkAllAnalyzed(){
-  const analyzed = PHASE_DEFS.filter(d=>phases[d.key]?.metrics);
-  const bar = document.getElementById('complete-analysis-bar');
-  const sub = document.getElementById('ca-sub');
+  var analyzed = PHASE_DEFS.filter(function(d){return phases[d.key] && phases[d.key].metrics;});
+  var frontBackAnalyzed = PHASE_DEFS.filter(function(d){return phases[d.key] && (phases[d.key].metrics || phases[d.key].frontBackMetrics);});
+  var bar = document.getElementById('complete-analysis-bar');
+  var sub = document.getElementById('ca-sub');
   if(!bar) return;
-  if(analyzed.length>=7){
+  var total = PHASE_DEFS.length; // 9
+  var done = frontBackAnalyzed.length;
+  if(done>=9){
     bar.classList.add('show');
     document.body.classList.add('bar-showing');
-    if(sub) sub.textContent='All 7 phases analyzed — scroll down to see your full report';
-  } else if(analyzed.length>=3){
+    if(sub) sub.textContent='All 9 phases analyzed -- scroll down to see your full report';
+  } else if(done>=3){
     bar.classList.add('show');
     document.body.classList.add('bar-showing');
-    if(sub) sub.textContent=`${analyzed.length} of 7 phases analyzed — keep refining or complete now`;
+    if(sub) sub.textContent=done+' of 9 phases analyzed -- keep refining or complete now';
   } else {
     bar.classList.remove('show');
     document.body.classList.remove('bar-showing');
@@ -826,412 +914,1032 @@ function checkAllAnalyzed(){
 }
 
 function completeAnalysis(){
-  const sumEl = document.querySelector('.summary');
-  if(sumEl){
-    sumEl.scrollIntoView({behavior:'smooth',block:'start'});
-    sumEl.style.transition='box-shadow .4s';
-    sumEl.style.boxShadow='0 0 0 2px rgba(0,229,200,.4)';
-    setTimeout(()=>{sumEl.style.boxShadow='none';},1800);
+  // Run detection rules
+  var issues = detectIssues();
+  // Render report
+  renderReport(issues);
+  // Show sections
+  var reportEl = document.getElementById('report-section');
+  var summaryEl = document.getElementById('summary-section');
+  if(reportEl) reportEl.style.display='block';
+  if(summaryEl) summaryEl.style.display='block';
+  // Scroll to report
+  if(reportEl){
+    reportEl.scrollIntoView({behavior:'smooth',block:'start'});
+    reportEl.style.transition='box-shadow .4s';
+    reportEl.style.boxShadow='0 0 0 2px rgba(0,229,200,.4)';
+    setTimeout(function(){reportEl.style.boxShadow='none';},1800);
   }
-  const bar = document.getElementById('complete-analysis-bar');
+  var bar = document.getElementById('complete-analysis-bar');
   if(bar) bar.classList.remove('show');
   document.body.classList.remove('bar-showing');
 }
 
 async function initModel(){
-  initFirebase(); // fetch live ranges in parallel
+  initFirebase();
   try{
     await tf.ready();
     detector=await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,{modelType:poseDetection.movenet.modelType.SINGLEPOSE_THUNDER});
     document.getElementById('loader').style.display='none';
   }catch(e){
-    document.getElementById('loader').innerHTML=`<div style="color:var(--bad);font-size:14px;font-weight:600">Model failed to load</div><div style="font-size:11px;color:var(--muted2);margin-top:8px">${e.message}</div><div style="font-size:11px;color:var(--muted);margin-top:6px">Check your internet connection and reload.</div>`;
+    document.getElementById('loader').innerHTML='<div style="color:var(--bad);font-size:14px;font-weight:600">Model failed to load</div><div style="font-size:11px;color:var(--muted2);margin-top:8px">'+e.message+'</div><div style="font-size:11px;color:var(--muted);margin-top:6px">Check your internet connection and reload.</div>';
   }
 }
 
-// File handling
-document.getElementById('file-input').addEventListener('change',e=>{if(e.target.files[0])startWithFile(e.target.files[0]);});
-const dz=document.getElementById('drop-zone');
-dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over');});
-dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
-dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('video/'))startWithFile(f);});
-function startWithFile(file){
+// -- File handling for 3 drop zones --
+document.getElementById('file-input-side').addEventListener('change',function(e){if(e.target.files[0])loadFile('side',e.target.files[0]);});
+document.getElementById('file-input-front').addEventListener('change',function(e){if(e.target.files[0])loadFile('front',e.target.files[0]);});
+document.getElementById('file-input-back').addEventListener('change',function(e){if(e.target.files[0])loadFile('back',e.target.files[0]);});
+
+function handleDrop(event, viewKey) {
+  event.preventDefault();
+  var zone = document.getElementById('drop-zone-'+viewKey);
+  if(zone) zone.classList.remove('over');
+  var f = event.dataTransfer.files[0];
+  if(f && f.type.startsWith('video/')) loadFile(viewKey, f);
+}
+
+function loadFile(viewKey, file) {
+  uploadedFiles[viewKey] = file;
+  var zone = document.getElementById('drop-zone-'+viewKey);
+  var info = document.getElementById('dz-info-'+viewKey);
+  if(zone) zone.classList.add('loaded');
+  if(info) info.innerHTML = '\u2713 ' + file.name;
+  checkAllUploaded();
+}
+
+function checkAllUploaded() {
+  var btn = document.getElementById('btn-analyze-all');
+  if(btn) btn.disabled = !(uploadedFiles.side && uploadedFiles.front && uploadedFiles.back);
+}
+
+function startAllVideos() {
   document.getElementById('screen-upload').style.display='none';
-  document.getElementById('hdr-file').textContent=file.name;
-  videoEl=document.getElementById('video');
+  document.getElementById('hdr-file').textContent = uploadedFiles.side.name + ' + 2 more';
 
-  let started=false;
-  function beginScan(){
-    if(started) return;
-    started=true;
-    videoEl.removeEventListener('loadedmetadata', beginScan);
-    videoEl.removeEventListener('loadeddata',     beginScan);
-    videoEl.removeEventListener('canplay',        beginScan);
-    clearTimeout(fallbackTimer);
-    document.getElementById('screen-scanning').style.display='flex';
-    autoScan();
+  // Set up video elements
+  videoEls.side  = document.getElementById('video-side');
+  videoEls.front = document.getElementById('video-front');
+  videoEls.back  = document.getElementById('video-back');
+
+  var loadCount = 0;
+  var totalToLoad = 3;
+
+  function onLoaded() {
+    loadCount++;
+    if(loadCount >= totalToLoad) {
+      document.getElementById('screen-scanning').style.display='flex';
+      autoScanAll();
+    }
   }
 
-  // Whichever fires first wins — handles HEVC, MOV, and slow codecs
-  videoEl.addEventListener('loadedmetadata', beginScan, {once:true});
-  videoEl.addEventListener('loadeddata',     beginScan, {once:true});
-  videoEl.addEventListener('canplay',        beginScan, {once:true});
+  function setupVideo(vidEl, file) {
+    var started = false;
+    function begin() {
+      if(started) return;
+      started = true;
+      vidEl.removeEventListener('loadedmetadata', begin);
+      vidEl.removeEventListener('loadeddata',     begin);
+      vidEl.removeEventListener('canplay',        begin);
+      clearTimeout(ft);
+      onLoaded();
+    }
+    vidEl.addEventListener('loadedmetadata', begin, {once:true});
+    vidEl.addEventListener('loadeddata',     begin, {once:true});
+    vidEl.addEventListener('canplay',        begin, {once:true});
+    var ft = setTimeout(function(){ if(!started){ console.warn('ESFormLab: metadata timeout for '+file.name); begin(); } }, 8000);
+    vidEl.src = URL.createObjectURL(file);
+    vidEl.load();
+  }
 
-  // Hard 8s timeout if none of the above fire
-  const fallbackTimer = setTimeout(()=>{ if(!started){ console.warn('ESFormLab: metadata timeout, scanning anyway'); beginScan(); } }, 8000);
-
-  videoEl.src=URL.createObjectURL(file);
-  videoEl.load();
+  setupVideo(videoEls.side,  uploadedFiles.side);
+  setupVideo(videoEls.front, uploadedFiles.front);
+  setupVideo(videoEls.back,  uploadedFiles.back);
 }
 
-// Auto scan
-async function autoScan(){
-  let dur=videoEl.duration;
-  if(!isFinite(dur)||isNaN(dur)||dur<=0){await new Promise(r=>setTimeout(r,500));dur=videoEl.duration;}
-  if(!isFinite(dur)||isNaN(dur)||dur<=0)dur=30;
-  initPhases(dur/2);
-  const N=40,samples=[];
-  document.getElementById('scan-phase-list').innerHTML=PHASE_DEFS.map(p=>`<div class="spl-item" id="spl-${p.key}"><div class="spl-dot"></div><span class="spl-name">${p.label}</span><span class="spl-time" id="spl-t-${p.key}">—</span></div>`).join('');
-  const sc=document.getElementById('scan-canvas'),sctx=sc.getContext('2d');let posesFound=0;
-  for(let i=0;i<N;i++){
-    const t=Math.min((i+.5)*(dur/N),dur-.05);
-    document.getElementById('scan-bar').style.width=Math.round(i/N*100)+'%';
-    document.getElementById('scan-step').textContent=`Scanning frame ${i+1} of ${N} · ${t.toFixed(2)}s`;
-    document.getElementById('scan-label').textContent=`${t.toFixed(2)}s`;
-    await seekTo(t);
-    sc.width=Math.min(400,videoEl.videoWidth||400);sc.height=Math.min(225,videoEl.videoHeight||225);
-    if(videoEl.videoWidth>0)sc.height=Math.round(sc.width*videoEl.videoHeight/videoEl.videoWidth);
-    try{sctx.drawImage(videoEl,0,0,sc.width,sc.height);}catch(e){}
-    let poses=null;try{poses=await detector.estimatePoses(sc);}catch(e){}
-    if(!poses||!poses.length){try{poses=await detector.estimatePoses(videoEl);}catch(e){}}
+// -- Auto scan all 3 videos sequentially --
+async function autoScanAll(){
+  var sideVid = videoEls.side;
+  var frontVid = videoEls.front;
+  var backVid = videoEls.back;
+
+  var sideDur = sideVid.duration;
+  if(!isFinite(sideDur)||isNaN(sideDur)||sideDur<=0){await new Promise(function(r){setTimeout(r,500);});sideDur=sideVid.duration;}
+  if(!isFinite(sideDur)||isNaN(sideDur)||sideDur<=0) sideDur=30;
+
+  initPhases(sideDur/2);
+
+  // Set front/back phase times to midpoint of their respective videos
+  var frontDur = frontVid.duration;
+  if(!isFinite(frontDur)||isNaN(frontDur)||frontDur<=0) frontDur=30;
+  var backDur = backVid.duration;
+  if(!isFinite(backDur)||isNaN(backDur)||backDur<=0) backDur=30;
+  phases.mid_front.t = frontDur/2;
+  phases.mid_back.t  = backDur/2;
+
+  // Build phase list UI for all 9 phases
+  document.getElementById('scan-phase-list').innerHTML = PHASE_DEFS.map(function(p){
+    return '<div class="spl-item" id="spl-'+p.key+'"><div class="spl-dot"></div><span class="spl-name">'+p.label+'</span><span class="spl-time" id="spl-t-'+p.key+'">--</span></div>';
+  }).join('');
+
+  // ---- STEP 1: Scan side video (7 side phases) ----
+  document.getElementById('scan-sub-text').textContent = 'Scanning side view for 7 gait phases...';
+  var N=40, samples=[];
+  var sc=document.getElementById('scan-canvas'), sctx=sc.getContext('2d');
+  var posesFound=0;
+
+  for(var i=0;i<N;i++){
+    var t=Math.min((i+0.5)*(sideDur/N),sideDur-0.05);
+    document.getElementById('scan-bar').style.width=Math.round(i/N*70)+'%'; // 0-70% for side
+    document.getElementById('scan-step').textContent='Side view: scanning frame '+(i+1)+' of '+N+' at '+t.toFixed(2)+'s';
+    document.getElementById('scan-label').textContent=t.toFixed(2)+'s (side)';
+    await seekTo(t, sideVid);
+    sc.width=Math.min(400,sideVid.videoWidth||400);sc.height=Math.min(225,sideVid.videoHeight||225);
+    if(sideVid.videoWidth>0)sc.height=Math.round(sc.width*sideVid.videoHeight/sideVid.videoWidth);
+    try{sctx.drawImage(sideVid,0,0,sc.width,sc.height);}catch(e){}
+    var poses=null;try{poses=await detector.estimatePoses(sc);}catch(e){}
+    if(!poses||!poses.length){try{poses=await detector.estimatePoses(sideVid);}catch(e){}}
     if(!poses||!poses.length)continue;
     posesFound++;
-    // After first detected pose, check orientation and warn early
     if(posesFound===1 && !isSideView(poses[0].keypoints)){
-      document.getElementById('scan-step').textContent='⚠ Front or back view detected — side view gives best results';
+      document.getElementById('scan-step').textContent='Side view: front or back view detected -- side view gives best results';
     }
-    const kps=poses[0].keypoints;
-    drawMiniSkeleton(sctx,kps,sc.width/(videoEl.videoWidth||sc.width),sc.height/(videoEl.videoHeight||sc.height));
-    const g=idx=>(kps[idx]&&kps[idx].score>=MIN_CONF)?kps[idx]:null;
-    const lAn=g(15),rAn=g(16),lKn=g(13),lHi=g(11),rHi=g(12),lSh=g(5),rSh=g(6),rKn=g(14);
-    samples.push({t,lAnkleY:lAn?.y,rAnkleY:rAn?.y,lHipExt:(lSh&&lHi&&lKn)?calcAngle(lSh,lHi,lKn):null,rHipExt:(rSh&&rHi&&rKn)?calcAngle(rSh,rHi,rKn):null,lKnAngle:(lHi&&lKn&&lAn)?calcAngle(lHi,lKn,lAn):null,kps});
+    var kps=poses[0].keypoints;
+    drawMiniSkeleton(sctx,kps,sc.width/(sideVid.videoWidth||sc.width),sc.height/(sideVid.videoHeight||sc.height));
+    var g=function(idx){return (kps[idx]&&kps[idx].score>=MIN_CONF)?kps[idx]:null;};
+    var lAn=g(15),rAn=g(16),lKn=g(13),lHi=g(11),rHi=g(12),lSh=g(5),rSh=g(6),rKn=g(14);
+    samples.push({t:t, lAnkleY:lAn?lAn.y:undefined, rAnkleY:rAn?rAn.y:undefined, lHipExt:(lSh&&lHi&&lKn)?calcAngle(lSh,lHi,lKn):null, rHipExt:(rSh&&rHi&&rKn)?calcAngle(rSh,rHi,rKn):null, lKnAngle:(lHi&&lKn&&lAn)?calcAngle(lHi,lKn,lAn):null, kps:kps});
   }
-  document.getElementById('scan-bar').style.width='100%';
-  document.getElementById('scan-step').textContent=`Done · ${posesFound}/${N} frames detected`;
-  const diag=document.getElementById('scan-diag');diag.style.display='block';
-  diag.textContent=`${videoEl.videoWidth}×${videoEl.videoHeight} · ${dur.toFixed(1)}s · Poses: ${posesFound}/${N}`;
 
-  // Detect sparse keyframes: if many samples share the same timestamp, warn the user
-  const uniqueTimes = new Set(samples.map(s=>Math.round(s.t*4)/4));
+  // Detect side phases
+  try{findPhases(samples,sideDur);}catch(e){console.error('findPhases:',e);}
+
+  // Update side phase UI items
+  var sidePhaseKeys = ['l_foot','r_foot','l_toe','r_toe','mid','peak_kf','swing'];
+  sidePhaseKeys.forEach(function(key){
+    var ph=phases[key];var item=document.getElementById('spl-'+key);var tEl=document.getElementById('spl-t-'+key);
+    if(!item||!tEl)return;
+    if(ph && ph.detected){item.classList.add('found');tEl.textContent=ph.t.toFixed(2)+'s';}else{item.classList.add('not-found');tEl.textContent='manual';}
+  });
+
+  // ---- STEP 2: Scan front video (best frame) ----
+  document.getElementById('scan-sub-text').textContent = 'Scanning front view for best mid-stance frame...';
+  var frontBest = await scanBestFrame(frontVid, 'front', 70, 85);
+  if(frontBest) {
+    phases.mid_front.t = frontBest.t;
+    phases.mid_front.kps = frontBest.kps;
+    phases.mid_front.detected = true;
+    var frontItem = document.getElementById('spl-mid_front');
+    var frontTEl = document.getElementById('spl-t-mid_front');
+    if(frontItem) frontItem.classList.add('found');
+    if(frontTEl) frontTEl.textContent = frontBest.t.toFixed(2)+'s';
+  } else {
+    var frontItem2 = document.getElementById('spl-mid_front');
+    var frontTEl2 = document.getElementById('spl-t-mid_front');
+    if(frontItem2) frontItem2.classList.add('not-found');
+    if(frontTEl2) frontTEl2.textContent = 'manual';
+  }
+
+  // ---- STEP 3: Scan back video (best frame) ----
+  document.getElementById('scan-sub-text').textContent = 'Scanning back view for best mid-stance frame...';
+  var backBest = await scanBestFrame(backVid, 'back', 85, 100);
+  if(backBest) {
+    phases.mid_back.t = backBest.t;
+    phases.mid_back.kps = backBest.kps;
+    phases.mid_back.detected = true;
+    var backItem = document.getElementById('spl-mid_back');
+    var backTEl = document.getElementById('spl-t-mid_back');
+    if(backItem) backItem.classList.add('found');
+    if(backTEl) backTEl.textContent = backBest.t.toFixed(2)+'s';
+  } else {
+    var backItem2 = document.getElementById('spl-mid_back');
+    var backTEl2 = document.getElementById('spl-t-mid_back');
+    if(backItem2) backItem2.classList.add('not-found');
+    if(backTEl2) backTEl2.textContent = 'manual';
+  }
+
+  // Finalize
+  document.getElementById('scan-bar').style.width='100%';
+  document.getElementById('scan-step').textContent='Done -- all 3 videos scanned';
+
+  var diag=document.getElementById('scan-diag');diag.style.display='block';
+  diag.textContent='Side: '+(sideVid.videoWidth||'?')+'x'+(sideVid.videoHeight||'?')+' '+sideDur.toFixed(1)+'s | Front: '+(frontVid.videoWidth||'?')+'x'+(frontVid.videoHeight||'?')+' | Back: '+(backVid.videoWidth||'?')+'x'+(backVid.videoHeight||'?');
+
+  // Check sparse keyframes on side
+  var uniqueTimes = new Set(samples.map(function(s){return Math.round(s.t*4)/4;}));
   if(samples.length > 5 && uniqueTimes.size < samples.length * 0.5){
-    diag.innerHTML += '<br>⚠ Sparse keyframes detected — this video may have been exported with infrequent keyframes. ' +
-      'For best results, re-export at original quality or use HandBrake to convert to H.264 MP4 with keyframe interval 1s.';
+    diag.innerHTML += '<br>&#9888; Sparse keyframes detected in side video -- for best results, re-export at original quality.';
     diag.style.borderLeft = '3px solid var(--warn)';
     diag.style.paddingLeft = '10px';
   }
-  try{findPhases(samples,dur);}catch(e){console.error('findPhases:',e);}
-  PHASE_DEFS.forEach(def=>{
-    const ph=phases[def.key];const item=document.getElementById(`spl-${def.key}`);const tEl=document.getElementById(`spl-t-${def.key}`);
-    if(!item||!tEl)return;
-    if(ph?.detected){item.classList.add('found');tEl.textContent=ph.t.toFixed(2)+'s';}else{item.classList.add('not-found');tEl.textContent='manual';}
-  });
-  await new Promise(r=>setTimeout(r,700));
+
+  await new Promise(function(r){setTimeout(r,700);});
   document.getElementById('screen-scanning').style.display='none';
   document.getElementById('screen-phases').style.display='block';
   document.getElementById('btn-rescan').style.display='inline-flex';
-  const detected=PHASE_DEFS.filter(d=>phases[d.key]?.detected).length;
-  const sb=document.getElementById('scan-summary-bar');sb.style.display='flex';
-  const sexInfo=selectedSex?`<span class="ss-item ${selectedSex}">Ranges: <strong>${selectedSex}</strong></span>`:`<span class="ss-item">Ranges: <strong>default</strong></span>`;
-  sb.innerHTML=`<span class="ss-item">Video: <strong>${videoEl.videoWidth}×${videoEl.videoHeight}</strong></span>
-    <span class="ss-item">Duration: <strong>${dur.toFixed(1)}s</strong></span>
-    <span class="ss-item ${posesFound<5?'warn':''}">Poses: <strong>${posesFound}/${N}</strong></span>
-    <span class="ss-item">Auto-detected: <strong>${detected}/7</strong></span>${sexInfo}`;
+  var detected=PHASE_DEFS.filter(function(d){return phases[d.key] && phases[d.key].detected;}).length;
+  var sb=document.getElementById('scan-summary-bar');sb.style.display='flex';
+  var sexInfo=selectedSex?'<span class="ss-item '+selectedSex+'">Ranges: <strong>'+selectedSex+'</strong></span>':'<span class="ss-item">Ranges: <strong>default</strong></span>';
+  sb.innerHTML='<span class="ss-item">Side: <strong>'+(sideVid.videoWidth||'?')+'x'+(sideVid.videoHeight||'?')+'</strong></span>'+
+    '<span class="ss-item">Duration: <strong>'+sideDur.toFixed(1)+'s</strong></span>'+
+    '<span class="ss-item '+(posesFound<5?'warn':'')+'">Side poses: <strong>'+posesFound+'/'+N+'</strong></span>'+
+    '<span class="ss-item">Auto-detected: <strong>'+detected+'/9</strong></span>'+sexInfo;
   buildPhaseGroups();buildSummaryTable();
-  for(const def of PHASE_DEFS){if(phases[def.key]?.detected)await analyzeCard(def.key);}
+  for(var di=0;di<PHASE_DEFS.length;di++){
+    var dKey = PHASE_DEFS[di].key;
+    if(phases[dKey] && phases[dKey].detected) await analyzeCard(dKey);
+  }
 }
 
-// Phase detection
+// Scan ~20 frames of a video, return the one with best avg confidence
+async function scanBestFrame(vidEl, viewLabel, barStart, barEnd) {
+  var dur = vidEl.duration;
+  if(!isFinite(dur)||isNaN(dur)||dur<=0) dur=30;
+  var NFRAMES = 20;
+  var best = null;
+  var bestConf = -1;
+  var sc = document.getElementById('scan-canvas');
+  var sctx = sc.getContext('2d');
+
+  for(var i=0;i<NFRAMES;i++){
+    var t = Math.min((i+0.5)*(dur/NFRAMES), dur-0.05);
+    var pct = barStart + (i/NFRAMES)*(barEnd-barStart);
+    document.getElementById('scan-bar').style.width = Math.round(pct)+'%';
+    document.getElementById('scan-step').textContent = viewLabel.charAt(0).toUpperCase()+viewLabel.slice(1)+' view: frame '+(i+1)+' of '+NFRAMES;
+    document.getElementById('scan-label').textContent = t.toFixed(2)+'s ('+viewLabel+')';
+    await seekTo(t, vidEl);
+    sc.width=Math.min(400,vidEl.videoWidth||400);sc.height=Math.min(225,vidEl.videoHeight||225);
+    if(vidEl.videoWidth>0)sc.height=Math.round(sc.width*vidEl.videoHeight/vidEl.videoWidth);
+    try{sctx.drawImage(vidEl,0,0,sc.width,sc.height);}catch(e){}
+    var poses=null;try{poses=await detector.estimatePoses(sc);}catch(e){}
+    if(!poses||!poses.length){try{poses=await detector.estimatePoses(vidEl);}catch(e){}}
+    if(!poses||!poses.length) continue;
+    var kps = poses[0].keypoints;
+    drawMiniSkeleton(sctx,kps,sc.width/(vidEl.videoWidth||sc.width),sc.height/(vidEl.videoHeight||sc.height));
+    var avgConf = kps.reduce(function(sum,k){return sum+(k.score||0);},0)/kps.length;
+    if(avgConf > bestConf){
+      bestConf = avgConf;
+      best = {t:t, kps:kps};
+    }
+  }
+  return best;
+}
+
+// Phase detection (side video only)
 function findPhases(samples,dur){
   if(!samples.length)return;
-  const claimed=()=>new Set(Object.values(phases).filter(p=>p?.detected).map(p=>p.t));
-  const det=(key,s)=>{if(s)phases[key]={...phases[key],...s,detected:true};};
-  const withLA=samples.filter(s=>s.lAnkleY!==undefined&&isFinite(s.lAnkleY));
-  const withRA=samples.filter(s=>s.rAnkleY!==undefined&&isFinite(s.rAnkleY));
-  const withKn=samples.filter(s=>s.lKnAngle!==null&&s.lKnAngle!==undefined&&isFinite(s.lKnAngle));
-  const withLH=samples.filter(s=>s.lHipExt!==null&&s.lHipExt!==undefined&&isFinite(s.lHipExt));
-  const withRH=samples.filter(s=>s.rHipExt!==null&&s.rHipExt!==undefined&&isFinite(s.rHipExt));
-  if(withLA.length)det('l_foot',withLA.reduce((a,b)=>b.lAnkleY>a.lAnkleY?b:a));
-  if(withRA.length){const lT=phases.l_foot?.detected?phases.l_foot.t:-99;const pool=withRA.filter(s=>Math.abs(s.t-lT)>.08);if(pool.length)det('r_foot',pool.reduce((a,b)=>b.rAnkleY>a.rAnkleY?b:a));}
-  if(withLH.length){const lFT=phases.l_foot?.detected?phases.l_foot.t:0;const pool=withLH.filter(s=>s.t>lFT+.05);const src=pool.length>=2?pool:withLH;const best=src.reduce((a,b)=>b.lHipExt>a.lHipExt?b:a);if(!claimed().has(best.t))det('l_toe',best);}
-  if(withRH.length){const rFT=phases.r_foot?.detected?phases.r_foot.t:0;const pool=withRH.filter(s=>s.t>rFT+.05);const src=pool.length>=2?pool:withRH;const best=src.reduce((a,b)=>b.rHipExt>a.rHipExt?b:a);if(!claimed().has(best.t))det('r_toe',best);}
-  const sorted=[...samples].sort((a,b)=>a.t-b.t);let foundMid=false;
-  for(let off=0;off<sorted.length&&!foundMid;off++){for(const d of[0,1,-1]){const idx=Math.floor(sorted.length/2)+d*off;if(idx<0||idx>=sorted.length)continue;const s=sorted[idx];if(s&&!claimed().has(s.t)){det('mid',s);foundMid=true;break;}}}
-  if(withKn.length){const s=[...withKn].sort((a,b)=>a.lKnAngle-b.lKnAngle).find(s=>!claimed().has(s.t));if(s)det('peak_kf',s);}
-  if(withKn.length){const s=[...withKn].sort((a,b)=>b.lKnAngle-a.lKnAngle).find(s=>!claimed().has(s.t));if(s)det('swing',s);}
+  var claimed=function(){return new Set(Object.values(phases).filter(function(p){return p && p.detected;}).map(function(p){return p.t;}));};
+  var det=function(key,s){if(s)phases[key]=Object.assign({},phases[key],s,{detected:true});};
+  var withLA=samples.filter(function(s){return s.lAnkleY!==undefined&&isFinite(s.lAnkleY);});
+  var withRA=samples.filter(function(s){return s.rAnkleY!==undefined&&isFinite(s.rAnkleY);});
+  var withKn=samples.filter(function(s){return s.lKnAngle!==null&&s.lKnAngle!==undefined&&isFinite(s.lKnAngle);});
+  var withLH=samples.filter(function(s){return s.lHipExt!==null&&s.lHipExt!==undefined&&isFinite(s.lHipExt);});
+  var withRH=samples.filter(function(s){return s.rHipExt!==null&&s.rHipExt!==undefined&&isFinite(s.rHipExt);});
+  if(withLA.length)det('l_foot',withLA.reduce(function(a,b){return b.lAnkleY>a.lAnkleY?b:a;}));
+  if(withRA.length){var lT=phases.l_foot&&phases.l_foot.detected?phases.l_foot.t:-99;var pool=withRA.filter(function(s){return Math.abs(s.t-lT)>0.08;});if(pool.length)det('r_foot',pool.reduce(function(a,b){return b.rAnkleY>a.rAnkleY?b:a;}));}
+  if(withLH.length){var lFT=phases.l_foot&&phases.l_foot.detected?phases.l_foot.t:0;var pool2=withLH.filter(function(s){return s.t>lFT+0.05;});var src=pool2.length>=2?pool2:withLH;var best=src.reduce(function(a,b){return b.lHipExt>a.lHipExt?b:a;});if(!claimed().has(best.t))det('l_toe',best);}
+  if(withRH.length){var rFT=phases.r_foot&&phases.r_foot.detected?phases.r_foot.t:0;var pool3=withRH.filter(function(s){return s.t>rFT+0.05;});var src2=pool3.length>=2?pool3:withRH;var best2=src2.reduce(function(a,b){return b.rHipExt>a.rHipExt?b:a;});if(!claimed().has(best2.t))det('r_toe',best2);}
+  var sorted=samples.slice().sort(function(a,b){return a.t-b.t;});var foundMid=false;
+  for(var off=0;off<sorted.length&&!foundMid;off++){for(var di=0;di<3;di++){var d=[0,1,-1][di];var idx=Math.floor(sorted.length/2)+d*off;if(idx<0||idx>=sorted.length)continue;var s=sorted[idx];if(s&&!claimed().has(s.t)){det('mid',s);foundMid=true;break;}}}
+  if(withKn.length){var sorted2=withKn.slice().sort(function(a,b){return a.lKnAngle-b.lKnAngle;});var s2=sorted2.find(function(s){return !claimed().has(s.t);});if(s2)det('peak_kf',s2);}
+  if(withKn.length){var sorted3=withKn.slice().sort(function(a,b){return b.lKnAngle-a.lKnAngle;});var s3=sorted3.find(function(s){return !claimed().has(s.t);});if(s3)det('swing',s3);}
 }
 
 // Phase grid
 function buildPhaseGroups(){
-  const container=document.getElementById('phase-groups');container.innerHTML='';
-  PHASE_GROUPS.forEach(grp=>{
-    const section=document.createElement('div');section.className='phase-group';
-    const labelDiv=document.createElement('div');labelDiv.className='phase-group-label';labelDiv.textContent=grp.label;
-    const cardRow=document.createElement('div');cardRow.className='phase-group-cards';
+  var container=document.getElementById('phase-groups');container.innerHTML='';
+  PHASE_GROUPS.forEach(function(grp){
+    var section=document.createElement('div');section.className='phase-group';
+    var labelDiv=document.createElement('div');labelDiv.className='phase-group-label';labelDiv.textContent=grp.label;
+    var cardRow=document.createElement('div');cardRow.className='phase-group-cards';
     section.appendChild(labelDiv);section.appendChild(cardRow);container.appendChild(section);
-    grp.keys.forEach(key=>{
+    grp.keys.forEach(function(key){
       try{
-        const ph=phases[key];const idx=PHASE_DEFS.findIndex(d=>d.key===key);if(!ph)return;
-        const card=document.createElement('div');
-        card.className='phase-card'+(ph.detected?'':' undetected');card.id=`card-${key}`;
+        var ph=phases[key];var idx=PHASE_DEFS.findIndex(function(d){return d.key===key;});if(!ph)return;
+        var vidEl = getVideoElForPhase(key);
+        var vKey = getVideoKeyForPhase(key);
+        var badgeClass = vKey==='front'?'front-badge':vKey==='back'?'back-badge':'side-badge';
+        var badgeLabel = vKey.charAt(0).toUpperCase()+vKey.slice(1);
+        var card=document.createElement('div');
+        card.className='phase-card'+(ph.detected?'':' undetected');card.id='card-'+key;
         if(ph.detected){
-          card.innerHTML=`<div class="pc-hdr"><div class="pc-num">${idx+1}</div><div class="pc-name-wrap"><div class="pc-name">${ph.label}</div><div class="pc-desc">${ph.desc}</div></div><div class="pc-badge pending" id="badge-${key}">pending</div></div>
-            <div class="pc-canvas-wrap"><canvas class="pc-canvas" id="canvas-${key}"></canvas><div class="pc-loading" id="loading-${key}"><div class="pc-mini-spinner"></div></div></div>
-            <div class="pc-footer"><span class="pc-time-display" id="ptime-${key}">${ph.t.toFixed(2)}s</span><span class="pc-expand-hint">↗ Click to adjust</span></div>
-            <div class="pc-metrics-mini" id="metrics-mini-${key}"></div>`;
-          const W=videoEl.videoWidth||640,H=videoEl.videoHeight||360;
-          seekTo(ph.t).then(()=>{const c=document.getElementById(`canvas-${key}`);if(!c)return;c.width=W;c.height=H;try{c.getContext('2d').drawImage(videoEl,0,0,W,H);}catch(e){}if(ph.kps)drawPose(c.getContext('2d'),ph.kps,W,H);}).catch(()=>{});
+          card.innerHTML='<div class="pc-hdr"><div class="pc-num">'+(idx+1)+'</div><div class="pc-name-wrap"><div class="pc-name">'+ph.label+'</div><div class="pc-desc">'+ph.desc+'</div></div><span class="pc-video-badge '+badgeClass+'">'+badgeLabel+'</span><div class="pc-badge pending" id="badge-'+key+'">pending</div></div>'+
+            '<div class="pc-detects">Detects: '+ph.detectsIssue+'</div>'+
+            '<div class="pc-canvas-wrap"><canvas class="pc-canvas" id="canvas-'+key+'"></canvas><div class="pc-loading" id="loading-'+key+'"><div class="pc-mini-spinner"></div></div></div>'+
+            '<div class="pc-footer"><span class="pc-time-display" id="ptime-'+key+'">'+ph.t.toFixed(2)+'s</span><span class="pc-expand-hint">&#8599; Click to adjust</span></div>'+
+            '<div class="pc-metrics-mini" id="metrics-mini-'+key+'"></div>';
+          var W=vidEl.videoWidth||640, H=vidEl.videoHeight||360;
+          (function(k2, vidEl2, W2, H2){
+            seekTo(ph.t, vidEl2).then(function(){var c=document.getElementById('canvas-'+k2);if(!c)return;c.width=W2;c.height=H2;try{c.getContext('2d').drawImage(vidEl2,0,0,W2,H2);}catch(e){}if(phases[k2].kps)drawPose(c.getContext('2d'),phases[k2].kps,W2,H2);}).catch(function(){});
+          })(key, vidEl, W, H);
         }else{
-          card.innerHTML=`<div class="pc-hdr"><div class="pc-num">${idx+1}</div><div class="pc-name-wrap"><div class="pc-name">${ph.label}</div><div class="pc-desc">${ph.desc}</div></div><div class="pc-badge manual" id="badge-${key}">manual</div></div>
-            <div class="pc-placeholder"><div class="pc-placeholder-icon">⚠</div><div class="pc-placeholder-text">Not auto-detected</div><div class="pc-placeholder-sub">Click to manually select a frame</div></div>
-            <div class="pc-footer"><span class="pc-time-display" id="ptime-${key}">—</span><span class="pc-expand-hint" style="color:var(--warn);font-weight:600">↗ Select frame</span></div>
-            <div class="pc-metrics-mini" id="metrics-mini-${key}"></div>`;
+          card.innerHTML='<div class="pc-hdr"><div class="pc-num">'+(idx+1)+'</div><div class="pc-name-wrap"><div class="pc-name">'+ph.label+'</div><div class="pc-desc">'+ph.desc+'</div></div><span class="pc-video-badge '+badgeClass+'">'+badgeLabel+'</span><div class="pc-badge manual" id="badge-'+key+'">manual</div></div>'+
+            '<div class="pc-detects">Detects: '+ph.detectsIssue+'</div>'+
+            '<div class="pc-placeholder"><div class="pc-placeholder-icon">&#9888;</div><div class="pc-placeholder-text">Not auto-detected</div><div class="pc-placeholder-sub">Click to manually select a frame</div></div>'+
+            '<div class="pc-footer"><span class="pc-time-display" id="ptime-'+key+'">--</span><span class="pc-expand-hint" style="color:var(--warn);font-weight:600">&#8599; Select frame</span></div>'+
+            '<div class="pc-metrics-mini" id="metrics-mini-'+key+'"></div>';
         }
-        card.addEventListener('click',()=>openExpand(key));cardRow.appendChild(card);
+        card.addEventListener('click',(function(k){return function(){openExpand(k);};})(key));cardRow.appendChild(card);
       }catch(e){console.error('card error',key,e);}
     });
   });
 }
 
 async function analyzeCard(key){
-  if(!detector||!videoEl)return;const ph=phases[key];if(!ph)return;
-  const badge=document.getElementById(`badge-${key}`),loading=document.getElementById(`loading-${key}`);
+  if(!detector)return;
+  var ph=phases[key];if(!ph)return;
+  var vidEl = getVideoElForPhase(key);
+  if(!vidEl)return;
+  var vKey = getVideoKeyForPhase(key);
+  var isFrontBack = (vKey==='front'||vKey==='back');
+
+  var badge=document.getElementById('badge-'+key),loading=document.getElementById('loading-'+key);
   if(badge){badge.className='pc-badge analyzing';badge.textContent='analyzing';}
   if(loading)loading.classList.add('show');
-  await seekTo(ph.t);
-  const canvas=document.getElementById(`canvas-${key}`);if(!canvas){if(loading)loading.classList.remove('show');return;}
-  const W=videoEl.videoWidth||640,H=videoEl.videoHeight||360;
-  canvas.width=W;canvas.height=H;const ctx=canvas.getContext('2d');
-  try{ctx.drawImage(videoEl,0,0,W,H);}catch(e){}
-  let poses=null;try{poses=await detector.estimatePoses(canvas);}catch(e){}
-  if(!poses||!poses.length){try{poses=await detector.estimatePoses(videoEl);}catch(e){}}
+  await seekTo(ph.t, vidEl);
+  var canvas=document.getElementById('canvas-'+key);if(!canvas){if(loading)loading.classList.remove('show');return;}
+  var W=vidEl.videoWidth||640, H=vidEl.videoHeight||360;
+  canvas.width=W;canvas.height=H;var ctx=canvas.getContext('2d');
+  try{ctx.drawImage(vidEl,0,0,W,H);}catch(e){}
+  var poses=null;try{poses=await detector.estimatePoses(canvas);}catch(e){}
+  if(!poses||!poses.length){try{poses=await detector.estimatePoses(vidEl);}catch(e){}}
   if(!poses||!poses.length){if(badge){badge.className='pc-badge manual';badge.textContent='no pose';}if(loading)loading.classList.remove('show');return;}
-  const kps=poses[0].keypoints;ph.kps=kps;ph.metrics=computeMetrics(kps);ph.sideView=isSideView(kps);
-  drawPose(ctx,kps,W,H);
-  if(!ph.sideView){renderSideViewWarning(key);}else{renderMiniMetrics(key,ph.metrics);updateSummaryCol(key);}
+  var kps=poses[0].keypoints;ph.kps=kps;
+
+  if(isFrontBack){
+    ph.frontBackMetrics = computeFrontBackMetrics(kps);
+    ph.metrics = ph.frontBackMetrics; // mark as analyzed
+    ph.sideView = false;
+    drawPose(ctx,kps,W,H);
+    renderMiniMetricsFrontBack(key, ph.frontBackMetrics);
+  } else {
+    ph.metrics=computeMetrics(kps);ph.sideView=isSideView(kps);
+    drawPose(ctx,kps,W,H);
+    if(!ph.sideView){renderSideViewWarning(key);}else{renderMiniMetrics(key,ph.metrics);updateSummaryCol(key);}
+  }
   if(badge){badge.className='pc-badge ok';badge.textContent='analyzed';}if(loading)loading.classList.remove('show');
   checkAllAnalyzed();
 }
 
 function renderMiniMetrics(key,m){
-  const el=document.getElementById(`metrics-mini-${key}`);if(!el)return;
-  const relevant=METRIC_ROWS.filter(r=>isRelevant(key,r.key)).slice(0,3);
-  el.innerHTML=relevant.map(r=>{const v=m[r.key],d=v!=null?r.fmt(v):'—',sym=v!=null?positionSymbol(v,r.key,key):'';return `<span class="mm-item ${v==null?'na':''}">${sym} ${r.label} ${d}</span>`;}).join('');
+  var el=document.getElementById('metrics-mini-'+key);if(!el)return;
+  var relevant=METRIC_ROWS.filter(function(r){return isRelevant(key,r.key);}).slice(0,3);
+  el.innerHTML=relevant.map(function(r){var v=m[r.key],d=v!=null?r.fmt(v):'--',sym=v!=null?positionSymbol(v,r.key,key):'';return '<span class="mm-item '+(v==null?'na':'')+'">'+sym+' '+r.label+' '+d+'</span>';}).join('');
+}
+
+function renderMiniMetricsFrontBack(key, fbm) {
+  var el=document.getElementById('metrics-mini-'+key);if(!el)return;
+  var items = [];
+  if(fbm.hipDropAbs !== undefined && fbm.hipDropAbs !== null) {
+    items.push('<span class="mm-item">Hip drop: '+(fbm.hipDropAbs*100).toFixed(0)+'%</span>');
+  }
+  var maxCross = Math.max(fbm.lWristCross||0, fbm.rWristCross||0);
+  if(maxCross > 0.05) {
+    items.push('<span class="mm-item">Arm crossing: detected</span>');
+  }
+  var maxValgus = Math.max(fbm.lKneeValgus||0, fbm.rKneeValgus||0);
+  if(maxValgus > 0.05) {
+    items.push('<span class="mm-item">Knee valgus: detected</span>');
+  }
+  if(items.length===0) {
+    items.push('<span class="mm-item">Avg confidence: '+(fbm.avgConfidence||0).toFixed(2)+'</span>');
+  }
+  el.innerHTML = items.join('');
 }
 
 // Expand panel
 function openExpand(key){
-  expandKey=key;const ph=phases[key];const idx=PHASE_DEFS.findIndex(d=>d.key===key);epCurrentT=ph.t||0;
+  expandKey=key;var ph=phases[key];var idx=PHASE_DEFS.findIndex(function(d){return d.key===key;});epCurrentT=ph.t||0;
+  var vidEl = getVideoElForPhase(key);
   document.getElementById('expand-overlay').classList.add('open');
-  const isUndet=!ph.detected||!ph.kps;
+  var isUndet=!ph.detected||!ph.kps;
   document.getElementById('ep-hdr').className='ep-hdr'+(isUndet?' undetected':'');
   document.getElementById('ep-num').textContent=idx+1;document.getElementById('ep-name').textContent=ph.label;document.getElementById('ep-desc').textContent=ph.desc;
   document.getElementById('ep-undetected-notice').className='ep-undetected-notice'+(isUndet?' show':'');
-  const scrub=document.getElementById('ep-scrubber');const dur=videoEl.duration||30;
+  var scrub=document.getElementById('ep-scrubber');var dur=vidEl.duration||30;
   scrub.min=0;scrub.max=isFinite(dur)?dur:30;scrub.step=0.04;scrub.value=epCurrentT;
   document.getElementById('ep-time').textContent=epCurrentT.toFixed(2)+'s';
-  const guide=ph.guide||PHASE_DEFS[0].guide;
+  var guide=ph.guide||PHASE_DEFS[0].guide;
   document.getElementById('ep-guide-title').textContent=guide.title;document.getElementById('ep-guide-desc').textContent=guide.desc;
-  document.getElementById('ep-guide-checks').innerHTML=guide.checks.map(c=>`<div class="pi-check"><span class="pi-check-icon">◆</span><span>${c}</span></div>`).join('');
+  document.getElementById('ep-guide-checks').innerHTML=guide.checks.map(function(c){return '<div class="pi-check"><span class="pi-check-icon">&#9670;</span><span>'+c+'</span></div>';}).join('');
   document.getElementById('ep-guide-tip').textContent='Tip: '+guide.tip;
-  document.getElementById('nav-phase-btns').innerHTML=PHASE_DEFS.map((def,i)=>`<button class="nav-phase-btn ${def.key===key?'cur':''} ${!phases[def.key]?.detected?'undetected':''}" onclick="openExpand('${def.key}')">${i+1}. ${def.label}</button>`).join('');
-  if(ph.metrics)renderExpandMetrics(ph.metrics);else document.getElementById('ep-metrics').innerHTML='<div class="ep-no-data">Click ↻ Analyze to measure angles</div>';
+  document.getElementById('nav-phase-btns').innerHTML=PHASE_DEFS.map(function(def,i){return '<button class="nav-phase-btn '+(def.key===key?'cur':'')+' '+(!(phases[def.key]&&phases[def.key].detected)?'undetected':'')+'" onclick="openExpand(\''+def.key+'\')">'+(i+1)+'. '+def.label+'</button>';}).join('');
+
+  var vKey = getVideoKeyForPhase(key);
+  var isFrontBack = (vKey==='front'||vKey==='back');
+
+  if(isFrontBack && ph.frontBackMetrics){
+    renderExpandMetricsFrontBack(ph.frontBackMetrics);
+  } else if(ph.metrics && !isFrontBack){
+    renderExpandMetrics(ph.metrics);
+  } else {
+    document.getElementById('ep-metrics').innerHTML='<div class="ep-no-data">Click &#8635; Analyze to measure angles</div>';
+  }
   drawExpandFrame(epCurrentT,ph.kps);
   renderQualityCard(ph.kps);
-  document.querySelectorAll('.phase-card').forEach(c=>c.classList.toggle('dimmed',c.id!==`card-${key}`));
+  document.querySelectorAll('.phase-card').forEach(function(c){c.classList.toggle('dimmed',c.id!=='card-'+key);});
   document.addEventListener('keydown',onExpandKey);
 }
-function closeExpand(){document.getElementById('expand-overlay').classList.remove('open');document.querySelectorAll('.phase-card').forEach(c=>c.classList.remove('dimmed'));expandKey=null;document.removeEventListener('keydown',onExpandKey);}
+function closeExpand(){document.getElementById('expand-overlay').classList.remove('open');document.querySelectorAll('.phase-card').forEach(function(c){c.classList.remove('dimmed');});expandKey=null;document.removeEventListener('keydown',onExpandKey);}
 function onExpandKey(e){if(e.key==='Escape')closeExpand();}
-document.getElementById('expand-overlay').addEventListener('click',e=>{if(e.target===document.getElementById('expand-overlay'))closeExpand();});
+document.getElementById('expand-overlay').addEventListener('click',function(e){if(e.target===document.getElementById('expand-overlay'))closeExpand();});
 
 async function drawExpandFrame(t,kps){
-  const canvas=document.getElementById('ep-canvas');const W=videoEl.videoWidth||640,H=videoEl.videoHeight||360;
-  canvas.width=W;canvas.height=H;await seekTo(t);const ctx=canvas.getContext('2d');
-  try{ctx.drawImage(videoEl,0,0,W,H);}catch(e){}if(kps)drawPose(ctx,kps,W,H);
+  var vidEl = getVideoElForPhase(expandKey);
+  var canvas=document.getElementById('ep-canvas');var W=vidEl.videoWidth||640,H=vidEl.videoHeight||360;
+  canvas.width=W;canvas.height=H;await seekTo(t, vidEl);var ctx=canvas.getContext('2d');
+  try{ctx.drawImage(vidEl,0,0,W,H);}catch(e){}if(kps)drawPose(ctx,kps,W,H);
 }
 function epScrub(val){
   epCurrentT=parseFloat(val);document.getElementById('ep-time').textContent=epCurrentT.toFixed(2)+'s';
   if(phases[expandKey])phases[expandKey].t=epCurrentT;
-  const ptEl=document.getElementById(`ptime-${expandKey}`);if(ptEl)ptEl.textContent=epCurrentT.toFixed(2)+'s';
-  clearTimeout(epDbt.t);epDbt.t=setTimeout(()=>drawExpandFrame(epCurrentT,phases[expandKey]?.kps),100);
+  var ptEl=document.getElementById('ptime-'+expandKey);if(ptEl)ptEl.textContent=epCurrentT.toFixed(2)+'s';
+  clearTimeout(epDbt.t);epDbt.t=setTimeout(function(){drawExpandFrame(epCurrentT,phases[expandKey]?phases[expandKey].kps:null);},100);
 }
-function epStep(frames){const scrub=document.getElementById('ep-scrubber');const newT=Math.max(parseFloat(scrub.min),Math.min(parseFloat(scrub.max),epCurrentT+frames*.04));scrub.value=newT;epScrub(newT);}
+function epStep(frames){var scrub=document.getElementById('ep-scrubber');var newT=Math.max(parseFloat(scrub.min),Math.min(parseFloat(scrub.max),epCurrentT+frames*0.04));scrub.value=newT;epScrub(newT);}
+
 async function epReanalyze(){
   if(!detector||epAnalyzing)return;epAnalyzing=true;
-  const btn=document.getElementById('ep-re-btn'),loading=document.getElementById('ep-loading');
-  btn.disabled=true;btn.textContent='Analyzing…';loading.classList.add('show');
-  await seekTo(epCurrentT);
-  const canvas=document.getElementById('ep-canvas');const W=videoEl.videoWidth||640,H=videoEl.videoHeight||360;
-  canvas.width=W;canvas.height=H;const ctx=canvas.getContext('2d');try{ctx.drawImage(videoEl,0,0,W,H);}catch(e){}
-  let poses=null;try{poses=await detector.estimatePoses(canvas);}catch(e){}
-  if(!poses||!poses.length){try{poses=await detector.estimatePoses(videoEl);}catch(e){}}
+  var vidEl = getVideoElForPhase(expandKey);
+  var vKey = getVideoKeyForPhase(expandKey);
+  var isFrontBack = (vKey==='front'||vKey==='back');
+  var btn=document.getElementById('ep-re-btn'),loading=document.getElementById('ep-loading');
+  btn.disabled=true;btn.textContent='Analyzing...';loading.classList.add('show');
+  await seekTo(epCurrentT, vidEl);
+  var canvas=document.getElementById('ep-canvas');var W=vidEl.videoWidth||640,H=vidEl.videoHeight||360;
+  canvas.width=W;canvas.height=H;var ctx=canvas.getContext('2d');try{ctx.drawImage(vidEl,0,0,W,H);}catch(e){}
+  var poses=null;try{poses=await detector.estimatePoses(canvas);}catch(e){}
+  if(!poses||!poses.length){try{poses=await detector.estimatePoses(vidEl);}catch(e){}}
   loading.classList.remove('show');
-  if(!poses||!poses.length){document.getElementById('ep-metrics').innerHTML='<div class="ep-no-data">No pose detected — try a different frame</div>';btn.disabled=false;btn.textContent='↻ Analyze';epAnalyzing=false;return;}
-  const kps=poses[0].keypoints;const ph=phases[expandKey];ph.kps=kps;ph.metrics=computeMetrics(kps);ph.detected=true;ph.sideView=isSideView(kps);
-  drawPose(ctx,kps,W,H);
-  if(!ph.sideView){
-    document.getElementById('ep-metrics').innerHTML=
-      '<div class="ep-no-data" style="color:var(--warn)">⚠ Side view required for angle analysis — this frame appears to be front or back facing</div>';
+  if(!poses||!poses.length){document.getElementById('ep-metrics').innerHTML='<div class="ep-no-data">No pose detected -- try a different frame</div>';btn.disabled=false;btn.textContent='\u21bb Analyze';epAnalyzing=false;return;}
+  var kps=poses[0].keypoints;var ph=phases[expandKey];ph.kps=kps;ph.detected=true;
+
+  if(isFrontBack){
+    ph.frontBackMetrics = computeFrontBackMetrics(kps);
+    ph.metrics = ph.frontBackMetrics;
+    ph.sideView = false;
+    drawPose(ctx,kps,W,H);
+    renderExpandMetricsFrontBack(ph.frontBackMetrics);
+    renderMiniMetricsFrontBack(expandKey, ph.frontBackMetrics);
   } else {
-    renderExpandMetrics(ph.metrics);
+    ph.metrics=computeMetrics(kps);ph.sideView=isSideView(kps);
+    drawPose(ctx,kps,W,H);
+    if(!ph.sideView){
+      document.getElementById('ep-metrics').innerHTML=
+        '<div class="ep-no-data" style="color:var(--warn)">&#9888; Side view required for angle analysis -- this frame appears to be front or back facing</div>';
+    } else {
+      renderExpandMetrics(ph.metrics);
+    }
+    renderMiniMetrics(expandKey,ph.metrics);updateSummaryCol(expandKey);
   }
-  const ovCard=document.getElementById(`card-${expandKey}`);if(ovCard)ovCard.classList.remove('undetected');
-  let ovCanvas=document.getElementById(`canvas-${expandKey}`);
+
+  var ovCard=document.getElementById('card-'+expandKey);if(ovCard)ovCard.classList.remove('undetected');
+  var ovCanvas=document.getElementById('canvas-'+expandKey);
   if(!ovCanvas&&ovCard){
-    const def=PHASE_DEFS.find(d=>d.key===expandKey);const idx=PHASE_DEFS.findIndex(d=>d.key===expandKey);
-    ovCard.innerHTML=`<div class="pc-hdr"><div class="pc-num">${idx+1}</div><div class="pc-name-wrap"><div class="pc-name">${def.label}</div><div class="pc-desc">${def.desc}</div></div><div class="pc-badge ok" id="badge-${expandKey}">analyzed</div></div>
-      <div class="pc-canvas-wrap"><canvas class="pc-canvas" id="canvas-${expandKey}"></canvas><div class="pc-loading" id="loading-${expandKey}"><div class="pc-mini-spinner"></div></div></div>
-      <div class="pc-footer"><span class="pc-time-display" id="ptime-${expandKey}">${epCurrentT.toFixed(2)}s</span><span class="pc-expand-hint">↗ Click to adjust</span></div>
-      <div class="pc-metrics-mini" id="metrics-mini-${expandKey}"></div>`;
-    ovCard.addEventListener('click',()=>openExpand(expandKey));ovCanvas=document.getElementById(`canvas-${expandKey}`);
+    var def=PHASE_DEFS.find(function(d){return d.key===expandKey;});var idx=PHASE_DEFS.findIndex(function(d){return d.key===expandKey;});
+    var vk2 = getVideoKeyForPhase(expandKey);
+    var bc2 = vk2==='front'?'front-badge':vk2==='back'?'back-badge':'side-badge';
+    var bl2 = vk2.charAt(0).toUpperCase()+vk2.slice(1);
+    ovCard.innerHTML='<div class="pc-hdr"><div class="pc-num">'+(idx+1)+'</div><div class="pc-name-wrap"><div class="pc-name">'+def.label+'</div><div class="pc-desc">'+def.desc+'</div></div><span class="pc-video-badge '+bc2+'">'+bl2+'</span><div class="pc-badge ok" id="badge-'+expandKey+'">analyzed</div></div>'+
+      '<div class="pc-detects">Detects: '+def.detectsIssue+'</div>'+
+      '<div class="pc-canvas-wrap"><canvas class="pc-canvas" id="canvas-'+expandKey+'"></canvas><div class="pc-loading" id="loading-'+expandKey+'"><div class="pc-mini-spinner"></div></div></div>'+
+      '<div class="pc-footer"><span class="pc-time-display" id="ptime-'+expandKey+'">'+epCurrentT.toFixed(2)+'s</span><span class="pc-expand-hint">&#8599; Click to adjust</span></div>'+
+      '<div class="pc-metrics-mini" id="metrics-mini-'+expandKey+'"></div>';
+    ovCard.addEventListener('click',(function(k){return function(){openExpand(k);};})(expandKey));ovCanvas=document.getElementById('canvas-'+expandKey);
   }
   if(ovCanvas){ovCanvas.width=W;ovCanvas.height=H;try{ovCanvas.getContext('2d').drawImage(canvas,0,0);}catch(e){}}
-  const badge=document.getElementById(`badge-${expandKey}`);if(badge){badge.className='pc-badge ok';badge.textContent='analyzed';}
-  renderMiniMetrics(expandKey,ph.metrics);updateSummaryCol(expandKey);
-  const ptEl=document.getElementById(`ptime-${expandKey}`);if(ptEl){ptEl.textContent=epCurrentT.toFixed(2)+'s';ptEl.style.color='var(--cyan)';}
+  var badge=document.getElementById('badge-'+expandKey);if(badge){badge.className='pc-badge ok';badge.textContent='analyzed';}
+  if(!isFrontBack){
+    renderMiniMetrics(expandKey,ph.metrics);updateSummaryCol(expandKey);
+  } else {
+    renderMiniMetricsFrontBack(expandKey, ph.frontBackMetrics);
+  }
+  var ptEl=document.getElementById('ptime-'+expandKey);if(ptEl){ptEl.textContent=epCurrentT.toFixed(2)+'s';ptEl.style.color='var(--cyan)';}
   renderQualityCard(kps);
-  btn.disabled=false;btn.textContent='↻ Analyze';epAnalyzing=false;
+  btn.disabled=false;btn.textContent='\u21bb Analyze';epAnalyzing=false;
   checkAllAnalyzed();
 }
+
 function renderExpandMetrics(m){
-  const pk=expandKey||'mid';
-  document.getElementById('ep-metrics').innerHTML=METRIC_ROWS.filter(r=>isRelevant(pk,r.key)).map(r=>{
-    const v=m[r.key],d=v!=null?r.fmt(v):'—';
-    const bio=METRIC_BIO[r.key]||'';
-    const bell=v!=null?buildBellCurveSVG(v,r.key,pk,r.fmt):'';
-    const pos=v!=null?positionLabel(v,r.key,pk):'';
-    return `<div class="ep-metric-block">
-      <div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:${r.dot}"></div><strong>${r.label}</strong></div>
-      <div class="ep-metric-bio">${bio}</div>
-      <div class="bell-curve-wrap">${bell}</div>
-      <div class="ep-metric-measured">Measured value: <span class="ep-mv">${d}</span>${pos?' · <span style="color:var(--muted2)">'+pos+'</span>':''}</div>
-    </div>`;
+  var pk=expandKey||'mid';
+  document.getElementById('ep-metrics').innerHTML=METRIC_ROWS.filter(function(r){return isRelevant(pk,r.key);}).map(function(r){
+    var v=m[r.key],d=v!=null?r.fmt(v):'--';
+    var bio=METRIC_BIO[r.key]||'';
+    var bell=v!=null?buildBellCurveSVG(v,r.key,pk,r.fmt):'';
+    var pos=v!=null?positionLabel(v,r.key,pk):'';
+    return '<div class="ep-metric-block">'+
+      '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:'+r.dot+'"></div><strong>'+r.label+'</strong></div>'+
+      '<div class="ep-metric-bio">'+bio+'</div>'+
+      '<div class="bell-curve-wrap">'+bell+'</div>'+
+      '<div class="ep-metric-measured">Measured value: <span class="ep-mv">'+d+'</span>'+(pos?' -- <span style="color:var(--muted2)">'+pos+'</span>':'')+'</div>'+
+    '</div>';
   }).join('');
 }
 
+function renderExpandMetricsFrontBack(fbm) {
+  var html = '';
+  html += '<div class="ep-metric-block">';
+  html += '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:var(--purple)"></div><strong>Hip drop</strong></div>';
+  html += '<div class="ep-metric-bio">Contralateral pelvis drop during single-leg stance, indicating glute medius strength.</div>';
+  html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(fbm.hipDropAbs!==null?(fbm.hipDropAbs*100).toFixed(1)+'% of torso height':'--')+'</span>';
+  if(fbm.hipDrop!==null) html += ' -- <span style="color:var(--muted2)">'+(fbm.hipDrop>0?'Left hip lower':'Right hip lower')+'</span>';
+  html += '</div></div>';
+
+  html += '<div class="ep-metric-block">';
+  html += '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:var(--left)"></div><strong>L wrist crossing</strong></div>';
+  html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(fbm.lWristCross!==null?(fbm.lWristCross*100).toFixed(1)+'% of shoulder width':'--')+'</span></div></div>';
+
+  html += '<div class="ep-metric-block">';
+  html += '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:var(--right)"></div><strong>R wrist crossing</strong></div>';
+  html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(fbm.rWristCross!==null?(fbm.rWristCross*100).toFixed(1)+'% of shoulder width':'--')+'</span></div></div>';
+
+  html += '<div class="ep-metric-block">';
+  html += '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:var(--left)"></div><strong>L knee valgus</strong></div>';
+  html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(fbm.lKneeValgus!==null?(fbm.lKneeValgus*100).toFixed(1)+'% of hip width':'--')+'</span></div></div>';
+
+  html += '<div class="ep-metric-block">';
+  html += '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:var(--right)"></div><strong>R knee valgus</strong></div>';
+  html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(fbm.rKneeValgus!==null?(fbm.rKneeValgus*100).toFixed(1)+'% of hip width':'--')+'</span></div></div>';
+
+  html += '<div class="ep-metric-block">';
+  html += '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:var(--cyan)"></div><strong>Avg confidence</strong></div>';
+  html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(fbm.avgConfidence||0).toFixed(2)+'</span></div></div>';
+
+  document.getElementById('ep-metrics').innerHTML = html;
+}
+
 // Drawing
-// Returns true if keypoints indicate a side-view shot.
-// Heuristic: in side view, left & right hips have similar x-coords (stacked).
-// In front/back view they are spread wide. We normalise by torso height.
 function isSideView(kps){
-  const MIN = 0.25;
-  const lHi = (kps[11]&&kps[11].score>=MIN) ? kps[11] : null;
-  const rHi = (kps[12]&&kps[12].score>=MIN) ? kps[12] : null;
-  const lSh = (kps[5] &&kps[5].score>=MIN)  ? kps[5]  : null;
-  const rSh = (kps[6] &&kps[6].score>=MIN)  ? kps[6]  : null;
-  if(!lHi||!rHi) return true; // can't tell — don't block
-  // Hip horizontal spread normalised by torso height
-  const hipSpread = Math.abs(lHi.x - rHi.x);
-  const torsoH = (lSh&&rSh)
+  var MIN2 = 0.25;
+  var lHi = (kps[11]&&kps[11].score>=MIN2) ? kps[11] : null;
+  var rHi = (kps[12]&&kps[12].score>=MIN2) ? kps[12] : null;
+  var lSh = (kps[5] &&kps[5].score>=MIN2)  ? kps[5]  : null;
+  var rSh = (kps[6] &&kps[6].score>=MIN2)  ? kps[6]  : null;
+  if(!lHi||!rHi) return true;
+  var hipSpread = Math.abs(lHi.x - rHi.x);
+  var torsoH = (lSh&&rSh)
     ? Math.abs(((lSh.y+rSh.y)/2) - ((lHi.y+rHi.y)/2))
     : Math.abs(lHi.y - rHi.y) * 2 || 100;
-  const ratio = hipSpread / (torsoH || 100);
-  // Side view: ratio < 0.7  |  Clear front/back: ratio > 0.9
-  // Be generous — only flag obvious front/back views, not slightly angled shots
+  var ratio = hipSpread / (torsoH || 100);
   return ratio < 0.7;
 }
 
 function drawPose(ctx,kps,W,H){
-  ctx.save();SKELETON.forEach(([a,b])=>{const ka=kps[a],kb=kps[b];if(!ka||!kb||ka.score<MIN_CONF||kb.score<MIN_CONF)return;ctx.beginPath();ctx.moveTo(ka.x,ka.y);ctx.lineTo(kb.x,kb.y);ctx.strokeStyle=LEFT_KPS.has(a)&&LEFT_KPS.has(b)?'#00d4aa':RIGHT_KPS.has(a)&&RIGHT_KPS.has(b)?'#ff6b35':'#8b7cf8';ctx.lineWidth=Math.max(2,W*.003);ctx.lineCap='round';ctx.globalAlpha=.85;ctx.stroke();});
-  ctx.globalAlpha=1;const r=Math.max(4,W*.007);
-  kps.forEach((k,i)=>{if(!k||k.score<MIN_CONF)return;ctx.beginPath();ctx.arc(k.x,k.y,r,0,2*Math.PI);ctx.fillStyle=i<5?'#fff':LEFT_KPS.has(i)?'#00d4aa':'#ff6b35';ctx.fill();ctx.strokeStyle='rgba(0,0,0,.55)';ctx.lineWidth=Math.max(1.5,W*.002);ctx.stroke();});
-  // Only draw angle overlays for side-view footage
+  ctx.save();SKELETON.forEach(function(pair){var a=pair[0],b=pair[1];var ka=kps[a],kb=kps[b];if(!ka||!kb||ka.score<MIN_CONF||kb.score<MIN_CONF)return;ctx.beginPath();ctx.moveTo(ka.x,ka.y);ctx.lineTo(kb.x,kb.y);ctx.strokeStyle=LEFT_KPS.has(a)&&LEFT_KPS.has(b)?'#00d4aa':RIGHT_KPS.has(a)&&RIGHT_KPS.has(b)?'#ff6b35':'#8b7cf8';ctx.lineWidth=Math.max(2,W*0.003);ctx.lineCap='round';ctx.globalAlpha=0.85;ctx.stroke();});
+  ctx.globalAlpha=1;var r=Math.max(4,W*0.007);
+  kps.forEach(function(k,i){if(!k||k.score<MIN_CONF)return;ctx.beginPath();ctx.arc(k.x,k.y,r,0,2*Math.PI);ctx.fillStyle=i<5?'#fff':LEFT_KPS.has(i)?'#00d4aa':'#ff6b35';ctx.fill();ctx.strokeStyle='rgba(0,0,0,.55)';ctx.lineWidth=Math.max(1.5,W*0.002);ctx.stroke();});
   if(isSideView(kps)){
     drawAngles(ctx,kps,W);
   } else {
-    // Draw a non-intrusive notice on the frame
     ctx.save();
-    const fs=Math.max(12,Math.min(18,W*.02));
-    ctx.font=`700 ${fs}px 'Space Mono','Courier New',monospace`;
+    var fs=Math.max(12,Math.min(18,W*0.02));
+    ctx.font='700 '+fs+'px "Space Mono","Courier New",monospace';
     ctx.textAlign='center';ctx.textBaseline='middle';
-    const msg='Side view required for angle analysis';
-    const tw=ctx.measureText(msg).width+20;
-    const bh=fs+12;
+    var msg='Front/back view -- pose overlay only';
+    var tw=ctx.measureText(msg).width+20;
+    var bh=fs+12;
     ctx.fillStyle='rgba(6,8,13,.82)';
     ctx.beginPath();
     if(ctx.roundRect)ctx.roundRect(W/2-tw/2,H-bh-12,tw,bh,6);
     else ctx.rect(W/2-tw/2,H-bh-12,tw,bh);
     ctx.fill();
-    ctx.fillStyle='#f5a623';
+    ctx.fillStyle='#8b7cf8';
     ctx.fillText(msg,W/2,H-bh/2-12);
     ctx.restore();
   }
   ctx.restore();
 }
 function drawAngles(ctx,kps,W){
-  const r=Math.max(28,W*.046);const p=i=>(kps[i]&&kps[i].score>=MIN_CONF)?kps[i]:null;
-  const lSh=p(5),rSh=p(6),lHi=p(11),rHi=p(12),lKn=p(13),rKn=p(14),lAn=p(15),rAn=p(16),lEl=p(7),rEl=p(8),lWr=p(9),rWr=p(10);
-  if(lSh&&rSh&&lHi&&rHi){const shM={x:(lSh.x+rSh.x)/2,y:(lSh.y+rSh.y)/2},hiM={x:(lHi.x+rHi.x)/2,y:(lHi.y+rHi.y)/2};const lean=Math.atan2(shM.x-hiM.x,hiM.y-shM.y)*180/Math.PI;ctx.save();ctx.beginPath();ctx.moveTo(hiM.x,hiM.y);ctx.lineTo(shM.x,shM.y);ctx.strokeStyle='#f5c842';ctx.lineWidth=Math.max(2,W*.003);ctx.setLineDash([Math.max(5,W*.006),Math.max(3,W*.004)]);ctx.stroke();ctx.setLineDash([]);ctx.beginPath();ctx.moveTo(hiM.x,hiM.y);ctx.lineTo(hiM.x,hiM.y-Math.abs(hiM.y-shM.y));ctx.strokeStyle='rgba(245,200,66,.22)';ctx.lineWidth=Math.max(1,W*.001);ctx.setLineDash([4,4]);ctx.stroke();ctx.setLineDash([]);ctx.restore();drawLabel(ctx,`${lean>0?'+':''}${lean.toFixed(1)}°`,(shM.x+hiM.x)/2+r*.8,(shM.y+hiM.y)/2,'#f5c842',W);}
+  var r=Math.max(28,W*0.046);var p=function(i){return (kps[i]&&kps[i].score>=MIN_CONF)?kps[i]:null;};
+  var lSh=p(5),rSh=p(6),lHi=p(11),rHi=p(12),lKn=p(13),rKn=p(14),lAn=p(15),rAn=p(16),lEl=p(7),rEl=p(8),lWr=p(9),rWr=p(10);
+  if(lSh&&rSh&&lHi&&rHi){var shM={x:(lSh.x+rSh.x)/2,y:(lSh.y+rSh.y)/2},hiM={x:(lHi.x+rHi.x)/2,y:(lHi.y+rHi.y)/2};var lean=Math.atan2(shM.x-hiM.x,hiM.y-shM.y)*180/Math.PI;ctx.save();ctx.beginPath();ctx.moveTo(hiM.x,hiM.y);ctx.lineTo(shM.x,shM.y);ctx.strokeStyle='#f5c842';ctx.lineWidth=Math.max(2,W*0.003);ctx.setLineDash([Math.max(5,W*0.006),Math.max(3,W*0.004)]);ctx.stroke();ctx.setLineDash([]);ctx.beginPath();ctx.moveTo(hiM.x,hiM.y);ctx.lineTo(hiM.x,hiM.y-Math.abs(hiM.y-shM.y));ctx.strokeStyle='rgba(245,200,66,.22)';ctx.lineWidth=Math.max(1,W*0.001);ctx.setLineDash([4,4]);ctx.stroke();ctx.setLineDash([]);ctx.restore();drawLabel(ctx,(lean>0?'+':'')+lean.toFixed(1)+'\u00b0',(shM.x+hiM.x)/2+r*0.8,(shM.y+hiM.y)/2,'#f5c842',W);}
   if(lHi&&lKn&&lAn)arcAt(ctx,lKn,lHi,lAn,'#00d4aa',r,W);if(rHi&&rKn&&rAn)arcAt(ctx,rKn,rHi,rAn,'#ff6b35',r,W);
-  if(lSh&&lHi&&lKn)arcAt(ctx,lHi,lSh,lKn,'#00b890',r*.72,W);if(rSh&&rHi&&rKn)arcAt(ctx,rHi,rSh,rKn,'#e05520',r*.72,W);
-  if(lSh&&lEl&&lWr)arcAt(ctx,lEl,lSh,lWr,'#00c0a0',r*.62,W);if(rSh&&rEl&&rWr)arcAt(ctx,rEl,rSh,rWr,'#e06030',r*.62,W);
+  if(lSh&&lHi&&lKn)arcAt(ctx,lHi,lSh,lKn,'#00b890',r*0.72,W);if(rSh&&rHi&&rKn)arcAt(ctx,rHi,rSh,rKn,'#e05520',r*0.72,W);
+  if(lSh&&lEl&&lWr)arcAt(ctx,lEl,lSh,lWr,'#00c0a0',r*0.62,W);if(rSh&&rEl&&rWr)arcAt(ctx,rEl,rSh,rWr,'#e06030',r*0.62,W);
 }
-function arcAt(ctx,vertex,p1,p2,color,r,W){const angle=calcAngle(p1,vertex,p2);if(!angle)return;const a1=Math.atan2(p1.y-vertex.y,p1.x-vertex.x),a2=Math.atan2(p2.y-vertex.y,p2.x-vertex.x);let diff=a2-a1;while(diff>Math.PI)diff-=2*Math.PI;while(diff<-Math.PI)diff+=2*Math.PI;ctx.save();ctx.beginPath();ctx.moveTo(vertex.x,vertex.y);ctx.arc(vertex.x,vertex.y,r,a1,a2,diff<0);ctx.closePath();ctx.fillStyle=color+'15';ctx.fill();ctx.beginPath();ctx.arc(vertex.x,vertex.y,r,a1,a2,diff<0);ctx.strokeStyle=color;ctx.lineWidth=Math.max(1.5,r*.045);ctx.stroke();ctx.restore();const midA=a1+diff/2;drawLabel(ctx,`${angle.toFixed(0)}°`,vertex.x+(r+r*.55)*Math.cos(midA),vertex.y+(r+r*.55)*Math.sin(midA),color,W);}
-function drawLabel(ctx,text,x,y,color,W){ctx.save();const fs=Math.max(11,Math.min(17,W*.018));ctx.font=`700 ${fs}px 'Space Mono','Courier New',monospace`;ctx.textAlign='center';ctx.textBaseline='middle';const tw=ctx.measureText(text).width,pw=tw+9,ph=fs+7;ctx.fillStyle='rgba(6,8,13,.84)';ctx.beginPath();if(ctx.roundRect)ctx.roundRect(x-pw/2,y-ph/2,pw,ph,3);else ctx.rect(x-pw/2,y-ph/2,pw,ph);ctx.fill();ctx.fillStyle=color;ctx.fillText(text,x,y);ctx.restore();}
-function drawMiniSkeleton(ctx,kps,sx,sy){SKELETON.forEach(([a,b])=>{const ka=kps[a],kb=kps[b];if(!ka||!kb||ka.score<MIN_CONF||kb.score<MIN_CONF)return;ctx.beginPath();ctx.moveTo(ka.x*sx,ka.y*sy);ctx.lineTo(kb.x*sx,kb.y*sy);ctx.strokeStyle=LEFT_KPS.has(a)&&LEFT_KPS.has(b)?'#00d4aa':RIGHT_KPS.has(a)&&RIGHT_KPS.has(b)?'#ff6b35':'#8b7cf8';ctx.lineWidth=1.5;ctx.globalAlpha=.8;ctx.stroke();});ctx.globalAlpha=1;kps.forEach((k,i)=>{if(!k||k.score<MIN_CONF)return;ctx.beginPath();ctx.arc(k.x*sx,k.y*sy,2.5,0,2*Math.PI);ctx.fillStyle=i<5?'#fff':LEFT_KPS.has(i)?'#00d4aa':'#ff6b35';ctx.fill();});}
+function arcAt(ctx,vertex,p1,p2,color,r,W){var angle=calcAngle(p1,vertex,p2);if(!angle)return;var a1=Math.atan2(p1.y-vertex.y,p1.x-vertex.x),a2=Math.atan2(p2.y-vertex.y,p2.x-vertex.x);var diff=a2-a1;while(diff>Math.PI)diff-=2*Math.PI;while(diff<-Math.PI)diff+=2*Math.PI;ctx.save();ctx.beginPath();ctx.moveTo(vertex.x,vertex.y);ctx.arc(vertex.x,vertex.y,r,a1,a2,diff<0);ctx.closePath();ctx.fillStyle=color+'15';ctx.fill();ctx.beginPath();ctx.arc(vertex.x,vertex.y,r,a1,a2,diff<0);ctx.strokeStyle=color;ctx.lineWidth=Math.max(1.5,r*0.045);ctx.stroke();ctx.restore();var midA=a1+diff/2;drawLabel(ctx,angle.toFixed(0)+'\u00b0',vertex.x+(r+r*0.55)*Math.cos(midA),vertex.y+(r+r*0.55)*Math.sin(midA),color,W);}
+function drawLabel(ctx,text,x,y,color,W){ctx.save();var fs=Math.max(11,Math.min(17,W*0.018));ctx.font='700 '+fs+'px "Space Mono","Courier New",monospace';ctx.textAlign='center';ctx.textBaseline='middle';var tw=ctx.measureText(text).width,pw=tw+9,ph=fs+7;ctx.fillStyle='rgba(6,8,13,.84)';ctx.beginPath();if(ctx.roundRect)ctx.roundRect(x-pw/2,y-ph/2,pw,ph,3);else ctx.rect(x-pw/2,y-ph/2,pw,ph);ctx.fill();ctx.fillStyle=color;ctx.fillText(text,x,y);ctx.restore();}
+function drawMiniSkeleton(ctx,kps,sx,sy){SKELETON.forEach(function(pair){var a=pair[0],b=pair[1];var ka=kps[a],kb=kps[b];if(!ka||!kb||ka.score<MIN_CONF||kb.score<MIN_CONF)return;ctx.beginPath();ctx.moveTo(ka.x*sx,ka.y*sy);ctx.lineTo(kb.x*sx,kb.y*sy);ctx.strokeStyle=LEFT_KPS.has(a)&&LEFT_KPS.has(b)?'#00d4aa':RIGHT_KPS.has(a)&&RIGHT_KPS.has(b)?'#ff6b35':'#8b7cf8';ctx.lineWidth=1.5;ctx.globalAlpha=0.8;ctx.stroke();});ctx.globalAlpha=1;kps.forEach(function(k,i){if(!k||k.score<MIN_CONF)return;ctx.beginPath();ctx.arc(k.x*sx,k.y*sy,2.5,0,2*Math.PI);ctx.fillStyle=i<5?'#fff':LEFT_KPS.has(i)?'#00d4aa':'#ff6b35';ctx.fill();});}
 
 // Math
-function calcAngle(a,b,c){if(!a||!b||!c)return null;const ba={x:a.x-b.x,y:a.y-b.y},bc={x:c.x-b.x,y:c.y-b.y};const dot=ba.x*bc.x+ba.y*bc.y,mag=Math.hypot(ba.x,ba.y)*Math.hypot(bc.x,bc.y);if(!mag||!isFinite(mag))return null;return Math.acos(Math.max(-1,Math.min(1,dot/mag)))*180/Math.PI;}
+function calcAngle(a,b,c){if(!a||!b||!c)return null;var ba={x:a.x-b.x,y:a.y-b.y},bc={x:c.x-b.x,y:c.y-b.y};var dot=ba.x*bc.x+ba.y*bc.y,mag=Math.hypot(ba.x,ba.y)*Math.hypot(bc.x,bc.y);if(!mag||!isFinite(mag))return null;return Math.acos(Math.max(-1,Math.min(1,dot/mag)))*180/Math.PI;}
+
 function computeMetrics(kps){
-  const g=i=>(kps[i]&&kps[i].score>=MIN_CONF)?kps[i]:null;const m={};
-  const lSh=g(5),rSh=g(6),lHi=g(11),rHi=g(12),lAn=g(15),rAn=g(16),nose=g(0);
-  if(lSh&&rSh&&lHi&&rHi){const shM={x:(lSh.x+rSh.x)/2,y:(lSh.y+rSh.y)/2},hiM={x:(lHi.x+rHi.x)/2,y:(lHi.y+rHi.y)/2};m.trunk=Math.atan2(shM.x-hiM.x,hiM.y-shM.y)*180/Math.PI;const th=Math.abs(hiM.y-shM.y),dir=(nose&&nose.x>hiM.x)?1:-1;if(lAn&&th>0)m.lFoot=dir*(lAn.x-hiM.x)/th;if(rAn&&th>0)m.rFoot=dir*(rAn.x-hiM.x)/th;}
-  const lKnA=calcAngle(g(11),g(13),g(15));if(lKnA!==null)m.lKnee=lKnA;const rKnA=calcAngle(g(12),g(14),g(16));if(rKnA!==null)m.rKnee=rKnA;
-  const lHiA=calcAngle(g(5),g(11),g(13));if(lHiA!==null)m.lHip=lHiA;const rHiA=calcAngle(g(6),g(12),g(14));if(rHiA!==null)m.rHip=rHiA;
-  const lElA=calcAngle(g(5),g(7),g(9));if(lElA!==null)m.lElbow=lElA;const rElA=calcAngle(g(6),g(8),g(10));if(rElA!==null)m.rElbow=rElA;
+  var g2=function(i){return (kps[i]&&kps[i].score>=MIN_CONF)?kps[i]:null;};var m={};
+  var lSh=g2(5),rSh=g2(6),lHi=g2(11),rHi=g2(12),lAn=g2(15),rAn=g2(16),nose=g2(0);
+  if(lSh&&rSh&&lHi&&rHi){var shM={x:(lSh.x+rSh.x)/2,y:(lSh.y+rSh.y)/2},hiM={x:(lHi.x+rHi.x)/2,y:(lHi.y+rHi.y)/2};m.trunk=Math.atan2(shM.x-hiM.x,hiM.y-shM.y)*180/Math.PI;var th=Math.abs(hiM.y-shM.y),dir=(nose&&nose.x>hiM.x)?1:-1;if(lAn&&th>0)m.lFoot=dir*(lAn.x-hiM.x)/th;if(rAn&&th>0)m.rFoot=dir*(rAn.x-hiM.x)/th;}
+  var lKnA=calcAngle(g2(11),g2(13),g2(15));if(lKnA!==null)m.lKnee=lKnA;var rKnA=calcAngle(g2(12),g2(14),g2(16));if(rKnA!==null)m.rKnee=rKnA;
+  var lHiA=calcAngle(g2(5),g2(11),g2(13));if(lHiA!==null)m.lHip=lHiA;var rHiA=calcAngle(g2(6),g2(12),g2(14));if(rHiA!==null)m.rHip=rHiA;
+  var lElA=calcAngle(g2(5),g2(7),g2(9));if(lElA!==null)m.lElbow=lElA;var rElA=calcAngle(g2(6),g2(8),g2(10));if(rElA!==null)m.rElbow=rElA;
   return m;
 }
 
-// Summary table
-function buildSummaryTable(){
-  const tbl=document.getElementById('summary-table');
-  tbl.querySelector('thead').innerHTML=`<tr><th>Metric</th>${SUMMARY_COL_ORDER.map((k,i)=>{const ph=phases[k];const idx=PHASE_DEFS.findIndex(d=>d.key===k);const gs=GROUP_STARTS.has(k)?' th-group-start':'';const side=ph?.side==='left'?' th-left':ph?.side==='right'?' th-right':'';const ud=!ph?.detected?' undetected-col':'';return `<th class="${gs}${side}${ud}" onclick="openExpand('${k}')">${idx+1}. ${ph?.label||k}${!ph?.detected?' ⚠':''}</th>`;}).join('')}</tr>`;
-  tbl.querySelector('tbody').innerHTML=METRIC_ROWS.map(r=>`<tr><td class="row-label">${r.label}</td>${SUMMARY_COL_ORDER.map(k=>`<td class="${GROUP_STARTS.has(k)?'td-group-start':''}" id="sc-${k}-${r.key}"><span class="sv na">—</span></td>`).join('')}</tr>`).join('');
-}
-function updateSummaryCol(key){
-  const m=phases[key]?.metrics;if(!m)return;
-  METRIC_ROWS.forEach(r=>{const cell=document.getElementById(`sc-${key}-${r.key}`);if(!cell)return;
-    if(!isRelevant(key,r.key)){cell.innerHTML=`<span class="sv na" title="Not applicable for this phase">—</span>`;return;}
-    const v=m[r.key],d=v!=null?r.fmt(v):'—';const pos=v!=null?positionLabel(v,r.key,key):'';const sym=v!=null?positionSymbol(v,r.key,key):'';cell.innerHTML=v!=null?`<span class="sv">${sym} ${d}<span class="sv-pos">${pos}</span></span>`:`<span class="sv na">—</span>`;});
+// Front/Back metrics
+function computeFrontBackMetrics(kps) {
+  var g3=function(i){return (kps[i]&&kps[i].score>=MIN_CONF)?kps[i]:null;};
+  var lSh=g3(5),rSh=g3(6),lHi=g3(11),rHi=g3(12),lKn=g3(13),rKn=g3(14),lAn=g3(15),rAn=g3(16),lWr=g3(9),rWr=g3(10);
+
+  var result = {
+    hipDrop: null, hipDropAbs: null,
+    lWristCross: null, rWristCross: null,
+    lKneeValgus: null, rKneeValgus: null,
+    avgConfidence: 0
+  };
+
+  // Average confidence
+  var totalConf = 0, count = 0;
+  for(var ci=0;ci<kps.length;ci++){
+    totalConf += (kps[ci].score||0);
+    count++;
+  }
+  result.avgConfidence = count > 0 ? totalConf/count : 0;
+
+  // Hip drop: (lHip.y - rHip.y) / torsoHeight
+  if(lHi && rHi && lSh && rSh) {
+    var torsoH = Math.abs(((lSh.y+rSh.y)/2) - ((lHi.y+rHi.y)/2));
+    if(torsoH > 10) {
+      result.hipDrop = (lHi.y - rHi.y) / torsoH; // positive = left hip lower
+      result.hipDropAbs = Math.abs(result.hipDrop);
+    }
+  }
+
+  // Wrist crossing: how far each wrist crosses the body midline
+  if(lSh && rSh) {
+    var shoulderWidth = Math.abs(lSh.x - rSh.x);
+    var bodyMidX = (lSh.x + rSh.x) / 2;
+    if(shoulderWidth > 10) {
+      // Left wrist crosses midline when it goes to the right side
+      if(lWr) {
+        var lCross = (lWr.x - bodyMidX) / shoulderWidth;
+        // Positive means crossed (left wrist past midline to right side)
+        // But which direction depends on camera: for front view, left wrist going rightward (higher x) crosses midline
+        result.lWristCross = Math.max(0, lCross);
+      }
+      // Right wrist crosses midline when it goes to the left side
+      if(rWr) {
+        var rCross = (bodyMidX - rWr.x) / shoulderWidth;
+        result.rWristCross = Math.max(0, rCross);
+      }
+    }
+  }
+
+  // Knee valgus: medial deviation from hip-ankle line
+  if(lHi && rHi) {
+    var hipWidth = Math.abs(lHi.x - rHi.x);
+    var bodyMidX2 = (lHi.x + rHi.x) / 2;
+    if(hipWidth > 10) {
+      // Left leg
+      if(lKn && lAn) {
+        // Expected knee x on the line from lHi to lAn
+        var tL = 0;
+        var totalDist = Math.abs(lAn.y - lHi.y);
+        if(totalDist > 5) {
+          tL = (lKn.y - lHi.y) / (lAn.y - lHi.y);
+          tL = Math.max(0, Math.min(1, tL));
+        }
+        var expectedKneeX_L = lHi.x + tL * (lAn.x - lHi.x);
+        var deviationL = lKn.x - expectedKneeX_L;
+        // For left leg: medial = toward bodyMidX2 (rightward if left hip is left of center)
+        var medialDirL = (bodyMidX2 > lHi.x) ? 1 : -1;
+        result.lKneeValgus = Math.max(0, medialDirL * deviationL / hipWidth);
+      }
+      // Right leg
+      if(rKn && rAn) {
+        var tR = 0;
+        var totalDistR = Math.abs(rAn.y - rHi.y);
+        if(totalDistR > 5) {
+          tR = (rKn.y - rHi.y) / (rAn.y - rHi.y);
+          tR = Math.max(0, Math.min(1, tR));
+        }
+        var expectedKneeX_R = rHi.x + tR * (rAn.x - rHi.x);
+        var deviationR = rKn.x - expectedKneeX_R;
+        // For right leg: medial = toward bodyMidX2 (leftward if right hip is right of center)
+        var medialDirR = (bodyMidX2 < rHi.x) ? -1 : 1;
+        result.rKneeValgus = Math.max(0, medialDirR * deviationR / hipWidth);
+      }
+    }
+  }
+
+  return result;
 }
 
-// Seek
-function seekTo(t){
-  return new Promise(resolve=>{
-    let done=false;
-    const finish=()=>{
+// ==============================================================
+//  DETECTION RULES (6 issues)
+// ==============================================================
+const COACHING_CUES = {
+  overstriding: {
+    notable: "Your foot is landing well ahead of your hip at contact, which acts like a brake with every stride. Focus on increasing your cadence by 5-10% and think about landing with your foot under your hip rather than reaching forward.",
+    mild: "Your foot is landing slightly ahead of your hip at contact. This is common but can increase braking forces over time. A small increase in cadence -- even 3-5% -- can help bring your landing point closer to under your center of mass.",
+    clear: "No significant overstriding detected"
+  },
+  hipDrop: {
+    notable: "Your hip is dropping significantly on the swing side during stance, which increases stress on the knee and IT band. Targeted glute medius strengthening -- single-leg glute bridges, lateral band walks, and side-lying hip abduction -- is the most direct fix.",
+    mild: "Your hip is dropping slightly on the swing side during stance -- a sign that your glute medius could be working harder. Single-leg glute bridges and lateral band walks are the most direct fix. Think about staying tall through the hip during each stance phase.",
+    clear: "No significant hip drop detected"
+  },
+  armsCrossing: {
+    notable: "Your arms are clearly crossing your body centerline during the swing, which creates rotational force your core has to counteract with every step. Keep your elbows close to your sides and imagine your hands are running along two parallel tracks.",
+    mild: "Your arms are occasionally crossing your body centerline, which creates slight rotational forces. Focus on driving your elbows straight back rather than across your body. Imagine your hands running along two parallel rails.",
+    clear: "No significant arm crossing detected"
+  },
+  torsoUpright: {
+    notable: "You are running very upright or even leaning slightly backward, which works against forward momentum and can increase braking forces. Try leaning gently from the ankles -- not the waist -- as if falling into your next step.",
+    mild: "You are running quite upright, which can reduce the natural forward momentum that comes from a slight forward lean. Try leaning gently from the ankles -- not the waist -- as if falling into your next step.",
+    clear: "No significant trunk position issues detected"
+  },
+  torsoLean: {
+    notable: "Your trunk is leaning significantly forward during stance, which can overload the lower back and hamstrings. Check that you are hinging from the ankles rather than bending at the waist, and engage your core to maintain a neutral spine.",
+    mild: "Your forward lean is slightly more than typical for efficient running. Make sure the lean comes from the ankles rather than the waist. A slight forward lean is good -- but too much shifts load to the lower back.",
+    clear: "No significant trunk position issues detected"
+  },
+  armAngle: {
+    notable: "Your elbows are dropping well below the ideal range during the swing phase, making the arm swing significantly less efficient. Think about keeping your elbows at roughly a right angle and driving them back rather than letting them swing low.",
+    mild: "Your elbows are dropping lower than ideal during the swing phase, which makes the arm swing less efficient and increases energy cost. Think about keeping your elbows at roughly a right angle and driving them back rather than swinging them forward.",
+    clear: "No significant arm angle issues detected"
+  },
+  kneeValgus: {
+    notable: "Your knee is collapsing noticeably inward during stance, which increases stress on the ACL and patellofemoral joint. Hip and glute strengthening -- particularly single-leg squats with attention to knee tracking -- is the most effective corrective approach.",
+    mild: "There is slight inward movement of the knee during stance. This is very common and often responds well to hip strengthening exercises. Single-leg mini squats in front of a mirror, focusing on keeping the knee tracking over the second toe, can help build awareness.",
+    clear: "No significant knee valgus detected"
+  }
+};
+
+function detectIssues() {
+  var issues = {};
+
+  // 1. OVERSTRIDING (side: l_foot + r_foot)
+  var lFootM = phases.l_foot && phases.l_foot.metrics ? phases.l_foot.metrics : null;
+  var rFootM = phases.r_foot && phases.r_foot.metrics ? phases.r_foot.metrics : null;
+  var maxOffset = 0;
+  if(lFootM && lFootM.lFoot !== undefined) maxOffset = Math.max(maxOffset, lFootM.lFoot);
+  if(rFootM && rFootM.rFoot !== undefined) maxOffset = Math.max(maxOffset, rFootM.rFoot);
+  if(maxOffset > 0.35) {
+    issues.overstriding = {detected:true, severity:'notable', details:'Max foot offset: '+maxOffset.toFixed(2)};
+  } else if(maxOffset > 0.20) {
+    issues.overstriding = {detected:true, severity:'mild', details:'Max foot offset: '+maxOffset.toFixed(2)};
+  } else {
+    issues.overstriding = {detected:false, severity:null, details:COACHING_CUES.overstriding.clear};
+  }
+
+  // 2. HIP DROP (front mid_front, optionally back mid_back)
+  var frontFBM = phases.mid_front && phases.mid_front.frontBackMetrics ? phases.mid_front.frontBackMetrics : null;
+  var backFBM = phases.mid_back && phases.mid_back.frontBackMetrics ? phases.mid_back.frontBackMetrics : null;
+  var hipDropVal = null;
+  if(frontFBM && frontFBM.hipDropAbs !== null) {
+    hipDropVal = frontFBM.hipDropAbs;
+    // Blend with back if available and confident
+    if(backFBM && backFBM.hipDropAbs !== null && backFBM.avgConfidence >= 0.4) {
+      hipDropVal = (frontFBM.hipDropAbs * 2 + backFBM.hipDropAbs) / 3;
+    }
+  }
+  if(hipDropVal !== null && hipDropVal > 0.15) {
+    issues.hipDrop = {detected:true, severity:'notable', details:'Hip drop: '+(hipDropVal*100).toFixed(1)+'%'};
+  } else if(hipDropVal !== null && hipDropVal > 0.08) {
+    issues.hipDrop = {detected:true, severity:'mild', details:'Hip drop: '+(hipDropVal*100).toFixed(1)+'%'};
+  } else {
+    issues.hipDrop = {detected:false, severity:null, details:COACHING_CUES.hipDrop.clear};
+  }
+
+  // 3. ARMS CROSSING MIDLINE (front mid_front)
+  var maxCross = 0;
+  if(frontFBM) {
+    maxCross = Math.max(frontFBM.lWristCross||0, frontFBM.rWristCross||0);
+  }
+  if(maxCross > 0.15) {
+    issues.armsCrossing = {detected:true, severity:'notable', details:'Max crossing: '+(maxCross*100).toFixed(1)+'% of shoulder width'};
+  } else if(maxCross > 0.05) {
+    issues.armsCrossing = {detected:true, severity:'mild', details:'Max crossing: '+(maxCross*100).toFixed(1)+'% of shoulder width'};
+  } else {
+    issues.armsCrossing = {detected:false, severity:null, details:COACHING_CUES.armsCrossing.clear};
+  }
+
+  // 4. TORSO POSITION (side mid)
+  var midM = phases.mid && phases.mid.metrics ? phases.mid.metrics : null;
+  issues.torsoPosition = {detected:false, severity:null, details:COACHING_CUES.torsoUpright.clear};
+  if(midM && midM.trunk !== undefined) {
+    var trunkLean = midM.trunk;
+    if(trunkLean <= 0) {
+      issues.torsoPosition = {detected:true, severity:'notable', details:'Trunk lean: '+trunkLean.toFixed(1)+' (upright/backward)', cueKey:'torsoUpright'};
+    } else if(trunkLean < 3) {
+      issues.torsoPosition = {detected:true, severity:'mild', details:'Trunk lean: '+trunkLean.toFixed(1)+' (very upright)', cueKey:'torsoUpright'};
+    } else if(trunkLean > 25) {
+      issues.torsoPosition = {detected:true, severity:'notable', details:'Trunk lean: '+trunkLean.toFixed(1)+' (excessive forward)', cueKey:'torsoLean'};
+    } else if(trunkLean > 20) {
+      issues.torsoPosition = {detected:true, severity:'mild', details:'Trunk lean: '+trunkLean.toFixed(1)+' (forward of typical)', cueKey:'torsoLean'};
+    }
+    // Also check hip angle at mid-stance for arching
+    var hipAngle = null;
+    if(midM.lHip !== undefined && midM.rHip !== undefined) hipAngle = (midM.lHip + midM.rHip)/2;
+    else if(midM.lHip !== undefined) hipAngle = midM.lHip;
+    else if(midM.rHip !== undefined) hipAngle = midM.rHip;
+    if(hipAngle !== null) {
+      if(hipAngle > 195 && !issues.torsoPosition.detected) {
+        issues.torsoPosition = {detected:true, severity:'notable', details:'Hip angle at mid-stance: '+hipAngle.toFixed(0)+' (arching)', cueKey:'torsoUpright'};
+      } else if(hipAngle > 185 && !issues.torsoPosition.detected) {
+        issues.torsoPosition = {detected:true, severity:'mild', details:'Hip angle at mid-stance: '+hipAngle.toFixed(0)+' (slight arching)', cueKey:'torsoUpright'};
+      }
+    }
+  }
+
+  // 5. ARM ANGLE TOO OPEN (side peak_kf)
+  var pkfM = phases.peak_kf && phases.peak_kf.metrics ? phases.peak_kf.metrics : null;
+  var avgElbow = null;
+  if(pkfM) {
+    var eCount = 0, eSum = 0;
+    if(pkfM.lElbow !== undefined) { eSum += pkfM.lElbow; eCount++; }
+    if(pkfM.rElbow !== undefined) { eSum += pkfM.rElbow; eCount++; }
+    if(eCount > 0) avgElbow = eSum / eCount;
+  }
+  if(avgElbow !== null && avgElbow > 140) {
+    issues.armAngle = {detected:true, severity:'notable', details:'Avg elbow: '+avgElbow.toFixed(0)+'\u00b0'};
+  } else if(avgElbow !== null && avgElbow > 120) {
+    issues.armAngle = {detected:true, severity:'mild', details:'Avg elbow: '+avgElbow.toFixed(0)+'\u00b0'};
+  } else {
+    issues.armAngle = {detected:false, severity:null, details:COACHING_CUES.armAngle.clear};
+  }
+
+  // 6. KNEE VALGUS (front mid_front)
+  var maxValgus = 0;
+  if(frontFBM) {
+    maxValgus = Math.max(frontFBM.lKneeValgus||0, frontFBM.rKneeValgus||0);
+  }
+  if(maxValgus > 0.15) {
+    issues.kneeValgus = {detected:true, severity:'notable', details:'Max valgus: '+(maxValgus*100).toFixed(1)+'% of hip width'};
+  } else if(maxValgus > 0.08) {
+    issues.kneeValgus = {detected:true, severity:'mild', details:'Max valgus: '+(maxValgus*100).toFixed(1)+'% of hip width'};
+  } else {
+    issues.kneeValgus = {detected:false, severity:null, details:COACHING_CUES.kneeValgus.clear};
+  }
+
+  return issues;
+}
+
+function renderReport(issues) {
+  var grid = document.getElementById('report-issues-grid');
+  if(!grid) return;
+
+  var issueList = [
+    {key:'overstriding',  title:'Overstriding',        cueKey:'overstriding'},
+    {key:'hipDrop',       title:'Hip drop',             cueKey:'hipDrop'},
+    {key:'armsCrossing',  title:'Arms crossing midline',cueKey:'armsCrossing'},
+    {key:'torsoPosition', title:'Torso position',       cueKey:null},
+    {key:'armAngle',      title:'Arm angle too open',   cueKey:'armAngle'},
+    {key:'kneeValgus',    title:'Knee valgus',          cueKey:'kneeValgus'},
+  ];
+
+  var html = '';
+  issueList.forEach(function(item) {
+    var issue = issues[item.key];
+    if(!issue) return;
+
+    var detected = issue.detected;
+    var severity = issue.severity;
+    var cueKey = issue.cueKey || item.cueKey;
+
+    // For torso position, the cueKey may differ based on which sub-issue
+    if(item.key === 'torsoPosition' && issue.cueKey) {
+      cueKey = issue.cueKey;
+    }
+
+    var cueText = '';
+    if(detected && severity && cueKey && COACHING_CUES[cueKey]) {
+      cueText = COACHING_CUES[cueKey][severity] || '';
+    } else if(!detected && cueKey && COACHING_CUES[cueKey]) {
+      cueText = COACHING_CUES[cueKey].clear || '';
+    } else if(!detected) {
+      cueText = 'No significant issues detected';
+    }
+
+    var severityIndicator = '';
+    if(detected && severity === 'notable') {
+      severityIndicator = '<span class="issue-severity notable">&#9679; Notable</span>';
+    } else if(detected && severity === 'mild') {
+      severityIndicator = '<span class="issue-severity mild">&#9675; Mild</span>';
+    } else {
+      severityIndicator = '<span class="issue-severity clear">&#10003; Clear</span>';
+    }
+
+    var cardClass = 'issue-card';
+    if(detected) {
+      cardClass += ' detected';
+      if(severity === 'notable') cardClass += ' notable';
+    } else {
+      cardClass += ' not-detected';
+    }
+
+    html += '<div class="'+cardClass+'">';
+    html += '<div class="issue-card-hdr">';
+    html += '<div class="issue-card-title">'+item.title+'</div>';
+    html += severityIndicator;
+    html += '</div>';
+    html += '<div class="issue-card-text">'+cueText+'</div>';
+    html += '</div>';
+  });
+
+  grid.innerHTML = html;
+}
+
+// Summary table (side view only -- 7 columns)
+function buildSummaryTable(){
+  var tbl=document.getElementById('summary-table');
+  tbl.querySelector('thead').innerHTML='<tr><th>Metric</th>'+SUMMARY_COL_ORDER.map(function(k){
+    var ph=phases[k];var idx=PHASE_DEFS.findIndex(function(d){return d.key===k;});
+    var gs=GROUP_STARTS.has(k)?' th-group-start':'';
+    var side=ph&&ph.side==='left'?' th-left':ph&&ph.side==='right'?' th-right':'';
+    var ud=!(ph&&ph.detected)?' undetected-col':'';
+    return '<th class="'+gs+side+ud+'" onclick="openExpand(\''+k+'\')">'+(idx+1)+'. '+(ph?ph.label:k)+(!(ph&&ph.detected)?' &#9888;':'')+'</th>';
+  }).join('')+'</tr>';
+  tbl.querySelector('tbody').innerHTML=METRIC_ROWS.map(function(r){
+    return '<tr><td class="row-label">'+r.label+'</td>'+SUMMARY_COL_ORDER.map(function(k){
+      return '<td class="'+(GROUP_STARTS.has(k)?'td-group-start':'')+'" id="sc-'+k+'-'+r.key+'"><span class="sv na">--</span></td>';
+    }).join('')+'</tr>';
+  }).join('');
+}
+function updateSummaryCol(key){
+  var m = phases[key] ? phases[key].metrics : null;
+  if(!m)return;
+  // Only update for side-view phases in the summary
+  if(SUMMARY_COL_ORDER.indexOf(key) === -1) return;
+  METRIC_ROWS.forEach(function(r){
+    var cell=document.getElementById('sc-'+key+'-'+r.key);if(!cell)return;
+    if(!isRelevant(key,r.key)){cell.innerHTML='<span class="sv na" title="Not applicable for this phase">--</span>';return;}
+    var v=m[r.key],d=v!=null?r.fmt(v):'--';var pos=v!=null?positionLabel(v,r.key,key):'';var sym=v!=null?positionSymbol(v,r.key,key):'';
+    cell.innerHTML=v!=null?'<span class="sv">'+sym+' '+d+'<span class="sv-pos">'+pos+'</span></span>':'<span class="sv na">--</span>';
+  });
+}
+
+// Seek -- takes video element as parameter
+function seekTo(t, vidEl2){
+  return new Promise(function(resolve){
+    if(!vidEl2){resolve();return;}
+    var done=false;
+    var finish=function(){
       if(done) return;
       done=true;
-      videoEl.removeEventListener('seeked', finish);
+      vidEl2.removeEventListener('seeked', finish);
       clearTimeout(timer);
-      // Small settle delay — edited videos sometimes need a frame to render
       setTimeout(resolve, 60);
     };
-    videoEl.addEventListener('seeked', finish, {once:true});
-    // 3s timeout — edited/VFR videos with sparse keyframes can be slow to seek
-    const timer = setTimeout(()=>{
+    vidEl2.addEventListener('seeked', finish, {once:true});
+    var timer = setTimeout(function(){
       if(!done){
-        console.warn('seekTo timeout at', t.toFixed(2)+'s — continuing');
+        console.warn('seekTo timeout at '+t.toFixed(2)+'s -- continuing');
         finish();
       }
     }, 3000);
-    videoEl.currentTime = Math.max(0, Math.min(t, (videoEl.duration||9999) - 0.05));
+    vidEl2.currentTime = Math.max(0, Math.min(t, (vidEl2.duration||9999) - 0.05));
   });
 }
 
 // Controls
-async function rescan(){closeExpand();phases={};document.getElementById('screen-phases').style.display='none';document.getElementById('scan-bar').style.width='0%';document.getElementById('scan-phase-list').innerHTML='';document.getElementById('scan-step').textContent='Preparing…';document.getElementById('scan-diag').style.display='none';document.getElementById('scan-summary-bar').style.display='none';document.getElementById('screen-scanning').style.display='flex';document.getElementById('btn-rescan').style.display='none';await autoScan();}
-function resetApp(){closeExpand();phases={};document.getElementById('screen-phases').style.display='none';document.getElementById('screen-scanning').style.display='none';document.getElementById('screen-upload').style.display='flex';document.getElementById('hdr-file').textContent='';document.getElementById('btn-rescan').style.display='none';document.getElementById('phase-groups').innerHTML='';document.getElementById('scan-summary-bar').style.display='none';if(videoEl){videoEl.pause();videoEl.src='';}}
+async function rescan(){
+  closeExpand();phases={};
+  document.getElementById('screen-phases').style.display='none';
+  document.getElementById('scan-bar').style.width='0%';
+  document.getElementById('scan-phase-list').innerHTML='';
+  document.getElementById('scan-step').textContent='Preparing...';
+  document.getElementById('scan-diag').style.display='none';
+  document.getElementById('scan-summary-bar').style.display='none';
+  document.getElementById('screen-scanning').style.display='flex';
+  document.getElementById('btn-rescan').style.display='none';
+  document.getElementById('report-section').style.display='none';
+  document.getElementById('summary-section').style.display='none';
+  var bar = document.getElementById('complete-analysis-bar');
+  if(bar) bar.classList.remove('show');
+  document.body.classList.remove('bar-showing');
+  await autoScanAll();
+}
+
+function resetApp(){
+  closeExpand();phases={};
+  document.getElementById('screen-phases').style.display='none';
+  document.getElementById('screen-scanning').style.display='none';
+  document.getElementById('screen-upload').style.display='flex';
+  document.getElementById('hdr-file').textContent='';
+  document.getElementById('btn-rescan').style.display='none';
+  document.getElementById('phase-groups').innerHTML='';
+  document.getElementById('scan-summary-bar').style.display='none';
+  document.getElementById('report-section').style.display='none';
+  document.getElementById('summary-section').style.display='none';
+  var bar = document.getElementById('complete-analysis-bar');
+  if(bar) bar.classList.remove('show');
+  document.body.classList.remove('bar-showing');
+  // Clear videos
+  ['side','front','back'].forEach(function(vk){
+    if(videoEls[vk]){videoEls[vk].pause();videoEls[vk].src='';}
+    videoEls[vk]=null;
+    uploadedFiles[vk]=null;
+  });
+  // Reset drop zones
+  ['side','front','back'].forEach(function(vk){
+    var zone = document.getElementById('drop-zone-'+vk);
+    if(zone) zone.classList.remove('loaded');
+    var info = document.getElementById('dz-info-'+vk);
+    if(info) info.innerHTML='';
+  });
+  var btn = document.getElementById('btn-analyze-all');
+  if(btn) btn.disabled = true;
+}
 
 initModel();
 </script>
