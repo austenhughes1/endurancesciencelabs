@@ -299,6 +299,19 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 .save-notice.show{display:block}
 .save-error{font-size:11px;color:var(--bad);font-family:var(--mono);text-align:right;display:none}
 .save-error.show{display:block}
+/* Detection quality -- prominent display in expand panel */
+.dq-big{padding:18px;border-radius:14px;text-align:center}
+.dq-big.strong{background:rgba(34,199,138,.06);border:2px solid rgba(34,199,138,.3)}
+.dq-big.fair{background:rgba(245,166,35,.06);border:2px solid rgba(245,166,35,.3)}
+.dq-big.weak{background:rgba(245,80,80,.06);border:2px solid rgba(245,80,80,.3)}
+.dq-big-label{font-size:22px;font-weight:800;margin-bottom:4px}
+.dq-big.strong .dq-big-label{color:var(--good)}
+.dq-big.fair .dq-big-label{color:var(--warn)}
+.dq-big.weak .dq-big-label{color:var(--bad)}
+.dq-big-sub{font-size:12px;color:var(--muted2);font-family:var(--mono);line-height:1.6}
+.dq-big-hint{font-size:13px;color:var(--text);line-height:1.75;margin-top:12px;text-align:left}
+.dq-big-hint strong{color:var(--purple)}
+.dq-big-goal{display:inline-block;margin-top:10px;font-size:11px;font-family:var(--mono);padding:4px 12px;border-radius:20px;background:rgba(34,199,138,.08);border:1px solid rgba(34,199,138,.2);color:var(--good)}
 </style>
 </head>
 <body>
@@ -499,6 +512,8 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
         </div>
       </div>
       <div class="ep-info-side">
+        <!-- Detection quality -->
+        <div id="ep-quality-card" style="display:none"></div>
         <div class="pi-card">
           <div class="pi-label">Phase guide</div>
           <div class="pi-title" id="ep-guide-title"></div>
@@ -671,6 +686,17 @@ const METRIC_ROWS = [
   {key:'rFoot', label:'R foot off.',dot:'var(--right)', fmt:v=>`${v>0?'+':''}${v.toFixed(2)}`},
 ];
 
+const PHASE_METRICS = {
+  l_foot:  ['trunk','lKnee','lHip','lFoot','lElbow'],
+  r_foot:  ['trunk','rKnee','rHip','rFoot','rElbow'],
+  l_toe:   ['trunk','lHip','lKnee','lElbow'],
+  r_toe:   ['trunk','rHip','rKnee','rElbow'],
+  mid:     ['trunk','lKnee','rKnee','lHip','rHip','lElbow','rElbow'],
+  peak_kf: ['trunk','lKnee','rHip','lElbow'],
+  swing:   ['trunk','lKnee','lFoot','lElbow'],
+};
+function isRelevant(phaseKey, metricKey){ const pm=PHASE_METRICS[phaseKey]; return !pm || pm.includes(metricKey); }
+
 let detector=null,videoEl=null,phases={};
 let expandKey=null,epCurrentT=0,epAnalyzing=false;
 const epDbt={};
@@ -692,7 +718,23 @@ function getDetectionQuality(kps){
   if(avg>=0.5&&min>=0.25)  return {level:'fair',  label:'Fair detection'};
   return                         {level:'weak',   label:'Weak detection'};
 }
-function renderQualityCard(kps){ /* stub for esformlab */ }
+function renderQualityCard(kps){
+  const qCard = document.getElementById('ep-quality-card');
+  if(!qCard) return;
+  if(!kps){ qCard.style.display='none'; return; }
+  const q = getDetectionQuality(kps);
+  if(!q){ qCard.style.display='none'; return; }
+  qCard.style.display='block';
+  let hint = '';
+  if(q.level === 'strong') {
+    hint = '<div class="dq-big-hint">Detection is strong. The skeleton overlay should match the runner closely. If the overlay looks off, click <strong>\u21bb Analyze</strong> again.</div>';
+  } else if(q.level === 'fair') {
+    hint = '<div class="dq-big-hint"><strong>Goal: get to Strong detection.</strong><br>1. Click <strong>\u21bb Analyze</strong> again \u2014 a second attempt often improves results.<br>2. If the overlay still does not match, use the scrubber to select a nearby frame with less motion blur.<br>3. Make sure the selected frame matches what this phase describes.</div><div class="dq-big-goal">\u25ce Goal: Strong detection</div>';
+  } else {
+    hint = '<div class="dq-big-hint"><strong>Detection is weak \u2014 measurements may not be reliable.</strong><br>1. Click <strong>\u21bb Analyze</strong> again.<br>2. If still weak, scrub to a different frame with the runner clearly visible and no limb overlap.<br>3. Confirm the frame matches the gait phase described below.</div><div class="dq-big-goal">\u25ce Goal: Strong detection</div>';
+  }
+  qCard.innerHTML = `<div class="dq-big ${q.level}"><div class="dq-big-label">${q.label}</div><div class="dq-big-sub">${q.level==='strong'?'All major joints clearly identified. Measurements are reliable.':q.level==='fair'?'Some joints have moderate confidence. Strong detection will give more reliable data.':'Multiple joints could not be reliably identified.'}</div>${hint}</div>`;
+}
 async function initModel(){
   try{
     await tf.ready();
@@ -891,7 +933,8 @@ async function analyzeCard(key){
 
 function renderMiniMetrics(key,m){
   const el=document.getElementById(`metrics-mini-${key}`);if(!el)return;
-  el.innerHTML=[METRIC_ROWS[0],METRIC_ROWS[1],METRIC_ROWS[2]].map(r=>{const v=m[r.key],d=v!=null?r.fmt(v):'—';return `<span class="mm-item na">${r.label} ${d}</span>`;}).join('');
+  const relevant=METRIC_ROWS.filter(r=>isRelevant(key,r.key)).slice(0,3);
+  el.innerHTML=relevant.map(r=>{const v=m[r.key],d=v!=null?r.fmt(v):'—';return `<span class="mm-item na">${r.label} ${d}</span>`;}).join('');
 }
 
 // Expand panel
@@ -912,6 +955,7 @@ function openExpand(key){
   document.getElementById('nav-phase-btns').innerHTML=PHASE_DEFS.map((def,i)=>`<button class="nav-phase-btn ${def.key===key?'cur':''} ${!phases[def.key]?.detected?'undetected':''}" onclick="openExpand('${def.key}')">${i+1}. ${def.label}</button>`).join('');
   if(ph.metrics)renderExpandMetrics(ph.metrics);else document.getElementById('ep-metrics').innerHTML='<div class="ep-no-data">Click ↻ Analyze to measure angles</div>';
   drawExpandFrame(epCurrentT,ph.kps);
+  renderQualityCard(ph.kps);
   document.querySelectorAll('.phase-card').forEach(c=>c.classList.toggle('dimmed',c.id!==`card-${key}`));
   document.addEventListener('keydown',onExpandKey);
 }
@@ -964,10 +1008,12 @@ async function epReanalyze(){
   const badge=document.getElementById(`badge-${expandKey}`);if(badge){badge.className='pc-badge ok';badge.textContent='analyzed';}
   renderMiniMetrics(expandKey,ph.metrics);updateSummaryCol(expandKey);
   const ptEl=document.getElementById(`ptime-${expandKey}`);if(ptEl){ptEl.textContent=epCurrentT.toFixed(2)+'s';ptEl.style.color='var(--purple)';}
+  renderQualityCard(kps);
   updateSaveSection();btn.disabled=false;btn.textContent='↻ Analyze';epAnalyzing=false;
 }
 function renderExpandMetrics(m){
-  document.getElementById('ep-metrics').innerHTML=METRIC_ROWS.map(r=>{const v=m[r.key],d=v!=null?r.fmt(v):'—';return `<div class="ep-metric"><div class="ep-ml"><div class="ep-dot" style="background:${r.dot}"></div>${r.label}</div><div style="text-align:right"><div class="ep-mv">${d}</div></div></div>`;}).join('');
+  const pk=expandKey||'mid';
+  document.getElementById('ep-metrics').innerHTML=METRIC_ROWS.filter(r=>isRelevant(pk,r.key)).map(r=>{const v=m[r.key],d=v!=null?r.fmt(v):'—';return `<div class="ep-metric"><div class="ep-ml"><div class="ep-dot" style="background:${r.dot}"></div>${r.label}</div><div style="text-align:right"><div class="ep-mv">${d}</div></div></div>`;}).join('');
 }
 
 // Drawing
@@ -1054,7 +1100,9 @@ function buildSummaryTable(){
 }
 function updateSummaryCol(key){
   const m=phases[key]?.metrics;if(!m)return;
-  METRIC_ROWS.forEach(r=>{const cell=document.getElementById(`sc-${key}-${r.key}`);if(!cell)return;const v=m[r.key],d=v!=null?r.fmt(v):'—';cell.innerHTML=`<span class="sv">${d}</span>`;});
+  METRIC_ROWS.forEach(r=>{const cell=document.getElementById(`sc-${key}-${r.key}`);if(!cell)return;
+    if(!isRelevant(key,r.key)){cell.innerHTML=`<span class="sv na" title="Not applicable for this phase">—</span>`;return;}
+    const v=m[r.key],d=v!=null?r.fmt(v):'—';cell.innerHTML=`<span class="sv">${d}</span>`;});
 }
 
 // Save section
