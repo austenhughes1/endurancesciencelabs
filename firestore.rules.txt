@@ -59,8 +59,10 @@ service cloud.firestore {
         allow read: if request.auth != null
                     && (get(/databases/$(database)/documents/trainingPlans/$(planId)).data.coachUid == request.auth.uid
                         || get(/databases/$(database)/documents/trainingPlans/$(planId)).data.athleteUid == request.auth.uid);
+        // Coach can fully write; athlete can write (to add their notes)
         allow write: if request.auth != null
-                     && get(/databases/$(database)/documents/trainingPlans/$(planId)).data.coachUid == request.auth.uid;
+                     && (get(/databases/$(database)/documents/trainingPlans/$(planId)).data.coachUid == request.auth.uid
+                         || get(/databases/$(database)/documents/trainingPlans/$(planId)).data.athleteUid == request.auth.uid);
       }
 
       // ── Strava activities subcollection ────────────────────
