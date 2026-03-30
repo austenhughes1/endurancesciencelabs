@@ -1036,7 +1036,7 @@ function calcAngle(a,b,c){if(!a||!b||!c)return null;const ba={x:a.x-b.x,y:a.y-b.
 function computeMetrics(kps){
   const g=i=>(kps[i]&&kps[i].score>=MIN_CONF)?kps[i]:null;const m={};
   const lSh=g(5),rSh=g(6),lHi=g(11),rHi=g(12),lAn=g(15),rAn=g(16),nose=g(0);
-  if(lSh&&rSh&&lHi&&rHi){const shM={x:(lSh.x+rSh.x)/2,y:(lSh.y+rSh.y)/2},hiM={x:(lHi.x+rHi.x)/2,y:(lHi.y+rHi.y)/2};m.trunk=Math.atan2(shM.x-hiM.x,hiM.y-shM.y)*180/Math.PI;const th=Math.abs(hiM.y-shM.y),dir=(nose&&nose.x>hiM.x)?1:-1;if(lAn&&th>0)m.lFoot=dir*(lAn.x-hiM.x)/th;if(rAn&&th>0)m.rFoot=dir*(rAn.x-hiM.x)/th;}
+  if(lSh&&rSh&&lHi&&rHi){const shM={x:(lSh.x+rSh.x)/2,y:(lSh.y+rSh.y)/2},hiM={x:(lHi.x+rHi.x)/2,y:(lHi.y+rHi.y)/2};const dir=(nose&&nose.x>hiM.x)?1:-1;const rawLean=Math.atan2(shM.x-hiM.x,hiM.y-shM.y)*180/Math.PI;m.trunk=dir*rawLean;const th=Math.abs(hiM.y-shM.y);if(lAn&&th>0)m.lFoot=dir*(lAn.x-hiM.x)/th;if(rAn&&th>0)m.rFoot=dir*(rAn.x-hiM.x)/th;}
   const lKnA=calcAngle(g(11),g(13),g(15));if(lKnA!==null)m.lKnee=lKnA;
   const rKnA=calcAngle(g(12),g(14),g(16));if(rKnA!==null)m.rKnee=rKnA;
   const lHiA=calcAngle(g(5),g(11),g(13));if(lHiA!==null)m.lHip=lHiA;

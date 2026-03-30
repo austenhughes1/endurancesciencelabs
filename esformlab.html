@@ -175,11 +175,23 @@ nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:st
 .instr-step{font-size:13px !important;line-height:1.65 !important}
 .instr-step-num{width:22px !important;height:22px !important;font-size:11px !important;flex-shrink:0;margin-top:2px !important}
 
-/* Detection quality pill on cards */
+/* Detection quality — large prominent display */
 .dq-pill{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-family:var(--mono);padding:2px 7px;border-radius:8px;margin-top:6px}
 .dq-pill.strong{background:rgba(34,199,138,.1);color:var(--good);border:1px solid rgba(34,199,138,.2)}
 .dq-pill.fair{background:rgba(245,166,35,.08);color:var(--warn);border:1px solid rgba(245,166,35,.2)}
 .dq-pill.weak{background:rgba(245,80,80,.08);color:var(--bad);border:1px solid rgba(245,80,80,.2)}
+.dq-big{padding:18px;border-radius:14px;text-align:center}
+.dq-big.strong{background:rgba(34,199,138,.06);border:2px solid rgba(34,199,138,.3)}
+.dq-big.fair{background:rgba(245,166,35,.06);border:2px solid rgba(245,166,35,.3)}
+.dq-big.weak{background:rgba(245,80,80,.06);border:2px solid rgba(245,80,80,.3)}
+.dq-big-label{font-size:22px;font-weight:800;margin-bottom:4px}
+.dq-big.strong .dq-big-label{color:var(--good)}
+.dq-big.fair .dq-big-label{color:var(--warn)}
+.dq-big.weak .dq-big-label{color:var(--bad)}
+.dq-big-sub{font-size:12px;color:var(--muted2);font-family:var(--mono);line-height:1.6}
+.dq-big-hint{font-size:13px;color:var(--text);line-height:1.75;margin-top:12px;text-align:left}
+.dq-big-hint strong{color:var(--cyan)}
+.dq-big-goal{display:inline-block;margin-top:10px;font-size:11px;font-family:var(--mono);padding:4px 12px;border-radius:20px;background:rgba(34,199,138,.08);border:1px solid rgba(34,199,138,.2);color:var(--good)}
 
 /* Phase guide -- bigger and more prominent */
 .pi-card{background:rgba(0,229,200,.04) !important;border:1px solid rgba(0,229,200,.18) !important}
@@ -553,18 +565,16 @@ body.bar-showing #screen-phases{padding-bottom:120px}
         </div>
       </div>
       <div class="ep-info-side">
+        <!-- Detection quality — large and prominent, first thing you see -->
+        <div id="ep-quality-card" style="display:none"></div>
+
+        <!-- Phase guide -->
         <div class="pi-card">
-          <div class="pi-label">Phase guide</div>
+          <div class="pi-label">What to look for</div>
           <div class="pi-title" id="ep-guide-title"></div>
           <div class="pi-desc"  id="ep-guide-desc"></div>
           <div class="pi-checks" id="ep-guide-checks"></div>
           <div class="pi-tip"   id="ep-guide-tip"></div>
-        </div>
-        <!-- Detection quality -->
-        <div id="ep-quality-card" style="background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;display:none">
-          <div style="font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;font-family:var(--mono)">Detection quality</div>
-          <div id="ep-quality-display"></div>
-          <div style="font-size:11px;color:var(--muted2);margin-top:8px;font-family:var(--mono);line-height:1.6" id="ep-quality-note"></div>
         </div>
 
         <!-- Measurements with bell curve visualizations -->
@@ -864,22 +874,45 @@ function getDetectionQuality(kps){
   var scores = relevant.map(function(i){return (kps[i] && kps[i].score) || 0;});
   var avg = scores.reduce(function(a,b){return a+b;},0)/scores.length;
   var min = Math.min.apply(null, scores);
-  if(avg>=0.72&&min>=0.4)  return {level:'strong',label:'Strong detection', note:'Keypoint confidence is high -- measurements are reliable for this frame.'};
-  if(avg>=0.5 &&min>=0.25) return {level:'fair',  label:'Fair detection',   note:'Some keypoints have moderate confidence. Results are usable but consider re-checking the frame.'};
-  return                          {level:'weak',   label:'Weak detection',   note:'Several keypoints have low confidence. Try a different frame with less motion blur or obstruction.'};
+  if(avg>=0.72&&min>=0.4)  return {level:'strong',label:'Strong detection', note:'All major joints are clearly identified. Measurements for this frame are reliable.'};
+  if(avg>=0.5 &&min>=0.25) return {level:'fair',  label:'Fair detection',   note:'Some joints have moderate confidence. Results may be usable, but Strong detection will give you more reliable data.'};
+  return                          {level:'weak',   label:'Weak detection',   note:'Multiple joints could not be reliably identified. Measurements from this frame are not reliable.'};
 }
 
 function renderQualityCard(kps){
   var qCard = document.getElementById('ep-quality-card');
-  var qDisp = document.getElementById('ep-quality-display');
-  var qNote = document.getElementById('ep-quality-note');
   if(!qCard) return;
   if(!kps){ qCard.style.display='none'; return; }
   var q = getDetectionQuality(kps);
   if(!q){ qCard.style.display='none'; return; }
   qCard.style.display='block';
-  qDisp.innerHTML='<span class="dq-pill '+q.level+'">&#9673; '+q.label+'</span>';
-  qNote.textContent=q.note;
+
+  var hint = '';
+  if(q.level === 'strong') {
+    hint = '<div class="dq-big-hint">Detection is strong. The skeleton overlay should match the runner closely. If the overlay looks off, click <strong>&#8635; Analyze</strong> again -- sometimes a second pass improves accuracy.</div>';
+  } else if(q.level === 'fair') {
+    hint = '<div class="dq-big-hint">' +
+      '<strong>Goal: get to Strong detection.</strong> Try these steps:' +
+      '<br>1. Click <strong>&#8635; Analyze</strong> again -- a second attempt often improves results.' +
+      '<br>2. If the overlay still does not match the runner, use the scrubber to select a nearby frame with less motion blur.' +
+      '<br>3. Make sure the selected frame matches what this phase describes (see "What to look for" below).' +
+      '</div>' +
+      '<div class="dq-big-goal">&#9678; Goal: Strong detection</div>';
+  } else {
+    hint = '<div class="dq-big-hint">' +
+      '<strong>Detection is weak -- the measurements may not be reliable.</strong>' +
+      '<br>1. Click <strong>&#8635; Analyze</strong> again -- it sometimes produces a better result on a second or third attempt.' +
+      '<br>2. If still weak, scrub to a different frame. Look for a moment where the runner is clearly visible with no overlap between limbs and minimal motion blur.' +
+      '<br>3. Confirm the frame matches the gait phase described below. If this phase was auto-detected incorrectly, scrub to a frame that matches and re-analyze.' +
+      '</div>' +
+      '<div class="dq-big-goal">&#9678; Goal: Strong detection</div>';
+  }
+
+  qCard.innerHTML = '<div class="dq-big '+q.level+'">' +
+    '<div class="dq-big-label">'+q.label+'</div>' +
+    '<div class="dq-big-sub">'+q.note+'</div>' +
+    hint +
+    '</div>';
 }
 
 function renderSideViewWarning(key){
@@ -1320,8 +1353,19 @@ function openExpand(key){
   scrub.min=0;scrub.max=isFinite(dur)?dur:30;scrub.step=0.04;scrub.value=epCurrentT;
   document.getElementById('ep-time').textContent=epCurrentT.toFixed(2)+'s';
   var guide=ph.guide||PHASE_DEFS[0].guide;
-  document.getElementById('ep-guide-title').textContent=guide.title;document.getElementById('ep-guide-desc').textContent=guide.desc;
-  document.getElementById('ep-guide-checks').innerHTML=guide.checks.map(function(c){return '<div class="pi-check"><span class="pi-check-icon">&#9670;</span><span>'+c+'</span></div>';}).join('');
+  document.getElementById('ep-guide-title').textContent=guide.title;
+  document.getElementById('ep-guide-desc').innerHTML = guide.desc +
+    '<div style="margin-top:12px;font-size:14px;color:var(--text);line-height:1.8"><strong>Your goal is to get a "Strong detection" reading above.</strong> ' +
+    'This means the pose estimation model can clearly identify all major joints, which produces the most reliable measurements.</div>';
+  document.getElementById('ep-guide-checks').innerHTML =
+    '<div style="font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;font-family:var(--mono)">Confirm this frame shows:</div>' +
+    guide.checks.map(function(c){return '<div class="pi-check"><span class="pi-check-icon">&#9670;</span><span>'+c+'</span></div>';}).join('') +
+    '<div style="margin-top:14px;font-size:13px;color:var(--text);line-height:1.8;border-top:1px solid var(--border);padding-top:12px">' +
+    '<strong>If detection is not Strong:</strong>' +
+    '<br>&#8226; Click <strong style="color:var(--cyan)">&#8635; Analyze</strong> again -- a second or third pass often gets a better result.' +
+    '<br>&#8226; If the skeleton overlay does not match the runner after multiple attempts, use the scrubber to move to a nearby frame.' +
+    '<br>&#8226; If the frame does not match what this phase describes, scrub further to find the correct moment in the video.' +
+    '</div>';
   document.getElementById('ep-guide-tip').textContent='Tip: '+guide.tip;
   document.getElementById('nav-phase-btns').innerHTML=PHASE_DEFS.map(function(def,i){return '<button class="nav-phase-btn '+(def.key===key?'cur':'')+' '+(!(phases[def.key]&&phases[def.key].detected)?'undetected':'')+'" onclick="openExpand(\''+def.key+'\')">'+(i+1)+'. '+def.label+'</button>';}).join('');
 
@@ -1527,7 +1571,7 @@ function calcAngle(a,b,c){if(!a||!b||!c)return null;var ba={x:a.x-b.x,y:a.y-b.y}
 function computeMetrics(kps){
   var g2=function(i){return (kps[i]&&kps[i].score>=MIN_CONF)?kps[i]:null;};var m={};
   var lSh=g2(5),rSh=g2(6),lHi=g2(11),rHi=g2(12),lAn=g2(15),rAn=g2(16),nose=g2(0);
-  if(lSh&&rSh&&lHi&&rHi){var shM={x:(lSh.x+rSh.x)/2,y:(lSh.y+rSh.y)/2},hiM={x:(lHi.x+rHi.x)/2,y:(lHi.y+rHi.y)/2};m.trunk=Math.atan2(shM.x-hiM.x,hiM.y-shM.y)*180/Math.PI;var th=Math.abs(hiM.y-shM.y),dir=(nose&&nose.x>hiM.x)?1:-1;if(lAn&&th>0)m.lFoot=dir*(lAn.x-hiM.x)/th;if(rAn&&th>0)m.rFoot=dir*(rAn.x-hiM.x)/th;}
+  if(lSh&&rSh&&lHi&&rHi){var shM={x:(lSh.x+rSh.x)/2,y:(lSh.y+rSh.y)/2},hiM={x:(lHi.x+rHi.x)/2,y:(lHi.y+rHi.y)/2};var dir=(nose&&nose.x>hiM.x)?1:-1;var rawLean=Math.atan2(shM.x-hiM.x,hiM.y-shM.y)*180/Math.PI;m.trunk=dir*rawLean;var th=Math.abs(hiM.y-shM.y);if(lAn&&th>0)m.lFoot=dir*(lAn.x-hiM.x)/th;if(rAn&&th>0)m.rFoot=dir*(rAn.x-hiM.x)/th;}
   var lKnA=calcAngle(g2(11),g2(13),g2(15));if(lKnA!==null)m.lKnee=lKnA;var rKnA=calcAngle(g2(12),g2(14),g2(16));if(rKnA!==null)m.rKnee=rKnA;
   var lHiA=calcAngle(g2(5),g2(11),g2(13));if(lHiA!==null)m.lHip=lHiA;var rHiA=calcAngle(g2(6),g2(12),g2(14));if(rHiA!==null)m.rHip=rHiA;
   var lElA=calcAngle(g2(5),g2(7),g2(9));if(lElA!==null)m.lElbow=lElA;var rElA=calcAngle(g2(6),g2(8),g2(10));if(rElA!==null)m.rElbow=rElA;
