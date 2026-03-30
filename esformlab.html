@@ -113,14 +113,23 @@ nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:st
 
 /* Phases */
 #screen-phases{display:none;padding:28px 24px 80px;max-width:1440px;margin:0 auto}
-.instr-banner{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px 22px;margin-bottom:24px;display:flex;gap:20px;align-items:flex-start}
-.instr-icon{font-size:22px;flex-shrink:0;margin-top:2px}
-.instr-title{font-size:14px;font-weight:700;margin-bottom:6px}
-.instr-text{font-size:12px;color:var(--muted2);line-height:1.75;margin-bottom:10px}
-.instr-steps{display:flex;flex-direction:column;gap:5px}
-.instr-step{display:flex;align-items:flex-start;gap:9px;font-size:12px;color:var(--muted2);line-height:1.55}
-.instr-step-num{width:18px;height:18px;border-radius:50%;background:rgba(0,229,200,.12);border:1px solid rgba(0,229,200,.25);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--cyan);flex-shrink:0;margin-top:1px;font-family:var(--mono)}
-.instr-legend{display:flex;gap:14px;align-items:center;margin-top:12px;flex-wrap:wrap}
+.instr-banner{background:linear-gradient(135deg,rgba(0,229,200,.06) 0%,rgba(139,124,248,.04) 100%);border:2px solid rgba(0,229,200,.25);border-radius:18px;padding:36px 40px;margin-bottom:32px}
+.instr-headline{font-size:28px;font-weight:800;line-height:1.25;margin-bottom:8px;letter-spacing:-.3px}
+.instr-headline em{font-style:normal;color:var(--cyan)}
+.instr-subhead{font-size:17px;color:var(--muted2);line-height:1.7;margin-bottom:28px;max-width:700px}
+.instr-steps{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:700px){.instr-steps{grid-template-columns:1fr}}
+.instr-step{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px 22px;display:flex;align-items:flex-start;gap:14px}
+.instr-step-num{width:36px;height:36px;border-radius:50%;background:rgba(0,229,200,.12);border:2px solid rgba(0,229,200,.3);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:var(--cyan);flex-shrink:0;font-family:var(--mono)}
+.instr-step-text{flex:1}
+.instr-step-title{font-size:16px;font-weight:800;margin-bottom:4px;color:var(--text)}
+.instr-step-desc{font-size:14px;color:var(--muted2);line-height:1.75}
+.instr-step-desc strong{color:var(--text)}
+.instr-callout{margin-top:24px;background:rgba(0,229,200,.06);border:1px solid rgba(0,229,200,.2);border-radius:12px;padding:18px 22px;display:flex;align-items:flex-start;gap:12px}
+.instr-callout-icon{font-size:24px;flex-shrink:0;line-height:1}
+.instr-callout-text{font-size:15px;color:var(--text);line-height:1.8;font-weight:500}
+.instr-callout-text strong{color:var(--cyan)}
+.instr-legend{display:flex;gap:14px;align-items:center;margin-top:20px;flex-wrap:wrap}
 .il-item{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted2);font-weight:600}
 .il-swatch{width:10px;height:10px;border-radius:50%}
 .scan-summary{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:20px;display:none;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--muted2);font-family:var(--mono)}
@@ -168,12 +177,7 @@ nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:st
 .pc-video-badge.back-badge{background:rgba(245,200,66,.08);color:var(--gold);border:1px solid rgba(245,200,66,.15)}
 .pc-detects{font-size:9px;color:var(--muted);font-family:var(--mono);padding:2px 14px 6px}
 
-/* Bigger instruction banner text */
-.instr-banner{padding:22px 26px}
-.instr-title{font-size:18px !important;font-weight:800 !important;margin-bottom:10px !important}
-.instr-text{font-size:14px !important;line-height:1.8 !important;margin-bottom:14px !important}
-.instr-step{font-size:13px !important;line-height:1.65 !important}
-.instr-step-num{width:22px !important;height:22px !important;font-size:11px !important;flex-shrink:0;margin-top:2px !important}
+/* (instruction banner styles are in .instr-banner block above) */
 
 /* Detection quality — large prominent display */
 .dq-pill{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-family:var(--mono);padding:2px 7px;border-radius:8px;margin-top:6px}
@@ -472,24 +476,54 @@ body.bar-showing #screen-phases{padding-bottom:120px}
 <!-- Phases -->
 <div id="screen-phases">
   <div class="instr-banner">
-    <div class="instr-icon">&#9678;</div>
-    <div style="flex:1">
-      <div class="instr-title">Review and adjust each phase before completing your analysis</div>
-      <div class="instr-text">The automatic detection makes a best guess at each phase, but it is not perfect -- especially in shorter or edited clips. <strong>Before completing your analysis, check each phase card and adjust the frame if needed.</strong> The right frame for each phase makes a real difference in the accuracy of your results.</div>
-      <div class="instr-steps">
-        <div class="instr-step"><div class="instr-step-num">1</div><span><strong>Click any phase card</strong> to open a detailed view. Each card includes a plain-language description of exactly what to look for in that phase, with coaching notes specific to that moment of the gait cycle.</span></div>
-        <div class="instr-step"><div class="instr-step-num">2</div><span><strong>Drag the scrubber</strong> to find the best frame. Use the +/-1f and +/-5f buttons for precise, frame-by-frame control.</span></div>
-        <div class="instr-step"><div class="instr-step-num">3</div><span><strong>Click &#8635; Analyze</strong> once you have found the right frame -- the overlay and results update immediately.</span></div>
-        <div class="instr-step"><div class="instr-step-num">4</div><span><strong>When all phases look right</strong>, click the Complete Analysis button that appears at the bottom to generate your full report.</span></div>
+    <div class="instr-headline">Before you finish: <em>review every card below</em></div>
+    <div class="instr-subhead">We made a first pass at detecting each phase of your running gait. Now you need to open each card, check the frame, and make sure detection is strong. This is what makes your results accurate.</div>
+
+    <div class="instr-steps">
+      <div class="instr-step">
+        <div class="instr-step-num">1</div>
+        <div class="instr-step-text">
+          <div class="instr-step-title">Click on every card below</div>
+          <div class="instr-step-desc">Each card represents a specific moment in your stride. <strong>Click on each one</strong> to open it. You will see a skeleton overlay on your video and a detection quality reading.</div>
+        </div>
       </div>
-      <div class="instr-legend">
-        <div class="il-item"><div class="il-swatch" style="background:var(--left)"></div>Left side</div>
-        <div class="il-item"><div class="il-swatch" style="background:var(--right)"></div>Right side</div>
-        <div class="il-item"><div class="il-swatch" style="background:var(--gold)"></div>Trunk lean</div>
-        <div class="il-item">&#9656; Within range</div>
-        <div class="il-item">&#9652; Above range</div>
-        <div class="il-item">&#9662; Below range</div>
+      <div class="instr-step">
+        <div class="instr-step-num">2</div>
+        <div class="instr-step-text">
+          <div class="instr-step-title">Get every card to "Strong detection"</div>
+          <div class="instr-step-desc">The large detection quality indicator at the top of each card should read <strong>"Strong detection"</strong> in green. If it does not, click the <strong>Analyze</strong> button again, or use the scrubber to pick a clearer frame.</div>
+        </div>
       </div>
+      <div class="instr-step">
+        <div class="instr-step-num">3</div>
+        <div class="instr-step-text">
+          <div class="instr-step-title">Make sure each frame matches its description</div>
+          <div class="instr-step-desc">Each card describes what the frame should look like (for example, "the moment the left foot contacts the ground"). If the auto-selected frame does not match, <strong>use the scrubber to find the right moment</strong> and click Analyze again.</div>
+        </div>
+      </div>
+      <div class="instr-step">
+        <div class="instr-step-num">4</div>
+        <div class="instr-step-text">
+          <div class="instr-step-title">Then click "Complete analysis"</div>
+          <div class="instr-step-desc">Once every card shows Strong detection and the correct frame, scroll to the bottom and click <strong>Complete analysis</strong> to generate your full report with coaching recommendations.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="instr-callout">
+      <div class="instr-callout-icon">&#9432;</div>
+      <div class="instr-callout-text">
+        <strong>Why does this matter?</strong> The accuracy of your final report depends entirely on the quality of these frames. A frame with weak detection or the wrong moment selected will produce inaccurate angles and unreliable coaching cues. Taking a minute to check each card is the difference between useful feedback and noise.
+      </div>
+    </div>
+
+    <div class="instr-legend">
+      <div class="il-item"><div class="il-swatch" style="background:var(--left)"></div>Left side</div>
+      <div class="il-item"><div class="il-swatch" style="background:var(--right)"></div>Right side</div>
+      <div class="il-item"><div class="il-swatch" style="background:var(--gold)"></div>Trunk lean</div>
+      <div class="il-item">&#9656; Within range</div>
+      <div class="il-item">&#9652; Above range</div>
+      <div class="il-item">&#9662; Below range</div>
     </div>
   </div>
   <div id="scan-summary-bar" class="scan-summary"></div>
