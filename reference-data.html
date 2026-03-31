@@ -211,6 +211,9 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 .re-btn{margin-left:auto;display:inline-flex;align-items:center;gap:6px;padding:7px 16px;font-size:11px;font-weight:700;font-family:var(--ui);border-radius:8px;border:1px solid rgba(139,124,248,.3);background:rgba(139,124,248,.08);color:var(--purple);cursor:pointer;transition:all .15s}
 .re-btn:hover{background:rgba(139,124,248,.15)}
 .re-btn:disabled{opacity:.35;cursor:not-allowed}
+.swap-btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;font-size:11px;font-weight:700;font-family:var(--ui);border-radius:8px;border:1px solid rgba(245,166,35,.3);background:rgba(245,166,35,.08);color:var(--warn);cursor:pointer;transition:all .15s;margin-left:6px}
+.swap-btn:hover{background:rgba(245,166,35,.18)}
+.swap-btn:disabled{opacity:.35;cursor:not-allowed}
 .scrub-nav{display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);flex-wrap:wrap}
 .scrub-nav-label{font-size:10px;color:var(--muted);font-family:var(--mono)}
 .nav-phase-btns{display:flex;gap:5px;flex-wrap:wrap;margin-left:auto}
@@ -502,6 +505,8 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
             <button class="step-btn" onclick="epStep(1)">+1f</button>
             <button class="step-btn" onclick="epStep(5)">+5f</button>
             <button class="re-btn" id="ep-re-btn" onclick="epReanalyze()">↻ Analyze</button>
+            <button class="swap-btn" id="ep-swap-btn" onclick="swapLegs()" title="Swap left/right leg assignments">&#8644; Swap L/R</button>
+            <button class="step-btn" onclick="clearOverlay()" title="Clear skeleton overlay" style="margin-left:6px;font-size:10px">✕ Clear</button>
           </div>
           <div class="scrub-nav">
             <span class="scrub-nav-label">jump to:</span>
@@ -685,13 +690,13 @@ const METRIC_ROWS = [
 ];
 
 const PHASE_METRICS = {
-  l_foot:  ['trunk','lKnee','lHip','lFoot','lElbow'],
-  r_foot:  ['trunk','rKnee','rHip','rFoot','rElbow'],
-  l_toe:   ['trunk','lHip','lKnee','lElbow'],
-  r_toe:   ['trunk','rHip','rKnee','rElbow'],
+  l_foot:  ['trunk','lKnee','rKnee','lHip','rHip','lFoot','lElbow'],
+  r_foot:  ['trunk','lKnee','rKnee','lHip','rHip','rFoot','rElbow'],
+  l_toe:   ['trunk','lKnee','rKnee','lHip','rHip','lElbow'],
+  r_toe:   ['trunk','lKnee','rKnee','lHip','rHip','rElbow'],
   mid:     ['trunk','lKnee','rKnee','lHip','rHip','lElbow','rElbow'],
-  peak_kf: ['trunk','lKnee','rHip','lElbow'],
-  swing:   ['trunk','lKnee','lFoot','lElbow'],
+  peak_kf: ['trunk','lKnee','rKnee','lHip','rHip','lElbow'],
+  swing:   ['trunk','lKnee','rKnee','lHip','rHip','lFoot','lElbow'],
 };
 function isRelevant(phaseKey, metricKey){ const pm=PHASE_METRICS[phaseKey]; return !pm || pm.includes(metricKey); }
 
@@ -1033,6 +1038,34 @@ function isSideView(kps){
   const ratio = hipSpread / (torsoH || 100);
   // Side view: ratio < 0.7  |  Clear front/back: ratio > 0.9
   return ratio < 0.7;
+}
+
+function swapLegs(){
+  const ph = phases[expandKey];
+  if(!ph || !ph.kps) return;
+  const kps = ph.kps;
+  for(let i=1; i<=15; i+=2){ const tmp=kps[i]; kps[i]=kps[i+1]; kps[i+1]=tmp; }
+  ph.metrics = computeMetrics(kps);
+  const canvas = document.getElementById('ep-canvas');
+  const W = canvas.width, H = canvas.height;
+  const ctx = canvas.getContext('2d');
+  try{ ctx.drawImage(videoEl, 0, 0, W, H); }catch(e){}
+  drawPose(ctx, kps, W, H);
+  const ovCanvas = document.getElementById('canvas-'+expandKey);
+  if(ovCanvas){ try{ ovCanvas.getContext('2d').drawImage(canvas, 0, 0, ovCanvas.width, ovCanvas.height); }catch(e){} }
+  if(ph.sideView) renderExpandMetrics(ph.metrics);
+  renderMiniMetrics(expandKey, ph.metrics);
+  updateSummaryCol(expandKey);
+  renderQualityCard(kps);
+  updateSaveSection();
+}
+
+function clearOverlay(){
+  const canvas=document.getElementById('ep-canvas');
+  if(!canvas)return;
+  const W=canvas.width,H=canvas.height;
+  const ctx=canvas.getContext('2d');
+  try{ctx.drawImage(videoEl,0,0,W,H);}catch(e){}
 }
 
 function drawPose(ctx,kps,W,H){

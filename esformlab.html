@@ -374,6 +374,72 @@ body.bar-showing #screen-phases{padding-bottom:120px}
 .issue-card-text{font-size:13px;color:var(--muted2);line-height:1.75}
 .issue-card.not-detected{opacity:.6}
 .issue-card.not-detected .issue-card-title{color:var(--muted2)}
+
+/* Auth UI in nav */
+.auth-indicator{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;background:rgba(0,229,200,.06);border:1px solid rgba(0,229,200,.15)}
+.auth-avatar{width:22px;height:22px;border-radius:50%;display:none}
+.auth-name{font-size:11px;font-weight:600;color:var(--cyan);font-family:var(--mono)}
+.btn-sign-in-nav{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;font-size:11px;font-weight:600;font-family:var(--ui);border-radius:7px;border:1px solid rgba(0,229,200,.3);background:rgba(0,229,200,.06);color:var(--cyan);cursor:pointer;transition:all .15s}
+.btn-sign-in-nav:hover{background:rgba(0,229,200,.12)}
+
+/* Save analysis section */
+.save-analysis-section{margin-top:32px;padding:28px 0;border-top:1px solid var(--border)}
+.save-form{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:24px 28px;display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
+.save-form-title{font-size:16px;font-weight:800;margin-bottom:4px}
+.save-form-sub{font-size:13px;color:var(--muted2);line-height:1.7}
+.save-form-fields{display:flex;gap:10px;align-items:center;flex-wrap:wrap;flex:1;min-width:280px}
+.save-input{flex:1;min-width:160px;padding:10px 14px;font-size:13px;font-family:var(--ui);background:var(--panel2);border:1px solid var(--border2);border-radius:9px;color:var(--text);outline:none;transition:border-color .15s}
+.save-input:focus{border-color:var(--cyan)}
+.save-date-input{width:140px;flex:none;padding:10px 14px;font-size:13px;font-family:var(--mono);background:var(--panel2);border:1px solid var(--border2);border-radius:9px;color:var(--text);outline:none;transition:border-color .15s;color-scheme:dark}
+.save-date-input:focus{border-color:var(--cyan)}
+.btn-save-analysis{padding:10px 22px;font-size:13px;font-weight:700;font-family:var(--ui);background:var(--cyan);color:#000;border:none;border-radius:9px;cursor:pointer;transition:opacity .15s;white-space:nowrap;flex-shrink:0}
+.btn-save-analysis:hover{opacity:.85}
+.btn-save-analysis:disabled{opacity:.4;cursor:not-allowed}
+.save-status{width:100%;font-size:12px;font-family:var(--mono);min-height:18px}
+.btn-new-session{padding:10px 24px;font-size:13px;font-weight:600;font-family:var(--ui);background:transparent;border:1px solid var(--border2);border-radius:9px;color:var(--muted2);cursor:pointer;transition:all .15s}
+.btn-new-session:hover{border-color:var(--cyan);color:var(--cyan)}
+
+/* My Analyses overlay */
+.my-analyses-overlay{position:fixed;inset:0;background:rgba(6,8,13,.9);z-index:400;display:none;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}
+.my-analyses-overlay.open{display:flex}
+.ma-panel{background:var(--panel);border:1px solid var(--border2);border-radius:20px;width:100%;max-width:700px;max-height:calc(100vh - 32px);overflow-y:auto;display:flex;flex-direction:column}
+.ma-hdr{padding:18px 22px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:sticky;top:0;background:var(--panel);z-index:10;border-radius:20px 20px 0 0}
+.ma-title{font-size:18px;font-weight:800}
+.ma-list{padding:12px;display:flex;flex-direction:column;gap:8px}
+.ma-item{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;display:flex;align-items:center;gap:16px;transition:border-color .15s}
+.ma-item:hover{border-color:rgba(0,229,200,.25)}
+.ma-item-info{flex:1;min-width:0}
+.ma-item-name{font-size:14px;font-weight:700;margin-bottom:3px}
+.ma-item-date{font-size:11px;color:var(--muted2);font-family:var(--mono);margin-bottom:2px}
+.ma-item-issues{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.ma-item-actions{display:flex;gap:6px;flex-shrink:0}
+.ma-btn{padding:6px 14px;font-size:11px;font-weight:600;font-family:var(--ui);border-radius:7px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;transition:all .15s}
+.ma-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.ma-btn.delete{color:var(--muted)}
+.ma-btn.delete:hover{border-color:var(--bad);color:var(--bad)}
+
+/* Compare overlay */
+.compare-overlay{position:fixed;inset:0;background:rgba(6,8,13,.9);z-index:400;display:none;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}
+.compare-overlay.open{display:flex}
+.compare-panel{background:var(--panel);border:1px solid var(--border2);border-radius:20px;width:100%;max-width:900px;max-height:calc(100vh - 32px);overflow-y:auto;display:flex;flex-direction:column;padding:0 0 24px}
+.compare-hdr{padding:18px 22px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:sticky;top:0;background:var(--panel);z-index:10;border-radius:20px 20px 0 0}
+.compare-picker{padding:16px 22px}
+.compare-grid{display:flex;flex-direction:column;gap:8px;padding:0 22px}
+.compare-issue-row{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:12px 16px}
+.compare-issue-card{font-size:13px;font-weight:600}
+.compare-direction{text-align:center;min-width:100px}
+.direction-improved{color:var(--good);font-size:12px;font-weight:700}
+.direction-same{color:var(--muted2);font-size:12px;font-weight:700}
+.direction-worsened{color:var(--bad);font-size:12px;font-weight:700}
+.compare-details-toggle{width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:12px;font-weight:600;color:var(--muted2);cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-family:var(--ui);transition:border-color .15s;text-align:left;margin:0 22px;max-width:calc(100% - 44px)}
+.compare-details-toggle:hover{border-color:rgba(0,229,200,.3);color:var(--text)}
+.compare-details-toggle .toggle-arrow{font-size:10px;transition:transform .2s}
+.compare-details-toggle.open .toggle-arrow{transform:rotate(180deg)}
+.compare-details-table{display:none;padding:12px 22px;overflow-x:auto}
+.compare-details-table.open{display:block}
+
+/* Saved view banner */
+.saved-view-banner{display:none;align-items:center;justify-content:space-between;padding:14px 32px;background:rgba(0,229,200,.06);border-bottom:1px solid rgba(0,229,200,.18);gap:16px;flex-wrap:wrap}
 </style>
 </head>
 <body>
@@ -399,8 +465,14 @@ body.bar-showing #screen-phases{padding-bottom:120px}
   </div>
   <span id="hdr-file"></span>
   <div class="hdr-right">
+    <button class="btn-ghost" id="btn-my-analyses" onclick="openMyAnalyses()" style="display:none">My analyses</button>
+    <span id="auth-indicator" class="auth-indicator" style="display:none">
+      <img id="auth-avatar" class="auth-avatar" src="">
+      <span id="auth-name" class="auth-name"></span>
+    </span>
+    <button class="btn-ghost" id="btn-sign-out" onclick="signOutUser()" style="display:none">Sign out</button>
     <button class="btn-ghost" id="btn-rescan" onclick="rescan()" style="display:none">&#10227; Re-scan</button>
-    <button class="btn-ghost" onclick="resetApp()">&#8617; New video</button>
+    <button class="btn-ghost" onclick="startNewSession()">&#8617; New video</button>
   </div>
 </nav>
 
@@ -576,6 +648,26 @@ body.bar-showing #screen-phases{padding-bottom:120px}
     <div class="report-issues-grid" id="report-issues-grid"></div>
   </div>
 
+  <!-- Save analysis -->
+  <div id="save-section" class="save-analysis-section" style="display:none">
+    <div class="save-form">
+      <div style="flex:1">
+        <div class="save-form-title">Save this analysis</div>
+        <div class="save-form-sub">Give this session a name so you can find it later and compare it to future sessions.</div>
+      </div>
+      <div class="save-form-fields">
+        <input type="text" class="save-input" id="save-name" placeholder="Session name (e.g. first session, post-cue check)">
+        <input type="date" class="save-date-input" id="save-date">
+        <button class="btn-save-analysis" id="btn-save" onclick="saveAnalysis()">Save analysis</button>
+        <button class="btn-ghost" id="btn-sign-in-save" onclick="signInWithGoogle()" style="display:none">Sign in with Google to save</button>
+      </div>
+      <div class="save-status" id="save-status"></div>
+    </div>
+    <div style="text-align:center;margin-top:16px">
+      <button class="btn-new-session" onclick="startNewSession()">Start new session (discard current)</button>
+    </div>
+  </div>
+
   <!-- Summary table (side view measurements) -->
   <div class="summary" id="summary-section" style="display:none">
     <div class="summary-title" id="summary-title" style="font-size:22px">Side view measurements</div>
@@ -665,6 +757,41 @@ body.bar-showing #screen-phases{padding-bottom:120px}
   </div>
 </div>
 
+<!-- My Analyses overlay -->
+<div id="my-analyses-overlay" class="my-analyses-overlay">
+  <div class="ma-panel">
+    <div class="ma-hdr">
+      <div class="ma-title">My saved analyses</div>
+      <button class="ep-close" onclick="closeMyAnalyses()">X</button>
+    </div>
+    <div id="ma-list" class="ma-list">Sign in to see your saved analyses.</div>
+  </div>
+</div>
+
+<!-- Compare overlay -->
+<div id="compare-overlay" class="compare-overlay">
+  <div class="compare-panel">
+    <div class="compare-hdr">
+      <div class="ma-title">Compare analyses</div>
+      <button class="ep-close" onclick="closeCompare()">X</button>
+    </div>
+    <div class="compare-picker" id="compare-picker"></div>
+    <div id="compare-results"></div>
+  </div>
+</div>
+
+<!-- Saved view banner -->
+<div id="saved-view-banner" class="saved-view-banner" style="display:none">
+  <div>
+    <strong id="saved-view-name"></strong>
+    <span id="saved-view-date" style="color:var(--muted2);font-family:var(--mono);margin-left:8px"></span>
+  </div>
+  <div style="display:flex;gap:8px">
+    <button class="btn-ghost" onclick="closeMyAnalyses();openMyAnalyses()">Back to list</button>
+    <button class="btn-ghost" onclick="startNewSession()">New session</button>
+  </div>
+</div>
+
 <video id="video-side" style="display:none" playsinline preload="metadata"></video>
 <video id="video-front" style="display:none" playsinline preload="metadata"></video>
 <video id="video-back" style="display:none" playsinline preload="metadata"></video>
@@ -672,6 +799,7 @@ body.bar-showing #screen-phases{padding-bottom:120px}
 <!-- Firebase (read-only -- fetches computed ranges) -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
 
@@ -825,6 +953,58 @@ async function initFirebase() {
   } catch(e) { console.warn('esFormLab: could not fetch live ranges.', e.message); }
 }
 
+function initAuth() {
+  auth2 = firebase.auth();
+  auth2.onAuthStateChanged(function(user) {
+    currentUser = user;
+    updateAuthUI();
+    if (user) loadAnalysesList();
+  });
+}
+
+function signInWithGoogle() {
+  if (!auth2) return;
+  var provider = new firebase.auth.GoogleAuthProvider();
+  auth2.signInWithPopup(provider).catch(function(e) {
+    console.error('Sign-in failed:', e.message);
+  });
+}
+
+function signOutUser() {
+  if (!auth2) return;
+  auth2.signOut().then(function() {
+    currentUser = null;
+    savedAnalysesList = [];
+    updateAuthUI();
+  });
+}
+
+function updateAuthUI() {
+  var indicator = document.getElementById('auth-indicator');
+  var nameEl = document.getElementById('auth-name');
+  var avatarEl = document.getElementById('auth-avatar');
+  var signOutBtn = document.getElementById('btn-sign-out');
+  var myAnalysesBtn = document.getElementById('btn-my-analyses');
+  var saveBtn = document.getElementById('btn-save');
+  var signInSaveBtn = document.getElementById('btn-sign-in-save');
+
+  if (currentUser) {
+    if (indicator) indicator.style.display = 'inline-flex';
+    if (nameEl) nameEl.textContent = currentUser.displayName ? currentUser.displayName.split(' ')[0] : 'User';
+    if (avatarEl && currentUser.photoURL) { avatarEl.src = currentUser.photoURL; avatarEl.style.display = 'block'; }
+    if (signOutBtn) signOutBtn.style.display = 'inline-flex';
+    if (myAnalysesBtn) myAnalysesBtn.style.display = 'inline-flex';
+    if (saveBtn) saveBtn.style.display = 'inline-flex';
+    if (signInSaveBtn) signInSaveBtn.style.display = 'none';
+  } else {
+    if (indicator) indicator.style.display = 'none';
+    if (signOutBtn) signOutBtn.style.display = 'none';
+    if (myAnalysesBtn) myAnalysesBtn.style.display = 'none';
+    if (saveBtn) saveBtn.style.display = 'none';
+    if (signInSaveBtn) signInSaveBtn.style.display = 'inline-flex';
+  }
+}
+
 // -- Sex selection --
 function setSex(sex) {
   selectedSex = sex;
@@ -910,6 +1090,11 @@ var uploadedFiles = {side: null, front: null, back: null};
 
 let detector=null, phases={};
 let expandKey=null, epCurrentT=0, epAnalyzing=false;
+var auth2 = null;
+var currentUser = null;
+var lastIssues = null;
+var isViewingSaved = false;
+var savedAnalysesList = [];
 const epDbt={};
 
 function getVideoElForPhase(key) {
@@ -1121,6 +1306,7 @@ function clearOverlay(){
 }
 
 function checkAllAnalyzed(){
+  if (isViewingSaved) return;
   var analyzed = PHASE_DEFS.filter(function(d){return phases[d.key] && phases[d.key].metrics;});
   var frontBackAnalyzed = PHASE_DEFS.filter(function(d){return phases[d.key] && (phases[d.key].metrics || phases[d.key].frontBackMetrics);});
   var bar = document.getElementById('complete-analysis-bar');
@@ -1145,6 +1331,7 @@ function checkAllAnalyzed(){
 function completeAnalysis(){
   // Run detection rules
   var issues = detectIssues();
+  lastIssues = issues;
   // Render report
   renderReport(issues);
   // Show sections
@@ -1152,6 +1339,13 @@ function completeAnalysis(){
   var summaryEl = document.getElementById('summary-section');
   if(reportEl) reportEl.style.display='block';
   if(summaryEl) summaryEl.style.display='block';
+  // Show save section
+  var saveEl = document.getElementById('save-section');
+  if (saveEl && !isViewingSaved) {
+    saveEl.style.display = 'block';
+    document.getElementById('save-date').value = new Date().toISOString().slice(0, 10);
+    updateAuthUI();
+  }
   // Scroll to report
   if(reportEl){
     reportEl.scrollIntoView({behavior:'smooth',block:'start'});
@@ -1166,6 +1360,7 @@ function completeAnalysis(){
 
 async function initModel(){
   initFirebase();
+  initAuth();
   try{
     await tf.ready();
     detector=await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,{modelType:poseDetection.movenet.modelType.SINGLEPOSE_THUNDER});
@@ -2172,6 +2367,8 @@ async function rescan(){
 
 function resetApp(){
   closeExpand();phases={};
+  lastIssues = null;
+  isViewingSaved = false;
   document.getElementById('screen-phases').style.display='none';
   document.getElementById('screen-scanning').style.display='none';
   document.getElementById('screen-upload').style.display='flex';
@@ -2181,6 +2378,18 @@ function resetApp(){
   document.getElementById('scan-summary-bar').style.display='none';
   document.getElementById('report-section').style.display='none';
   document.getElementById('summary-section').style.display='none';
+  // Hide save section and reset form
+  var saveEl = document.getElementById('save-section');
+  if(saveEl) saveEl.style.display='none';
+  var saveName = document.getElementById('save-name');
+  if(saveName) saveName.value='';
+  var saveDate = document.getElementById('save-date');
+  if(saveDate) saveDate.value='';
+  var saveStatus = document.getElementById('save-status');
+  if(saveStatus) saveStatus.textContent='';
+  // Hide saved view banner
+  var banner = document.getElementById('saved-view-banner');
+  if(banner) banner.style.display='none';
   var bar = document.getElementById('complete-analysis-bar');
   if(bar) bar.classList.remove('show');
   document.body.classList.remove('bar-showing');
@@ -2199,6 +2408,352 @@ function resetApp(){
   });
   var btn = document.getElementById('btn-analyze-all');
   if(btn) btn.disabled = true;
+}
+
+// ==============================================================
+//  SAVE / LOAD / COMPARE
+// ==============================================================
+
+async function saveAnalysis() {
+  if (!currentUser) { signInWithGoogle(); return; }
+  var nameVal = document.getElementById('save-name').value.trim();
+  var dateVal = document.getElementById('save-date').value;
+  var statusEl = document.getElementById('save-status');
+  if (!nameVal) { statusEl.textContent = 'Please enter a session name.'; statusEl.style.color = 'var(--warn)'; return; }
+  if (!dateVal) { statusEl.textContent = 'Please select a date.'; statusEl.style.color = 'var(--warn)'; return; }
+
+  var btn = document.getElementById('btn-save');
+  btn.disabled = true; btn.textContent = 'Saving...';
+
+  var data = {
+    name: nameVal,
+    date: dateVal,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    sex: selectedSex,
+    phases: {},
+    issues: lastIssues || detectIssues()
+  };
+
+  PHASE_DEFS.forEach(function(def) {
+    var ph = phases[def.key];
+    if (!ph || !ph.detected) return;
+    var entry = { t: ph.t, detected: true };
+    if (ph.metrics && def.videoKey === 'side') {
+      entry.metrics = {};
+      METRIC_ROWS.forEach(function(r) {
+        if (isRelevant(def.key, r.key) && ph.metrics[r.key] !== undefined) {
+          entry.metrics[r.key] = ph.metrics[r.key];
+        }
+      });
+    }
+    if (ph.frontBackMetrics) {
+      entry.frontBackMetrics = ph.frontBackMetrics;
+    }
+    var q = ph.kps ? getDetectionQuality(ph.kps) : null;
+    entry.quality = q ? q.level : null;
+    data.phases[def.key] = entry;
+  });
+
+  try {
+    var db = firebase.firestore();
+    await db.collection('users').doc(currentUser.uid).collection('analyses').add(data);
+    statusEl.textContent = 'Saved successfully!';
+    statusEl.style.color = 'var(--good)';
+    btn.textContent = 'Saved';
+    btn.disabled = true;
+    await loadAnalysesList();
+    setTimeout(function() { btn.textContent = 'Save analysis'; btn.disabled = false; }, 3000);
+  } catch(e) {
+    statusEl.textContent = 'Save failed: ' + e.message;
+    statusEl.style.color = 'var(--bad)';
+    btn.textContent = 'Save analysis';
+    btn.disabled = false;
+  }
+}
+
+function startNewSession() {
+  if (!isViewingSaved) {
+    var hasAnalysis = PHASE_DEFS.some(function(d) { return phases[d.key] && phases[d.key].metrics; });
+    if (hasAnalysis && !confirm('Start a new session? This will discard your current analysis if it has not been saved.')) return;
+  }
+  isViewingSaved = false;
+  lastIssues = null;
+  var saveEl = document.getElementById('save-section');
+  if (saveEl) saveEl.style.display = 'none';
+  var banner = document.getElementById('saved-view-banner');
+  if (banner) banner.style.display = 'none';
+  var reportEl = document.getElementById('report-section');
+  if (reportEl) reportEl.style.display = 'none';
+  var summaryEl = document.getElementById('summary-section');
+  if (summaryEl) summaryEl.style.display = 'none';
+  closeMyAnalyses();
+  closeCompare();
+  resetApp();
+}
+
+function openMyAnalyses() {
+  document.getElementById('my-analyses-overlay').classList.add('open');
+  if (currentUser) loadAnalysesList();
+  else document.getElementById('ma-list').innerHTML = '<div style="text-align:center;padding:40px"><div style="font-size:15px;font-weight:700;margin-bottom:12px">Sign in to see your saved analyses</div><button class="btn-main" onclick="signInWithGoogle()">Sign in with Google</button></div>';
+}
+function closeMyAnalyses() {
+  document.getElementById('my-analyses-overlay').classList.remove('open');
+}
+
+async function loadAnalysesList() {
+  if (!currentUser) return;
+  var listEl = document.getElementById('ma-list');
+  listEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted2)">Loading...</div>';
+  try {
+    var db = firebase.firestore();
+    var snap = await db.collection('users').doc(currentUser.uid).collection('analyses').orderBy('createdAt', 'desc').get();
+    savedAnalysesList = [];
+    snap.forEach(function(doc) { savedAnalysesList.push({ id: doc.id, data: doc.data() }); });
+
+    if (savedAnalysesList.length === 0) {
+      listEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted2)">No saved analyses yet. Complete an analysis and save it to see it here.</div>';
+      return;
+    }
+
+    listEl.innerHTML = savedAnalysesList.map(function(item, idx) {
+      var d = item.data;
+      var issueCount = 0;
+      if (d.issues) {
+        Object.keys(d.issues).forEach(function(k) { if (d.issues[k] && d.issues[k].detected) issueCount++; });
+      }
+      var issueSummary = issueCount > 0 ? issueCount + ' issue' + (issueCount > 1 ? 's' : '') + ' detected' : 'No issues detected';
+      return '<div class="ma-item">' +
+        '<div class="ma-item-info">' +
+          '<div class="ma-item-name">' + (d.name || 'Untitled') + '</div>' +
+          '<div class="ma-item-date">' + (d.date || '') + (d.sex ? ' -- ' + d.sex : '') + '</div>' +
+          '<div class="ma-item-issues">' + issueSummary + '</div>' +
+        '</div>' +
+        '<div class="ma-item-actions">' +
+          '<button class="ma-btn" onclick="viewSavedAnalysis(\'' + item.id + '\')">View</button>' +
+          '<button class="ma-btn" onclick="startCompareFrom(\'' + item.id + '\')">Compare</button>' +
+          '<button class="ma-btn delete" onclick="deleteAnalysis(\'' + item.id + '\')">Delete</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  } catch(e) {
+    listEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--bad)">Failed to load: ' + e.message + '</div>';
+  }
+}
+
+async function deleteAnalysis(id) {
+  if (!confirm('Delete this analysis? This cannot be undone.')) return;
+  try {
+    var db = firebase.firestore();
+    await db.collection('users').doc(currentUser.uid).collection('analyses').doc(id).delete();
+    await loadAnalysesList();
+  } catch(e) {
+    alert('Delete failed: ' + e.message);
+  }
+}
+
+async function viewSavedAnalysis(id) {
+  var item = savedAnalysesList.find(function(a) { return a.id === id; });
+  if (!item) return;
+  var d = item.data;
+
+  closeMyAnalyses();
+  isViewingSaved = true;
+
+  // Hide upload/scanning/phases screens
+  document.getElementById('screen-upload').style.display = 'none';
+  document.getElementById('screen-scanning').style.display = 'none';
+  document.getElementById('screen-phases').style.display = 'none';
+  var bar = document.getElementById('complete-analysis-bar');
+  if (bar) bar.classList.remove('show');
+
+  // Show saved view banner
+  var banner = document.getElementById('saved-view-banner');
+  document.getElementById('saved-view-name').textContent = d.name || 'Untitled';
+  document.getElementById('saved-view-date').textContent = d.date || '';
+  banner.style.display = 'flex';
+
+  // Set sex
+  selectedSex = d.sex || null;
+
+  // Populate phases from saved data
+  PHASE_DEFS.forEach(function(def) {
+    var saved = d.phases ? d.phases[def.key] : null;
+    phases[def.key] = {
+      key: def.key, label: def.label, desc: def.desc, videoKey: def.videoKey,
+      side: def.side, detectsIssue: def.detectsIssue, guide: def.guide,
+      t: saved ? saved.t : 0, detected: saved ? saved.detected : false,
+      kps: null, metrics: saved ? saved.metrics : null,
+      frontBackMetrics: saved ? saved.frontBackMetrics : null,
+      sideView: true
+    };
+  });
+
+  // Show report
+  var reportEl = document.getElementById('report-section');
+  if (reportEl) reportEl.style.display = 'block';
+  renderReport(d.issues || {});
+
+  // Show summary table
+  var summaryEl = document.getElementById('summary-section');
+  if (summaryEl) summaryEl.style.display = 'block';
+  buildSummaryTable();
+  PHASE_DEFS.forEach(function(def) {
+    if (phases[def.key] && phases[def.key].metrics && def.videoKey === 'side') {
+      updateSummaryCol(def.key);
+    }
+  });
+
+  // Hide save section (it is a saved analysis already)
+  var saveEl = document.getElementById('save-section');
+  if (saveEl) saveEl.style.display = 'none';
+}
+
+function startCompareFrom(id) {
+  closeMyAnalyses();
+  openCompare(id);
+}
+
+function openCompare(preselectedId) {
+  document.getElementById('compare-overlay').classList.add('open');
+  var picker = document.getElementById('compare-picker');
+  if (savedAnalysesList.length < 2) {
+    picker.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted2)">You need at least 2 saved analyses to compare.</div>';
+    document.getElementById('compare-results').innerHTML = '';
+    return;
+  }
+
+  var optionsHtml = savedAnalysesList.map(function(item) {
+    return '<option value="' + item.id + '">' + (item.data.name || 'Untitled') + ' (' + (item.data.date || '') + ')</option>';
+  }).join('');
+
+  var secondId = preselectedId ? (function() { var found = savedAnalysesList.find(function(a) { return a.id !== preselectedId; }); return found ? found.id : ''; })() : '';
+
+  picker.innerHTML = '<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">' +
+    '<div style="flex:1;min-width:200px"><label style="font-size:11px;font-family:var(--mono);color:var(--muted2);display:block;margin-bottom:4px">Analysis A (earlier)</label><select class="save-input" id="compare-a" onchange="runCompare()">' + optionsHtml + '</select></div>' +
+    '<div style="font-size:18px;color:var(--muted)">vs</div>' +
+    '<div style="flex:1;min-width:200px"><label style="font-size:11px;font-family:var(--mono);color:var(--muted2);display:block;margin-bottom:4px">Analysis B (later)</label><select class="save-input" id="compare-b" onchange="runCompare()">' + optionsHtml + '</select></div>' +
+  '</div>';
+
+  if (preselectedId) {
+    document.getElementById('compare-a').value = preselectedId;
+    if (secondId) document.getElementById('compare-b').value = secondId;
+  } else {
+    if (savedAnalysesList.length >= 2) {
+      document.getElementById('compare-a').value = savedAnalysesList[1].id;
+      document.getElementById('compare-b').value = savedAnalysesList[0].id;
+    }
+  }
+  runCompare();
+}
+
+function closeCompare() {
+  document.getElementById('compare-overlay').classList.remove('open');
+}
+
+function runCompare() {
+  var idA = document.getElementById('compare-a').value;
+  var idB = document.getElementById('compare-b').value;
+  var resultsEl = document.getElementById('compare-results');
+
+  if (idA === idB) {
+    resultsEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted2)">Select two different analyses to compare.</div>';
+    return;
+  }
+
+  var itemA = savedAnalysesList.find(function(a) { return a.id === idA; });
+  var itemB = savedAnalysesList.find(function(a) { return a.id === idB; });
+  if (!itemA || !itemB) return;
+
+  var dA = itemA.data, dB = itemB.data;
+  var issuesA = dA.issues || {};
+  var issuesB = dB.issues || {};
+
+  function sevRank(issue) {
+    if (!issue || !issue.detected) return 0;
+    if (issue.severity === 'mild') return 1;
+    if (issue.severity === 'notable') return 2;
+    return 0;
+  }
+
+  function sevLabel(issue) {
+    if (!issue || !issue.detected) return '<span style="color:var(--muted2)">Clear</span>';
+    if (issue.severity === 'notable') return '<span style="color:var(--text)">&#9679; Notable</span>';
+    if (issue.severity === 'mild') return '<span style="color:var(--muted2)">&#9675; Mild</span>';
+    return '<span style="color:var(--muted2)">Clear</span>';
+  }
+
+  var issueKeys = [
+    { key: 'overstriding', title: 'Overstriding' },
+    { key: 'hipDrop', title: 'Hip drop' },
+    { key: 'armsCrossing', title: 'Arms crossing midline' },
+    { key: 'torsoPosition', title: 'Torso position' },
+    { key: 'armAngle', title: 'Arm angle' },
+    { key: 'kneeValgus', title: 'Knee valgus' }
+  ];
+
+  var html = '<div style="margin-top:20px">';
+
+  html += '<div style="font-size:14px;font-weight:700;margin-bottom:12px;padding:0 22px">Issue changes</div>';
+  html += '<div class="compare-grid">';
+
+  issueKeys.forEach(function(ik) {
+    var a = issuesA[ik.key], b = issuesB[ik.key];
+    var rA = sevRank(a), rB = sevRank(b);
+    var dir = rB < rA ? 'improved' : rB === rA ? 'same' : 'worsened';
+    var dirLabel = dir === 'improved' ? '&#9660; Improved' : dir === 'worsened' ? '&#9650; Worsened' : '&#8212; Same';
+    var dirClass = 'direction-' + dir;
+
+    html += '<div class="compare-issue-row">' +
+      '<div class="compare-issue-card"><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:4px">' + (dA.name || 'A') + '</div>' + sevLabel(a) + '</div>' +
+      '<div class="compare-direction"><div class="' + dirClass + '">' + dirLabel + '</div><div style="font-size:10px;color:var(--muted);margin-top:2px">' + ik.title + '</div></div>' +
+      '<div class="compare-issue-card"><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:4px">' + (dB.name || 'B') + '</div>' + sevLabel(b) + '</div>' +
+    '</div>';
+  });
+
+  html += '</div>';
+
+  html += '<div style="margin-top:20px">';
+  html += '<button class="compare-details-toggle" onclick="this.classList.toggle(\'open\');document.getElementById(\'compare-detail-table\').classList.toggle(\'open\')">Angle measurements detail <span class="toggle-arrow">&#9660;</span></button>';
+  html += '<div class="compare-details-table" id="compare-detail-table">';
+
+  var sidePhases = ['l_foot','r_foot','l_toe','r_toe','mid','peak_kf','swing'];
+  html += '<table class="stbl" style="min-width:500px"><thead><tr><th>Phase</th><th>Metric</th><th>' + (dA.name || 'A') + '</th><th>' + (dB.name || 'B') + '</th><th>Change</th></tr></thead><tbody>';
+
+  sidePhases.forEach(function(pk) {
+    var phA = dA.phases ? dA.phases[pk] : null;
+    var phB = dB.phases ? dB.phases[pk] : null;
+    var mA = phA ? phA.metrics : null;
+    var mB = phB ? phB.metrics : null;
+    var phaseDef = PHASE_DEFS.find(function(d) { return d.key === pk; });
+    var phaseLabel = phaseDef ? phaseDef.label : pk;
+
+    METRIC_ROWS.forEach(function(r) {
+      if (!isRelevant(pk, r.key)) return;
+      var vA = mA ? mA[r.key] : null;
+      var vB = mB ? mB[r.key] : null;
+      var fA = vA != null ? r.fmt(vA) : '--';
+      var fB = vB != null ? r.fmt(vB) : '--';
+      var delta = '';
+      var deltaStyle = 'color:var(--muted2)';
+      if (vA != null && vB != null) {
+        var diff = vB - vA;
+        delta = (diff > 0 ? '+' : '') + diff.toFixed(1);
+        var rng = getRange(pk, r.key);
+        var center = (rng.green[0] + rng.green[1]) / 2;
+        var distA = Math.abs(vA - center);
+        var distB = Math.abs(vB - center);
+        if (Math.abs(diff) < 0.5) deltaStyle = 'color:var(--muted)';
+        else if (distB < distA) deltaStyle = 'color:var(--good)';
+        else deltaStyle = 'color:var(--warn)';
+      }
+      html += '<tr><td class="row-label">' + phaseLabel + '</td><td class="row-label">' + r.label + '</td><td style="font-family:var(--mono);font-size:12px">' + fA + '</td><td style="font-family:var(--mono);font-size:12px">' + fB + '</td><td style="font-family:var(--mono);font-size:12px;font-weight:700;' + deltaStyle + '">' + delta + '</td></tr>';
+    });
+  });
+
+  html += '</tbody></table></div></div>';
+  html += '</div>';
+
+  resultsEl.innerHTML = html;
 }
 
 initModel();
