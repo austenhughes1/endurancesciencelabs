@@ -41,6 +41,15 @@ service cloud.firestore {
       allow update: if request.auth != null
                     && (request.auth.uid == userId
                         || request.auth.uid == resource.data.coachUid);
+
+      // ── Saved analyses subcollection ─────────────────────────
+      match /analyses/{analysisId} {
+        allow read, write: if request.auth != null
+                           && request.auth.uid == userId;
+        // Coach can also read
+        allow read: if request.auth != null
+                    && request.auth.uid == "YOUR_ADMIN_UID";
+      }
     }
 
     // ── Training plans ───────────────────────────────────────
