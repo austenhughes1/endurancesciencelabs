@@ -299,6 +299,9 @@ body.bar-showing #screen-phases{padding-bottom:120px}
 .re-btn{margin-left:auto;display:inline-flex;align-items:center;gap:6px;padding:7px 16px;font-size:11px;font-weight:700;font-family:var(--ui);border-radius:8px;border:1px solid rgba(0,229,200,.3);background:rgba(0,229,200,.08);color:var(--cyan);cursor:pointer;transition:all .15s}
 .re-btn:hover{background:rgba(0,229,200,.15)}
 .re-btn:disabled{opacity:.35;cursor:not-allowed}
+.swap-btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;font-size:11px;font-weight:700;font-family:var(--ui);border-radius:8px;border:1px solid rgba(245,166,35,.3);background:rgba(245,166,35,.08);color:var(--warn);cursor:pointer;transition:all .15s;margin-left:6px}
+.swap-btn:hover{background:rgba(245,166,35,.18)}
+.swap-btn:disabled{opacity:.35;cursor:not-allowed}
 .scrub-nav{display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);flex-wrap:wrap}
 .scrub-nav-label{font-size:10px;color:var(--muted);font-family:var(--mono)}
 .nav-phase-btns{display:flex;gap:5px;flex-wrap:wrap;margin-left:auto}
@@ -621,6 +624,8 @@ body.bar-showing #screen-phases{padding-bottom:120px}
             <button class="step-btn" onclick="epStep(1)">+1f</button>
             <button class="step-btn" onclick="epStep(5)">+5f</button>
             <button class="re-btn" id="ep-re-btn" onclick="epReanalyze()">&#8635; Analyze</button>
+            <button class="swap-btn" id="ep-swap-btn" onclick="swapLegs()" title="Swap left/right leg assignments">&#8644; Swap L/R</button>
+            <button class="step-btn" onclick="clearOverlay()" title="Clear skeleton overlay" style="margin-left:6px;font-size:10px">✕ Clear</button>
           </div>
           <div class="scrub-nav">
             <span class="scrub-nav-label">jump to:</span>
@@ -887,15 +892,15 @@ const METRIC_ROWS = [
 ];
 
 const PHASE_METRICS = {
-  l_foot:    ['trunk','lKnee','lHip','lFoot','lElbow'],
-  r_foot:    ['trunk','rKnee','rHip','rFoot','rElbow'],
-  l_toe:     ['trunk','lHip','lKnee','lElbow'],
-  r_toe:     ['trunk','rHip','rKnee','rElbow'],
+  l_foot:    ['trunk','lKnee','rKnee','lHip','rHip','lFoot','lElbow'],
+  r_foot:    ['trunk','lKnee','rKnee','lHip','rHip','rFoot','rElbow'],
+  l_toe:     ['trunk','lKnee','rKnee','lHip','rHip','lElbow'],
+  r_toe:     ['trunk','lKnee','rKnee','lHip','rHip','rElbow'],
   mid:       ['trunk','lKnee','rKnee','lHip','rHip','lElbow','rElbow'],
   mid_front: [],
   mid_back:  [],
-  peak_kf:   ['trunk','lKnee','rHip','lElbow'],
-  swing:     ['trunk','lKnee','lFoot','lElbow'],
+  peak_kf:   ['trunk','lKnee','rKnee','lHip','rHip','lElbow'],
+  swing:     ['trunk','lKnee','rKnee','lHip','rHip','lFoot','lElbow'],
 };
 function isRelevant(phaseKey, metricKey){ var pm=PHASE_METRICS[phaseKey]; return !pm || pm.length===0 || pm.includes(metricKey); }
 
@@ -1058,6 +1063,61 @@ function renderExpandLegSwapWarning(key) {
   } else {
     warnEl.style.display = 'none';
   }
+}
+
+function swapLegs(){
+  var ph = phases[expandKey];
+  if(!ph || !ph.kps) return;
+
+  var kps = ph.kps;
+  for(var i=1; i<=15; i+=2){
+    var tmp = kps[i];
+    kps[i] = kps[i+1];
+    kps[i+1] = tmp;
+  }
+
+  var vKey = getVideoKeyForPhase(expandKey);
+  var isFrontBack = (vKey==='front'||vKey==='back');
+
+  if(isFrontBack){
+    ph.frontBackMetrics = computeFrontBackMetrics(kps);
+    ph.metrics = ph.frontBackMetrics;
+  } else {
+    ph.metrics = computeMetrics(kps);
+  }
+
+  var canvas = document.getElementById('ep-canvas');
+  var vidEl = getVideoElForPhase(expandKey);
+  var W = canvas.width, H = canvas.height;
+  var ctx = canvas.getContext('2d');
+  try{ ctx.drawImage(vidEl, 0, 0, W, H); }catch(e){}
+  drawPose(ctx, kps, W, H);
+
+  var ovCanvas = document.getElementById('canvas-'+expandKey);
+  if(ovCanvas){
+    try{ ovCanvas.getContext('2d').drawImage(canvas, 0, 0, ovCanvas.width, ovCanvas.height); }catch(e){}
+  }
+
+  if(isFrontBack){
+    renderExpandMetricsFrontBack(ph.frontBackMetrics);
+    renderMiniMetricsFrontBack(expandKey, ph.frontBackMetrics);
+  } else {
+    if(ph.sideView) renderExpandMetrics(ph.metrics);
+    renderMiniMetrics(expandKey, ph.metrics);
+    updateSummaryCol(expandKey);
+    renderLegSwapWarning(expandKey, ph.metrics);
+  }
+  renderExpandLegSwapWarning(expandKey);
+  renderQualityCard(kps);
+}
+
+function clearOverlay(){
+  var canvas=document.getElementById('ep-canvas');
+  if(!canvas)return;
+  var vidEl=getVideoElForPhase(expandKey);
+  var W=canvas.width,H=canvas.height;
+  var ctx=canvas.getContext('2d');
+  try{ctx.drawImage(vidEl,0,0,W,H);}catch(e){}
 }
 
 function checkAllAnalyzed(){
