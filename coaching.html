@@ -765,7 +765,7 @@ function renderWeekCard(mondayStr, role) {
     });
   }
 
-  const coachAttr = coachEdit ? `oninput="debounceSave('${mondayStr}')"` : 'readonly';
+  const coachAttr = coachEdit ? '' : 'readonly';
   const athleteAttr = athleteEdit ? `oninput="debounceSaveAthleteNotes('${mondayStr}')"` : 'readonly';
 
   function field(dotClass, label, coachId, coachVal, athleteId, athleteVal, isMiles) {
@@ -800,6 +800,10 @@ function renderWeekCard(mondayStr, role) {
       ${field('long-run', 'Long Run', 'longrun', workout.longRun, 'longrun-notes', workout.athleteLongRunNotes)}
       ${field('ancillary', 'Ancillary Work', 'ancillary', workout.ancillaryWork, 'ancillary-notes', workout.athleteAncillaryNotes)}
       ${field('notes', 'Notes', 'notes', workout.notes, 'notes-athlete', workout.athleteNotes)}
+      ${coachEdit ? `<div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+        <button class="btn-primary" onclick="saveWeek('${mondayStr}')">Save</button>
+        <span class="wk-save-indicator" id="save-inline-${mondayStr}" style="color:var(--good);font-size:11px;font-family:var(--mono)"></span>
+      </div>` : ''}
     </div>
   </div>`;
 }
@@ -1010,7 +1014,10 @@ function renderDashboard(containerId, role) {
 //  WEEK NAVIGATION (unified)
 // ══════════════════════════════════════════════════════════
 async function navWeek(delta) {
-  weekOffset += delta;
+  const newOffset = weekOffset + delta;
+  // Athletes can only go 1 week ahead of current
+  if (!isCoach && newOffset > 1) return;
+  weekOffset = newOffset;
   const monStr = dateToStr(getWeekMonday(weekOffset));
   if (!workoutsCache[monStr]) await loadWorkoutsRange(weekOffset, weekOffset);
   const role = isCoach ? 'coach' : 'athlete';
@@ -1341,13 +1348,8 @@ async function notifyAthleteWorkoutUpdated(weekKey) {
 }
 
 // ══════════════════════════════════════════════════════════
-//  SAVE: COACH WORKOUTS (auto-save with debounce)
+//  SAVE: COACH WORKOUTS (explicit save button)
 // ══════════════════════════════════════════════════════════
-function debounceSave(weekKey) {
-  if (savingWeeks[weekKey]) clearTimeout(savingWeeks[weekKey]);
-  savingWeeks[weekKey] = setTimeout(() => saveWeek(weekKey), 800);
-}
-
 async function saveWeek(weekKey) {
   if (!selectedAthletePlan) return;
 
@@ -1374,19 +1376,20 @@ async function saveWeek(weekKey) {
       workoutsCache[weekKey] = { id: newRef.id, ...data };
     }
 
+    // Show saved confirmation
     const indicator = document.getElementById(`save-${weekKey}`);
     if (indicator) {
       indicator.classList.add('show');
-      setTimeout(() => indicator.classList.remove('show'), 1500);
+      setTimeout(() => indicator.classList.remove('show'), 2000);
+    }
+    const inlineInd = document.getElementById(`save-inline-${weekKey}`);
+    if (inlineInd) {
+      inlineInd.textContent = '✓ Saved';
+      setTimeout(() => { inlineInd.textContent = ''; }, 2000);
     }
 
-    // Notify athlete (debounced — only fire once per week per save burst)
-    if (!savingWeeks['notif-' + weekKey]) {
-      savingWeeks['notif-' + weekKey] = setTimeout(() => {
-        notifyAthleteWorkoutUpdated(weekKey);
-        delete savingWeeks['notif-' + weekKey];
-      }, 5000);
-    }
+    // Notify athlete once per explicit save
+    notifyAthleteWorkoutUpdated(weekKey);
   } catch(e) {
     console.error('Save failed:', e);
   }
