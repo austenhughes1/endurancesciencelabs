@@ -1063,10 +1063,8 @@ async function connectStrava() {
     alert('Strava Client ID not configured.');
     return;
   }
-  // Generate anti-CSRF nonce and store on user doc
+  // State carries the UID so the Cloud Function knows which user to link
   const nonce = Math.random().toString(36).substring(2, 15);
-  await db.collection('users').doc(currentUser.uid).update({ stravaOAuthNonce: nonce });
-
   const state = `${currentUser.uid}:${nonce}`;
   const url = `https://www.strava.com/oauth/authorize`
     + `?client_id=${STRAVA_CLIENT_ID}`

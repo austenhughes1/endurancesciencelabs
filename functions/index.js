@@ -30,15 +30,10 @@ exports.stravaCallback = onRequest({ cors: false }, async (req, res) => {
   }
   const [uid, nonce] = parts;
 
-  // Verify nonce matches what the client stored
+  // Verify user exists
   const userDoc = await db.collection("users").doc(uid).get();
   if (!userDoc.exists) {
     res.status(400).send("User not found.");
-    return;
-  }
-  const userData = userDoc.data();
-  if (userData.stravaOAuthNonce !== nonce) {
-    res.status(403).send("Invalid OAuth state. Please try connecting again.");
     return;
   }
 
@@ -85,7 +80,6 @@ exports.stravaCallback = onRequest({ cors: false }, async (req, res) => {
     await db.collection("users").doc(uid).update({
       stravaConnected: true,
       stravaAthleteId: tokenData.athlete?.id || null,
-      stravaOAuthNonce: admin.firestore.FieldValue.delete(),
     });
 
     res.redirect(`${SITE_URL}?strava=connected`);
