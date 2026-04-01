@@ -3,7 +3,7 @@
 //  Paste this entire block into:
 //  Firebase Console → Firestore Database → Rules → Edit rules
 //
-//  BEFORE PASTING: replace YOUR_ADMIN_UID with your actual UID.
+//  BEFORE PASTING: replace 2z9Z3K5ZwShvadUuqZmwMv0s1Od2 with your actual UID.
 //  Find it at: Firebase Console → Authentication → Users →
 //  click your user → copy the User UID value shown.
 // ─────────────────────────────────────────────────────────────
@@ -19,7 +19,7 @@ service cloud.firestore {
     match /computed_ranges/{sex} {
       allow read:  if true;
       allow write: if request.auth != null
-                   && request.auth.uid == "YOUR_ADMIN_UID"
+                   && request.auth.uid == "2z9Z3K5ZwShvadUuqZmwMv0s1Od2"
                    && sex in ["male", "female"];
     }
 
@@ -27,7 +27,7 @@ service cloud.firestore {
     // Only the admin can read or write raw session data.
     match /reference_sessions/{sessionId} {
       allow read, write: if request.auth != null
-                         && request.auth.uid == "YOUR_ADMIN_UID";
+                         && request.auth.uid == "2z9Z3K5ZwShvadUuqZmwMv0s1Od2";
     }
 
     // ── User profiles ────────────────────────────────────────
@@ -48,7 +48,13 @@ service cloud.firestore {
                            && request.auth.uid == userId;
         // Coach can also read
         allow read: if request.auth != null
-                    && request.auth.uid == "YOUR_ADMIN_UID";
+                    && request.auth.uid == "2z9Z3K5ZwShvadUuqZmwMv0s1Od2";
+      }
+
+      // ── Private data (Strava tokens etc) ────────────────────
+      // Only Cloud Functions (admin SDK) can access — never the client.
+      match /private/{docId} {
+        allow read, write: if false;
       }
     }
 

@@ -14,6 +14,10 @@
   --text:#dde1ef;--muted:#3e4460;--muted2:#6e7a9a;
   --good:#22c78a;--warn:#f5a623;--bad:#f55050;
   --ui:'Inter',system-ui,sans-serif;--mono:'Space Mono',monospace;--body:'DM Sans',system-ui,sans-serif;
+
+  /* Light card palette */
+  --card-bg:#f4f5f7;--card-bg2:#eaecf0;--card-border:#d0d5dd;
+  --card-text:#1a1d26;--card-muted:#667085;--card-muted2:#98a2b3;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--ui);background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
@@ -68,75 +72,112 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 .athlete-strava{color:var(--coral);font-size:9px;font-family:var(--mono);font-weight:700}
 
 /* ── Main content ───────────────────────────────────── */
-.main{flex:1;overflow-y:auto;padding:24px 28px;display:flex;flex-direction:column}
+.main{flex:1;overflow-y:auto;padding:24px 28px;display:flex;flex-direction:column;gap:20px}
 .main-empty{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:var(--muted2)}
 .main-empty-icon{font-size:40px;opacity:.3}
 .main-empty-text{font-size:14px;font-family:var(--mono)}
 
 /* ── Plan header ────────────────────────────────────── */
-.plan-header{display:flex;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+.plan-header{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .plan-athlete-name{font-size:22px;font-weight:800;letter-spacing:-.3px}
 .plan-race{font-size:12px;color:var(--muted2);font-family:var(--mono);display:flex;align-items:center;gap:8px}
 .plan-race-name{color:var(--gold)}
 .plan-actions{margin-left:auto;display:flex;gap:8px}
 
 /* ── Week nav ───────────────────────────────────────── */
-.week-nav{display:flex;align-items:center;gap:12px;margin-bottom:20px}
-.week-nav-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--muted2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.week-nav{display:flex;align-items:center;gap:12px}
+.week-nav-btn{width:36px;height:36px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--muted2);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
 .week-nav-btn:hover{border-color:var(--cyan);color:var(--cyan)}
-.week-nav-range{font-size:14px;font-weight:700;min-width:200px;text-align:center}
+.week-nav-label{font-size:15px;font-weight:700;min-width:220px;text-align:center}
 .week-today-btn{font-size:11px;font-weight:600;font-family:var(--mono);color:var(--cyan);cursor:pointer;background:none;border:1px solid rgba(0,229,200,.25);border-radius:6px;padding:4px 10px;transition:all .15s}
 .week-today-btn:hover{background:rgba(0,229,200,.08)}
-
-/* ── Week cards ─────────────────────────────────────── */
-.weeks-container{display:flex;flex-direction:column;gap:16px;flex:1}
-.week-card{background:var(--panel);border:1px solid var(--border2);border-radius:14px;overflow:hidden;animation:fadeIn .3s ease}
-.week-card.current-week{border-color:rgba(0,229,200,.3);box-shadow:0 0 20px rgba(0,229,200,.06)}
-.wk-header{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);background:var(--panel2)}
-.wk-date{font-size:13px;font-weight:700}
 .wk-weeks-out{font-size:10px;font-weight:700;color:var(--gold);font-family:var(--mono);padding:2px 8px;background:rgba(245,200,66,.1);border-radius:4px}
-.wk-miles-badge{margin-left:auto;display:flex;align-items:center;gap:8px}
-.wk-miles-target{font-size:12px;font-weight:700;font-family:var(--mono);color:var(--cyan)}
-.wk-miles-actual{font-size:11px;font-family:var(--mono);color:var(--coral)}
-.wk-save-indicator{font-size:10px;font-family:var(--mono);color:var(--good);opacity:0;transition:opacity .3s}
+.wk-save-indicator{font-size:10px;font-family:var(--mono);color:var(--good);opacity:0;transition:opacity .3s;margin-left:8px}
 .wk-save-indicator.show{opacity:1}
 
-.wk-body{padding:16px 20px;display:flex;flex-direction:column;gap:16px}
+/* ── Week card (LIGHT theme) ────────────────────────── */
+.week-card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:14px;overflow:hidden;animation:fadeIn .3s ease;color:var(--card-text)}
+.week-card.current-week{border-color:#00b8a3;box-shadow:0 0 24px rgba(0,229,200,.1)}
 
-/* ── Field block (coach prescription + athlete response) */
-.field-block{display:flex;flex-direction:column;gap:6px}
-.field-label{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono);display:flex;align-items:center;gap:6px}
+.wk-body{padding:20px 24px;display:flex;flex-direction:column;gap:18px}
+
+/* ── Field block (light theme) ──────────────────────── */
+.field-block{display:flex;flex-direction:column;gap:5px}
+.field-label{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--card-muted);font-family:var(--mono);display:flex;align-items:center;gap:6px}
 .field-label .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.field-label .dot.miles{background:var(--good)}
-.field-label .dot.midweek{background:var(--purple)}
-.field-label .dot.weekend{background:var(--cyan)}
-.field-label .dot.long-run{background:var(--gold)}
-.field-label .dot.ancillary{background:var(--muted2)}
-.field-label .dot.notes{background:var(--warn)}
+.field-label .dot.miles{background:#16a34a}
+.field-label .dot.midweek{background:#7c3aed}
+.field-label .dot.weekend{background:#0891b2}
+.field-label .dot.long-run{background:#ca8a04}
+.field-label .dot.ancillary{background:#6b7280}
+.field-label .dot.notes{background:#ea580c}
 
-.field-coach{width:100%;background:var(--panel2);border:1px solid var(--border2);border-radius:9px;padding:10px 14px;font-size:12px;color:var(--text);font-family:var(--ui);outline:none;transition:border-color .15s;resize:vertical;min-height:42px;line-height:1.5}
-.field-coach:focus{border-color:var(--cyan)}
-.field-coach[readonly]{cursor:default}
+.field-coach{width:100%;background:#fff;border:1px solid var(--card-border);border-radius:9px;padding:10px 14px;font-size:13px;color:var(--card-text);font-family:var(--ui);outline:none;transition:border-color .15s;resize:vertical;min-height:42px;line-height:1.5}
+.field-coach:focus{border-color:#0891b2}
+.field-coach[readonly]{background:var(--card-bg2);cursor:default}
 .field-coach.miles-input{font-family:var(--mono);min-height:unset;resize:none}
 
-/* Athlete response area below coach field */
-.field-athlete{display:flex;flex-direction:column;gap:4px;margin-top:2px}
-.field-athlete-label{font-size:9px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;font-family:var(--mono);color:var(--muted);display:flex;align-items:center;gap:4px}
-.field-athlete-label .athlete-icon{color:var(--cyan);font-size:10px}
-.field-athlete-input{width:100%;background:rgba(0,229,200,.04);border:1px solid rgba(0,229,200,.12);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--text);font-family:var(--ui);outline:none;transition:border-color .15s;resize:vertical;min-height:34px;line-height:1.5}
-.field-athlete-input:focus{border-color:var(--cyan)}
+.field-athlete{display:flex;flex-direction:column;gap:3px;margin-top:2px}
+.field-athlete-label{font-size:9px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;font-family:var(--mono);color:var(--card-muted2);display:flex;align-items:center;gap:4px}
+.field-athlete-label .athlete-icon{color:#0891b2;font-size:10px}
+.field-athlete-input{width:100%;background:rgba(8,145,178,.04);border:1px solid rgba(8,145,178,.2);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--card-text);font-family:var(--ui);outline:none;transition:border-color .15s;resize:vertical;min-height:34px;line-height:1.5}
+.field-athlete-input:focus{border-color:#0891b2}
 .field-athlete-input[readonly]{cursor:default}
-.field-athlete-input::placeholder{color:var(--muted)}
+.field-athlete-input::placeholder{color:var(--card-muted2)}
 
-/* Strava miles summary */
-.strava-miles{display:flex;align-items:center;gap:6px;padding:6px 10px;background:rgba(255,107,53,.06);border:1px solid rgba(255,107,53,.15);border-radius:8px;margin-top:2px}
-.strava-miles-icon{font-size:11px;font-weight:800;color:var(--coral);font-family:var(--mono)}
-.strava-miles-val{font-size:13px;font-weight:800;font-family:var(--mono);color:var(--coral)}
-.strava-miles-label{font-size:10px;color:var(--muted2);font-family:var(--mono)}
-
-/* ── Strava daily breakdown (inside miles field) ────── */
+/* ── Strava miles summary (light) ───────────────────── */
+.strava-miles{display:flex;align-items:center;gap:6px;padding:6px 10px;background:rgba(252,82,0,.06);border:1px solid rgba(252,82,0,.18);border-radius:8px;margin-top:2px}
+.strava-miles-icon{font-size:11px;font-weight:800;color:#fc5200;font-family:var(--mono)}
+.strava-miles-val{font-size:13px;font-weight:800;font-family:var(--mono);color:#fc5200}
+.strava-miles-label{font-size:10px;color:var(--card-muted);font-family:var(--mono)}
 .strava-days{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
-.strava-day{font-size:9px;font-family:var(--mono);padding:2px 6px;border-radius:4px;background:rgba(255,107,53,.08);color:var(--coral)}
+.strava-day{font-size:9px;font-family:var(--mono);padding:2px 6px;border-radius:4px;background:rgba(252,82,0,.07);color:#fc5200}
+
+/* ── Data Dashboard card (LIGHT theme) ──────────────── */
+.dash-card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:14px;overflow:hidden;color:var(--card-text);animation:fadeIn .3s ease}
+.dash-header{padding:16px 24px;border-bottom:1px solid var(--card-border);display:flex;align-items:center;gap:12px}
+.dash-title{font-size:15px;font-weight:800;color:var(--card-text)}
+.dash-strava-badge{font-size:10px;font-weight:800;color:#fc5200;font-family:var(--mono);padding:2px 8px;background:rgba(252,82,0,.08);border-radius:4px}
+.dash-body{padding:20px 24px}
+
+/* Strava connect prompt */
+.strava-connect{display:flex;flex-direction:column;align-items:center;gap:16px;padding:40px 20px;text-align:center}
+.strava-connect-icon{font-size:36px;color:#fc5200;font-weight:800;font-family:var(--mono)}
+.strava-connect-text{font-size:13px;color:var(--card-muted);line-height:1.6;max-width:360px}
+.strava-connect-btn{padding:12px 28px;background:#fc5200;color:#fff;font-weight:700;font-size:14px;font-family:var(--ui);border:none;border-radius:10px;cursor:pointer;transition:opacity .15s}
+.strava-connect-btn:hover{opacity:.85}
+
+/* Mileage chart */
+.chart-section{margin-bottom:28px}
+.chart-title{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--card-muted);font-family:var(--mono);margin-bottom:12px}
+.chart-wrap{position:relative;height:180px;background:#fff;border:1px solid var(--card-border);border-radius:10px;padding:12px 16px 28px 44px;overflow:hidden}
+.chart-y-labels{position:absolute;left:8px;top:12px;bottom:28px;display:flex;flex-direction:column;justify-content:space-between;width:30px}
+.chart-y-label{font-size:9px;font-family:var(--mono);color:var(--card-muted2);text-align:right}
+.chart-bars{display:flex;align-items:flex-end;gap:4px;height:100%;position:relative}
+.chart-bar-col{flex:1;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end;position:relative}
+.chart-bar{width:100%;min-width:8px;max-width:32px;border-radius:4px 4px 0 0;background:linear-gradient(180deg,#0891b2 0%,#06b6d4 100%);transition:all .2s;cursor:pointer;position:relative}
+.chart-bar:hover{opacity:.8}
+.chart-bar.has-target{background:linear-gradient(180deg,#16a34a 0%,#22c55e 100%)}
+.chart-bar-label{font-size:8px;font-family:var(--mono);color:var(--card-muted2);margin-top:4px;white-space:nowrap}
+.chart-tooltip{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--card-text);color:#fff;padding:4px 8px;border-radius:6px;font-size:10px;font-family:var(--mono);font-weight:700;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;z-index:10;margin-bottom:4px}
+.chart-bar-col:hover .chart-tooltip{opacity:1}
+
+/* Activities table */
+.activities-section{margin-top:4px}
+.act-table{width:100%;border-collapse:collapse}
+.act-table th{font-size:9px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--card-muted2);font-family:var(--mono);padding:8px 8px;text-align:left;border-bottom:2px solid var(--card-border)}
+.act-table td{font-size:12px;padding:10px 8px;border-bottom:1px solid var(--card-border);color:var(--card-text);vertical-align:top}
+.act-table tr:last-child td{border-bottom:none}
+.act-name{font-weight:700;font-size:13px}
+.act-date{font-size:10px;color:var(--card-muted);font-family:var(--mono)}
+.act-val{font-family:var(--mono);font-weight:600;font-size:12px}
+.act-no-data{padding:32px;text-align:center;color:var(--card-muted2);font-size:13px;font-family:var(--mono)}
+
+/* Extra stats row */
+.dash-stats{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+.dash-stat{flex:1;min-width:100px;background:#fff;border:1px solid var(--card-border);border-radius:10px;padding:14px 16px;text-align:center}
+.dash-stat-val{font-size:22px;font-weight:800;font-family:var(--mono);color:var(--card-text);line-height:1}
+.dash-stat-label{font-size:9px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--card-muted2);font-family:var(--mono);margin-top:4px}
 
 /* ── Modals ─────────────────────────────────────────── */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:600;display:none;align-items:center;justify-content:center;padding:40px}
@@ -159,6 +200,7 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
   .athlete-list{display:flex;flex-direction:row;overflow-x:auto;padding:6px}
   .athlete-item{flex-shrink:0;padding:8px 12px}
   .main{padding:16px}
+  .dash-stats{flex-direction:column}
 }
 </style>
 </head>
@@ -211,14 +253,16 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
       <div class="main-empty-icon">◇</div>
       <div class="main-empty-text">Select an athlete to view their plan</div>
     </div>
-    <div id="coach-weeks" style="display:none"></div>
+    <div id="coach-week-container" style="display:none"></div>
+    <div id="coach-dashboard" style="display:none"></div>
   </div>
 </div>
 
 <!-- Athlete layout -->
 <div class="layout" id="athlete-layout" style="display:none">
   <div class="main" id="athlete-main">
-    <div id="athlete-weeks"></div>
+    <div id="athlete-week-container"></div>
+    <div id="athlete-dashboard"></div>
   </div>
 </div>
 </div>
@@ -266,6 +310,7 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 
 <script>
 'use strict';
@@ -283,9 +328,10 @@ const FIREBASE_CONFIG = {
   measurementId: "G-P2RRN15M8K"
 };
 
-const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const DAY_NAMES_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const WEEKS_VISIBLE = 8; // how many week cards to show at once
+const WEEKS_VISIBLE_COACH = 8;
 
 // ── Firebase init ─────────────────────────────────────
 let auth, db;
@@ -306,10 +352,10 @@ let isCoach = false;
 let selectedAthleteUid = null;
 let selectedAthleteData = null;
 let selectedAthletePlan = null;
-let weekOffset = 0; // 0 = current week is first card shown
-let workoutsCache = {};  // { 'YYYY-MM-DD': workoutData } keyed by week Monday date
-let stravaCache = {};    // { 'YYYY-MM-DD': [activities] }
-let savingWeeks = {};    // debounce timers per weekKey
+let weekOffset = 0;
+let workoutsCache = {};
+let stravaCache = {};
+let savingWeeks = {};
 let authMode = 'signin';
 
 // ══════════════════════════════════════════════════════════
@@ -469,7 +515,6 @@ async function selectAthlete(uid, data, el) {
   document.querySelectorAll('.athlete-item').forEach(e => e.classList.remove('active'));
   el.classList.add('active');
 
-  // Load or create training plan
   const planSnap = await db.collection('trainingPlans')
     .where('athleteUid', '==', uid)
     .where('coachUid', '==', currentUser.uid)
@@ -490,10 +535,11 @@ async function selectAthlete(uid, data, el) {
   }
 
   document.getElementById('coach-empty').style.display = 'none';
-  document.getElementById('coach-weeks').style.display = 'block';
+  document.getElementById('coach-week-container').style.display = 'block';
 
-  await loadWorkouts();
-  renderWeeks('coach-weeks', true);
+  await loadWorkoutsRange(-16, 4);
+  await loadStravaRange(-16, 4);
+  renderSingleWeek('coach-week-container', 'coach-dashboard', 'coach');
 }
 
 // ══════════════════════════════════════════════════════════
@@ -506,7 +552,7 @@ async function loadAthleteDashboard() {
     .get();
 
   if (planSnap.empty) {
-    document.getElementById('athlete-weeks').innerHTML = `
+    document.getElementById('athlete-week-container').innerHTML = `
       <div class="main-empty">
         <div class="main-empty-icon">◇</div>
         <div class="main-empty-text">No training plan assigned yet.<br>Your coach will set one up for you.</div>
@@ -519,9 +565,11 @@ async function loadAthleteDashboard() {
   selectedAthleteUid = currentUser.uid;
   selectedAthleteData = userDoc;
 
-  await loadWorkouts();
-  await loadStrava();
-  renderWeeks('athlete-weeks', false);
+  // Load wider range for chart (16 weeks back)
+  await loadWorkoutsRange(-16, 4);
+  await loadStravaRange(-16, 4);
+
+  renderSingleWeek('athlete-week-container', 'athlete-dashboard', 'athlete');
 }
 
 // ══════════════════════════════════════════════════════════
@@ -530,7 +578,7 @@ async function loadAthleteDashboard() {
 function getMonday(d) {
   const date = new Date(d);
   const day = date.getDay();
-  const diff = day === 0 ? -6 : 1 - day; // Monday = 1
+  const diff = day === 0 ? -6 : 1 - day;
   date.setDate(date.getDate() + diff);
   date.setHours(0,0,0,0);
   return date;
@@ -571,41 +619,34 @@ function getWeekMonday(offset) {
 // ══════════════════════════════════════════════════════════
 //  FIRESTORE: LOAD DATA
 // ══════════════════════════════════════════════════════════
-async function loadWorkouts() {
+async function loadWorkoutsRange(fromWeek, toWeek) {
   if (!selectedAthletePlan) return;
-
-  const startMon = getWeekMonday(weekOffset);
-  const endSun = addDays(getWeekMonday(weekOffset + WEEKS_VISIBLE - 1), 6);
-  const startStr = dateToStr(startMon);
-  const endStr = dateToStr(endSun);
+  const startMon = getWeekMonday(fromWeek);
+  const endSun = addDays(getWeekMonday(toWeek), 6);
 
   const snap = await db.collection('trainingPlans')
     .doc(selectedAthletePlan.id)
     .collection('workouts')
-    .where('weekStart', '>=', startStr)
-    .where('weekStart', '<=', endStr)
+    .where('weekStart', '>=', dateToStr(startMon))
+    .where('weekStart', '<=', dateToStr(endSun))
     .get();
 
-  // Keep existing cache, merge new
   snap.forEach(doc => {
     const d = doc.data();
     workoutsCache[d.weekStart] = { id: doc.id, ...d };
   });
 }
 
-async function loadStrava() {
+async function loadStravaRange(fromWeek, toWeek) {
   if (!selectedAthletePlan) return;
-
-  const startMon = getWeekMonday(weekOffset);
-  const endSun = addDays(getWeekMonday(weekOffset + WEEKS_VISIBLE - 1), 6);
-  const startStr = dateToStr(startMon);
-  const endStr = dateToStr(endSun);
+  const startMon = getWeekMonday(fromWeek);
+  const endSun = addDays(getWeekMonday(toWeek), 6);
 
   const snap = await db.collection('trainingPlans')
     .doc(selectedAthletePlan.id)
     .collection('stravaActivities')
-    .where('date', '>=', startStr)
-    .where('date', '<=', endStr)
+    .where('date', '>=', dateToStr(startMon))
+    .where('date', '<=', dateToStr(endSun))
     .get();
 
   snap.forEach(doc => {
@@ -615,184 +656,378 @@ async function loadStrava() {
   });
 }
 
+// Get strava miles for a given week (Monday date)
+function getWeekStravaMiles(monday) {
+  let total = 0;
+  for (let d = 0; d < 7; d++) {
+    const dayStr = dateToStr(addDays(monday, d));
+    (stravaCache[dayStr] || []).forEach(a => { total += (a.distance || 0) / 1609.34; });
+  }
+  return total;
+}
+
+// Get all strava activities for a date range
+function getStravaActivities(startDate, endDate) {
+  const acts = [];
+  const cursor = new Date(startDate);
+  while (cursor <= endDate) {
+    const dayStr = dateToStr(cursor);
+    (stravaCache[dayStr] || []).forEach(a => acts.push({ ...a, date: dayStr }));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return acts.sort((a, b) => b.date.localeCompare(a.date));
+}
+
 // ══════════════════════════════════════════════════════════
-//  RENDER WEEKS
+//  RENDER: SINGLE WEEK CARD (shared by coach + athlete)
 // ══════════════════════════════════════════════════════════
-function renderWeeks(containerId, editable) {
-  const container = document.getElementById(containerId);
+function renderWeekCard(mondayStr, role) {
+  // role: 'coach' or 'athlete'
+  const monday = new Date(mondayStr + 'T12:00:00');
+  const isCurrent = mondayStr === dateToStr(getMonday(new Date()));
+  const workout = workoutsCache[mondayStr] || {};
+  const coachEdit = role === 'coach';
+  const athleteEdit = role === 'athlete';
+
+  let stravaMiles = 0;
+  let stravaDays = [];
+  for (let d = 0; d < 7; d++) {
+    const dayDate = addDays(monday, d);
+    const dayStr = dateToStr(dayDate);
+    (stravaCache[dayStr] || []).forEach(a => {
+      const mi = a.distance / 1609.34;
+      stravaMiles += mi;
+      stravaDays.push({ day: DAY_NAMES_SHORT[dayDate.getDay()], mi: mi.toFixed(1) });
+    });
+  }
+
+  const coachAttr = coachEdit ? `oninput="debounceSave('${mondayStr}')"` : 'readonly';
+  const athleteAttr = athleteEdit ? `oninput="debounceSaveAthleteNotes('${mondayStr}')"` : 'readonly';
+
+  function field(dotClass, label, coachId, coachVal, athleteId, athleteVal, isMiles) {
+    let html = `<div class="field-block">
+      <div class="field-label"><span class="dot ${dotClass}"></span>${label}</div>`;
+    if (isMiles) {
+      html += `<input class="field-coach miles-input" id="${coachId}-${mondayStr}" value="${esc(coachVal || '')}" ${coachAttr}>`;
+      if (stravaMiles > 0) {
+        html += `<div class="strava-miles">
+          <span class="strava-miles-icon">▲</span>
+          <span class="strava-miles-val">${stravaMiles.toFixed(1)} mi</span>
+          <span class="strava-miles-label">logged this week</span>
+        </div>`;
+        if (stravaDays.length > 0) html += `<div class="strava-days">${stravaDays.map(s => `<span class="strava-day">${s.day}: ${s.mi}mi</span>`).join('')}</div>`;
+      }
+    } else {
+      html += `<textarea class="field-coach" id="${coachId}-${mondayStr}" ${coachAttr}>${esc(coachVal || '')}</textarea>`;
+    }
+    html += `<div class="field-athlete">
+      <div class="field-athlete-label"><span class="athlete-icon">◆</span> Athlete notes</div>
+      <textarea class="field-athlete-input" id="${athleteId}-${mondayStr}" ${athleteAttr}>${esc(athleteVal || '')}</textarea>
+    </div></div>`;
+    return html;
+  }
+
+  return `
+  <div class="week-card${isCurrent ? ' current-week' : ''}">
+    <div class="wk-body">
+      ${field('miles', 'Miles / Week', 'miles', workout.milesPerWeek, 'miles-notes', workout.athleteMilesNotes, true)}
+      ${field('midweek', 'Midweek Session', 'midweek', workout.midweekSession, 'midweek-notes', workout.athleteMidweekNotes)}
+      ${field('weekend', 'Weekend Session', 'weekend', workout.weekendSession, 'weekend-notes', workout.athleteWeekendNotes)}
+      ${field('long-run', 'Long Run', 'longrun', workout.longRun, 'longrun-notes', workout.athleteLongRunNotes)}
+      ${field('ancillary', 'Ancillary Work', 'ancillary', workout.ancillaryWork, 'ancillary-notes', workout.athleteAncillaryNotes)}
+      ${field('notes', 'Notes', 'notes', workout.notes, 'notes-athlete', workout.athleteNotes)}
+    </div>
+  </div>`;
+}
+
+// ══════════════════════════════════════════════════════════
+//  RENDER: COACH VIEW (multi-week scroll)
+// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
+//  RENDER: UNIFIED SINGLE-WEEK VIEW (coach + athlete)
+// ══════════════════════════════════════════════════════════
+function renderSingleWeek(weekContainerId, dashContainerId, role) {
+  const container = document.getElementById(weekContainerId);
   const raceDate = selectedAthletePlan?.raceDate || null;
-  const athleteName = editable
+  const monday = getWeekMonday(weekOffset);
+  const mondayStr = dateToStr(monday);
+  const wb = weeksUntil(monday, raceDate);
+  const raceName = selectedAthletePlan?.raceName || '';
+  const name = role === 'coach'
     ? (selectedAthleteData?.displayName || 'Athlete')
     : (userDoc.displayName || 'My Training');
-  const raceName = selectedAthletePlan?.raceName || '';
-  const todayMonday = getMonday(new Date());
-  const todayMondayStr = dateToStr(todayMonday);
-
-  // Navigation range
-  const firstMonday = getWeekMonday(weekOffset);
-  const lastMonday = getWeekMonday(weekOffset + WEEKS_VISIBLE - 1);
 
   let html = `
     <div class="plan-header">
-      <div class="plan-athlete-name">${esc(athleteName)}</div>
+      <div class="plan-athlete-name">${esc(name)}</div>
       ${raceName ? `<div class="plan-race"><span class="plan-race-name">${esc(raceName)}</span>${raceDate ? ' · ' + raceDate : ''}</div>` : ''}
-      ${editable ? `<div class="plan-actions">
-        <button class="btn-ghost" onclick="openEditRace()">✎ Race info</button>
-      </div>` : ''}
+      ${role === 'coach' ? `<div class="plan-actions"><button class="btn-ghost" onclick="openEditRace()">✎ Race info</button></div>` : ''}
     </div>
     <div class="week-nav">
-      <button class="week-nav-btn" onclick="navWeeks(-${WEEKS_VISIBLE})">‹</button>
-      <div class="week-nav-range">${formatDateRange(firstMonday)} → ${formatDateRange(lastMonday)}</div>
-      <button class="week-nav-btn" onclick="navWeeks(${WEEKS_VISIBLE})">›</button>
-      <button class="week-today-btn" onclick="navWeeksToday()">This week</button>
+      <button class="week-nav-btn" onclick="navWeek(-1)">‹</button>
+      <div class="week-nav-label">${formatDateRange(monday)}</div>
+      <button class="week-nav-btn" onclick="navWeek(1)">›</button>
+      ${wb !== null ? `<span class="wk-weeks-out">${wb} weeks out</span>` : ''}
+      <button class="week-today-btn" onclick="navWeekToday()">This week</button>
+      <span class="wk-save-indicator" id="save-${mondayStr}">✓ Saved</span>
     </div>
-    <div class="weeks-container">`;
+    ${renderWeekCard(mondayStr, role)}`;
 
-  for (let i = 0; i < WEEKS_VISIBLE; i++) {
-    const monday = getWeekMonday(weekOffset + i);
-    const mondayStr = dateToStr(monday);
-    const isCurrent = mondayStr === todayMondayStr;
-    const wb = weeksUntil(monday, raceDate);
-    const workout = workoutsCache[mondayStr] || {};
+  container.innerHTML = html;
 
-    // Sum strava miles for this week (Mon-Sun)
-    let stravaMiles = 0;
-    let stravaDays = [];
-    for (let d = 0; d < 7; d++) {
-      const dayDate = addDays(monday, d);
-      const dayStr = dateToStr(dayDate);
-      const acts = stravaCache[dayStr] || [];
-      acts.forEach(a => {
-        const mi = a.distance / 1609.34;
-        stravaMiles += mi;
-        stravaDays.push({ day: DAY_NAMES[dayDate.getDay()], mi: mi.toFixed(1), name: a.name || '' });
-      });
-    }
+  // Also render dashboard below
+  renderDashboard(dashContainerId, role);
+}
 
-    html += `
-    <div class="week-card${isCurrent ? ' current-week' : ''}" id="wk-${mondayStr}">
-      <div class="wk-header">
-        <div class="wk-date">${formatDateRange(monday)}</div>
-        ${wb !== null ? `<div class="wk-weeks-out">${wb} weeks out</div>` : ''}
-        <div class="wk-miles-badge">
-          ${workout.milesPerWeek ? `<span class="wk-miles-target">Target: ${esc(workout.milesPerWeek)} mi</span>` : ''}
-          ${stravaMiles > 0 ? `<span class="wk-miles-actual">Actual: ${stravaMiles.toFixed(1)} mi</span>` : ''}
-          <span class="wk-save-indicator" id="save-${mondayStr}">✓ Saved</span>
-        </div>
+function renderDashboard(containerId, role) {
+  const container = document.getElementById(containerId);
+  container.style.display = 'block';
+  // For coach view, check athlete's strava status; for athlete, check own
+  const stravaConnected = role === 'coach'
+    ? (selectedAthleteData?.stravaConnected || false)
+    : (userDoc.stravaConnected || false);
+
+  if (!stravaConnected) {
+    const isAthlete = role === 'athlete';
+    container.innerHTML = `
+    <div class="dash-card">
+      <div class="dash-header">
+        <div class="dash-title">Training Data</div>
       </div>
-      <div class="wk-body">
-
-        <!-- Miles/Week -->
-        <div class="field-block">
-          <div class="field-label"><span class="dot miles"></span>Miles / Week</div>
-          <input class="field-coach miles-input" id="miles-${mondayStr}"
-            value="${esc(workout.milesPerWeek || '')}"
-            placeholder="e.g. 60-65"
-            ${editable ? `oninput="debounceSave('${mondayStr}')"` : 'readonly'}>
-          ${stravaMiles > 0 ? `
-          <div class="strava-miles">
-            <span class="strava-miles-icon">▲</span>
-            <span class="strava-miles-val">${stravaMiles.toFixed(1)} mi</span>
-            <span class="strava-miles-label">logged this week</span>
+      <div class="dash-body">
+        <div class="strava-connect">
+          <div class="strava-connect-icon">▲ STRAVA</div>
+          <div class="strava-connect-text">
+            ${isAthlete
+              ? 'Connect your Strava account to automatically sync your training data. Your weekly mileage, recent activities, and workout details will appear here.'
+              : 'This athlete has not connected their Strava account yet. Once they do, their training data will appear here.'}
           </div>
-          ${stravaDays.length > 0 ? `<div class="strava-days">${stravaDays.map(s => `<span class="strava-day">${s.day}: ${s.mi}mi</span>`).join('')}</div>` : ''}
-          ` : ''}
+          ${isAthlete ? '<button class="strava-connect-btn" onclick="connectStrava()">Connect Strava</button>' : ''}
+          ${isAthlete ? `<div style="font-size:10px;color:var(--card-muted2);font-family:var(--mono);margin-top:4px">Your data stays private. Only your coach can see it.</div>` : ''}
         </div>
-
-        <!-- Midweek Session -->
-        <div class="field-block">
-          <div class="field-label"><span class="dot midweek"></span>Midweek Session</div>
-          <textarea class="field-coach" id="midweek-${mondayStr}"
-            placeholder="e.g. 6-7×3:00 @ threshold, 1:00 float between"
-            ${editable ? `oninput="debounceSave('${mondayStr}')"` : 'readonly'}>${esc(workout.midweekSession || '')}</textarea>
-          <div class="field-athlete">
-            <div class="field-athlete-label"><span class="athlete-icon">◆</span> Athlete notes</div>
-            <textarea class="field-athlete-input" id="midweek-notes-${mondayStr}"
-              placeholder="How did it go? Any adjustments?"
-              ${!editable ? `oninput="debounceSaveAthleteNotes('${mondayStr}')"` : 'readonly'}>${esc(workout.athleteMidweekNotes || '')}</textarea>
-          </div>
-        </div>
-
-        <!-- Weekend Session -->
-        <div class="field-block">
-          <div class="field-label"><span class="dot weekend"></span>Weekend Session</div>
-          <textarea class="field-coach" id="weekend-${mondayStr}"
-            placeholder="e.g. 4-5×600 @ controlled 3k effort"
-            ${editable ? `oninput="debounceSave('${mondayStr}')"` : 'readonly'}>${esc(workout.weekendSession || '')}</textarea>
-          <div class="field-athlete">
-            <div class="field-athlete-label"><span class="athlete-icon">◆</span> Athlete notes</div>
-            <textarea class="field-athlete-input" id="weekend-notes-${mondayStr}"
-              placeholder="How did it go? Any adjustments?"
-              ${!editable ? `oninput="debounceSaveAthleteNotes('${mondayStr}')"` : 'readonly'}>${esc(workout.athleteWeekendNotes || '')}</textarea>
-          </div>
-        </div>
-
-        <!-- Long Run -->
-        <div class="field-block">
-          <div class="field-label"><span class="dot long-run"></span>Long Run</div>
-          <textarea class="field-coach" id="longrun-${mondayStr}"
-            placeholder="e.g. 11-13"
-            ${editable ? `oninput="debounceSave('${mondayStr}')"` : 'readonly'}>${esc(workout.longRun || '')}</textarea>
-          <div class="field-athlete">
-            <div class="field-athlete-label"><span class="athlete-icon">◆</span> Athlete notes</div>
-            <textarea class="field-athlete-input" id="longrun-notes-${mondayStr}"
-              placeholder="How did it feel?"
-              ${!editable ? `oninput="debounceSaveAthleteNotes('${mondayStr}')"` : 'readonly'}>${esc(workout.athleteLongRunNotes || '')}</textarea>
-          </div>
-        </div>
-
-        <!-- Ancillary Work -->
-        <div class="field-block">
-          <div class="field-label"><span class="dot ancillary"></span>Ancillary Work</div>
-          <textarea class="field-coach" id="ancillary-${mondayStr}"
-            placeholder="e.g. 6-8×:15-:20 hill sprints"
-            ${editable ? `oninput="debounceSave('${mondayStr}')"` : 'readonly'}>${esc(workout.ancillaryWork || '')}</textarea>
-          <div class="field-athlete">
-            <div class="field-athlete-label"><span class="athlete-icon">◆</span> Athlete notes</div>
-            <textarea class="field-athlete-input" id="ancillary-notes-${mondayStr}"
-              placeholder="Completed? Notes?"
-              ${!editable ? `oninput="debounceSaveAthleteNotes('${mondayStr}')"` : 'readonly'}>${esc(workout.athleteAncillaryNotes || '')}</textarea>
-          </div>
-        </div>
-
-        <!-- Coach Notes -->
-        <div class="field-block">
-          <div class="field-label"><span class="dot notes"></span>Notes</div>
-          <textarea class="field-coach" id="notes-${mondayStr}"
-            placeholder="General notes for the week..."
-            ${editable ? `oninput="debounceSave('${mondayStr}')"` : 'readonly'}>${esc(workout.notes || '')}</textarea>
-          <div class="field-athlete">
-            <div class="field-athlete-label"><span class="athlete-icon">◆</span> Athlete notes</div>
-            <textarea class="field-athlete-input" id="notes-athlete-${mondayStr}"
-              placeholder="Questions, how you're feeling, etc."
-              ${!editable ? `oninput="debounceSaveAthleteNotes('${mondayStr}')"` : 'readonly'}>${esc(workout.athleteNotes || '')}</textarea>
-          </div>
-        </div>
-
       </div>
     </div>`;
+    return;
   }
 
-  html += `</div>`; // .weeks-container
+  // Build mileage chart data (last 16 weeks)
+  const chartWeeks = [];
+  for (let i = -15; i <= 0; i++) {
+    const mon = getWeekMonday(i);
+    const monStr = dateToStr(mon);
+    const stravaMi = getWeekStravaMiles(mon);
+    const workout = workoutsCache[monStr];
+    const targetStr = workout?.milesPerWeek;
+    // Parse target — handle ranges like "60-65" by taking the midpoint
+    let target = null;
+    if (targetStr) {
+      const parts = targetStr.match(/(\d+\.?\d*)/g);
+      if (parts && parts.length >= 2) target = (parseFloat(parts[0]) + parseFloat(parts[1])) / 2;
+      else if (parts && parts.length === 1) target = parseFloat(parts[0]);
+    }
+    chartWeeks.push({ monday: mon, monStr, miles: stravaMi, target, label: `${MONTHS[mon.getMonth()]} ${mon.getDate()}` });
+  }
+
+  const maxMiles = Math.max(10, ...chartWeeks.map(w => Math.max(w.miles, w.target || 0)));
+  const yMax = Math.ceil(maxMiles / 10) * 10;
+
+  // Recent activities (last 7 days)
+  const today = new Date();
+  const weekAgo = addDays(today, -6);
+  const recentActs = getStravaActivities(weekAgo, today);
+
+  // Summary stats
+  const thisWeekMiles = getWeekStravaMiles(getMonday(today));
+  const lastWeekMiles = getWeekStravaMiles(addDays(getMonday(today), -7));
+  const totalRuns7d = recentActs.length;
+  const avgPace7d = recentActs.length > 0
+    ? recentActs.reduce((sum, a) => sum + (a.movingTime || 0), 0) / recentActs.reduce((sum, a) => sum + (a.distance || 0), 0) * 1609.34
+    : 0;
+
+  let html = `
+  <div class="dash-card">
+    <div class="dash-header">
+      <div class="dash-title">Training Data</div>
+      <span class="dash-strava-badge">▲ STRAVA CONNECTED</span>
+    </div>
+    <div class="dash-body">
+
+      <!-- Summary stats -->
+      <div class="dash-stats">
+        <div class="dash-stat">
+          <div class="dash-stat-val">${thisWeekMiles.toFixed(1)}</div>
+          <div class="dash-stat-label">Miles this week</div>
+        </div>
+        <div class="dash-stat">
+          <div class="dash-stat-val">${lastWeekMiles.toFixed(1)}</div>
+          <div class="dash-stat-label">Miles last week</div>
+        </div>
+        <div class="dash-stat">
+          <div class="dash-stat-val">${totalRuns7d}</div>
+          <div class="dash-stat-label">Runs (7 days)</div>
+        </div>
+        <div class="dash-stat">
+          <div class="dash-stat-val">${avgPace7d > 0 ? formatPace(avgPace7d) : '--'}</div>
+          <div class="dash-stat-label">Avg pace (7 days)</div>
+        </div>
+      </div>
+
+      <!-- Mileage chart -->
+      <div class="chart-section">
+        <div class="chart-title">Weekly mileage — last 16 weeks</div>
+        <div class="chart-wrap">
+          <div class="chart-y-labels">
+            <div class="chart-y-label">${yMax}</div>
+            <div class="chart-y-label">${Math.round(yMax * 0.75)}</div>
+            <div class="chart-y-label">${Math.round(yMax * 0.5)}</div>
+            <div class="chart-y-label">${Math.round(yMax * 0.25)}</div>
+            <div class="chart-y-label">0</div>
+          </div>
+          <div class="chart-bars">
+            ${chartWeeks.map(w => {
+              const pct = yMax > 0 ? (w.miles / yMax) * 100 : 0;
+              const hasTarget = w.target !== null;
+              return `<div class="chart-bar-col">
+                <div class="chart-tooltip">${w.miles.toFixed(1)} mi${hasTarget ? ' / ' + w.target + ' target' : ''}</div>
+                <div class="chart-bar${hasTarget ? ' has-target' : ''}" style="height:${Math.max(pct, 1)}%"></div>
+                <div class="chart-bar-label">${w.label}</div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent activities -->
+      <div class="activities-section">
+        <div class="chart-title">Recent activities — last 7 days</div>
+        ${recentActs.length > 0 ? `
+        <table class="act-table">
+          <thead>
+            <tr>
+              <th>Activity</th>
+              <th>Distance</th>
+              <th>Time</th>
+              <th>Pace</th>
+              <th>HR</th>
+              <th>Elev</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${recentActs.map(a => {
+              const mi = ((a.distance || 0) / 1609.34).toFixed(2);
+              const dur = formatDuration(a.movingTime);
+              const pace = a.distance > 0 ? formatPace((a.movingTime / a.distance) * 1609.34) : '--';
+              const d = new Date(a.date + 'T12:00:00');
+              const dayLabel = `${DAY_NAMES_SHORT[d.getDay()]} ${MONTHS[d.getMonth()]} ${d.getDate()}`;
+              return `<tr>
+                <td>
+                  <div class="act-name">${esc(a.name || 'Run')}</div>
+                  <div class="act-date">${dayLabel}</div>
+                </td>
+                <td class="act-val">${mi} mi</td>
+                <td class="act-val">${dur}</td>
+                <td class="act-val">${pace}</td>
+                <td class="act-val">${a.averageHeartrate ? Math.round(a.averageHeartrate) + ' bpm' : '--'}</td>
+                <td class="act-val">${a.totalElevationGain ? Math.round(a.totalElevationGain * 3.281) + ' ft' : '--'}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+        ` : '<div class="act-no-data">No activities in the last 7 days</div>'}
+      </div>
+
+    </div>
+  </div>`;
+
   container.innerHTML = html;
 }
 
 // ══════════════════════════════════════════════════════════
-//  WEEK NAVIGATION
+//  WEEK NAVIGATION (unified)
 // ══════════════════════════════════════════════════════════
-async function navWeeks(delta) {
+async function navWeek(delta) {
   weekOffset += delta;
-  await loadWorkouts();
-  if (!isCoach) await loadStrava();
-  renderWeeks(isCoach ? 'coach-weeks' : 'athlete-weeks', isCoach);
+  const monStr = dateToStr(getWeekMonday(weekOffset));
+  if (!workoutsCache[monStr]) await loadWorkoutsRange(weekOffset, weekOffset);
+  const role = isCoach ? 'coach' : 'athlete';
+  const weekId = isCoach ? 'coach-week-container' : 'athlete-week-container';
+  const dashId = isCoach ? 'coach-dashboard' : 'athlete-dashboard';
+  renderSingleWeek(weekId, dashId, role);
 }
 
-async function navWeeksToday() {
+async function navWeekToday() {
   weekOffset = 0;
-  await loadWorkouts();
-  if (!isCoach) await loadStrava();
-  renderWeeks(isCoach ? 'coach-weeks' : 'athlete-weeks', isCoach);
+  const role = isCoach ? 'coach' : 'athlete';
+  const weekId = isCoach ? 'coach-week-container' : 'athlete-week-container';
+  const dashId = isCoach ? 'coach-dashboard' : 'athlete-dashboard';
+  renderSingleWeek(weekId, dashId, role);
 }
+
+// ══════════════════════════════════════════════════════════
+//  STRAVA CONNECT & SYNC
+// ══════════════════════════════════════════════════════════
+const STRAVA_CLIENT_ID = '219336'; // ← Set your Strava Client ID here
+const STRAVA_REDIRECT_URI = 'https://us-central1-es-form-labs.cloudfunctions.net/stravaCallback';
+
+async function connectStrava() {
+  if (!STRAVA_CLIENT_ID) {
+    alert('Strava Client ID not configured.');
+    return;
+  }
+  // Generate anti-CSRF nonce and store on user doc
+  const nonce = Math.random().toString(36).substring(2, 15);
+  await db.collection('users').doc(currentUser.uid).update({ stravaOAuthNonce: nonce });
+
+  const state = `${currentUser.uid}:${nonce}`;
+  const url = `https://www.strava.com/oauth/authorize`
+    + `?client_id=${STRAVA_CLIENT_ID}`
+    + `&redirect_uri=${encodeURIComponent(STRAVA_REDIRECT_URI)}`
+    + `&response_type=code`
+    + `&scope=activity:read_all`
+    + `&state=${encodeURIComponent(state)}`;
+
+  window.location.href = url;
+}
+
+async function syncStrava() {
+  const syncFn = firebase.functions().httpsCallable('syncStravaActivities');
+  try {
+    const result = await syncFn();
+    console.log('Strava sync:', result.data);
+    // Reload strava data and re-render
+    stravaCache = {};
+    await loadStravaRange(-16, 4);
+    const role = isCoach ? 'coach' : 'athlete';
+    const weekId = isCoach ? 'coach-week-container' : 'athlete-week-container';
+    const dashId = isCoach ? 'coach-dashboard' : 'athlete-dashboard';
+    renderSingleWeek(weekId, dashId, role);
+  } catch(e) {
+    console.error('Strava sync failed:', e);
+  }
+}
+
+// Check URL params on load for Strava callback result
+function checkStravaCallback() {
+  const params = new URLSearchParams(window.location.search);
+  const stravaStatus = params.get('strava');
+  if (stravaStatus === 'connected') {
+    // Clean URL
+    window.history.replaceState({}, '', window.location.pathname);
+    // Reload user doc to pick up stravaConnected: true, then sync
+    setTimeout(async () => {
+      if (currentUser) {
+        const doc = await db.collection('users').doc(currentUser.uid).get();
+        if (doc.exists) userDoc = doc.data();
+        await syncStrava();
+      }
+    }, 500);
+  } else if (stravaStatus === 'error') {
+    window.history.replaceState({}, '', window.location.pathname);
+    alert('Strava connection failed. Please try again.');
+  }
+}
+// Run after auth resolves
+window.addEventListener('load', () => setTimeout(checkStravaCallback, 1000));
 
 // ══════════════════════════════════════════════════════════
 //  SAVE: COACH WORKOUTS (auto-save with debounce)
@@ -828,7 +1063,6 @@ async function saveWeek(weekKey) {
       workoutsCache[weekKey] = { id: newRef.id, ...data };
     }
 
-    // Flash save indicator
     const indicator = document.getElementById(`save-${weekKey}`);
     if (indicator) {
       indicator.classList.add('show');
@@ -853,6 +1087,7 @@ async function saveAthleteNotes(weekKey) {
 
   const data = {
     weekStart: weekKey,
+    athleteMilesNotes: document.getElementById(`miles-notes-${weekKey}`)?.value.trim() || null,
     athleteMidweekNotes: document.getElementById(`midweek-notes-${weekKey}`)?.value.trim() || null,
     athleteWeekendNotes: document.getElementById(`weekend-notes-${weekKey}`)?.value.trim() || null,
     athleteLongRunNotes: document.getElementById(`longrun-notes-${weekKey}`)?.value.trim() || null,
@@ -869,8 +1104,6 @@ async function saveAthleteNotes(weekKey) {
       await ref.doc(existing.id).update(data);
       workoutsCache[weekKey] = { ...existing, ...data };
     } else {
-      // Athlete can only add notes to weeks that already have a coach prescription
-      // Create the doc with just athlete notes
       const newRef = await ref.add(data);
       workoutsCache[weekKey] = { id: newRef.id, ...data };
     }
@@ -994,7 +1227,7 @@ async function saveRaceInfo() {
     selectedAthletePlan.raceName = raceName;
     selectedAthletePlan.raceDate = raceDate;
     closeEditRace();
-    renderWeeks('coach-weeks', true);
+    renderSingleWeek('coach-week-container', 'coach-dashboard', 'coach');
   } catch(e) {
     document.getElementById('rm-error').textContent = e.message;
   }
@@ -1018,6 +1251,13 @@ function formatDuration(seconds) {
   const s = seconds % 60;
   if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
   return `${m}:${String(s).padStart(2,'0')}`;
+}
+
+function formatPace(secPerMile) {
+  if (!secPerMile || !isFinite(secPerMile)) return '--';
+  const m = Math.floor(secPerMile / 60);
+  const s = Math.round(secPerMile % 60);
+  return `${m}:${String(s).padStart(2,'0')} /mi`;
 }
 
 document.addEventListener('keydown', e => {
