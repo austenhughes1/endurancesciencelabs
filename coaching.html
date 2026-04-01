@@ -54,6 +54,38 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 .btn-signout{color:var(--bad) !important}.btn-signout:hover{border-color:var(--bad) !important}
 .btn-primary{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;font-size:12px;font-weight:700;font-family:var(--ui);border-radius:8px;border:none;background:var(--cyan);color:#000;cursor:pointer;transition:opacity .15s}
 .btn-primary:hover{opacity:.85}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+
+/* ── Notification bell ──────────────────────────────── */
+.notif-wrap{position:relative}
+.notif-btn{width:34px;height:34px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--muted2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;position:relative}
+.notif-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.notif-badge{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;background:var(--bad);color:#fff;font-size:9px;font-weight:800;font-family:var(--mono);border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 4px;line-height:1}
+.notif-panel{position:absolute;top:42px;right:0;width:340px;max-height:420px;background:var(--panel);border:1px solid var(--border2);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.5);z-index:400;display:none;flex-direction:column;overflow:hidden}
+.notif-panel.open{display:flex}
+.notif-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.notif-title{font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;font-family:var(--mono);color:var(--cyan)}
+.notif-clear{font-size:10px;color:var(--muted2);font-family:var(--mono);cursor:pointer;transition:color .15s}
+.notif-clear:hover{color:var(--text)}
+.notif-list{flex:1;overflow-y:auto}
+.notif-item{padding:12px 16px;border-bottom:1px solid var(--border);cursor:default;transition:background .15s}
+.notif-item:hover{background:rgba(255,255,255,.02)}
+.notif-item.unread{background:rgba(0,229,200,.03)}
+.notif-msg{font-size:12px;line-height:1.5}
+.notif-time{font-size:9px;color:var(--muted2);font-family:var(--mono);margin-top:3px}
+.notif-actions{display:flex;gap:6px;margin-top:8px}
+.notif-action{padding:4px 10px;font-size:10px;font-weight:700;font-family:var(--ui);border-radius:6px;border:none;cursor:pointer;transition:opacity .15s}
+.notif-action:hover{opacity:.8}
+.notif-action.accept{background:var(--cyan);color:#000}
+.notif-action.decline{background:transparent;border:1px solid var(--border2);color:var(--muted2)}
+.notif-empty{padding:32px 16px;text-align:center;font-size:12px;color:var(--muted2);font-family:var(--mono)}
+
+/* ── Request coaching (athlete empty state) ─────────── */
+.request-coaching{margin-top:20px;text-align:center}
+.request-coaching-btn{padding:10px 24px;background:var(--purple);color:#fff;font-weight:700;font-size:13px;font-family:var(--ui);border:none;border-radius:9px;cursor:pointer;transition:opacity .15s}
+.request-coaching-btn:hover{opacity:.85}
+.request-coaching-btn:disabled{opacity:.4;cursor:not-allowed}
+.request-sent{font-size:12px;color:var(--good);font-family:var(--mono);margin-top:8px}
 
 /* ── Layout ─────────────────────────────────────────── */
 #app{display:none}
@@ -234,6 +266,21 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
   </div>
   <span class="role-badge" id="role-badge"></span>
   <div class="hdr-right">
+    <div class="notif-wrap" id="notif-wrap">
+      <button class="notif-btn" onclick="toggleNotifPanel()" title="Notifications">
+        🔔
+        <span class="notif-badge" id="notif-badge" style="display:none">0</span>
+      </button>
+      <div class="notif-panel" id="notif-panel">
+        <div class="notif-header">
+          <span class="notif-title">Notifications</span>
+          <span class="notif-clear" onclick="clearAllNotifications()">Mark all read</span>
+        </div>
+        <div class="notif-list" id="notif-list">
+          <div class="notif-empty">No notifications</div>
+        </div>
+      </div>
+    </div>
     <span id="hdr-user" style="font-size:12px;color:var(--muted2);font-family:var(--mono)"></span>
     <button class="btn-ghost btn-signout" onclick="doSignOut()">Sign out</button>
   </div>
@@ -271,21 +318,23 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 <div class="modal-overlay" id="add-athlete-modal">
   <div class="modal">
     <div class="modal-title">Add athlete</div>
-    <div class="modal-sub">Create an account for a new athlete. They'll use these credentials to sign in and see their plan.</div>
-    <input class="modal-field" id="aa-name" placeholder="Athlete name" autocomplete="off">
+    <div class="modal-sub">Enter an email to link an existing account, or fill in all fields to create a new one.</div>
     <input class="modal-field" id="aa-email" placeholder="Athlete email" type="email" autocomplete="off">
-    <input class="modal-field" id="aa-password" placeholder="Temporary password" type="text" autocomplete="off">
-    <select class="modal-field" id="aa-gender" style="cursor:pointer;appearance:auto">
-      <option value="" disabled selected>Gender</option>
-      <option value="male">Male</option>
-      <option value="female">Female</option>
-    </select>
-    <input class="modal-field" id="aa-dob" type="date" autocomplete="off" style="color:var(--muted)" onfocus="this.style.color='var(--text)'" onchange="this.style.color=this.value?'var(--text)':'var(--muted)'">
-    <label for="aa-dob" style="font-size:10px;color:var(--muted2);font-family:var(--mono);margin-top:-6px;margin-bottom:10px;display:block">Date of birth</label>
+    <div id="aa-new-fields">
+      <input class="modal-field" id="aa-name" placeholder="Athlete name (new account only)" autocomplete="off">
+      <input class="modal-field" id="aa-password" placeholder="Temporary password (new account only)" type="text" autocomplete="off">
+      <select class="modal-field" id="aa-gender" style="cursor:pointer;appearance:auto">
+        <option value="" disabled selected>Gender</option>
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+      </select>
+      <input class="modal-field" id="aa-dob" type="date" autocomplete="off" style="color:var(--muted)" onfocus="this.style.color='var(--text)'" onchange="this.style.color=this.value?'var(--text)':'var(--muted)'">
+      <label for="aa-dob" style="font-size:10px;color:var(--muted2);font-family:var(--mono);margin-top:-6px;margin-bottom:10px;display:block">Date of birth</label>
+    </div>
     <div class="modal-error" id="aa-error"></div>
     <div class="modal-actions">
       <button class="btn-ghost" onclick="closeAddAthlete()">Cancel</button>
-      <button class="btn-primary" id="aa-btn" onclick="createAthlete()">Create athlete</button>
+      <button class="btn-primary" id="aa-btn" onclick="addAthlete()">Add athlete</button>
     </div>
   </div>
 </div>
@@ -413,6 +462,7 @@ async function authAction() {
 }
 
 async function doSignOut() {
+  stopNotificationListener();
   await auth.signOut();
   currentUser = null; userDoc = null;
   selectedAthleteUid = null; selectedAthletePlan = null;
@@ -430,6 +480,7 @@ if (auth) {
       document.getElementById('auth-overlay').style.display = 'none';
       document.getElementById('app').style.display = 'block';
       await loadUserDoc(user);
+      startNotificationListener();
     }
   });
 }
@@ -552,10 +603,23 @@ async function loadAthleteDashboard() {
     .get();
 
   if (planSnap.empty) {
+    // Check if already requested
+    const reqSnap = await db.collection('coachingRequests')
+      .where('athleteUid', '==', currentUser.uid)
+      .where('status', '==', 'pending')
+      .limit(1)
+      .get();
+    const alreadyRequested = !reqSnap.empty;
+
     document.getElementById('athlete-week-container').innerHTML = `
       <div class="main-empty">
         <div class="main-empty-icon">◇</div>
-        <div class="main-empty-text">No training plan assigned yet.<br>Your coach will set one up for you.</div>
+        <div class="main-empty-text">No training plan assigned yet.</div>
+        <div class="request-coaching">
+          ${alreadyRequested
+            ? '<div class="request-sent">Coaching request sent — waiting for your coach to accept.</div>'
+            : '<button class="request-coaching-btn" onclick="requestCoaching()">Request Coaching</button>'}
+        </div>
       </div>`;
     return;
   }
@@ -1030,6 +1094,253 @@ function checkStravaCallback() {
 window.addEventListener('load', () => setTimeout(checkStravaCallback, 1000));
 
 // ══════════════════════════════════════════════════════════
+//  NOTIFICATIONS
+// ══════════════════════════════════════════════════════════
+let notificationsCache = [];
+let notifUnsubscribe = null;
+
+function startNotificationListener() {
+  if (!currentUser || notifUnsubscribe) return;
+
+  notifUnsubscribe = db.collection('notifications')
+    .where('recipientUid', '==', currentUser.uid)
+    .orderBy('createdAt', 'desc')
+    .limit(30)
+    .onSnapshot(snap => {
+      notificationsCache = [];
+      snap.forEach(doc => {
+        notificationsCache.push({ id: doc.id, ...doc.data() });
+      });
+      renderNotifBadge();
+    }, err => {
+      console.error('Notification listener error:', err);
+    });
+}
+
+function stopNotificationListener() {
+  if (notifUnsubscribe) { notifUnsubscribe(); notifUnsubscribe = null; }
+}
+
+function renderNotifBadge() {
+  const unread = notificationsCache.filter(n => !n.read).length;
+  const badge = document.getElementById('notif-badge');
+  if (unread > 0) {
+    badge.style.display = 'flex';
+    badge.textContent = unread > 9 ? '9+' : unread;
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function toggleNotifPanel() {
+  const panel = document.getElementById('notif-panel');
+  const isOpen = panel.classList.contains('open');
+  if (isOpen) {
+    panel.classList.remove('open');
+  } else {
+    renderNotifList();
+    panel.classList.add('open');
+  }
+}
+
+function renderNotifList() {
+  const list = document.getElementById('notif-list');
+  if (notificationsCache.length === 0) {
+    list.innerHTML = '<div class="notif-empty">No notifications</div>';
+    return;
+  }
+
+  list.innerHTML = notificationsCache.map(n => {
+    const time = n.createdAt?.toDate ? timeAgo(n.createdAt.toDate()) : '';
+    let actions = '';
+    if (n.type === 'coaching_request' && n.status === 'pending' && isCoach) {
+      actions = `<div class="notif-actions">
+        <button class="notif-action accept" onclick="acceptCoachingRequest('${n.requestId}','${n.id}')">Accept</button>
+        <button class="notif-action decline" onclick="declineCoachingRequest('${n.requestId}','${n.id}')">Decline</button>
+      </div>`;
+    }
+    return `<div class="notif-item${n.read ? '' : ' unread'}" onclick="markNotifRead('${n.id}')">
+      <div class="notif-msg">${esc(n.message)}</div>
+      <div class="notif-time">${time}</div>
+      ${actions}
+    </div>`;
+  }).join('');
+}
+
+async function markNotifRead(notifId) {
+  try {
+    await db.collection('notifications').doc(notifId).update({ read: true });
+  } catch(e) { /* ignore */ }
+}
+
+async function clearAllNotifications() {
+  const unread = notificationsCache.filter(n => !n.read);
+  const batch = db.batch();
+  unread.forEach(n => {
+    batch.update(db.collection('notifications').doc(n.id), { read: true });
+  });
+  await batch.commit();
+}
+
+function timeAgo(date) {
+  const sec = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (sec < 60) return 'just now';
+  if (sec < 3600) return Math.floor(sec / 60) + 'm ago';
+  if (sec < 86400) return Math.floor(sec / 3600) + 'h ago';
+  return Math.floor(sec / 86400) + 'd ago';
+}
+
+// Close panel when clicking outside
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('notif-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    document.getElementById('notif-panel').classList.remove('open');
+  }
+});
+
+// ══════════════════════════════════════════════════════════
+//  COACHING REQUESTS
+// ══════════════════════════════════════════════════════════
+async function requestCoaching() {
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+
+  try {
+    // For now, find any coach (single-coach setup — you)
+    const coachSnap = await db.collection('users')
+      .where('role', '==', 'coach')
+      .limit(1)
+      .get();
+
+    if (coachSnap.empty) {
+      btn.textContent = 'No coach available';
+      return;
+    }
+
+    const coachUid = coachSnap.docs[0].id;
+    const athleteName = userDoc.displayName || currentUser.email;
+
+    // Create coaching request
+    const reqRef = await db.collection('coachingRequests').add({
+      athleteUid: currentUser.uid,
+      athleteEmail: currentUser.email,
+      athleteName,
+      coachUid,
+      status: 'pending',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    // Create notification for coach
+    await db.collection('notifications').add({
+      recipientUid: coachUid,
+      type: 'coaching_request',
+      requestId: reqRef.id,
+      status: 'pending',
+      message: `${athleteName} has requested coaching.`,
+      read: false,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    btn.outerHTML = '<div class="request-sent">Coaching request sent — waiting for your coach to accept.</div>';
+  } catch(e) {
+    console.error('Request failed:', e);
+    btn.disabled = false;
+    btn.textContent = 'Request Coaching';
+  }
+}
+
+async function acceptCoachingRequest(requestId, notifId) {
+  try {
+    const reqDoc = await db.collection('coachingRequests').doc(requestId).get();
+    if (!reqDoc.exists) return;
+    const req = reqDoc.data();
+
+    // Link athlete to coach
+    await db.collection('users').doc(req.athleteUid).update({
+      coachUid: currentUser.uid
+    });
+
+    // Create training plan
+    await db.collection('trainingPlans').add({
+      athleteUid: req.athleteUid,
+      coachUid: currentUser.uid,
+      raceName: '', raceDate: '',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    // Update request status
+    await db.collection('coachingRequests').doc(requestId).update({ status: 'accepted' });
+
+    // Update notification
+    await db.collection('notifications').doc(notifId).update({
+      read: true, status: 'accepted',
+      message: req.athleteName + ' — coaching request accepted.'
+    });
+
+    // Notify athlete
+    await db.collection('notifications').add({
+      recipientUid: req.athleteUid,
+      type: 'coaching_accepted',
+      message: 'Your coaching request has been accepted! Your training plan is ready.',
+      read: false,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    loadAthleteList();
+    renderNotifList();
+  } catch(e) {
+    console.error('Accept failed:', e);
+  }
+}
+
+async function declineCoachingRequest(requestId, notifId) {
+  try {
+    const reqDoc = await db.collection('coachingRequests').doc(requestId).get();
+    if (!reqDoc.exists) return;
+    const req = reqDoc.data();
+
+    await db.collection('coachingRequests').doc(requestId).update({ status: 'declined' });
+    await db.collection('notifications').doc(notifId).update({
+      read: true, status: 'declined',
+      message: req.athleteName + ' — coaching request declined.'
+    });
+
+    // Notify athlete
+    await db.collection('notifications').add({
+      recipientUid: req.athleteUid,
+      type: 'coaching_declined',
+      message: 'Your coaching request was not accepted at this time.',
+      read: false,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    renderNotifList();
+  } catch(e) {
+    console.error('Decline failed:', e);
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  NOTIFICATION TRIGGERS
+// ══════════════════════════════════════════════════════════
+async function notifyAthleteWorkoutUpdated(weekKey) {
+  if (!isCoach || !selectedAthleteUid) return;
+  const athleteName = selectedAthleteData?.displayName || 'Athlete';
+  const monday = new Date(weekKey + 'T12:00:00');
+  const weekLabel = `${MONTHS[monday.getMonth()]} ${monday.getDate()}`;
+
+  await db.collection('notifications').add({
+    recipientUid: selectedAthleteUid,
+    type: 'workout_updated',
+    message: `Your coach updated your training for the week of ${weekLabel}.`,
+    read: false,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+}
+
+// ══════════════════════════════════════════════════════════
 //  SAVE: COACH WORKOUTS (auto-save with debounce)
 // ══════════════════════════════════════════════════════════
 function debounceSave(weekKey) {
@@ -1067,6 +1378,14 @@ async function saveWeek(weekKey) {
     if (indicator) {
       indicator.classList.add('show');
       setTimeout(() => indicator.classList.remove('show'), 1500);
+    }
+
+    // Notify athlete (debounced — only fire once per week per save burst)
+    if (!savingWeeks['notif-' + weekKey]) {
+      savingWeeks['notif-' + weekKey] = setTimeout(() => {
+        notifyAthleteWorkoutUpdated(weekKey);
+        delete savingWeeks['notif-' + weekKey];
+      }, 5000);
     }
   } catch(e) {
     console.error('Save failed:', e);
@@ -1123,79 +1442,131 @@ async function saveAthleteNotes(weekKey) {
 // ══════════════════════════════════════════════════════════
 function openAddAthlete() {
   document.getElementById('add-athlete-modal').classList.add('open');
-  document.getElementById('aa-name').value = '';
   document.getElementById('aa-email').value = '';
+  document.getElementById('aa-name').value = '';
   document.getElementById('aa-password').value = '';
   document.getElementById('aa-gender').selectedIndex = 0;
   document.getElementById('aa-dob').value = '';
   document.getElementById('aa-error').textContent = '';
+  document.getElementById('aa-btn').textContent = 'Add athlete';
 }
 
 function closeAddAthlete() {
   document.getElementById('add-athlete-modal').classList.remove('open');
 }
 
-async function createAthlete() {
+async function addAthlete() {
   const errEl = document.getElementById('aa-error');
   const btn = document.getElementById('aa-btn');
-  const name = document.getElementById('aa-name').value.trim();
   const email = document.getElementById('aa-email').value.trim();
-  const password = document.getElementById('aa-password').value;
-  const gender = document.getElementById('aa-gender').value;
-  const dob = document.getElementById('aa-dob').value;
 
-  if (!name || !email || !password) {
-    errEl.textContent = 'Name, email, and password are required.';
-    return;
-  }
-  if (!gender) {
-    errEl.textContent = 'Please select a gender.';
-    return;
-  }
-  if (password.length < 6) {
-    errEl.textContent = 'Password must be at least 6 characters.';
-    return;
-  }
+  if (!email) { errEl.textContent = 'Email is required.'; return; }
 
   btn.disabled = true;
-  btn.textContent = 'Creating…';
+  btn.textContent = 'Adding…';
   errEl.textContent = '';
 
   try {
-    const secondaryApp = firebase.initializeApp(FIREBASE_CONFIG, 'secondary-' + Date.now());
-    const secondaryAuth = secondaryApp.auth();
-    const cred = await secondaryAuth.createUserWithEmailAndPassword(email, password);
-    const athleteUid = cred.user.uid;
+    // Check if a user doc already exists with this email
+    const existingSnap = await db.collection('users')
+      .where('email', '==', email)
+      .limit(1)
+      .get();
 
-    await db.collection('users').doc(athleteUid).set({
-      email, displayName: name, role: 'athlete', coachUid: currentUser.uid,
-      gender, dob: dob || null,
-      stravaAthleteId: null, stravaConnected: false,
-      raceDate: null, raceName: null,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
+    if (!existingSnap.empty) {
+      // Link existing account
+      const existingDoc = existingSnap.docs[0];
+      const existingData = existingDoc.data();
+      const athleteUid = existingDoc.id;
 
-    await db.collection('trainingPlans').add({
-      athleteUid, coachUid: currentUser.uid,
-      raceName: '', raceDate: '',
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
+      if (existingData.coachUid === currentUser.uid) {
+        errEl.textContent = 'This athlete is already on your roster.';
+        btn.disabled = false;
+        btn.textContent = 'Add athlete';
+        return;
+      }
 
-    await secondaryAuth.signOut();
-    await secondaryApp.delete();
+      // Assign coach
+      await db.collection('users').doc(athleteUid).update({
+        coachUid: currentUser.uid
+      });
 
-    closeAddAthlete();
-    loadAthleteList();
+      // Create training plan if one doesn't exist
+      const planSnap = await db.collection('trainingPlans')
+        .where('athleteUid', '==', athleteUid)
+        .where('coachUid', '==', currentUser.uid)
+        .limit(1)
+        .get();
+
+      if (planSnap.empty) {
+        await db.collection('trainingPlans').add({
+          athleteUid, coachUid: currentUser.uid,
+          raceName: '', raceDate: '',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+
+      closeAddAthlete();
+      loadAthleteList();
+    } else {
+      // Create new account — require additional fields
+      const name = document.getElementById('aa-name').value.trim();
+      const password = document.getElementById('aa-password').value;
+      const gender = document.getElementById('aa-gender').value;
+      const dob = document.getElementById('aa-dob').value;
+
+      if (!name || !password) {
+        errEl.textContent = 'No existing account found. Fill in name and password to create one.';
+        btn.disabled = false;
+        btn.textContent = 'Add athlete';
+        return;
+      }
+      if (!gender) {
+        errEl.textContent = 'Please select a gender.';
+        btn.disabled = false;
+        btn.textContent = 'Add athlete';
+        return;
+      }
+      if (password.length < 6) {
+        errEl.textContent = 'Password must be at least 6 characters.';
+        btn.disabled = false;
+        btn.textContent = 'Add athlete';
+        return;
+      }
+
+      const secondaryApp = firebase.initializeApp(FIREBASE_CONFIG, 'secondary-' + Date.now());
+      const secondaryAuth = secondaryApp.auth();
+      const cred = await secondaryAuth.createUserWithEmailAndPassword(email, password);
+      const athleteUid = cred.user.uid;
+
+      await db.collection('users').doc(athleteUid).set({
+        email, displayName: name, role: 'athlete', coachUid: currentUser.uid,
+        gender, dob: dob || null,
+        stravaAthleteId: null, stravaConnected: false,
+        raceDate: null, raceName: null,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      await db.collection('trainingPlans').add({
+        athleteUid, coachUid: currentUser.uid,
+        raceName: '', raceDate: '',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      await secondaryAuth.signOut();
+      await secondaryApp.delete();
+
+      closeAddAthlete();
+      loadAthleteList();
+    }
   } catch(e) {
-    const msg = e.code === 'auth/email-already-in-use' ? 'Email already in use.'
-      : e.code === 'auth/weak-password' ? 'Password must be at least 6 characters.'
-      : e.message;
-    errEl.textContent = msg;
+    errEl.textContent = e.message;
   }
 
   btn.disabled = false;
-  btn.textContent = 'Create athlete';
+  btn.textContent = 'Add athlete';
 }
 
 // ══════════════════════════════════════════════════════════

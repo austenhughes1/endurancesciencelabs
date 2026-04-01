@@ -91,6 +91,29 @@ service cloud.firestore {
       }
     }
 
+    // ── Notifications ──────────────────────────────────────
+    match /notifications/{notifId} {
+      // Users can read and update (mark read) their own notifications
+      allow read: if request.auth != null
+                  && resource.data.recipientUid == request.auth.uid;
+      allow update: if request.auth != null
+                    && resource.data.recipientUid == request.auth.uid;
+      // Any authenticated user can create notifications
+      allow create: if request.auth != null;
+    }
+
+    // ── Coaching requests ────────────────────────────────────
+    match /coachingRequests/{requestId} {
+      // Athlete can read/create their own requests
+      allow read: if request.auth != null
+                  && (resource.data.athleteUid == request.auth.uid
+                      || resource.data.coachUid == request.auth.uid);
+      allow create: if request.auth != null;
+      // Coach can update (accept/decline)
+      allow update: if request.auth != null
+                    && resource.data.coachUid == request.auth.uid;
+    }
+
     // ── Deny everything else ─────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
