@@ -7,7 +7,7 @@ const db = admin.firestore();
 
 const STRAVA_TOKEN_URL = "https://www.strava.com/oauth/token";
 const STRAVA_ACTIVITIES_URL = "https://www.strava.com/api/v3/athlete/activities";
-const SITE_URL = "https://endurancesciencelabs.com/coaching.html";
+const SITE_URL = "http://endurancesciencelabs.com/coaching.html";
 
 // ═══════════════════════════════════════════════════════════
 //  stravaCallback — HTTPS endpoint that Strava redirects to
