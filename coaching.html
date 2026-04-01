@@ -930,6 +930,11 @@ function renderDashboard(containerId, role) {
     <div class="dash-header">
       <div class="dash-title">Training Data</div>
       <span class="dash-strava-badge">▲ STRAVA CONNECTED</span>
+      <div style="margin-left:auto;display:flex;gap:6px">
+        ${role === 'athlete' ? `<button class="btn-ghost" onclick="syncStrava()" style="font-size:10px;padding:4px 10px">Sync</button>
+        <button class="btn-ghost" onclick="reconnectStrava()" style="font-size:10px;padding:4px 10px">Reconnect</button>
+        <button class="btn-ghost btn-signout" onclick="unlinkStrava()" style="font-size:10px;padding:4px 10px">Unlink</button>` : ''}
+      </div>
     </div>
     <div class="dash-body">
 
@@ -1068,6 +1073,7 @@ async function connectStrava() {
     + `&redirect_uri=${encodeURIComponent(STRAVA_REDIRECT_URI)}`
     + `&response_type=code`
     + `&scope=activity:read_all`
+    + `&approval_prompt=force`
     + `&state=${encodeURIComponent(state)}`;
 
   window.location.href = url;
@@ -1087,6 +1093,29 @@ async function syncStrava() {
     renderSingleWeek(weekId, dashId, role);
   } catch(e) {
     console.error('Strava sync failed:', e);
+  }
+}
+
+function reconnectStrava() {
+  // Same as connect — approval_prompt=force will make Strava ask for login again
+  connectStrava();
+}
+
+async function unlinkStrava() {
+  if (!confirm('Unlink your Strava account? Your synced activity data will remain.')) return;
+  try {
+    await db.collection('users').doc(currentUser.uid).update({
+      stravaConnected: false,
+      stravaAthleteId: null
+    });
+    userDoc.stravaConnected = false;
+    userDoc.stravaAthleteId = null;
+    // Re-render dashboard to show connect button
+    const role = isCoach ? 'coach' : 'athlete';
+    const dashId = isCoach ? 'coach-dashboard' : 'athlete-dashboard';
+    renderDashboard(dashId, role);
+  } catch(e) {
+    console.error('Unlink failed:', e);
   }
 }
 
