@@ -323,13 +323,6 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
     <div id="aa-new-fields">
       <input class="modal-field" id="aa-name" placeholder="Athlete name (new account only)" autocomplete="off">
       <input class="modal-field" id="aa-password" placeholder="Temporary password (new account only)" type="text" autocomplete="off">
-      <select class="modal-field" id="aa-gender" style="cursor:pointer;appearance:auto">
-        <option value="" disabled selected>Gender</option>
-        <option value="male">Male</option>
-        <option value="female">Female</option>
-      </select>
-      <input class="modal-field" id="aa-dob" type="date" autocomplete="off" style="color:var(--muted)" onfocus="this.style.color='var(--text)'" onchange="this.style.color=this.value?'var(--text)':'var(--muted)'">
-      <label for="aa-dob" style="font-size:10px;color:var(--muted2);font-family:var(--mono);margin-top:-6px;margin-bottom:10px;display:block">Date of birth</label>
     </div>
     <div class="modal-error" id="aa-error"></div>
     <div class="modal-actions">
@@ -351,6 +344,25 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
     <div class="modal-actions">
       <button class="btn-ghost" onclick="closeEditRace()">Cancel</button>
       <button class="btn-primary" id="rm-btn" onclick="saveRaceInfo()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Complete profile modal (athlete first login) ── -->
+<div class="modal-overlay" id="profile-modal">
+  <div class="modal">
+    <div class="modal-title">Complete your profile</div>
+    <div class="modal-sub">Your coach set up your account. Fill in a few details to get started.</div>
+    <select class="modal-field" id="pm-gender" style="cursor:pointer;appearance:auto">
+      <option value="" disabled selected>Gender</option>
+      <option value="male">Male</option>
+      <option value="female">Female</option>
+    </select>
+    <input class="modal-field" id="pm-dob" type="date" autocomplete="off" style="color:var(--muted)" onfocus="this.style.color='var(--text)'" onchange="this.style.color=this.value?'var(--text)':'var(--muted)'">
+    <label for="pm-dob" style="font-size:10px;color:var(--muted2);font-family:var(--mono);margin-top:-6px;margin-bottom:10px;display:block">Date of birth</label>
+    <div class="modal-error" id="pm-error"></div>
+    <div class="modal-actions">
+      <button class="btn-primary" id="pm-btn" onclick="saveProfile()">Save</button>
     </div>
   </div>
 </div>
@@ -519,6 +531,7 @@ async function loadUserDoc(user) {
     document.getElementById('coach-layout').style.display = 'none';
     document.getElementById('athlete-layout').style.display = 'flex';
     loadAthleteDashboard();
+    checkProfileComplete();
   }
 }
 
@@ -1448,8 +1461,6 @@ function openAddAthlete() {
   document.getElementById('aa-email').value = '';
   document.getElementById('aa-name').value = '';
   document.getElementById('aa-password').value = '';
-  document.getElementById('aa-gender').selectedIndex = 0;
-  document.getElementById('aa-dob').value = '';
   document.getElementById('aa-error').textContent = '';
   document.getElementById('aa-btn').textContent = 'Add athlete';
 }
@@ -1513,20 +1524,12 @@ async function addAthlete() {
       closeAddAthlete();
       loadAthleteList();
     } else {
-      // Create new account — require additional fields
+      // Create new account — require name and password
       const name = document.getElementById('aa-name').value.trim();
       const password = document.getElementById('aa-password').value;
-      const gender = document.getElementById('aa-gender').value;
-      const dob = document.getElementById('aa-dob').value;
 
       if (!name || !password) {
         errEl.textContent = 'No existing account found. Fill in name and password to create one.';
-        btn.disabled = false;
-        btn.textContent = 'Add athlete';
-        return;
-      }
-      if (!gender) {
-        errEl.textContent = 'Please select a gender.';
         btn.disabled = false;
         btn.textContent = 'Add athlete';
         return;
@@ -1545,7 +1548,7 @@ async function addAthlete() {
 
       await db.collection('users').doc(athleteUid).set({
         email, displayName: name, role: 'athlete', coachUid: currentUser.uid,
-        gender, dob: dob || null,
+        gender: null, dob: null, profileComplete: false,
         stravaAthleteId: null, stravaConnected: false,
         raceDate: null, raceName: null,
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -1570,6 +1573,45 @@ async function addAthlete() {
 
   btn.disabled = false;
   btn.textContent = 'Add athlete';
+}
+
+// ══════════════════════════════════════════════════════════
+//  EDIT RACE INFO
+// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
+//  COMPLETE PROFILE (athlete first login)
+// ══════════════════════════════════════════════════════════
+function checkProfileComplete() {
+  if (!isCoach && userDoc && !userDoc.profileComplete && (!userDoc.gender || !userDoc.dob)) {
+    document.getElementById('profile-modal').classList.add('open');
+  }
+}
+
+async function saveProfile() {
+  const errEl = document.getElementById('pm-error');
+  const btn = document.getElementById('pm-btn');
+  const gender = document.getElementById('pm-gender').value;
+  const dob = document.getElementById('pm-dob').value;
+
+  if (!gender) { errEl.textContent = 'Please select a gender.'; return; }
+  if (!dob) { errEl.textContent = 'Please enter your date of birth.'; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  try {
+    await db.collection('users').doc(currentUser.uid).update({
+      gender, dob, profileComplete: true
+    });
+    userDoc.gender = gender;
+    userDoc.dob = dob;
+    userDoc.profileComplete = true;
+    document.getElementById('profile-modal').classList.remove('open');
+  } catch(e) {
+    errEl.textContent = e.message;
+  }
+  btn.disabled = false;
+  btn.textContent = 'Save';
 }
 
 // ══════════════════════════════════════════════════════════
