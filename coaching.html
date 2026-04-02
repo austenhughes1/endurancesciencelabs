@@ -194,6 +194,18 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 .chart-tooltip{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--card-text);color:#fff;padding:4px 8px;border-radius:6px;font-size:10px;font-family:var(--mono);font-weight:700;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;z-index:10;margin-bottom:4px}
 .chart-bar-col:hover .chart-tooltip{opacity:1}
 
+/* Chart toggle */
+.chart-toggle{display:inline-flex;background:var(--card-bg2);border:1px solid var(--card-border);border-radius:7px;overflow:hidden;margin-left:12px;vertical-align:middle}
+.chart-toggle-btn{padding:4px 10px;font-size:9px;font-weight:700;font-family:var(--mono);border:none;background:transparent;color:var(--card-muted2);cursor:pointer;transition:all .15s;text-transform:uppercase;letter-spacing:.3px}
+.chart-toggle-btn.active{background:#0891b2;color:#fff}
+.chart-toggle-btn:hover:not(.active){color:var(--card-text)}
+
+/* Sub-stats under main value */
+.dash-stat-sub{font-size:10px;color:var(--card-muted);font-family:var(--mono);margin-top:4px;line-height:1.5}
+
+/* Workout description in activity table */
+.act-desc{font-size:10px;color:var(--card-muted);font-style:italic;margin-top:2px;line-height:1.4}
+
 /* Activities table */
 .activities-section{margin-top:4px}
 .act-table{width:100%;border-collapse:collapse}
@@ -734,13 +746,46 @@ async function loadStravaRange(fromWeek, toWeek) {
 }
 
 // Get strava miles for a given week (Monday date)
-function getWeekStravaMiles(monday) {
+function getWeekStravaMiles(monday, type) {
+  // type: 'Run', 'other', or undefined (all)
   let total = 0;
   for (let d = 0; d < 7; d++) {
     const dayStr = dateToStr(addDays(monday, d));
-    (stravaCache[dayStr] || []).forEach(a => { total += (a.distance || 0) / 1609.34; });
+    (stravaCache[dayStr] || []).forEach(a => {
+      if (!type) total += (a.distance || 0) / 1609.34;
+      else if (type === 'Run' && a.type === 'Run') total += (a.distance || 0) / 1609.34;
+      else if (type === 'other' && a.type !== 'Run') total += (a.distance || 0) / 1609.34;
+    });
   }
   return total;
+}
+
+function getWeekStravaStats(monday, type) {
+  // Returns { miles, time, elevation } for a week, optionally filtered
+  let miles = 0, time = 0, elev = 0;
+  for (let d = 0; d < 7; d++) {
+    const dayStr = dateToStr(addDays(monday, d));
+    (stravaCache[dayStr] || []).forEach(a => {
+      const match = !type || (type === 'Run' ? a.type === 'Run' : a.type !== 'Run');
+      if (match) {
+        miles += (a.distance || 0) / 1609.34;
+        time += (a.movingTime || 0);
+        elev += (a.totalElevationGain || 0);
+      }
+    });
+  }
+  return { miles, time, elev };
+}
+
+function getWeekNonRunTime(monday) {
+  let time = 0;
+  for (let d = 0; d < 7; d++) {
+    const dayStr = dateToStr(addDays(monday, d));
+    (stravaCache[dayStr] || []).forEach(a => {
+      if (a.type !== 'Run') time += (a.movingTime || 0);
+    });
+  }
+  return time;
 }
 
 // Get all strava activities for a date range
@@ -891,39 +936,49 @@ function renderDashboard(containerId, role) {
     return;
   }
 
-  // Build mileage chart data (last 16 weeks)
+  const today = new Date();
+  const thisMonday = getMonday(today);
+  const lastMonday = addDays(thisMonday, -7);
+
+  // This week & last week stats (running only)
+  const thisWeek = getWeekStravaStats(thisMonday, 'Run');
+  const lastWeek = getWeekStravaStats(lastMonday, 'Run');
+
+  // 4-week average (running)
+  let avg4 = { miles: 0, time: 0, elev: 0 };
+  for (let i = -4; i <= -1; i++) {
+    const s = getWeekStravaStats(addDays(thisMonday, i * 7), 'Run');
+    avg4.miles += s.miles; avg4.time += s.time; avg4.elev += s.elev;
+  }
+  avg4.miles /= 4; avg4.time /= 4; avg4.elev /= 4;
+
+  // Non-running time (current + last 4 weeks total)
+  let nonRunTime = 0;
+  for (let i = -4; i <= 0; i++) {
+    nonRunTime += getWeekNonRunTime(addDays(thisMonday, i * 7));
+  }
+
+  // Chart data (last 16 weeks) — build for both run and other
   const chartWeeks = [];
   for (let i = -15; i <= 0; i++) {
     const mon = getWeekMonday(i);
     const monStr = dateToStr(mon);
-    const stravaMi = getWeekStravaMiles(mon);
+    const runMi = getWeekStravaMiles(mon, 'Run');
+    const otherMi = getWeekStravaMiles(mon, 'other');
     const workout = workoutsCache[monStr];
     const targetStr = workout?.milesPerWeek;
-    // Parse target — handle ranges like "60-65" by taking the midpoint
     let target = null;
     if (targetStr) {
       const parts = targetStr.match(/(\d+\.?\d*)/g);
       if (parts && parts.length >= 2) target = (parseFloat(parts[0]) + parseFloat(parts[1])) / 2;
       else if (parts && parts.length === 1) target = parseFloat(parts[0]);
     }
-    chartWeeks.push({ monday: mon, monStr, miles: stravaMi, target, label: `${MONTHS[mon.getMonth()]} ${mon.getDate()}` });
+    chartWeeks.push({ monday: mon, monStr, runMiles: runMi, otherMiles: otherMi, target, label: `${MONTHS[mon.getMonth()]} ${mon.getDate()}` });
   }
 
-  const maxMiles = Math.max(10, ...chartWeeks.map(w => Math.max(w.miles, w.target || 0)));
-  const yMax = Math.ceil(maxMiles / 10) * 10;
-
-  // Recent activities (last 7 days)
-  const today = new Date();
+  // Recent activities (last 7 days, runs only for the table)
   const weekAgo = addDays(today, -6);
-  const recentActs = getStravaActivities(weekAgo, today);
-
-  // Summary stats
-  const thisWeekMiles = getWeekStravaMiles(getMonday(today));
-  const lastWeekMiles = getWeekStravaMiles(addDays(getMonday(today), -7));
-  const totalRuns7d = recentActs.length;
-  const avgPace7d = recentActs.length > 0
-    ? recentActs.reduce((sum, a) => sum + (a.movingTime || 0), 0) / recentActs.reduce((sum, a) => sum + (a.distance || 0), 0) * 1609.34
-    : 0;
+  const recentRuns = getStravaActivities(weekAgo, today).filter(a => a.type === 'Run');
 
   let html = `
   <div class="dash-card">
@@ -941,52 +996,41 @@ function renderDashboard(containerId, role) {
       <!-- Summary stats -->
       <div class="dash-stats">
         <div class="dash-stat">
-          <div class="dash-stat-val">${thisWeekMiles.toFixed(1)}</div>
+          <div class="dash-stat-val">${thisWeek.miles.toFixed(1)}</div>
           <div class="dash-stat-label">Miles this week</div>
+          <div class="dash-stat-sub">${formatDuration(thisWeek.time)} · ${Math.round(thisWeek.elev * 3.281)} ft</div>
         </div>
         <div class="dash-stat">
-          <div class="dash-stat-val">${lastWeekMiles.toFixed(1)}</div>
+          <div class="dash-stat-val">${lastWeek.miles.toFixed(1)}</div>
           <div class="dash-stat-label">Miles last week</div>
+          <div class="dash-stat-sub">${formatDuration(lastWeek.time)} · ${Math.round(lastWeek.elev * 3.281)} ft</div>
         </div>
         <div class="dash-stat">
-          <div class="dash-stat-val">${totalRuns7d}</div>
-          <div class="dash-stat-label">Runs (7 days)</div>
+          <div class="dash-stat-val">${avg4.miles.toFixed(1)}</div>
+          <div class="dash-stat-label">4-week avg / week</div>
+          <div class="dash-stat-sub">${formatDuration(avg4.time)} · ${Math.round(avg4.elev * 3.281)} ft</div>
         </div>
         <div class="dash-stat">
-          <div class="dash-stat-val">${avgPace7d > 0 ? formatPace(avgPace7d) : '--'}</div>
-          <div class="dash-stat-label">Avg pace (7 days)</div>
+          <div class="dash-stat-val">${formatDuration(nonRunTime)}</div>
+          <div class="dash-stat-label">Non-run activity (5 wks)</div>
         </div>
       </div>
 
       <!-- Mileage chart -->
       <div class="chart-section">
-        <div class="chart-title">Weekly mileage — last 16 weeks</div>
-        <div class="chart-wrap">
-          <div class="chart-y-labels">
-            <div class="chart-y-label">${yMax}</div>
-            <div class="chart-y-label">${Math.round(yMax * 0.75)}</div>
-            <div class="chart-y-label">${Math.round(yMax * 0.5)}</div>
-            <div class="chart-y-label">${Math.round(yMax * 0.25)}</div>
-            <div class="chart-y-label">0</div>
-          </div>
-          <div class="chart-bars">
-            ${chartWeeks.map(w => {
-              const pct = yMax > 0 ? (w.miles / yMax) * 100 : 0;
-              const hasTarget = w.target !== null;
-              return `<div class="chart-bar-col">
-                <div class="chart-tooltip">${w.miles.toFixed(1)} mi${hasTarget ? ' / ' + w.target + ' target' : ''}</div>
-                <div class="chart-bar${hasTarget ? ' has-target' : ''}" style="height:${Math.max(pct, 1)}%"></div>
-                <div class="chart-bar-label">${w.label}</div>
-              </div>`;
-            }).join('')}
+        <div class="chart-title">Weekly mileage — last 16 weeks
+          <div class="chart-toggle" id="chart-toggle">
+            <button class="chart-toggle-btn active" onclick="setChartMode('run')">Running</button>
+            <button class="chart-toggle-btn" onclick="setChartMode('other')">Other</button>
           </div>
         </div>
+        <div id="chart-container">${renderChart(chartWeeks, 'run')}</div>
       </div>
 
-      <!-- Recent activities -->
+      <!-- Recent runs -->
       <div class="activities-section">
-        <div class="chart-title">Recent activities — last 7 days</div>
-        ${recentActs.length > 0 ? `
+        <div class="chart-title">Recent runs — last 7 days</div>
+        ${recentRuns.length > 0 ? `
         <table class="act-table">
           <thead>
             <tr>
@@ -999,16 +1043,18 @@ function renderDashboard(containerId, role) {
             </tr>
           </thead>
           <tbody>
-            ${recentActs.map(a => {
+            ${recentRuns.map(a => {
               const mi = ((a.distance || 0) / 1609.34).toFixed(2);
               const dur = formatDuration(a.movingTime);
               const pace = a.distance > 0 ? formatPace((a.movingTime / a.distance) * 1609.34) : '--';
               const d = new Date(a.date + 'T12:00:00');
               const dayLabel = `${DAY_NAMES_SHORT[d.getDay()]} ${MONTHS[d.getMonth()]} ${d.getDate()}`;
+              const desc = a.description || '';
               return `<tr>
                 <td>
                   <div class="act-name">${esc(a.name || 'Run')}</div>
                   <div class="act-date">${dayLabel}</div>
+                  ${desc ? `<div class="act-desc">${esc(desc)}</div>` : ''}
                 </td>
                 <td class="act-val">${mi} mi</td>
                 <td class="act-val">${dur}</td>
@@ -1019,13 +1065,59 @@ function renderDashboard(containerId, role) {
             }).join('')}
           </tbody>
         </table>
-        ` : '<div class="act-no-data">No activities in the last 7 days</div>'}
+        ` : '<div class="act-no-data">No runs in the last 7 days</div>'}
       </div>
 
     </div>
   </div>`;
 
   container.innerHTML = html;
+  // Store chart data for toggle
+  window._dashChartWeeks = chartWeeks;
+}
+
+// Chart rendering (extracted for toggle)
+let currentChartMode = 'run';
+
+function renderChart(chartWeeks, mode) {
+  const miles = chartWeeks.map(w => mode === 'run' ? w.runMiles : w.otherMiles);
+  const maxMiles = Math.max(10, ...miles, ...chartWeeks.map(w => w.target || 0));
+  const yMax = Math.ceil(maxMiles / 10) * 10;
+
+  return `<div class="chart-wrap">
+    <div class="chart-y-labels">
+      <div class="chart-y-label">${yMax}</div>
+      <div class="chart-y-label">${Math.round(yMax * 0.75)}</div>
+      <div class="chart-y-label">${Math.round(yMax * 0.5)}</div>
+      <div class="chart-y-label">${Math.round(yMax * 0.25)}</div>
+      <div class="chart-y-label">0</div>
+    </div>
+    <div class="chart-bars">
+      ${chartWeeks.map((w, i) => {
+        const mi = mode === 'run' ? w.runMiles : w.otherMiles;
+        const pct = yMax > 0 ? (mi / yMax) * 100 : 0;
+        const hasTarget = mode === 'run' && w.target !== null;
+        const targetTip = hasTarget ? ' / ' + w.target + ' target' : '';
+        return `<div class="chart-bar-col">
+          <div class="chart-tooltip">${mi.toFixed(1)} mi${targetTip}</div>
+          <div class="chart-bar${hasTarget ? ' has-target' : ''}" style="height:${Math.max(pct, 1)}%"></div>
+          <div class="chart-bar-label">${w.label}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+function setChartMode(mode) {
+  currentChartMode = mode;
+  const container = document.getElementById('chart-container');
+  if (container && window._dashChartWeeks) {
+    container.innerHTML = renderChart(window._dashChartWeeks, mode);
+  }
+  // Update toggle buttons
+  document.querySelectorAll('.chart-toggle-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent.toLowerCase() === mode || (mode === 'run' && btn.textContent === 'Running') || (mode === 'other' && btn.textContent === 'Other'));
+  });
 }
 
 // ══════════════════════════════════════════════════════════
