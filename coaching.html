@@ -243,8 +243,9 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 .tab-btn:disabled{opacity:.3;cursor:not-allowed}
 
 /* ── Lifting plan ──────────────────────────────────── */
-.lift-instructions{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:14px 18px;font-size:12px;color:var(--muted2);line-height:1.6;margin-bottom:16px;font-family:var(--body)}
+.lift-instructions{background:linear-gradient(135deg,rgba(0,229,200,.08) 0%,rgba(139,124,248,.08) 100%);border:1px solid rgba(0,229,200,.25);border-radius:12px;padding:18px 22px;font-size:13px;color:var(--text);line-height:1.7;margin-bottom:18px;font-family:var(--body)}
 .lift-instructions strong{color:var(--cyan);font-weight:700}
+.lift-instructions-title{font-size:15px;font-weight:800;color:var(--cyan);font-family:var(--mono);letter-spacing:.3px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
 
 .lift-week-header{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
 .lift-progress{font-size:11px;font-family:var(--mono);color:var(--muted2)}
@@ -290,15 +291,32 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 .lift-video-embed iframe{width:100%;aspect-ratio:16/9;border:none;display:block}
 
 .lift-completion{margin-top:14px;padding:14px;background:var(--card-bg2);border-radius:10px;border:1px solid var(--card-border)}
-.lift-comp-selected{font-size:12px;font-weight:700;margin-bottom:10px;color:var(--card-text)}
-.lift-comp-row{display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap}
-.lift-comp-field{flex:1;min-width:70px}
+.lift-comp-selected{font-size:12px;font-weight:700;margin-bottom:12px;color:var(--card-text)}
 .lift-comp-label{font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--card-muted);font-family:var(--mono);margin-bottom:3px}
-.lift-comp-input{width:100%;padding:8px 10px;border:1px solid var(--card-border);border-radius:7px;font-size:13px;font-family:var(--mono);color:var(--card-text);background:#fff;outline:none;transition:border-color .15s}
-.lift-comp-input:focus{border-color:#0891b2}
+
+/* Set log table */
+.lift-set-table{width:100%;margin-bottom:10px}
+.lift-set-header{display:flex;gap:8px;padding:0 0 6px;border-bottom:1px solid var(--card-border);margin-bottom:6px}
+.lift-set-header span{font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--card-muted);font-family:var(--mono)}
+.lift-set-header .col-set{width:40px;flex-shrink:0}
+.lift-set-header .col-reps{flex:1;min-width:60px}
+.lift-set-header .col-weight{flex:1;min-width:80px}
+.lift-set-header .col-rm{width:28px;flex-shrink:0}
+
+.lift-set-row{display:flex;gap:8px;align-items:center;margin-bottom:6px;animation:fadeIn .15s ease}
+.lift-set-num{width:40px;flex-shrink:0;font-size:12px;font-weight:800;color:var(--card-muted2);font-family:var(--mono);text-align:center;line-height:36px}
+.lift-set-input{flex:1;min-width:60px;padding:8px 10px;border:1px solid var(--card-border);border-radius:7px;font-size:13px;font-family:var(--mono);color:var(--card-text);background:#fff;outline:none;transition:border-color .15s}
+.lift-set-input:focus{border-color:#0891b2}
+.lift-set-input.weight{min-width:80px}
+.lift-set-rm{width:28px;height:28px;flex-shrink:0;border:none;background:transparent;color:var(--card-muted2);font-size:16px;cursor:pointer;border-radius:6px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.lift-set-rm:hover{background:rgba(245,80,80,.1);color:var(--bad)}
+
+.lift-add-set{display:inline-flex;align-items:center;gap:4px;padding:6px 12px;font-size:11px;font-weight:700;font-family:var(--mono);color:#0891b2;background:rgba(8,145,178,.06);border:1px dashed rgba(8,145,178,.25);border-radius:7px;cursor:pointer;transition:all .15s;margin-bottom:12px}
+.lift-add-set:hover{background:rgba(8,145,178,.12);border-color:rgba(8,145,178,.4)}
+
 .lift-comp-notes-input{width:100%;padding:8px 10px;border:1px solid var(--card-border);border-radius:7px;font-size:12px;font-family:var(--ui);color:var(--card-text);background:#fff;outline:none;resize:vertical;min-height:34px;transition:border-color .15s}
 .lift-comp-notes-input:focus{border-color:#0891b2}
-.lift-comp-actions{display:flex;gap:8px;align-items:center}
+.lift-comp-actions{display:flex;gap:8px;align-items:center;margin-top:10px}
 .lift-comp-btn{padding:8px 20px;background:var(--good);color:#fff;font-weight:700;font-size:12px;font-family:var(--ui);border:none;border-radius:7px;cursor:pointer;transition:opacity .15s}
 .lift-comp-btn:hover{opacity:.85}
 .lift-comp-btn:disabled{opacity:.4;cursor:not-allowed}
@@ -2135,8 +2153,14 @@ async function saveLiftingCategory(weekKey, categoryName, catData) {
   const existing = liftingCache[weekKey];
   const ref = db.collection('trainingPlans').doc(selectedAthletePlan.id).collection('liftingWeeks');
 
-  const categories = existing?.categories || {};
-  categories[categoryName] = catData;
+  const categories = {};
+  // Deep copy existing categories, stripping transient _editSetLog fields
+  for (const [k, v] of Object.entries(existing?.categories || {})) {
+    const { _editSetLog, ...clean } = v;
+    categories[k] = clean;
+  }
+  const { _editSetLog: _, ...cleanCatData } = catData;
+  categories[categoryName] = cleanCatData;
 
   const data = {
     weekStart: weekKey,
@@ -2194,7 +2218,10 @@ function renderLiftingWeek(mondayStr, role) {
   const pct = totalCount > 0 ? (completedCount / totalCount * 100) : 0;
 
   let html = `
-    <div class="lift-instructions">${LIFTING_DATA.instructions}</div>
+    <div class="lift-instructions">
+      <div class="lift-instructions-title">🏋️ Lifting for Runners — How to Use</div>
+      ${LIFTING_DATA.instructions}
+    </div>
     <div class="lift-week-header">
       <span class="lift-progress">${completedCount}/${totalCount} categories
         <span class="lift-progress-bar"><span class="lift-progress-fill" style="width:${pct}%"></span></span>
@@ -2211,8 +2238,17 @@ function renderLiftingWeek(mondayStr, role) {
     let summary = '';
     if (isCompleted) {
       summary = `${esc(catState.exercise || '')}`;
-      if (catState.sets || catState.reps) summary += ` — ${catState.sets || '?'}×${catState.reps || '?'}`;
-      if (catState.weight) summary += ` @ ${esc(catState.weight)}`;
+      if (catState.setLog && catState.setLog.length > 0) {
+        summary += ` — ${catState.setLog.length} set${catState.setLog.length > 1 ? 's' : ''}`;
+        const allSameReps = catState.setLog.every(s => s.reps === catState.setLog[0].reps);
+        const allSameWeight = catState.setLog.every(s => s.weight === catState.setLog[0].weight);
+        if (allSameReps && allSameWeight && catState.setLog[0].reps) {
+          summary += ` (${catState.setLog.length}×${catState.setLog[0].reps}${catState.setLog[0].weight ? ' @ ' + esc(catState.setLog[0].weight) : ''})`;
+        }
+      } else if (catState.sets || catState.reps) {
+        summary += ` — ${catState.sets || '?'}×${catState.reps || '?'}`;
+        if (catState.weight) summary += ` @ ${esc(catState.weight)}`;
+      }
     }
 
     html += `
@@ -2269,35 +2305,51 @@ function renderLiftingExercises(mondayStr, cat, catState, role) {
     }
   });
 
-  // Completion form
+  // Completion form with per-set logger
   if (selectedEx && canEdit) {
+    const safeId = cat.name.replace(/[^a-zA-Z]/g, '');
+    // Build set log from saved data or start with one empty set
+    const setLog = catState.setLog && catState.setLog.length > 0
+      ? catState.setLog
+      : (catState.sets && catState.reps)
+        ? Array.from({ length: parseInt(catState.sets) || 1 }, () => ({ reps: catState.reps || '', weight: catState.weight || '' }))
+        : [{ reps: '', weight: '' }];
+
+    // Store in cache so add/remove set functions can access it
+    if (!liftingCache[mondayStr]) liftingCache[mondayStr] = { weekStart: mondayStr, categories: {} };
+    if (!liftingCache[mondayStr].categories) liftingCache[mondayStr].categories = {};
+    if (!liftingCache[mondayStr].categories[cat.name]) liftingCache[mondayStr].categories[cat.name] = {};
+    liftingCache[mondayStr].categories[cat.name]._editSetLog = setLog;
+
     html += `
     <div class="lift-completion">
       <div class="lift-comp-selected">Selected: ${esc(selectedEx)}</div>
-      <div class="lift-comp-row">
-        <div class="lift-comp-field">
-          <div class="lift-comp-label">Sets</div>
-          <input class="lift-comp-input" id="lift-sets-${cat.name.replace(/[^a-zA-Z]/g,'')}" type="text" placeholder="e.g. 4" value="${esc(catState.sets || '')}">
+      <div class="lift-set-table">
+        <div class="lift-set-header">
+          <span class="col-set">Set</span>
+          <span class="col-reps">Reps</span>
+          <span class="col-weight">Weight</span>
+          <span class="col-rm"></span>
         </div>
-        <div class="lift-comp-field">
-          <div class="lift-comp-label">Reps</div>
-          <input class="lift-comp-input" id="lift-reps-${cat.name.replace(/[^a-zA-Z]/g,'')}" type="text" placeholder="e.g. 5" value="${esc(catState.reps || '')}">
-        </div>
-        <div class="lift-comp-field">
-          <div class="lift-comp-label">Weight</div>
-          <input class="lift-comp-input" id="lift-weight-${cat.name.replace(/[^a-zA-Z]/g,'')}" type="text" placeholder="e.g. 135 lbs" value="${esc(catState.weight || '')}">
-        </div>
+        ${setLog.map((s, i) => `
+        <div class="lift-set-row">
+          <div class="lift-set-num">${i + 1}</div>
+          <input class="lift-set-input" id="lift-reps-${safeId}-${i}" type="text" inputmode="numeric" placeholder="5" value="${esc(s.reps || '')}">
+          <input class="lift-set-input weight" id="lift-weight-${safeId}-${i}" type="text" placeholder="135 lbs" value="${esc(s.weight || '')}">
+          ${setLog.length > 1 ? `<button class="lift-set-rm" onclick="removeLiftSet('${mondayStr}','${cat.name}',${i})" title="Remove set">×</button>` : '<div style="width:28px;flex-shrink:0"></div>'}
+        </div>`).join('')}
       </div>
-      <div style="margin-bottom:10px">
+      <button class="lift-add-set" onclick="addLiftSet('${mondayStr}','${cat.name}')">+ Add set</button>
+      <div>
         <div class="lift-comp-label">Notes</div>
-        <textarea class="lift-comp-notes-input" id="lift-notes-${cat.name.replace(/[^a-zA-Z]/g,'')}" placeholder="Optional notes…">${esc(catState.notes || '')}</textarea>
+        <textarea class="lift-comp-notes-input" id="lift-notes-${safeId}" placeholder="Optional notes…">${esc(catState.notes || '')}</textarea>
       </div>
       <div class="lift-comp-actions">
         ${catState.completed
           ? `<button class="lift-comp-btn" onclick="completeLiftCat('${mondayStr}','${cat.name}')">Update</button>
              <button class="lift-comp-btn undo" onclick="undoLiftCat('${mondayStr}','${cat.name}')">Undo</button>`
           : `<button class="lift-comp-btn" onclick="completeLiftCat('${mondayStr}','${cat.name}')">Complete ✓</button>`}
-        <span class="lift-comp-saved" id="lift-saved-${cat.name.replace(/[^a-zA-Z]/g,'')}"></span>
+        <span class="lift-comp-saved" id="lift-saved-${safeId}"></span>
       </div>
     </div>`;
   }
@@ -2328,29 +2380,82 @@ function selectLiftExercise(weekKey, catName, exName) {
   renderSingleWeek(weekId, dashId, role);
 }
 
+function _readSetLogFromDOM(catName) {
+  const safeId = catName.replace(/[^a-zA-Z]/g, '');
+  const setLog = [];
+  let i = 0;
+  while (true) {
+    const repsEl = document.getElementById(`lift-reps-${safeId}-${i}`);
+    const weightEl = document.getElementById(`lift-weight-${safeId}-${i}`);
+    if (!repsEl) break;
+    setLog.push({ reps: repsEl.value.trim(), weight: weightEl?.value.trim() || '' });
+    i++;
+  }
+  return setLog;
+}
+
+function addLiftSet(weekKey, catName) {
+  // Read current values from DOM before re-rendering
+  const setLog = _readSetLogFromDOM(catName);
+  const last = setLog[setLog.length - 1] || {};
+  setLog.push({ reps: last.reps || '', weight: last.weight || '' });
+
+  // Update cache so re-render picks it up
+  if (!liftingCache[weekKey]) liftingCache[weekKey] = { weekStart: weekKey, categories: {} };
+  if (!liftingCache[weekKey].categories) liftingCache[weekKey].categories = {};
+  if (!liftingCache[weekKey].categories[catName]) liftingCache[weekKey].categories[catName] = {};
+  liftingCache[weekKey].categories[catName].setLog = setLog;
+  liftingCache[weekKey].categories[catName]._editSetLog = setLog;
+  // Also preserve notes from DOM
+  const safeId = catName.replace(/[^a-zA-Z]/g, '');
+  const notesEl = document.getElementById(`lift-notes-${safeId}`);
+  if (notesEl) liftingCache[weekKey].categories[catName].notes = notesEl.value;
+
+  expandedCategories[catName] = true;
+  const role = isCoach ? 'coach' : 'athlete';
+  const weekId = isCoach ? 'coach-week-container' : 'athlete-week-container';
+  const dashId = isCoach ? 'coach-dashboard' : 'athlete-dashboard';
+  renderSingleWeek(weekId, dashId, role);
+}
+
+function removeLiftSet(weekKey, catName, idx) {
+  const setLog = _readSetLogFromDOM(catName);
+  if (setLog.length <= 1) return;
+  setLog.splice(idx, 1);
+
+  if (!liftingCache[weekKey].categories[catName]) liftingCache[weekKey].categories[catName] = {};
+  liftingCache[weekKey].categories[catName].setLog = setLog;
+  liftingCache[weekKey].categories[catName]._editSetLog = setLog;
+  const safeId = catName.replace(/[^a-zA-Z]/g, '');
+  const notesEl = document.getElementById(`lift-notes-${safeId}`);
+  if (notesEl) liftingCache[weekKey].categories[catName].notes = notesEl.value;
+
+  expandedCategories[catName] = true;
+  const role = isCoach ? 'coach' : 'athlete';
+  const weekId = isCoach ? 'coach-week-container' : 'athlete-week-container';
+  const dashId = isCoach ? 'coach-dashboard' : 'athlete-dashboard';
+  renderSingleWeek(weekId, dashId, role);
+}
+
 async function completeLiftCat(weekKey, catName) {
   const safeId = catName.replace(/[^a-zA-Z]/g, '');
-  const sets = document.getElementById(`lift-sets-${safeId}`)?.value.trim() || '';
-  const reps = document.getElementById(`lift-reps-${safeId}`)?.value.trim() || '';
-  const weight = document.getElementById(`lift-weight-${safeId}`)?.value.trim() || '';
+  const setLog = _readSetLogFromDOM(catName);
   const notes = document.getElementById(`lift-notes-${safeId}`)?.value.trim() || '';
   const exercise = liftingCache[weekKey]?.categories?.[catName]?.exercise || '';
 
   if (!exercise) return;
 
+  // Clean setLog — remove _editSetLog transient field before saving
   const catData = {
     completed: true,
     exercise,
-    sets,
-    reps,
-    weight,
+    setLog,
     notes,
     completedAt: firebase.firestore.FieldValue.serverTimestamp()
   };
 
   await saveLiftingCategory(weekKey, catName, catData);
 
-  // Show saved indicator
   const savedEl = document.getElementById(`lift-saved-${safeId}`);
   if (savedEl) { savedEl.textContent = '✓ Saved'; setTimeout(() => { savedEl.textContent = ''; }, 2000); }
 
