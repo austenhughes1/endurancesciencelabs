@@ -440,6 +440,21 @@ body.bar-showing #screen-phases{padding-bottom:120px}
 
 /* Saved view banner */
 .saved-view-banner{display:none;align-items:center;justify-content:space-between;padding:14px 32px;background:rgba(0,229,200,.06);border-bottom:1px solid rgba(0,229,200,.18);gap:16px;flex-wrap:wrap}
+
+/* ── Feedback footer ────────────────────────────────── */
+.feedback-footer{display:flex;justify-content:center;gap:12px;padding:32px 20px 24px;flex-wrap:wrap}
+.feedback-footer-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;font-size:11px;font-weight:600;font-family:var(--mono);border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;transition:all .15s}
+.feedback-footer-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.feedback-footer-btn.bug:hover{border-color:var(--warn);color:var(--warn)}
+.feedback-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:700;display:none;align-items:center;justify-content:center;padding:40px}
+.feedback-modal-overlay.open{display:flex}
+.feedback-modal{background:var(--panel);border:1px solid var(--border2);border-radius:16px;padding:32px;width:100%;max-width:460px}
+.feedback-modal-title{font-size:17px;font-weight:800;margin-bottom:4px}
+.feedback-modal-sub{font-size:11px;color:var(--muted2);margin-bottom:16px;font-family:var(--mono);line-height:1.5}
+.feedback-modal-textarea{width:100%;min-height:120px;background:var(--panel2);border:1px solid var(--border2);border-radius:9px;padding:12px 14px;font-size:13px;color:var(--text);font-family:var(--ui);outline:none;resize:vertical;transition:border-color .15s;line-height:1.5}
+.feedback-modal-textarea:focus{border-color:var(--cyan)}
+.feedback-modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;align-items:center}
+.feedback-modal-status{font-size:11px;font-family:var(--mono);margin-right:auto}
 </style>
 </head>
 <body>
@@ -789,6 +804,24 @@ body.bar-showing #screen-phases{padding-bottom:120px}
   <div style="display:flex;gap:8px">
     <button class="btn-ghost" onclick="closeMyAnalyses();openMyAnalyses()">Back to list</button>
     <button class="btn-ghost" onclick="startNewSession()">New session</button>
+  </div>
+</div>
+
+<div class="feedback-footer">
+  <button class="feedback-footer-btn" onclick="openFeedbackModal('contact')">✉ Contact Endurance Science Labs</button>
+  <button class="feedback-footer-btn bug" onclick="openFeedbackModal('bug')">🐛 See a Bug? Report it Here</button>
+</div>
+
+<div class="feedback-modal-overlay" id="feedback-modal">
+  <div class="feedback-modal">
+    <div class="feedback-modal-title" id="feedback-modal-title">Contact Us</div>
+    <div class="feedback-modal-sub" id="feedback-modal-sub">We'd love to hear from you.</div>
+    <textarea class="feedback-modal-textarea" id="feedback-text" placeholder="Type your message here…"></textarea>
+    <div class="feedback-modal-actions">
+      <span class="feedback-modal-status" id="feedback-status"></span>
+      <button style="display:inline-flex;align-items:center;gap:6px;padding:6px 13px;font-size:11px;font-weight:600;font-family:var(--ui);border-radius:7px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer" onclick="closeFeedbackModal()">Cancel</button>
+      <button style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;font-size:12px;font-weight:700;font-family:var(--ui);border-radius:8px;border:none;background:var(--cyan);color:#000;cursor:pointer" id="feedback-submit" onclick="submitFeedback()">Send</button>
+    </div>
   </div>
 </div>
 
@@ -2755,6 +2788,74 @@ function runCompare() {
 
   resultsEl.innerHTML = html;
 }
+
+// ══════════════════════════════════════════════════════════
+//  FEEDBACK / BUG REPORT
+// ══════════════════════════════════════════════════════════
+var ADMIN_UID = '2z9Z3K5ZwShvadUuqZmwMv0s1Od2';
+var feedbackType = 'contact';
+
+function openFeedbackModal(type) {
+  feedbackType = type;
+  document.getElementById('feedback-modal-title').textContent = type === 'bug' ? 'Report a Bug' : 'Contact Endurance Science Labs';
+  document.getElementById('feedback-modal-sub').textContent = type === 'bug'
+    ? 'Describe what happened and what you expected. Include steps to reproduce if possible.'
+    : "We'd love to hear from you. Questions, feedback, or feature requests — send it our way.";
+  document.getElementById('feedback-text').value = '';
+  document.getElementById('feedback-status').textContent = '';
+  document.getElementById('feedback-status').style.color = '';
+  document.getElementById('feedback-submit').disabled = false;
+  document.getElementById('feedback-submit').textContent = 'Send';
+  document.getElementById('feedback-modal').classList.add('open');
+  document.getElementById('feedback-text').focus();
+}
+
+function closeFeedbackModal() {
+  document.getElementById('feedback-modal').classList.remove('open');
+}
+
+async function submitFeedback() {
+  var text = document.getElementById('feedback-text').value.trim();
+  if (!text) {
+    document.getElementById('feedback-status').textContent = 'Please enter a message.';
+    document.getElementById('feedback-status').style.color = 'var(--bad)';
+    return;
+  }
+  var btn = document.getElementById('feedback-submit');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    var fbDb = firebase.firestore();
+    var senderName = currentUser ? (currentUser.displayName || currentUser.email) : 'Anonymous';
+    var senderUid = currentUser ? currentUser.uid : 'anonymous';
+
+    await fbDb.collection('notifications').add({
+      recipientUid: ADMIN_UID,
+      type: feedbackType === 'bug' ? 'bug_report' : 'contact',
+      message: '[' + (feedbackType === 'bug' ? 'Bug' : 'Contact') + '] from ' + senderName + ' (esformlab): ' + text,
+      senderUid: senderUid,
+      read: false,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    document.getElementById('feedback-status').textContent = 'Sent! Thank you.';
+    document.getElementById('feedback-status').style.color = 'var(--good)';
+    btn.textContent = 'Sent ✓';
+    setTimeout(closeFeedbackModal, 1500);
+  } catch(e) {
+    console.error('Feedback submit failed:', e);
+    document.getElementById('feedback-status').textContent = 'Failed to send. Try again.';
+    document.getElementById('feedback-status').style.color = 'var(--bad)';
+    btn.disabled = false;
+    btn.textContent = 'Send';
+  }
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeFeedbackModal();
+});
 
 initModel();
 </script>
