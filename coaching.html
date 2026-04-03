@@ -952,10 +952,12 @@ function renderDashboard(containerId, role) {
   }
   avg4.miles /= 4; avg4.time /= 4; avg4.elev /= 4;
 
-  // Non-running time (current + last 4 weeks total)
-  let nonRunTime = 0;
-  for (let i = -4; i <= 0; i++) {
-    nonRunTime += getWeekNonRunTime(addDays(thisMonday, i * 7));
+  // Non-running time
+  const nonRunThis = getWeekNonRunTime(thisMonday);
+  const nonRunLast = getWeekNonRunTime(lastMonday);
+  let nonRun4wk = 0;
+  for (let i = -4; i <= -1; i++) {
+    nonRun4wk += getWeekNonRunTime(addDays(thisMonday, i * 7));
   }
 
   // Chart data (last 16 weeks) — build for both run and other
@@ -1011,8 +1013,9 @@ function renderDashboard(containerId, role) {
           <div class="dash-stat-sub">${formatDuration(avg4.time)} · ${Math.round(avg4.elev * 3.281)} ft</div>
         </div>
         <div class="dash-stat">
-          <div class="dash-stat-val">${formatDuration(nonRunTime)}</div>
-          <div class="dash-stat-label">Non-run activity (5 wks)</div>
+          <div class="dash-stat-val">${formatDuration(nonRunThis)}</div>
+          <div class="dash-stat-label">Non-run activity</div>
+          <div class="dash-stat-sub">Last wk: ${formatDuration(nonRunLast)}<br>4-wk total: ${formatDuration(nonRun4wk)}</div>
         </div>
       </div>
 
