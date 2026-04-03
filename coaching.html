@@ -254,6 +254,28 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 .lift-reset-btn{font-size:10px;font-family:var(--mono);color:var(--muted2);background:none;border:1px solid var(--border2);border-radius:5px;padding:3px 8px;cursor:pointer;margin-left:auto}
 .lift-reset-btn:hover{border-color:var(--bad);color:var(--bad)}
 
+/* Warmup reference card (pinned top, different look) */
+.lift-warmup-card{background:linear-gradient(135deg,rgba(255,107,53,.06) 0%,rgba(245,168,35,.04) 100%);border:1px solid rgba(255,107,53,.25);border-radius:12px;margin-bottom:18px;overflow:hidden;color:var(--card-text);transition:border-color .2s}
+.lift-warmup-card .lift-cat-header{padding:14px 18px}
+.lift-warmup-card .lift-cat-header:hover{background:rgba(255,107,53,.04)}
+.lift-warmup-card .lift-cat-name{color:var(--card-text);font-size:14px}
+.lift-warmup-tag{font-size:9px;font-weight:700;font-family:var(--mono);letter-spacing:.4px;text-transform:uppercase;padding:2px 7px;border-radius:4px;background:rgba(255,107,53,.12);color:#ff6b35}
+.lift-warmup-sub{font-size:11px;color:var(--card-muted);font-family:var(--mono)}
+.lift-warmup-card .lift-cat-chevron{color:var(--card-muted2)}
+.lift-warmup-card.expanded .lift-cat-chevron{transform:rotate(180deg)}
+.lift-warmup-card .lift-cat-body{max-height:0;overflow:hidden;transition:max-height .3s ease}
+.lift-warmup-card.expanded .lift-cat-body{max-height:1500px}
+
+.lift-warmup-exercise{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(0,0,0,.06)}
+.lift-warmup-exercise:last-child{border-bottom:none}
+.lift-warmup-dot{width:8px;height:8px;border-radius:50%;background:#ff6b35;flex-shrink:0;opacity:.6}
+.lift-warmup-ex-info{flex:1;min-width:0}
+.lift-warmup-ex-name{font-weight:600;font-size:13px;color:var(--card-text)}
+.lift-warmup-ex-rx{font-size:11px;color:var(--card-muted);font-family:var(--mono);margin-top:1px}
+.lift-warmup-ex-video{flex-shrink:0}
+.lift-warmup-ex-video a{font-size:10px;color:#ff6b35;font-family:var(--mono);font-weight:700;text-decoration:none;padding:3px 8px;background:rgba(255,107,53,.08);border-radius:5px;transition:background .15s}
+.lift-warmup-ex-video a:hover{background:rgba(255,107,53,.16)}
+
 .lift-category{background:var(--card-bg);border:1px solid var(--card-border);border-radius:12px;margin-bottom:8px;overflow:hidden;color:var(--card-text);transition:border-color .2s}
 .lift-category.completed{border-color:var(--good);background:rgba(34,199,138,.04)}
 
@@ -263,8 +285,6 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 .lift-category.completed .lift-cat-check{background:var(--good);border-color:var(--good);color:#fff}
 .lift-cat-name{font-weight:700;font-size:14px;flex:1}
 .lift-cat-tag{font-size:9px;font-weight:700;font-family:var(--mono);letter-spacing:.4px;text-transform:uppercase;padding:2px 7px;border-radius:4px}
-.lift-cat-tag.warmup{background:rgba(8,145,178,.1);color:#0891b2}
-.lift-cat-tag.postrun{background:rgba(234,88,12,.1);color:#ea580c}
 .lift-cat-tag.main{background:rgba(124,58,237,.1);color:#7c3aed}
 .lift-cat-summary{font-size:11px;color:var(--card-muted);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px}
 .lift-cat-chevron{font-size:14px;color:var(--card-muted2);transition:transform .2s;flex-shrink:0}
@@ -575,7 +595,7 @@ const LIFTING_DATA = {
       ]
     },
     {
-      name: 'Lower Leg', tag: 'warmup',
+      name: 'Lower Leg', tag: 'main',
       exercises: [
         { name: 'Midfoot supination raise', videos: ['https://www.youtube.com/watch?v=qVeuZkf-JMY'], notes: 'Pick some of these to do as a run warmup before run', recommended: true },
         { name: 'Inversion/eversion', videos: ['https://www.youtube.com/watch?v=MhdilbjENtg'], notes: '' },
@@ -614,7 +634,7 @@ const LIFTING_DATA = {
       ]
     },
     {
-      name: 'Hip Flexors', tag: 'warmup',
+      name: 'Hip Flexors', tag: 'main',
       exercises: [
         { name: 'Banded Marching', videos: ['https://www.youtube.com/watch?v=5Jg_xmdifXo'], notes: '', recommended: true },
         { name: 'Weighted Marching', videos: ['https://www.youtube.com/watch?v=e-T8ACMFtNw'], notes: '' },
@@ -631,7 +651,7 @@ const LIFTING_DATA = {
       ]
     },
     {
-      name: 'Isometrics + Plyometrics', tag: 'postrun',
+      name: 'Isometrics + Plyometrics', tag: 'main',
       exercises: [
         { name: 'Heavy calf isometric + pogo hops', videos: ['https://www.youtube.com/watch?v=-RbthkWujeU','https://www.youtube.com/watch?v=aGreF8QJR9o'], notes: 'Heavy weight — should not be able to last longer than 20 sec', recommended: true },
         { name: 'Depth Drops + jump split squats', videos: ['https://www.youtube.com/watch?v=9MwAvSNdDKg','https://www.youtube.com/watch?v=tGJ6Zx3B7vY'], notes: '' },
@@ -640,7 +660,7 @@ const LIFTING_DATA = {
       ]
     },
     {
-      name: 'Core', tag: 'warmup',
+      name: 'Core', tag: 'main',
       exercises: [
         { name: 'Body Saw', videos: ['https://www.youtube.com/watch?v=fBJGSkZZKUo'], notes: '', recommended: true },
         { name: 'Cat Cow', videos: ['https://www.youtube.com/watch?v=yvNv0tHLLRk'], notes: '' },
@@ -649,6 +669,14 @@ const LIFTING_DATA = {
         { name: 'Snatch Squat Clean', videos: [], notes: '' }
       ]
     }
+  ],
+  warmup: [
+    { name: 'Bent over row reaches', setsReps: '1×20 controlled to full ROM', video: 'https://youtu.be/dHXa_cLXM3A' },
+    { name: 'Hip CARS', setsReps: '1×5 each side', video: 'https://youtu.be/Fk_EiN5UGbI' },
+    { name: '90-90 transitions', setsReps: '2×10 each side', video: 'https://youtu.be/PLk1clUGMbI' },
+    { name: 'Ankle inversion/eversion', setsReps: '2×10 each side', video: 'https://youtu.be/MhdilbjENtg' },
+    { name: 'Rotating calf raises', setsReps: '1–2×8–15 each side', video: 'https://youtu.be/Xo8zr9YO3yg' },
+    { name: 'Calf-hamstring bridges', setsReps: '2× hold to failure each side', video: 'https://youtu.be/oB6-Vp73J-w' }
   ]
 };
 
@@ -2217,7 +2245,38 @@ function renderLiftingWeek(mondayStr, role) {
   const totalCount = LIFTING_DATA.categories.length;
   const pct = totalCount > 0 ? (completedCount / totalCount * 100) : 0;
 
+  // ── Warmup reference card (pinned at top, not tracked) ──
+  const warmupExpanded = expandedCategories['__warmup'] === true;
   let html = `
+    <div class="lift-warmup-card${warmupExpanded ? ' expanded' : ''}">
+      <div class="lift-cat-header" onclick="expandedCategories['__warmup']=!expandedCategories['__warmup'];switchTab('lifting')">
+        <div style="font-size:16px;flex-shrink:0">🔥</div>
+        <div class="lift-cat-name">Pre-Run Warmup</div>
+        <span class="lift-warmup-tag">Do before every run</span>
+        <span class="lift-warmup-sub">${LIFTING_DATA.warmup.length} exercises</span>
+        <span class="lift-cat-chevron">▾</span>
+      </div>
+      <div class="lift-cat-body">
+        <div class="lift-cat-inner">
+          ${LIFTING_DATA.warmup.map(ex => {
+            const vid = getYouTubeId(ex.video);
+            return `<div class="lift-warmup-exercise">
+              <div class="lift-warmup-dot"></div>
+              <div class="lift-warmup-ex-info">
+                <div class="lift-warmup-ex-name">${esc(ex.name)}</div>
+                <div class="lift-warmup-ex-rx">${esc(ex.setsReps)}</div>
+              </div>
+              <div class="lift-warmup-ex-video">
+                <a href="${ex.video}" target="_blank" rel="noopener">▶ Video</a>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>`;
+
+  // ── Instructions + progress ──
+  html += `
     <div class="lift-instructions">
       <div class="lift-instructions-title">🏋️ Lifting for Runners — How to Use</div>
       ${LIFTING_DATA.instructions}
@@ -2229,11 +2288,11 @@ function renderLiftingWeek(mondayStr, role) {
       <button class="lift-reset-btn" onclick="resetLiftingWeek('${mondayStr}')">Reset week</button>
     </div>`;
 
+  // ── Lifting categories (checkable) ──
   LIFTING_DATA.categories.forEach(cat => {
     const catState = categories[cat.name] || {};
     const isCompleted = catState.completed === true;
     const isExpanded = expandedCategories[cat.name] === true;
-    const tagLabel = cat.tag === 'warmup' ? 'Run warmup' : cat.tag === 'postrun' ? 'Post-run' : 'Lifting';
 
     let summary = '';
     if (isCompleted) {
@@ -2256,7 +2315,7 @@ function renderLiftingWeek(mondayStr, role) {
       <div class="lift-cat-header" onclick="toggleLiftCat('${cat.name}')">
         <div class="lift-cat-check">${isCompleted ? '✓' : ''}</div>
         <div class="lift-cat-name">${esc(cat.name)}</div>
-        <span class="lift-cat-tag ${cat.tag}">${tagLabel}</span>
+        <span class="lift-cat-tag main">Lifting</span>
         ${isCompleted ? `<span class="lift-cat-summary">${summary}</span>` : ''}
         <span class="lift-cat-chevron">▾</span>
       </div>
