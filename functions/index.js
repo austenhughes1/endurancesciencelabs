@@ -176,6 +176,28 @@ exports.syncStravaActivities = onCall({ cors: true }, async (request) => {
   }
 
   const planId = planSnap.docs[0].id;
+
+  // Fetch descriptions for recent runs (last 7 days only, to limit API calls)
+  const sevenDaysAgo = Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60;
+  const recentRunIds = allActivities
+    .filter(a => a.type === "Run" && a.start_date && new Date(a.start_date).getTime() / 1000 > sevenDaysAgo)
+    .map(a => a.id);
+
+  const descriptions = {};
+  for (const id of recentRunIds) {
+    try {
+      const detailRes = await fetch(`https://www.strava.com/api/v3/activities/${id}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (detailRes.ok) {
+        const detail = await detailRes.json();
+        if (detail.description) descriptions[id] = detail.description;
+      }
+    } catch (e) {
+      // Skip on error, description is optional
+    }
+  }
+
   const batch = db.batch();
   let count = 0;
 
@@ -189,7 +211,6 @@ exports.syncStravaActivities = onCall({ cors: true }, async (request) => {
     let averagePace = null;
     if (act.distance > 0 && act.moving_time > 0 && act.type === "Run") {
       const secPerMeter = act.moving_time / act.distance;
-      averagePace = (secPerMeter * 1609.34).toFixed(0) + "";
       const paceMin = Math.floor(secPerMeter * 1609.34 / 60);
       const paceSec = Math.round(secPerMeter * 1609.34 % 60);
       averagePace = `${paceMin}:${String(paceSec).padStart(2, "0")} /mi`;
@@ -213,6 +234,7 @@ exports.syncStravaActivities = onCall({ cors: true }, async (request) => {
       averageHeartrate: act.average_heartrate || null,
       maxHeartrate: act.max_heartrate || null,
       averagePace: averagePace,
+      description: descriptions[act.id] || null,
       startDateLocal: act.start_date_local || null,
       syncedAt: admin.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
