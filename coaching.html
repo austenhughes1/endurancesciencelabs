@@ -2419,7 +2419,6 @@ function renderLiftingExercises(mondayStr, cat, catState, role) {
         <span style="font-weight:600;font-size:13px;color:var(--card-muted)">Other:</span>
         <input type="text" id="lift-other-${safeId}" class="lift-set-input" style="flex:1;min-width:140px;max-width:300px"
           placeholder="Exercise name" value="${esc(otherName)}"
-          onfocus="selectLiftOther('${mondayStr}','${cat.name}')"
           oninput="updateLiftOtherName('${mondayStr}','${cat.name}',this.value)">
       </div>
     </div>`;
@@ -2516,10 +2515,6 @@ function selectLiftOther(weekKey, catName) {
   const input = document.getElementById(`lift-other-${safeId}`);
   const name = input?.value.trim() || cat._otherName || '';
 
-  // If "other" is already selected, don't re-render (avoids focus loop)
-  const knownNames = LIFTING_DATA.categories.find(c => c.name === catName)?.exercises.map(e => e.name) || [];
-  if (cat.exercise && !knownNames.includes(cat.exercise)) return;
-
   cat.exercise = name;
   cat._otherName = name;
   liftingCache[weekKey].categories[catName] = cat;
@@ -2529,6 +2524,8 @@ function selectLiftOther(weekKey, catName) {
   const weekId = isCoach ? 'coach-week-container' : 'athlete-week-container';
   const dashId = isCoach ? 'coach-dashboard' : 'athlete-dashboard';
   renderSingleWeek(weekId, dashId, role);
+  // Focus the text input after render
+  setTimeout(() => { const el = document.getElementById(`lift-other-${safeId}`); if (el) el.focus(); }, 10);
 }
 
 function updateLiftOtherName(weekKey, catName, value) {
