@@ -724,11 +724,13 @@ const LIFTING_DATA = {
 // ══════════════════════════════════════════════════════════
 function toggleAuthMode() {
   authMode = authMode === 'signin' ? 'signup' : 'signin';
+  const btn = document.getElementById('auth-btn');
   document.getElementById('auth-title').textContent = authMode === 'signin' ? 'Sign in' : 'Create account';
   document.getElementById('auth-sub').textContent = authMode === 'signin'
     ? 'Access your training dashboard.'
     : 'Set up your athlete account.';
-  document.getElementById('auth-btn').textContent = authMode === 'signin' ? 'Sign in' : 'Create account';
+  btn.textContent = authMode === 'signin' ? 'Sign in' : 'Create account';
+  btn.disabled = false;
   document.getElementById('auth-toggle').textContent = authMode === 'signin'
     ? 'Need an account? Sign up'
     : 'Already have an account? Sign in';
@@ -938,7 +940,7 @@ async function loadAthleteDashboard() {
         <div class="request-coaching">
           ${alreadyRequested
             ? '<div class="request-sent">Coaching request sent — waiting for your coach to accept.</div>'
-            : '<button class="request-coaching-btn" onclick="requestCoaching()">Request Coaching</button>'}
+            : '<button class="request-coaching-btn" onclick="requestCoaching(this)">Request Coaching</button>'}
         </div>
       </div>`;
     return;
@@ -1686,24 +1688,12 @@ document.addEventListener('click', e => {
 // ══════════════════════════════════════════════════════════
 //  COACHING REQUESTS
 // ══════════════════════════════════════════════════════════
-async function requestCoaching() {
-  const btn = event.target;
+async function requestCoaching(btn) {
   btn.disabled = true;
   btn.textContent = 'Sending…';
 
   try {
-    // For now, find any coach (single-coach setup — you)
-    const coachSnap = await db.collection('users')
-      .where('role', '==', 'coach')
-      .limit(1)
-      .get();
-
-    if (coachSnap.empty) {
-      btn.textContent = 'No coach available';
-      return;
-    }
-
-    const coachUid = coachSnap.docs[0].id;
+    const coachUid = ADMIN_UID;
     const athleteName = userDoc.displayName || currentUser.email;
 
     // Create coaching request

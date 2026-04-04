@@ -360,20 +360,55 @@ body.bar-showing #screen-phases{padding-bottom:120px}
 
 /* Report */
 .report-section{margin-top:32px;padding-top:28px;border-top:1px solid var(--border)}
-.report-section-title{font-size:18px;font-weight:800;margin-bottom:16px}
-.report-issues-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-bottom:32px}
-.issue-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px 20px}
-.issue-card.detected{border-color:rgba(245,166,35,.3)}
-.issue-card.detected.notable{border-color:rgba(245,80,80,.35)}
-.issue-card-hdr{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.issue-card-title{font-size:14px;font-weight:700}
-.issue-severity{font-size:12px;font-weight:700;font-family:var(--mono)}
+.report-section-title{font-size:22px;font-weight:800;margin-bottom:6px}
+.report-section-sub{font-size:14px;color:var(--muted2);margin-bottom:20px;line-height:1.7}
+.report-actions{display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap}
+.btn-download-report{display:inline-flex;align-items:center;gap:7px;padding:10px 20px;background:var(--panel);border:1px solid var(--border2);border-radius:9px;color:var(--muted2);font-weight:600;font-size:13px;font-family:var(--ui);cursor:pointer;transition:all .15s}
+.btn-download-report:hover{border-color:var(--cyan);color:var(--cyan)}
+.report-issues-list{display:flex;flex-direction:column;gap:16px;margin-bottom:32px}
+.issue-card{background:var(--panel);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.issue-card.detected{border-color:rgba(245,166,35,.25)}
+.issue-card.detected.notable{border-color:rgba(245,80,80,.3)}
+.issue-card-hdr{padding:18px 22px 14px;display:flex;align-items:center;gap:12px}
+.issue-card-title{font-size:16px;font-weight:800;flex:1}
+.issue-severity{font-size:12px;font-weight:700;font-family:var(--mono);flex-shrink:0}
 .issue-severity.notable{color:var(--bad)}
 .issue-severity.mild{color:var(--warn)}
 .issue-severity.clear{color:var(--good)}
-.issue-card-text{font-size:13px;color:var(--muted2);line-height:1.75}
-.issue-card.not-detected{opacity:.6}
+.issue-card-summary{padding:0 22px 16px;font-size:14px;color:var(--muted2);line-height:1.8}
+.issue-card-body{border-top:1px solid var(--border)}
+.issue-card.not-detected{opacity:.55}
 .issue-card.not-detected .issue-card-title{color:var(--muted2)}
+.issue-section{padding:16px 22px;border-bottom:1px solid var(--border)}
+.issue-section:last-child{border-bottom:none}
+.issue-section-title{font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;font-family:var(--mono)}
+.issue-section-text{font-size:14px;color:var(--muted2);line-height:1.85}
+.issue-section-text strong{color:var(--text)}
+.issue-bullets{list-style:none;padding:0;display:flex;flex-direction:column;gap:8px}
+.issue-bullets li{font-size:14px;color:var(--muted2);line-height:1.8;padding-left:16px;position:relative}
+.issue-bullets li::before{content:'';position:absolute;left:0;top:10px;width:6px;height:6px;border-radius:50%;background:var(--cyan)}
+.issue-ref{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:4px}
+.issue-ref a{color:var(--cyan);text-decoration:none}
+.issue-ref a:hover{text-decoration:underline}
+.issue-confidence{padding:16px 22px;background:rgba(0,229,200,.03);font-size:13px;color:var(--muted2);line-height:1.75;font-style:italic}
+.issue-expand-toggle{width:100%;padding:10px 22px;background:none;border:none;border-top:1px solid var(--border);color:var(--muted2);font-size:12px;font-weight:600;font-family:var(--ui);cursor:pointer;transition:color .15s;text-align:left}
+.issue-expand-toggle:hover{color:var(--cyan)}
+.issue-card-body{display:none}
+.issue-card-body.open{display:block}
+/* Print styles */
+@media print{
+  body{background:#fff;color:#111;font-size:12pt}
+  nav,.hdr-right,.btn-ghost,.btn-main,.btn-complete,.instr-banner,.scan-summary,.phase-groups,.phase-group,.pc-canvas-wrap,.pc-footer,.pc-metrics-mini,.report-actions,.save-analysis-section,.btn-new-session,#complete-analysis-bar,#expand-overlay,#my-analyses-overlay,#compare-overlay,#saved-view-banner,#screen-upload,#screen-scanning,.issue-expand-toggle{display:none !important}
+  .report-section,.summary,#summary-section{display:block !important;border:none;margin:0;padding:0}
+  .issue-card{break-inside:avoid;border:1px solid #ccc;background:#fff;opacity:1 !important;page-break-inside:avoid}
+  .issue-card.not-detected{opacity:1 !important}
+  .issue-card-body{display:block !important}
+  .issue-section{border-color:#eee}
+  .issue-severity.notable{color:#c00}.issue-severity.mild{color:#b80}.issue-severity.clear{color:#080}
+  .stbl{min-width:auto}
+  .stbl th,.stbl td{font-size:9pt;padding:4px 6px}
+  a{color:#06c}
+}
 
 /* Auth UI in nav */
 .auth-indicator{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;background:rgba(0,229,200,.06);border:1px solid rgba(0,229,200,.15)}
@@ -659,8 +694,44 @@ body.bar-showing #screen-phases{padding-bottom:120px}
 
   <!-- Report: What we found -->
   <div id="report-section" class="report-section" style="display:none">
-    <div class="report-section-title">What we found</div>
-    <div class="report-issues-grid" id="report-issues-grid"></div>
+    <div class="report-section-title">Your running form report</div>
+    <div class="report-section-sub">Based on your video analysis, here is what we found. Detected issues include an explanation of what it means, why it might matter, what could be causing it, and specific cues to work on. Click any detected issue to expand the full breakdown.</div>
+    <div class="report-actions">
+      <button class="btn-download-report" onclick="downloadReport()">&#128196; Download report as PDF</button>
+    </div>
+    <div class="report-issues-list" id="report-issues-grid"></div>
+
+    <!-- General principles note -->
+    <div style="background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:28px 26px;margin-top:8px">
+      <div style="font-size:18px;font-weight:800;margin-bottom:14px">Understanding your stride</div>
+      <div style="font-size:14px;color:var(--muted2);line-height:1.9;margin-bottom:18px">Every runner's stride is highly individual, shaped by body proportions, joint mobility, sporting history, injury history, age, and many other factors. What is optimal for one person may be quite different for another — whether that is stride length, knee angle at toe-off, or any of the dozens of metrics that can be analyzed. There is no single "perfect" number for any of these.</div>
+      <div style="font-size:14px;color:var(--muted2);line-height:1.9;margin-bottom:14px">That said, there are general principles that can be optimized within what is natural for your gait to help you become a more efficient, more resilient athlete. An efficient running stride typically has these things in common:</div>
+      <ul style="list-style:none;padding:0;display:flex;flex-direction:column;gap:8px;margin-bottom:18px">
+        <li style="font-size:14px;color:var(--text);line-height:1.8;padding-left:18px;position:relative"><span style="position:absolute;left:0;top:10px;width:6px;height:6px;border-radius:50%;background:var(--cyan);display:block"></span><strong>Low ground contact time</strong> — less time on the ground each step means less load and more time traveling forward in the air.</li>
+        <li style="font-size:14px;color:var(--text);line-height:1.8;padding-left:18px;position:relative"><span style="position:absolute;left:0;top:10px;width:6px;height:6px;border-radius:50%;background:var(--cyan);display:block"></span><strong>A cadence that fits your body</strong> — not too low (heavy, plodding steps) and not too high (spinning without covering ground). Most runners do well somewhere in the 170-185 range, but taller runners may naturally be lower.</li>
+        <li style="font-size:14px;color:var(--text);line-height:1.8;padding-left:18px;position:relative"><span style="position:absolute;left:0;top:10px;width:6px;height:6px;border-radius:50%;background:var(--cyan);display:block"></span><strong>Stride length that matches your speed naturally</strong> — longer is not always better. Stride length should come from push-off power and flight time, not from reaching forward.</li>
+        <li style="font-size:14px;color:var(--text);line-height:1.8;padding-left:18px;position:relative"><span style="position:absolute;left:0;top:10px;width:6px;height:6px;border-radius:50%;background:var(--cyan);display:block"></span><strong>Appropriate vertical oscillation</strong> — some up-and-down movement is necessary, but you want a good ratio of stride length to vertical bounce (often called "vertical ratio").</li>
+        <li style="font-size:14px;color:var(--text);line-height:1.8;padding-left:18px;position:relative"><span style="position:absolute;left:0;top:10px;width:6px;height:6px;border-radius:50%;background:var(--cyan);display:block"></span><strong>A slight forward lean from the ankles</strong> — not from the waist — to work with gravity rather than against it.</li>
+        <li style="font-size:14px;color:var(--text);line-height:1.8;padding-left:18px;position:relative"><span style="position:absolute;left:0;top:10px;width:6px;height:6px;border-radius:50%;background:var(--cyan);display:block"></span><strong>Compact, efficient arm carriage</strong> — driving from the elbows to help produce vertical lift and optimal knee drive each stride, not swinging wide or low.</li>
+      </ul>
+
+      <div style="font-size:15px;font-weight:700;margin-bottom:10px;color:var(--text)">Tracking your progress with wearable data</div>
+      <div style="font-size:14px;color:var(--muted2);line-height:1.9;margin-bottom:14px">If you have a running watch or wearable that measures stride length, ground contact time, and vertical oscillation, you can use those numbers to track how form cues are working in real time. For example, if reducing your elbow angle and driving from the elbows produces a more efficient stride, you would expect to see a longer stride length, higher vertical oscillation, a similar vertical ratio, and reduced ground contact time.</div>
+
+      <div style="font-size:15px;font-weight:700;margin-bottom:10px;color:var(--text)">Why small changes add up</div>
+      <div style="font-size:14px;color:var(--muted2);line-height:1.9;margin-bottom:14px">When a form change reduces ground contact time and shifts cadence closer to your optimal range, the cumulative effect can be surprisingly large. Consider these examples:</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+        <div style="background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:16px 18px">
+          <div style="font-size:12px;font-weight:700;color:var(--cyan);font-family:var(--mono);margin-bottom:8px">EXAMPLE A: HIGH CADENCE RUNNER</div>
+          <div style="font-size:13px;color:var(--muted2);line-height:1.8">Cadence drops from 190 to 185 spm<br>Ground contact time drops from 230 ms to 225 ms</div>
+        </div>
+        <div style="background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:16px 18px">
+          <div style="font-size:12px;font-weight:700;color:var(--cyan);font-family:var(--mono);margin-bottom:8px">EXAMPLE B: LOW CADENCE RUNNER</div>
+          <div style="font-size:13px;color:var(--muted2);line-height:1.8">Cadence rises from 170 to 175 spm<br>Ground contact time drops from 250 ms to 231 ms</div>
+        </div>
+      </div>
+      <div style="font-size:14px;color:var(--text);line-height:1.9"><strong>Both of these scenarios result in over 2 minutes less ground contact time per hour of running.</strong> That is 2 fewer minutes of load going through your muscles and tendons — and 2 more minutes spent in the air, traveling forward efficiently. The energy savings and injury risk reduction from that kind of shift are meaningful, and they come from changes that most runners would barely notice in the moment.</div>
+    </div>
   </div>
 
   <!-- Save analysis -->
@@ -2114,43 +2185,185 @@ function computeFrontBackMetrics(kps) {
 // ==============================================================
 //  DETECTION RULES (6 issues)
 // ==============================================================
-const COACHING_CUES = {
+// ==============================================================
+//  FULL REPORT PROTOCOL DATA (from running_stride_analysis_protocols.csv)
+// ==============================================================
+var REPORT_DATA = {
   overstriding: {
-    notable: "Your foot is landing well ahead of your hip at contact, which acts like a brake with every stride. Focus on increasing your cadence by 5-10% and think about landing with your foot under your hip rather than reaching forward.",
-    mild: "Your foot is landing slightly ahead of your hip at contact. This is common but can increase braking forces over time. A small increase in cadence -- even 3-5% -- can help bring your landing point closer to under your center of mass.",
-    clear: "No significant overstriding detected"
+    title: 'Overstriding',
+    clear: 'No significant overstriding detected',
+    summary: {
+      notable: 'Your foot is landing well ahead of your hip at contact, which acts like a brake with every stride.',
+      mild: 'Your foot is landing slightly ahead of your hip at contact. This is common but can increase braking forces over time.'
+    },
+    whatThisMeans: 'Your foot is landing too far in front of your body at initial contact, often with a reaching pattern and a less vertical shin. This can result in a strong heel-first contact farther in front of the body than is ideal.',
+    whyItMatters: 'Landing with the foot far ahead of the hip is linked to greater braking forces, higher knee demands, and a less energy-efficient stride. These higher loading patterns have been associated with several running injury profiles, though the relationship is not perfectly consistent across all studies.',
+    whyItMattersRef: 'https://pubmed.ncbi.nlm.nih.gov/26538175/',
+    possibleReasons: [
+      {text: 'Low cadence relative to speed -- not enough flight time, rushing to get the foot back down without enough vertical lift from the trailing leg.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC6883353/'},
+      {text: 'Reaching forward from the hip or knee in terminal swing instead of letting the body travel over the foot, potentially due to not enough push-off from the trailing leg.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC4714754/'},
+      {text: 'Running too upright, which increases the leg angle at contact.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC4714754/'},
+      {text: 'Fatigue, downhill running, or pushing pace faster than is well controlled.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC10818105/'},
+      {text: 'Measurement note: the selected foot-strike frame may be slightly before or after actual contact, or the side camera may not be perfectly perpendicular.', ref: ''}
+    ],
+    formCues: [
+      {text: 'Increase cadence. This is the most well-supported first cue for overstriding -- it usually shortens step length and reduces lower-body loading.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC10761631/'},
+      {text: 'Take shorter, quicker steps. Decreasing step length has been shown to reduce musculoskeletal loads and tibial strain.', ref: 'https://pubmed.ncbi.nlm.nih.gov/37488528/'},
+      {text: 'Land closer under you with a more vertical shin. A relatively vertical tibia at landing is tied to lower braking forces. This can be achieved by producing more vertical force with the trailing leg push-off, giving yourself more time in the air to get the leg back underneath you.', ref: 'https://pubmed.ncbi.nlm.nih.gov/26538175/'},
+      {text: 'Run softer and quieter. Soft-landing cues can reduce impact-related forces and work well when paired with cadence feedback.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC10939780/'}
+    ],
+    confidence: 'This can be flagged with relatively high confidence when it repeats across multiple left and right foot strikes from the side view.'
   },
   hipDrop: {
-    notable: "Your hip is dropping significantly on the swing side during stance, which increases stress on the knee and IT band. Targeted glute medius strengthening -- single-leg glute bridges, lateral band walks, and side-lying hip abduction -- is the most direct fix.",
-    mild: "Your hip is dropping slightly on the swing side during stance -- a sign that your glute medius could be working harder. Single-leg glute bridges and lateral band walks are the most direct fix. Think about staying tall through the hip during each stance phase.",
-    clear: "No significant hip drop detected"
-  },
-  armsCrossing: {
-    notable: "Your arms are clearly crossing your body centerline during the swing, which creates rotational force your core has to counteract with every step. Keep your elbows close to your sides and imagine your hands are running along two parallel tracks.",
-    mild: "Your arms are occasionally crossing your body centerline, which creates slight rotational forces. Focus on driving your elbows straight back rather than across your body. Imagine your hands running along two parallel rails.",
-    clear: "No significant arm crossing detected"
+    title: 'Hip drop',
+    clear: 'No significant hip drop detected',
+    summary: {
+      notable: 'Your hip is dropping significantly on the swing side during stance, which increases stress on the knee and IT band.',
+      mild: 'Your hip is dropping slightly on the swing side during stance -- a sign that your glute medius could be working harder.'
+    },
+    whatThisMeans: 'During stance, your pelvis drops excessively on the swing-leg side instead of staying relatively level.',
+    whyItMatters: 'Greater pelvic drop and related hip mechanics are commonly discussed in runners with patellofemoral pain and other lower-chain overload patterns, although not every runner with pelvic drop will have symptoms.',
+    whyItMattersRef: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC3984468/',
+    possibleReasons: [
+      {text: 'Hip abductor or glute medius strength may not be sufficient to hold the pelvis level under the demands of single-leg stance.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC9528670/'},
+      {text: 'Decreased knee drive and vertical force at push-off, resulting in longer ground contact times -- the longer the foot is on the ground, the more time the pelvis has to hold position under load.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC9629574/'},
+      {text: 'Fatigue or pain-related compensation.', ref: 'https://pubmed.ncbi.nlm.nih.gov/30503256/'},
+      {text: 'Coordination issue rather than pure weakness -- strength alone does not fully explain pelvic control in all runners.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC8628027/'},
+      {text: 'Measurement note: camera not perfectly centered, pelvis obscured by clothing, or phase selected outside true mid-stance.', ref: ''}
+    ],
+    formCues: [
+      {text: 'Improve knee drive and vertical force at push-off. Focus this through arm mechanics -- keep shoulders relaxed, elbows close to the body, and swing from the elbow rather than the hands. This can lower ground contact time and reduce the time the pelvis needs to stabilize.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC9629574/'},
+      {text: 'Strengthen the glute medius with side planks, banded clamshells, monster walks, and similar exercises.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC3201064/'},
+      {text: 'Run tall through the stance hip. This is a simplified cue for reducing collapse over the support leg -- best paired with visual feedback.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC3501612/'},
+      {text: 'Consider a slight cadence increase. A modest increase often reduces hip and knee loading and can help runners who collapse into stance. Most useful if you are also overstriding or have a low cadence (under 170 spm for most runners, possibly 160-170 for taller runners).', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC3022995/'}
+    ],
+    confidence: 'This often responds to hip and pelvic control work, but should be confirmed across several mid-stance frames before drawing strong conclusions.'
   },
   torsoUpright: {
-    notable: "You are running very upright or even leaning slightly backward, which works against forward momentum and can increase braking forces. Try leaning gently from the ankles -- not the waist -- as if falling into your next step.",
-    mild: "You are running quite upright, which can reduce the natural forward momentum that comes from a slight forward lean. Try leaning gently from the ankles -- not the waist -- as if falling into your next step.",
-    clear: "No significant trunk position issues detected"
+    title: 'Torso position (too upright)',
+    clear: 'No significant trunk position issues detected',
+    summary: {
+      notable: 'You are running very upright or even leaning slightly backward, which works against forward momentum.',
+      mild: 'You are running quite upright, which can reduce the natural forward momentum from a slight lean.'
+    },
+    whatThisMeans: 'Your trunk shows very little forward lean, especially at contact and during stance. You may be running very upright or even leaning slightly backward.',
+    whyItMatters: 'A more upright or backward trunk posture increases the leg angle at contact and can increase knee loading. A modest forward lean can reduce patellofemoral loading and improve economy -- but too much or too little lean can work against you.',
+    whyItMattersRef: 'https://pubmed.ncbi.nlm.nih.gov/33257431/',
+    possibleReasons: [
+      {text: 'Overstriding and low cadence often pair with an upright posture.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC4714754/'},
+      {text: 'Natural posture preference or habitual standing posture carrying into running.', ref: ''},
+      {text: 'Overcorrecting against slouching, or a fear of falling forward.', ref: ''},
+      {text: 'Pain avoidance strategy.', ref: ''},
+      {text: 'Measurement note: wrong phase frame, side camera not level, or treadmill handrail or background affecting the vertical reference.', ref: ''}
+    ],
+    formCues: [
+      {text: 'Lean slightly from the ankles, not the waist. The evidence supports a modest forward lean, not a dramatic hinge.', ref: 'https://pubmed.ncbi.nlm.nih.gov/34537800/'},
+      {text: '"Fall" into the next step. This is a practical cue for creating a small whole-body lean without bending at the hips.', ref: ''},
+      {text: 'Quicker feet under you. Increasing cadence can reduce the need to reach in front and may indirectly improve trunk posture.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC3022995/'},
+      {text: 'Keep your ribcage stacked over your pelvis, then tip the whole unit slightly forward. Reduce the space between the front of your ribs and your pelvis in a natural way -- do not actively crunch or tuck. This helps distinguish a beneficial lean from bending at the waist.', ref: 'https://pubmed.ncbi.nlm.nih.gov/34537800/'}
+    ],
+    confidence: 'A mild increase in whole-body forward lean may reduce braking and knee load, but excessive lean is not the goal.'
   },
   torsoLean: {
-    notable: "Your trunk is leaning significantly forward during stance, which can overload the lower back and hamstrings. Check that you are hinging from the ankles rather than bending at the waist, and engage your core to maintain a neutral spine.",
-    mild: "Your forward lean is slightly more than typical for efficient running. Make sure the lean comes from the ankles rather than the waist. A slight forward lean is good -- but too much shifts load to the lower back.",
-    clear: "No significant trunk position issues detected"
+    title: 'Torso position (excessive lean)',
+    clear: 'No significant trunk position issues detected',
+    summary: {
+      notable: 'Your trunk is leaning significantly forward during stance, which can overload the lower back and hamstrings.',
+      mild: 'Your forward lean is slightly more than typical for efficient running.'
+    },
+    whatThisMeans: 'Your trunk shows more forward lean than is typical during stance.',
+    whyItMatters: 'Excessive forward lean can shift load to the lower back and hamstrings and reduce running economy.',
+    whyItMattersRef: 'https://pubmed.ncbi.nlm.nih.gov/33257431/',
+    possibleReasons: [
+      {text: 'Bending at the waist rather than leaning from the ankles.', ref: ''},
+      {text: 'Fatigue causing loss of core stability.', ref: ''},
+      {text: 'Measurement note: wrong phase frame or camera not level.', ref: ''}
+    ],
+    formCues: [
+      {text: 'Make sure the lean comes from the ankles rather than the waist. A slight forward lean is good -- but too much shifts load to the lower back.', ref: 'https://pubmed.ncbi.nlm.nih.gov/34537800/'},
+      {text: 'Engage your core to maintain a neutral spine -- keep your ribcage stacked over your pelvis.', ref: ''}
+    ],
+    confidence: 'A mild increase in whole-body forward lean may reduce braking and knee load, but excessive lean is not the goal.'
   },
   armAngle: {
-    notable: "Your elbows are dropping well below the ideal range during the swing phase, making the arm swing significantly less efficient. Think about keeping your elbows at roughly a right angle and driving them back rather than letting them swing low.",
-    mild: "Your elbows are dropping lower than ideal during the swing phase, which makes the arm swing less efficient and increases energy cost. Think about keeping your elbows at roughly a right angle and driving them back rather than swinging them forward.",
-    clear: "No significant arm angle issues detected"
+    title: 'Arm angle too open',
+    clear: 'No significant arm angle issues detected',
+    summary: {
+      notable: 'Your elbows are dropping well below the ideal range during the swing phase, making the arm swing significantly less efficient.',
+      mild: 'Your elbows are dropping lower than ideal, which makes the arm swing less efficient and increases energy cost.'
+    },
+    whatThisMeans: 'Your elbows are more extended than expected during running, with hands dropping low -- possibly at or below waist level for much of the arm swing.',
+    whyItMatters: 'A very open elbow angle can lead to excessive torso movement, less vertical drive from the arms, and reduced running economy. An ideal elbow angle is not precisely defined in the literature, but this is flagged when the elbows are well outside the typical range.',
+    whyItMattersRef: 'https://pubmed.ncbi.nlm.nih.gov/31289110/',
+    possibleReasons: [
+      {text: 'Natural style -- this may not be a problem on its own for every runner.', ref: ''},
+      {text: 'Fatigue leading to a longer arm lever or less compact carriage.', ref: ''},
+      {text: 'Pace mismatch: faster running tends to produce a more compact arm swing.', ref: ''},
+      {text: 'Measurement note: elbow partially occluded, or the phase captured at the end of swing.', ref: ''}
+    ],
+    formCues: [
+      {text: 'Keep your hands relaxed and drive from the elbows. Hands should face the torso at all times, not pointed away or out in front of the body.', ref: 'https://pubmed.ncbi.nlm.nih.gov/31289110/'},
+      {text: 'Focus on using the arms to create vertical lift, which gives you more flight time, longer stride, and less ground contact time -- rather than producing horizontal force by swinging hands far out in front.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC4887549/'}
+    ],
+    confidence: 'Arm swing is very individual. The goal is an efficient, natural-feeling, compact arm carriage that helps produce vertical lift rather than dragging you forward with a wide swing and hands far from the body.'
   },
   kneeValgus: {
-    notable: "Your knee is collapsing noticeably inward during stance, which increases stress on the ACL and patellofemoral joint. Hip and glute strengthening -- particularly single-leg squats with attention to knee tracking -- is the most effective corrective approach.",
-    mild: "There is slight inward movement of the knee during stance. This is very common and often responds well to hip strengthening exercises. Single-leg mini squats in front of a mirror, focusing on keeping the knee tracking over the second toe, can help build awareness.",
-    clear: "No significant knee valgus detected"
+    title: 'Knee valgus',
+    clear: 'No significant knee valgus detected',
+    summary: {
+      notable: 'Your knee is collapsing noticeably inward during stance, which increases stress on the ACL and patellofemoral joint.',
+      mild: 'There is slight inward movement of the knee during stance. This is very common and often responds well to targeted exercises.'
+    },
+    whatThisMeans: 'Your knee moves inward relative to the hip and foot during stance, rather than tracking in line with the leg.',
+    whyItMatters: 'Knee valgus is commonly related to patellofemoral pain and altered knee loading.',
+    whyItMattersRef: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC9818693/',
+    possibleReasons: [
+      {text: 'Hip strength and control may not be sufficient to keep the knee tracking straight.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC9818693/'},
+      {text: 'Pelvic drop upstream can contribute to knee collapse.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC3501612/'},
+      {text: 'Narrow step width -- wider step widths can reduce hip adduction and knee loading.', ref: 'https://pubmed.ncbi.nlm.nih.gov/40095991/'},
+      {text: 'Fatigue.', ref: ''},
+      {text: 'Measurement note: front or back camera misalignment, foot angle making a neutral knee appear valgus in 2D, or analyzing a stride with pelvic rotation.', ref: ''}
+    ],
+    formCues: [
+      {text: 'Strengthen the glute medius with side planks, banded clamshells, monster walks, and similar exercises.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC3201064/'},
+      {text: 'Slightly increase step width. Try running on a surface with a visible line and pay attention to where your feet land relative to it.', ref: 'https://pubmed.ncbi.nlm.nih.gov/40095991/'},
+      {text: 'Slightly increase cadence. Increasing step rate reduces hip and knee loading and tends to reduce peak hip adduction.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC3022995/'}
+    ],
+    confidence: '2D running valgus can be noisy from stride to stride. Confirm with multiple frame analyses. You can further confirm by doing loaded or single-leg squats and checking if the knee tracks inward during the squat.'
+  },
+  armsCrossing: {
+    title: 'Arms crossing midline',
+    clear: 'No significant arm crossing detected',
+    summary: {
+      notable: 'Your arms are clearly crossing your body centerline, which creates rotational force your core has to counteract with every step.',
+      mild: 'Your arms are occasionally crossing your body centerline, which creates slight rotational forces.'
+    },
+    whatThisMeans: 'Your hands or forearms are swinging across the body past the midline, rather than mostly moving forward and back.',
+    whyItMatters: 'Arm swing helps control whole-body angular momentum. Active arm swing can reduce torso rotation and metabolic cost. Excessive arm crossing is commonly described as a potential economy issue, though there is not strong evidence proving a specific amount of midline crossing is harmful in otherwise healthy runners.',
+    whyItMattersRef: 'https://pubmed.ncbi.nlm.nih.gov/25031455/',
+    possibleReasons: [
+      {text: 'Elbows too far from the body, causing the direction of arm swing to be at an angle rather than straight forward and back.', ref: ''},
+      {text: 'Compensation for trunk rotation, narrow step width, or asymmetry elsewhere.', ref: ''},
+      {text: 'Measurement note: front or back camera not centered, shoulder landmarks obscured, or the stride captured during a turn or head movement.', ref: ''}
+    ],
+    formCues: [
+      {text: 'Swing "cheek to hip" -- not across your zipper. The arm swing should focus on the path of the elbow, not the hands. An effective arm swing reduces torso rotation.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC11929735/'},
+      {text: 'Let the arms swing naturally -- do not force a big drive or suppress arm motion. The evidence favors preserving a natural arm swing rather than over-manipulating it.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC4887549/'},
+      {text: 'Relax the shoulders and hands. This is more of a coaching heuristic than a directly trial-backed intervention, but it helps.', ref: ''}
+    ],
+    confidence: 'Arm crossing is typically not a large issue unless it is a strong, excessive crossing of the midline that causes extra torso rotation.'
   }
 };
+
+// Keep backward-compatible COACHING_CUES for detectIssues() detail text
+var COACHING_CUES = {};
+Object.keys(REPORT_DATA).forEach(function(k) {
+  COACHING_CUES[k] = {
+    notable: REPORT_DATA[k].summary.notable,
+    mild: REPORT_DATA[k].summary.mild,
+    clear: REPORT_DATA[k].clear
+  };
+});
 
 function detectIssues() {
   var issues = {};
@@ -2267,35 +2480,34 @@ function renderReport(issues) {
   if(!grid) return;
 
   var issueList = [
-    {key:'overstriding',  title:'Overstriding',        cueKey:'overstriding'},
-    {key:'hipDrop',       title:'Hip drop',             cueKey:'hipDrop'},
-    {key:'armsCrossing',  title:'Arms crossing midline',cueKey:'armsCrossing'},
-    {key:'torsoPosition', title:'Torso position',       cueKey:null},
-    {key:'armAngle',      title:'Arm angle too open',   cueKey:'armAngle'},
-    {key:'kneeValgus',    title:'Knee valgus',          cueKey:'kneeValgus'},
+    {key:'overstriding',  dataKey:'overstriding'},
+    {key:'hipDrop',       dataKey:'hipDrop'},
+    {key:'armsCrossing',  dataKey:'armsCrossing'},
+    {key:'torsoPosition', dataKey:null},
+    {key:'armAngle',      dataKey:'armAngle'},
+    {key:'kneeValgus',    dataKey:'kneeValgus'},
   ];
 
   var html = '';
-  issueList.forEach(function(item) {
+  issueList.forEach(function(item, idx) {
     var issue = issues[item.key];
     if(!issue) return;
 
     var detected = issue.detected;
     var severity = issue.severity;
-    var cueKey = issue.cueKey || item.cueKey;
 
-    // For torso position, the cueKey may differ based on which sub-issue
-    if(item.key === 'torsoPosition' && issue.cueKey) {
-      cueKey = issue.cueKey;
-    }
+    // Resolve the report data key (torso has sub-types)
+    var dk = item.dataKey;
+    if(item.key === 'torsoPosition' && issue.cueKey) dk = issue.cueKey;
+    if(!dk) dk = 'torsoUpright';
+    var rd = REPORT_DATA[dk];
+    if(!rd) return;
 
-    var cueText = '';
-    if(detected && severity && cueKey && COACHING_CUES[cueKey]) {
-      cueText = COACHING_CUES[cueKey][severity] || '';
-    } else if(!detected && cueKey && COACHING_CUES[cueKey]) {
-      cueText = COACHING_CUES[cueKey].clear || '';
+    var summaryText = '';
+    if(detected && severity && rd.summary[severity]) {
+      summaryText = rd.summary[severity];
     } else if(!detected) {
-      cueText = 'No significant issues detected';
+      summaryText = rd.clear;
     }
 
     var severityIndicator = '';
@@ -2315,16 +2527,92 @@ function renderReport(issues) {
       cardClass += ' not-detected';
     }
 
+    // Build the card
     html += '<div class="'+cardClass+'">';
     html += '<div class="issue-card-hdr">';
-    html += '<div class="issue-card-title">'+item.title+'</div>';
+    html += '<div class="issue-card-title">'+rd.title+'</div>';
     html += severityIndicator;
     html += '</div>';
-    html += '<div class="issue-card-text">'+cueText+'</div>';
-    html += '</div>';
+    html += '<div class="issue-card-summary">'+summaryText+'</div>';
+
+    // Expanded detail sections (only for detected issues)
+    if(detected) {
+      var bodyId = 'issue-body-'+idx;
+      html += '<button class="issue-expand-toggle" onclick="toggleIssueBody(\''+bodyId+'\',this)">View full breakdown &#9660;</button>';
+      html += '<div class="issue-card-body" id="'+bodyId+'">';
+
+      // What this means
+      html += '<div class="issue-section">';
+      html += '<div class="issue-section-title">What this means</div>';
+      html += '<div class="issue-section-text">'+rd.whatThisMeans+'</div>';
+      html += '</div>';
+
+      // Why it matters
+      html += '<div class="issue-section">';
+      html += '<div class="issue-section-title">Why it matters</div>';
+      html += '<div class="issue-section-text">'+rd.whyItMatters+'</div>';
+      if(rd.whyItMattersRef) html += '<div class="issue-ref"><a href="'+rd.whyItMattersRef+'" target="_blank" rel="noopener">View research</a></div>';
+      html += '</div>';
+
+      // Possible reasons
+      html += '<div class="issue-section">';
+      html += '<div class="issue-section-title">Why this might be happening</div>';
+      html += '<ul class="issue-bullets">';
+      rd.possibleReasons.forEach(function(r) {
+        html += '<li><strong>'+r.text+'</strong>';
+        if(r.ref) html += '<div class="issue-ref"><a href="'+r.ref+'" target="_blank" rel="noopener">Source</a></div>';
+        html += '</li>';
+      });
+      html += '</ul></div>';
+
+      // Form cues
+      html += '<div class="issue-section">';
+      html += '<div class="issue-section-title">What to try</div>';
+      html += '<ul class="issue-bullets">';
+      rd.formCues.forEach(function(c) {
+        html += '<li><strong>'+c.text+'</strong>';
+        if(c.ref) html += '<div class="issue-ref"><a href="'+c.ref+'" target="_blank" rel="noopener">Source</a></div>';
+        html += '</li>';
+      });
+      html += '</ul></div>';
+
+      // Confidence note
+      if(rd.confidence) {
+        html += '<div class="issue-confidence">'+rd.confidence+'</div>';
+      }
+
+      html += '</div>'; // end issue-card-body
+    }
+
+    html += '</div>'; // end issue-card
   });
 
+  // Check if anything was detected
+  var anyDetected = issueList.some(function(item) {
+    var issue = issues[item.key];
+    return issue && issue.detected;
+  });
+
+  if(!anyDetected) {
+    html = '<div style="background:var(--panel);border:1px solid rgba(0,229,200,.2);border-radius:16px;padding:28px 26px;margin-bottom:20px">' +
+      '<div style="font-size:18px;font-weight:800;margin-bottom:10px;color:var(--text)">No major gait-pattern flags detected</div>' +
+      '<div style="font-size:14px;color:var(--muted2);line-height:1.85;margin-bottom:14px">Your stride did not show meaningful signs of overstriding, hip drop, excessive arm crossover, overly upright torso position, overly open arm angle, or knee valgus in the analyzed clips. Most measured angles fell within the reference ranges used by this tool.</div>' +
+      '<div style="font-size:13px;color:var(--muted);line-height:1.8">This does not mean your running form is &quot;perfect&quot; or that no improvement is possible. It means this analysis did not detect clear issues in these specific categories from the selected videos and frames. Small differences can still exist, and results can vary with speed, fatigue, camera angle, treadmill vs. overground running, and frame selection.</div>' +
+    '</div>' + html;
+  }
+
   grid.innerHTML = html;
+}
+
+function toggleIssueBody(bodyId, btn) {
+  var body = document.getElementById(bodyId);
+  if(!body) return;
+  var isOpen = body.classList.toggle('open');
+  btn.innerHTML = isOpen ? 'Hide breakdown &#9650;' : 'View full breakdown &#9660;';
+}
+
+function downloadReport() {
+  window.print();
 }
 
 // Summary table (side view only -- 7 columns)
