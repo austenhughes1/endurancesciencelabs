@@ -1325,8 +1325,8 @@ function renderDashboard(containerId, role) {
       <div class="dash-title">Training Data</div>
       <span class="dash-strava-badge">▲ STRAVA CONNECTED</span>
       <div style="margin-left:auto;display:flex;gap:6px">
-        ${role === 'athlete' ? `<button class="btn-ghost" onclick="syncStrava()" style="font-size:10px;padding:4px 10px">Sync</button>
-        <button class="btn-ghost" onclick="reconnectStrava()" style="font-size:10px;padding:4px 10px">Reconnect</button>
+        <button class="btn-ghost" onclick="syncStravaFor('${role}')" style="font-size:10px;padding:4px 10px">Sync</button>
+        ${role === 'athlete' ? `<button class="btn-ghost" onclick="reconnectStrava()" style="font-size:10px;padding:4px 10px">Reconnect</button>
         <button class="btn-ghost btn-signout" onclick="unlinkStrava()" style="font-size:10px;padding:4px 10px">Unlink</button>` : ''}
       </div>
     </div>
@@ -1513,14 +1513,17 @@ async function connectStrava() {
 }
 
 async function syncStrava() {
+  return syncStravaFor('athlete');
+}
+
+async function syncStravaFor(role) {
   const syncFn = firebase.functions().httpsCallable('syncStravaActivities');
+  const params = role === 'coach' && selectedAthleteUid ? { athleteUid: selectedAthleteUid } : {};
   try {
-    const result = await syncFn();
+    const result = await syncFn(params);
     console.log('Strava sync:', result.data);
-    // Reload strava data and re-render
     stravaCache = {};
     await loadStravaRange(-16, 4);
-    const role = isCoach ? 'coach' : 'athlete';
     const weekId = isCoach ? 'coach-week-container' : 'athlete-week-container';
     const dashId = isCoach ? 'coach-dashboard' : 'athlete-dashboard';
     renderSingleWeek(weekId, dashId, role);
@@ -2403,6 +2406,24 @@ function renderLiftingExercises(mondayStr, cat, catState, role) {
     }
   });
 
+  // "Other" option
+  const knownNames = cat.exercises.map(e => e.name);
+  const isOtherSelected = selectedEx && !knownNames.includes(selectedEx);
+  const otherName = isOtherSelected ? selectedEx : (catState._otherName || '');
+  const safeId = cat.name.replace(/[^a-zA-Z]/g, '');
+  html += `
+    <div class="lift-exercise" style="border-bottom:none">
+      <div class="lift-ex-radio${isOtherSelected ? ' selected' : ''}"
+           onclick="selectLiftOther('${mondayStr}','${cat.name}')"></div>
+      <div class="lift-ex-info" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="font-weight:600;font-size:13px;color:var(--card-muted)">Other:</span>
+        <input type="text" id="lift-other-${safeId}" class="lift-set-input" style="flex:1;min-width:140px;max-width:300px"
+          placeholder="Exercise name" value="${esc(otherName)}"
+          onfocus="selectLiftOther('${mondayStr}','${cat.name}')"
+          oninput="updateLiftOtherName('${mondayStr}','${cat.name}',this.value)">
+      </div>
+    </div>`;
+
   // Completion form with per-set logger
   if (selectedEx && canEdit) {
     const safeId = cat.name.replace(/[^a-zA-Z]/g, '');
@@ -2485,6 +2506,37 @@ function selectLiftExercise(weekKey, catName, exName) {
   const weekId = isCoach ? 'coach-week-container' : 'athlete-week-container';
   const dashId = isCoach ? 'coach-dashboard' : 'athlete-dashboard';
   renderSingleWeek(weekId, dashId, role);
+}
+
+function selectLiftOther(weekKey, catName) {
+  if (!liftingCache[weekKey]) liftingCache[weekKey] = { weekStart: weekKey, categories: {} };
+  if (!liftingCache[weekKey].categories) liftingCache[weekKey].categories = {};
+  const cat = liftingCache[weekKey].categories[catName] || {};
+  const safeId = catName.replace(/[^a-zA-Z]/g, '');
+  const input = document.getElementById(`lift-other-${safeId}`);
+  const name = input?.value.trim() || cat._otherName || '';
+  cat.exercise = name;
+  cat._otherName = name;
+  liftingCache[weekKey].categories[catName] = cat;
+
+  expandedCategories[catName] = true;
+  const role = isCoach ? 'coach' : 'athlete';
+  const weekId = isCoach ? 'coach-week-container' : 'athlete-week-container';
+  const dashId = isCoach ? 'coach-dashboard' : 'athlete-dashboard';
+  renderSingleWeek(weekId, dashId, role);
+  // Re-focus the input after render
+  setTimeout(() => { const el = document.getElementById(`lift-other-${safeId}`); if (el) el.focus(); }, 0);
+}
+
+function updateLiftOtherName(weekKey, catName, value) {
+  if (!liftingCache[weekKey]?.categories?.[catName]) return;
+  const cat = liftingCache[weekKey].categories[catName];
+  cat._otherName = value;
+  // Only update the exercise name if "other" is currently selected
+  const knownNames = LIFTING_DATA.categories.find(c => c.name === catName)?.exercises.map(e => e.name) || [];
+  if (!knownNames.includes(cat.exercise)) {
+    cat.exercise = value;
+  }
 }
 
 function _readSetLogFromDOM(catName) {

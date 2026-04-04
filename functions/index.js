@@ -95,9 +95,16 @@ exports.stravaCallback = onRequest({ cors: false }, async (req, res) => {
 //  Called by the client after connecting or via a sync button.
 // ═══════════════════════════════════════════════════════════
 exports.syncStravaActivities = onCall({ cors: true }, async (request) => {
-  const uid = request.auth?.uid;
-  if (!uid) {
+  const callerUid = request.auth?.uid;
+  if (!callerUid) {
     throw new HttpsError("unauthenticated", "Must be signed in.");
+  }
+
+  // Allow coach to sync on behalf of an athlete
+  const ADMIN_UID = "2z9Z3K5ZwShvadUuqZmwMv0s1Od2";
+  let uid = callerUid;
+  if (request.data?.athleteUid && callerUid === ADMIN_UID) {
+    uid = request.data.athleteUid;
   }
 
   // Read stored tokens
