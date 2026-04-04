@@ -2515,6 +2515,11 @@ function selectLiftOther(weekKey, catName) {
   const safeId = catName.replace(/[^a-zA-Z]/g, '');
   const input = document.getElementById(`lift-other-${safeId}`);
   const name = input?.value.trim() || cat._otherName || '';
+
+  // If "other" is already selected, don't re-render (avoids focus loop)
+  const knownNames = LIFTING_DATA.categories.find(c => c.name === catName)?.exercises.map(e => e.name) || [];
+  if (cat.exercise && !knownNames.includes(cat.exercise)) return;
+
   cat.exercise = name;
   cat._otherName = name;
   liftingCache[weekKey].categories[catName] = cat;
@@ -2524,8 +2529,6 @@ function selectLiftOther(weekKey, catName) {
   const weekId = isCoach ? 'coach-week-container' : 'athlete-week-container';
   const dashId = isCoach ? 'coach-dashboard' : 'athlete-dashboard';
   renderSingleWeek(weekId, dashId, role);
-  // Re-focus the input after render
-  setTimeout(() => { const el = document.getElementById(`lift-other-${safeId}`); if (el) el.focus(); }, 0);
 }
 
 function updateLiftOtherName(weekKey, catName, value) {
