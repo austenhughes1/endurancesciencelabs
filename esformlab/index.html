@@ -3442,15 +3442,30 @@ async function loadAnalysesList() {
           '<div class="ma-item-issues">' + issueSummary + '</div>' +
         '</div>' +
         '<div style="display:flex;gap:6px;flex-shrink:0">' +
-          '<button style="padding:8px 18px;font-size:13px;font-weight:700;border-radius:8px;border:1px solid rgba(0,229,200,.35);background:rgba(0,229,200,.1);color:#00e5c8;cursor:pointer" onclick="viewSavedAnalysis(\'' + item.id + '\')">View</button>' +
-          '<button style="padding:8px 18px;font-size:13px;font-weight:700;border-radius:8px;border:1px solid rgba(0,229,200,.35);background:rgba(0,229,200,.1);color:#00e5c8;cursor:pointer" onclick="startCompareFrom(\'' + item.id + '\')">Compare</button>' +
-          '<button style="padding:8px 18px;font-size:13px;font-weight:700;border-radius:8px;border:1px solid rgba(245,80,80,.3);background:rgba(245,80,80,.06);color:#f55050;cursor:pointer" onclick="deleteAnalysis(\'' + item.id + '\')">Delete</button>' +
+          '<button class="ma-action-btn" data-action="view" data-id="' + item.id + '" style="padding:8px 18px;font-size:13px;font-weight:700;border-radius:8px;border:1px solid rgba(0,229,200,.35);background:rgba(0,229,200,.1);color:#00e5c8;cursor:pointer">View</button>' +
+          '<button class="ma-action-btn" data-action="compare" data-id="' + item.id + '" style="padding:8px 18px;font-size:13px;font-weight:700;border-radius:8px;border:1px solid rgba(0,229,200,.35);background:rgba(0,229,200,.1);color:#00e5c8;cursor:pointer">Compare</button>' +
+          '<button class="ma-action-btn" data-action="delete" data-id="' + item.id + '" style="padding:8px 18px;font-size:13px;font-weight:700;border-radius:8px;border:1px solid rgba(245,80,80,.3);background:rgba(245,80,80,.06);color:#f55050;cursor:pointer">Delete</button>' +
         '</div>' +
       '</div>';
     }).join('');
+
+    // Attach event delegation for action buttons
+    listEl.removeEventListener('click', handleAnalysisAction);
+    listEl.addEventListener('click', handleAnalysisAction);
   } catch(e) {
     listEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--bad)">Failed to load: ' + e.message + '</div>';
   }
+}
+
+function handleAnalysisAction(e) {
+  var btn = e.target.closest('.ma-action-btn');
+  if (!btn) return;
+  var action = btn.getAttribute('data-action');
+  var id = btn.getAttribute('data-id');
+  if (!action || !id) return;
+  if (action === 'view') viewSavedAnalysis(id);
+  else if (action === 'compare') startCompareFrom(id);
+  else if (action === 'delete') deleteAnalysis(id);
 }
 
 async function deleteAnalysis(id) {
