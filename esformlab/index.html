@@ -3103,7 +3103,7 @@ function downloadReport() {
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(bodyR, bodyG, bodyB);
-  var punchline = doc.splitTextToSize('Both of these scenarios result in over 2 minutes less ground contact time per hour of running. That is 2 fewer minutes of your body needing to stabilize while the foot is planted, with load going through your muscles and tendons -- and 2 more minutes spent in the air, traveling forward without exerting force into the ground. While not a linear relationship (e.g., a 3% improvement in flight time like the examples above don\'t necessarily mean exactly 3% faster or 3% less energy used), efficiency improvements and injury risk reduction from that kind of shift can be meaningful.', contentW);
+  var punchline = doc.splitTextToSize('Both of these scenarios result in over 2 minutes less ground contact time per hour of running. That is 2 fewer minutes of your body needing to stabilize while the foot is planted, with load going through your muscles and tendons -- and 2 more minutes spent in the air, traveling forward without exerting force into the ground. While not a linear relationship (e.g., a 3% improvement in flight time like the examples above doesn\'t necessarily mean exactly 3% faster or 3% less energy used), efficiency improvements and injury risk reduction from that kind of shift can be meaningful.', contentW);
   doc.text(punchline, margins.left, y);
   y += punchline.length * 4 + 4;
 
@@ -4226,33 +4226,37 @@ function downloadComparisonPDF() {
   }
 
   // Table header
-  var colIssueW = 45, colAW = 25, colBW = 25, colDirW = contentW - colIssueW - colAW - colBW;
+  var colIssueW = 40, colAW = 38, colBW = 38, colDirW = contentW - colIssueW - colAW - colBW;
+  var headerRowH = 14;
   var rowH = 10;
   var tblX = margins.left;
 
   doc.setFillColor(240, 240, 240);
-  doc.rect(tblX, y, contentW, rowH, 'F');
+  doc.rect(tblX, y, contentW, headerRowH, 'F');
   doc.setDrawColor(204, 204, 204);
   doc.setLineWidth(0.2);
   doc.line(tblX, y, tblX + contentW, y);
-  doc.line(tblX, y + rowH, tblX + contentW, y + rowH);
+  doc.line(tblX, y + headerRowH, tblX + contentW, y + headerRowH);
 
-  doc.setFontSize(8);
+  doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(bodyR, bodyG, bodyB);
-  doc.text('Issue', tblX + 3, y + 7);
-  doc.text(dA.name ? dA.name.slice(0, 12) : 'A', tblX + colIssueW + 3, y + 7);
-  doc.text(dB.name ? dB.name.slice(0, 12) : 'B', tblX + colIssueW + colAW + 3, y + 7);
-  doc.text('Change', tblX + colIssueW + colAW + colBW + 3, y + 7);
+  doc.text('Issue', tblX + 3, y + 6);
+  // Wrap session names in header cells
+  var hdrNameA = doc.splitTextToSize(dA.name || 'A', colAW - 4);
+  var hdrNameB = doc.splitTextToSize(dB.name || 'B', colBW - 4);
+  doc.text(hdrNameA, tblX + colIssueW + 2, y + 5);
+  doc.text(hdrNameB, tblX + colIssueW + colAW + 2, y + 5);
+  doc.text('Change', tblX + colIssueW + colAW + colBW + 3, y + 6);
 
-  // Vertical gridlines
-  doc.line(tblX + colIssueW, y, tblX + colIssueW, y + rowH);
-  doc.line(tblX + colIssueW + colAW, y, tblX + colIssueW + colAW, y + rowH);
-  doc.line(tblX + colIssueW + colAW + colBW, y, tblX + colIssueW + colAW + colBW, y + rowH);
-  doc.line(tblX, y, tblX, y + rowH);
-  doc.line(tblX + contentW, y, tblX + contentW, y + rowH);
+  // Vertical gridlines for header
+  doc.line(tblX + colIssueW, y, tblX + colIssueW, y + headerRowH);
+  doc.line(tblX + colIssueW + colAW, y, tblX + colIssueW + colAW, y + headerRowH);
+  doc.line(tblX + colIssueW + colAW + colBW, y, tblX + colIssueW + colAW + colBW, y + headerRowH);
+  doc.line(tblX, y, tblX, y + headerRowH);
+  doc.line(tblX + contentW, y, tblX + contentW, y + headerRowH);
 
-  y += rowH;
+  y += headerRowH;
 
   // Issue rows
   issueKeys.forEach(function(ik) {
@@ -4428,7 +4432,7 @@ function downloadComparisonPDF() {
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(bodyR, bodyG, bodyB);
-  var cmpPunchline = doc.splitTextToSize('Both of these scenarios result in over 2 minutes less ground contact time per hour of running. That is 2 fewer minutes of your body needing to stabilize while the foot is planted, with load going through your muscles and tendons -- and 2 more minutes spent in the air, traveling forward without exerting force into the ground. While not a linear relationship (e.g., a 3% improvement in flight time like the examples above don\'t necessarily mean exactly 3% faster or 3% less energy used), efficiency improvements and injury risk reduction from that kind of shift can be meaningful.', contentW);
+  var cmpPunchline = doc.splitTextToSize('Both of these scenarios result in over 2 minutes less ground contact time per hour of running. That is 2 fewer minutes of your body needing to stabilize while the foot is planted, with load going through your muscles and tendons -- and 2 more minutes spent in the air, traveling forward without exerting force into the ground. While not a linear relationship (e.g., a 3% improvement in flight time like the examples above doesn\'t necessarily mean exactly 3% faster or 3% less energy used), efficiency improvements and injury risk reduction from that kind of shift can be meaningful.', contentW);
   doc.text(cmpPunchline, margins.left, y);
   y += cmpPunchline.length * 4 + 4;
 
@@ -4462,36 +4466,40 @@ function downloadComparisonPDF() {
   y += cmpDiscH + 8;
 
   // Table
-  var cmpColPhase = 28, cmpColMetric = 22;
-  var cmpColVal = 18, cmpColDelta = 22;
+  var cmpColPhase = 26, cmpColMetric = 20;
+  var cmpColVal = 28, cmpColDelta = 22;
   var cmpCellH = 7;
   var cmpTblX = margins.left;
   var cmpTblW = contentW;
+  var cmpHdrH = 14;
 
   // Header
   doc.setFillColor(240, 240, 240);
-  doc.rect(cmpTblX, y, cmpTblW, 8, 'F');
+  doc.rect(cmpTblX, y, cmpTblW, cmpHdrH, 'F');
   doc.setDrawColor(204, 204, 204);
   doc.setLineWidth(0.2);
   doc.line(cmpTblX, y, cmpTblX + cmpTblW, y);
-  doc.line(cmpTblX, y + 8, cmpTblX + cmpTblW, y + 8);
+  doc.line(cmpTblX, y + cmpHdrH, cmpTblX + cmpTblW, y + cmpHdrH);
 
-  doc.setFontSize(7);
+  doc.setFontSize(6.5);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(bodyR, bodyG, bodyB);
-  doc.text('Phase', cmpTblX + 2, y + 5.5);
-  doc.text('Metric', cmpTblX + cmpColPhase + 2, y + 5.5);
-  doc.text(dA.name ? dA.name.slice(0, 10) : 'A', cmpTblX + cmpColPhase + cmpColMetric + 2, y + 5.5);
-  doc.text(dB.name ? dB.name.slice(0, 10) : 'B', cmpTblX + cmpColPhase + cmpColMetric + cmpColVal + 2, y + 5.5);
-  doc.text('Change', cmpTblX + cmpColPhase + cmpColMetric + cmpColVal * 2 + 2, y + 5.5);
+  doc.text('Phase', cmpTblX + 2, y + 5);
+  doc.text('Metric', cmpTblX + cmpColPhase + 2, y + 5);
+  // Wrap session names
+  var cmpHdrA = doc.splitTextToSize(dA.name || 'A', cmpColVal - 4);
+  var cmpHdrB = doc.splitTextToSize(dB.name || 'B', cmpColVal - 4);
+  doc.text(cmpHdrA, cmpTblX + cmpColPhase + cmpColMetric + 2, y + 4);
+  doc.text(cmpHdrB, cmpTblX + cmpColPhase + cmpColMetric + cmpColVal + 2, y + 4);
+  doc.text('Change', cmpTblX + cmpColPhase + cmpColMetric + cmpColVal * 2 + 2, y + 5);
 
   // Header gridlines
   var cmpCols = [0, cmpColPhase, cmpColPhase + cmpColMetric, cmpColPhase + cmpColMetric + cmpColVal, cmpColPhase + cmpColMetric + cmpColVal * 2, cmpTblW];
   cmpCols.forEach(function(cx) {
-    doc.line(cmpTblX + cx, y, cmpTblX + cx, y + 8);
+    doc.line(cmpTblX + cx, y, cmpTblX + cx, y + cmpHdrH);
   });
 
-  y += 8;
+  y += cmpHdrH;
 
   // Data rows
   var cmpSidePhases = ['l_foot','r_foot','l_toe','r_toe','mid','peak_kf','swing'];
