@@ -720,16 +720,23 @@ const METRIC_ROWS = [
   {key:'rElbow',label:'R elbow',    dot:'var(--right)', fmt:v=>`${v.toFixed(0)}°`},
   {key:'lFoot', label:'L foot off.',dot:'var(--left)',  fmt:v=>`${v>0?'+':''}${v.toFixed(2)}`},
   {key:'rFoot', label:'R foot off.',dot:'var(--right)', fmt:v=>`${v>0?'+':''}${v.toFixed(2)}`},
+  {key:'plantKnee', label:'Stance knee', dot:'var(--cyan)', fmt:v=>`${v.toFixed(0)}°`},
+  {key:'plantHip', label:'Stance hip', dot:'var(--cyan)', fmt:v=>`${v.toFixed(0)}°`},
+  {key:'leadKnee', label:'Lead knee', dot:'var(--cyan)', fmt:v=>`${v.toFixed(0)}°`},
+  {key:'leadHip', label:'Lead hip', dot:'var(--cyan)', fmt:v=>`${v.toFixed(0)}°`},
+  {key:'leadFoot', label:'Lead foot off.', dot:'var(--cyan)', fmt:v=>`${(v>0?'+':'')+v.toFixed(2)}`},
+  {key:'trailHip', label:'Trail hip', dot:'var(--cyan)', fmt:v=>`${v.toFixed(0)}°`},
+  {key:'nearElbow', label:'Elbow', dot:'var(--cyan)', fmt:v=>`${v.toFixed(0)}°`},
 ];
 
 const PHASE_METRICS = {
-  l_foot:  ['trunk','lKnee','rKnee','lHip','rHip','lFoot','lElbow'],
-  r_foot:  ['trunk','lKnee','rKnee','lHip','rHip','rFoot','rElbow'],
-  l_toe:   ['trunk','lKnee','rKnee','lHip','rHip','lElbow'],
-  r_toe:   ['trunk','lKnee','rKnee','lHip','rHip','rElbow'],
-  mid:     ['trunk','lKnee','rKnee','lHip','rHip','lElbow','rElbow'],
-  peak_kf: ['trunk','lKnee','rKnee','lHip','rHip','lElbow'],
-  swing:   ['trunk','lKnee','rKnee','lHip','rHip','lFoot','lElbow'],
+  l_foot:  ['trunk','lKnee','lHip','lFoot','lElbow'],
+  r_foot:  ['trunk','rKnee','rHip','rFoot','rElbow'],
+  l_toe:   ['trunk','lHip','lKnee','lElbow'],
+  r_toe:   ['trunk','rHip','rKnee','rElbow'],
+  mid:     ['trunk','plantKnee','plantHip','nearElbow'],
+  peak_kf: ['trunk','trailHip','nearElbow'],
+  swing:   ['trunk','leadKnee','leadHip','leadFoot','nearElbow'],
 };
 function isRelevant(phaseKey, metricKey){ const pm=PHASE_METRICS[phaseKey]; return !pm || pm.includes(metricKey); }
 
@@ -962,6 +969,7 @@ async function analyzeCard(key){
   if(!poses||!poses.length){try{poses=await detector.estimatePoses(videoEl);}catch(e){}}
   if(!poses||!poses.length){if(badge){badge.className='pc-badge manual';badge.textContent='no pose';}if(loading)loading.classList.remove('show');return;}
   const kps=poses[0].keypoints;ph.kps=kps;ph.metrics=computeMetrics(kps);ph.sideView=isSideView(kps);
+  if(ph.sideView && (key==='mid'||key==='peak_kf'||key==='swing')){addFunctionalMetrics(ph.metrics,key,kps);}
   drawPose(ctx,kps,W,H);
   if(!ph.sideView){renderSideViewWarning(key);}else{renderMiniMetrics(key,ph.metrics);updateSummaryCol(key);}updateSaveSection();
   if(badge){badge.className='pc-badge ok';badge.textContent='analyzed';}if(loading)loading.classList.remove('show');
@@ -1023,6 +1031,7 @@ async function epReanalyze(){
   loading.classList.remove('show');
   if(!poses||!poses.length){document.getElementById('ep-metrics').innerHTML='<div class="ep-no-data">No pose detected — try a different frame</div>';btn.disabled=false;btn.textContent='↻ Analyze';epAnalyzing=false;return;}
   const kps=poses[0].keypoints;const ph=phases[expandKey];ph.kps=kps;ph.metrics=computeMetrics(kps);ph.detected=true;ph.sideView=isSideView(kps);
+  if(ph.sideView && (expandKey==='mid'||expandKey==='peak_kf'||expandKey==='swing')){addFunctionalMetrics(ph.metrics,expandKey,kps);}
   drawPose(ctx,kps,W,H);
   if(!ph.sideView){
     document.getElementById('ep-metrics').innerHTML=
@@ -1079,6 +1088,7 @@ function swapLegs(){
   const kps = ph.kps;
   for(let i=1; i<=15; i+=2){ const tmp=kps[i]; kps[i]=kps[i+1]; kps[i+1]=tmp; }
   ph.metrics = computeMetrics(kps);
+  if(expandKey==='mid'||expandKey==='peak_kf'||expandKey==='swing'){addFunctionalMetrics(ph.metrics,expandKey,kps);}
   const canvas = document.getElementById('ep-canvas');
   const W = canvas.width, H = canvas.height;
   const ctx = canvas.getContext('2d');
@@ -1156,11 +1166,57 @@ function computeMetrics(kps){
   return m;
 }
 
+function addFunctionalMetrics(metrics, phaseKey, kps) {
+  if (!metrics || !kps) return;
+  const g4 = (i) => (kps[i] && kps[i].score >= MIN_CONF) ? kps[i] : null;
+
+  // Determine near-camera elbow by comparing avg confidence of shoulder/elbow/wrist
+  const lSh = g4(5), rSh = g4(6), lEl = g4(7), rEl = g4(8), lWr = g4(9), rWr = g4(10);
+  let lArmConf = 0, rArmConf = 0, lArmN = 0, rArmN = 0;
+  if (lSh) { lArmConf += lSh.score; lArmN++; }
+  if (lEl) { lArmConf += lEl.score; lArmN++; }
+  if (lWr) { lArmConf += lWr.score; lArmN++; }
+  if (rSh) { rArmConf += rSh.score; rArmN++; }
+  if (rEl) { rArmConf += rEl.score; rArmN++; }
+  if (rWr) { rArmConf += rWr.score; rArmN++; }
+  const lArmAvg = lArmN > 0 ? lArmConf / lArmN : 0;
+  const rArmAvg = rArmN > 0 ? rArmConf / rArmN : 0;
+  const nearSide = (lArmAvg >= rArmAvg) ? 'l' : 'r';
+  if (metrics[nearSide + 'Elbow'] != null) {
+    metrics.nearElbow = metrics[nearSide + 'Elbow'];
+  }
+
+  // Determine plant/lead/trail legs based on phase
+  const lAnkle = g4(15), rAnkle = g4(16);
+  const lAnkleY = lAnkle ? lAnkle.y : -Infinity;
+  const rAnkleY = rAnkle ? rAnkle.y : -Infinity;
+
+  if (phaseKey === 'mid') {
+    // Plant leg = the side with the lower ankle (higher y in image coords = on ground)
+    const plantSide = (lAnkleY >= rAnkleY) ? 'l' : 'r';
+    if (metrics[plantSide + 'Knee'] != null) metrics.plantKnee = metrics[plantSide + 'Knee'];
+    if (metrics[plantSide + 'Hip'] != null) metrics.plantHip = metrics[plantSide + 'Hip'];
+  } else if (phaseKey === 'swing') {
+    // Lead leg = the side with higher knee angle (more extended)
+    const lK = metrics.lKnee, rK = metrics.rKnee;
+    const leadSide = (lK != null && rK != null) ? (lK >= rK ? 'l' : 'r') : (lK != null ? 'l' : 'r');
+    if (metrics[leadSide + 'Knee'] != null) metrics.leadKnee = metrics[leadSide + 'Knee'];
+    if (metrics[leadSide + 'Hip'] != null) metrics.leadHip = metrics[leadSide + 'Hip'];
+    if (metrics[leadSide + 'Foot'] != null) metrics.leadFoot = metrics[leadSide + 'Foot'];
+  } else if (phaseKey === 'peak_kf') {
+    // Lead leg = the side with lower knee angle (more flexed, the swing leg). Trail = stance leg.
+    const lK2 = metrics.lKnee, rK2 = metrics.rKnee;
+    const leadSide2 = (lK2 != null && rK2 != null) ? (lK2 <= rK2 ? 'l' : 'r') : (lK2 != null ? 'l' : 'r');
+    const trailSide = (leadSide2 === 'l') ? 'r' : 'l';
+    if (metrics[trailSide + 'Hip'] != null) metrics.trailHip = metrics[trailSide + 'Hip'];
+  }
+}
+
 // Summary table
 function buildSummaryTable(){
   const tbl=document.getElementById('summary-table');
   tbl.querySelector('thead').innerHTML=`<tr><th>Metric</th>${SUMMARY_COL_ORDER.map((k,i)=>{const ph=phases[k];const idx=PHASE_DEFS.findIndex(d=>d.key===k);const gs=GROUP_STARTS.has(k)?' th-group-start':'';const side=ph?.side==='left'?' th-left':ph?.side==='right'?' th-right':'';return `<th class="${gs}${side}" onclick="openExpand('${k}')">${idx+1}. ${ph?.label||k}${!ph?.detected?' ⚠':''}</th>`;}).join('')}</tr>`;
-  tbl.querySelector('tbody').innerHTML=METRIC_ROWS.map(r=>`<tr><td class="row-label">${r.label}</td>${SUMMARY_COL_ORDER.map(k=>`<td class="${GROUP_STARTS.has(k)?'td-group-start':''}" id="sc-${k}-${r.key}"><span class="sv na">—</span></td>`).join('')}</tr>`).join('');
+  tbl.querySelector('tbody').innerHTML=METRIC_ROWS.filter(r=>SUMMARY_COL_ORDER.some(k=>isRelevant(k,r.key))).map(r=>`<tr><td class="row-label">${r.label}</td>${SUMMARY_COL_ORDER.map(k=>`<td class="${GROUP_STARTS.has(k)?'td-group-start':''}" id="sc-${k}-${r.key}"><span class="sv na">—</span></td>`).join('')}</tr>`).join('');
 }
 function updateSummaryCol(key){
   const m=phases[key]?.metrics;if(!m)return;
@@ -1201,6 +1257,13 @@ const PLAUSIBILITY = {
   rElbow: {min:20,   max:175,  label:'R elbow angle'},
   lFoot:  {min:-1.5, max:1.5,  label:'L foot offset'},
   rFoot:  {min:-1.5, max:1.5,  label:'R foot offset'},
+  plantKnee: {min:30, max:185, label:'Stance knee angle'},
+  plantHip: {min:60, max:210, label:'Stance hip angle'},
+  leadKnee: {min:30, max:185, label:'Lead knee angle'},
+  leadHip: {min:60, max:210, label:'Lead hip angle'},
+  leadFoot: {min:-1.5, max:1.5, label:'Lead foot offset'},
+  trailHip: {min:60, max:210, label:'Trail hip angle'},
+  nearElbow: {min:20, max:175, label:'Near elbow angle'},
 };
 
 // IQR-based outlier detection against existing dataset for this sex
@@ -1267,12 +1330,14 @@ async function vetSessionData(){
     await Promise.all(checks);
   }
 
-  // 3. Symmetry check — flag large L/R differences
+  // 3. Symmetry check — flag large L/R differences (only for L/R-specific phases)
   const symPairs = [
     ['lKnee','rKnee','Knee angle'],['lHip','rHip','Hip angle'],
     ['lElbow','rElbow','Elbow angle'],
   ];
+  const lrPhases = new Set(['l_foot','r_foot','l_toe','r_toe']);
   PHASE_DEFS.forEach(def=>{
+    if(!lrPhases.has(def.key)) return;
     const m=phases[def.key]?.metrics;if(!m)return;
     symPairs.forEach(([l,r,label])=>{
       const lv=m[l],rv=m[r];
