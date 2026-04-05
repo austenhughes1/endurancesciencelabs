@@ -925,7 +925,7 @@ body.bar-showing #screen-phases{padding-bottom:120px}
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <script>
 'use strict';
@@ -1082,8 +1082,29 @@ function initAuth() {
   auth2.onAuthStateChanged(function(user) {
     currentUser = user;
     updateAuthUI();
-    if (user) loadAnalysesList();
+    if (user) {
+      loadAnalysesList();
+      loadUserProfile(user.uid);
+    }
   });
+}
+
+function loadUserProfile(uid) {
+  try {
+    var db = firebase.firestore();
+    db.collection('users').doc(uid).get().then(function(doc) {
+      if (doc.exists) {
+        var data = doc.data();
+        if (data.gender && (data.gender === 'male' || data.gender === 'female') && !selectedSex) {
+          setSex(data.gender);
+        }
+      }
+    }).catch(function(e) {
+      console.warn('Could not load user profile:', e.message);
+    });
+  } catch(e) {
+    console.warn('loadUserProfile error:', e.message);
+  }
 }
 
 function signInWithGoogle() {
@@ -1455,6 +1476,8 @@ function checkAllAnalyzed(){
 }
 
 function completeAnalysis(){
+  // Close expand overlay if open
+  closeExpand();
   // Run detection rules
   var issues = detectIssues();
   lastIssues = issues;
@@ -2165,13 +2188,18 @@ function computeFrontBackMetrics(kps) {
   }
 
   // Knee valgus: medial deviation from hip-ankle line
+  // Only assess the STANCE (planted) leg — the swing leg is in the air
+  // and will produce false positives. Stance leg = the one with the
+  // lower ankle (higher y in image coords).
   if(lHi && rHi) {
     var hipWidth = Math.abs(lHi.x - rHi.x);
     var bodyMidX2 = (lHi.x + rHi.x) / 2;
     if(hipWidth > 10) {
-      // Left leg
-      if(lKn && lAn) {
-        // Expected knee x on the line from lHi to lAn
+      var lAnkleY = lAn ? lAn.y : -Infinity;
+      var rAnkleY = rAn ? rAn.y : -Infinity;
+      var stanceSide = (lAnkleY >= rAnkleY) ? 'left' : 'right';
+
+      if(stanceSide === 'left' && lKn && lAn) {
         var tL = 0;
         var totalDist = Math.abs(lAn.y - lHi.y);
         if(totalDist > 5) {
@@ -2180,12 +2208,11 @@ function computeFrontBackMetrics(kps) {
         }
         var expectedKneeX_L = lHi.x + tL * (lAn.x - lHi.x);
         var deviationL = lKn.x - expectedKneeX_L;
-        // For left leg: medial = toward bodyMidX2 (rightward if left hip is left of center)
         var medialDirL = (bodyMidX2 > lHi.x) ? 1 : -1;
         result.lKneeValgus = Math.max(0, medialDirL * deviationL / hipWidth);
+        result.stanceSide = 'left';
       }
-      // Right leg
-      if(rKn && rAn) {
+      if(stanceSide === 'right' && rKn && rAn) {
         var tR = 0;
         var totalDistR = Math.abs(rAn.y - rHi.y);
         if(totalDistR > 5) {
@@ -2194,9 +2221,9 @@ function computeFrontBackMetrics(kps) {
         }
         var expectedKneeX_R = rHi.x + tR * (rAn.x - rHi.x);
         var deviationR = rKn.x - expectedKneeX_R;
-        // For right leg: medial = toward bodyMidX2 (leftward if right hip is right of center)
         var medialDirR = (bodyMidX2 < rHi.x) ? -1 : 1;
         result.rKneeValgus = Math.max(0, medialDirR * deviationR / hipWidth);
+        result.stanceSide = 'right';
       }
     }
   }
