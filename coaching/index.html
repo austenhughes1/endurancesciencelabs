@@ -827,7 +827,7 @@ async function loadUserDoc(user) {
   const doc = await db.collection('users').doc(user.uid).get();
   if (!doc.exists) {
     userDoc = {
-      email: user.email, displayName: user.email.split('@')[0],
+      email: user.email, displayName: user.displayName || user.email.split('@')[0],
       role: 'athlete', coachUid: null, stravaConnected: false, raceDate: null, raceName: null
     };
     await db.collection('users').doc(user.uid).set({
@@ -838,7 +838,7 @@ async function loadUserDoc(user) {
   }
 
   isCoach = userDoc.role === 'coach';
-  document.getElementById('hdr-user').textContent = userDoc.displayName || user.email;
+  document.getElementById('hdr-user').textContent = userDoc.displayName || user.displayName || user.email;
 
   const badge = document.getElementById('role-badge');
   badge.textContent = isCoach ? 'Coach' : 'Athlete';
