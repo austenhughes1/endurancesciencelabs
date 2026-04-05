@@ -2998,12 +2998,12 @@ function downloadReport() {
 
   // Bullet list of stride principles
   var stridePrinciples = [
-    {title: 'Low ground contact time', desc: 'Less time on the ground each step means less load and more time traveling forward in the air.'},
+    {title: 'Low ground contact time', desc: 'Less time on the ground each step, on average, is correlated with lower tissue loads and more greater running economy.'},
     {title: 'A cadence that fits your body', desc: 'Not too low (heavy, plodding steps) and not too high (spinning without covering ground). Most runners do well in the 170-185 range, but taller runners may naturally be lower.'},
     {title: 'Stride length that matches your speed naturally', desc: 'Longer is not always better. Stride length should come from push-off power and flight time, not from reaching forward.'},
-    {title: 'Appropriate vertical oscillation', desc: 'Some up-and-down movement is necessary, but you want a good ratio of stride length to vertical bounce (often called "vertical ratio").'},
-    {title: 'A slight forward lean from the ankles', desc: 'Not from the waist -- to work with gravity rather than against it.'},
-    {title: 'Compact, efficient arm carriage', desc: 'Driving from the elbows to help produce vertical lift and optimal knee drive each stride, not swinging wide or low.'}
+    {title: 'Appropriate vertical oscillation', desc: 'Running is all about producing vertical force. Some up-and-down movement is necessary and good, but you still want a good ratio of stride length to vertical bounce (often called "vertical ratio").'},
+    {title: 'A slight forward lean from the ankles', desc: 'Not from the waist -- work with gravity rather than against it.'},
+    {title: 'Compact, efficient arm carriage', desc: 'Driving from the elbows to help produce vertical lift and optimal knee drive each stride, not swinging wide, low or far away from your body.'}
   ];
 
   stridePrinciples.forEach(function(sp) {
@@ -3037,7 +3037,7 @@ function downloadReport() {
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(bodyR, bodyG, bodyB);
-  var trackingText = doc.splitTextToSize('If you have a running watch or wearable that measures stride length, ground contact time, and vertical oscillation, you can use those numbers to track how form cues are working in real time. For example, if reducing your elbow angle and driving from the elbows produces a more efficient stride, you would expect to see a longer stride length, higher vertical oscillation, a similar vertical ratio, and reduced ground contact time.', contentW);
+  var trackingText = doc.splitTextToSize('If you have a running watch or wearable that measures stride length, ground contact time, and vertical oscillation, you can use those numbers to track how form cues are working in real time. For example, if reducing your elbow angle and driving from the elbows produces a more efficient stride, you would expect to see a longer stride length, higher vertical oscillation, a similar or improved vertical ratio, and reduced ground contact time.', contentW);
   doc.text(trackingText, margins.left, y);
   y += trackingText.length * 4 + 6;
 
@@ -3090,8 +3090,8 @@ function downloadReport() {
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(mutedR, mutedG, mutedB);
-  doc.text('Cadence: 170 to 175 spm', boxBx + 4, boxY + 11);
-  doc.text('Ground contact: 250 to 231 ms', boxBx + 4, boxY + 15);
+  doc.text('Cadence: 165 to 170 spm', boxBx + 4, boxY + 11);
+  doc.text('Ground contact: 250 to 230 ms', boxBx + 4, boxY + 15);
 
   y = boxY + boxH + 6;
 
@@ -3099,7 +3099,7 @@ function downloadReport() {
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(bodyR, bodyG, bodyB);
-  var punchline = doc.splitTextToSize('Both of these scenarios result in over 2 minutes less ground contact time per hour of running. That is 2 fewer minutes of load going through your muscles and tendons -- and 2 more minutes spent in the air, traveling forward efficiently. The energy savings and injury risk reduction from that kind of shift are meaningful, and they come from changes that most runners would barely notice in the moment.', contentW);
+  var punchline = doc.splitTextToSize('Both of these scenarios result in over 2 minutes less ground contact time per hour of running. That is 2 fewer minutes of your body needing to stabilize while the foot is planted, with load going through your muscles and tendons -- and 2 more minutes spent in the air, traveling forward without exerting force into the ground. While not a linear relationship (e.g., a 3% improvement in flight time like the examples above don\'t necessarily mean exactly 3% faster or 3% less energy used), efficiency improvements and injury risk reduction from that kind of shift can be meaningful.', contentW);
   doc.text(punchline, margins.left, y);
   y += punchline.length * 4 + 4;
 
@@ -4290,12 +4290,12 @@ function downloadComparisonPDF() {
   y += cmpIntro2.length * 4 + 6;
 
   var cmpPrinciples = [
-    {title: 'Low ground contact time', desc: 'Less time on the ground each step means less load and more time traveling forward in the air.'},
+    {title: 'Low ground contact time', desc: 'Less time on the ground each step, on average, is correlated with lower tissue loads and more greater running economy.'},
     {title: 'A cadence that fits your body', desc: 'Not too low (heavy, plodding steps) and not too high (spinning without covering ground). Most runners do well in the 170-185 range, but taller runners may naturally be lower.'},
     {title: 'Stride length that matches your speed naturally', desc: 'Longer is not always better. Stride length should come from push-off power and flight time, not from reaching forward.'},
-    {title: 'Appropriate vertical oscillation', desc: 'Some up-and-down movement is necessary, but you want a good ratio of stride length to vertical bounce (often called "vertical ratio").'},
-    {title: 'A slight forward lean from the ankles', desc: 'Not from the waist -- to work with gravity rather than against it.'},
-    {title: 'Compact, efficient arm carriage', desc: 'Driving from the elbows to help produce vertical lift and optimal knee drive each stride, not swinging wide or low.'}
+    {title: 'Appropriate vertical oscillation', desc: 'Running is all about producing vertical force. Some up-and-down movement is necessary and good, but you still want a good ratio of stride length to vertical bounce (often called "vertical ratio").'},
+    {title: 'A slight forward lean from the ankles', desc: 'Not from the waist -- work with gravity rather than against it.'},
+    {title: 'Compact, efficient arm carriage', desc: 'Driving from the elbows to help produce vertical lift and optimal knee drive each stride, not swinging wide, low or far away from your body.'}
   ];
   cmpPrinciples.forEach(function(sp) {
     y = pdfCheckPage(doc, y, 14, margins);
@@ -4312,6 +4312,81 @@ function downloadComparisonPDF() {
     doc.text(dLines, margins.left + 6, y);
     y += dLines.length * 4 + 4;
   });
+
+  // Tracking section
+  y = pdfCheckPage(doc, y, 30, margins);
+  y += 4;
+  doc.setFontSize(13);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(bodyR, bodyG, bodyB);
+  doc.text('Tracking your progress with wearable data', margins.left, y);
+  y += 6;
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(bodyR, bodyG, bodyB);
+  var cmpTrackingText = doc.splitTextToSize('If you have a running watch or wearable that measures stride length, ground contact time, and vertical oscillation, you can use those numbers to track how form cues are working in real time. For example, if reducing your elbow angle and driving from the elbows produces a more efficient stride, you would expect to see a longer stride length, higher vertical oscillation, a similar or improved vertical ratio, and reduced ground contact time.', contentW);
+  doc.text(cmpTrackingText, margins.left, y);
+  y += cmpTrackingText.length * 4 + 6;
+
+  // Why small changes add up
+  y = pdfCheckPage(doc, y, 45, margins);
+  doc.setFontSize(13);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(bodyR, bodyG, bodyB);
+  doc.text('Why small changes add up', margins.left, y);
+  y += 6;
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(bodyR, bodyG, bodyB);
+  var cmpSmallChanges = doc.splitTextToSize('When a form change reduces ground contact time and shifts cadence closer to your optimal range, the cumulative effect can be surprisingly large. Consider these examples:', contentW);
+  doc.text(cmpSmallChanges, margins.left, y);
+  y += cmpSmallChanges.length * 4 + 5;
+
+  // Example boxes side by side
+  var cmpBoxW = (contentW - 6) / 2;
+  var cmpBoxH = 22;
+  var cmpBoxY = y;
+
+  doc.setFillColor(245, 248, 252);
+  doc.roundedRect(margins.left, cmpBoxY, cmpBoxW, cmpBoxH, 2, 2, 'F');
+  doc.setDrawColor(210, 215, 225);
+  doc.setLineWidth(0.2);
+  doc.roundedRect(margins.left, cmpBoxY, cmpBoxW, cmpBoxH, 2, 2, 'S');
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(accentR, accentG, accentB);
+  doc.text('EXAMPLE A: HIGH CADENCE RUNNER', margins.left + 4, cmpBoxY + 5);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(mutedR, mutedG, mutedB);
+  doc.text('Cadence: 190 to 185 spm', margins.left + 4, cmpBoxY + 11);
+  doc.text('Ground contact: 230 to 225 ms', margins.left + 4, cmpBoxY + 15);
+
+  var cmpBoxBx = margins.left + cmpBoxW + 6;
+  doc.setFillColor(245, 248, 252);
+  doc.roundedRect(cmpBoxBx, cmpBoxY, cmpBoxW, cmpBoxH, 2, 2, 'F');
+  doc.setDrawColor(210, 215, 225);
+  doc.roundedRect(cmpBoxBx, cmpBoxY, cmpBoxW, cmpBoxH, 2, 2, 'S');
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(accentR, accentG, accentB);
+  doc.text('EXAMPLE B: LOW CADENCE RUNNER', cmpBoxBx + 4, cmpBoxY + 5);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(mutedR, mutedG, mutedB);
+  doc.text('Cadence: 165 to 170 spm', cmpBoxBx + 4, cmpBoxY + 11);
+  doc.text('Ground contact: 250 to 230 ms', cmpBoxBx + 4, cmpBoxY + 15);
+
+  y = cmpBoxY + cmpBoxH + 6;
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(bodyR, bodyG, bodyB);
+  var cmpPunchline = doc.splitTextToSize('Both of these scenarios result in over 2 minutes less ground contact time per hour of running. That is 2 fewer minutes of your body needing to stabilize while the foot is planted, with load going through your muscles and tendons -- and 2 more minutes spent in the air, traveling forward without exerting force into the ground. While not a linear relationship (e.g., a 3% improvement in flight time like the examples above don\'t necessarily mean exactly 3% faster or 3% less energy used), efficiency improvements and injury risk reduction from that kind of shift can be meaningful.', contentW);
+  doc.text(cmpPunchline, margins.left, y);
+  y += cmpPunchline.length * 4 + 4;
 
   // ====== PAGE 3: Angle Comparison Table ======
   doc.addPage();
