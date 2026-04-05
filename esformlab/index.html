@@ -3189,6 +3189,179 @@ function downloadReport() {
   doc.setLineWidth(0.2);
   doc.line(tableX, y, tableX + contentW, y);
 
+  // ====== BELL CURVE DETAIL PAGES ======
+  // One page per phase with relevant metrics, each showing a bell curve + description
+  var sidePhaseKeys2 = SUMMARY_COL_ORDER;
+  sidePhaseKeys2.forEach(function(pk) {
+    var phaseDef = PHASE_DEFS.find(function(d) { return d.key === pk; });
+    if (!phaseDef) return;
+    var phaseData = phases[pk];
+    if (!phaseData || !phaseData.metrics) return;
+    var pm = phaseData.metrics;
+
+    // Get relevant metrics for this phase
+    var relevantRows = METRIC_ROWS.filter(function(r) { return isRelevant(pk, r.key) && pm[r.key] != null; });
+    if (relevantRows.length === 0) return;
+
+    doc.addPage();
+    pdfDrawFooter(doc, margins);
+    y = margins.top;
+
+    // Phase header
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(accentR, accentG, accentB);
+    doc.text(phaseDef.label, margins.left, y);
+    y += 5;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(mutedR, mutedG, mutedB);
+    doc.text(phaseDef.desc, margins.left, y);
+    y += 8;
+
+    // Separator
+    doc.setDrawColor(accentR, accentG, accentB);
+    doc.setLineWidth(0.4);
+    doc.line(margins.left, y, pageW - margins.right, y);
+    y += 10;
+
+    // Each metric
+    relevantRows.forEach(function(mr) {
+      var val = pm[mr.key];
+      if (val == null) return;
+
+      // Check if we need a new page (each metric block ~50mm tall)
+      y = pdfCheckPage(doc, y, 52, margins);
+
+      // Metric name
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(bodyR, bodyG, bodyB);
+      doc.text(mr.label || mr.key, margins.left, y);
+
+      // Measured value on the right
+      var fmtVal = mr.fmt ? mr.fmt(val) : val.toFixed(1);
+      var posLabel = positionLabel(val, mr.key, pk);
+      doc.setFontSize(10);
+      doc.setFont('courier', 'bold');
+      doc.text(fmtVal + (posLabel ? '  (' + posLabel + ')' : ''), pageW - margins.right, y, {align: 'right'});
+      y += 5;
+
+      // Bio description
+      var bio = METRIC_BIO[mr.key] || '';
+      if (bio) {
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(mutedR, mutedG, mutedB);
+        var bioLines = doc.splitTextToSize(bio, contentW);
+        doc.text(bioLines, margins.left, y);
+        y += bioLines.length * 3.5 + 2;
+      }
+
+      // Bell curve drawing
+      var stats = getRangeStats(pk, mr.key);
+      var rng = getRange(pk, mr.key);
+      var curveMean = stats.mean;
+      var curveSD = stats.sd;
+      var greenLo = rng.green[0];
+      var greenHi = rng.green[1];
+
+      // Curve dimensions in mm
+      var curveW = contentW * 0.7;
+      var curveH = 18;
+      var curveX = margins.left + (contentW - curveW) / 2;
+      var curveBaseY = y + curveH + 2;
+      var xMin = curveMean - 3.5 * curveSD;
+      var xRange = 7 * curveSD;
+
+      var toXmm = function(v) { return curveX + (v - xMin) / xRange * curveW; };
+
+      // Draw shaded reference band
+      var bandLo = Math.max(toXmm(greenLo), curveX);
+      var bandHi = Math.min(toXmm(greenHi), curveX + curveW);
+      if (bandHi > bandLo) {
+        doc.setFillColor(200, 215, 230);
+        doc.rect(bandLo, y + 2, bandHi - bandLo, curveH, 'F');
+      }
+
+      // Draw Gaussian curve as a polyline
+      var curvePts = [];
+      for (var ci = 0; ci <= 80; ci++) {
+        var xVal = xMin + (xRange * ci / 80);
+        var z = (xVal - curveMean) / curveSD;
+        var gY = Math.exp(-0.5 * z * z);
+        curvePts.push({
+          px: curveX + (ci / 80) * curveW,
+          py: curveBaseY - gY * curveH
+        });
+      }
+
+      // Fill under curve using thin vertical strips (safe for all jsPDF versions)
+      doc.setFillColor(230, 235, 245);
+      var stripW = curveW / 80;
+      for (var si = 0; si < curvePts.length - 1; si++) {
+        var stripH = curveBaseY - curvePts[si].py;
+        if (stripH > 0.1) {
+          doc.rect(curvePts[si].px, curvePts[si].py, stripW + 0.1, stripH, 'F');
+        }
+      }
+
+      // Curve outline
+      doc.setDrawColor(150, 165, 185);
+      doc.setLineWidth(0.35);
+      for (var cl = 1; cl < curvePts.length; cl++) {
+        doc.line(curvePts[cl - 1].px, curvePts[cl - 1].py, curvePts[cl].px, curvePts[cl].py);
+      }
+
+      // Athlete value marker (dashed vertical line)
+      var valXmm = Math.max(curveX, Math.min(curveX + curveW, toXmm(val)));
+      doc.setDrawColor(bodyR, bodyG, bodyB);
+      doc.setLineWidth(0.4);
+      // Draw dashed line manually with small segments
+      var dashLen = 1.2, gapLen = 0.8;
+      var dashY = y + 1;
+      while (dashY < curveBaseY) {
+        var dashEnd = Math.min(dashY + dashLen, curveBaseY);
+        doc.line(valXmm, dashY, valXmm, dashEnd);
+        dashY = dashEnd + gapLen;
+      }
+
+      // "Your value" label above the marker
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(bodyR, bodyG, bodyB);
+      doc.text(fmtVal, valXmm, y, {align: 'center'});
+
+      // "Elite avg" label below the curve center
+      var meanXmm = toXmm(curveMean);
+      doc.setFontSize(6.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(mutedR, mutedG, mutedB);
+      doc.text('Elite avg', meanXmm, curveBaseY + 3.5, {align: 'center'});
+
+      // Small tick at mean
+      doc.setDrawColor(mutedR, mutedG, mutedB);
+      doc.setLineWidth(0.2);
+      doc.line(meanXmm, curveBaseY - 0.5, meanXmm, curveBaseY + 0.5);
+
+      // "Reference band" label
+      if (bandHi > bandLo) {
+        var bandCenterX = (bandLo + bandHi) / 2;
+        doc.setFontSize(6);
+        doc.setTextColor(140, 155, 175);
+        doc.text('Reference range', bandCenterX, curveBaseY + 7, {align: 'center'});
+      }
+
+      y = curveBaseY + 12;
+
+      // Light separator between metrics
+      doc.setDrawColor(230, 230, 230);
+      doc.setLineWidth(0.15);
+      doc.line(margins.left + 10, y, pageW - margins.right - 10, y);
+      y += 8;
+    });
+  });
+
   // ====== Update all page footers with total page count ======
   var totalPages = doc.internal.getNumberOfPages();
   for (var p = 1; p <= totalPages; p++) {
