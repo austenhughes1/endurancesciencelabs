@@ -1135,10 +1135,24 @@ function updateAuthUI() {
 
   if (currentUser) {
     if (indicator) indicator.style.display = 'inline-flex';
-    var displayName = currentUser.displayName || (currentUser.providerData && currentUser.providerData[0] ? currentUser.providerData[0].displayName : null) || 'User';
-    if (nameEl) nameEl.textContent = displayName;
     var photoURL = currentUser.photoURL || (currentUser.providerData && currentUser.providerData[0] ? currentUser.providerData[0].photoURL : null);
     if (avatarEl && photoURL) { avatarEl.src = photoURL; avatarEl.style.display = 'block'; }
+    // Try Auth displayName first, then fetch from Firestore user doc
+    var authName = currentUser.displayName || (currentUser.providerData && currentUser.providerData[0] ? currentUser.providerData[0].displayName : null);
+    if (authName && nameEl) {
+      nameEl.textContent = authName;
+    } else {
+      if (nameEl) nameEl.textContent = 'Loading...';
+      firebase.firestore().collection('users').doc(currentUser.uid).get().then(function(doc) {
+        if (doc.exists && doc.data().displayName && nameEl) {
+          nameEl.textContent = doc.data().displayName;
+        } else if (nameEl) {
+          nameEl.textContent = currentUser.email ? currentUser.email.split('@')[0] : 'User';
+        }
+      }).catch(function() {
+        if (nameEl) nameEl.textContent = currentUser.email ? currentUser.email.split('@')[0] : 'User';
+      });
+    }
     if (signOutBtn) signOutBtn.style.display = 'inline-flex';
     if (myAnalysesBtn) myAnalysesBtn.style.display = 'inline-flex';
     if (saveBtn) saveBtn.style.display = 'inline-flex';
