@@ -1958,7 +1958,7 @@ function epScrub(val){
   epCurrentT=parseFloat(val);document.getElementById('ep-time').textContent=epCurrentT.toFixed(2)+'s';
   if(phases[expandKey])phases[expandKey].t=epCurrentT;
   var ptEl=document.getElementById('ptime-'+expandKey);if(ptEl)ptEl.textContent=epCurrentT.toFixed(2)+'s';
-  clearTimeout(epDbt.t);epDbt.t=setTimeout(function(){drawExpandFrame(epCurrentT,phases[expandKey]?phases[expandKey].kps:null);},100);
+  clearTimeout(epDbt.t);epDbt.t=setTimeout(function(){drawExpandFrame(epCurrentT,null);},100);
 }
 function epStep(frames){var scrub=document.getElementById('ep-scrubber');var newT=Math.max(parseFloat(scrub.min),Math.min(parseFloat(scrub.max),epCurrentT+frames*0.04));scrub.value=newT;epScrub(newT);}
 
@@ -3990,7 +3990,7 @@ function runCompare() {
 
   var html = '<div style="margin-top:20px">';
 
-  html += '<div style="font-size:14px;font-weight:700;margin-bottom:12px;padding:0 22px">Issue changes</div>';
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:0 22px;margin-bottom:12px"><div style="font-size:14px;font-weight:700">Issue changes</div><button class="btn-download-report" onclick="downloadComparisonPDF()" style="font-size:12px;padding:7px 14px">&#128196; Download comparison PDF</button></div>';
   html += '<div class="compare-grid">';
 
   issueKeys.forEach(function(ik) {
@@ -4051,6 +4051,412 @@ function runCompare() {
   html += '</div>';
 
   resultsEl.innerHTML = html;
+}
+
+function downloadComparisonPDF() {
+  if (!window.jspdf || !window.jspdf.jsPDF) {
+    alert('PDF library is still loading. Please try again in a moment.');
+    return;
+  }
+  var idA = document.getElementById('compare-a') ? document.getElementById('compare-a').value : null;
+  var idB = document.getElementById('compare-b') ? document.getElementById('compare-b').value : null;
+  if (!idA || !idB || idA === idB) { alert('Select two different analyses to compare.'); return; }
+  var itemA = savedAnalysesList.find(function(a) { return a.id === idA; });
+  var itemB = savedAnalysesList.find(function(a) { return a.id === idB; });
+  if (!itemA || !itemB) { alert('Could not find the selected analyses.'); return; }
+
+  var dA = itemA.data, dB = itemB.data;
+  var issuesA = dA.issues || {}, issuesB = dB.issues || {};
+
+  var doc = new window.jspdf.jsPDF({unit: 'mm', format: 'letter'});
+  var pageW = 215.9, pageH = 279.4;
+  var margins = {top: 20, bottom: 20, left: 20, right: 20};
+  var contentW = pageW - margins.left - margins.right;
+  var y = margins.top;
+  var accentR = 0, accentG = 137, accentB = 123;
+  var bodyR = 51, bodyG = 51, bodyB = 51;
+  var mutedR = 119, mutedG = 119, mutedB = 119;
+  var goodR = 34, goodG = 199, goodB = 138;
+  var warnR = 239, warnG = 108, warnB = 0;
+  var badR = 216, badG = 67, badB = 21;
+
+  var dateStr = new Date().toISOString().slice(0, 10);
+
+  // ====== PAGE 1: Cover + Issue Comparison ======
+
+  // Logo
+  doc.setFillColor(accentR, accentG, accentB);
+  doc.roundedRect(margins.left, y, 16, 16, 3, 3, 'F');
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(255, 255, 255);
+  doc.text('ESL', margins.left + 8, y + 10, {align: 'center'});
+
+  doc.setTextColor(bodyR, bodyG, bodyB);
+  doc.setFontSize(18);
+  doc.text('Endurance Science Labs', margins.left + 20, y + 7);
+  doc.setFontSize(12);
+  doc.setTextColor(accentR, accentG, accentB);
+  doc.text('esFormLab', margins.left + 20, y + 14);
+  y += 22;
+
+  doc.setDrawColor(accentR, accentG, accentB);
+  doc.setLineWidth(0.5);
+  doc.line(margins.left, y, pageW - margins.right, y);
+  y += 8;
+
+  // Title
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(bodyR, bodyG, bodyB);
+  doc.text('Session comparison report', margins.left, y);
+  y += 6;
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(mutedR, mutedG, mutedB);
+  doc.text('Generated ' + dateStr, margins.left, y);
+  y += 10;
+
+  // Session cards side by side
+  var cardW = (contentW - 8) / 2;
+  var cardH = 18;
+
+  doc.setFillColor(245, 248, 252);
+  doc.setDrawColor(210, 215, 225);
+  doc.setLineWidth(0.2);
+  doc.roundedRect(margins.left, y, cardW, cardH, 2, 2, 'FD');
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(accentR, accentG, accentB);
+  doc.text('SESSION A', margins.left + 4, y + 5);
+  doc.setFontSize(11);
+  doc.setTextColor(bodyR, bodyG, bodyB);
+  doc.text(dA.name || 'Untitled', margins.left + 4, y + 11);
+  doc.setFontSize(9);
+  doc.setTextColor(mutedR, mutedG, mutedB);
+  doc.text((dA.date || '') + (dA.sex ? '  --  ' + dA.sex : ''), margins.left + 4, y + 15);
+
+  var cardBx = margins.left + cardW + 8;
+  doc.setFillColor(245, 248, 252);
+  doc.roundedRect(cardBx, y, cardW, cardH, 2, 2, 'FD');
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(accentR, accentG, accentB);
+  doc.text('SESSION B', cardBx + 4, y + 5);
+  doc.setFontSize(11);
+  doc.setTextColor(bodyR, bodyG, bodyB);
+  doc.text(dB.name || 'Untitled', cardBx + 4, y + 11);
+  doc.setFontSize(9);
+  doc.setTextColor(mutedR, mutedG, mutedB);
+  doc.text((dB.date || '') + (dB.sex ? '  --  ' + dB.sex : ''), cardBx + 4, y + 15);
+
+  y += cardH + 12;
+
+  // Issue comparison table
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(accentR, accentG, accentB);
+  doc.text('Issue comparison', margins.left, y);
+  y += 8;
+
+  var issueKeys = [
+    {key: 'overstriding', title: 'Overstriding'},
+    {key: 'hipDrop', title: 'Hip drop'},
+    {key: 'armsCrossing', title: 'Arms crossing midline'},
+    {key: 'torsoPosition', title: 'Torso position'},
+    {key: 'armAngle', title: 'Arm angle'},
+    {key: 'kneeValgus', title: 'Knee valgus'}
+  ];
+
+  function cmpSevRank(issue) {
+    if (!issue || !issue.detected) return 0;
+    if (issue.severity === 'mild') return 1;
+    if (issue.severity === 'notable') return 2;
+    return 0;
+  }
+  function cmpSevText(issue) {
+    if (!issue || !issue.detected) return 'Clear';
+    if (issue.severity === 'notable') return 'Notable';
+    if (issue.severity === 'mild') return 'Mild';
+    return 'Clear';
+  }
+
+  // Table header
+  var colIssueW = 45, colAW = 25, colBW = 25, colDirW = contentW - colIssueW - colAW - colBW;
+  var rowH = 10;
+  var tblX = margins.left;
+
+  doc.setFillColor(240, 240, 240);
+  doc.rect(tblX, y, contentW, rowH, 'F');
+  doc.setDrawColor(204, 204, 204);
+  doc.setLineWidth(0.2);
+  doc.line(tblX, y, tblX + contentW, y);
+  doc.line(tblX, y + rowH, tblX + contentW, y + rowH);
+
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(bodyR, bodyG, bodyB);
+  doc.text('Issue', tblX + 3, y + 7);
+  doc.text(dA.name ? dA.name.slice(0, 12) : 'A', tblX + colIssueW + 3, y + 7);
+  doc.text(dB.name ? dB.name.slice(0, 12) : 'B', tblX + colIssueW + colAW + 3, y + 7);
+  doc.text('Change', tblX + colIssueW + colAW + colBW + 3, y + 7);
+
+  // Vertical gridlines
+  doc.line(tblX + colIssueW, y, tblX + colIssueW, y + rowH);
+  doc.line(tblX + colIssueW + colAW, y, tblX + colIssueW + colAW, y + rowH);
+  doc.line(tblX + colIssueW + colAW + colBW, y, tblX + colIssueW + colAW + colBW, y + rowH);
+  doc.line(tblX, y, tblX, y + rowH);
+  doc.line(tblX + contentW, y, tblX + contentW, y + rowH);
+
+  y += rowH;
+
+  // Issue rows
+  issueKeys.forEach(function(ik) {
+    var a = issuesA[ik.key], b = issuesB[ik.key];
+    var rA = cmpSevRank(a), rB = cmpSevRank(b);
+    var dir = rB < rA ? 'Improved' : rB === rA ? 'No change' : 'Worsened';
+    var sevA = cmpSevText(a), sevB = cmpSevText(b);
+
+    // Row background
+    doc.setDrawColor(204, 204, 204);
+    doc.setLineWidth(0.2);
+    doc.line(tblX, y + rowH, tblX + contentW, y + rowH);
+
+    // Issue name
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(bodyR, bodyG, bodyB);
+    doc.text(ik.title, tblX + 3, y + 7);
+
+    // Session A severity
+    if (rA === 2) doc.setTextColor(badR, badG, badB);
+    else if (rA === 1) doc.setTextColor(warnR, warnG, warnB);
+    else doc.setTextColor(goodR, goodG, goodB);
+    doc.setFont('helvetica', 'bold');
+    doc.text(sevA, tblX + colIssueW + 3, y + 7);
+
+    // Session B severity
+    if (rB === 2) doc.setTextColor(badR, badG, badB);
+    else if (rB === 1) doc.setTextColor(warnR, warnG, warnB);
+    else doc.setTextColor(goodR, goodG, goodB);
+    doc.text(sevB, tblX + colIssueW + colAW + 3, y + 7);
+
+    // Direction
+    if (dir === 'Improved') doc.setTextColor(goodR, goodG, goodB);
+    else if (dir === 'Worsened') doc.setTextColor(badR, badG, badB);
+    else doc.setTextColor(mutedR, mutedG, mutedB);
+    doc.text(dir, tblX + colIssueW + colAW + colBW + 3, y + 7);
+
+    // Vertical gridlines
+    doc.setDrawColor(204, 204, 204);
+    doc.line(tblX, y, tblX, y + rowH);
+    doc.line(tblX + colIssueW, y, tblX + colIssueW, y + rowH);
+    doc.line(tblX + colIssueW + colAW, y, tblX + colIssueW + colAW, y + rowH);
+    doc.line(tblX + colIssueW + colAW + colBW, y, tblX + colIssueW + colAW + colBW, y + rowH);
+    doc.line(tblX + contentW, y, tblX + contentW, y + rowH);
+
+    y += rowH;
+  });
+
+  // Bottom border
+  doc.line(tblX, y, tblX + contentW, y);
+
+  pdfDrawFooter(doc, margins);
+
+  // ====== PAGE 2: Understanding Your Stride ======
+  doc.addPage();
+  pdfDrawFooter(doc, margins);
+  y = margins.top;
+
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(accentR, accentG, accentB);
+  doc.text('Understanding your stride', margins.left, y);
+  y += 8;
+  doc.setDrawColor(accentR, accentG, accentB);
+  doc.setLineWidth(0.4);
+  doc.line(margins.left, y, pageW - margins.right, y);
+  y += 8;
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(bodyR, bodyG, bodyB);
+  var cmpIntro1 = doc.splitTextToSize('Every runner\'s stride is highly individual, shaped by body proportions, joint mobility, sporting history, injury history, age, and many other factors. What is optimal for one person may be quite different for another -- whether that is stride length, knee angle at toe-off, or any of the dozens of metrics that can be analyzed. There is no single "perfect" number for any of these.', contentW);
+  doc.text(cmpIntro1, margins.left, y);
+  y += cmpIntro1.length * 4 + 4;
+
+  var cmpIntro2 = doc.splitTextToSize('That said, there are general principles that can be optimized within what is natural for your gait to help you become a more efficient, more resilient athlete. An efficient running stride typically has these things in common:', contentW);
+  doc.text(cmpIntro2, margins.left, y);
+  y += cmpIntro2.length * 4 + 6;
+
+  var cmpPrinciples = [
+    {title: 'Low ground contact time', desc: 'Less time on the ground each step means less load and more time traveling forward in the air.'},
+    {title: 'A cadence that fits your body', desc: 'Not too low (heavy, plodding steps) and not too high (spinning without covering ground). Most runners do well in the 170-185 range, but taller runners may naturally be lower.'},
+    {title: 'Stride length that matches your speed naturally', desc: 'Longer is not always better. Stride length should come from push-off power and flight time, not from reaching forward.'},
+    {title: 'Appropriate vertical oscillation', desc: 'Some up-and-down movement is necessary, but you want a good ratio of stride length to vertical bounce (often called "vertical ratio").'},
+    {title: 'A slight forward lean from the ankles', desc: 'Not from the waist -- to work with gravity rather than against it.'},
+    {title: 'Compact, efficient arm carriage', desc: 'Driving from the elbows to help produce vertical lift and optimal knee drive each stride, not swinging wide or low.'}
+  ];
+  cmpPrinciples.forEach(function(sp) {
+    y = pdfCheckPage(doc, y, 14, margins);
+    doc.setFillColor(accentR, accentG, accentB);
+    doc.circle(margins.left + 2, y - 1, 1.2, 'F');
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(bodyR, bodyG, bodyB);
+    doc.text(sp.title, margins.left + 6, y);
+    y += 4;
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(mutedR, mutedG, mutedB);
+    var dLines = doc.splitTextToSize(sp.desc, contentW - 6);
+    doc.text(dLines, margins.left + 6, y);
+    y += dLines.length * 4 + 4;
+  });
+
+  // ====== PAGE 3: Angle Comparison Table ======
+  doc.addPage();
+  pdfDrawFooter(doc, margins);
+  y = margins.top;
+
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(accentR, accentG, accentB);
+  doc.text('Angle measurement comparison', margins.left, y);
+  y += 8;
+  doc.setDrawColor(accentR, accentG, accentB);
+  doc.setLineWidth(0.4);
+  doc.line(margins.left, y, pageW - margins.right, y);
+  y += 8;
+
+  // Disclaimer
+  doc.setFillColor(245, 248, 252);
+  doc.setDrawColor(210, 215, 225);
+  doc.setLineWidth(0.3);
+  var cmpDisclaimer = 'Values highlighted in green moved closer to the elite reference range center. Values in amber moved further away. Small changes (under 0.5 degrees) are shown in grey. These comparisons are informational -- not every change needs action.';
+  var cmpDiscLines = doc.splitTextToSize(cmpDisclaimer, contentW - 12);
+  var cmpDiscH = cmpDiscLines.length * 4 + 8;
+  doc.roundedRect(margins.left, y, contentW, cmpDiscH, 2, 2, 'FD');
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(mutedR, mutedG, mutedB);
+  doc.text(cmpDiscLines, margins.left + 6, y + 5);
+  y += cmpDiscH + 8;
+
+  // Table
+  var cmpColPhase = 28, cmpColMetric = 22;
+  var cmpColVal = 18, cmpColDelta = 22;
+  var cmpCellH = 7;
+  var cmpTblX = margins.left;
+  var cmpTblW = contentW;
+
+  // Header
+  doc.setFillColor(240, 240, 240);
+  doc.rect(cmpTblX, y, cmpTblW, 8, 'F');
+  doc.setDrawColor(204, 204, 204);
+  doc.setLineWidth(0.2);
+  doc.line(cmpTblX, y, cmpTblX + cmpTblW, y);
+  doc.line(cmpTblX, y + 8, cmpTblX + cmpTblW, y + 8);
+
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(bodyR, bodyG, bodyB);
+  doc.text('Phase', cmpTblX + 2, y + 5.5);
+  doc.text('Metric', cmpTblX + cmpColPhase + 2, y + 5.5);
+  doc.text(dA.name ? dA.name.slice(0, 10) : 'A', cmpTblX + cmpColPhase + cmpColMetric + 2, y + 5.5);
+  doc.text(dB.name ? dB.name.slice(0, 10) : 'B', cmpTblX + cmpColPhase + cmpColMetric + cmpColVal + 2, y + 5.5);
+  doc.text('Change', cmpTblX + cmpColPhase + cmpColMetric + cmpColVal * 2 + 2, y + 5.5);
+
+  // Header gridlines
+  var cmpCols = [0, cmpColPhase, cmpColPhase + cmpColMetric, cmpColPhase + cmpColMetric + cmpColVal, cmpColPhase + cmpColMetric + cmpColVal * 2, cmpTblW];
+  cmpCols.forEach(function(cx) {
+    doc.line(cmpTblX + cx, y, cmpTblX + cx, y + 8);
+  });
+
+  y += 8;
+
+  // Data rows
+  var cmpSidePhases = ['l_foot','r_foot','l_toe','r_toe','mid','peak_kf','swing'];
+  cmpSidePhases.forEach(function(pk) {
+    var phA = dA.phases ? dA.phases[pk] : null;
+    var phB = dB.phases ? dB.phases[pk] : null;
+    var mA = phA ? phA.metrics : null;
+    var mB = phB ? phB.metrics : null;
+    var pDef = PHASE_DEFS.find(function(d) { return d.key === pk; });
+    var pLabel = pDef ? pDef.label : pk;
+
+    METRIC_ROWS.forEach(function(r) {
+      if (!isRelevant(pk, r.key)) return;
+      var vA = mA ? mA[r.key] : null;
+      var vB = mB ? mB[r.key] : null;
+      if (vA == null && vB == null) return;
+
+      y = pdfCheckPage(doc, y, cmpCellH + 1, margins);
+
+      var fA = vA != null ? r.fmt(vA) : '--';
+      var fB = vB != null ? r.fmt(vB) : '--';
+      var delta = '';
+      var deltaR = mutedR, deltaG = mutedG, deltaB = mutedB;
+
+      if (vA != null && vB != null) {
+        var diff = vB - vA;
+        delta = (diff > 0 ? '+' : '') + diff.toFixed(1);
+        var rng = getRange(pk, r.key);
+        var center = (rng.green[0] + rng.green[1]) / 2;
+        var distA = Math.abs(vA - center);
+        var distB = Math.abs(vB - center);
+        if (Math.abs(diff) < 0.5) { deltaR = 180; deltaG = 180; deltaB = 180; }
+        else if (distB < distA) { deltaR = goodR; deltaG = goodG; deltaB = goodB; }
+        else { deltaR = warnR; deltaG = warnG; deltaB = warnB; }
+      }
+
+      // Row
+      doc.setDrawColor(204, 204, 204);
+      doc.setLineWidth(0.15);
+      doc.line(cmpTblX, y + cmpCellH, cmpTblX + cmpTblW, y + cmpCellH);
+
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(bodyR, bodyG, bodyB);
+      doc.text(pLabel.slice(0, 14), cmpTblX + 2, y + 5);
+      doc.text(r.label, cmpTblX + cmpColPhase + 2, y + 5);
+
+      doc.setFont('courier', 'normal');
+      doc.setFontSize(7.5);
+      doc.text(fA, cmpTblX + cmpColPhase + cmpColMetric + 2, y + 5);
+      doc.text(fB, cmpTblX + cmpColPhase + cmpColMetric + cmpColVal + 2, y + 5);
+
+      doc.setFont('courier', 'bold');
+      doc.setTextColor(deltaR, deltaG, deltaB);
+      doc.text(delta, cmpTblX + cmpColPhase + cmpColMetric + cmpColVal * 2 + 2, y + 5);
+
+      // Vertical gridlines
+      cmpCols.forEach(function(cx) {
+        doc.setDrawColor(204, 204, 204);
+        doc.line(cmpTblX + cx, y, cmpTblX + cx, y + cmpCellH);
+      });
+
+      y += cmpCellH;
+    });
+  });
+
+  // Bottom border
+  doc.setDrawColor(204, 204, 204);
+  doc.setLineWidth(0.2);
+  doc.line(cmpTblX, y, cmpTblX + cmpTblW, y);
+
+  // ====== Update all page footers with total page count ======
+  var cmpTotalPages = doc.internal.getNumberOfPages();
+  for (var cp = 1; cp <= cmpTotalPages; cp++) {
+    doc.setPage(cp);
+    doc.setFontSize(8);
+    doc.setTextColor(mutedR, mutedG, mutedB);
+    doc.setFillColor(255, 255, 255);
+    doc.rect(pageW - margins.right - 30, pageH - 11, 30, 6, 'F');
+    doc.text('Page ' + cp + ' of ' + cmpTotalPages, pageW - margins.right, pageH - 8, {align: 'right'});
+  }
+
+  var cmpFilename = 'esformlab-comparison-' + dateStr + '.pdf';
+  doc.save(cmpFilename);
 }
 
 // ══════════════════════════════════════════════════════════
