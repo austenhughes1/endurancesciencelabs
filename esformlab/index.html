@@ -4082,49 +4082,6 @@ function closeCompare() {
 // Pairs: lKnee/rKnee, lHip/rHip, lElbow/rElbow, lFoot/rFoot
 // For each pair, we pick the value closer to the "primary" role for that phase:
 //   swing: the extending leg (higher knee angle)
-//   peak_kf: the flexing leg (lower knee angle)
-//   mid: the stance leg (lower hip angle = more vertical)
-var BILATERAL_PHASES = {mid: true, peak_kf: true, swing: true};
-var BILATERAL_PAIRS = [
-  {a: 'lKnee', b: 'rKnee', label: 'Knee'},
-  {a: 'lHip', b: 'rHip', label: 'Hip'},
-  {a: 'lElbow', b: 'rElbow', label: 'Elbow'},
-  {a: 'lFoot', b: 'rFoot', label: 'Foot off.'}
-];
-
-// Returns normalized metrics for bilateral phases: {Knee: val, Hip: val, ...}
-// For swing: pick the leg with the HIGHER knee angle (the extending leg)
-// For peak_kf: pick the leg with the LOWER knee angle (the flexing leg)
-// For mid: just average both sides (both legs relevant at mid-stance)
-function normalizeBilateral(metrics, phaseKey) {
-  if (!metrics) return null;
-  var result = {};
-  // Always include trunk as-is
-  if (metrics.trunk != null) result.trunk = metrics.trunk;
-
-  var lK = metrics.lKnee, rK = metrics.rKnee;
-  var primaryIsLeft = true;
-  if (phaseKey === 'swing') {
-    // Extending leg = higher knee angle
-    primaryIsLeft = (lK != null && rK != null) ? lK >= rK : (lK != null);
-  } else if (phaseKey === 'peak_kf') {
-    // Flexing leg = lower knee angle
-    primaryIsLeft = (lK != null && rK != null) ? lK <= rK : (lK != null);
-  } else {
-    // mid-stance: use whichever side has data, prefer left
-    primaryIsLeft = (lK != null);
-  }
-
-  BILATERAL_PAIRS.forEach(function(pair) {
-    var pVal = primaryIsLeft ? metrics[pair.a] : metrics[pair.b];
-    var sVal = primaryIsLeft ? metrics[pair.b] : metrics[pair.a];
-    if (pVal != null) result[pair.label] = pVal;
-    else if (sVal != null) result[pair.label] = sVal;
-  });
-
-  return result;
-}
-
 function runCompare() {
   var idA = document.getElementById('compare-a').value;
   var idB = document.getElementById('compare-b').value;
