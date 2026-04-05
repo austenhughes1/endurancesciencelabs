@@ -3394,16 +3394,16 @@ async function loadAnalysesList() {
         Object.keys(d.issues).forEach(function(k) { if (d.issues[k] && d.issues[k].detected) issueCount++; });
       }
       var issueSummary = issueCount > 0 ? issueCount + ' issue' + (issueCount > 1 ? 's' : '') + ' detected' : 'No issues detected';
-      return '<div class="ma-item">' +
-        '<div class="ma-item-info">' +
+      return '<div class="ma-item" style="display:flex;align-items:center;gap:16px">' +
+        '<div class="ma-item-info" style="flex:1;min-width:0">' +
           '<div class="ma-item-name">' + (d.name || 'Untitled') + '</div>' +
           '<div class="ma-item-date">' + (d.date || '') + (d.sex ? ' -- ' + d.sex : '') + '</div>' +
           '<div class="ma-item-issues">' + issueSummary + '</div>' +
         '</div>' +
-        '<div class="ma-item-actions">' +
-          '<button class="ma-btn" onclick="viewSavedAnalysis(\'' + item.id + '\')">View</button>' +
-          '<button class="ma-btn" onclick="startCompareFrom(\'' + item.id + '\')">Compare</button>' +
-          '<button class="ma-btn delete" onclick="deleteAnalysis(\'' + item.id + '\')">Delete</button>' +
+        '<div style="display:flex;gap:6px;flex-shrink:0">' +
+          '<button style="padding:8px 18px;font-size:13px;font-weight:700;border-radius:8px;border:1px solid rgba(0,229,200,.35);background:rgba(0,229,200,.1);color:#00e5c8;cursor:pointer" onclick="viewSavedAnalysis(\'' + item.id + '\')">View</button>' +
+          '<button style="padding:8px 18px;font-size:13px;font-weight:700;border-radius:8px;border:1px solid rgba(0,229,200,.35);background:rgba(0,229,200,.1);color:#00e5c8;cursor:pointer" onclick="startCompareFrom(\'' + item.id + '\')">Compare</button>' +
+          '<button style="padding:8px 18px;font-size:13px;font-weight:700;border-radius:8px;border:1px solid rgba(245,80,80,.3);background:rgba(245,80,80,.06);color:#f55050;cursor:pointer" onclick="deleteAnalysis(\'' + item.id + '\')">Delete</button>' +
         '</div>' +
       '</div>';
     }).join('');
@@ -3459,6 +3459,9 @@ async function viewSavedAnalysis(id) {
       sideView: true
     };
   });
+
+  // Set issues for PDF generation
+  lastIssues = d.issues || {};
 
   // Show report
   var reportEl = document.getElementById('report-section');
