@@ -40,8 +40,20 @@ body{font-family:var(--ui);background:var(--bg);color:var(--text);min-height:100
 .auth-toggle{font-size:11px;color:var(--cyan);cursor:pointer;margin-top:14px;font-family:var(--mono)}
 .auth-toggle:hover{text-decoration:underline}
 
+/* ── Site nav ───────────────────────────────────────── */
+.site-nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:sticky;top:0;z-index:350;background:rgba(6,8,13,.97);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-logo{display:flex;align-items:center;gap:11px;text-decoration:none;flex-shrink:0;margin-right:32px}
+.nav-logo-mark{width:32px;height:32px;background:var(--cyan);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:13px;color:#000}
+.nav-logo-text{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.3px;line-height:1.2}
+.nav-logo-text span{display:block;font-size:9px;font-weight:500;color:var(--muted2);letter-spacing:.5px;text-transform:uppercase;font-family:var(--mono)}
+.nav-links{display:flex;align-items:center;gap:2px;flex:1}
+.nav-link{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600;color:var(--muted2);text-decoration:none;transition:all .15s;border:1px solid transparent}
+.nav-link:hover{color:var(--text);background:rgba(255,255,255,.04)}
+.nav-link.active{color:var(--cyan);background:rgba(0,229,200,.07);border-color:rgba(0,229,200,.15)}
+.nav-pill{font-size:8px;font-weight:700;letter-spacing:.4px;font-family:var(--mono);background:rgba(110,122,154,.15);color:var(--muted2);border-radius:4px;padding:1px 5px;text-transform:uppercase}
+
 /* ── Header ─────────────────────────────────────────── */
-header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:300;background:rgba(6,8,13,.97);backdrop-filter:blur(10px)}
+header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;position:sticky;top:58px;z-index:300;background:rgba(6,8,13,.97);backdrop-filter:blur(10px)}
 .logo{width:32px;height:32px;background:var(--cyan);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:11px;color:#000;flex-shrink:0;text-decoration:none}
 .brand{font-size:15px;font-weight:700;letter-spacing:-.3px}
 .brand em{color:var(--cyan);font-style:normal}
@@ -413,6 +425,21 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 
 <!-- ── App ──────────────────────────────────────────── -->
 <div id="app">
+<!-- Site nav -->
+<nav class="site-nav">
+  <a href="index.html" class="nav-logo">
+    <div class="nav-logo-mark">ESL</div>
+    <div class="nav-logo-text">Endurance Science Labs<span>Evidence-based endurance coaching</span></div>
+  </a>
+  <div class="nav-links">
+    <a href="index.html" class="nav-link">Home</a>
+    <a href="esformlab.html" class="nav-link">esFormLab</a>
+    <a href="coaching.html" class="nav-link active">Coaching</a>
+    <a href="#" class="nav-link">Metabolic Testing <span class="nav-pill">Soon</span></a>
+    <a href="#" class="nav-link">Training Plans <span class="nav-pill">Soon</span></a>
+  </div>
+</nav>
+
 <header>
   <a href="index.html" class="logo">ESL</a>
   <div>
