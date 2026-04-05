@@ -893,7 +893,6 @@ body.bar-showing #screen-phases{padding-bottom:120px}
   </div>
   <div style="display:flex;gap:8px">
     <button class="btn-ghost" onclick="closeMyAnalyses();openMyAnalyses()">Back to list</button>
-    <button class="btn-ghost" onclick="startNewSession()">New session</button>
   </div>
 </div>
 
@@ -3572,6 +3571,13 @@ function startNewSession() {
   if (reportEl) reportEl.style.display = 'none';
   var summaryEl = document.getElementById('summary-section');
   if (summaryEl) summaryEl.style.display = 'none';
+  // Restore elements that viewSavedAnalysis hides
+  var instrBanner = document.querySelector('#screen-phases > .instr-banner');
+  if (instrBanner) instrBanner.style.display = '';
+  var phaseGroupsEl = document.getElementById('phase-groups');
+  if (phaseGroupsEl) phaseGroupsEl.style.display = '';
+  var scanSummaryBar = document.getElementById('scan-summary-bar');
+  if (scanSummaryBar) scanSummaryBar.style.display = '';
   closeMyAnalyses();
   closeCompare();
   resetApp();
@@ -3660,10 +3666,17 @@ async function viewSavedAnalysis(id) {
   closeMyAnalyses();
   isViewingSaved = true;
 
-  // Hide upload/scanning/phases screens
+  // Hide upload/scanning screens, show phases container (report lives inside it)
   document.getElementById('screen-upload').style.display = 'none';
   document.getElementById('screen-scanning').style.display = 'none';
-  document.getElementById('screen-phases').style.display = 'none';
+  document.getElementById('screen-phases').style.display = 'block';
+  // Hide the instruction banner and phase cards (no video data for saved analyses)
+  var instrBanner = document.querySelector('#screen-phases > .instr-banner');
+  if (instrBanner) instrBanner.style.display = 'none';
+  var scanSummaryBar = document.getElementById('scan-summary-bar');
+  if (scanSummaryBar) scanSummaryBar.style.display = 'none';
+  var phaseGroupsEl = document.getElementById('phase-groups');
+  if (phaseGroupsEl) phaseGroupsEl.style.display = 'none';
   var bar = document.getElementById('complete-analysis-bar');
   if (bar) bar.classList.remove('show');
 
