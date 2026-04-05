@@ -925,6 +925,7 @@ body.bar-showing #screen-phases{padding-bottom:120px}
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
 
 <script>
 'use strict';
@@ -1113,8 +1114,8 @@ function updateAuthUI() {
 
   if (currentUser) {
     if (indicator) indicator.style.display = 'inline-flex';
-    var displayName = currentUser.displayName || (currentUser.providerData && currentUser.providerData[0] ? currentUser.providerData[0].displayName : null) || currentUser.email || 'User';
-    if (nameEl) nameEl.textContent = displayName.split(' ')[0];
+    var displayName = currentUser.displayName || (currentUser.providerData && currentUser.providerData[0] ? currentUser.providerData[0].displayName : null) || 'User';
+    if (nameEl) nameEl.textContent = displayName;
     var photoURL = currentUser.photoURL || (currentUser.providerData && currentUser.providerData[0] ? currentUser.providerData[0].photoURL : null);
     if (avatarEl && photoURL) { avatarEl.src = photoURL; avatarEl.style.display = 'block'; }
     if (signOutBtn) signOutBtn.style.display = 'inline-flex';
@@ -2602,7 +2603,7 @@ function renderReport(issues) {
 
       // Form cues
       detailsHtml += '<div class="issue-section">';
-      detailsHtml += '<div class="issue-section-title">What to try</div>';
+      detailsHtml += '<div class="issue-section-title">Form cues to improve ' + rd.title.toLowerCase() + '</div>';
       detailsHtml += '<ul class="issue-bullets">';
       rd.formCues.forEach(function(c) {
         detailsHtml += '<li><strong>'+c.text+'</strong>';
@@ -2655,8 +2656,514 @@ function toggleDetail(bodyId, hdr) {
   if(toggle) toggle.innerHTML = isOpen ? '&#9650; Collapse' : '&#9660; Expand';
 }
 
+function pdfDrawFooter(doc, margins) {
+  var pageH = 279.4;
+  var pageW = 215.9;
+  doc.setDrawColor(0, 137, 123);
+  doc.setLineWidth(0.3);
+  doc.line(margins.left, pageH - 12, pageW - margins.right, pageH - 12);
+  doc.setFontSize(8);
+  doc.setTextColor(119, 119, 119);
+  doc.text('esFormLab \u2014 Endurance Science Labs', margins.left, pageH - 8);
+  var pageNum = doc.internal.getNumberOfPages();
+  doc.text('Page ' + pageNum, pageW - margins.right, pageH - 8, {align: 'right'});
+}
+
+function pdfCheckPage(doc, y, needed, margins) {
+  if (y + needed > 279.4 - margins.bottom) {
+    doc.addPage();
+    pdfDrawFooter(doc, margins);
+    return margins.top;
+  }
+  return y;
+}
+
+function pdfDrawBadge(doc, severity, x, y) {
+  var label = '';
+  var bgR = 0, bgG = 0, bgB = 0;
+  var txtR = 255, txtG = 255, txtB = 255;
+  if (severity === 'notable') {
+    label = 'NOTABLE';
+    bgR = 216; bgG = 67; bgB = 21;
+  } else if (severity === 'mild') {
+    label = 'MILD';
+    bgR = 239; bgG = 108; bgB = 0;
+  } else {
+    label = 'CLEAR';
+    bgR = 34; bgG = 199; bgB = 138;
+  }
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  var tw = doc.getTextWidth(label) + 4;
+  var bh = 4.5;
+  doc.setFillColor(bgR, bgG, bgB);
+  doc.roundedRect(x, y - 3.2, tw, bh, 1.5, 1.5, 'F');
+  doc.setTextColor(txtR, txtG, txtB);
+  doc.text(label, x + 2, y);
+  doc.setFont('helvetica', 'normal');
+  return x + tw + 2;
+}
+
 function downloadReport() {
-  window.print();
+  if (!lastIssues) {
+    alert('Please complete an analysis before downloading the report.');
+    return;
+  }
+  if (!window.jspdf || !window.jspdf.jsPDF) {
+    alert('PDF library is still loading. Please try again in a moment.');
+    return;
+  }
+
+  var doc = new window.jspdf.jsPDF({unit: 'mm', format: 'letter'});
+  var pageW = 215.9;
+  var pageH = 279.4;
+  var margins = {top: 20, bottom: 20, left: 20, right: 20};
+  var contentW = pageW - margins.left - margins.right;
+  var y = margins.top;
+
+  var accentR = 0, accentG = 137, accentB = 123;
+  var bodyR = 51, bodyG = 51, bodyB = 51;
+  var mutedR = 119, mutedG = 119, mutedB = 119;
+
+  // -- Helper: draw wrapped text and return new y --
+  function drawWrapped(text, x, yStart, maxW, fontSize, fontStyle, colorR, colorG, colorB, lineH) {
+    doc.setFontSize(fontSize);
+    doc.setFont('helvetica', fontStyle || 'normal');
+    doc.setTextColor(colorR, colorG, colorB);
+    var lines = doc.splitTextToSize(text, maxW);
+    var lh = lineH || fontSize * 0.45;
+    for (var i = 0; i < lines.length; i++) {
+      yStart = pdfCheckPage(doc, yStart, lh, margins);
+      doc.text(lines[i], x, yStart);
+      yStart += lh;
+    }
+    return yStart;
+  }
+
+  // -- Helper: draw bullet list --
+  function drawBulletList(items, x, yStart, maxW, fontSize) {
+    var lh = fontSize * 0.45;
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      var text = item.text || item;
+      doc.setFontSize(fontSize);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(bodyR, bodyG, bodyB);
+      var lines = doc.splitTextToSize(text, maxW - 6);
+      var blockH = lines.length * lh + 2;
+      yStart = pdfCheckPage(doc, yStart, lh + 2, margins);
+      doc.setFillColor(bodyR, bodyG, bodyB);
+      doc.circle(x + 1.5, yStart - 1, 0.7, 'F');
+      for (var j = 0; j < lines.length; j++) {
+        yStart = pdfCheckPage(doc, yStart, lh, margins);
+        doc.text(lines[j], x + 5, yStart);
+        yStart += lh;
+      }
+      if (item.ref) {
+        yStart = pdfCheckPage(doc, yStart, lh, margins);
+        doc.setTextColor(accentR, accentG, accentB);
+        doc.setFontSize(fontSize - 1);
+        doc.textWithLink('Source', x + 5, yStart, {url: item.ref});
+        yStart += lh;
+      }
+      yStart += 1;
+    }
+    return yStart;
+  }
+
+  // ====== PAGE 1: Cover / Header + Issue Summary ======
+
+  // Logo mark
+  doc.setFillColor(accentR, accentG, accentB);
+  doc.roundedRect(margins.left, y, 16, 16, 3, 3, 'F');
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(255, 255, 255);
+  doc.text('ESL', margins.left + 8, y + 10, {align: 'center'});
+
+  // Title text
+  doc.setTextColor(bodyR, bodyG, bodyB);
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Endurance Science Labs', margins.left + 20, y + 7);
+  doc.setFontSize(12);
+  doc.setTextColor(accentR, accentG, accentB);
+  doc.text('esFormLab', margins.left + 20, y + 14);
+  y += 22;
+
+  // Horizontal rule
+  doc.setDrawColor(accentR, accentG, accentB);
+  doc.setLineWidth(0.5);
+  doc.line(margins.left, y, pageW - margins.right, y);
+  y += 8;
+
+  // Session info
+  var athleteName = '';
+  var saveNameEl = document.getElementById('save-name');
+  if (saveNameEl && saveNameEl.value.trim()) {
+    athleteName = saveNameEl.value.trim();
+  } else {
+    athleteName = 'Gait Analysis Report';
+  }
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(bodyR, bodyG, bodyB);
+  doc.text(athleteName, margins.left, y);
+  y += 6;
+
+  var dateStr = new Date().toISOString().slice(0, 10);
+  var sessionLine = 'Date: ' + dateStr;
+  if (typeof selectedSex !== 'undefined' && selectedSex) {
+    sessionLine += '    Sex: ' + selectedSex.charAt(0).toUpperCase() + selectedSex.slice(1);
+  }
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(mutedR, mutedG, mutedB);
+  doc.text(sessionLine, margins.left, y);
+  y += 5;
+  doc.setFontSize(8);
+  doc.text('Generated by esFormLab \u2014 endurancesciencelabs.com', margins.left, y);
+  y += 12;
+
+  // ====== Results Summary ======
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(accentR, accentG, accentB);
+  doc.text('Results Summary', margins.left, y);
+  y += 8;
+
+  var issueList = [
+    {key: 'overstriding', dataKey: 'overstriding'},
+    {key: 'hipDrop', dataKey: 'hipDrop'},
+    {key: 'armsCrossing', dataKey: 'armsCrossing'},
+    {key: 'torsoPosition', dataKey: null},
+    {key: 'armAngle', dataKey: 'armAngle'},
+    {key: 'kneeValgus', dataKey: 'kneeValgus'}
+  ];
+
+  var detectedIssues = [];
+  var anyDetected = false;
+
+  for (var ii = 0; ii < issueList.length; ii++) {
+    var item = issueList[ii];
+    var issue = lastIssues[item.key];
+    if (!issue) continue;
+
+    var dk = item.dataKey;
+    if (item.key === 'torsoPosition' && issue.cueKey) dk = issue.cueKey;
+    if (!dk) dk = 'torsoUpright';
+    var rd = REPORT_DATA[dk];
+    if (!rd) continue;
+
+    var detected = issue.detected;
+    var severity = issue.severity;
+
+    var summaryText = '';
+    if (detected && severity && rd.summary[severity]) {
+      summaryText = rd.summary[severity];
+    } else if (!detected) {
+      summaryText = rd.clear;
+    }
+
+    y = pdfCheckPage(doc, y, 12, margins);
+
+    // Issue name bold
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(bodyR, bodyG, bodyB);
+    doc.text(rd.title, margins.left, y);
+    var titleW = doc.getTextWidth(rd.title);
+
+    // Severity badge
+    var badgeX = margins.left + titleW + 3;
+    var sevLabel = detected ? severity : 'clear';
+    pdfDrawBadge(doc, sevLabel, badgeX, y);
+
+    y += 4;
+
+    // One-line summary
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(mutedR, mutedG, mutedB);
+    var sumLines = doc.splitTextToSize(summaryText, contentW);
+    for (var sl = 0; sl < sumLines.length; sl++) {
+      doc.text(sumLines[sl], margins.left, y);
+      y += 4;
+    }
+    y += 3;
+
+    if (detected) {
+      anyDetected = true;
+      detectedIssues.push({issueItem: item, issueData: issue, reportData: rd, dataKey: dk});
+    }
+  }
+
+  if (!anyDetected) {
+    y = pdfCheckPage(doc, y, 25, margins);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(bodyR, bodyG, bodyB);
+    doc.text('No major gait-pattern flags detected', margins.left, y);
+    y += 6;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(mutedR, mutedG, mutedB);
+    var noFlagText = 'Your stride did not show meaningful signs of overstriding, hip drop, excessive arm crossover, overly upright torso position, overly open arm angle, or knee valgus in the analyzed clips. Most measured angles fell within the reference ranges used by this tool.';
+    var nfLines = doc.splitTextToSize(noFlagText, contentW);
+    for (var nf = 0; nf < nfLines.length; nf++) {
+      doc.text(nfLines[nf], margins.left, y);
+      y += 4;
+    }
+    y += 4;
+    var disclaimerText = 'This does not mean your running form is "perfect" or that no improvement is possible. It means this analysis did not detect clear issues in these specific categories from the selected videos and frames.';
+    var dLines = doc.splitTextToSize(disclaimerText, contentW);
+    for (var dl = 0; dl < dLines.length; dl++) {
+      doc.text(dLines[dl], margins.left, y);
+      y += 4;
+    }
+  }
+
+  // Draw footer on page 1
+  pdfDrawFooter(doc, margins);
+
+  // ====== PAGES 2+: Detailed Breakdowns ======
+  for (var di = 0; di < detectedIssues.length; di++) {
+    var dItem = detectedIssues[di];
+    var drd = dItem.reportData;
+    var dsev = dItem.issueData.severity;
+
+    // Check if we need a new page for the section header
+    y = pdfCheckPage(doc, y, 40, margins);
+    if (y <= margins.top + 1) {
+      // Already on a fresh page from pdfCheckPage
+    } else if (y > margins.top + 20) {
+      // Start a new page for each detailed issue if we are past the top area
+      doc.addPage();
+      pdfDrawFooter(doc, margins);
+      y = margins.top;
+    }
+
+    // Section header
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(accentR, accentG, accentB);
+    doc.text(drd.title, margins.left, y);
+    var dtitleW = doc.getTextWidth(drd.title);
+    pdfDrawBadge(doc, dsev, margins.left + dtitleW + 3, y);
+    y += 8;
+
+    // 1. WHAT THIS MEANS
+    y = pdfCheckPage(doc, y, 10, margins);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(accentR, accentG, accentB);
+    doc.text('WHAT THIS MEANS', margins.left, y);
+    y += 5;
+    y = drawWrapped(drd.whatThisMeans, margins.left, y, contentW, 9, 'normal', bodyR, bodyG, bodyB, 4);
+    y += 4;
+
+    // 2. WHY IT MATTERS
+    y = pdfCheckPage(doc, y, 10, margins);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(accentR, accentG, accentB);
+    doc.text('WHY IT MATTERS', margins.left, y);
+    y += 5;
+    y = drawWrapped(drd.whyItMatters, margins.left, y, contentW, 9, 'normal', bodyR, bodyG, bodyB, 4);
+    if (drd.whyItMattersRef) {
+      y = pdfCheckPage(doc, y, 5, margins);
+      doc.setFontSize(8);
+      doc.setTextColor(accentR, accentG, accentB);
+      doc.textWithLink('Source: ' + drd.whyItMattersRef, margins.left, y, {url: drd.whyItMattersRef});
+      y += 5;
+    }
+    y += 3;
+
+    // 3. WHY THIS MIGHT BE HAPPENING
+    y = pdfCheckPage(doc, y, 10, margins);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(accentR, accentG, accentB);
+    doc.text('WHY THIS MIGHT BE HAPPENING', margins.left, y);
+    y += 5;
+    y = drawBulletList(drd.possibleReasons, margins.left, y, contentW, 9);
+    y += 3;
+
+    // 4. FORM CUES TO IMPROVE [ISSUE NAME]
+    y = pdfCheckPage(doc, y, 10, margins);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(accentR, accentG, accentB);
+    doc.text('FORM CUES TO IMPROVE ' + drd.title.toUpperCase(), margins.left, y);
+    y += 5;
+    y = drawBulletList(drd.formCues, margins.left, y, contentW, 9);
+    y += 3;
+
+    // 5. CONFIDENCE NOTE
+    if (drd.confidence) {
+      y = pdfCheckPage(doc, y, 10, margins);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(accentR, accentG, accentB);
+      doc.text('CONFIDENCE NOTE', margins.left, y);
+      y += 5;
+      y = drawWrapped(drd.confidence, margins.left, y, contentW, 9, 'italic', mutedR, mutedG, mutedB, 4);
+      y += 6;
+    }
+  }
+
+  // ====== FINAL PAGE: Angle Measurements Table ======
+  doc.addPage();
+  pdfDrawFooter(doc, margins);
+  y = margins.top;
+
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(accentR, accentG, accentB);
+  doc.text('Side View Measurements', margins.left, y);
+  y += 8;
+
+  // Build table data
+  var colKeys = SUMMARY_COL_ORDER; // 7 phase columns
+  var colLabels = colKeys.map(function(k) {
+    var def = PHASE_DEFS.find(function(d) { return d.key === k; });
+    return def ? def.label : k;
+  });
+
+  // Filter metric rows to only those with at least one data point
+  var activeRows = [];
+  for (var mi = 0; mi < METRIC_ROWS.length; mi++) {
+    var mr = METRIC_ROWS[mi];
+    var hasData = false;
+    for (var ci = 0; ci < colKeys.length; ci++) {
+      var pk = colKeys[ci];
+      if (!isRelevant(pk, mr.key)) continue;
+      var pm = phases[pk] && phases[pk].metrics ? phases[pk].metrics : null;
+      if (pm && pm[mr.key] != null) { hasData = true; break; }
+    }
+    if (hasData) activeRows.push(mr);
+  }
+
+  // Table layout
+  var labelColW = 28;
+  var dataCellW = (contentW - labelColW) / colKeys.length;
+  var cellH = 7;
+  var headerH = 12;
+  var tableX = margins.left;
+
+  // Abbreviate column headers to fit
+  var colAbbrevs = colLabels.map(function(l) {
+    return l.replace('foot strike', 'foot str.').replace('Mid-stance', 'Mid-st.').replace('Peak knee flex', 'Peak KF').replace('Terminal swing', 'Term. swing');
+  });
+
+  // Draw header row background
+  doc.setFillColor(240, 240, 240);
+  doc.rect(tableX, y, contentW, headerH, 'F');
+
+  // Draw header gridlines
+  doc.setDrawColor(204, 204, 204);
+  doc.setLineWidth(0.2);
+  doc.line(tableX, y, tableX + contentW, y);
+  doc.line(tableX, y + headerH, tableX + contentW, y + headerH);
+
+  // Header text
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(bodyR, bodyG, bodyB);
+  doc.text('Metric', tableX + 2, y + headerH - 3);
+
+  // Vertical gridlines and column headers
+  var colX = tableX + labelColW;
+  doc.line(tableX, y, tableX, y + headerH);
+  doc.line(colX, y, colX, y + headerH);
+  for (var ch = 0; ch < colAbbrevs.length; ch++) {
+    var cx = colX + ch * dataCellW;
+    doc.line(cx, y, cx, y + headerH);
+    // Wrap header text in the cell
+    doc.setFontSize(6.5);
+    doc.setFont('helvetica', 'bold');
+    var hLines = doc.splitTextToSize(colAbbrevs[ch], dataCellW - 2);
+    var hTextY = y + 4;
+    for (var hl = 0; hl < hLines.length; hl++) {
+      doc.text(hLines[hl], cx + 1, hTextY);
+      hTextY += 3;
+    }
+  }
+  // Right edge
+  doc.line(tableX + contentW, y, tableX + contentW, y + headerH);
+
+  y += headerH;
+
+  // Data rows
+  for (var ri = 0; ri < activeRows.length; ri++) {
+    y = pdfCheckPage(doc, y, cellH + 1, margins);
+    var row = activeRows[ri];
+
+    // Row background (alternating)
+    if (ri % 2 === 0) {
+      doc.setFillColor(250, 250, 250);
+      doc.rect(tableX, y, contentW, cellH, 'F');
+    }
+
+    // Gridlines
+    doc.setDrawColor(204, 204, 204);
+    doc.setLineWidth(0.2);
+    doc.line(tableX, y, tableX + contentW, y);
+    doc.line(tableX, y, tableX, y + cellH);
+    doc.line(tableX + labelColW, y, tableX + labelColW, y + cellH);
+
+    // Row label
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(bodyR, bodyG, bodyB);
+    doc.text(row.label, tableX + 2, y + cellH - 2);
+
+    // Data cells
+    for (var cj = 0; cj < colKeys.length; cj++) {
+      var dcx = colX + cj * dataCellW;
+      doc.line(dcx, y, dcx, y + cellH);
+
+      var cpk = colKeys[cj];
+      var cellText = '--';
+      if (isRelevant(cpk, row.key)) {
+        var cpm = phases[cpk] && phases[cpk].metrics ? phases[cpk].metrics : null;
+        if (cpm && cpm[row.key] != null) {
+          cellText = row.fmt(cpm[row.key]);
+        }
+      }
+      doc.setFontSize(8);
+      doc.setFont('courier', 'normal');
+      doc.setTextColor(cellText === '--' ? 170 : bodyR, cellText === '--' ? 170 : bodyG, cellText === '--' ? 170 : bodyB);
+      doc.text(cellText, dcx + dataCellW / 2, y + cellH - 2, {align: 'center'});
+    }
+
+    // Right edge
+    doc.line(tableX + contentW, y, tableX + contentW, y + cellH);
+
+    y += cellH;
+  }
+
+  // Bottom border
+  doc.setDrawColor(204, 204, 204);
+  doc.setLineWidth(0.2);
+  doc.line(tableX, y, tableX + contentW, y);
+
+  // ====== Update all page footers with total page count ======
+  var totalPages = doc.internal.getNumberOfPages();
+  for (var p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    doc.setFontSize(8);
+    doc.setTextColor(119, 119, 119);
+    // Overwrite page number with "Page X of Y"
+    // White-out old page number area
+    doc.setFillColor(255, 255, 255);
+    doc.rect(pageW - margins.right - 30, pageH - 11, 30, 6, 'F');
+    doc.text('Page ' + p + ' of ' + totalPages, pageW - margins.right, pageH - 8, {align: 'right'});
+  }
+
+  // Save
+  var filename = 'esformlab-report-' + dateStr + '.pdf';
+  doc.save(filename);
 }
 
 // Summary table (side view only -- 7 columns)
