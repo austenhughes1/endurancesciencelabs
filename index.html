@@ -83,6 +83,9 @@ nav {
   text-decoration: none; transition: opacity .15s; flex-shrink: 0;
 }
 .nav-cta:hover { opacity: .85; }
+.auth-indicator { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; background: rgba(0,229,200,.06); border: 1px solid rgba(0,229,200,.15); margin-right: 8px; }
+.auth-avatar { width: 24px; height: 24px; border-radius: 50%; display: none; }
+.auth-name { font-size: 12px; font-weight: 600; color: var(--text); }
 
 /* ── Hero — centered minimal ─────────────────────────── */
 .hero {
@@ -405,7 +408,11 @@ footer {
     <a href="#"                  class="nav-link">Metabolic Testing <span class="nav-pill">Soon</span></a>
     <a href="#"                  class="nav-link">Training Plans <span class="nav-pill">Soon</span></a>
   </div>
-  <a href="/coaching/" class="nav-cta" style="background:transparent;border:1px solid var(--border2);color:var(--muted2);margin-right:8px;font-size:13px;padding:8px 16px" onmouseover="this.style.borderColor='var(--cyan)';this.style.color='var(--cyan)'" onmouseout="this.style.borderColor='';this.style.color='var(--muted2)'">Sign in</a>
+  <span id="auth-indicator" class="auth-indicator" style="display:none">
+    <img id="auth-avatar" class="auth-avatar" src="">
+    <span id="auth-name" class="auth-name"></span>
+  </span>
+  <a href="/coaching/" id="nav-sign-in" class="nav-cta" style="background:transparent;border:1px solid var(--border2);color:var(--muted2);margin-right:8px;font-size:13px;padding:8px 16px" onmouseover="this.style.borderColor='var(--cyan)';this.style.color='var(--cyan)'" onmouseout="this.style.borderColor='';this.style.color='var(--muted2)'">Sign in</a>
   <a href="/esformlab/" class="nav-cta">Try esFormLab →</a>
 </nav>
 
@@ -644,5 +651,35 @@ footer {
   <div class="footer-copy">© 2025 Endurance Science Labs</div>
 </footer>
 
+<!-- Auth persistence across pages -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script>
+(function() {
+  var config = {
+    apiKey: "AIzaSyDh4LorLQx1DPovQIA4HM3127fAYpyuaY8",
+    authDomain: "es-form-labs.firebaseapp.com",
+    projectId: "es-form-labs"
+  };
+  if (!firebase.apps.length) firebase.initializeApp(config);
+  firebase.auth().onAuthStateChanged(function(user) {
+    var indicator = document.getElementById('auth-indicator');
+    var nameEl = document.getElementById('auth-name');
+    var avatarEl = document.getElementById('auth-avatar');
+    var signInBtn = document.getElementById('nav-sign-in');
+    if (user) {
+      var displayName = user.displayName || (user.providerData && user.providerData[0] ? user.providerData[0].displayName : null) || 'User';
+      if (indicator) indicator.style.display = 'inline-flex';
+      if (nameEl) nameEl.textContent = displayName;
+      var photoURL = user.photoURL || (user.providerData && user.providerData[0] ? user.providerData[0].photoURL : null);
+      if (avatarEl && photoURL) { avatarEl.src = photoURL; avatarEl.style.display = 'block'; }
+      if (signInBtn) { signInBtn.textContent = 'My coaching'; signInBtn.href = '/coaching/'; }
+    } else {
+      if (indicator) indicator.style.display = 'none';
+      if (signInBtn) { signInBtn.textContent = 'Sign in'; signInBtn.href = '/coaching/'; }
+    }
+  });
+})();
+</script>
 </body>
 </html>
