@@ -533,7 +533,7 @@ body.bar-showing #screen-phases{padding-bottom:120px}
   </div>
   <span id="hdr-file"></span>
   <div class="hdr-right">
-    <button class="btn-ghost" id="btn-my-analyses" onclick="openMyAnalyses()" style="display:none">My analyses</button>
+    <button class="btn-ghost" id="btn-my-analyses" onclick="openMyAnalyses()" style="display:none">My Sessions</button>
     <span id="auth-indicator" class="auth-indicator" style="display:none">
       <img id="auth-avatar" class="auth-avatar" src="">
       <span id="auth-name" class="auth-name"></span>
@@ -869,10 +869,14 @@ body.bar-showing #screen-phases{padding-bottom:120px}
 <div id="my-analyses-overlay" class="my-analyses-overlay" onclick="if(event.target===this)closeMyAnalyses()">
   <div class="ma-panel">
     <div class="ma-hdr">
-      <div class="ma-title">My saved analyses</div>
+      <div class="ma-title">My Sessions</div>
       <button class="ep-close" onclick="closeMyAnalyses()">X</button>
     </div>
-    <div id="ma-list" class="ma-list">Sign in to see your saved analyses.</div>
+    <div id="ma-list" class="ma-list">Sign in to see your saved sessions.</div>
+    <div id="ma-compare-bar" style="display:none;padding:14px 22px;border-top:1px solid var(--border);background:var(--panel);position:sticky;bottom:0;z-index:10;text-align:center">
+      <div style="font-size:12px;color:var(--muted2);margin-bottom:8px" id="ma-compare-hint">Select 2 sessions to compare</div>
+      <button id="ma-compare-btn" style="padding:10px 28px;font-size:14px;font-weight:700;border-radius:9px;border:none;background:var(--cyan);color:#000;cursor:pointer;opacity:.4;pointer-events:none" onclick="compareSelected()">Compare selected sessions</button>
+    </div>
   </div>
 </div>
 
@@ -3766,7 +3770,7 @@ function startNewSession() {
 function openMyAnalyses() {
   document.getElementById('my-analyses-overlay').classList.add('open');
   if (currentUser) loadAnalysesList();
-  else document.getElementById('ma-list').innerHTML = '<div style="text-align:center;padding:40px"><div style="font-size:15px;font-weight:700;margin-bottom:12px">Sign in to see your saved analyses</div><button class="btn-main" onclick="signInWithGoogle()">Sign in with Google</button></div>';
+  else document.getElementById('ma-list').innerHTML = '<div style="text-align:center;padding:40px"><div style="font-size:15px;font-weight:700;margin-bottom:12px">Sign in to see your saved sessions</div><button class="btn-main" onclick="signInWithGoogle()">Sign in with Google</button></div>';
 }
 function closeMyAnalyses() {
   document.getElementById('my-analyses-overlay').classList.remove('open');
@@ -3783,7 +3787,7 @@ async function loadAnalysesList() {
     snap.forEach(function(doc) { savedAnalysesList.push({ id: doc.id, data: doc.data() }); });
 
     if (savedAnalysesList.length === 0) {
-      listEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted2)">No saved analyses yet. Complete an analysis and save it to see it here.</div>';
+      listEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted2)">No saved sessions yet. Complete an analysis and save it to see it here.</div>';
       return;
     }
 
@@ -3794,7 +3798,8 @@ async function loadAnalysesList() {
         Object.keys(d.issues).forEach(function(k) { if (d.issues[k] && d.issues[k].detected) issueCount++; });
       }
       var issueSummary = issueCount > 0 ? issueCount + ' issue' + (issueCount > 1 ? 's' : '') + ' detected' : 'No issues detected';
-      return '<div class="ma-item" style="display:flex;align-items:center;gap:16px">' +
+      return '<div class="ma-item" style="display:flex;align-items:center;gap:12px">' +
+        '<input type="checkbox" class="ma-compare-check" data-id="' + item.id + '" style="width:18px;height:18px;accent-color:#00e5c8;cursor:pointer;flex-shrink:0" onchange="updateCompareSelection()">' +
         '<div class="ma-item-info" style="flex:1;min-width:0">' +
           '<div class="ma-item-name">' + (d.name || 'Untitled') + '</div>' +
           '<div class="ma-item-date">' + (d.date || '') + (d.sex ? ' -- ' + d.sex : '') + '</div>' +
@@ -3802,11 +3807,15 @@ async function loadAnalysesList() {
         '</div>' +
         '<div style="display:flex;gap:6px;flex-shrink:0">' +
           '<button class="ma-action-btn" data-action="view" data-id="' + item.id + '" style="padding:8px 18px;font-size:13px;font-weight:700;border-radius:8px;border:1px solid rgba(0,229,200,.35);background:rgba(0,229,200,.1);color:#00e5c8;cursor:pointer">View</button>' +
-          '<button class="ma-action-btn" data-action="compare" data-id="' + item.id + '" style="padding:8px 18px;font-size:13px;font-weight:700;border-radius:8px;border:1px solid rgba(0,229,200,.35);background:rgba(0,229,200,.1);color:#00e5c8;cursor:pointer">Compare</button>' +
           '<button class="ma-action-btn" data-action="delete" data-id="' + item.id + '" style="padding:8px 18px;font-size:13px;font-weight:700;border-radius:8px;border:1px solid rgba(245,80,80,.3);background:rgba(245,80,80,.06);color:#f55050;cursor:pointer">Delete</button>' +
         '</div>' +
       '</div>';
     }).join('');
+
+    // Show compare bar if 2+ sessions exist
+    var compareBar = document.getElementById('ma-compare-bar');
+    if (compareBar) compareBar.style.display = savedAnalysesList.length >= 2 ? 'block' : 'none';
+    updateCompareSelection();
 
     // Attach event delegation for action buttons
     listEl.removeEventListener('click', handleAnalysisAction);
@@ -3823,8 +3832,47 @@ function handleAnalysisAction(e) {
   var id = btn.getAttribute('data-id');
   if (!action || !id) return;
   if (action === 'view') viewSavedAnalysis(id);
-  else if (action === 'compare') startCompareFrom(id);
   else if (action === 'delete') deleteAnalysis(id);
+}
+
+function updateCompareSelection() {
+  var checks = document.querySelectorAll('.ma-compare-check:checked');
+  var btn = document.getElementById('ma-compare-btn');
+  var hint = document.getElementById('ma-compare-hint');
+  if (!btn) return;
+  if (checks.length === 2) {
+    btn.style.opacity = '1';
+    btn.style.pointerEvents = 'auto';
+    if (hint) hint.textContent = '2 sessions selected';
+  } else if (checks.length > 2) {
+    // Uncheck the oldest selection (first checked that isn't the latest)
+    var allChecks = document.querySelectorAll('.ma-compare-check');
+    for (var ci = 0; ci < allChecks.length; ci++) {
+      if (allChecks[ci].checked) {
+        var isLatest = false;
+        for (var cj = 0; cj < checks.length; cj++) {
+          if (checks[cj] === allChecks[ci] && cj === checks.length - 1) isLatest = true;
+        }
+        if (!isLatest) { allChecks[ci].checked = false; break; }
+      }
+    }
+    btn.style.opacity = '1';
+    btn.style.pointerEvents = 'auto';
+    if (hint) hint.textContent = '2 sessions selected';
+  } else {
+    btn.style.opacity = '.4';
+    btn.style.pointerEvents = 'none';
+    if (hint) hint.textContent = checks.length === 1 ? '1 selected -- pick one more to compare' : 'Select 2 sessions to compare';
+  }
+}
+
+function compareSelected() {
+  var checks = document.querySelectorAll('.ma-compare-check:checked');
+  if (checks.length !== 2) return;
+  var idA = checks[0].getAttribute('data-id');
+  var idB = checks[1].getAttribute('data-id');
+  closeMyAnalyses();
+  openCompare(idA, idB);
 }
 
 async function deleteAnalysis(id) {
@@ -3905,16 +3953,13 @@ async function viewSavedAnalysis(id) {
   if (saveEl) saveEl.style.display = 'none';
 }
 
-function startCompareFrom(id) {
-  closeMyAnalyses();
-  openCompare(id);
-}
 
-function openCompare(preselectedId) {
+
+function openCompare(idA, idB) {
   document.getElementById('compare-overlay').classList.add('open');
   var picker = document.getElementById('compare-picker');
   if (savedAnalysesList.length < 2) {
-    picker.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted2)">You need at least 2 saved analyses to compare.</div>';
+    picker.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted2)">You need at least 2 saved sessions to compare.</div>';
     document.getElementById('compare-results').innerHTML = '';
     return;
   }
@@ -3923,17 +3968,15 @@ function openCompare(preselectedId) {
     return '<option value="' + item.id + '">' + (item.data.name || 'Untitled') + ' (' + (item.data.date || '') + ')</option>';
   }).join('');
 
-  var secondId = preselectedId ? (function() { var found = savedAnalysesList.find(function(a) { return a.id !== preselectedId; }); return found ? found.id : ''; })() : '';
-
   picker.innerHTML = '<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">' +
-    '<div style="flex:1;min-width:200px"><label style="font-size:11px;font-family:var(--mono);color:var(--muted2);display:block;margin-bottom:4px">Analysis A (earlier)</label><select class="save-input" id="compare-a" onchange="runCompare()">' + optionsHtml + '</select></div>' +
+    '<div style="flex:1;min-width:200px"><label style="font-size:11px;font-family:var(--mono);color:var(--muted2);display:block;margin-bottom:4px">Session A (earlier)</label><select class="save-input" id="compare-a" onchange="runCompare()">' + optionsHtml + '</select></div>' +
     '<div style="font-size:18px;color:var(--muted)">vs</div>' +
-    '<div style="flex:1;min-width:200px"><label style="font-size:11px;font-family:var(--mono);color:var(--muted2);display:block;margin-bottom:4px">Analysis B (later)</label><select class="save-input" id="compare-b" onchange="runCompare()">' + optionsHtml + '</select></div>' +
+    '<div style="flex:1;min-width:200px"><label style="font-size:11px;font-family:var(--mono);color:var(--muted2);display:block;margin-bottom:4px">Session B (later)</label><select class="save-input" id="compare-b" onchange="runCompare()">' + optionsHtml + '</select></div>' +
   '</div>';
 
-  if (preselectedId) {
-    document.getElementById('compare-a').value = preselectedId;
-    if (secondId) document.getElementById('compare-b').value = secondId;
+  if (idA && idB) {
+    document.getElementById('compare-a').value = idA;
+    document.getElementById('compare-b').value = idB;
   } else {
     if (savedAnalysesList.length >= 2) {
       document.getElementById('compare-a').value = savedAnalysesList[1].id;
@@ -3990,7 +4033,8 @@ function runCompare() {
 
   var html = '<div style="margin-top:20px">';
 
-  html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:0 22px;margin-bottom:12px"><div style="font-size:14px;font-weight:700">Issue changes</div><button class="btn-download-report" onclick="downloadComparisonPDF()" style="font-size:12px;padding:7px 14px">&#128196; Download comparison PDF</button></div>';
+  html += '<div style="text-align:center;margin-bottom:20px"><button class="btn-download-report" onclick="downloadComparisonPDF()" style="font-size:14px;padding:12px 28px;background:rgba(0,229,200,.08);border:1px solid rgba(0,229,200,.3);color:#00e5c8">&#128196; Download comparison report as PDF</button></div>';
+  html += '<div style="font-size:14px;font-weight:700;margin-bottom:12px;padding:0 22px">Issue changes</div>';
   html += '<div class="compare-grid">';
 
   issueKeys.forEach(function(ik) {
