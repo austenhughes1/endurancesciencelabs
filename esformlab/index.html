@@ -965,6 +965,13 @@ const DEFAULTS = {
   rElbow:{green:[50,110], warn:[20,130]},
   lFoot: {green:[-0.15,0.15],warn:[-0.3,0.3]},
   rFoot: {green:[-0.15,0.15],warn:[-0.3,0.3]},
+  plantKnee: {green:[120,175], warn:[90,185]},
+  plantHip: {green:[140,185], warn:[110,200]},
+  leadKnee: {green:[120,175], warn:[90,185]},
+  leadHip: {green:[140,185], warn:[110,200]},
+  leadFoot: {green:[-0.15,0.15], warn:[-0.3,0.3]},
+  trailHip: {green:[140,185], warn:[110,200]},
+  nearElbow: {green:[50,110], warn:[20,130]},
 };
 
 function getRange(phaseKey, metricKey) {
@@ -1006,6 +1013,13 @@ const METRIC_BIO = {
   rElbow: 'Right elbow angle reflects arm carriage. A compact arm swing reduces rotational energy cost and helps maintain cadence.',
   lFoot:  'Left foot offset describes where the foot lands relative to the hip. Landing closer to under the hip reduces braking forces.',
   rFoot:  'Right foot offset describes where the foot lands relative to the hip. Landing closer to under the hip reduces braking forces.',
+  plantKnee: 'Stance knee angle at this phase. Reflects shock absorption and support during single-leg stance.',
+  plantHip: 'Stance hip angle. Indicates pelvic position and hip extension during the support phase.',
+  leadKnee: 'Lead leg knee angle. Reflects how extended or flexed the forward leg is at this moment.',
+  leadHip: 'Lead leg hip angle. Shows hip flexion of the forward-reaching leg.',
+  leadFoot: 'Lead leg foot offset relative to the hip. A larger positive value means the foot is landing further ahead.',
+  trailHip: 'Trailing leg hip angle. Shows how much hip extension the push-off leg has achieved.',
+  nearElbow: 'Elbow angle of the camera-side arm. Reflects arm carriage compactness.',
 };
 
 // -- Bell curve SVG builder --
@@ -1236,6 +1250,13 @@ const METRIC_ROWS = [
   {key:'rElbow',label:'R elbow',    dot:'var(--right)', fmt:function(v){return v.toFixed(0)+'\u00b0';},               hint:'Elite: 80-110'},
   {key:'lFoot', label:'L foot off.',dot:'var(--left)',  fmt:function(v){return (v>0?'+':'')+v.toFixed(2);},           hint:'+ = under body'},
   {key:'rFoot', label:'R foot off.',dot:'var(--right)', fmt:function(v){return (v>0?'+':'')+v.toFixed(2);},           hint:'+ = under body'},
+  {key:'plantKnee', label:'Stance knee', dot:'var(--cyan)', fmt:function(v){return v.toFixed(0)+'\u00b0';}, hint:'Stance phase'},
+  {key:'plantHip', label:'Stance hip', dot:'var(--cyan)', fmt:function(v){return v.toFixed(0)+'\u00b0';}, hint:'Stance phase'},
+  {key:'leadKnee', label:'Lead knee', dot:'var(--cyan)', fmt:function(v){return v.toFixed(0)+'\u00b0';}, hint:'Lead leg'},
+  {key:'leadHip', label:'Lead hip', dot:'var(--cyan)', fmt:function(v){return v.toFixed(0)+'\u00b0';}, hint:'Lead leg'},
+  {key:'leadFoot', label:'Lead foot off.', dot:'var(--cyan)', fmt:function(v){return (v>0?'+':'')+v.toFixed(2);}, hint:'Lead leg'},
+  {key:'trailHip', label:'Trail hip', dot:'var(--cyan)', fmt:function(v){return v.toFixed(0)+'\u00b0';}, hint:'Trailing leg'},
+  {key:'nearElbow', label:'Elbow', dot:'var(--cyan)', fmt:function(v){return v.toFixed(0)+'\u00b0';}, hint:'Camera-side arm'},
 ];
 
 const PHASE_METRICS = {
@@ -1243,11 +1264,11 @@ const PHASE_METRICS = {
   r_foot:    ['trunk','lKnee','rKnee','lHip','rHip','rFoot','rElbow'],
   l_toe:     ['trunk','lKnee','rKnee','lHip','rHip','lElbow'],
   r_toe:     ['trunk','lKnee','rKnee','lHip','rHip','rElbow'],
-  mid:       ['trunk','lKnee','rKnee','lHip','rHip','lElbow','rElbow'],
+  mid:       ['trunk','plantKnee','plantHip','nearElbow'],
   mid_front: [],
   mid_back:  [],
-  peak_kf:   ['trunk','lKnee','rKnee','lHip','rHip','lElbow'],
-  swing:     ['trunk','lKnee','rKnee','lHip','rHip','lFoot','lElbow'],
+  peak_kf:   ['trunk','trailHip','nearElbow'],
+  swing:     ['trunk','leadKnee','leadHip','leadFoot','nearElbow'],
 };
 function isRelevant(phaseKey, metricKey){ var pm=PHASE_METRICS[phaseKey]; return !pm || pm.length===0 || pm.includes(metricKey); }
 
@@ -1867,6 +1888,9 @@ async function analyzeCard(key){
     renderMiniMetricsFrontBack(key, ph.frontBackMetrics);
   } else {
     ph.metrics=computeMetrics(kps);ph.sideView=isSideView(kps);
+    if(ph.sideView && (key==='mid'||key==='peak_kf'||key==='swing')) {
+      addFunctionalMetrics(ph.metrics, key, kps);
+    }
     drawPose(ctx,kps,W,H);
     if(!ph.sideView){renderSideViewWarning(key);}else{renderMiniMetrics(key,ph.metrics);updateSummaryCol(key);renderLegSwapWarning(key,ph.metrics);}
   }
@@ -1885,16 +1909,19 @@ function renderMiniMetricsFrontBack(key, fbm) {
   var isFront = (key === 'mid_front');
   var items = [];
   if(fbm.hipDropAbs !== undefined && fbm.hipDropAbs !== null) {
-    items.push('<span class="mm-item">Hip drop: '+(fbm.hipDropAbs*100).toFixed(0)+'%</span>');
+    var dropSideLabel = fbm.stanceSide ? ' (' + fbm.stanceSide + ' stance)' : '';
+    items.push('<span class="mm-item">Hip drop' + dropSideLabel + ': '+(fbm.hipDropAbs*100).toFixed(0)+'%</span>');
   }
   if(isFront) {
     var maxCross = Math.max(fbm.lWristCross||0, fbm.rWristCross||0);
     if(maxCross > 0.05) {
       items.push('<span class="mm-item">Arm crossing: detected</span>');
     }
-    var maxValgus = Math.max(fbm.lKneeValgus||0, fbm.rKneeValgus||0);
-    if(maxValgus > 0.05) {
-      items.push('<span class="mm-item">Knee valgus: detected</span>');
+    var stanceValgus = null;
+    if(fbm.stanceSide === 'left' && fbm.lKneeValgus != null) stanceValgus = fbm.lKneeValgus;
+    else if(fbm.stanceSide === 'right' && fbm.rKneeValgus != null) stanceValgus = fbm.rKneeValgus;
+    if(stanceValgus != null && stanceValgus > 0.05) {
+      items.push('<span class="mm-item">Stance knee valgus: detected</span>');
     }
   }
   if(items.length===0) {
@@ -1991,6 +2018,9 @@ async function epReanalyze(){
     renderMiniMetricsFrontBack(expandKey, ph.frontBackMetrics);
   } else {
     ph.metrics=computeMetrics(kps);ph.sideView=isSideView(kps);
+    if(ph.sideView && (expandKey==='mid'||expandKey==='peak_kf'||expandKey==='swing')) {
+      addFunctionalMetrics(ph.metrics, expandKey, kps);
+    }
     drawPose(ctx,kps,W,H);
     if(!ph.sideView){
       document.getElementById('ep-metrics').innerHTML=
@@ -2050,8 +2080,9 @@ function renderExpandMetricsFrontBack(fbm) {
   var isFront = (expandKey === 'mid_front');
   var html = '';
 
+  var stanceLabel = fbm.stanceSide ? ' (' + fbm.stanceSide + ' stance)' : '';
   html += '<div class="ep-metric-block">';
-  html += '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:var(--purple)"></div><strong>Hip drop</strong></div>';
+  html += '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:var(--purple)"></div><strong>Hip drop' + stanceLabel + '</strong></div>';
   html += '<div class="ep-metric-bio">Contralateral pelvis drop during single-leg stance, indicating glute medius strength.'+(isFront?'':' This back view is used to confirm hip drop findings from the front view.')+'</div>';
   html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(fbm.hipDropAbs!==null?(fbm.hipDropAbs*100).toFixed(1)+'% of torso height':'--')+'</span>';
   if(fbm.hipDrop!==null) html += ' -- <span style="color:var(--muted2)">'+(fbm.hipDrop>0?'Left hip lower':'Right hip lower')+'</span>';
@@ -2068,15 +2099,15 @@ function renderExpandMetricsFrontBack(fbm) {
     html += '<div class="ep-metric-bio">How far the right wrist crosses the body midline during arm swing.</div>';
     html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(fbm.rWristCross!==null?(fbm.rWristCross*100).toFixed(1)+'% of shoulder width':'--')+'</span></div></div>';
 
+    // Show only stance-leg knee valgus
+    var stanceValgusVal = null;
+    var stanceValgusLabel = 'Stance knee valgus';
+    if(fbm.stanceSide === 'left') { stanceValgusVal = fbm.lKneeValgus; }
+    else if(fbm.stanceSide === 'right') { stanceValgusVal = fbm.rKneeValgus; }
     html += '<div class="ep-metric-block">';
-    html += '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:var(--left)"></div><strong>L knee valgus</strong></div>';
-    html += '<div class="ep-metric-bio">Medial deviation of the left knee from the hip-ankle line. Inward collapse increases stress on the knee.</div>';
-    html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(fbm.lKneeValgus!==null?(fbm.lKneeValgus*100).toFixed(1)+'% of hip width':'--')+'</span></div></div>';
-
-    html += '<div class="ep-metric-block">';
-    html += '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:var(--right)"></div><strong>R knee valgus</strong></div>';
-    html += '<div class="ep-metric-bio">Medial deviation of the right knee from the hip-ankle line.</div>';
-    html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(fbm.rKneeValgus!==null?(fbm.rKneeValgus*100).toFixed(1)+'% of hip width':'--')+'</span></div></div>';
+    html += '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:var(--cyan)"></div><strong>' + stanceValgusLabel + '</strong></div>';
+    html += '<div class="ep-metric-bio">Medial deviation of the stance knee from the hip-ankle line. Inward collapse increases stress on the knee.</div>';
+    html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(stanceValgusVal!==null?(stanceValgusVal*100).toFixed(1)+'% of hip width':'--')+'</span></div></div>';
   }
 
   html += '<div class="ep-metric-block">';
@@ -2249,6 +2280,53 @@ function computeFrontBackMetrics(kps) {
   }
 
   return result;
+}
+
+// -- Add functional metric keys for bilateral side-view phases --
+function addFunctionalMetrics(metrics, phaseKey, kps) {
+  if (!metrics || !kps) return;
+  var g4 = function(i) { return (kps[i] && kps[i].score >= MIN_CONF) ? kps[i] : null; };
+
+  // Determine near-camera elbow by comparing avg confidence of shoulder/elbow/wrist
+  var lSh = g4(5), rSh = g4(6), lEl = g4(7), rEl = g4(8), lWr = g4(9), rWr = g4(10);
+  var lArmConf = 0, rArmConf = 0, lArmN = 0, rArmN = 0;
+  if (lSh) { lArmConf += lSh.score; lArmN++; }
+  if (lEl) { lArmConf += lEl.score; lArmN++; }
+  if (lWr) { lArmConf += lWr.score; lArmN++; }
+  if (rSh) { rArmConf += rSh.score; rArmN++; }
+  if (rEl) { rArmConf += rEl.score; rArmN++; }
+  if (rWr) { rArmConf += rWr.score; rArmN++; }
+  var lArmAvg = lArmN > 0 ? lArmConf / lArmN : 0;
+  var rArmAvg = rArmN > 0 ? rArmConf / rArmN : 0;
+  var nearSide = (lArmAvg >= rArmAvg) ? 'l' : 'r';
+  if (metrics[nearSide + 'Elbow'] != null) {
+    metrics.nearElbow = metrics[nearSide + 'Elbow'];
+  }
+
+  // Determine plant/lead/trail legs based on phase
+  var lAnkle = g4(15), rAnkle = g4(16);
+  var lAnkleY = lAnkle ? lAnkle.y : -Infinity;
+  var rAnkleY = rAnkle ? rAnkle.y : -Infinity;
+
+  if (phaseKey === 'mid') {
+    // Plant leg = the side with the lower ankle (higher y in image coords = on ground)
+    var plantSide = (lAnkleY >= rAnkleY) ? 'l' : 'r';
+    if (metrics[plantSide + 'Knee'] != null) metrics.plantKnee = metrics[plantSide + 'Knee'];
+    if (metrics[plantSide + 'Hip'] != null) metrics.plantHip = metrics[plantSide + 'Hip'];
+  } else if (phaseKey === 'swing') {
+    // Lead leg = the side with higher knee angle (more extended)
+    var lK = metrics.lKnee, rK = metrics.rKnee;
+    var leadSide = (lK != null && rK != null) ? (lK >= rK ? 'l' : 'r') : (lK != null ? 'l' : 'r');
+    if (metrics[leadSide + 'Knee'] != null) metrics.leadKnee = metrics[leadSide + 'Knee'];
+    if (metrics[leadSide + 'Hip'] != null) metrics.leadHip = metrics[leadSide + 'Hip'];
+    if (metrics[leadSide + 'Foot'] != null) metrics.leadFoot = metrics[leadSide + 'Foot'];
+  } else if (phaseKey === 'peak_kf') {
+    // Lead leg = the side with lower knee angle (more flexed, the swing leg). Trail = stance leg.
+    var lK2 = metrics.lKnee, rK2 = metrics.rKnee;
+    var leadSide2 = (lK2 != null && rK2 != null) ? (lK2 <= rK2 ? 'l' : 'r') : (lK2 != null ? 'l' : 'r');
+    var trailSide = (leadSide2 === 'l') ? 'r' : 'l';
+    if (metrics[trailSide + 'Hip'] != null) metrics.trailHip = metrics[trailSide + 'Hip'];
+  }
 }
 
 // ==============================================================
@@ -2499,7 +2577,8 @@ function detectIssues() {
     }
     // Also check hip angle at mid-stance for arching
     var hipAngle = null;
-    if(midM.lHip !== undefined && midM.rHip !== undefined) hipAngle = (midM.lHip + midM.rHip)/2;
+    if(midM.plantHip !== undefined) hipAngle = midM.plantHip;
+    else if(midM.lHip !== undefined && midM.rHip !== undefined) hipAngle = (midM.lHip + midM.rHip)/2;
     else if(midM.lHip !== undefined) hipAngle = midM.lHip;
     else if(midM.rHip !== undefined) hipAngle = midM.rHip;
     if(hipAngle !== null) {
@@ -2515,10 +2594,14 @@ function detectIssues() {
   var pkfM = phases.peak_kf && phases.peak_kf.metrics ? phases.peak_kf.metrics : null;
   var avgElbow = null;
   if(pkfM) {
-    var eCount = 0, eSum = 0;
-    if(pkfM.lElbow !== undefined) { eSum += pkfM.lElbow; eCount++; }
-    if(pkfM.rElbow !== undefined) { eSum += pkfM.rElbow; eCount++; }
-    if(eCount > 0) avgElbow = eSum / eCount;
+    if(pkfM.nearElbow !== undefined) {
+      avgElbow = pkfM.nearElbow;
+    } else {
+      var eCount = 0, eSum = 0;
+      if(pkfM.lElbow !== undefined) { eSum += pkfM.lElbow; eCount++; }
+      if(pkfM.rElbow !== undefined) { eSum += pkfM.rElbow; eCount++; }
+      if(eCount > 0) avgElbow = eSum / eCount;
+    }
   }
   if(avgElbow !== null && avgElbow > 140) {
     issues.armAngle = {detected:true, severity:'notable', details:'Avg elbow: '+avgElbow.toFixed(0)+'\u00b0'};
@@ -3573,7 +3656,10 @@ function buildSummaryTable(){
     var ud=!(ph&&ph.detected)?' undetected-col':'';
     return '<th class="'+gs+side+ud+'" onclick="openExpand(\''+k+'\')">'+(idx+1)+'. '+(ph?ph.label:k)+(!(ph&&ph.detected)?' &#9888;':'')+'</th>';
   }).join('')+'</tr>';
-  tbl.querySelector('tbody').innerHTML=METRIC_ROWS.map(function(r){
+  var visibleRows = METRIC_ROWS.filter(function(r) {
+    return SUMMARY_COL_ORDER.some(function(pk) { return isRelevant(pk, r.key); });
+  });
+  tbl.querySelector('tbody').innerHTML=visibleRows.map(function(r){
     return '<tr><td class="row-label">'+r.label+'</td>'+SUMMARY_COL_ORDER.map(function(k){
       return '<td class="'+(GROUP_STARTS.has(k)?'td-group-start':'')+'" id="sc-'+k+'-'+r.key+'"><span class="sv na">--</span></td>';
     }).join('')+'</tr>';
@@ -4117,54 +4203,8 @@ function runCompare() {
     var phaseDef = PHASE_DEFS.find(function(d) { return d.key === pk; });
     var phaseLabel = phaseDef ? phaseDef.label : pk;
 
-    if (BILATERAL_PHASES[pk]) {
-      // Normalize bilateral phases so we compare by role, not L/R
-      var normA = normalizeBilateral(mA, pk);
-      var normB = normalizeBilateral(mB, pk);
-      // Trunk first
-      if (isRelevant(pk, 'trunk')) {
-        var vtA = normA ? normA.trunk : null;
-        var vtB = normB ? normB.trunk : null;
-        var trunkRow = METRIC_ROWS.find(function(r) { return r.key === 'trunk'; });
-        var ftA = vtA != null ? trunkRow.fmt(vtA) : '--';
-        var ftB = vtB != null ? trunkRow.fmt(vtB) : '--';
-        var tDelta = '', tDeltaStyle = 'color:var(--muted2)';
-        if (vtA != null && vtB != null) {
-          var tDiff = vtB - vtA;
-          tDelta = (tDiff > 0 ? '+' : '') + tDiff.toFixed(1);
-          var tRng = getRange(pk, 'trunk');
-          var tCenter = (tRng.green[0] + tRng.green[1]) / 2;
-          if (Math.abs(tDiff) < 0.5) tDeltaStyle = 'color:var(--muted)';
-          else if (Math.abs(vtB - tCenter) < Math.abs(vtA - tCenter)) tDeltaStyle = 'color:var(--good)';
-          else tDeltaStyle = 'color:var(--warn)';
-        }
-        html += '<tr><td class="row-label">' + phaseLabel + '</td><td class="row-label">Trunk lean</td><td style="font-family:var(--mono);font-size:12px">' + ftA + '</td><td style="font-family:var(--mono);font-size:12px">' + ftB + '</td><td style="font-family:var(--mono);font-size:12px;font-weight:700;' + tDeltaStyle + '">' + tDelta + '</td></tr>';
-      }
-      // Bilateral pairs
-      BILATERAL_PAIRS.forEach(function(pair) {
-        var vA2 = normA ? normA[pair.label] : null;
-        var vB2 = normB ? normB[pair.label] : null;
-        if (vA2 == null && vB2 == null) return;
-        // Find a matching METRIC_ROW for formatting
-        var sampleRow = METRIC_ROWS.find(function(r) { return r.key === pair.a; });
-        if (!sampleRow) return;
-        if (!isRelevant(pk, pair.a) && !isRelevant(pk, pair.b)) return;
-        var fA2 = vA2 != null ? sampleRow.fmt(vA2) : '--';
-        var fB2 = vB2 != null ? sampleRow.fmt(vB2) : '--';
-        var delta2 = '', deltaStyle2 = 'color:var(--muted2)';
-        if (vA2 != null && vB2 != null) {
-          var diff2 = vB2 - vA2;
-          delta2 = (diff2 > 0 ? '+' : '') + diff2.toFixed(1);
-          var rng2 = getRange(pk, pair.a);
-          var center2 = (rng2.green[0] + rng2.green[1]) / 2;
-          if (Math.abs(diff2) < 0.5) deltaStyle2 = 'color:var(--muted)';
-          else if (Math.abs(vB2 - center2) < Math.abs(vA2 - center2)) deltaStyle2 = 'color:var(--good)';
-          else deltaStyle2 = 'color:var(--warn)';
-        }
-        html += '<tr><td class="row-label">' + phaseLabel + '</td><td class="row-label">' + pair.label + '</td><td style="font-family:var(--mono);font-size:12px">' + fA2 + '</td><td style="font-family:var(--mono);font-size:12px">' + fB2 + '</td><td style="font-family:var(--mono);font-size:12px;font-weight:700;' + deltaStyle2 + '">' + delta2 + '</td></tr>';
-      });
-    } else {
-      // Side-specific phases: compare L/R directly as before
+    {
+      // Compare using METRIC_ROWS + isRelevant (functional keys for bilateral, L/R for side-specific)
       METRIC_ROWS.forEach(function(r) {
         if (!isRelevant(pk, r.key)) return;
         var vA = mA ? mA[r.key] : null;
@@ -4649,24 +4689,8 @@ function downloadComparisonPDF() {
     var pDef = PHASE_DEFS.find(function(d) { return d.key === pk; });
     var pLabel = pDef ? pDef.label : pk;
 
-    if (BILATERAL_PHASES[pk]) {
-      var normA2 = normalizeBilateral(mA, pk);
-      var normB2 = normalizeBilateral(mB, pk);
-      // Trunk
-      if (isRelevant(pk, 'trunk')) {
-        var vtA2 = normA2 ? normA2.trunk : null;
-        var vtB2 = normB2 ? normB2.trunk : null;
-        if (vtA2 != null || vtB2 != null) pdfCompareRow(pLabel, 'Trunk lean', vtA2, vtB2, 'trunk');
-      }
-      // Bilateral pairs
-      BILATERAL_PAIRS.forEach(function(pair) {
-        if (!isRelevant(pk, pair.a) && !isRelevant(pk, pair.b)) return;
-        var vpA = normA2 ? normA2[pair.label] : null;
-        var vpB = normB2 ? normB2[pair.label] : null;
-        if (vpA == null && vpB == null) return;
-        pdfCompareRow(pLabel, pair.label, vpA, vpB, pair.a);
-      });
-    } else {
+    {
+      // Use METRIC_ROWS + isRelevant for all phases (functional keys for bilateral, L/R for side-specific)
       METRIC_ROWS.forEach(function(r) {
         if (!isRelevant(pk, r.key)) return;
         var vA = mA ? mA[r.key] : null;
