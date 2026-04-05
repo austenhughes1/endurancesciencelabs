@@ -776,6 +776,9 @@ body.bar-showing #screen-phases{padding-bottom:120px}
   <!-- Summary table (side view measurements) -->
   <div class="summary" id="summary-section" style="display:none">
     <div class="summary-title" id="summary-title" style="font-size:22px">Side view measurements</div>
+    <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:20px;font-size:13px;color:var(--muted2);line-height:1.8">
+      <strong style="color:var(--text)">A note about these reference ranges:</strong> The bell curves and ranges below are based on data from elite-level marathoners. Very few recreational runners will match these ranges across every metric, and that is completely normal. A value outside the elite range does not mean something is wrong or needs to be changed. Running mechanics are highly individual, and what matters most is efficiency and comfort within your own body. This data is provided for informational context only -- not as a target to chase or a diagnosis of a problem.
+    </div>
     <div class="summary-sub" style="font-size:15px">All angles below are measured in degrees and compared to reference ranges from elite runners. Click any column header to open and re-examine that phase.</div>
     <div class="summary-scroll">
       <table class="stbl" id="summary-table"><thead></thead><tbody></tbody></table>
@@ -3323,6 +3326,49 @@ function downloadReport() {
   doc.line(tableX, y, tableX + contentW, y);
 
   // ====== BELL CURVE DETAIL PAGES ======
+
+  // Disclaimer page before bell curves
+  doc.addPage();
+  pdfDrawFooter(doc, margins);
+  y = margins.top;
+
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(accentR, accentG, accentB);
+  doc.text('Angle measurements by phase', margins.left, y);
+  y += 8;
+
+  doc.setDrawColor(accentR, accentG, accentB);
+  doc.setLineWidth(0.4);
+  doc.line(margins.left, y, pageW - margins.right, y);
+  y += 10;
+
+  // Disclaimer box
+  doc.setFillColor(245, 248, 252);
+  doc.setDrawColor(210, 215, 225);
+  doc.setLineWidth(0.3);
+  var disclaimerText = 'A note about these reference ranges: The bell curves and ranges in the following pages are based on data from elite-level marathoners. Very few recreational runners will match these ranges across every metric, and that is completely normal. A value outside the elite range does not mean something is wrong or needs to be changed. Running mechanics are highly individual, and what matters most is efficiency and comfort within your own body. This data is provided for informational context only -- not as a target to chase or a diagnosis of a problem.';
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  var disclaimerLines = doc.splitTextToSize(disclaimerText, contentW - 12);
+  var disclaimerH = disclaimerLines.length * 4.2 + 12;
+  doc.roundedRect(margins.left, y, contentW, disclaimerH, 2, 2, 'FD');
+  doc.setTextColor(bodyR, bodyG, bodyB);
+  doc.setFont('helvetica', 'bold');
+  doc.text('A note about these reference ranges:', margins.left + 6, y + 7);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(mutedR, mutedG, mutedB);
+  var disclaimerBody = doc.splitTextToSize('The bell curves and ranges in the following pages are based on data from elite-level marathoners. Very few recreational runners will match these ranges across every metric, and that is completely normal. A value outside the elite range does not mean something is wrong or needs to be changed. Running mechanics are highly individual, and what matters most is efficiency and comfort within your own body. This data is provided for informational context only -- not as a target to chase or a diagnosis of a problem.', contentW - 12);
+  doc.text(disclaimerBody, margins.left + 6, y + 13);
+  y += disclaimerH + 10;
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(bodyR, bodyG, bodyB);
+  var bellIntro = doc.splitTextToSize('The following pages show each measured angle for every analyzed gait phase, with a bell curve showing where your value falls relative to the elite reference population. The shaded band represents the reference range, and the dashed line marks your measured value.', contentW);
+  doc.text(bellIntro, margins.left, y);
+  y += bellIntro.length * 4 + 4;
+
   // One page per phase with relevant metrics, each showing a bell curve + description
   var sidePhaseKeys2 = SUMMARY_COL_ORDER;
   sidePhaseKeys2.forEach(function(pk) {
