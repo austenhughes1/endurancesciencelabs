@@ -3990,6 +3990,55 @@ function closeCompare() {
   document.getElementById('compare-overlay').classList.remove('open');
 }
 
+// For non-side-specific phases (mid, peak_kf, swing), the L/R assignments
+// depend on which leg happened to be captured. To compare sessions fairly,
+// we normalize by pairing metrics by functional role rather than L/R label.
+// Pairs: lKnee/rKnee, lHip/rHip, lElbow/rElbow, lFoot/rFoot
+// For each pair, we pick the value closer to the "primary" role for that phase:
+//   swing: the extending leg (higher knee angle)
+//   peak_kf: the flexing leg (lower knee angle)
+//   mid: the stance leg (lower hip angle = more vertical)
+var BILATERAL_PHASES = {mid: true, peak_kf: true, swing: true};
+var BILATERAL_PAIRS = [
+  {a: 'lKnee', b: 'rKnee', label: 'Knee'},
+  {a: 'lHip', b: 'rHip', label: 'Hip'},
+  {a: 'lElbow', b: 'rElbow', label: 'Elbow'},
+  {a: 'lFoot', b: 'rFoot', label: 'Foot off.'}
+];
+
+// Returns normalized metrics for bilateral phases: {Knee: val, Hip: val, ...}
+// For swing: pick the leg with the HIGHER knee angle (the extending leg)
+// For peak_kf: pick the leg with the LOWER knee angle (the flexing leg)
+// For mid: just average both sides (both legs relevant at mid-stance)
+function normalizeBilateral(metrics, phaseKey) {
+  if (!metrics) return null;
+  var result = {};
+  // Always include trunk as-is
+  if (metrics.trunk != null) result.trunk = metrics.trunk;
+
+  var lK = metrics.lKnee, rK = metrics.rKnee;
+  var primaryIsLeft = true;
+  if (phaseKey === 'swing') {
+    // Extending leg = higher knee angle
+    primaryIsLeft = (lK != null && rK != null) ? lK >= rK : (lK != null);
+  } else if (phaseKey === 'peak_kf') {
+    // Flexing leg = lower knee angle
+    primaryIsLeft = (lK != null && rK != null) ? lK <= rK : (lK != null);
+  } else {
+    // mid-stance: use whichever side has data, prefer left
+    primaryIsLeft = (lK != null);
+  }
+
+  BILATERAL_PAIRS.forEach(function(pair) {
+    var pVal = primaryIsLeft ? metrics[pair.a] : metrics[pair.b];
+    var sVal = primaryIsLeft ? metrics[pair.b] : metrics[pair.a];
+    if (pVal != null) result[pair.label] = pVal;
+    else if (sVal != null) result[pair.label] = sVal;
+  });
+
+  return result;
+}
+
 function runCompare() {
   var idA = document.getElementById('compare-a').value;
   var idB = document.getElementById('compare-b').value;
@@ -4068,27 +4117,76 @@ function runCompare() {
     var phaseDef = PHASE_DEFS.find(function(d) { return d.key === pk; });
     var phaseLabel = phaseDef ? phaseDef.label : pk;
 
-    METRIC_ROWS.forEach(function(r) {
-      if (!isRelevant(pk, r.key)) return;
-      var vA = mA ? mA[r.key] : null;
-      var vB = mB ? mB[r.key] : null;
-      var fA = vA != null ? r.fmt(vA) : '--';
-      var fB = vB != null ? r.fmt(vB) : '--';
-      var delta = '';
-      var deltaStyle = 'color:var(--muted2)';
-      if (vA != null && vB != null) {
-        var diff = vB - vA;
-        delta = (diff > 0 ? '+' : '') + diff.toFixed(1);
-        var rng = getRange(pk, r.key);
-        var center = (rng.green[0] + rng.green[1]) / 2;
-        var distA = Math.abs(vA - center);
-        var distB = Math.abs(vB - center);
-        if (Math.abs(diff) < 0.5) deltaStyle = 'color:var(--muted)';
-        else if (distB < distA) deltaStyle = 'color:var(--good)';
-        else deltaStyle = 'color:var(--warn)';
+    if (BILATERAL_PHASES[pk]) {
+      // Normalize bilateral phases so we compare by role, not L/R
+      var normA = normalizeBilateral(mA, pk);
+      var normB = normalizeBilateral(mB, pk);
+      // Trunk first
+      if (isRelevant(pk, 'trunk')) {
+        var vtA = normA ? normA.trunk : null;
+        var vtB = normB ? normB.trunk : null;
+        var trunkRow = METRIC_ROWS.find(function(r) { return r.key === 'trunk'; });
+        var ftA = vtA != null ? trunkRow.fmt(vtA) : '--';
+        var ftB = vtB != null ? trunkRow.fmt(vtB) : '--';
+        var tDelta = '', tDeltaStyle = 'color:var(--muted2)';
+        if (vtA != null && vtB != null) {
+          var tDiff = vtB - vtA;
+          tDelta = (tDiff > 0 ? '+' : '') + tDiff.toFixed(1);
+          var tRng = getRange(pk, 'trunk');
+          var tCenter = (tRng.green[0] + tRng.green[1]) / 2;
+          if (Math.abs(tDiff) < 0.5) tDeltaStyle = 'color:var(--muted)';
+          else if (Math.abs(vtB - tCenter) < Math.abs(vtA - tCenter)) tDeltaStyle = 'color:var(--good)';
+          else tDeltaStyle = 'color:var(--warn)';
+        }
+        html += '<tr><td class="row-label">' + phaseLabel + '</td><td class="row-label">Trunk lean</td><td style="font-family:var(--mono);font-size:12px">' + ftA + '</td><td style="font-family:var(--mono);font-size:12px">' + ftB + '</td><td style="font-family:var(--mono);font-size:12px;font-weight:700;' + tDeltaStyle + '">' + tDelta + '</td></tr>';
       }
-      html += '<tr><td class="row-label">' + phaseLabel + '</td><td class="row-label">' + r.label + '</td><td style="font-family:var(--mono);font-size:12px">' + fA + '</td><td style="font-family:var(--mono);font-size:12px">' + fB + '</td><td style="font-family:var(--mono);font-size:12px;font-weight:700;' + deltaStyle + '">' + delta + '</td></tr>';
-    });
+      // Bilateral pairs
+      BILATERAL_PAIRS.forEach(function(pair) {
+        var vA2 = normA ? normA[pair.label] : null;
+        var vB2 = normB ? normB[pair.label] : null;
+        if (vA2 == null && vB2 == null) return;
+        // Find a matching METRIC_ROW for formatting
+        var sampleRow = METRIC_ROWS.find(function(r) { return r.key === pair.a; });
+        if (!sampleRow) return;
+        if (!isRelevant(pk, pair.a) && !isRelevant(pk, pair.b)) return;
+        var fA2 = vA2 != null ? sampleRow.fmt(vA2) : '--';
+        var fB2 = vB2 != null ? sampleRow.fmt(vB2) : '--';
+        var delta2 = '', deltaStyle2 = 'color:var(--muted2)';
+        if (vA2 != null && vB2 != null) {
+          var diff2 = vB2 - vA2;
+          delta2 = (diff2 > 0 ? '+' : '') + diff2.toFixed(1);
+          var rng2 = getRange(pk, pair.a);
+          var center2 = (rng2.green[0] + rng2.green[1]) / 2;
+          if (Math.abs(diff2) < 0.5) deltaStyle2 = 'color:var(--muted)';
+          else if (Math.abs(vB2 - center2) < Math.abs(vA2 - center2)) deltaStyle2 = 'color:var(--good)';
+          else deltaStyle2 = 'color:var(--warn)';
+        }
+        html += '<tr><td class="row-label">' + phaseLabel + '</td><td class="row-label">' + pair.label + '</td><td style="font-family:var(--mono);font-size:12px">' + fA2 + '</td><td style="font-family:var(--mono);font-size:12px">' + fB2 + '</td><td style="font-family:var(--mono);font-size:12px;font-weight:700;' + deltaStyle2 + '">' + delta2 + '</td></tr>';
+      });
+    } else {
+      // Side-specific phases: compare L/R directly as before
+      METRIC_ROWS.forEach(function(r) {
+        if (!isRelevant(pk, r.key)) return;
+        var vA = mA ? mA[r.key] : null;
+        var vB = mB ? mB[r.key] : null;
+        var fA = vA != null ? r.fmt(vA) : '--';
+        var fB = vB != null ? r.fmt(vB) : '--';
+        var delta = '';
+        var deltaStyle = 'color:var(--muted2)';
+        if (vA != null && vB != null) {
+          var diff = vB - vA;
+          delta = (diff > 0 ? '+' : '') + diff.toFixed(1);
+          var rng = getRange(pk, r.key);
+          var center = (rng.green[0] + rng.green[1]) / 2;
+          var distA = Math.abs(vA - center);
+          var distB = Math.abs(vB - center);
+          if (Math.abs(diff) < 0.5) deltaStyle = 'color:var(--muted)';
+          else if (distB < distA) deltaStyle = 'color:var(--good)';
+          else deltaStyle = 'color:var(--warn)';
+        }
+        html += '<tr><td class="row-label">' + phaseLabel + '</td><td class="row-label">' + r.label + '</td><td style="font-family:var(--mono);font-size:12px">' + fA + '</td><td style="font-family:var(--mono);font-size:12px">' + fB + '</td><td style="font-family:var(--mono);font-size:12px;font-weight:700;' + deltaStyle + '">' + delta + '</td></tr>';
+      });
+    }
   });
 
   html += '</tbody></table></div></div>';
@@ -4455,7 +4553,7 @@ function downloadComparisonPDF() {
   doc.setFillColor(245, 248, 252);
   doc.setDrawColor(210, 215, 225);
   doc.setLineWidth(0.3);
-  var cmpDisclaimer = 'Values highlighted in green moved closer to the elite reference range center. Values in amber moved further away. Small changes (under 0.5 degrees) are shown in grey. These comparisons are informational -- not every change needs action.';
+  var cmpDisclaimer = 'Values highlighted in green moved closer to the elite reference range center. Values in amber moved further away. Small changes (under 0.5 degrees) are shown in grey. Large deviations may be due to measurement errors or suboptimal frame selection. These comparisons are informational -- not every change needs action.';
   var cmpDiscLines = doc.splitTextToSize(cmpDisclaimer, contentW - 12);
   var cmpDiscH = cmpDiscLines.length * 4 + 8;
   doc.roundedRect(margins.left, y, contentW, cmpDiscH, 2, 2, 'FD');
@@ -4503,6 +4601,46 @@ function downloadComparisonPDF() {
 
   // Data rows
   var cmpSidePhases = ['l_foot','r_foot','l_toe','r_toe','mid','peak_kf','swing'];
+  // Helper to render one PDF comparison row
+  function pdfCompareRow(pLabel, metricLabel, vA, vB, metricKey) {
+    y = pdfCheckPage(doc, y, cmpCellH + 1, margins);
+    var sampleRow = METRIC_ROWS.find(function(r) { return r.key === metricKey; }) || METRIC_ROWS[0];
+    var fA = vA != null ? sampleRow.fmt(vA) : '--';
+    var fB = vB != null ? sampleRow.fmt(vB) : '--';
+    var delta = '';
+    var deltaR2 = mutedR, deltaG2 = mutedG, deltaB2 = mutedB;
+    if (vA != null && vB != null) {
+      var diff = vB - vA;
+      delta = (diff > 0 ? '+' : '') + diff.toFixed(1);
+      var rng = getRange('mid', metricKey);
+      var center = (rng.green[0] + rng.green[1]) / 2;
+      if (Math.abs(diff) < 0.5) { deltaR2 = 180; deltaG2 = 180; deltaB2 = 180; }
+      else if (Math.abs(vB - center) < Math.abs(vA - center)) { deltaR2 = goodR; deltaG2 = goodG; deltaB2 = goodB; }
+      else { deltaR2 = warnR; deltaG2 = warnG; deltaB2 = warnB; }
+    }
+    doc.setDrawColor(204, 204, 204);
+    doc.setLineWidth(0.15);
+    doc.line(cmpTblX, y + cmpCellH, cmpTblX + cmpTblW, y + cmpCellH);
+
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(bodyR, bodyG, bodyB);
+    doc.text(pLabel.slice(0, 14), cmpTblX + 2, y + 5);
+    doc.text(metricLabel, cmpTblX + cmpColPhase + 2, y + 5);
+    doc.setFont('courier', 'normal');
+    doc.setFontSize(7.5);
+    doc.text(fA, cmpTblX + cmpColPhase + cmpColMetric + 2, y + 5);
+    doc.text(fB, cmpTblX + cmpColPhase + cmpColMetric + cmpColVal + 2, y + 5);
+    doc.setFont('courier', 'bold');
+    doc.setTextColor(deltaR2, deltaG2, deltaB2);
+    doc.text(delta, cmpTblX + cmpColPhase + cmpColMetric + cmpColVal * 2 + 2, y + 5);
+    cmpCols.forEach(function(cx) {
+      doc.setDrawColor(204, 204, 204);
+      doc.line(cmpTblX + cx, y, cmpTblX + cx, y + cmpCellH);
+    });
+    y += cmpCellH;
+  }
+
   cmpSidePhases.forEach(function(pk) {
     var phA = dA.phases ? dA.phases[pk] : null;
     var phB = dB.phases ? dB.phases[pk] : null;
@@ -4511,59 +4649,32 @@ function downloadComparisonPDF() {
     var pDef = PHASE_DEFS.find(function(d) { return d.key === pk; });
     var pLabel = pDef ? pDef.label : pk;
 
-    METRIC_ROWS.forEach(function(r) {
-      if (!isRelevant(pk, r.key)) return;
-      var vA = mA ? mA[r.key] : null;
-      var vB = mB ? mB[r.key] : null;
-      if (vA == null && vB == null) return;
-
-      y = pdfCheckPage(doc, y, cmpCellH + 1, margins);
-
-      var fA = vA != null ? r.fmt(vA) : '--';
-      var fB = vB != null ? r.fmt(vB) : '--';
-      var delta = '';
-      var deltaR = mutedR, deltaG = mutedG, deltaB = mutedB;
-
-      if (vA != null && vB != null) {
-        var diff = vB - vA;
-        delta = (diff > 0 ? '+' : '') + diff.toFixed(1);
-        var rng = getRange(pk, r.key);
-        var center = (rng.green[0] + rng.green[1]) / 2;
-        var distA = Math.abs(vA - center);
-        var distB = Math.abs(vB - center);
-        if (Math.abs(diff) < 0.5) { deltaR = 180; deltaG = 180; deltaB = 180; }
-        else if (distB < distA) { deltaR = goodR; deltaG = goodG; deltaB = goodB; }
-        else { deltaR = warnR; deltaG = warnG; deltaB = warnB; }
+    if (BILATERAL_PHASES[pk]) {
+      var normA2 = normalizeBilateral(mA, pk);
+      var normB2 = normalizeBilateral(mB, pk);
+      // Trunk
+      if (isRelevant(pk, 'trunk')) {
+        var vtA2 = normA2 ? normA2.trunk : null;
+        var vtB2 = normB2 ? normB2.trunk : null;
+        if (vtA2 != null || vtB2 != null) pdfCompareRow(pLabel, 'Trunk lean', vtA2, vtB2, 'trunk');
       }
-
-      // Row
-      doc.setDrawColor(204, 204, 204);
-      doc.setLineWidth(0.15);
-      doc.line(cmpTblX, y + cmpCellH, cmpTblX + cmpTblW, y + cmpCellH);
-
-      doc.setFontSize(7.5);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(bodyR, bodyG, bodyB);
-      doc.text(pLabel.slice(0, 14), cmpTblX + 2, y + 5);
-      doc.text(r.label, cmpTblX + cmpColPhase + 2, y + 5);
-
-      doc.setFont('courier', 'normal');
-      doc.setFontSize(7.5);
-      doc.text(fA, cmpTblX + cmpColPhase + cmpColMetric + 2, y + 5);
-      doc.text(fB, cmpTblX + cmpColPhase + cmpColMetric + cmpColVal + 2, y + 5);
-
-      doc.setFont('courier', 'bold');
-      doc.setTextColor(deltaR, deltaG, deltaB);
-      doc.text(delta, cmpTblX + cmpColPhase + cmpColMetric + cmpColVal * 2 + 2, y + 5);
-
-      // Vertical gridlines
-      cmpCols.forEach(function(cx) {
-        doc.setDrawColor(204, 204, 204);
-        doc.line(cmpTblX + cx, y, cmpTblX + cx, y + cmpCellH);
+      // Bilateral pairs
+      BILATERAL_PAIRS.forEach(function(pair) {
+        if (!isRelevant(pk, pair.a) && !isRelevant(pk, pair.b)) return;
+        var vpA = normA2 ? normA2[pair.label] : null;
+        var vpB = normB2 ? normB2[pair.label] : null;
+        if (vpA == null && vpB == null) return;
+        pdfCompareRow(pLabel, pair.label, vpA, vpB, pair.a);
       });
-
-      y += cmpCellH;
-    });
+    } else {
+      METRIC_ROWS.forEach(function(r) {
+        if (!isRelevant(pk, r.key)) return;
+        var vA = mA ? mA[r.key] : null;
+        var vB = mB ? mB[r.key] : null;
+        if (vA == null && vB == null) return;
+        pdfCompareRow(pLabel, r.label, vA, vB, r.key);
+      });
+    }
   });
 
   // Bottom border
