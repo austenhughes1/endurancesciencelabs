@@ -965,9 +965,10 @@ async function analyzeCard(key){
   const W=videoEl.videoWidth||640,H=videoEl.videoHeight||360;
   canvas.width=W;canvas.height=H;const ctx=canvas.getContext('2d');
   try{ctx.drawImage(videoEl,0,0,W,H);}catch(e){}
-  const kps=await enhancedEstimatePoses(canvas,videoEl);
-  if(!kps){if(badge){badge.className='pc-badge manual';badge.textContent='no pose';}if(loading)loading.classList.remove('show');return;}
-  ph.kps=kps;ph.metrics=computeMetrics(kps);ph.sideView=isSideView(kps);
+  let poses=null;try{poses=await detector.estimatePoses(canvas);}catch(e){}
+  if(!poses||!poses.length){try{poses=await detector.estimatePoses(videoEl);}catch(e){}}
+  if(!poses||!poses.length){if(badge){badge.className='pc-badge manual';badge.textContent='no pose';}if(loading)loading.classList.remove('show');return;}
+  const kps=poses[0].keypoints;ph.kps=kps;ph.metrics=computeMetrics(kps);ph.sideView=isSideView(kps);
   if(ph.sideView){addFunctionalMetrics(ph.metrics,key,kps);}
   drawPose(ctx,kps,W,H);
   if(!ph.sideView){renderSideViewWarning(key);}else{renderMiniMetrics(key,ph.metrics);updateSummaryCol(key);}updateSaveSection();
@@ -1025,10 +1026,11 @@ async function epReanalyze(){
   await seekTo(epCurrentT);
   const canvas=document.getElementById('ep-canvas');const W=videoEl.videoWidth||640,H=videoEl.videoHeight||360;
   canvas.width=W;canvas.height=H;const ctx=canvas.getContext('2d');try{ctx.drawImage(videoEl,0,0,W,H);}catch(e){}
-  const kps=await enhancedEstimatePoses(canvas,videoEl);
+  let poses=null;try{poses=await detector.estimatePoses(canvas);}catch(e){}
+  if(!poses||!poses.length){try{poses=await detector.estimatePoses(videoEl);}catch(e){}}
   loading.classList.remove('show');
-  if(!kps){document.getElementById('ep-metrics').innerHTML='<div class="ep-no-data">No pose detected -- try a different frame</div>';btn.disabled=false;btn.textContent='\u21bb Analyze';epAnalyzing=false;return;}
-  const ph=phases[expandKey];ph.kps=kps;ph.metrics=computeMetrics(kps);ph.detected=true;ph.sideView=isSideView(kps);
+  if(!poses||!poses.length){document.getElementById('ep-metrics').innerHTML='<div class="ep-no-data">No pose detected — try a different frame</div>';btn.disabled=false;btn.textContent='↻ Analyze';epAnalyzing=false;return;}
+  const kps=poses[0].keypoints;const ph=phases[expandKey];ph.kps=kps;ph.metrics=computeMetrics(kps);ph.detected=true;ph.sideView=isSideView(kps);
   if(ph.sideView){addFunctionalMetrics(ph.metrics,expandKey,kps);}
   drawPose(ctx,kps,W,H);
   if(!ph.sideView){
@@ -1162,121 +1164,6 @@ function computeMetrics(kps){
   const lElA=calcAngle(g(5),g(7),g(9));if(lElA!==null)m.lElbow=lElA;
   const rElA=calcAngle(g(6),g(8),g(10));if(rElA!==null)m.rElbow=rElA;
   return m;
-}
-
-// ── Enhanced pose detection ──────────────────────────────────
-let _enhanceCanvas = null;
-let _enhanceCtx = null;
-function getEnhanceCanvas() {
-  if (!_enhanceCanvas) { _enhanceCanvas = document.createElement('canvas'); _enhanceCtx = _enhanceCanvas.getContext('2d', {willReadFrequently: true}); }
-  return {canvas: _enhanceCanvas, ctx: _enhanceCtx};
-}
-function normalizeImage(ctx, w, h) {
-  const imageData = ctx.getImageData(0, 0, w, h);
-  const data = imageData.data;
-  let minL = 255, maxL = 0;
-  for (let i = 0; i < data.length; i += 64) {
-    const lum = data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114;
-    if (lum < minL) minL = lum;
-    if (lum > maxL) maxL = lum;
-  }
-  const range = maxL - minL;
-  if (range < 30 || range > 240) {
-    const scale = range > 0 ? 255 / range : 1;
-    for (let j = 0; j < data.length; j += 4) {
-      data[j]   = Math.min(255, Math.max(0, (data[j]   - minL) * scale));
-      data[j+1] = Math.min(255, Math.max(0, (data[j+1] - minL) * scale));
-      data[j+2] = Math.min(255, Math.max(0, (data[j+2] - minL) * scale));
-    }
-    ctx.putImageData(imageData, 0, 0);
-  }
-}
-function scaleForDetection(srcCanvas) {
-  const ec = getEnhanceCanvas();
-  const targetSize = 512;
-  const srcW = srcCanvas.width, srcH = srcCanvas.height;
-  const scale = targetSize / Math.max(srcW, srcH);
-  if (scale >= 1) return srcCanvas;
-  const dstW = Math.round(srcW * scale), dstH = Math.round(srcH * scale);
-  ec.canvas.width = dstW; ec.canvas.height = dstH;
-  ec.ctx.imageSmoothingEnabled = true; ec.ctx.imageSmoothingQuality = 'high';
-  ec.ctx.drawImage(srcCanvas, 0, 0, dstW, dstH);
-  return ec.canvas;
-}
-async function cropToRunner(srcCanvas, roughKps, vidW, vidH) {
-  if (!roughKps) return null;
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity, confCount = 0;
-  for (let i = 0; i < roughKps.length; i++) {
-    if (roughKps[i].score >= 0.15) {
-      if (roughKps[i].x < minX) minX = roughKps[i].x;
-      if (roughKps[i].y < minY) minY = roughKps[i].y;
-      if (roughKps[i].x > maxX) maxX = roughKps[i].x;
-      if (roughKps[i].y > maxY) maxY = roughKps[i].y;
-      confCount++;
-    }
-  }
-  if (confCount < 5) return null;
-  const bw = maxX - minX, bh = maxY - minY;
-  const padX = bw * 0.3, padY = bh * 0.3;
-  const cx1 = Math.max(0, minX - padX), cy1 = Math.max(0, minY - padY);
-  const cx2 = Math.min(vidW, maxX + padX), cy2 = Math.min(vidH, maxY + padY);
-  const cropW = cx2 - cx1, cropH = cy2 - cy1;
-  if (cropW * cropH > vidW * vidH * 0.6) return null;
-  const ec = getEnhanceCanvas();
-  const cropScale = 512 / Math.max(cropW, cropH);
-  const dstW = Math.round(cropW * cropScale), dstH = Math.round(cropH * cropScale);
-  ec.canvas.width = dstW; ec.canvas.height = dstH;
-  ec.ctx.imageSmoothingEnabled = true; ec.ctx.imageSmoothingQuality = 'high';
-  ec.ctx.drawImage(srcCanvas, cx1, cy1, cropW, cropH, 0, 0, dstW, dstH);
-  normalizeImage(ec.ctx, dstW, dstH);
-  let poses = null;
-  try { poses = await detector.estimatePoses(ec.canvas); } catch(e) {}
-  if (!poses || !poses.length) return null;
-  const kps = poses[0].keypoints;
-  for (let k = 0; k < kps.length; k++) { kps[k].x = kps[k].x / cropScale + cx1; kps[k].y = kps[k].y / cropScale + cy1; }
-  return kps;
-}
-function averageKeypoints(passes) {
-  if (!passes.length) return null;
-  if (passes.length === 1) return passes[0];
-  const result = [];
-  for (let i = 0; i < passes[0].length; i++) {
-    let sumX = 0, sumY = 0, sumS = 0, n = 0;
-    for (let p = 0; p < passes.length; p++) {
-      if (passes[p][i] && passes[p][i].score >= 0.1) { sumX += passes[p][i].x; sumY += passes[p][i].y; sumS += passes[p][i].score; n++; }
-    }
-    result.push(n > 0 ? {x: sumX/n, y: sumY/n, score: sumS/n, name: passes[0][i].name} : passes[0][i]);
-  }
-  return result;
-}
-async function enhancedEstimatePoses(srcCanvas, vidEl2) {
-  const W = srcCanvas.width, H = srcCanvas.height;
-  const passes = [];
-  let poses1 = null;
-  try { poses1 = await detector.estimatePoses(srcCanvas); } catch(e) {}
-  if (poses1 && poses1.length) passes.push(poses1[0].keypoints);
-  const ec = getEnhanceCanvas();
-  ec.canvas.width = W; ec.canvas.height = H;
-  ec.ctx.drawImage(srcCanvas, 0, 0);
-  normalizeImage(ec.ctx, W, H);
-  const normCanvas = scaleForDetection(ec.canvas);
-  const normScale = W / normCanvas.width;
-  let poses2 = null;
-  try { poses2 = await detector.estimatePoses(normCanvas); } catch(e) {}
-  if (poses2 && poses2.length) {
-    const kps2 = poses2[0].keypoints;
-    for (let i = 0; i < kps2.length; i++) { kps2[i].x *= normScale; kps2[i].y *= normScale; }
-    passes.push(kps2);
-  }
-  if (passes.length > 0) {
-    const cropKps = await cropToRunner(srcCanvas, passes[0], W, H);
-    if (cropKps) passes.push(cropKps);
-  }
-  if (passes.length === 0) {
-    try { const poses3 = await detector.estimatePoses(vidEl2); if (poses3 && poses3.length) return poses3[0].keypoints; } catch(e) {}
-    return null;
-  }
-  return averageKeypoints(passes);
 }
 
 function addFunctionalMetrics(metrics, phaseKey, kps) {
