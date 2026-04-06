@@ -170,38 +170,69 @@ nav {
 .hero-stat-label { font-size: 13px; color: var(--muted2); margin-top: 5px; font-weight: 400; }
 .stat-divider { width: 1px; height: 44px; background: var(--border2); }
 
-/* ── Photo mosaic — immediately below hero ───────────── */
-.photo-mosaic {
-  display: grid;
-  grid-template-columns: 1.4fr 1fr 1fr 1.2fr;
-  grid-template-rows: 260px 200px;
-  gap: 4px;
-  margin: 0;
-  overflow: hidden;
+/* ── Hero image — single full-width ──────────────────── */
+.hero-image {
+  position: relative; height: 420px; overflow: hidden; margin: 0;
 }
-.pm { overflow: hidden; position: relative; }
-.pm img {
-  width: 100%; height: 100%;
-  object-fit: cover; display: block;
-  filter: brightness(.78) saturate(1.05);
-  transition: transform .5s ease, filter .3s ease;
+.hero-image img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+  filter: brightness(.6) saturate(1.1);
 }
-.pm:hover img { transform: scale(1.04); filter: brightness(.92) saturate(1.1); }
-.pm-span2 { grid-row: span 2; }
-/* Gradient overlays on mosaic edges to blend into page */
-.mosaic-wrap {
-  position: relative;
-}
-.mosaic-wrap::before {
-  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 50px;
+.hero-image::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 80px;
   background: linear-gradient(to bottom, var(--bg), transparent);
   z-index: 2; pointer-events: none;
 }
-.mosaic-wrap::after {
-  content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 80px;
+.hero-image::after {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 100px;
   background: linear-gradient(to top, var(--bg), transparent);
   z-index: 2; pointer-events: none;
 }
+
+/* ── Feature panels — conversion-focused ────────────── */
+.feature-panels {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+  max-width: 1200px; margin: 0 auto; padding: 0 40px;
+}
+@media(max-width:800px) { .feature-panels { grid-template-columns: 1fr; } }
+.feature-panel {
+  border-radius: 20px; overflow: hidden; position: relative;
+  display: flex; flex-direction: column;
+  background: var(--panel); border: 1px solid var(--border);
+  transition: border-color .2s, transform .15s;
+  text-decoration: none; color: inherit;
+}
+.feature-panel:hover { border-color: rgba(0,229,200,.35); transform: translateY(-2px); }
+.feature-panel-img {
+  width: 100%; height: 240px; object-fit: cover; display: block;
+  filter: brightness(.7) saturate(1.05);
+  transition: filter .3s;
+}
+.feature-panel:hover .feature-panel-img { filter: brightness(.85) saturate(1.1); }
+.feature-panel-body { padding: 28px 30px 32px; flex: 1; display: flex; flex-direction: column; }
+.feature-panel-label {
+  font-size: 10px; font-weight: 600; letter-spacing: .8px; text-transform: uppercase;
+  font-family: var(--mono); margin-bottom: 10px; display: inline-flex; align-items: center;
+  gap: 6px; width: fit-content; padding: 3px 8px; border-radius: 6px;
+}
+.feature-panel-label.live { background: rgba(34,199,138,.09); color: var(--good); border: 1px solid rgba(34,199,138,.2); }
+.feature-panel-title {
+  font-family: var(--display); font-size: 26px; font-weight: 700;
+  letter-spacing: -.5px; margin-bottom: 12px; line-height: 1.2;
+}
+.feature-panel-desc { font-size: 16px; color: var(--muted2); line-height: 1.8; flex: 1; }
+.feature-panel-cta {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin-top: 22px; padding: 13px 28px; background: var(--cyan); color: #000;
+  font-weight: 600; font-size: 15px; font-family: var(--body);
+  border: none; border-radius: 11px; text-decoration: none;
+  transition: opacity .15s; width: fit-content;
+}
+.feature-panel-cta:hover { opacity: .85; }
+.feature-panel-cta.secondary {
+  background: transparent; border: 1px solid var(--border2); color: var(--muted2);
+}
+.feature-panel-cta.secondary:hover { border-color: var(--cyan); color: var(--cyan); }
 
 /* ── Divider ─────────────────────────────────────────── */
 .divider { border: none; border-top: 1px solid var(--border); margin: 0 40px; }
@@ -264,43 +295,6 @@ section { padding: 96px 40px; max-width: 1200px; margin: 0 auto; }
 .service-card:hover .sc-action { gap: 10px; }
 .sc-action.disabled { color: var(--muted); pointer-events: none; }
 
-/* ── Who it's for — photo + text alternating rows ───── */
-.for-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 16px;
-  margin-top: 48px;
-}
-.for-card {
-  border-radius: 16px; overflow: hidden; position: relative;
-  aspect-ratio: 3/4; cursor: default;
-}
-.for-card img {
-  width: 100%; height: 100%; object-fit: cover; display: block;
-  filter: brightness(.75) saturate(1.05);
-  transition: transform .5s ease, filter .3s ease;
-}
-.for-card:hover img { transform: scale(1.04); filter: brightness(.9) saturate(1.1); }
-.for-cap {
-  position: absolute; bottom: 0; left: 0; right: 0;
-  padding: 36px 22px 22px;
-  background: linear-gradient(to top, rgba(8,9,15,.95) 0%, rgba(8,9,15,.4) 60%, transparent 100%);
-}
-.for-cap-title { font-family: var(--display); font-size: 19px; font-weight: 600; color: var(--text); line-height: 1.3; }
-.for-cap-sub   { font-size: 13px; color: var(--muted2); margin-top: 5px; font-weight: 400; }
-
-/* Wide card spans 2 cols */
-.for-card-wide {
-  border-radius: 16px; overflow: hidden; position: relative;
-  grid-column: span 2; aspect-ratio: 16/9;
-}
-.for-card-wide img {
-  width: 100%; height: 100%; object-fit: cover; display: block;
-  filter: brightness(.7) saturate(1.05);
-  transition: transform .5s ease;
-}
-.for-card-wide:hover img { transform: scale(1.03); }
-.for-card-wide .for-cap { background: linear-gradient(to top, rgba(8,9,15,.95) 0%, transparent 70%); }
 
 /* ── How it works ────────────────────────────────────── */
 .hiw-grid {
@@ -317,24 +311,7 @@ section { padding: 96px 40px; max-width: 1200px; margin: 0 auto; }
 .hiw-title { font-family: var(--display); font-size: 19px; font-weight: 600; letter-spacing: -.2px; }
 .hiw-desc  { font-size: 15px; color: var(--muted2); line-height: 1.8; font-weight: 400; }
 
-/* ── Large atmospheric photo break ──────────────────── */
-.photo-break {
-  position: relative; height: 480px; overflow: hidden;
-  margin: 0;
-}
-.photo-break img {
-  width: 100%; height: 100%; object-fit: cover;
-  filter: brightness(.55) saturate(1.1);
-}
-.photo-break-overlay {
-  position: absolute; inset: 0;
-  background: linear-gradient(to bottom, var(--bg) 0%, transparent 25%, transparent 75%, var(--bg) 100%);
-}
-.photo-break-content {
-  position: absolute; inset: 0;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  text-align: center; padding: 40px;
-}
+/* (photo-break removed)
 .photo-break-quote {
   font-family: var(--display); font-size: clamp(22px, 3.5vw, 40px);
   font-weight: 600; color: var(--text); line-height: 1.4;
@@ -447,28 +424,10 @@ footer {
   </div>
 </div>
 
-<!-- Photo mosaic — directly below hero, edge to edge -->
-<div class="mosaic-wrap">
-  <div class="photo-mosaic">
-    <div class="pm pm-span2">
-      <img src="images/greg-rosenke-LyORqx-3O-c-unsplash.jpg" alt="Runner on trail">
-    </div>
-    <div class="pm">
-      <img src="images/arnaud-steckle-NUkrKjQXRgE-unsplash%20(1).jpg" alt="Runner">
-    </div>
-    <div class="pm">
-      <img src="images/josh-gordon-fzHmP6z8OQ4-unsplash.jpg" alt="Runner at race">
-    </div>
-    <div class="pm">
-      <img src="images/olek-buzunov-0eGgIV06AwY-unsplash.jpg" alt="Runner on road">
-    </div>
-    <div class="pm">
-      <img src="images/marcin-lukasik-R2TFiTH-Hdo-unsplash.jpg" alt="Runner">
-    </div>
-  </div>
+<!-- Hero image -->
+<div class="hero-image">
+  <img src="images/Runner on track.jpg" alt="Runner on track">
 </div>
-
-<hr class="divider" style="margin-top:0">
 
 <!-- Services -->
 <section id="services">
@@ -511,64 +470,32 @@ footer {
 
 <hr class="divider">
 
-<!-- Who it's for -->
-<section id="for">
-  <div class="section-label">Who this is for</div>
-  <h2 class="section-title">Runners who want answers, not just miles</h2>
-  <p class="section-sub">Whether you're chasing your first half marathon or trying to qualify for Boston, understanding your body is the edge that matters.</p>
-
-  <div class="for-grid">
-    <!-- Wide card top left -->
-    <div class="for-card-wide">
-      <img src="images/steven-lelham-atSaEOeE8Nk-unsplash.jpg" alt="Runners on road">
-      <div class="for-cap">
-        <div class="for-cap-title">Recreational runners</div>
-        <div class="for-cap-sub">Chasing PRs and staying healthy</div>
-      </div>
-    </div>
-    <!-- Tall card top right -->
-    <div class="for-card">
-      <img src="images/centre-for-ageing-better-tqTWbykzqNE-unsplash.jpg" alt="Masters runner">
-      <div class="for-cap">
-        <div class="for-cap-title">Masters athletes</div>
-        <div class="for-cap-sub">Running stronger with age</div>
-      </div>
-    </div>
-    <!-- Three cards bottom row -->
-    <div class="for-card">
-      <img src="images/greg-rosenke-E9PdTVfEujI-unsplash.jpg" alt="Trail runner">
-      <div class="for-cap">
-        <div class="for-cap-title">Trail & ultra runners</div>
-        <div class="for-cap-sub">Efficiency over long distances</div>
-      </div>
-    </div>
-    <div class="for-card">
-      <img src="images/vo2-master-3ADVywkvhhY-unsplash.jpg" alt="Competitive runner">
-      <div class="for-cap">
-        <div class="for-cap-title">Competitive athletes</div>
-        <div class="for-cap-sub">Finding the marginal gains</div>
-      </div>
-    </div>
-    <div class="for-card">
-      <img src="images/arnaud-steckle-NUkrKjQXRgE-unsplash%20(1).jpg" alt="Runner">
-      <div class="for-cap">
-        <div class="for-cap-title">All backgrounds</div>
-        <div class="for-cap-sub">Science that meets you where you are</div>
-      </div>
-    </div>
-  </div>
+<!-- Feature panels — conversion focused -->
+<section id="features" style="padding-bottom:60px">
+  <div class="section-label">Get started</div>
+  <h2 class="section-title">Two ways to run smarter</h2>
+  <p class="section-sub">Whether you want to analyze your own form or work directly with a coach, we have you covered.</p>
 </section>
 
-<!-- Atmospheric photo break with quote -->
-<div class="photo-break">
-  <img src="images/olek-buzunov-0eGgIV06AwY-unsplash.jpg" alt="Runner">
-  <div class="photo-break-overlay"></div>
-  <div class="photo-break-content">
-    <p class="photo-break-quote">
-      "Most athletes train by feel.<br>The best athletes train by <em>understanding.</em>"
-    </p>
-    <p class="photo-break-attr">— Endurance Science Labs</p>
-  </div>
+<div class="feature-panels">
+  <a href="/esformlab/" class="feature-panel">
+    <img class="feature-panel-img" src="images/track_running_legs.jpg" alt="Runner legs on track">
+    <div class="feature-panel-body">
+      <div class="feature-panel-label live">Free to use</div>
+      <div class="feature-panel-title">esFormLab</div>
+      <p class="feature-panel-desc">Upload three short running videos and get an instant biomechanical report. The tool detects overstriding, hip drop, trunk lean issues, arm mechanics, and knee alignment — with specific, evidence-based coaching cues for anything it finds. No account needed. Nothing leaves your browser.</p>
+      <span class="feature-panel-cta">Analyze your running form →</span>
+    </div>
+  </a>
+  <a href="/coaching/" class="feature-panel">
+    <img class="feature-panel-img" src="images/watch_black_and_white.jpg" alt="Runner checking watch">
+    <div class="feature-panel-body">
+      <div class="feature-panel-label live">Now available</div>
+      <div class="feature-panel-title">1-on-1 Coaching</div>
+      <p class="feature-panel-desc">Personalized training built around your goals, schedule, and physiology. Your coach builds and adapts your plan week by week, with direct access for questions and check-ins. Strava integration, race planning, and ongoing form analysis included — not a chatbot, not a template.</p>
+      <span class="feature-panel-cta secondary">Learn more →</span>
+    </div>
+  </a>
 </div>
 
 <!-- How esFormLab works -->
