@@ -1883,7 +1883,14 @@ async function analyzeCard(key){
   var poses=null;try{poses=await detector.estimatePoses(canvas);}catch(e){}
   if(!poses||!poses.length){try{poses=await detector.estimatePoses(vidEl);}catch(e){}}
   if(!poses||!poses.length){if(badge){badge.className='pc-badge manual';badge.textContent='no pose';}if(loading)loading.classList.remove('show');return;}
-  var kps=poses[0].keypoints;ph.kps=kps;
+  var kps=poses[0].keypoints;
+  // If weak, retry with brightness-normalized image
+  if(isWeakDetection(kps)){
+    var normCanvas=normalizeAndRetry(canvas);
+    var poses2=null;try{poses2=await detector.estimatePoses(normCanvas);}catch(e){}
+    if(poses2&&poses2.length&&!isWeakDetection(poses2[0].keypoints)){kps=poses2[0].keypoints;}
+  }
+  ph.kps=kps;
 
   if(isFrontBack){
     ph.frontBackMetrics = computeFrontBackMetrics(kps);
@@ -2012,7 +2019,14 @@ async function epReanalyze(){
   if(!poses||!poses.length){try{poses=await detector.estimatePoses(vidEl);}catch(e){}}
   loading.classList.remove('show');
   if(!poses||!poses.length){document.getElementById('ep-metrics').innerHTML='<div class="ep-no-data">No pose detected -- try a different frame</div>';btn.disabled=false;btn.textContent='\u21bb Analyze';epAnalyzing=false;return;}
-  var kps=poses[0].keypoints;var ph=phases[expandKey];ph.kps=kps;ph.detected=true;
+  var kps=poses[0].keypoints;
+  // If weak, retry with brightness-normalized image
+  if(isWeakDetection(kps)){
+    var normCanvas=normalizeAndRetry(canvas);
+    var poses2=null;try{poses2=await detector.estimatePoses(normCanvas);}catch(e){}
+    if(poses2&&poses2.length&&!isWeakDetection(poses2[0].keypoints)){kps=poses2[0].keypoints;}
+  }
+  var ph=phases[expandKey];ph.kps=kps;ph.detected=true;
 
   if(isFrontBack){
     ph.frontBackMetrics = computeFrontBackMetrics(kps);
@@ -2289,6 +2303,45 @@ function computeFrontBackMetrics(kps) {
 }
 
 // -- Add functional metric keys for bilateral side-view phases --
+// ── Brightness normalization fallback ─────────────────────
+// Only used when initial detection is weak. Stretches the image
+// histogram to improve contrast before a retry.
+function normalizeAndRetry(srcCanvas) {
+  var w = srcCanvas.width, h = srcCanvas.height;
+  var tmpCanvas = document.createElement('canvas');
+  tmpCanvas.width = w; tmpCanvas.height = h;
+  var tmpCtx = tmpCanvas.getContext('2d', {willReadFrequently: true});
+  tmpCtx.drawImage(srcCanvas, 0, 0);
+  var imageData = tmpCtx.getImageData(0, 0, w, h);
+  var data = imageData.data;
+  var minL = 255, maxL = 0;
+  for (var i = 0; i < data.length; i += 64) {
+    var lum = data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114;
+    if (lum < minL) minL = lum;
+    if (lum > maxL) maxL = lum;
+  }
+  var range = maxL - minL;
+  if (range > 5 && range < 230) {
+    var scale = 255 / range;
+    for (var j = 0; j < data.length; j += 4) {
+      data[j]   = Math.min(255, Math.max(0, (data[j]   - minL) * scale));
+      data[j+1] = Math.min(255, Math.max(0, (data[j+1] - minL) * scale));
+      data[j+2] = Math.min(255, Math.max(0, (data[j+2] - minL) * scale));
+    }
+    tmpCtx.putImageData(imageData, 0, 0);
+  }
+  return tmpCanvas;
+}
+
+function isWeakDetection(kps) {
+  if (!kps) return true;
+  var relevant = [5,6,7,8,11,12,13,14,15,16];
+  var scores = relevant.map(function(i) { return (kps[i] && kps[i].score) || 0; });
+  var avg = scores.reduce(function(a,b) { return a+b; }, 0) / scores.length;
+  var min = Math.min.apply(null, scores);
+  return avg < 0.5 || min < 0.25;
+}
+
 function addFunctionalMetrics(metrics, phaseKey, kps) {
   if (!metrics || !kps) return;
   var g4 = function(i) { return (kps[i] && kps[i].score >= MIN_CONF) ? kps[i] : null; };
