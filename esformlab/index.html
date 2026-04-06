@@ -781,7 +781,7 @@ body.bar-showing #screen-phases{padding-bottom:120px}
     <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:20px;font-size:13px;color:var(--muted2);line-height:1.8">
       <strong style="color:var(--text)">A note about these reference ranges:</strong> The bell curves and ranges below are based on data from elite-level marathoners. Very few recreational runners will match these ranges across every metric, and that is completely normal. A value outside the elite range does not mean something is wrong or needs to be changed. Running mechanics are highly individual, and what matters most is efficiency and comfort within your own body. This data is provided for informational context only -- not as a target to chase or a diagnosis of a problem.
     </div>
-    <div class="summary-sub" style="font-size:15px">All angles below are measured in degrees and compared to reference ranges from elite runners. Click any column header to open and re-examine that phase.</div>
+    <div class="summary-sub" style="font-size:15px">All angles below are measured in degrees and compared to reference ranges from elite runners. Only the angles that are biomechanically relevant for each gait phase are shown -- a dash indicates the metric is not applicable for that phase. Click any column header to open and re-examine that phase.</div>
     <div class="summary-scroll">
       <table class="stbl" id="summary-table"><thead></thead><tbody></tbody></table>
     </div>
@@ -3319,7 +3319,14 @@ function downloadReport() {
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(accentR, accentG, accentB);
   doc.text('Side View Measurements', margins.left, y);
-  y += 8;
+  y += 7;
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(mutedR, mutedG, mutedB);
+  var angleNote = doc.splitTextToSize('Only the angles that are biomechanically relevant for each gait phase are reported. A dash indicates the metric is not applicable for that phase.', contentW);
+  doc.text(angleNote, margins.left, y);
+  y += angleNote.length * 3.5 + 4;
 
   // Helper to draw one PDF angle table
   function pdfDrawAngleTable(tableTitle, colKeys) {
