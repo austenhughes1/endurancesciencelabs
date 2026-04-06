@@ -580,7 +580,7 @@ body.bar-showing #screen-phases{padding-bottom:120px}
           <div class="dz-icon">&#9654;</div>
           <div class="dz-title">Side view</div>
           <p class="dz-sub">Film from directly beside the runner</p>
-          <div class="dz-tip"><strong>Best:</strong> Someone moving alongside you at the same pace.<br><strong>Good:</strong> Someone panning the camera to follow you.<br><strong>OK:</strong> Stationary camera, you run past it.</div>
+          <div class="dz-tip"><strong>Best:</strong> Someone moving alongside you at the same pace.<br><strong>Good:</strong> Someone panning the camera to follow you.<br><strong>OK:</strong> Stationary camera, you run past it.<br>Wear clothes that contrast with the background.</div>
           <div class="dz-required">REQUIRED</div>
           <div class="dz-loaded-info" id="dz-info-side"></div>
         </div>
@@ -589,7 +589,7 @@ body.bar-showing #screen-phases{padding-bottom:120px}
           <div class="dz-icon">&#9673;</div>
           <div class="dz-title">Front view</div>
           <p class="dz-sub">Film from directly in front</p>
-          <div class="dz-tip"><strong>Run straight toward the camera.</strong> Do not run at an angle -- even a slight angle will skew hip drop and knee alignment measurements and produce inaccurate results.</div>
+          <div class="dz-tip"><strong>Run straight toward the camera.</strong> Do not run at an angle -- even a slight angle will skew hip drop and knee alignment measurements. Wear contrasting clothes against the background.</div>
           <div class="dz-required">REQUIRED</div>
           <div class="dz-loaded-info" id="dz-info-front"></div>
         </div>
@@ -598,7 +598,7 @@ body.bar-showing #screen-phases{padding-bottom:120px}
           <div class="dz-icon">&#9679;</div>
           <div class="dz-title">Back view</div>
           <p class="dz-sub">Film from directly behind</p>
-          <div class="dz-tip"><strong>Run straight away from the camera.</strong> Same as the front view -- keep the camera dead center behind you, not at an angle. This confirms hip mechanics from a second viewpoint.</div>
+          <div class="dz-tip"><strong>Run straight away from the camera.</strong> Keep the camera dead center behind you, not at an angle. Wear contrasting clothes against the background.</div>
           <div class="dz-required">REQUIRED</div>
           <div class="dz-loaded-info" id="dz-info-back"></div>
         </div>
@@ -613,6 +613,8 @@ body.bar-showing #screen-phases{padding-bottom:120px}
           <div class="video-tip-item"><span class="vt-icon">&#128247;</span><span><strong>Stay close to the camera.</strong> The runner should fill most of the frame. If you are too far away, the pose model cannot accurately identify joint positions.</span></div>
           <div class="video-tip-item"><span class="vt-icon">&#9888;</span><span><strong>Nothing should block your body.</strong> Treadmill handrails, other runners, or objects in front of you will hide joints and reduce detection accuracy. If filming on a treadmill, position the camera so the display and handrails are not covering your arms or legs.</span></div>
           <div class="video-tip-item"><span class="vt-icon">&#127939;</span><span><strong>Consider filming both outdoors and on a treadmill.</strong> Treadmill running can change your form -- your stride length, foot strike, and trunk lean may differ from outdoor running. If you want a complete picture, analyze one of each and compare the results.</span></div>
+          <div class="video-tip-item"><span class="vt-icon">&#127912;</span><span><strong>Use a uniform background that contrasts with your clothing.</strong> The pose model works by identifying your body against the background. If your clothes blend into the background (e.g., dark clothes on a dark track, or grey clothes against concrete), detection will suffer. A turf field, a plain wall, or any backdrop that is a clearly different color from what you are wearing will give much better results.</span></div>
+          <div class="video-tip-item"><span class="vt-icon">&#9728;</span><span><strong>Avoid very bright or very dark lighting.</strong> Overexposed (washed out) or underexposed (too dark) video makes it harder for the model to distinguish your body from the background. Even, natural lighting works best. Avoid filming directly into the sun or in deep shadow.</span></div>
         </div>
         <div class="video-tips-note">All video processing happens locally in your browser. Nothing is uploaded or stored anywhere.</div>
       </div>
@@ -686,7 +688,7 @@ body.bar-showing #screen-phases{padding-bottom:120px}
       <div class="instr-callout-icon">&#9432;</div>
       <div class="instr-callout-text">
         <strong>Why does this matter?</strong> The accuracy of your final report depends entirely on the quality of these frames. A frame with weak detection or the wrong moment selected will produce inaccurate angles and unreliable coaching cues. Taking a minute to check each card is the difference between useful feedback and noise.
-        <br><br>If you are consistently getting weak detection across multiple cards, the issue is usually the video itself -- the runner may be too far from the camera, partially blocked by equipment, or the clip may have too much motion blur. Re-recording a short, close, clear clip will help more than adjusting frames.
+        <br><br>If you are consistently getting weak detection across multiple cards, the issue is usually the video itself -- the runner may be too far from the camera, partially blocked by equipment, the clip may have too much motion blur, or the clothing may blend into the background. Wearing clothes that contrast with the background (e.g., a bright shirt on a green turf field) and filming in even lighting will make the biggest difference. Re-recording a short, close, well-lit clip with good contrast will help more than adjusting frames.
       </div>
     </div>
 
@@ -1319,7 +1321,7 @@ function getDetectionQuality(kps){
   var avg = scores.reduce(function(a,b){return a+b;},0)/scores.length;
   var min = Math.min.apply(null, scores);
   if(avg>=0.72&&min>=0.4)  return {level:'strong',label:'Strong detection', note:'All major joints are clearly identified. Measurements for this frame are reliable.'};
-  if(avg>=0.5 &&min>=0.25) return {level:'fair',  label:'Fair detection',   note:'Some joints have moderate confidence. Results may be usable, but Strong detection will give you more reliable data.'};
+  if(avg>=0.5 &&min>=0.25) return {level:'fair',  label:'Fair detection',   note:'Fair detection is still usable -- the measurements are reasonable but may have wider error margins than Strong detection.'};
   return                          {level:'weak',   label:'Weak detection',   note:'Multiple joints could not be reliably identified. Measurements from this frame are not reliable.'};
 }
 
@@ -1336,18 +1338,20 @@ function renderQualityCard(kps){
     hint = '<div class="dq-big-hint">Detection is strong. The skeleton overlay should match the runner closely. If the overlay looks off, click <strong>&#8635; Analyze</strong> again -- sometimes a second pass improves accuracy.</div>';
   } else if(q.level === 'fair') {
     hint = '<div class="dq-big-hint">' +
-      '<strong>Goal: get to Strong detection.</strong> Try these steps:' +
+      '<strong>Fair detection is usable</strong> -- the results are reasonable, but may have larger error margins than Strong. To try for better accuracy:' +
       '<br>1. Click <strong>&#8635; Analyze</strong> again -- a second attempt often improves results.' +
       '<br>2. If the overlay still does not match the runner, use the scrubber to select a nearby frame with less motion blur.' +
       '<br>3. Make sure the selected frame matches what this phase describes (see "What to look for" below).' +
+      '<br><br><span style="color:var(--muted2)">Still not improving? Common causes: clothing blending into the background (wear contrasting colors), video too bright or too dark, runner too far from the camera, or limbs overlapping from the camera angle.</span>' +
       '</div>' +
-      '<div class="dq-big-goal">&#9678; Goal: Strong detection</div>';
+      '<div class="dq-big-goal">&#9678; Ideal: Strong detection</div>';
   } else {
     hint = '<div class="dq-big-hint">' +
       '<strong>Detection is weak -- the measurements may not be reliable.</strong>' +
       '<br>1. Click <strong>&#8635; Analyze</strong> again -- it sometimes produces a better result on a second or third attempt.' +
       '<br>2. If still weak, scrub to a different frame. Look for a moment where the runner is clearly visible with no overlap between limbs and minimal motion blur.' +
       '<br>3. Confirm the frame matches the gait phase described below. If this phase was auto-detected incorrectly, scrub to a frame that matches and re-analyze.' +
+      '<br><br><span style="color:var(--muted2)">If detection stays weak across multiple frames, the issue is likely the video itself: clothing may be too close in color to the background, the lighting may be too bright or too dark, or the runner may be too far from the camera. Re-recording with better contrast (different colored clothes against a uniform background like a turf field or plain wall) will make the biggest difference.</span>' +
       '</div>' +
       '<div class="dq-big-goal">&#9678; Goal: Strong detection</div>';
   }
