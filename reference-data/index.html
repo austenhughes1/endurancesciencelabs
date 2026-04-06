@@ -1400,22 +1400,9 @@ async function vetSessionData(){
     await Promise.all(checks);
   }
 
-  // 3. Symmetry check — flag large L/R differences (only for L/R-specific phases)
-  const symPairs = [
-    ['lKnee','rKnee','Knee angle'],['lHip','rHip','Hip angle'],
-    ['lElbow','rElbow','Elbow angle'],
-  ];
-  const lrPhases = new Set(['l_foot','r_foot','l_toe','r_toe']);
-  PHASE_DEFS.forEach(def=>{
-    if(!lrPhases.has(def.key)) return;
-    const m=phases[def.key]?.metrics;if(!m)return;
-    symPairs.forEach(([l,r,label])=>{
-      const lv=m[l],rv=m[r];
-      if(lv==null||rv==null)return;
-      const diff=Math.abs(lv-rv);
-      if(diff>35) warnings.push(`Large ${label} asymmetry at "${def.label}" (L:${lv.toFixed(0)}° vs R:${rv.toFixed(0)}° — ${diff.toFixed(0)}° difference). Double-check this phase is correctly identified.`);
-    });
-  });
+  // Symmetry check removed — L/R differences are expected in all phases
+  // because each leg serves a different functional role (plant vs swing,
+  // lead vs trail) at every moment of the gait cycle.
 
   return {warnings, errors};
 }
