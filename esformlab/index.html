@@ -1267,10 +1267,10 @@ const METRIC_ROWS = [
 ];
 
 const PHASE_METRICS = {
-  l_foot:    ['trunk','lKnee','lHip','lFoot','nearElbow'],
-  r_foot:    ['trunk','rKnee','rHip','rFoot','nearElbow'],
-  l_toe:     ['trunk','lHip','lKnee','nearElbow'],
-  r_toe:     ['trunk','rHip','rKnee','nearElbow'],
+  l_foot:    ['trunk','leadKnee','leadHip','leadFoot','nearElbow'],
+  r_foot:    ['trunk','leadKnee','leadHip','leadFoot','nearElbow'],
+  l_toe:     ['trunk','leadHip','trailHip','nearElbow'],
+  r_toe:     ['trunk','leadHip','trailHip','nearElbow'],
   mid:       ['trunk','plantKnee','plantHip','nearElbow'],
   mid_front: [],
   mid_back:  [],
@@ -1909,7 +1909,7 @@ async function analyzeCard(key){
 function renderMiniMetrics(key,m){
   var el=document.getElementById('metrics-mini-'+key);if(!el)return;
   var relevant=METRIC_ROWS.filter(function(r){return isRelevant(key,r.key);}).slice(0,3);
-  el.innerHTML=relevant.map(function(r){var v=m[r.key],d=v!=null?r.fmt(v):'--',sym=v!=null?positionSymbol(v,r.key,key):'';return '<span class="mm-item '+(v==null?'na':'')+'">'+sym+' '+r.label+' '+d+'</span>';}).join('');
+  el.innerHTML=relevant.map(function(r){var v=m[r.key],d=v!=null?r.fmt(v):'--',sym=v!=null?positionSymbol(v,r.key,key):'',sl=metricSideLabel(r.key,m);return '<span class="mm-item '+(v==null?'na':'')+'">'+sym+' '+r.label+sl+' '+d+'</span>';}).join('');
 }
 
 function renderMiniMetricsFrontBack(key, fbm) {
@@ -2075,8 +2075,9 @@ function renderExpandMetrics(m){
     var bio=METRIC_BIO[r.key]||'';
     var bell=v!=null?buildBellCurveSVG(v,r.key,pk,r.fmt):'';
     var pos=v!=null?positionLabel(v,r.key,pk):'';
+    var sl=metricSideLabel(r.key,m);
     return '<div class="ep-metric-block">'+
-      '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:'+r.dot+'"></div><strong>'+r.label+'</strong></div>'+
+      '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:'+r.dot+'"></div><strong>'+r.label+sl+'</strong></div>'+
       '<div class="ep-metric-bio">'+bio+'</div>'+
       '<div class="bell-curve-wrap">'+bell+'</div>'+
       '<div class="ep-metric-measured">Measured value: <span class="ep-mv">'+d+'</span>'+(pos?' -- <span style="color:var(--muted2)">'+pos+'</span>':'')+'</div>'+
@@ -2295,7 +2296,7 @@ function addFunctionalMetrics(metrics, phaseKey, kps) {
   if (!metrics || !kps) return;
   var g4 = function(i) { return (kps[i] && kps[i].score >= MIN_CONF) ? kps[i] : null; };
 
-  // Determine near-camera elbow by comparing avg confidence of shoulder/elbow/wrist
+  // Near-camera elbow (always computed)
   var lSh = g4(5), rSh = g4(6), lEl = g4(7), rEl = g4(8), lWr = g4(9), rWr = g4(10);
   var lArmConf = 0, rArmConf = 0, lArmN = 0, rArmN = 0;
   if (lSh) { lArmConf += lSh.score; lArmN++; }
@@ -2304,37 +2305,65 @@ function addFunctionalMetrics(metrics, phaseKey, kps) {
   if (rSh) { rArmConf += rSh.score; rArmN++; }
   if (rEl) { rArmConf += rEl.score; rArmN++; }
   if (rWr) { rArmConf += rWr.score; rArmN++; }
-  var lArmAvg = lArmN > 0 ? lArmConf / lArmN : 0;
-  var rArmAvg = rArmN > 0 ? rArmConf / rArmN : 0;
-  var nearSide = (lArmAvg >= rArmAvg) ? 'l' : 'r';
+  var nearSide = (lArmN > 0 ? lArmConf / lArmN : 0) >= (rArmN > 0 ? rArmConf / rArmN : 0) ? 'l' : 'r';
   if (metrics[nearSide + 'Elbow'] != null) {
     metrics.nearElbow = metrics[nearSide + 'Elbow'];
   }
+  metrics.nearElbowSide = nearSide === 'l' ? 'L' : 'R';
 
-  // Determine plant/lead/trail legs based on phase
+  // Lead/trail/plant detection
   var lAnkle = g4(15), rAnkle = g4(16);
   var lAnkleY = lAnkle ? lAnkle.y : -Infinity;
   var rAnkleY = rAnkle ? rAnkle.y : -Infinity;
 
-  if (phaseKey === 'mid') {
-    // Plant leg = the side with the lower ankle (higher y in image coords = on ground)
+  if (phaseKey === 'l_foot') {
+    // Left foot striking = left is lead
+    metrics.leadSide = 'L'; metrics.trailSide = 'R';
+    if (metrics.lKnee != null) metrics.leadKnee = metrics.lKnee;
+    if (metrics.lHip != null) metrics.leadHip = metrics.lHip;
+    if (metrics.lFoot != null) metrics.leadFoot = metrics.lFoot;
+  } else if (phaseKey === 'r_foot') {
+    metrics.leadSide = 'R'; metrics.trailSide = 'L';
+    if (metrics.rKnee != null) metrics.leadKnee = metrics.rKnee;
+    if (metrics.rHip != null) metrics.leadHip = metrics.rHip;
+    if (metrics.rFoot != null) metrics.leadFoot = metrics.rFoot;
+  } else if (phaseKey === 'l_toe') {
+    // Left toe-off: left leg is pushing off (trail), right is swinging forward (lead)
+    metrics.leadSide = 'R'; metrics.trailSide = 'L';
+    if (metrics.rHip != null) metrics.leadHip = metrics.rHip;
+    if (metrics.lHip != null) metrics.trailHip = metrics.lHip;
+  } else if (phaseKey === 'r_toe') {
+    metrics.leadSide = 'L'; metrics.trailSide = 'R';
+    if (metrics.lHip != null) metrics.leadHip = metrics.lHip;
+    if (metrics.rHip != null) metrics.trailHip = metrics.rHip;
+  } else if (phaseKey === 'mid') {
     var plantSide = (lAnkleY >= rAnkleY) ? 'l' : 'r';
+    metrics.plantSide = plantSide === 'l' ? 'L' : 'R';
     if (metrics[plantSide + 'Knee'] != null) metrics.plantKnee = metrics[plantSide + 'Knee'];
     if (metrics[plantSide + 'Hip'] != null) metrics.plantHip = metrics[plantSide + 'Hip'];
   } else if (phaseKey === 'swing') {
-    // Lead leg = the side with higher knee angle (more extended)
     var lK = metrics.lKnee, rK = metrics.rKnee;
-    var leadSide = (lK != null && rK != null) ? (lK >= rK ? 'l' : 'r') : (lK != null ? 'l' : 'r');
-    if (metrics[leadSide + 'Knee'] != null) metrics.leadKnee = metrics[leadSide + 'Knee'];
-    if (metrics[leadSide + 'Hip'] != null) metrics.leadHip = metrics[leadSide + 'Hip'];
-    if (metrics[leadSide + 'Foot'] != null) metrics.leadFoot = metrics[leadSide + 'Foot'];
+    var swingLeadSide = (lK != null && rK != null) ? (lK >= rK ? 'l' : 'r') : (lK != null ? 'l' : 'r');
+    metrics.leadSide = swingLeadSide === 'l' ? 'L' : 'R';
+    if (metrics[swingLeadSide + 'Knee'] != null) metrics.leadKnee = metrics[swingLeadSide + 'Knee'];
+    if (metrics[swingLeadSide + 'Hip'] != null) metrics.leadHip = metrics[swingLeadSide + 'Hip'];
+    if (metrics[swingLeadSide + 'Foot'] != null) metrics.leadFoot = metrics[swingLeadSide + 'Foot'];
   } else if (phaseKey === 'peak_kf') {
-    // Lead leg = the side with lower knee angle (more flexed, the swing leg). Trail = stance leg.
     var lK2 = metrics.lKnee, rK2 = metrics.rKnee;
-    var leadSide2 = (lK2 != null && rK2 != null) ? (lK2 <= rK2 ? 'l' : 'r') : (lK2 != null ? 'l' : 'r');
-    var trailSide = (leadSide2 === 'l') ? 'r' : 'l';
-    if (metrics[trailSide + 'Hip'] != null) metrics.trailHip = metrics[trailSide + 'Hip'];
+    var pkfLeadSide = (lK2 != null && rK2 != null) ? (lK2 <= rK2 ? 'l' : 'r') : (lK2 != null ? 'l' : 'r');
+    var pkfTrailSide = (pkfLeadSide === 'l') ? 'r' : 'l';
+    metrics.trailSide = pkfTrailSide === 'l' ? 'L' : 'R';
+    if (metrics[pkfTrailSide + 'Hip'] != null) metrics.trailHip = metrics[pkfTrailSide + 'Hip'];
   }
+}
+
+function metricSideLabel(key, m) {
+  if (!m) return '';
+  if (key === 'nearElbow' && m.nearElbowSide) return ' (' + m.nearElbowSide + ')';
+  if ((key === 'leadKnee' || key === 'leadHip' || key === 'leadFoot') && m.leadSide) return ' (' + m.leadSide + ')';
+  if (key === 'trailHip' && m.trailSide) return ' (' + m.trailSide + ')';
+  if ((key === 'plantKnee' || key === 'plantHip') && m.plantSide) return ' (' + m.plantSide + ')';
+  return '';
 }
 
 // ==============================================================
@@ -3400,7 +3429,7 @@ function downloadReport() {
         if (isRelevant(cpk, row.key)) {
           var cpm = phases[cpk] && phases[cpk].metrics ? phases[cpk].metrics : null;
           if (cpm && cpm[row.key] != null) {
-            cellText = row.fmt(cpm[row.key]);
+            cellText = row.fmt(cpm[row.key]) + metricSideLabel(row.key, cpm);
           }
         }
         doc.setFontSize(8);
@@ -3515,7 +3544,7 @@ function downloadReport() {
       doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(bodyR, bodyG, bodyB);
-      doc.text(mr.label || mr.key, margins.left, y);
+      doc.text((mr.label || mr.key) + metricSideLabel(mr.key, pm), margins.left, y);
 
       // Measured value on the right
       var fmtVal = mr.fmt ? mr.fmt(val) : val.toFixed(1);
@@ -4679,7 +4708,10 @@ function downloadComparisonPDF() {
         var vA = mA ? mA[r.key] : null;
         var vB = mB ? mB[r.key] : null;
         if (vA == null && vB == null) return;
-        pdfCompareRow(pLabel, r.label, vA, vB, r.key);
+        var slA = metricSideLabel(r.key, mA);
+        var slB = metricSideLabel(r.key, mB);
+        var sl = slA || slB;
+        pdfCompareRow(pLabel, r.label + sl, vA, vB, r.key);
       });
     }
   });
