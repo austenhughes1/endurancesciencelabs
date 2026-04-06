@@ -1239,8 +1239,6 @@ const PHASE_GROUPS = [
 
 const SUMMARY_COL_ORDER = ['l_foot','r_foot','l_toe','r_toe','mid','peak_kf','swing'];
 const GROUP_STARTS       = new Set(['l_foot','l_toe','mid']);
-var LR_PHASES = ['l_foot','r_foot','l_toe','r_toe'];
-var BILATERAL_PHASE_KEYS = ['mid','peak_kf','swing'];
 
 const METRIC_ROWS = [
   {key:'trunk', label:'Trunk lean',  dot:'var(--gold)',  fmt:function(v){return (v>0?'+':'')+v.toFixed(1)+'\u00b0';}, hint:'Elite: 5-20 fwd'},
