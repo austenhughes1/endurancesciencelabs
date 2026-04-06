@@ -1880,10 +1880,9 @@ async function analyzeCard(key){
   var W=vidEl.videoWidth||640, H=vidEl.videoHeight||360;
   canvas.width=W;canvas.height=H;var ctx=canvas.getContext('2d');
   try{ctx.drawImage(vidEl,0,0,W,H);}catch(e){}
-  var poses=null;try{poses=await detector.estimatePoses(canvas);}catch(e){}
-  if(!poses||!poses.length){try{poses=await detector.estimatePoses(vidEl);}catch(e){}}
-  if(!poses||!poses.length){if(badge){badge.className='pc-badge manual';badge.textContent='no pose';}if(loading)loading.classList.remove('show');return;}
-  var kps=poses[0].keypoints;ph.kps=kps;
+  var kps = await enhancedEstimatePoses(canvas, vidEl);
+  if(!kps){if(badge){badge.className='pc-badge manual';badge.textContent='no pose';}if(loading)loading.classList.remove('show');return;}
+  ph.kps=kps;
 
   if(isFrontBack){
     ph.frontBackMetrics = computeFrontBackMetrics(kps);
@@ -2008,11 +2007,10 @@ async function epReanalyze(){
   await seekTo(epCurrentT, vidEl);
   var canvas=document.getElementById('ep-canvas');var W=vidEl.videoWidth||640,H=vidEl.videoHeight||360;
   canvas.width=W;canvas.height=H;var ctx=canvas.getContext('2d');try{ctx.drawImage(vidEl,0,0,W,H);}catch(e){}
-  var poses=null;try{poses=await detector.estimatePoses(canvas);}catch(e){}
-  if(!poses||!poses.length){try{poses=await detector.estimatePoses(vidEl);}catch(e){}}
+  var kps = await enhancedEstimatePoses(canvas, vidEl);
   loading.classList.remove('show');
-  if(!poses||!poses.length){document.getElementById('ep-metrics').innerHTML='<div class="ep-no-data">No pose detected -- try a different frame</div>';btn.disabled=false;btn.textContent='\u21bb Analyze';epAnalyzing=false;return;}
-  var kps=poses[0].keypoints;var ph=phases[expandKey];ph.kps=kps;ph.detected=true;
+  if(!kps){document.getElementById('ep-metrics').innerHTML='<div class="ep-no-data">No pose detected -- try a different frame</div>';btn.disabled=false;btn.textContent='\u21bb Analyze';epAnalyzing=false;return;}
+  var ph=phases[expandKey];ph.kps=kps;ph.detected=true;
 
   if(isFrontBack){
     ph.frontBackMetrics = computeFrontBackMetrics(kps);
@@ -2289,6 +2287,186 @@ function computeFrontBackMetrics(kps) {
 }
 
 // -- Add functional metric keys for bilateral side-view phases --
+// ── Enhanced pose detection ──────────────────────────────────
+// Applies 4 improvements: brightness normalization, optimal scaling,
+// runner cropping, and multi-pass averaging.
+var _enhanceCanvas = null;
+var _enhanceCtx = null;
+
+function getEnhanceCanvas() {
+  if (!_enhanceCanvas) {
+    _enhanceCanvas = document.createElement('canvas');
+    _enhanceCtx = _enhanceCanvas.getContext('2d', {willReadFrequently: true});
+  }
+  return {canvas: _enhanceCanvas, ctx: _enhanceCtx};
+}
+
+// Step 1: Normalize brightness/contrast
+function normalizeImage(ctx, w, h) {
+  var imageData = ctx.getImageData(0, 0, w, h);
+  var data = imageData.data;
+  var minL = 255, maxL = 0;
+  // Sample every 16th pixel for speed
+  for (var i = 0; i < data.length; i += 64) {
+    var lum = data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114;
+    if (lum < minL) minL = lum;
+    if (lum > maxL) maxL = lum;
+  }
+  var range = maxL - minL;
+  if (range < 30 || range > 240) {
+    // Very low contrast or already full range -- apply normalization
+    var scale = range > 0 ? 255 / range : 1;
+    for (var j = 0; j < data.length; j += 4) {
+      data[j]   = Math.min(255, Math.max(0, (data[j]   - minL) * scale));
+      data[j+1] = Math.min(255, Math.max(0, (data[j+1] - minL) * scale));
+      data[j+2] = Math.min(255, Math.max(0, (data[j+2] - minL) * scale));
+    }
+    ctx.putImageData(imageData, 0, 0);
+  }
+}
+
+// Step 2: Scale to optimal detection resolution
+function scaleForDetection(srcCanvas) {
+  var ec = getEnhanceCanvas();
+  // MoveNet Thunder input is 256x256, but feeding ~512px gives better results
+  var targetSize = 512;
+  var srcW = srcCanvas.width, srcH = srcCanvas.height;
+  var scale = targetSize / Math.max(srcW, srcH);
+  if (scale >= 1) return srcCanvas; // already small enough
+  var dstW = Math.round(srcW * scale);
+  var dstH = Math.round(srcH * scale);
+  ec.canvas.width = dstW;
+  ec.canvas.height = dstH;
+  ec.ctx.imageSmoothingEnabled = true;
+  ec.ctx.imageSmoothingQuality = 'high';
+  ec.ctx.drawImage(srcCanvas, 0, 0, dstW, dstH);
+  return ec.canvas;
+}
+
+// Step 3: Crop to runner region (uses a rough first pass)
+async function cropToRunner(srcCanvas, roughKps, vidW, vidH) {
+  if (!roughKps) return null;
+  // Find bounding box of confident keypoints
+  var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  var confCount = 0;
+  for (var i = 0; i < roughKps.length; i++) {
+    if (roughKps[i].score >= 0.15) {
+      if (roughKps[i].x < minX) minX = roughKps[i].x;
+      if (roughKps[i].y < minY) minY = roughKps[i].y;
+      if (roughKps[i].x > maxX) maxX = roughKps[i].x;
+      if (roughKps[i].y > maxY) maxY = roughKps[i].y;
+      confCount++;
+    }
+  }
+  if (confCount < 5) return null; // not enough keypoints
+  // Add padding (30% of body size)
+  var bw = maxX - minX, bh = maxY - minY;
+  var padX = bw * 0.3, padY = bh * 0.3;
+  var cx1 = Math.max(0, minX - padX);
+  var cy1 = Math.max(0, minY - padY);
+  var cx2 = Math.min(vidW, maxX + padX);
+  var cy2 = Math.min(vidH, maxY + padY);
+  var cropW = cx2 - cx1, cropH = cy2 - cy1;
+  // Only crop if runner takes up less than 60% of the frame
+  if (cropW * cropH > vidW * vidH * 0.6) return null;
+
+  var ec = getEnhanceCanvas();
+  var targetSize = 512;
+  var cropScale = targetSize / Math.max(cropW, cropH);
+  var dstW = Math.round(cropW * cropScale);
+  var dstH = Math.round(cropH * cropScale);
+  ec.canvas.width = dstW;
+  ec.canvas.height = dstH;
+  ec.ctx.imageSmoothingEnabled = true;
+  ec.ctx.imageSmoothingQuality = 'high';
+  ec.ctx.drawImage(srcCanvas, cx1, cy1, cropW, cropH, 0, 0, dstW, dstH);
+  normalizeImage(ec.ctx, dstW, dstH);
+
+  var poses = null;
+  try { poses = await detector.estimatePoses(ec.canvas); } catch(e) {}
+  if (!poses || !poses.length) return null;
+
+  // Map keypoints back to original coordinates
+  var kps = poses[0].keypoints;
+  for (var k = 0; k < kps.length; k++) {
+    kps[k].x = kps[k].x / cropScale + cx1;
+    kps[k].y = kps[k].y / cropScale + cy1;
+  }
+  return kps;
+}
+
+// Step 4: Multi-pass averaging
+function averageKeypoints(passes) {
+  if (!passes.length) return null;
+  if (passes.length === 1) return passes[0];
+  var result = [];
+  for (var i = 0; i < passes[0].length; i++) {
+    var sumX = 0, sumY = 0, sumS = 0, n = 0;
+    for (var p = 0; p < passes.length; p++) {
+      if (passes[p][i] && passes[p][i].score >= 0.1) {
+        sumX += passes[p][i].x;
+        sumY += passes[p][i].y;
+        sumS += passes[p][i].score;
+        n++;
+      }
+    }
+    if (n > 0) {
+      result.push({x: sumX / n, y: sumY / n, score: sumS / n, name: passes[0][i].name});
+    } else {
+      result.push(passes[0][i]);
+    }
+  }
+  return result;
+}
+
+// Main enhanced detection function
+async function enhancedEstimatePoses(srcCanvas, vidEl2) {
+  var W = srcCanvas.width, H = srcCanvas.height;
+  var passes = [];
+
+  // Pass 1: Raw detection on original canvas
+  var poses1 = null;
+  try { poses1 = await detector.estimatePoses(srcCanvas); } catch(e) {}
+  if (poses1 && poses1.length) passes.push(poses1[0].keypoints);
+
+  // Pass 2: Brightness-normalized + scaled
+  var ec = getEnhanceCanvas();
+  ec.canvas.width = srcCanvas.width;
+  ec.canvas.height = srcCanvas.height;
+  ec.ctx.drawImage(srcCanvas, 0, 0);
+  normalizeImage(ec.ctx, ec.canvas.width, ec.canvas.height);
+  var normCanvas = scaleForDetection(ec.canvas);
+  var normScale = srcCanvas.width / normCanvas.width;
+  var poses2 = null;
+  try { poses2 = await detector.estimatePoses(normCanvas); } catch(e) {}
+  if (poses2 && poses2.length) {
+    var kps2 = poses2[0].keypoints;
+    // Scale keypoints back to original size
+    for (var i = 0; i < kps2.length; i++) {
+      kps2[i].x *= normScale;
+      kps2[i].y *= normScale;
+    }
+    passes.push(kps2);
+  }
+
+  // Pass 3: Crop to runner (if pass 1 found something)
+  if (passes.length > 0) {
+    var cropKps = await cropToRunner(srcCanvas, passes[0], W, H);
+    if (cropKps) passes.push(cropKps);
+  }
+
+  if (passes.length === 0) {
+    // Last resort: try the video element directly
+    try {
+      var poses3 = await detector.estimatePoses(vidEl2);
+      if (poses3 && poses3.length) return poses3[0].keypoints;
+    } catch(e) {}
+    return null;
+  }
+
+  return averageKeypoints(passes);
+}
+
 function addFunctionalMetrics(metrics, phaseKey, kps) {
   if (!metrics || !kps) return;
   var g4 = function(i) { return (kps[i] && kps[i].score >= MIN_CONF) ? kps[i] : null; };
