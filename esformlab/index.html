@@ -780,13 +780,8 @@ body.bar-showing #screen-phases{padding-bottom:120px}
       <strong style="color:var(--text)">A note about these reference ranges:</strong> The bell curves and ranges below are based on data from elite-level marathoners. Very few recreational runners will match these ranges across every metric, and that is completely normal. A value outside the elite range does not mean something is wrong or needs to be changed. Running mechanics are highly individual, and what matters most is efficiency and comfort within your own body. This data is provided for informational context only -- not as a target to chase or a diagnosis of a problem.
     </div>
     <div class="summary-sub" style="font-size:15px">All angles below are measured in degrees and compared to reference ranges from elite runners. Click any column header to open and re-examine that phase.</div>
-    <div style="font-size:14px;font-weight:700;margin-bottom:8px;margin-top:20px">Foot strike & toe-off</div>
     <div class="summary-scroll">
-      <table class="stbl" id="summary-table-lr"><thead></thead><tbody></tbody></table>
-    </div>
-    <div style="font-size:14px;font-weight:700;margin-bottom:8px;margin-top:24px">Mid-stance, terminal swing & peak knee flex</div>
-    <div class="summary-scroll">
-      <table class="stbl" id="summary-table-bilateral"><thead></thead><tbody></tbody></table>
+      <table class="stbl" id="summary-table"><thead></thead><tbody></tbody></table>
     </div>
     <div class="legend-strip">
       <div class="ls-item"><span style="font-family:var(--mono);font-size:10px;color:var(--muted2)">&#9656; Within range</span> -- value falls inside elite reference band</div>
@@ -3449,9 +3444,7 @@ function downloadReport() {
     y += 6;
   }
 
-  pdfDrawAngleTable('Foot strike & toe-off', LR_PHASES);
-  y += 4;
-  pdfDrawAngleTable('Mid-stance, terminal swing & peak knee flex', BILATERAL_PHASE_KEYS);
+  pdfDrawAngleTable('Side view measurements', SUMMARY_COL_ORDER);
 
   // ====== BELL CURVE DETAIL PAGES ======
 
@@ -3687,38 +3680,21 @@ function downloadReport() {
   doc.save(filename);
 }
 
-// Summary tables (split into L/R and bilateral)
+// Summary table (single table, all 7 side-view phases)
 function buildSummaryTable(){
-  // Table 1: L/R phases
-  var tbl1 = document.getElementById('summary-table-lr');
-  if (tbl1) {
-    tbl1.querySelector('thead').innerHTML = '<tr><th>Metric</th>' + LR_PHASES.map(function(k) {
-      var ph = phases[k]; var idx = PHASE_DEFS.findIndex(function(d) { return d.key === k; });
-      var side = ph && ph.side === 'left' ? ' th-left' : ph && ph.side === 'right' ? ' th-right' : '';
-      return '<th class="' + side + '" onclick="openExpand(\'' + k + '\')">' + (idx + 1) + '. ' + (ph ? ph.label : k) + (ph && !ph.detected ? ' &#9888;' : '') + '</th>';
+  var tbl = document.getElementById('summary-table');
+  if (!tbl) return;
+  tbl.querySelector('thead').innerHTML = '<tr><th>Metric</th>' + SUMMARY_COL_ORDER.map(function(k) {
+    var ph = phases[k]; var idx = PHASE_DEFS.findIndex(function(d) { return d.key === k; });
+    var side = ph && ph.side === 'left' ? ' th-left' : ph && ph.side === 'right' ? ' th-right' : '';
+    return '<th class="' + side + '" onclick="openExpand(\'' + k + '\')">' + (idx + 1) + '. ' + (ph ? ph.label : k) + (ph && !ph.detected ? ' &#9888;' : '') + '</th>';
+  }).join('') + '</tr>';
+  var activeRows = METRIC_ROWS.filter(function(r) { return SUMMARY_COL_ORDER.some(function(pk) { return isRelevant(pk, r.key); }); });
+  tbl.querySelector('tbody').innerHTML = activeRows.map(function(r) {
+    return '<tr><td class="row-label">' + r.label + '</td>' + SUMMARY_COL_ORDER.map(function(k) {
+      return '<td id="sc-' + k + '-' + r.key + '"><span class="sv na">--</span></td>';
     }).join('') + '</tr>';
-    var lrRows = METRIC_ROWS.filter(function(r) { return LR_PHASES.some(function(pk) { return isRelevant(pk, r.key); }); });
-    tbl1.querySelector('tbody').innerHTML = lrRows.map(function(r) {
-      return '<tr><td class="row-label">' + r.label + '</td>' + LR_PHASES.map(function(k) {
-        return '<td id="sc-' + k + '-' + r.key + '"><span class="sv na">--</span></td>';
-      }).join('') + '</tr>';
-    }).join('');
-  }
-
-  // Table 2: Bilateral phases
-  var tbl2 = document.getElementById('summary-table-bilateral');
-  if (tbl2) {
-    tbl2.querySelector('thead').innerHTML = '<tr><th>Metric</th>' + BILATERAL_PHASE_KEYS.map(function(k) {
-      var ph = phases[k]; var idx = PHASE_DEFS.findIndex(function(d) { return d.key === k; });
-      return '<th onclick="openExpand(\'' + k + '\')">' + (idx + 1) + '. ' + (ph ? ph.label : k) + (ph && !ph.detected ? ' &#9888;' : '') + '</th>';
-    }).join('') + '</tr>';
-    var bilateralRows = METRIC_ROWS.filter(function(r) { return BILATERAL_PHASE_KEYS.some(function(pk) { return isRelevant(pk, r.key); }); });
-    tbl2.querySelector('tbody').innerHTML = bilateralRows.map(function(r) {
-      return '<tr><td class="row-label">' + r.label + '</td>' + BILATERAL_PHASE_KEYS.map(function(k) {
-        return '<td id="sc-' + k + '-' + r.key + '"><span class="sv na">--</span></td>';
-      }).join('') + '</tr>';
-    }).join('');
-  }
+  }).join('');
 }
 function updateSummaryCol(key){
   var m = phases[key] ? phases[key].metrics : null;
