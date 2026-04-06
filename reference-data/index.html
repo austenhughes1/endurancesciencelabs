@@ -446,8 +446,13 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 <div id="summary-section" style="display:none">
   <div class="summary-title">Measured angles — this session</div>
   <div class="summary-sub">Review all angles carefully before saving. These values will be added to the reference dataset.</div>
+  <div style="font-size:14px;font-weight:700;margin-bottom:8px;margin-top:20px">Foot strike & toe-off</div>
   <div class="summary-scroll">
-    <table class="stbl" id="summary-table"><thead></thead><tbody></tbody></table>
+    <table class="stbl" id="summary-table-lr"><thead></thead><tbody></tbody></table>
+  </div>
+  <div style="font-size:14px;font-weight:700;margin-bottom:8px;margin-top:24px">Mid-stance, terminal swing & peak knee flex</div>
+  <div class="summary-scroll">
+    <table class="stbl" id="summary-table-bilateral"><thead></thead><tbody></tbody></table>
   </div>
 </div>
 
@@ -709,6 +714,8 @@ const PHASE_GROUPS = [
 ];
 const SUMMARY_COL_ORDER = ['l_foot','r_foot','l_toe','r_toe','mid','peak_kf','swing'];
 const GROUP_STARTS       = new Set(['l_foot','l_toe','mid']);
+const LR_PHASES = ['l_foot','r_foot','l_toe','r_toe'];
+const BILATERAL_PHASE_KEYS = ['mid','peak_kf','swing'];
 
 const METRIC_ROWS = [
   {key:'trunk', label:'Trunk lean',  dot:'var(--gold)',  fmt:v=>`${v>0?'+':''}${v.toFixed(1)}°`},
@@ -730,10 +737,10 @@ const METRIC_ROWS = [
 ];
 
 const PHASE_METRICS = {
-  l_foot:  ['trunk','lKnee','lHip','lFoot','lElbow'],
-  r_foot:  ['trunk','rKnee','rHip','rFoot','rElbow'],
-  l_toe:   ['trunk','lHip','lKnee','lElbow'],
-  r_toe:   ['trunk','rHip','rKnee','rElbow'],
+  l_foot:  ['trunk','lKnee','lHip','lFoot','nearElbow'],
+  r_foot:  ['trunk','rKnee','rHip','rFoot','nearElbow'],
+  l_toe:   ['trunk','lHip','lKnee','nearElbow'],
+  r_toe:   ['trunk','rHip','rKnee','nearElbow'],
   mid:     ['trunk','plantKnee','plantHip','nearElbow'],
   peak_kf: ['trunk','trailHip','nearElbow'],
   swing:   ['trunk','leadKnee','leadHip','leadFoot','nearElbow'],
@@ -969,7 +976,7 @@ async function analyzeCard(key){
   if(!poses||!poses.length){try{poses=await detector.estimatePoses(videoEl);}catch(e){}}
   if(!poses||!poses.length){if(badge){badge.className='pc-badge manual';badge.textContent='no pose';}if(loading)loading.classList.remove('show');return;}
   const kps=poses[0].keypoints;ph.kps=kps;ph.metrics=computeMetrics(kps);ph.sideView=isSideView(kps);
-  if(ph.sideView && (key==='mid'||key==='peak_kf'||key==='swing')){addFunctionalMetrics(ph.metrics,key,kps);}
+  if(ph.sideView){addFunctionalMetrics(ph.metrics,key,kps);}
   drawPose(ctx,kps,W,H);
   if(!ph.sideView){renderSideViewWarning(key);}else{renderMiniMetrics(key,ph.metrics);updateSummaryCol(key);}updateSaveSection();
   if(badge){badge.className='pc-badge ok';badge.textContent='analyzed';}if(loading)loading.classList.remove('show');
@@ -1031,7 +1038,7 @@ async function epReanalyze(){
   loading.classList.remove('show');
   if(!poses||!poses.length){document.getElementById('ep-metrics').innerHTML='<div class="ep-no-data">No pose detected — try a different frame</div>';btn.disabled=false;btn.textContent='↻ Analyze';epAnalyzing=false;return;}
   const kps=poses[0].keypoints;const ph=phases[expandKey];ph.kps=kps;ph.metrics=computeMetrics(kps);ph.detected=true;ph.sideView=isSideView(kps);
-  if(ph.sideView && (expandKey==='mid'||expandKey==='peak_kf'||expandKey==='swing')){addFunctionalMetrics(ph.metrics,expandKey,kps);}
+  if(ph.sideView){addFunctionalMetrics(ph.metrics,expandKey,kps);}
   drawPose(ctx,kps,W,H);
   if(!ph.sideView){
     document.getElementById('ep-metrics').innerHTML=
@@ -1088,7 +1095,7 @@ function swapLegs(){
   const kps = ph.kps;
   for(let i=1; i<=15; i+=2){ const tmp=kps[i]; kps[i]=kps[i+1]; kps[i+1]=tmp; }
   ph.metrics = computeMetrics(kps);
-  if(expandKey==='mid'||expandKey==='peak_kf'||expandKey==='swing'){addFunctionalMetrics(ph.metrics,expandKey,kps);}
+  if(ph.sideView){addFunctionalMetrics(ph.metrics,expandKey,kps);}
   const canvas = document.getElementById('ep-canvas');
   const W = canvas.width, H = canvas.height;
   const ctx = canvas.getContext('2d');
@@ -1214,9 +1221,21 @@ function addFunctionalMetrics(metrics, phaseKey, kps) {
 
 // Summary table
 function buildSummaryTable(){
-  const tbl=document.getElementById('summary-table');
-  tbl.querySelector('thead').innerHTML=`<tr><th>Metric</th>${SUMMARY_COL_ORDER.map((k,i)=>{const ph=phases[k];const idx=PHASE_DEFS.findIndex(d=>d.key===k);const gs=GROUP_STARTS.has(k)?' th-group-start':'';const side=ph?.side==='left'?' th-left':ph?.side==='right'?' th-right':'';return `<th class="${gs}${side}" onclick="openExpand('${k}')">${idx+1}. ${ph?.label||k}${!ph?.detected?' ⚠':''}</th>`;}).join('')}</tr>`;
-  tbl.querySelector('tbody').innerHTML=METRIC_ROWS.filter(r=>SUMMARY_COL_ORDER.some(k=>isRelevant(k,r.key))).map(r=>`<tr><td class="row-label">${r.label}</td>${SUMMARY_COL_ORDER.map(k=>`<td class="${GROUP_STARTS.has(k)?'td-group-start':''}" id="sc-${k}-${r.key}"><span class="sv na">—</span></td>`).join('')}</tr>`).join('');
+  // Table 1: L/R phases
+  const tbl1=document.getElementById('summary-table-lr');
+  if(tbl1){
+    tbl1.querySelector('thead').innerHTML=`<tr><th>Metric</th>${LR_PHASES.map(k=>{const ph=phases[k];const idx=PHASE_DEFS.findIndex(d=>d.key===k);const side=ph?.side==='left'?' th-left':ph?.side==='right'?' th-right':'';return `<th class="${side}" onclick="openExpand('${k}')">${idx+1}. ${ph?.label||k}${ph&&!ph.detected?' &#9888;':''}</th>`;}).join('')}</tr>`;
+    const lrRows=METRIC_ROWS.filter(r=>LR_PHASES.some(pk=>isRelevant(pk,r.key)));
+    tbl1.querySelector('tbody').innerHTML=lrRows.map(r=>`<tr><td class="row-label">${r.label}</td>${LR_PHASES.map(k=>`<td id="sc-${k}-${r.key}"><span class="sv na">--</span></td>`).join('')}</tr>`).join('');
+  }
+
+  // Table 2: Bilateral phases
+  const tbl2=document.getElementById('summary-table-bilateral');
+  if(tbl2){
+    tbl2.querySelector('thead').innerHTML=`<tr><th>Metric</th>${BILATERAL_PHASE_KEYS.map(k=>{const ph=phases[k];const idx=PHASE_DEFS.findIndex(d=>d.key===k);return `<th onclick="openExpand('${k}')">${idx+1}. ${ph?.label||k}${ph&&!ph.detected?' &#9888;':''}</th>`;}).join('')}</tr>`;
+    const bilateralRows=METRIC_ROWS.filter(r=>BILATERAL_PHASE_KEYS.some(pk=>isRelevant(pk,r.key)));
+    tbl2.querySelector('tbody').innerHTML=bilateralRows.map(r=>`<tr><td class="row-label">${r.label}</td>${BILATERAL_PHASE_KEYS.map(k=>`<td id="sc-${k}-${r.key}"><span class="sv na">--</span></td>`).join('')}</tr>`).join('');
+  }
 }
 function updateSummaryCol(key){
   const m=phases[key]?.metrics;if(!m)return;
