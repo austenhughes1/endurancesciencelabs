@@ -1018,7 +1018,7 @@ function epScrub(val){
   epCurrentT=parseFloat(val);document.getElementById('ep-time').textContent=epCurrentT.toFixed(2)+'s';
   if(phases[expandKey])phases[expandKey].t=epCurrentT;
   const ptEl=document.getElementById(`ptime-${expandKey}`);if(ptEl)ptEl.textContent=epCurrentT.toFixed(2)+'s';
-  clearTimeout(epDbt.t);epDbt.t=setTimeout(()=>drawExpandFrame(epCurrentT,phases[expandKey]?.kps),100);
+  clearTimeout(epDbt.t);epDbt.t=setTimeout(()=>drawExpandFrame(epCurrentT,null),100);
 }
 function epStep(frames){const scrub=document.getElementById('ep-scrubber');const newT=Math.max(parseFloat(scrub.min),Math.min(parseFloat(scrub.max),epCurrentT+frames*.04));scrub.value=newT;epScrub(newT);}
 async function epReanalyze(){
