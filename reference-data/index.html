@@ -1366,27 +1366,29 @@ async function vetSessionData(){
   const warnings = [];   // amber — unusual but possible
   const errors   = [];   // red — likely wrong / physically implausible
 
-  // 1. Anatomical plausibility checks (fast, no network)
+  // 1. Anatomical plausibility checks — only relevant metrics per phase
   PHASE_DEFS.forEach(def=>{
     const m = phases[def.key]?.metrics;
     if(!m) return;
     METRIC_ROWS.forEach(metric=>{
+      if(!isRelevant(def.key, metric.key)) return;
       const v     = m[metric.key];
       const limit = PLAUSIBILITY[metric.key];
       if(v==null||!limit) return;
       if(v < limit.min || v > limit.max){
-        errors.push(`${limit.label} at "${def.label}" = ${v.toFixed(1)}° — outside physically possible range (${limit.min}–${limit.max}). This frame is likely wrong.`);
+        errors.push(`${limit.label} at "${def.label}" = ${v.toFixed(1)} — outside physically possible range (${limit.min}–${limit.max}). This frame is likely wrong.`);
       }
     });
   });
 
-  // 2. IQR outlier checks against existing dataset (async, per metric)
-  if(selectedSex && errors.length === 0){ // skip if already have errors
+  // 2. IQR outlier checks — only relevant metrics per phase
+  if(selectedSex && errors.length === 0){
     const checks = [];
     for(const def of PHASE_DEFS){
       const m = phases[def.key]?.metrics;
       if(!m) continue;
       for(const metric of METRIC_ROWS){
+        if(!isRelevant(def.key, metric.key)) continue;
         const v = m[metric.key];
         if(v==null) continue;
         checks.push(
