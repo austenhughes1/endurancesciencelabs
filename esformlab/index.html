@@ -628,6 +628,11 @@ body.bar-showing #screen-phases{padding-bottom:120px}
       </div>
     </div>
 
+    <!-- Admin only: sample report -->
+    <div id="btn-sample-report" style="display:none;text-align:center;margin-top:16px;padding-bottom:8px">
+      <button class="btn-ghost" onclick="downloadSampleReport()" style="font-size:12px">&#128196; Download sample report (all anomalies)</button>
+    </div>
+
   </div>
 </div>
 
@@ -748,7 +753,7 @@ body.bar-showing #screen-phases{padding-bottom:120px}
         </div>
         <div style="background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:16px 18px">
           <div style="font-size:12px;font-weight:700;color:var(--cyan);font-family:var(--mono);margin-bottom:8px">EXAMPLE B: LOW CADENCE RUNNER</div>
-          <div style="font-size:13px;color:var(--muted2);line-height:1.8">Cadence rises from 170 to 175 spm<br>Ground contact time drops from 250 ms to 231 ms</div>
+          <div style="font-size:13px;color:var(--muted2);line-height:1.8">Cadence rises from 165 to 170 spm<br>Ground contact time drops from 250 ms to 230 ms</div>
         </div>
       </div>
       <div style="font-size:14px;color:var(--text);line-height:1.9"><strong>Both of these scenarios result in over 2 minutes less ground contact time per hour of running.</strong> That is 2 fewer minutes of load going through your muscles and tendons — and 2 more minutes spent in the air, traveling forward efficiently. The energy savings and injury risk reduction from that kind of shift are meaningful, and they come from changes that most runners would barely notice in the moment.</div>
@@ -1179,12 +1184,17 @@ function updateAuthUI() {
     if (myAnalysesBtn) myAnalysesBtn.style.display = 'inline-flex';
     if (saveBtn) saveBtn.style.display = 'inline-flex';
     if (signInSaveBtn) signInSaveBtn.style.display = 'none';
+    // Admin-only sample report button on upload screen
+    var sampleBtn = document.getElementById('btn-sample-report');
+    if (sampleBtn) sampleBtn.style.display = currentUser.uid === '2z9Z3K5ZwShvadUuqZmwMv0s1Od2' ? 'block' : 'none';
   } else {
     if (indicator) indicator.style.display = 'none';
     if (signOutBtn) signOutBtn.style.display = 'none';
     if (myAnalysesBtn) myAnalysesBtn.style.display = 'none';
     if (saveBtn) saveBtn.style.display = 'none';
     if (signInSaveBtn) signInSaveBtn.style.display = 'inline-flex';
+    var sampleBtn2 = document.getElementById('btn-sample-report');
+    if (sampleBtn2) sampleBtn2.style.display = 'none';
   }
 }
 
@@ -2919,6 +2929,88 @@ function pdfDrawBadge(doc, severity, x, y) {
   doc.text(label, x + 2, y);
   doc.setFont('helvetica', 'normal');
   return x + tw + 2;
+}
+
+function downloadSampleReport() {
+  // Generate believable dummy data with all 6 anomalies detected
+  var savedSex = selectedSex;
+  var savedPhases = JSON.parse(JSON.stringify(phases));
+  var savedLastIssues = lastIssues;
+
+  selectedSex = 'male';
+
+  // Dummy side-view metrics for each phase with realistic values
+  var dummyPhases = {
+    l_foot: {t:1.2, detected:true, kps:null, metrics:{
+      trunk:8.2, lKnee:162, rKnee:78, lHip:155, rHip:138, lElbow:95, rElbow:118, lFoot:0.28, rFoot:-0.05,
+      leadKnee:162, leadHip:155, leadFoot:0.28, nearElbow:95, leadSide:'L', nearElbowSide:'L'
+    }, sideView:true},
+    r_foot: {t:2.1, detected:true, kps:null, metrics:{
+      trunk:7.5, lKnee:75, rKnee:158, lHip:140, rHip:152, lElbow:122, rElbow:92, rFoot:0.32, lFoot:-0.03,
+      leadKnee:158, leadHip:152, leadFoot:0.32, nearElbow:92, leadSide:'R', nearElbowSide:'R'
+    }, sideView:true},
+    l_toe: {t:1.8, detected:true, kps:null, metrics:{
+      trunk:12.1, lKnee:156, rKnee:95, lHip:172, rHip:132, lElbow:88, rElbow:115,
+      leadHip:132, trailHip:172, nearElbow:88, leadSide:'R', trailSide:'L', nearElbowSide:'L'
+    }, sideView:true},
+    r_toe: {t:2.7, detected:true, kps:null, metrics:{
+      trunk:11.8, lKnee:92, rKnee:154, lHip:128, rHip:175, lElbow:120, rElbow:90,
+      leadHip:128, trailHip:175, nearElbow:90, leadSide:'L', trailSide:'R', nearElbowSide:'R'
+    }, sideView:true},
+    mid: {t:1.5, detected:true, kps:null, metrics:{
+      trunk:1.8, lKnee:168, rKnee:110, lHip:192, rHip:155, lElbow:90, rElbow:125,
+      plantKnee:168, plantHip:192, nearElbow:90, plantSide:'L', nearElbowSide:'L'
+    }, sideView:true},
+    peak_kf: {t:2.4, detected:true, kps:null, metrics:{
+      trunk:9.5, lKnee:58, rKnee:165, lHip:148, rHip:172, lElbow:135, rElbow:142,
+      trailHip:172, nearElbow:135, trailSide:'R', nearElbowSide:'L'
+    }, sideView:true},
+    swing: {t:3.0, detected:true, kps:null, metrics:{
+      trunk:10.2, lKnee:170, rKnee:82, lHip:148, rHip:160, lElbow:92, rElbow:118, lFoot:0.22,
+      leadKnee:170, leadHip:148, leadFoot:0.22, nearElbow:92, leadSide:'L', nearElbowSide:'L'
+    }, sideView:true},
+    mid_front: {t:1.0, detected:true, kps:null, metrics:null, frontBackMetrics:{
+      hipDrop:0.12, hipDropAbs:0.12, lWristCross:0.09, rWristCross:0.03,
+      lKneeValgus:0.11, rKneeValgus:0, avgConfidence:0.78, stanceSide:'left'
+    }, sideView:false},
+    mid_back: {t:0.8, detected:true, kps:null, metrics:null, frontBackMetrics:{
+      hipDrop:0.10, hipDropAbs:0.10, lWristCross:0, rWristCross:0,
+      lKneeValgus:0, rKneeValgus:0, avgConfidence:0.65, stanceSide:'left'
+    }, sideView:false}
+  };
+
+  // Apply dummy phases
+  PHASE_DEFS.forEach(function(def) {
+    if (dummyPhases[def.key]) {
+      phases[def.key] = Object.assign({}, def, dummyPhases[def.key]);
+    }
+  });
+
+  // Dummy issues: all 6 detected
+  lastIssues = {
+    overstriding: {detected:true, severity:'notable', details:'Max offset: 0.32 torso lengths'},
+    hipDrop: {detected:true, severity:'mild', details:'Hip drop: 11.3%'},
+    armsCrossing: {detected:true, severity:'mild', details:'Max crossing: 9.0% of shoulder width'},
+    torsoPosition: {detected:true, severity:'mild', details:'Trunk lean: 1.8 (very upright)', cueKey:'torsoUpright'},
+    armAngle: {detected:true, severity:'notable', details:'Avg elbow: 138'},
+    kneeValgus: {detected:true, severity:'mild', details:'Max valgus: 11.0% of hip width'}
+  };
+
+  // Set save name for the PDF header
+  var saveNameEl = document.getElementById('save-name');
+  var origName = saveNameEl ? saveNameEl.value : '';
+  if (saveNameEl) saveNameEl.value = 'Sample Report -- All Anomalies';
+
+  // Generate the PDF
+  downloadReport();
+
+  // Restore original state
+  if (saveNameEl) saveNameEl.value = origName;
+  selectedSex = savedSex;
+  PHASE_DEFS.forEach(function(def) {
+    phases[def.key] = savedPhases[def.key] || phases[def.key];
+  });
+  lastIssues = savedLastIssues;
 }
 
 function downloadReport() {
