@@ -2622,17 +2622,31 @@ function detectIssues() {
   var issues = {};
 
   // 1. OVERSTRIDING (side: l_foot + r_foot)
+  // Uses elite reference ranges: mild > 1 SD above mean, notable > 2 SD above mean.
+  // For L/R, use the stricter of the two sides: lower mean + lower SD.
   var lFootM = phases.l_foot && phases.l_foot.metrics ? phases.l_foot.metrics : null;
   var rFootM = phases.r_foot && phases.r_foot.metrics ? phases.r_foot.metrics : null;
-  var maxOffset = 0;
-  if(lFootM && lFootM.lFoot !== undefined) maxOffset = Math.max(maxOffset, lFootM.lFoot);
-  if(rFootM && rFootM.rFoot !== undefined) maxOffset = Math.max(maxOffset, rFootM.rFoot);
-  if(maxOffset > 0.35) {
-    issues.overstriding = {detected:true, severity:'notable', details:'Max foot offset: '+maxOffset.toFixed(2)};
-  } else if(maxOffset > 0.20) {
-    issues.overstriding = {detected:true, severity:'mild', details:'Max foot offset: '+maxOffset.toFixed(2)};
-  } else {
+  var maxOffset = null;
+  if(lFootM && lFootM.leadFoot !== undefined) maxOffset = Math.max(maxOffset===null?-Infinity:maxOffset, lFootM.leadFoot);
+  else if(lFootM && lFootM.lFoot !== undefined) maxOffset = Math.max(maxOffset===null?-Infinity:maxOffset, lFootM.lFoot);
+  if(rFootM && rFootM.leadFoot !== undefined) maxOffset = Math.max(maxOffset===null?-Infinity:maxOffset, rFootM.leadFoot);
+  else if(rFootM && rFootM.rFoot !== undefined) maxOffset = Math.max(maxOffset===null?-Infinity:maxOffset, rFootM.rFoot);
+  if(maxOffset === null) {
     issues.overstriding = {detected:false, severity:null, details:COACHING_CUES.overstriding.clear};
+  } else {
+    var lStats = getRangeStats('l_foot', 'leadFoot');
+    var rStats = getRangeStats('r_foot', 'leadFoot');
+    var osMean = Math.min(lStats.mean, rStats.mean);
+    var osSD = Math.min(lStats.sd, rStats.sd);
+    var osMild = osMean + osSD;
+    var osNotable = osMean + 2 * osSD;
+    if(maxOffset > osNotable) {
+      issues.overstriding = {detected:true, severity:'notable', details:'Max foot offset: '+maxOffset.toFixed(2)+' (elite '+osMean.toFixed(2)+' \u00b1 '+osSD.toFixed(2)+')'};
+    } else if(maxOffset > osMild) {
+      issues.overstriding = {detected:true, severity:'mild', details:'Max foot offset: '+maxOffset.toFixed(2)+' (elite '+osMean.toFixed(2)+' \u00b1 '+osSD.toFixed(2)+')'};
+    } else {
+      issues.overstriding = {detected:false, severity:null, details:COACHING_CUES.overstriding.clear};
+    }
   }
 
   // 2. HIP DROP (front mid_front, optionally back mid_back)
@@ -2667,54 +2681,50 @@ function detectIssues() {
     issues.armsCrossing = {detected:false, severity:null, details:COACHING_CUES.armsCrossing.clear};
   }
 
-  // 4. TORSO POSITION (side mid)
+  // 4. TORSO POSITION (side mid) -- two-sided detection against elite range
   var midM = phases.mid && phases.mid.metrics ? phases.mid.metrics : null;
   issues.torsoPosition = {detected:false, severity:null, details:COACHING_CUES.torsoUpright.clear};
   if(midM && midM.trunk !== undefined) {
     var trunkLean = midM.trunk;
-    if(trunkLean <= 0) {
-      issues.torsoPosition = {detected:true, severity:'notable', details:'Trunk lean: '+trunkLean.toFixed(1)+' (upright/backward)', cueKey:'torsoUpright'};
-    } else if(trunkLean < 3) {
-      issues.torsoPosition = {detected:true, severity:'mild', details:'Trunk lean: '+trunkLean.toFixed(1)+' (very upright)', cueKey:'torsoUpright'};
-    } else if(trunkLean > 25) {
-      issues.torsoPosition = {detected:true, severity:'notable', details:'Trunk lean: '+trunkLean.toFixed(1)+' (excessive forward)', cueKey:'torsoLean'};
-    } else if(trunkLean > 20) {
-      issues.torsoPosition = {detected:true, severity:'mild', details:'Trunk lean: '+trunkLean.toFixed(1)+' (forward of typical)', cueKey:'torsoLean'};
-    }
-    // Also check hip angle at mid-stance for arching
-    var hipAngle = null;
-    if(midM.plantHip !== undefined) hipAngle = midM.plantHip;
-    else if(midM.lHip !== undefined && midM.rHip !== undefined) hipAngle = (midM.lHip + midM.rHip)/2;
-    else if(midM.lHip !== undefined) hipAngle = midM.lHip;
-    else if(midM.rHip !== undefined) hipAngle = midM.rHip;
-    if(hipAngle !== null) {
-      if(hipAngle > 195 && !issues.torsoPosition.detected) {
-        issues.torsoPosition = {detected:true, severity:'notable', details:'Hip angle at mid-stance: '+hipAngle.toFixed(0)+' (arching)', cueKey:'torsoUpright'};
-      } else if(hipAngle > 185 && !issues.torsoPosition.detected) {
-        issues.torsoPosition = {detected:true, severity:'mild', details:'Hip angle at mid-stance: '+hipAngle.toFixed(0)+' (slight arching)', cueKey:'torsoUpright'};
-      }
+    var trunkStats = getRangeStats('mid', 'trunk');
+    var trunkDev = trunkLean - trunkStats.mean;
+    if(trunkDev < -2 * trunkStats.sd) {
+      issues.torsoPosition = {detected:true, severity:'notable', details:'Trunk lean: '+trunkLean.toFixed(1)+'\u00b0 (elite '+trunkStats.mean.toFixed(1)+' \u00b1 '+trunkStats.sd.toFixed(1)+')', cueKey:'torsoUpright'};
+    } else if(trunkDev > 2 * trunkStats.sd) {
+      issues.torsoPosition = {detected:true, severity:'notable', details:'Trunk lean: '+trunkLean.toFixed(1)+'\u00b0 (elite '+trunkStats.mean.toFixed(1)+' \u00b1 '+trunkStats.sd.toFixed(1)+')', cueKey:'torsoLean'};
+    } else if(trunkDev < -trunkStats.sd) {
+      issues.torsoPosition = {detected:true, severity:'mild', details:'Trunk lean: '+trunkLean.toFixed(1)+'\u00b0 (elite '+trunkStats.mean.toFixed(1)+' \u00b1 '+trunkStats.sd.toFixed(1)+')', cueKey:'torsoUpright'};
+    } else if(trunkDev > trunkStats.sd) {
+      issues.torsoPosition = {detected:true, severity:'mild', details:'Trunk lean: '+trunkLean.toFixed(1)+'\u00b0 (elite '+trunkStats.mean.toFixed(1)+' \u00b1 '+trunkStats.sd.toFixed(1)+')', cueKey:'torsoLean'};
     }
   }
 
-  // 5. ARM ANGLE TOO OPEN (side peak_kf)
+  // 5. ARM ANGLE TOO OPEN (side peak_kf) -- uses elite range
   var pkfM = phases.peak_kf && phases.peak_kf.metrics ? phases.peak_kf.metrics : null;
-  var avgElbow = null;
+  var pkfElbow = null;
   if(pkfM) {
     if(pkfM.nearElbow !== undefined) {
-      avgElbow = pkfM.nearElbow;
+      pkfElbow = pkfM.nearElbow;
     } else {
       var eCount = 0, eSum = 0;
       if(pkfM.lElbow !== undefined) { eSum += pkfM.lElbow; eCount++; }
       if(pkfM.rElbow !== undefined) { eSum += pkfM.rElbow; eCount++; }
-      if(eCount > 0) avgElbow = eSum / eCount;
+      if(eCount > 0) pkfElbow = eSum / eCount;
     }
   }
-  if(avgElbow !== null && avgElbow > 140) {
-    issues.armAngle = {detected:true, severity:'notable', details:'Avg elbow: '+avgElbow.toFixed(0)+'\u00b0'};
-  } else if(avgElbow !== null && avgElbow > 120) {
-    issues.armAngle = {detected:true, severity:'mild', details:'Avg elbow: '+avgElbow.toFixed(0)+'\u00b0'};
-  } else {
+  if(pkfElbow === null) {
     issues.armAngle = {detected:false, severity:null, details:COACHING_CUES.armAngle.clear};
+  } else {
+    var armStats = getRangeStats('peak_kf', 'nearElbow');
+    var armMild = armStats.mean + armStats.sd;
+    var armNotable = armStats.mean + 2 * armStats.sd;
+    if(pkfElbow > armNotable) {
+      issues.armAngle = {detected:true, severity:'notable', details:'Elbow: '+pkfElbow.toFixed(0)+'\u00b0 (elite '+armStats.mean.toFixed(0)+' \u00b1 '+armStats.sd.toFixed(0)+')'};
+    } else if(pkfElbow > armMild) {
+      issues.armAngle = {detected:true, severity:'mild', details:'Elbow: '+pkfElbow.toFixed(0)+'\u00b0 (elite '+armStats.mean.toFixed(0)+' \u00b1 '+armStats.sd.toFixed(0)+')'};
+    } else {
+      issues.armAngle = {detected:false, severity:null, details:COACHING_CUES.armAngle.clear};
+    }
   }
 
   // 6. KNEE VALGUS (front mid_front)
