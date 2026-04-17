@@ -317,6 +317,37 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 .dq-big-hint strong{color:var(--purple)}
 .dq-big-goal{display:inline-block;margin-top:10px;font-size:11px;font-family:var(--mono);padding:4px 12px;border-radius:20px;background:rgba(34,199,138,.08);border:1px solid rgba(34,199,138,.2);color:var(--good)}
 
+/* ── Anomaly thresholds section ────────────────────── */
+#thresholds-section{padding:28px 24px 12px;max-width:1440px;margin:0 auto}
+.thr-hdr{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:16px;flex-wrap:wrap}
+.thr-title{font-size:18px;font-weight:800;margin-bottom:4px}
+.thr-sub{font-size:12px;color:var(--muted2);line-height:1.6;max-width:640px}
+.thr-toggle{display:inline-flex;background:var(--panel2);border:1px solid var(--border2);border-radius:10px;padding:3px;gap:2px}
+.thr-toggle button{background:transparent;border:none;font-family:var(--ui);font-size:12px;font-weight:700;padding:7px 14px;border-radius:8px;cursor:pointer;color:var(--muted2);transition:all .15s}
+.thr-toggle button:hover{color:var(--text)}
+.thr-toggle button.active-male{background:rgba(91,156,248,.18);color:var(--male)}
+.thr-toggle button.active-female{background:rgba(248,125,176,.18);color:var(--female)}
+.thr-table-wrap{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.thr-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.thr-tbl th{padding:11px 14px;text-align:left;font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);background:var(--panel2)}
+.thr-tbl td{padding:13px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+.thr-tbl tr:last-child td{border-bottom:none}
+.thr-tbl tr:hover td{background:rgba(255,255,255,.015)}
+.thr-anom{font-weight:700;color:var(--text);font-size:13px}
+.thr-meta{font-size:10px;color:var(--muted2);font-family:var(--mono);margin-top:3px;line-height:1.5}
+.thr-val{font-family:var(--mono);font-weight:700;font-size:13px;color:var(--text);white-space:nowrap}
+.thr-val.mild{color:var(--warn)}
+.thr-val.notable{color:var(--bad)}
+.thr-val.na{color:var(--muted);font-weight:400}
+.thr-rule{font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:3px}
+.thr-src{display:inline-block;font-size:9px;font-family:var(--mono);padding:2px 7px;border-radius:10px;border:1px solid var(--border2);color:var(--muted2);margin-top:4px;letter-spacing:.4px}
+.thr-src.live{border-color:rgba(139,124,248,.35);color:var(--purple);background:rgba(139,124,248,.08)}
+.thr-src.fixed{border-color:rgba(245,166,35,.3);color:var(--warn);background:rgba(245,166,35,.06)}
+.thr-src.fallback{border-color:rgba(245,80,80,.25);color:var(--bad);background:rgba(245,80,80,.06)}
+.thr-note{font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:10px;line-height:1.7}
+.thr-note .live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--purple);margin-right:4px;vertical-align:middle}
+.thr-note .fixed-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--warn);margin-right:4px;vertical-align:middle}
+
 /* ── Feedback footer ────────────────────────────────── */
 .feedback-footer{display:flex;justify-content:center;gap:12px;padding:32px 20px 24px;flex-wrap:wrap}
 .feedback-footer-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;font-size:11px;font-weight:600;font-family:var(--mono);border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;transition:all .15s}
@@ -548,6 +579,37 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
   </div>
 </div>
 
+<!-- Anomaly detection thresholds -->
+<div id="thresholds-section">
+  <div class="thr-hdr">
+    <div>
+      <div class="thr-title">Anomaly detection thresholds</div>
+      <div class="thr-sub">The 6 gait anomalies the public analyzer flags, and the ranges it uses to decide mild vs notable. SD-based rules update live as new reference sessions are added.</div>
+    </div>
+    <div class="thr-toggle" role="tablist" aria-label="Reference population">
+      <button id="thr-btn-male"   type="button" onclick="setThresholdsSex('male')">♂ Male</button>
+      <button id="thr-btn-female" type="button" onclick="setThresholdsSex('female')">♀ Female</button>
+    </div>
+  </div>
+  <div class="thr-table-wrap">
+    <table class="thr-tbl" id="thr-tbl">
+      <thead>
+        <tr>
+          <th style="width:26%">Anomaly</th>
+          <th style="width:32%">Measurement</th>
+          <th style="width:21%">Mild</th>
+          <th style="width:21%">Notable</th>
+        </tr>
+      </thead>
+      <tbody id="thr-tbody"></tbody>
+    </table>
+  </div>
+  <div class="thr-note">
+    <span class="live-dot"></span>Live — derived from the reference dataset for the selected sex (uses elite mean ± SD).&nbsp;&nbsp;
+    <span class="fixed-dot"></span>Fixed — hardcoded ratio threshold, applied identically to both sexes.
+  </div>
+</div>
+
 <div class="feedback-footer">
   <button class="feedback-footer-btn" onclick="openFeedbackModal('contact')">✉ Contact Endurance Science Labs</button>
   <button class="feedback-footer-btn bug" onclick="openFeedbackModal('bug')">🐛 See a Bug? Report it Here</button>
@@ -611,6 +673,7 @@ if (auth) {
       document.getElementById('loader').style.display = 'flex';
       initModel();
       loadDatasetStats();
+      renderThresholds();
     }
   });
 }
@@ -646,11 +709,15 @@ async function loadDatasetStats() {
     document.getElementById('ds-male-count').textContent    = mN;
     document.getElementById('ds-female-count').textContent  = fN;
 
-    // Latest update timestamp
+    // Latest update timestamp + cache ranges for the thresholds table
     const rangesSnap = await Promise.allSettled([
       db.collection('computed_ranges').doc('male').get(),
       db.collection('computed_ranges').doc('female').get(),
     ]);
+    thresholdRanges.male   = rangesSnap[0].status==='fulfilled' && rangesSnap[0].value.exists ? (rangesSnap[0].value.data().phases || null) : null;
+    thresholdRanges.female = rangesSnap[1].status==='fulfilled' && rangesSnap[1].value.exists ? (rangesSnap[1].value.data().phases || null) : null;
+    renderThresholds();
+
     const dates = rangesSnap
       .filter(r=>r.status==='fulfilled'&&r.value.exists)
       .map(r=>r.value.data().lastUpdated?.toDate())
@@ -661,6 +728,160 @@ async function loadDatasetStats() {
         'Last updated ' + dates[0].toLocaleDateString();
     }
   } catch(e){ console.warn('loadDatasetStats:', e); }
+}
+
+// ══════════════════════════════════════════════════════════
+//  ANOMALY DETECTION THRESHOLDS TABLE
+// ══════════════════════════════════════════════════════════
+// Mirrors the 6 detection rules in esformlab/index.html (detectIssues).
+// Sources: live = elite mean/SD from reference dataset; fixed = hardcoded ratio.
+const thresholdRanges = { male: null, female: null };
+let thresholdsSex = 'male';
+
+// Fallback defaults (must match esformlab/index.html DEFAULTS)
+const THR_FALLBACK = {
+  leadFoot:  {mean: 0,    sd: 0.1},
+  trunk:     {mean: 12.5, sd: 5},
+  nearElbow: {mean: 80,   sd: 20},
+};
+
+function thrLiveStats(sex, phaseKey, metricKey) {
+  const r = thresholdRanges[sex] && thresholdRanges[sex][phaseKey] ? thresholdRanges[sex][phaseKey][metricKey] : null;
+  if (r && r.reliable && r.n >= MIN_N && r.mean != null && r.sd != null && r.sd > 0) {
+    return {mean: r.mean, sd: r.sd, n: r.n, live: true};
+  }
+  const fb = THR_FALLBACK[metricKey];
+  return fb ? {mean: fb.mean, sd: fb.sd, n: 0, live: false} : null;
+}
+
+function setThresholdsSex(sex) {
+  thresholdsSex = sex;
+  const bM = document.getElementById('thr-btn-male');
+  const bF = document.getElementById('thr-btn-female');
+  if (bM) bM.className = sex==='male'   ? 'active-male'   : '';
+  if (bF) bF.className = sex==='female' ? 'active-female' : '';
+  renderThresholds();
+}
+
+function renderThresholds() {
+  const tbody = document.getElementById('thr-tbody');
+  if (!tbody) return;
+  const sex = thresholdsSex;
+
+  // Ensure toggle reflects current state (idempotent — handles first render)
+  const bM = document.getElementById('thr-btn-male');
+  const bF = document.getElementById('thr-btn-female');
+  if (bM) bM.className = sex==='male'   ? 'active-male'   : '';
+  if (bF) bF.className = sex==='female' ? 'active-female' : '';
+
+  const fmtSigned2 = v => (v>=0?'+':'') + v.toFixed(2);
+  const fmtDeg1    = v => v.toFixed(1) + '°';
+  const fmtDeg0    = v => v.toFixed(0) + '°';
+
+  // Rows are built fresh each render so sex toggle updates live values.
+  const rows = [];
+
+  // 1. OVERSTRIDING -- stricter of l_foot/r_foot leadFoot stats, 1/2 SD
+  {
+    const L = thrLiveStats(sex, 'l_foot', 'leadFoot');
+    const R = thrLiveStats(sex, 'r_foot', 'leadFoot');
+    const mean = Math.min(L.mean, R.mean);
+    const sd   = Math.min(L.sd,   R.sd);
+    const live = L.live && R.live;
+    rows.push({
+      anomaly: 'Overstriding',
+      meta: 'Lead foot offset at foot strike (fraction of torso height)',
+      source: live ? 'live' : 'fallback',
+      n: live ? Math.min(L.n, R.n) : 0,
+      mild:    '&gt; ' + fmtSigned2(mean + sd),
+      notable: '&gt; ' + fmtSigned2(mean + 2*sd),
+      mildRule:    'mean + 1 SD',
+      notableRule: 'mean + 2 SD',
+      ruleCtx: 'elite ' + fmtSigned2(mean) + ' ± ' + sd.toFixed(2) + ' (stricter of L/R)',
+    });
+  }
+
+  // 2. HIP DROP -- fixed ratios
+  rows.push({
+    anomaly: 'Hip drop',
+    meta: 'Contralateral pelvis drop at mid-stance (% of torso height, front view)',
+    source: 'fixed',
+    mild:    '&gt; 8.0%',
+    notable: '&gt; 15.0%',
+    mildRule: '8% torso height',
+    notableRule: '15% torso height',
+    ruleCtx: 'same threshold for male and female',
+  });
+
+  // 3. ARMS CROSSING MIDLINE -- fixed ratios
+  rows.push({
+    anomaly: 'Arms crossing midline',
+    meta: 'Max wrist cross past body centerline (% shoulder width, front view)',
+    source: 'fixed',
+    mild:    '&gt; 5.0%',
+    notable: '&gt; 15.0%',
+    mildRule: '5% shoulder width',
+    notableRule: '15% shoulder width',
+    ruleCtx: 'same threshold for male and female',
+  });
+
+  // 4. TORSO POSITION -- two-sided, 1/2 SD from mid-stance trunk lean
+  {
+    const T = thrLiveStats(sex, 'mid', 'trunk');
+    rows.push({
+      anomaly: 'Torso position',
+      meta: 'Trunk lean at mid-stance (side view). Too upright AND excessive lean both flagged.',
+      source: T.live ? 'live' : 'fallback',
+      n: T.live ? T.n : 0,
+      mild:    '|lean − ' + fmtDeg1(T.mean) + '| &gt; ' + T.sd.toFixed(1) + '°',
+      notable: '|lean − ' + fmtDeg1(T.mean) + '| &gt; ' + (2*T.sd).toFixed(1) + '°',
+      mildRule:    '> 1 SD from mean',
+      notableRule: '> 2 SD from mean',
+      ruleCtx: 'elite ' + fmtDeg1(T.mean) + ' ± ' + T.sd.toFixed(1) + '°',
+    });
+  }
+
+  // 5. ARM ANGLE TOO OPEN -- peak knee flex elbow, 2/3 SD above mean
+  {
+    const E = thrLiveStats(sex, 'peak_kf', 'nearElbow');
+    rows.push({
+      anomaly: 'Arm angle too open',
+      meta: 'Camera-side elbow angle at peak knee flexion (side view)',
+      source: E.live ? 'live' : 'fallback',
+      n: E.live ? E.n : 0,
+      mild:    '&gt; ' + fmtDeg0(E.mean + 2*E.sd),
+      notable: '&gt; ' + fmtDeg0(E.mean + 3*E.sd),
+      mildRule:    'mean + 2 SD',
+      notableRule: 'mean + 3 SD',
+      ruleCtx: 'elite ' + fmtDeg0(E.mean) + ' ± ' + E.sd.toFixed(0) + '°',
+    });
+  }
+
+  // 6. KNEE VALGUS -- fixed ratios
+  rows.push({
+    anomaly: 'Knee valgus',
+    meta: 'Max knee medial deviation from hip–ankle line at mid-stance (% hip width, front view)',
+    source: 'fixed',
+    mild:    '&gt; 8.0%',
+    notable: '&gt; 15.0%',
+    mildRule: '8% hip width',
+    notableRule: '15% hip width',
+    ruleCtx: 'same threshold for male and female',
+  });
+
+  tbody.innerHTML = rows.map(r => {
+    const srcLabel = r.source==='live' ? ('Live · n=' + r.n) : r.source==='fixed' ? 'Fixed' : 'No data · using fallback';
+    return '<tr>'
+      + '<td>'
+        + '<div class="thr-anom">' + r.anomaly + '</div>'
+        + '<div class="thr-meta">' + r.meta + '</div>'
+        + '<div class="thr-src ' + r.source + '">' + srcLabel + '</div>'
+      + '</td>'
+      + '<td><div class="thr-meta" style="margin-top:0">' + r.ruleCtx + '</div></td>'
+      + '<td><div class="thr-val mild">' + r.mild + '</div><div class="thr-rule">' + r.mildRule + '</div></td>'
+      + '<td><div class="thr-val notable">' + r.notable + '</div><div class="thr-rule">' + r.notableRule + '</div></td>'
+      + '</tr>';
+  }).join('');
 }
 
 // ══════════════════════════════════════════════════════════
