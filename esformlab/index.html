@@ -2289,38 +2289,6 @@ function drawMiniSkeleton(ctx,kps,sx,sy){SKELETON.forEach(function(pair){var a=p
 // Math
 function calcAngle(a,b,c){if(!a||!b||!c)return null;var ba={x:a.x-b.x,y:a.y-b.y},bc={x:c.x-b.x,y:c.y-b.y};var dot=ba.x*bc.x+ba.y*bc.y,mag=Math.hypot(ba.x,ba.y)*Math.hypot(bc.x,bc.y);if(!mag||!isFinite(mag))return null;return Math.acos(Math.max(-1,Math.min(1,dot/mag)))*180/Math.PI;}
 
-// Rotate keypoints into a body-upright frame. Necessary for front/back views when the
-// video has baked-in camera roll (e.g. phone orientation metadata mismatch) -- otherwise
-// every "lateral" and "vertical" check below would be computed against the tilted image
-// frame. Pivot around the hip midpoint so hip/shoulder positions are preserved, only the
-// tilt is removed. Returns a new kps array; originals untouched.
-function orientKpsToBody(kps) {
-  if (!kps) return kps;
-  var lSh = kps[5], rSh = kps[6], lHi = kps[11], rHi = kps[12];
-  if (!lSh || !rSh || !lHi || !rHi) return kps;
-  if ((lSh.score||0) < MIN_CONF || (rSh.score||0) < MIN_CONF) return kps;
-  if ((lHi.score||0) < MIN_CONF || (rHi.score||0) < MIN_CONF) return kps;
-  var shMx = (lSh.x+rSh.x)/2, shMy = (lSh.y+rSh.y)/2;
-  var hiMx = (lHi.x+rHi.x)/2, hiMy = (lHi.y+rHi.y)/2;
-  var upX = shMx - hiMx, upY = shMy - hiMy;
-  var len = Math.hypot(upX, upY);
-  if (len < 20) return kps;
-  // Target: body-up should point to image-up (-Y). Current angle of up vec from +X axis
-  // is atan2(upY, upX); we want -π/2 (pointing up in image coords).
-  var theta = -Math.PI/2 - Math.atan2(upY, upX);
-  if (Math.abs(theta) < 0.02) return kps; // < ~1.1° tilt, no-op
-  var cosT = Math.cos(theta), sinT = Math.sin(theta);
-  return kps.map(function(k){
-    if (!k) return k;
-    var dx = k.x - hiMx, dy = k.y - hiMy;
-    return {
-      x: hiMx + dx*cosT - dy*sinT,
-      y: hiMy + dx*sinT + dy*cosT,
-      score: k.score,
-      name: k.name,
-    };
-  });
-}
 
 function computeMetrics(kps){
   var g2=function(i){return (kps[i]&&kps[i].score>=MIN_CONF)?kps[i]:null;};var m={};
@@ -2332,14 +2300,11 @@ function computeMetrics(kps){
   return m;
 }
 
-// Front/Back metrics
+// Front/Back metrics. Every measurement below is expressed in a BODY-RELATIVE frame
+// (body-up = hipMid->shMid, body-lateral = perpendicular to it), so image rotation
+// or camera roll doesn't affect any reported value. Pose keypoint positions are used
+// only via projections onto body-frame axes and via rotation-invariant cross products.
 function computeFrontBackMetrics(kps) {
-  // Normalize for camera roll: re-orient keypoints so the body-up vector aligns with
-  // image-up. Every geometric check below (hip width, stance-side detection, FPPA,
-  // pelvic obliquity, wrist crossing) assumes the image Y axis is gravity. Rotated
-  // videos -- common from phone recordings with mismatched orientation metadata --
-  // would otherwise corrupt all these measurements.
-  kps = orientKpsToBody(kps);
   var g3=function(i){return (kps[i]&&kps[i].score>=MIN_CONF)?kps[i]:null;};
   var lSh=g3(5),rSh=g3(6),lHi=g3(11),rHi=g3(12),lKn=g3(13),rKn=g3(14),lAn=g3(15),rAn=g3(16),lWr=g3(9),rWr=g3(10);
 
@@ -2351,114 +2316,117 @@ function computeFrontBackMetrics(kps) {
     avgConfidence: 0
   };
 
-  // Average confidence
   var totalConf = 0, count = 0;
-  for(var ci=0;ci<kps.length;ci++){
-    totalConf += (kps[ci].score||0);
-    count++;
-  }
+  for(var ci=0;ci<kps.length;ci++){ totalConf += (kps[ci].score||0); count++; }
   result.avgConfidence = count > 0 ? totalConf/count : 0;
 
-  // Hip drop: torso-normalized ratio (legacy) + actual pelvic obliquity angle in degrees.
-  // Angle is computed directly from the hip landmarks' vertical and horizontal separation,
-  // which is anthropometry-independent and lines up with the clinical CPD literature.
-  if(lHi && rHi && lSh && rSh) {
-    var torsoH = Math.abs(((lSh.y+rSh.y)/2) - ((lHi.y+rHi.y)/2));
-    if(torsoH > 10) {
-      result.hipDrop = (lHi.y - rHi.y) / torsoH; // positive = left hip lower
-      result.hipDropAbs = Math.abs(result.hipDrop);
-    }
-    var hipDX = Math.abs(lHi.x - rHi.x);
-    var hipDY = Math.abs(lHi.y - rHi.y);
-    if(hipDX > 10) {
-      result.hipDropDeg = Math.atan2(hipDY, hipDX) * 180 / Math.PI;
-    }
-  }
-
-  // Wrist crossing: how far each wrist crosses the body CENTER LINE
-  // In MoveNet, "left" keypoints are the subject's left. In a front-facing
-  // camera, the subject's left appears on the viewer's right side.
-  // Crossing = the wrist passes the body midline toward the OPPOSITE side.
-  // We measure this by checking if the wrist moves past midline in the
-  // direction of the opposite shoulder.
-  if(lSh && rSh) {
-    var shoulderWidth = Math.abs(lSh.x - rSh.x);
-    var bodyMidX = (lSh.x + rSh.x) / 2;
-    if(shoulderWidth > 10) {
-      // Left wrist crosses midline when it moves toward the RIGHT shoulder side
-      // Direction from left shoulder toward right shoulder:
-      var lToR = rSh.x - lSh.x; // positive if rSh is to the right of lSh
-      if(lWr) {
-        // How far past midline in the lToR direction (normalized by shoulder width)
-        var lPast = (lWr.x - bodyMidX) * Math.sign(lToR) / shoulderWidth;
-        result.lWristCross = Math.max(0, lPast);
-      }
-      // Right wrist crosses midline when it moves toward the LEFT shoulder side
-      if(rWr) {
-        var rPast = (rWr.x - bodyMidX) * Math.sign(-lToR) / shoulderWidth;
-        result.rWristCross = Math.max(0, rPast);
-      }
+  // Body frame. body-up points from hip midpoint to shoulder midpoint (along the torso).
+  // body-lat is the in-plane perpendicular, oriented so rHi has a positive lateral
+  // component (i.e. +lat = subject's right side in anatomy).
+  var bodyUp = null, bodyLat = null, hipMid = null, shMid = null, torsoLen = 0;
+  if(lSh && rSh && lHi && rHi) {
+    shMid  = {x:(lSh.x+rSh.x)/2, y:(lSh.y+rSh.y)/2};
+    hipMid = {x:(lHi.x+rHi.x)/2, y:(lHi.y+rHi.y)/2};
+    var upX = shMid.x - hipMid.x, upY = shMid.y - hipMid.y;
+    torsoLen = Math.hypot(upX, upY);
+    if(torsoLen > 10) {
+      bodyUp = {x: upX/torsoLen, y: upY/torsoLen};
+      var perp = {x: -bodyUp.y, y: bodyUp.x};
+      var rDotPerp = (rHi.x - hipMid.x)*perp.x + (rHi.y - hipMid.y)*perp.y;
+      bodyLat = rDotPerp >= 0 ? perp : {x: bodyUp.y, y: -bodyUp.x};
     }
   }
-
-  // Knee valgus: assessed only on the STANCE (planted) leg -- swing leg in the air will
-  // produce false positives. Stance = whichever ankle is lower in image coords.
-  // Two metrics:
-  //   - kneeValgus (legacy): medial deviation as a fraction of hip width.
-  //   - kneeValgusDeg: 2D FPPA in degrees (Willson & Davis 2008 convention).
-  //     Computed as 180 deg minus the angle at the knee between hip and ankle, signed
-  //     positive when the knee deviates medially (valgus). Anthropometry-independent.
-  var fppaSignedDeg = function(hip, knee, ankle, medialDir) {
-    if(!hip || !knee || !ankle) return null;
-    var ang = calcAngle(hip, knee, ankle); // 180 = straight leg
-    if(ang === null || !isFinite(ang)) return null;
-    var dev = 180 - ang;                   // magnitude of deviation
-    // Sign against the hip-ankle reference LINE, not just hip.x: at mid-stance the
-    // ankle often sits medial to the hip, tilting the reference. A knee near hip.x
-    // can then be laterally offset from the reference line (true varus) even though
-    // it's close to the hip in x. Compare knee.x to the line's x at knee height.
-    var totalDist = Math.abs(ankle.y - hip.y);
-    if(totalDist < 5) return null;
-    var t = (knee.y - hip.y) / (ankle.y - hip.y);
-    t = Math.max(0, Math.min(1, t));
-    var expectedKneeX = hip.x + t * (ankle.x - hip.x);
-    var medialOffset = (knee.x - expectedKneeX) * medialDir; // >0 = medial of line
-    return medialOffset >= 0 ? dev : -dev;
+  var proj = function(p, origin, axis) {
+    return (p.x - origin.x)*axis.x + (p.y - origin.y)*axis.y;
   };
-  if(lHi && rHi) {
-    var hipWidth = Math.abs(lHi.x - rHi.x);
-    var bodyMidX2 = (lHi.x + rHi.x) / 2;
-    if(hipWidth > 10) {
-      var lAnkleY = lAn ? lAn.y : -Infinity;
-      var rAnkleY = rAn ? rAn.y : -Infinity;
-      var stanceSide = (lAnkleY >= rAnkleY) ? 'left' : 'right';
 
+  // Pelvic obliquity in body frame.
+  // Decompose (rHi - lHi) into body-lateral and body-up components. In a level pelvis the
+  // separation is entirely lateral; any body-up component is the obliquity we're measuring.
+  if(bodyUp && bodyLat && lHi && rHi) {
+    var hhVert = proj(rHi, lHi, bodyUp);   // >0 if rHip is higher along torso than lHip
+    var hhLat  = proj(rHi, lHi, bodyLat);  // lateral separation (positive by construction)
+    if(Math.abs(hhLat) > 10) {
+      result.hipDropDeg = Math.atan2(Math.abs(hhVert), Math.abs(hhLat)) * 180 / Math.PI;
+      // Legacy signed ratio: positive = left hip lower (= rHip higher in body frame).
+      result.hipDrop = torsoLen > 0 ? hhVert / torsoLen : null;
+      result.hipDropAbs = result.hipDrop !== null ? Math.abs(result.hipDrop) : null;
+    }
+  }
+
+  // Wrist crossing = wrist's body-lateral offset from shoulder midline, normalized by
+  // the shoulder-to-shoulder body-lateral distance. Crossing the midline means the
+  // wrist has a lateral component on the opposite side of the body's midline.
+  if(bodyLat && shMid && lSh && rSh) {
+    var shWidthLat = Math.abs(proj(rSh, shMid, bodyLat) - proj(lSh, shMid, bodyLat));
+    if(shWidthLat > 10) {
+      if(lWr) {
+        // lWr is on subject's left; crossing = moves toward subject's right (+lat).
+        var lLat = proj(lWr, shMid, bodyLat);
+        result.lWristCross = Math.max(0, lLat / shWidthLat);
+      }
+      if(rWr) {
+        // rWr is on subject's right; crossing = moves toward subject's left (-lat).
+        var rLat = proj(rWr, shMid, bodyLat);
+        result.rWristCross = Math.max(0, -rLat / shWidthLat);
+      }
+    }
+  }
+
+  // Stance side = whichever ankle is further "below" the hip midpoint in the body
+  // frame (larger projection on -bodyUp). Rotation-invariant substitute for the
+  // legacy "lower ankle in image y" heuristic.
+  var stanceSide = null;
+  if(bodyUp && hipMid && lAn && rAn) {
+    var lDown = -proj(lAn, hipMid, bodyUp);
+    var rDown = -proj(rAn, hipMid, bodyUp);
+    stanceSide = (lDown >= rDown) ? 'left' : 'right';
+  } else if(lAn && !rAn) {
+    stanceSide = 'left';
+  } else if(rAn && !lAn) {
+    stanceSide = 'right';
+  }
+
+  // Knee valgus (FPPA). Magnitude = 180 - angle at the knee (rotation-invariant by
+  // construction). Sign: use 2D cross products to test whether the knee lies on the
+  // same side of the hip-ankle line as the opposite hip. Same side = medial (valgus),
+  // opposite side = lateral (varus). Both cross products are rotation-invariant.
+  var fppaSignedDeg = function(hip, knee, ankle, oppHip) {
+    if(!hip || !knee || !ankle || !oppHip) return null;
+    var ang = calcAngle(hip, knee, ankle);
+    if(ang === null || !isFinite(ang)) return null;
+    var dev = 180 - ang;
+    var refX = ankle.x - hip.x, refY = ankle.y - hip.y;
+    var kneeCross = refX*(knee.y - hip.y) - refY*(knee.x - hip.x);
+    var oppCross  = refX*(oppHip.y - hip.y) - refY*(oppHip.x - hip.x);
+    return (kneeCross * oppCross) >= 0 ? dev : -dev;
+  };
+  // Legacy ratio metric, now rotation-invariant: signed perpendicular distance from
+  // knee to the hip-ankle line divided by the body-lateral hip width.
+  var fppaRatio = function(hip, knee, ankle, oppHip, latHipWidth) {
+    if(!hip || !knee || !ankle || !oppHip || !(latHipWidth > 0)) return null;
+    var refX = ankle.x - hip.x, refY = ankle.y - hip.y;
+    var refLen = Math.hypot(refX, refY);
+    if(refLen < 5) return null;
+    var kneeCross = refX*(knee.y - hip.y) - refY*(knee.x - hip.x);
+    var oppCross  = refX*(oppHip.y - hip.y) - refY*(oppHip.x - hip.x);
+    var perpRatio = (Math.abs(kneeCross) / refLen) / latHipWidth;
+    return (kneeCross * oppCross) >= 0 ? perpRatio : -perpRatio;
+  };
+
+  if(bodyLat && lHi && rHi) {
+    var latHipWidth = Math.abs(proj(rHi, lHi, bodyLat));
+    if(latHipWidth > 10) {
       if(stanceSide === 'left' && lKn && lAn) {
-        var tL = 0;
-        var totalDist = Math.abs(lAn.y - lHi.y);
-        if(totalDist > 5) {
-          tL = (lKn.y - lHi.y) / (lAn.y - lHi.y);
-          tL = Math.max(0, Math.min(1, tL));
-        }
-        var expectedKneeX_L = lHi.x + tL * (lAn.x - lHi.x);
-        var deviationL = lKn.x - expectedKneeX_L;
-        var medialDirL = (bodyMidX2 > lHi.x) ? 1 : -1;
-        result.lKneeValgus = Math.max(0, medialDirL * deviationL / hipWidth);
-        result.lKneeValgusDeg = fppaSignedDeg(lHi, lKn, lAn, medialDirL);
+        var rL = fppaRatio(lHi, lKn, lAn, rHi, latHipWidth);
+        result.lKneeValgus = (rL !== null && rL > 0) ? rL : 0;
+        result.lKneeValgusDeg = fppaSignedDeg(lHi, lKn, lAn, rHi);
         result.stanceSide = 'left';
       }
       if(stanceSide === 'right' && rKn && rAn) {
-        var tR = 0;
-        var totalDistR = Math.abs(rAn.y - rHi.y);
-        if(totalDistR > 5) {
-          tR = (rKn.y - rHi.y) / (rAn.y - rHi.y);
-          tR = Math.max(0, Math.min(1, tR));
-        }
-        var expectedKneeX_R = rHi.x + tR * (rAn.x - rHi.x);
-        var deviationR = rKn.x - expectedKneeX_R;
-        var medialDirR = (bodyMidX2 < rHi.x) ? -1 : 1;
-        result.rKneeValgus = Math.max(0, medialDirR * deviationR / hipWidth);
-        result.rKneeValgusDeg = fppaSignedDeg(rHi, rKn, rAn, medialDirR);
+        var rR = fppaRatio(rHi, rKn, rAn, lHi, latHipWidth);
+        result.rKneeValgus = (rR !== null && rR > 0) ? rR : 0;
+        result.rKneeValgusDeg = fppaSignedDeg(rHi, rKn, rAn, lHi);
         result.stanceSide = 'right';
       }
     }
