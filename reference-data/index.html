@@ -747,8 +747,13 @@ const THR_FALLBACK = {
 
 function thrLiveStats(sex, phaseKey, metricKey) {
   const r = thresholdRanges[sex] && thresholdRanges[sex][phaseKey] ? thresholdRanges[sex][phaseKey][metricKey] : null;
-  if (r && r.reliable && r.n >= MIN_N && r.mean != null && r.sd != null && r.sd > 0) {
-    return {mean: r.mean, sd: r.sd, n: r.n, live: true};
+  if (r && r.reliable && r.n >= MIN_N) {
+    if (r.center != null && r.spread != null && r.spread > 0) {
+      return {mean: r.center, sd: r.spread, n: r.n, live: true};
+    }
+    if (r.mean != null && r.sd != null && r.sd > 0) {
+      return {mean: r.mean, sd: r.sd, n: r.n, live: true};
+    }
   }
   const fb = THR_FALLBACK[metricKey];
   return fb ? {mean: fb.mean, sd: fb.sd, n: 0, live: false} : null;
@@ -1721,9 +1726,17 @@ async function saveSession(skipVetting=false){
   }
 }
 
-// Range computation: Bessel's-corrected SD, returns per-phase per-metric stats
+// Range computation: returns robust (median + MAD) and classical (mean + SD) stats.
+// Downstream readers use `center` (= median) and `spread` (= MAD × 1.4826, a robust SD estimator),
+// so one bad session can't move thresholds the way a mean/SD does.
 function computeRanges(sessions){
   const result={};
+  const MAD_TO_SD = 1.4826; // Normal-consistency factor
+  const median = arr => {
+    const s = [...arr].sort((a,b)=>a-b);
+    const m = s.length;
+    return m%2 ? s[(m-1)/2] : (s[m/2-1]+s[m/2])/2;
+  };
   PHASE_DEFS.forEach(def=>{
     result[def.key]={};
     METRIC_ROWS.forEach(metric=>{
@@ -1732,7 +1745,19 @@ function computeRanges(sessions){
       const n=values.length,mean=values.reduce((a,b)=>a+b,0)/n;
       const variance=values.reduce((a,b)=>a+(b-mean)**2,0)/(n-1);
       const sd=Math.sqrt(variance);
-      result[def.key][metric.key]={n,reliable:true,mean:+mean.toFixed(4),sd:+sd.toFixed(4),green:[+(mean-sd).toFixed(4),+(mean+sd).toFixed(4)],warn:[+(mean-2*sd).toFixed(4),+(mean+2*sd).toFixed(4)]};
+      const med = median(values);
+      const mad = median(values.map(v=>Math.abs(v-med)));
+      // Guard: if MAD is 0 (all values identical), fall back to classical SD to avoid zero spread.
+      const robustSD = mad > 0 ? mad * MAD_TO_SD : sd;
+      const center = med, spread = robustSD;
+      result[def.key][metric.key]={
+        n, reliable:true,
+        mean:+mean.toFixed(4), sd:+sd.toFixed(4),
+        median:+med.toFixed(4), mad:+mad.toFixed(4),
+        center:+center.toFixed(4), spread:+spread.toFixed(4),
+        green:[+(center-spread).toFixed(4),+(center+spread).toFixed(4)],
+        warn: [+(center-2*spread).toFixed(4),+(center+2*spread).toFixed(4)],
+      };
     });
   });
   return result;
