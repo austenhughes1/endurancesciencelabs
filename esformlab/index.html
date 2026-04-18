@@ -379,7 +379,8 @@ body.bar-showing #screen-phases{padding-bottom:120px}
 .issue-card.not-detected{opacity:.45}
 .issue-card.not-detected .issue-card-title{color:var(--muted)}
 .issue-card.not-detected .issue-card-summary{color:var(--muted)}
-.issue-card-hdr{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.issue-card-hdr{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+.issue-side-tag{font-size:10px;font-family:var(--mono);color:var(--muted2);padding:2px 7px;border-radius:5px;border:1px solid var(--border2);background:var(--panel2);flex-shrink:0}
 .issue-card-title{font-size:15px;font-weight:800;flex:1;color:var(--text)}
 .issue-severity{font-size:11px;font-weight:700;font-family:var(--mono);flex-shrink:0;padding:3px 8px;border-radius:6px}
 .issue-severity.notable{color:#fff;background:rgba(245,80,80,.7)}
@@ -2861,6 +2862,15 @@ function renderReport(issues) {
       severityIndicator = '<span class="issue-severity clear">&#10003; Clear</span>';
     }
 
+    // Side tag: only when detection has per-side severities and exactly one side triggered
+    var sideTag = '';
+    if(detected && issue.sideSev) {
+      var sL = issue.sideSev.L, sR = issue.sideSev.R;
+      if(sL && !sR)      sideTag = '<span class="issue-side-tag">Left side only</span>';
+      else if(sR && !sL) sideTag = '<span class="issue-side-tag">Right side only</span>';
+      else if(sL && sR)  sideTag = '<span class="issue-side-tag">Both sides</span>';
+    }
+
     var cardClass = 'issue-card';
     if(detected) {
       cardClass += ' detected';
@@ -2875,6 +2885,7 @@ function renderReport(issues) {
     cardsHtml += '<div class="issue-card-hdr">';
     cardsHtml += '<div class="issue-card-title">'+rd.title+'</div>';
     cardsHtml += severityIndicator;
+    cardsHtml += sideTag;
     cardsHtml += '</div>';
     cardsHtml += '<div class="issue-card-summary">'+summaryText+'</div>';
     if(detected) {
@@ -2889,6 +2900,7 @@ function renderReport(issues) {
       detailsHtml += '<div class="issue-detail-hdr" onclick="toggleDetail(\'detail-body-'+idx+'\',this)">';
       detailsHtml += '<div class="issue-detail-title">'+rd.title+'</div>';
       detailsHtml += severityIndicator;
+      detailsHtml += sideTag;
       detailsHtml += '<span class="issue-detail-toggle">&#9660; Expand</span>';
       detailsHtml += '</div>';
       detailsHtml += '<div class="issue-detail-body" id="detail-body-'+idx+'">';
@@ -3077,7 +3089,7 @@ function downloadSampleReport() {
 
   // Dummy issues: all 6 detected
   lastIssues = {
-    overstriding: {detected:true, severity:'notable', details:'Max offset: 0.32 torso lengths'},
+    overstriding: {detected:true, severity:'notable', details:'Max offset: 0.32 torso lengths', sideSev:{L:'mild', R:'notable'}},
     hipDrop: {detected:true, severity:'mild', details:'Hip drop: 11.3%'},
     armsCrossing: {detected:true, severity:'mild', details:'Max crossing: 9.0% of shoulder width'},
     torsoPosition: {detected:true, severity:'mild', details:'Trunk lean: 1.8 (very upright)', cueKey:'torsoUpright'},
