@@ -825,19 +825,26 @@ function renderThresholds() {
     ruleCtx: 'same threshold for male and female',
   });
 
-  // 4. TORSO POSITION -- two-sided, 1/2 SD from mid-stance trunk lean
+  // 4. TORSO POSITION -- per-phase z-score average across all 7 side-view phases,
+  //    using each phase's own elite mean/SD for trunk lean. Too upright AND excessive lean flagged.
   {
-    const T = thrLiveStats(sex, 'mid', 'trunk');
+    const TRUNK_PHASES = ['l_foot','r_foot','l_toe','r_toe','mid','peak_kf','swing'];
+    let livePhases = 0, minN = Infinity;
+    TRUNK_PHASES.forEach(pk => {
+      const s = thrLiveStats(sex, pk, 'trunk');
+      if (s && s.live) { livePhases++; minN = Math.min(minN, s.n); }
+    });
+    const allLive = livePhases === TRUNK_PHASES.length;
     rows.push({
       anomaly: 'Torso position',
-      meta: 'Trunk lean at mid-stance (side view). Too upright AND excessive lean both flagged.',
-      source: T.live ? 'live' : 'fallback',
-      n: T.live ? T.n : 0,
-      mild:    '|lean − ' + fmtDeg1(T.mean) + '| &gt; ' + T.sd.toFixed(1) + '°',
-      notable: '|lean − ' + fmtDeg1(T.mean) + '| &gt; ' + (2*T.sd).toFixed(1) + '°',
-      mildRule:    '> 1 SD from mean',
-      notableRule: '> 2 SD from mean',
-      ruleCtx: 'elite ' + fmtDeg1(T.mean) + ' ± ' + T.sd.toFixed(1) + '°',
+      meta: 'Trunk lean averaged across all 7 side-view phases (z-score vs each phase\u2019s elite baseline). Too upright AND excessive lean both flagged.',
+      source: allLive ? 'live' : livePhases > 0 ? 'live' : 'fallback',
+      n: livePhases > 0 ? minN : 0,
+      mild:    '|avg z| &gt; 1',
+      notable: '|avg z| &gt; 2',
+      mildRule:    'mean |z| > 1',
+      notableRule: 'mean |z| > 2',
+      ruleCtx: livePhases + ' of ' + TRUNK_PHASES.length + ' phases have live trunk stats (min n=' + (livePhases>0?minN:0) + ')',
     });
   }
 
