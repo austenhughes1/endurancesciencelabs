@@ -1993,20 +1993,20 @@ function renderMiniMetricsFrontBack(key, fbm) {
   var el=document.getElementById('metrics-mini-'+key);if(!el)return;
   var isFront = (key === 'mid_front_l' || key === 'mid_front_r');
   var items = [];
-  if(fbm.hipDropAbs !== undefined && fbm.hipDropAbs !== null) {
+  if(fbm.hipDropDeg !== undefined && fbm.hipDropDeg !== null) {
     var dropSideLabel = fbm.stanceSide ? ' (' + fbm.stanceSide + ' stance)' : '';
-    items.push('<span class="mm-item">Hip drop' + dropSideLabel + ': '+(fbm.hipDropAbs*100).toFixed(0)+'%</span>');
+    items.push('<span class="mm-item">Hip drop' + dropSideLabel + ': '+fbm.hipDropDeg.toFixed(1)+'\u00b0</span>');
   }
   if(isFront) {
     var maxCross = Math.max(fbm.lWristCross||0, fbm.rWristCross||0);
     if(maxCross > 0.05) {
       items.push('<span class="mm-item">Arm crossing: detected</span>');
     }
-    var stanceValgus = null;
-    if(fbm.stanceSide === 'left' && fbm.lKneeValgus != null) stanceValgus = fbm.lKneeValgus;
-    else if(fbm.stanceSide === 'right' && fbm.rKneeValgus != null) stanceValgus = fbm.rKneeValgus;
-    if(stanceValgus != null && stanceValgus > 0.05) {
-      items.push('<span class="mm-item">Stance knee valgus: detected</span>');
+    var stanceValgusDeg = null;
+    if(fbm.stanceSide === 'left' && fbm.lKneeValgusDeg != null) stanceValgusDeg = fbm.lKneeValgusDeg;
+    else if(fbm.stanceSide === 'right' && fbm.rKneeValgusDeg != null) stanceValgusDeg = fbm.rKneeValgusDeg;
+    if(stanceValgusDeg != null && stanceValgusDeg > 3) {
+      items.push('<span class="mm-item">Stance knee valgus: '+stanceValgusDeg.toFixed(1)+'\u00b0</span>');
     }
   }
   if(items.length===0) {
@@ -2177,7 +2177,7 @@ function renderExpandMetricsFrontBack(fbm) {
   html += '<div class="ep-metric-block">';
   html += '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:var(--purple)"></div><strong>Hip drop' + stanceLabel + '</strong></div>';
   html += '<div class="ep-metric-bio">Contralateral pelvis drop during single-leg stance, indicating glute medius strength.'+(isFront?'':' This back view is used to confirm hip drop findings from the front view.')+'</div>';
-  html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(fbm.hipDropAbs!==null?(fbm.hipDropAbs*100).toFixed(1)+'% of torso height':'--')+'</span>';
+  html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(fbm.hipDropDeg!==null?fbm.hipDropDeg.toFixed(1)+'\u00b0':'--')+'</span>';
   if(fbm.hipDrop!==null) html += ' -- <span style="color:var(--muted2)">'+(fbm.hipDrop>0?'Left hip lower':'Right hip lower')+'</span>';
   html += '</div></div>';
 
@@ -2192,15 +2192,15 @@ function renderExpandMetricsFrontBack(fbm) {
     html += '<div class="ep-metric-bio">How far the right wrist crosses the body midline during arm swing.</div>';
     html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(fbm.rWristCross!==null?(fbm.rWristCross*100).toFixed(1)+'% of shoulder width':'--')+'</span></div></div>';
 
-    // Show only stance-leg knee valgus
-    var stanceValgusVal = null;
-    var stanceValgusLabel = 'Stance knee valgus';
-    if(fbm.stanceSide === 'left') { stanceValgusVal = fbm.lKneeValgus; }
-    else if(fbm.stanceSide === 'right') { stanceValgusVal = fbm.rKneeValgus; }
+    // Show only stance-leg knee valgus (FPPA in degrees)
+    var stanceValgusDegVal = null;
+    var stanceValgusLabel = 'Stance knee valgus (FPPA)';
+    if(fbm.stanceSide === 'left') { stanceValgusDegVal = fbm.lKneeValgusDeg; }
+    else if(fbm.stanceSide === 'right') { stanceValgusDegVal = fbm.rKneeValgusDeg; }
     html += '<div class="ep-metric-block">';
     html += '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:var(--cyan)"></div><strong>' + stanceValgusLabel + '</strong></div>';
-    html += '<div class="ep-metric-bio">Medial deviation of the stance knee from the hip-ankle line. Inward collapse increases stress on the knee.</div>';
-    html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(stanceValgusVal!==null?(stanceValgusVal*100).toFixed(1)+'% of hip width':'--')+'</span></div></div>';
+    html += '<div class="ep-metric-bio">Frontal Plane Projection Angle: signed angle of the knee\u2019s deviation from the hip\u2013ankle line. Positive = medial (valgus), negative = lateral (varus).</div>';
+    html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(stanceValgusDegVal!==null?stanceValgusDegVal.toFixed(1)+'\u00b0':'--')+'</span></div></div>';
   }
 
   html += '<div class="ep-metric-block">';
@@ -2285,6 +2285,7 @@ function computeFrontBackMetrics(kps) {
     hipDrop: null, hipDropAbs: null, hipDropDeg: null,
     lWristCross: null, rWristCross: null,
     lKneeValgus: null, rKneeValgus: null,
+    lKneeValgusDeg: null, rKneeValgusDeg: null,
     avgConfidence: 0
   };
 
@@ -2338,10 +2339,21 @@ function computeFrontBackMetrics(kps) {
     }
   }
 
-  // Knee valgus: medial deviation from hip-ankle line
-  // Only assess the STANCE (planted) leg — the swing leg is in the air
-  // and will produce false positives. Stance leg = the one with the
-  // lower ankle (higher y in image coords).
+  // Knee valgus: assessed only on the STANCE (planted) leg -- swing leg in the air will
+  // produce false positives. Stance = whichever ankle is lower in image coords.
+  // Two metrics:
+  //   - kneeValgus (legacy): medial deviation as a fraction of hip width.
+  //   - kneeValgusDeg: 2D FPPA in degrees (Willson & Davis 2008 convention).
+  //     Computed as 180 deg minus the angle at the knee between hip and ankle, signed
+  //     positive when the knee deviates medially (valgus). Anthropometry-independent.
+  var fppaSignedDeg = function(hip, knee, ankle, medialDir) {
+    if(!hip || !knee || !ankle) return null;
+    var ang = calcAngle(hip, knee, ankle); // 180 = straight leg
+    if(ang === null || !isFinite(ang)) return null;
+    var dev = 180 - ang;                   // magnitude of deviation
+    var medialOffset = (knee.x - hip.x) * medialDir; // >0 if knee is medial of hip
+    return medialOffset >= 0 ? dev : -dev;
+  };
   if(lHi && rHi) {
     var hipWidth = Math.abs(lHi.x - rHi.x);
     var bodyMidX2 = (lHi.x + rHi.x) / 2;
@@ -2361,6 +2373,7 @@ function computeFrontBackMetrics(kps) {
         var deviationL = lKn.x - expectedKneeX_L;
         var medialDirL = (bodyMidX2 > lHi.x) ? 1 : -1;
         result.lKneeValgus = Math.max(0, medialDirL * deviationL / hipWidth);
+        result.lKneeValgusDeg = fppaSignedDeg(lHi, lKn, lAn, medialDirL);
         result.stanceSide = 'left';
       }
       if(stanceSide === 'right' && rKn && rAn) {
@@ -2374,6 +2387,7 @@ function computeFrontBackMetrics(kps) {
         var deviationR = rKn.x - expectedKneeX_R;
         var medialDirR = (bodyMidX2 < rHi.x) ? -1 : 1;
         result.rKneeValgus = Math.max(0, medialDirR * deviationR / hipWidth);
+        result.rKneeValgusDeg = fppaSignedDeg(rHi, rKn, rAn, medialDirR);
         result.stanceSide = 'right';
       }
     }
@@ -2628,8 +2642,8 @@ var REPORT_DATA = {
       notable: 'Your knee is collapsing noticeably inward during stance, which increases stress on the ACL and patellofemoral joint.',
       mild: 'There is slight inward movement of the knee during stance. This is very common and often responds well to targeted exercises.'
     },
-    whatThisMeans: 'Your knee moves inward relative to the hip and foot during stance, rather than tracking in line with the leg.',
-    whyItMatters: 'Knee valgus is commonly related to patellofemoral pain and altered knee loading.',
+    whatThisMeans: 'Your knee deviates medially from the hip\u2013ankle line during stance, measured as 2D Frontal Plane Projection Angle (FPPA) at peak knee flexion. Healthy recreational runners typically sit in the 2\u20136\u00b0 range; values above ~10\u00b0 are uncommon in uninjured cohorts. 2D video carries roughly \u00b13\u20135\u00b0 of measurement uncertainty vs 3D motion capture, and FPPA is a composite that captures hip adduction and pelvic drop alongside true knee motion -- so an elevated FPPA usually indicates upstream hip control issues, not isolated knee dysfunction. A left\u2013right asymmetry of 3\u00b0 or more is itself clinically meaningful even when both sides look "OK".',
+    whyItMatters: 'Visible medial knee collapse is associated with patellofemoral pain (PFP), iliotibial band syndrome (ITBS), and medial tibial stress syndrome in runners (Powers 2010; Bramah 2018). Most of that association runs through hip adduction and pelvic drop -- "knee valgus" in running is largely a downstream expression of proximal control. A runner with elevated FPPA should also look at their hip drop result, since strengthening hips/core is usually higher-yield than knee-focused work.',
     whyItMattersRef: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC9818693/',
     possibleReasons: [
       {text: 'Hip strength and control may not be sufficient to keep the knee tracking straight.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC9818693/'},
@@ -2876,17 +2890,44 @@ function detectIssues() {
     }
   }
 
-  // 6. KNEE VALGUS -- per-stance valgus from each side's front frame.
-  // mid_front_l captures L-stance (use lKneeValgus); mid_front_r captures R-stance (use rKneeValgus).
-  var lValgus = frontL_FBM && frontL_FBM.lKneeValgus !== null && frontL_FBM.lKneeValgus !== undefined ? frontL_FBM.lKneeValgus : null;
-  var rValgus = frontR_FBM && frontR_FBM.rKneeValgus !== null && frontR_FBM.rKneeValgus !== undefined ? frontR_FBM.rKneeValgus : null;
-  var gradeValgus = function(v){ if(v===null) return null; if(v > 0.15) return 'notable'; if(v > 0.08) return 'mild'; return null; };
-  var sevLV = gradeValgus(lValgus);
-  var sevRV = gradeValgus(rValgus);
+  // 6. KNEE VALGUS -- per-stance 2D FPPA in degrees from each side's front frame.
+  // Thresholds from running-specific FPPA literature (NOT SLS/DVJ -- those allow much
+  // greater knee flexion and run 13deg+, which would miss runners). Sex bump +1deg
+  // (Nakagawa 2012: females show ~3.9deg greater knee abduction in SLS). Asymmetry
+  // >= 3deg with the higher side exceeding the 4deg 2D noise floor flags the higher
+  // side as mild and upgrades an existing mild to notable -- same pattern as hip drop.
+  var lValgusDeg = frontL_FBM && frontL_FBM.lKneeValgusDeg !== null && frontL_FBM.lKneeValgusDeg !== undefined ? frontL_FBM.lKneeValgusDeg : null;
+  var rValgusDeg = frontR_FBM && frontR_FBM.rKneeValgusDeg !== null && frontR_FBM.rKneeValgusDeg !== undefined ? frontR_FBM.rKneeValgusDeg : null;
+  var vMildT    = isFemale ? 7  : 6;   // degrees
+  var vNotableT = isFemale ? 11 : 10;  // degrees
+  var vAsymT    = 3;
+  var vFloor    = 4;
+  var gradeFPPA = function(deg){
+    if(deg === null) return null;
+    if(deg > vNotableT) return 'notable';
+    if(deg > vMildT) return 'mild';
+    return null;
+  };
+  var sevLV = gradeFPPA(lValgusDeg);
+  var sevRV = gradeFPPA(rValgusDeg);
+  var vAsymFlag = false;
+  if(lValgusDeg !== null && rValgusDeg !== null && Math.abs(lValgusDeg - rValgusDeg) >= vAsymT) {
+    vAsymFlag = true;
+    var higherSideV = lValgusDeg > rValgusDeg ? 'L' : 'R';
+    var higherValV  = Math.max(lValgusDeg, rValgusDeg);
+    var upgradeV = function(cur){
+      if(cur === 'mild') return 'notable';
+      if(!cur && higherValV > vFloor) return 'mild';
+      return cur;
+    };
+    if(higherSideV === 'L') sevLV = upgradeV(sevLV);
+    else                    sevRV = upgradeV(sevRV);
+  }
   var topValgusSev = worstCPD(sevLV, sevRV);
   if(topValgusSev) {
-    var fmtV = function(v, sev){ if(v===null) return 'no data'; return (v*100).toFixed(1)+'%'+(sev?' '+sev:' clear'); };
-    var vDetail = 'L-stance: '+fmtV(lValgus, sevLV)+' \u00b7 R-stance: '+fmtV(rValgus, sevRV);
+    var fmtV = function(deg, sev){ if(deg===null) return 'no data'; return deg.toFixed(1)+'\u00b0 '+(sev||'clear'); };
+    var vDetail = 'L-stance: '+fmtV(lValgusDeg, sevLV)+' \u00b7 R-stance: '+fmtV(rValgusDeg, sevRV);
+    if(vAsymFlag) vDetail += ' \u00b7 asymmetry '+Math.abs(lValgusDeg-rValgusDeg).toFixed(1)+'\u00b0';
     issues.kneeValgus = {detected:true, severity:topValgusSev, details:vDetail, sideSev:{L:sevLV, R:sevRV}};
   } else {
     issues.kneeValgus = {detected:false, severity:null, details:COACHING_CUES.kneeValgus.clear};
@@ -3153,11 +3194,11 @@ function downloadSampleReport() {
     }, sideView:true},
     mid_front_l: {t:0.8, detected:true, kps:null, metrics:null, frontBackMetrics:{
       hipDrop:0.12, hipDropAbs:0.12, hipDropDeg:11.2, lWristCross:0.09, rWristCross:0.03,
-      lKneeValgus:0.11, rKneeValgus:0, avgConfidence:0.78, stanceSide:'left'
+      lKneeValgus:0.11, rKneeValgus:0, lKneeValgusDeg:7.8, rKneeValgusDeg:null, avgConfidence:0.78, stanceSide:'left'
     }, sideView:false},
     mid_front_r: {t:1.1, detected:true, kps:null, metrics:null, frontBackMetrics:{
       hipDrop:-0.08, hipDropAbs:0.08, hipDropDeg:7.3, lWristCross:0.07, rWristCross:0.02,
-      lKneeValgus:0, rKneeValgus:0.06, avgConfidence:0.76, stanceSide:'right'
+      lKneeValgus:0, rKneeValgus:0.06, lKneeValgusDeg:null, rKneeValgusDeg:3.4, avgConfidence:0.76, stanceSide:'right'
     }, sideView:false},
     mid_back_l: {t:0.8, detected:true, kps:null, metrics:null, frontBackMetrics:{
       hipDrop:0.10, hipDropAbs:0.10, hipDropDeg:10.1, lWristCross:0, rWristCross:0,
@@ -3183,7 +3224,7 @@ function downloadSampleReport() {
     armsCrossing: {detected:true, severity:'mild', details:'Max crossing: 9.0% of shoulder width'},
     torsoPosition: {detected:true, severity:'mild', details:'Trunk lean: 1.8 (very upright)', cueKey:'torsoUpright'},
     armAngle: {detected:true, severity:'notable', details:'Avg elbow: 138'},
-    kneeValgus: {detected:true, severity:'mild', details:'L-stance: 11.0% mild · R-stance: 6.0% clear', sideSev:{L:'mild', R:null}}
+    kneeValgus: {detected:true, severity:'mild', details:'L-stance: 7.8° mild · R-stance: 3.4° clear · asymmetry 4.4°', sideSev:{L:'mild', R:null}}
   };
 
   // Set save name for the PDF header
