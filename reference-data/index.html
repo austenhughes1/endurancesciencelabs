@@ -892,17 +892,23 @@ function renderThresholds() {
     });
   }
 
-  // 6. KNEE VALGUS -- fixed ratios
-  rows.push({
-    anomaly: 'Knee valgus',
-    meta: 'Max knee medial deviation from hip–ankle line at mid-stance (% hip width, front view)',
-    source: 'fixed',
-    mild:    '&gt; 8.0%',
-    notable: '&gt; 15.0%',
-    mildRule: '8% hip width',
-    notableRule: '15% hip width',
-    ruleCtx: 'same threshold for male and female',
-  });
+  // 6. KNEE VALGUS -- 2D FPPA in degrees, per-stance, sex-adjusted +1 deg female.
+  {
+    const mildT    = sex === 'female' ? 7  : 6;
+    const notableT = sex === 'female' ? 11 : 10;
+    rows.push({
+      anomaly: 'Knee valgus',
+      meta: '2D Frontal Plane Projection Angle (FPPA) at peak knee flexion during stance, front view. L-stance and R-stance graded separately against running-specific literature thresholds (Bramah 2018, Maykut 2015, Powers 2010 framework). Asymmetry \u22653\u00b0 flags the higher side as mild when it exceeds the 4\u00b0 noise floor, and upgrades an existing mild to notable.',
+      source: 'fixed',
+      mild:    'side &gt; ' + mildT + '\u00b0',
+      notable: 'side &gt; ' + notableT + '\u00b0',
+      mildRule: 'per-stance FPPA > ' + mildT + '\u00b0',
+      notableRule: 'per-stance FPPA > ' + notableT + '\u00b0',
+      ruleCtx: sex === 'female'
+        ? 'female +1\u00b0 above male thresholds (Nakagawa 2012: ~3.9\u00b0 greater knee abduction in females)'
+        : 'male baseline thresholds for running FPPA (NOT the SLS/DVJ Munro 13\u00b0 cutoff, which over-flags running)',
+    });
+  }
 
   tbody.innerHTML = rows.map(r => {
     const srcLabel = r.source==='live' ? ('Live · n=' + r.n) : r.source==='fixed' ? 'Fixed' : 'No data · using fallback';
