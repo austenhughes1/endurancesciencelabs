@@ -759,6 +759,26 @@ function thrLiveStats(sex, phaseKey, metricKey) {
   return fb ? {mean: fb.mean, sd: fb.sd, n: 0, live: false} : null;
 }
 
+function thrPooledStats(sex, metricKey) {
+  const p = thresholdRanges[sex] && thresholdRanges[sex].pooled ? thresholdRanges[sex].pooled[metricKey] : null;
+  if (p && p.reliable && p.n >= MIN_N) {
+    if (p.center != null && p.spread != null && p.spread > 0) {
+      return {mean: p.center, sd: p.spread, n: p.n, live: true};
+    }
+    if (p.mean != null && p.sd != null && p.sd > 0) {
+      return {mean: p.mean, sd: p.sd, n: p.n, live: true};
+    }
+  }
+  // Fallback to averaging per-phase stats (for pre-pooled docs).
+  if (metricKey === 'leadFoot') {
+    const L = thrLiveStats(sex, 'l_foot', 'leadFoot');
+    const R = thrLiveStats(sex, 'r_foot', 'leadFoot');
+    return {mean: (L.mean+R.mean)/2, sd: (L.sd+R.sd)/2, n: L.n+R.n, live: L.live && R.live};
+  }
+  const fb = THR_FALLBACK[metricKey];
+  return fb ? {mean: fb.mean, sd: fb.sd, n: 0, live: false} : null;
+}
+
 function setThresholdsSex(sex) {
   thresholdsSex = sex;
   const bM = document.getElementById('thr-btn-male');
@@ -786,23 +806,20 @@ function renderThresholds() {
   // Rows are built fresh each render so sex toggle updates live values.
   const rows = [];
 
-  // 1. OVERSTRIDING -- stricter of l_foot/r_foot leadFoot stats, 1/2 SD
+  // 1. OVERSTRIDING -- pooled L+R leadFoot baseline, per-side z-score (> 1 mild, > 2 notable)
   {
-    const L = thrLiveStats(sex, 'l_foot', 'leadFoot');
-    const R = thrLiveStats(sex, 'r_foot', 'leadFoot');
-    const mean = Math.min(L.mean, R.mean);
-    const sd   = Math.min(L.sd,   R.sd);
-    const live = L.live && R.live;
+    const P = thrPooledStats(sex, 'leadFoot');
+    const mean = P.mean, sd = P.sd;
     rows.push({
       anomaly: 'Overstriding',
-      meta: 'Lead foot offset at foot strike (fraction of torso height)',
-      source: live ? 'live' : 'fallback',
-      n: live ? Math.min(L.n, R.n) : 0,
-      mild:    '&gt; ' + fmtSigned2(mean + sd),
-      notable: '&gt; ' + fmtSigned2(mean + 2*sd),
-      mildRule:    'mean + 1 SD',
-      notableRule: 'mean + 2 SD',
-      ruleCtx: 'elite ' + fmtSigned2(mean) + ' ± ' + sd.toFixed(2) + ' (stricter of L/R)',
+      meta: 'Lead foot offset at foot strike (fraction of torso height). L and R graded independently against one pooled elite baseline; worst side wins.',
+      source: P.live ? 'live' : 'fallback',
+      n: P.live ? P.n : 0,
+      mild:    'side &gt; ' + fmtSigned2(mean + sd),
+      notable: 'side &gt; ' + fmtSigned2(mean + 2*sd),
+      mildRule:    'per-side z > 1',
+      notableRule: 'per-side z > 2',
+      ruleCtx: 'pooled elite ' + fmtSigned2(mean) + ' ± ' + sd.toFixed(2) + ' (L+R combined, n=' + (P.live?P.n:0) + ')',
     });
   }
 
@@ -1737,29 +1754,51 @@ function computeRanges(sessions){
     const m = s.length;
     return m%2 ? s[(m-1)/2] : (s[m/2-1]+s[m/2])/2;
   };
+  const statsFrom = values => {
+    const n = values.length;
+    if (n < MIN_N) return {n, reliable: false};
+    const mean = values.reduce((a,b)=>a+b,0)/n;
+    const variance = values.reduce((a,b)=>a+(b-mean)**2,0)/(n-1);
+    const sd = Math.sqrt(variance);
+    const med = median(values);
+    const mad = median(values.map(v=>Math.abs(v-med)));
+    const robustSD = mad > 0 ? mad * MAD_TO_SD : sd;
+    const center = med, spread = robustSD;
+    return {
+      n, reliable: true,
+      mean: +mean.toFixed(4), sd: +sd.toFixed(4),
+      median: +med.toFixed(4), mad: +mad.toFixed(4),
+      center: +center.toFixed(4), spread: +spread.toFixed(4),
+      green: [+(center-spread).toFixed(4), +(center+spread).toFixed(4)],
+      warn:  [+(center-2*spread).toFixed(4), +(center+2*spread).toFixed(4)],
+    };
+  };
+
   PHASE_DEFS.forEach(def=>{
     result[def.key]={};
     METRIC_ROWS.forEach(metric=>{
       const values=sessions.map(s=>s.phases?.[def.key]?.[metric.key]).filter(v=>v!==undefined&&v!==null&&isFinite(v)&&!isNaN(v));
-      if(values.length<MIN_N){result[def.key][metric.key]={n:values.length,reliable:false};return;}
-      const n=values.length,mean=values.reduce((a,b)=>a+b,0)/n;
-      const variance=values.reduce((a,b)=>a+(b-mean)**2,0)/(n-1);
-      const sd=Math.sqrt(variance);
-      const med = median(values);
-      const mad = median(values.map(v=>Math.abs(v-med)));
-      // Guard: if MAD is 0 (all values identical), fall back to classical SD to avoid zero spread.
-      const robustSD = mad > 0 ? mad * MAD_TO_SD : sd;
-      const center = med, spread = robustSD;
-      result[def.key][metric.key]={
-        n, reliable:true,
-        mean:+mean.toFixed(4), sd:+sd.toFixed(4),
-        median:+med.toFixed(4), mad:+mad.toFixed(4),
-        center:+center.toFixed(4), spread:+spread.toFixed(4),
-        green:[+(center-spread).toFixed(4),+(center+spread).toFixed(4)],
-        warn: [+(center-2*spread).toFixed(4),+(center+2*spread).toFixed(4)],
-      };
+      result[def.key][metric.key] = statsFrom(values);
     });
   });
+
+  // Pooled metrics: combine values across L/R mirror phases for anomaly detection that
+  // assumes symmetric gait (e.g. overstriding grades both user sides against one baseline).
+  const POOLED_DEFS = [
+    {key: 'leadFoot', phases: ['l_foot', 'r_foot']},
+  ];
+  result.pooled = {};
+  POOLED_DEFS.forEach(p => {
+    const values = [];
+    p.phases.forEach(ph => {
+      sessions.forEach(s => {
+        const v = s.phases?.[ph]?.[p.key];
+        if (typeof v === 'number' && isFinite(v) && !isNaN(v)) values.push(v);
+      });
+    });
+    result.pooled[p.key] = statsFrom(values);
+  });
+
   return result;
 }
 
