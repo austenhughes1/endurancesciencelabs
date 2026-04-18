@@ -2681,21 +2681,35 @@ function detectIssues() {
     issues.armsCrossing = {detected:false, severity:null, details:COACHING_CUES.armsCrossing.clear};
   }
 
-  // 4. TORSO POSITION (side mid) -- two-sided detection against elite range
-  var midM = phases.mid && phases.mid.metrics ? phases.mid.metrics : null;
+  // 4. TORSO POSITION -- z-score average across all side-view phases that measure trunk lean.
+  // Each phase is compared to its own elite mean/SD (mid-stance lean differs from peak-KF lean),
+  // then z-scores are averaged. |avg z| > 1 = mild, > 2 = notable. Sign picks upright vs lean.
+  var TRUNK_PHASES = ['l_foot','r_foot','l_toe','r_toe','mid','peak_kf','swing'];
+  var trunkZs = [], userTrunks = [], eliteTrunks = [];
+  TRUNK_PHASES.forEach(function(pk) {
+    var pm = phases[pk] && phases[pk].metrics ? phases[pk].metrics : null;
+    if(!pm || pm.trunk === undefined) return;
+    var st = getRangeStats(pk, 'trunk');
+    if(!st.sd || st.sd <= 0) return;
+    trunkZs.push((pm.trunk - st.mean) / st.sd);
+    userTrunks.push(pm.trunk);
+    eliteTrunks.push(st.mean);
+  });
   issues.torsoPosition = {detected:false, severity:null, details:COACHING_CUES.torsoUpright.clear};
-  if(midM && midM.trunk !== undefined) {
-    var trunkLean = midM.trunk;
-    var trunkStats = getRangeStats('mid', 'trunk');
-    var trunkDev = trunkLean - trunkStats.mean;
-    if(trunkDev < -2 * trunkStats.sd) {
-      issues.torsoPosition = {detected:true, severity:'notable', details:'Trunk lean: '+trunkLean.toFixed(1)+'\u00b0 (elite '+trunkStats.mean.toFixed(1)+' \u00b1 '+trunkStats.sd.toFixed(1)+')', cueKey:'torsoUpright'};
-    } else if(trunkDev > 2 * trunkStats.sd) {
-      issues.torsoPosition = {detected:true, severity:'notable', details:'Trunk lean: '+trunkLean.toFixed(1)+'\u00b0 (elite '+trunkStats.mean.toFixed(1)+' \u00b1 '+trunkStats.sd.toFixed(1)+')', cueKey:'torsoLean'};
-    } else if(trunkDev < -trunkStats.sd) {
-      issues.torsoPosition = {detected:true, severity:'mild', details:'Trunk lean: '+trunkLean.toFixed(1)+'\u00b0 (elite '+trunkStats.mean.toFixed(1)+' \u00b1 '+trunkStats.sd.toFixed(1)+')', cueKey:'torsoUpright'};
-    } else if(trunkDev > trunkStats.sd) {
-      issues.torsoPosition = {detected:true, severity:'mild', details:'Trunk lean: '+trunkLean.toFixed(1)+'\u00b0 (elite '+trunkStats.mean.toFixed(1)+' \u00b1 '+trunkStats.sd.toFixed(1)+')', cueKey:'torsoLean'};
+  if(trunkZs.length > 0) {
+    var avgZ = trunkZs.reduce(function(a,b){return a+b;}, 0) / trunkZs.length;
+    var userAvg = userTrunks.reduce(function(a,b){return a+b;}, 0) / userTrunks.length;
+    var eliteAvg = eliteTrunks.reduce(function(a,b){return a+b;}, 0) / eliteTrunks.length;
+    var zStr = (avgZ>=0?'+':'')+avgZ.toFixed(2);
+    var detailStr = 'Trunk lean: avg '+userAvg.toFixed(1)+'\u00b0 vs elite '+eliteAvg.toFixed(1)+'\u00b0 (z='+zStr+' across '+trunkZs.length+' phases)';
+    if(avgZ < -2) {
+      issues.torsoPosition = {detected:true, severity:'notable', details:detailStr, cueKey:'torsoUpright'};
+    } else if(avgZ > 2) {
+      issues.torsoPosition = {detected:true, severity:'notable', details:detailStr, cueKey:'torsoLean'};
+    } else if(avgZ < -1) {
+      issues.torsoPosition = {detected:true, severity:'mild', details:detailStr, cueKey:'torsoUpright'};
+    } else if(avgZ > 1) {
+      issues.torsoPosition = {detected:true, severity:'mild', details:detailStr, cueKey:'torsoLean'};
     }
   }
 
