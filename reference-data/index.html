@@ -850,9 +850,9 @@ function renderThresholds() {
       source: E.live ? 'live' : 'fallback',
       n: E.live ? E.n : 0,
       mild:    '&gt; ' + fmtDeg0(E.mean + 2*E.sd),
-      notable: '&gt; ' + fmtDeg0(E.mean + 3*E.sd),
+      notable: '&gt; ' + fmtDeg0(E.mean + 4*E.sd),
       mildRule:    'mean + 2 SD',
-      notableRule: 'mean + 3 SD',
+      notableRule: 'mean + 4 SD',
       ruleCtx: 'elite ' + fmtDeg0(E.mean) + ' ± ' + E.sd.toFixed(0) + '°',
     });
   }
