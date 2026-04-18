@@ -2288,6 +2288,39 @@ function drawMiniSkeleton(ctx,kps,sx,sy){SKELETON.forEach(function(pair){var a=p
 // Math
 function calcAngle(a,b,c){if(!a||!b||!c)return null;var ba={x:a.x-b.x,y:a.y-b.y},bc={x:c.x-b.x,y:c.y-b.y};var dot=ba.x*bc.x+ba.y*bc.y,mag=Math.hypot(ba.x,ba.y)*Math.hypot(bc.x,bc.y);if(!mag||!isFinite(mag))return null;return Math.acos(Math.max(-1,Math.min(1,dot/mag)))*180/Math.PI;}
 
+// Rotate keypoints into a body-upright frame. Necessary for front/back views when the
+// video has baked-in camera roll (e.g. phone orientation metadata mismatch) -- otherwise
+// every "lateral" and "vertical" check below would be computed against the tilted image
+// frame. Pivot around the hip midpoint so hip/shoulder positions are preserved, only the
+// tilt is removed. Returns a new kps array; originals untouched.
+function orientKpsToBody(kps) {
+  if (!kps) return kps;
+  var lSh = kps[5], rSh = kps[6], lHi = kps[11], rHi = kps[12];
+  if (!lSh || !rSh || !lHi || !rHi) return kps;
+  if ((lSh.score||0) < MIN_CONF || (rSh.score||0) < MIN_CONF) return kps;
+  if ((lHi.score||0) < MIN_CONF || (rHi.score||0) < MIN_CONF) return kps;
+  var shMx = (lSh.x+rSh.x)/2, shMy = (lSh.y+rSh.y)/2;
+  var hiMx = (lHi.x+rHi.x)/2, hiMy = (lHi.y+rHi.y)/2;
+  var upX = shMx - hiMx, upY = shMy - hiMy;
+  var len = Math.hypot(upX, upY);
+  if (len < 20) return kps;
+  // Target: body-up should point to image-up (-Y). Current angle of up vec from +X axis
+  // is atan2(upY, upX); we want -π/2 (pointing up in image coords).
+  var theta = -Math.PI/2 - Math.atan2(upY, upX);
+  if (Math.abs(theta) < 0.02) return kps; // < ~1.1° tilt, no-op
+  var cosT = Math.cos(theta), sinT = Math.sin(theta);
+  return kps.map(function(k){
+    if (!k) return k;
+    var dx = k.x - hiMx, dy = k.y - hiMy;
+    return {
+      x: hiMx + dx*cosT - dy*sinT,
+      y: hiMy + dx*sinT + dy*cosT,
+      score: k.score,
+      name: k.name,
+    };
+  });
+}
+
 function computeMetrics(kps){
   var g2=function(i){return (kps[i]&&kps[i].score>=MIN_CONF)?kps[i]:null;};var m={};
   var lSh=g2(5),rSh=g2(6),lHi=g2(11),rHi=g2(12),lAn=g2(15),rAn=g2(16),nose=g2(0);
@@ -2300,6 +2333,12 @@ function computeMetrics(kps){
 
 // Front/Back metrics
 function computeFrontBackMetrics(kps) {
+  // Normalize for camera roll: re-orient keypoints so the body-up vector aligns with
+  // image-up. Every geometric check below (hip width, stance-side detection, FPPA,
+  // pelvic obliquity, wrist crossing) assumes the image Y axis is gravity. Rotated
+  // videos -- common from phone recordings with mismatched orientation metadata --
+  // would otherwise corrupt all these measurements.
+  kps = orientKpsToBody(kps);
   var g3=function(i){return (kps[i]&&kps[i].score>=MIN_CONF)?kps[i]:null;};
   var lSh=g3(5),rSh=g3(6),lHi=g3(11),rHi=g3(12),lKn=g3(13),rKn=g3(14),lAn=g3(15),rAn=g3(16),lWr=g3(9),rWr=g3(10);
 
@@ -2373,7 +2412,16 @@ function computeFrontBackMetrics(kps) {
     var ang = calcAngle(hip, knee, ankle); // 180 = straight leg
     if(ang === null || !isFinite(ang)) return null;
     var dev = 180 - ang;                   // magnitude of deviation
-    var medialOffset = (knee.x - hip.x) * medialDir; // >0 if knee is medial of hip
+    // Sign against the hip-ankle reference LINE, not just hip.x: at mid-stance the
+    // ankle often sits medial to the hip, tilting the reference. A knee near hip.x
+    // can then be laterally offset from the reference line (true varus) even though
+    // it's close to the hip in x. Compare knee.x to the line's x at knee height.
+    var totalDist = Math.abs(ankle.y - hip.y);
+    if(totalDist < 5) return null;
+    var t = (knee.y - hip.y) / (ankle.y - hip.y);
+    t = Math.max(0, Math.min(1, t));
+    var expectedKneeX = hip.x + t * (ankle.x - hip.x);
+    var medialOffset = (knee.x - expectedKneeX) * medialDir; // >0 = medial of line
     return medialOffset >= 0 ? dev : -dev;
   };
   if(lHi && rHi) {
