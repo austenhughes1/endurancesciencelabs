@@ -1280,8 +1280,10 @@ const PHASE_DEFS = [
   {key:'l_toe',     label:'L toe-off',          desc:'Left foot leaving the ground',             videoKey:'side',  side:'left',   detectsIssue:'Hip extension', guide:{title:'Left toe-off',      desc:'The moment the left foot pushes off. Hip extension is at maximum.',checks:['Left leg extended behind the body','Ankle plantarflexed (pushing through toes)','Left heel visibly raised','Opposite leg in mid-swing'],tip:'Toe-off is where propulsive power is generated.'}},
   {key:'r_toe',     label:'R toe-off',          desc:'Right foot leaving the ground',            videoKey:'side',  side:'right',  detectsIssue:'Hip extension', guide:{title:'Right toe-off',     desc:'The moment the right foot pushes off.',checks:['Right leg extended behind the body','Right ankle plantarflexed','Right heel raised','Opposite leg in mid-swing'],tip:'Compare with left toe-off for asymmetries.'}},
   {key:'mid',       label:'Mid-stance',         desc:'Body directly over support foot',          videoKey:'side',  side:'center', detectsIssue:'Trunk position', guide:{title:'Mid-stance',        desc:'The body passes directly over the supporting foot.',checks:['Stance foot roughly under the hip','Swing leg in mid-flight','Trunk vertical or slightly forward','Arms in natural opposite-arm swing'],tip:'Key frame for trunk lean and hip drop.'}},
-  {key:'mid_front', label:'Mid-stance (front)', desc:'Frontal view during single-leg stance',    videoKey:'front', side:'center', detectsIssue:'Hip drop, arm crossing, knee valgus', guide:{title:'Mid-stance (front view)', desc:'A frontal view during single-leg stance, used to assess hip drop, arm position, and knee alignment.',checks:['One foot clearly on the ground','Hips visible and roughly level','Both arms visible','Knees visible -- watch for inward collapse'],tip:'Look for the moment when the runner is on one leg with the other in mid-swing.'}},
-  {key:'mid_back',  label:'Mid-stance (back)',  desc:'Rear view during single-leg stance',       videoKey:'back',  side:'center', detectsIssue:'Hip drop confirmation', guide:{title:'Mid-stance (back view)', desc:'A rear view during single-leg stance, used to confirm hip drop findings from the front view.',checks:['One foot on the ground','Hips visible','Pelvis level visible','Good lighting on the back'],tip:'This confirms or contradicts what the front view shows for hip mechanics.'}},
+  {key:'mid_front_l', label:'L mid-stance (front)', desc:'Left foot planted under body, front view', videoKey:'front', side:'left',  detectsIssue:'L hip drop, arm crossing, L knee valgus', guide:{title:'Left foot mid-stance (front view)', desc:'A frontal view at the moment the left foot is planted directly underneath the body.',checks:['Left foot planted flat on the ground','Left foot directly underneath the body -- not ahead or behind','Right leg is in mid-swing','Hips clearly visible for drop measurement'],tip:"Look for the instant the runner's body passes directly over the left stance foot."}},
+  {key:'mid_front_r', label:'R mid-stance (front)', desc:'Right foot planted under body, front view', videoKey:'front', side:'right', detectsIssue:'R hip drop, arm crossing, R knee valgus', guide:{title:'Right foot mid-stance (front view)', desc:'A frontal view at the moment the right foot is planted directly underneath the body.',checks:['Right foot planted flat on the ground','Right foot directly underneath the body -- not ahead or behind','Left leg is in mid-swing','Hips clearly visible for drop measurement'],tip:"Look for the instant the runner's body passes directly over the right stance foot."}},
+  {key:'mid_back_l',  label:'L mid-stance (back)',  desc:'Left foot planted under body, rear view',  videoKey:'back',  side:'left',  detectsIssue:'L hip drop confirmation', guide:{title:'Left foot mid-stance (back view)', desc:'A rear view at the moment the left foot is planted directly underneath the body. Confirms left-stance hip drop from the front view.',checks:['Left foot planted flat on the ground','Left foot directly underneath the body','Right leg in mid-swing','PSIS / lower back clearly visible'],tip:"Pick the instant the body passes directly over the left stance foot, viewed from behind."}},
+  {key:'mid_back_r',  label:'R mid-stance (back)',  desc:'Right foot planted under body, rear view', videoKey:'back',  side:'right', detectsIssue:'R hip drop confirmation', guide:{title:'Right foot mid-stance (back view)', desc:'A rear view at the moment the right foot is planted directly underneath the body. Confirms right-stance hip drop from the front view.',checks:['Right foot planted flat on the ground','Right foot directly underneath the body','Left leg in mid-swing','PSIS / lower back clearly visible'],tip:"Pick the instant the body passes directly over the right stance foot, viewed from behind."}},
   {key:'peak_kf',   label:'Peak knee flex',     desc:'Maximum knee bend during swing',           videoKey:'side',  side:'center', detectsIssue:'Arm angle', guide:{title:'Peak knee flexion', desc:'Maximum knee bend on the swing leg, just after toe-off.',checks:['Swing knee at highest and most bent position','Elite runners pull heel close to glutes','Stance leg extended behind body','Symmetry between sides'],tip:'A lazy, low swing increases ground contact time and metabolic cost.'}},
   {key:'swing',     label:'Terminal swing',     desc:'Leg extended just before landing',         videoKey:'side',  side:'center', detectsIssue:'Overstriding visibility', guide:{title:'Terminal swing',    desc:'Just before the foot contacts the ground again.',checks:['Swing leg reaching forward','Knee extending but not fully locked','Foot dorsiflexed ready for contact','Opposite arm driving back'],tip:'Overstriding is most visible here.'}},
 ];
@@ -1289,7 +1291,7 @@ const PHASE_DEFS = [
 const PHASE_GROUPS = [
   {label:'Stride & propulsion', keys:['l_foot','r_foot','l_toe','r_toe']},
   {label:'Posture, trunk & arm mechanics', keys:['mid','swing','peak_kf']},
-  {label:'Hip & lateral mechanics', keys:['mid_front','mid_back']},
+  {label:'Hip & lateral mechanics', keys:['mid_front_l','mid_front_r','mid_back_l','mid_back_r']},
 ];
 
 const SUMMARY_COL_ORDER = ['l_foot','r_foot','l_toe','r_toe','mid','peak_kf','swing'];
@@ -1319,9 +1321,11 @@ const PHASE_METRICS = {
   r_foot:    ['trunk','leadKnee','leadHip','leadFoot','nearElbow'],
   l_toe:     ['trunk','leadHip','trailHip','nearElbow'],
   r_toe:     ['trunk','leadHip','trailHip','nearElbow'],
-  mid:       ['trunk','plantKnee','plantHip','nearElbow'],
-  mid_front: [],
-  mid_back:  [],
+  mid:         ['trunk','plantKnee','plantHip','nearElbow'],
+  mid_front_l: [],
+  mid_front_r: [],
+  mid_back_l:  [],
+  mid_back_r:  [],
   peak_kf:   ['trunk','trailHip','nearElbow'],
   swing:     ['trunk','leadKnee','leadHip','leadFoot','nearElbow'],
 };
@@ -1563,11 +1567,11 @@ function checkAllAnalyzed(){
   if(done>=9){
     bar.classList.add('show');
     document.body.classList.add('bar-showing');
-    if(sub) sub.textContent='All 9 phases analyzed -- scroll down to see your full report';
+    if(sub) sub.textContent='All 11 phases analyzed -- scroll down to see your full report';
   } else if(done>=3){
     bar.classList.add('show');
     document.body.classList.add('bar-showing');
-    if(sub) sub.textContent=done+' of 9 phases analyzed -- keep refining or complete now';
+    if(sub) sub.textContent=done+' of 11 phases analyzed -- keep refining or complete now';
   } else {
     bar.classList.remove('show');
     document.body.classList.remove('bar-showing');
@@ -1706,10 +1710,12 @@ async function autoScanAll(){
   if(!isFinite(frontDur)||isNaN(frontDur)||frontDur<=0) frontDur=30;
   var backDur = backVid.duration;
   if(!isFinite(backDur)||isNaN(backDur)||backDur<=0) backDur=30;
-  phases.mid_front.t = frontDur/2;
-  phases.mid_back.t  = backDur/2;
+  phases.mid_front_l.t = frontDur*0.35;
+  phases.mid_front_r.t = frontDur*0.65;
+  phases.mid_back_l.t  = backDur*0.35;
+  phases.mid_back_r.t  = backDur*0.65;
 
-  // Build phase list UI for all 9 phases
+  // Build phase list UI for all 11 phases
   document.getElementById('scan-phase-list').innerHTML = PHASE_DEFS.map(function(p){
     return '<div class="spl-item" id="spl-'+p.key+'"><div class="spl-dot"></div><span class="spl-name">'+p.label+'</span><span class="spl-time" id="spl-t-'+p.key+'">--</span></div>';
   }).join('');
@@ -1754,41 +1760,17 @@ async function autoScanAll(){
     if(ph && ph.detected){item.classList.add('found');tEl.textContent=ph.t.toFixed(2)+'s';}else{item.classList.add('not-found');tEl.textContent='manual';}
   });
 
-  // ---- STEP 2: Scan front video (best frame) ----
-  document.getElementById('scan-sub-text').textContent = 'Scanning front view for best mid-stance frame...';
-  var frontBest = await scanBestFrame(frontVid, 'front', 70, 85);
-  if(frontBest) {
-    phases.mid_front.t = frontBest.t;
-    phases.mid_front.kps = frontBest.kps;
-    phases.mid_front.detected = true;
-    var frontItem = document.getElementById('spl-mid_front');
-    var frontTEl = document.getElementById('spl-t-mid_front');
-    if(frontItem) frontItem.classList.add('found');
-    if(frontTEl) frontTEl.textContent = frontBest.t.toFixed(2)+'s';
-  } else {
-    var frontItem2 = document.getElementById('spl-mid_front');
-    var frontTEl2 = document.getElementById('spl-t-mid_front');
-    if(frontItem2) frontItem2.classList.add('not-found');
-    if(frontTEl2) frontTEl2.textContent = 'manual';
-  }
+  // ---- STEP 2: Scan front video for L and R stance frames ----
+  document.getElementById('scan-sub-text').textContent = 'Scanning front view for L and R mid-stance frames...';
+  var frontBest = await scanBestStanceFrames(frontVid, 'front', 70, 85);
+  applyStanceFrame('mid_front_l', frontBest.left);
+  applyStanceFrame('mid_front_r', frontBest.right);
 
-  // ---- STEP 3: Scan back video (best frame) ----
-  document.getElementById('scan-sub-text').textContent = 'Scanning back view for best mid-stance frame...';
-  var backBest = await scanBestFrame(backVid, 'back', 85, 100);
-  if(backBest) {
-    phases.mid_back.t = backBest.t;
-    phases.mid_back.kps = backBest.kps;
-    phases.mid_back.detected = true;
-    var backItem = document.getElementById('spl-mid_back');
-    var backTEl = document.getElementById('spl-t-mid_back');
-    if(backItem) backItem.classList.add('found');
-    if(backTEl) backTEl.textContent = backBest.t.toFixed(2)+'s';
-  } else {
-    var backItem2 = document.getElementById('spl-mid_back');
-    var backTEl2 = document.getElementById('spl-t-mid_back');
-    if(backItem2) backItem2.classList.add('not-found');
-    if(backTEl2) backTEl2.textContent = 'manual';
-  }
+  // ---- STEP 3: Scan back video for L and R stance frames ----
+  document.getElementById('scan-sub-text').textContent = 'Scanning back view for L and R mid-stance frames...';
+  var backBest = await scanBestStanceFrames(backVid, 'back', 85, 100);
+  applyStanceFrame('mid_back_l', backBest.left);
+  applyStanceFrame('mid_back_r', backBest.right);
 
   // Finalize
   document.getElementById('scan-bar').style.width='100%';
@@ -1824,12 +1806,17 @@ async function autoScanAll(){
 }
 
 // Scan ~20 frames of a video, return the one with best avg confidence
-async function scanBestFrame(vidEl, viewLabel, barStart, barEnd) {
+// Scan front/back video for the best L-stance and R-stance frames. A frame is classified
+// as L-stance if the left ankle is lower (planted) AND the left ankle's x-position is close
+// to the hip midline (body directly over the stance foot). Score = keypoint confidence ×
+// midline-proximity bonus, so the top L and top R frames both reflect "foot planted
+// directly under the body" per the clinical protocol.
+async function scanBestStanceFrames(vidEl, viewLabel, barStart, barEnd) {
   var dur = vidEl.duration;
   if(!isFinite(dur)||isNaN(dur)||dur<=0) dur=30;
   var NFRAMES = 20;
-  var best = null;
-  var bestConf = -1;
+  var bestL = null, bestR = null;
+  var bestLScore = -1, bestRScore = -1;
   var sc = document.getElementById('scan-canvas');
   var sctx = sc.getContext('2d');
 
@@ -1849,12 +1836,45 @@ async function scanBestFrame(vidEl, viewLabel, barStart, barEnd) {
     var kps = poses[0].keypoints;
     drawMiniSkeleton(sctx,kps,sc.width/(vidEl.videoWidth||sc.width),sc.height/(vidEl.videoHeight||sc.height));
     var avgConf = kps.reduce(function(sum,k){return sum+(k.score||0);},0)/kps.length;
-    if(avgConf > bestConf){
-      bestConf = avgConf;
-      best = {t:t, kps:kps};
+
+    var lAn = kps[15], rAn = kps[16], lHi = kps[11], rHi = kps[12];
+    if(!lAn || !rAn || !lHi || !rHi) continue;
+    if((lAn.score||0) < MIN_CONF || (rAn.score||0) < MIN_CONF) continue;
+    if((lHi.score||0) < MIN_CONF || (rHi.score||0) < MIN_CONF) continue;
+    var hipWidth = Math.abs(lHi.x - rHi.x);
+    if(hipWidth < 10) continue;
+    var bodyMidX = (lHi.x + rHi.x) / 2;
+
+    // Lower ankle = planted (stance). Midline proximity bonus rewards "directly under body".
+    var stance = (lAn.y >= rAn.y) ? 'left' : 'right';
+    var stanceAnkle = stance === 'left' ? lAn : rAn;
+    var midlineProx = Math.max(0, 1 - Math.abs(stanceAnkle.x - bodyMidX) / hipWidth);
+    var score = avgConf * (0.5 + 0.5 * midlineProx);
+
+    if(stance === 'left' && score > bestLScore){
+      bestLScore = score;
+      bestL = {t:t, kps:kps};
+    } else if(stance === 'right' && score > bestRScore){
+      bestRScore = score;
+      bestR = {t:t, kps:kps};
     }
   }
-  return best;
+  return {left: bestL, right: bestR};
+}
+
+function applyStanceFrame(phaseKey, frame) {
+  var item = document.getElementById('spl-'+phaseKey);
+  var tEl  = document.getElementById('spl-t-'+phaseKey);
+  if(frame) {
+    phases[phaseKey].t = frame.t;
+    phases[phaseKey].kps = frame.kps;
+    phases[phaseKey].detected = true;
+    if(item) item.classList.add('found');
+    if(tEl)  tEl.textContent = frame.t.toFixed(2)+'s';
+  } else {
+    if(item) item.classList.add('not-found');
+    if(tEl)  tEl.textContent = 'manual';
+  }
 }
 
 // Phase detection (side video only)
@@ -1971,7 +1991,7 @@ function renderMiniMetrics(key,m){
 
 function renderMiniMetricsFrontBack(key, fbm) {
   var el=document.getElementById('metrics-mini-'+key);if(!el)return;
-  var isFront = (key === 'mid_front');
+  var isFront = (key === 'mid_front_l' || key === 'mid_front_r');
   var items = [];
   if(fbm.hipDropAbs !== undefined && fbm.hipDropAbs !== null) {
     var dropSideLabel = fbm.stanceSide ? ' (' + fbm.stanceSide + ' stance)' : '';
@@ -2150,7 +2170,7 @@ function renderExpandMetrics(m){
 }
 
 function renderExpandMetricsFrontBack(fbm) {
-  var isFront = (expandKey === 'mid_front');
+  var isFront = (expandKey === 'mid_front_l' || expandKey === 'mid_front_r');
   var html = '';
 
   var stanceLabel = fbm.stanceSide ? ' (' + fbm.stanceSide + ' stance)' : '';
@@ -2262,7 +2282,7 @@ function computeFrontBackMetrics(kps) {
   var lSh=g3(5),rSh=g3(6),lHi=g3(11),rHi=g3(12),lKn=g3(13),rKn=g3(14),lAn=g3(15),rAn=g3(16),lWr=g3(9),rWr=g3(10);
 
   var result = {
-    hipDrop: null, hipDropAbs: null,
+    hipDrop: null, hipDropAbs: null, hipDropDeg: null,
     lWristCross: null, rWristCross: null,
     lKneeValgus: null, rKneeValgus: null,
     avgConfidence: 0
@@ -2276,12 +2296,19 @@ function computeFrontBackMetrics(kps) {
   }
   result.avgConfidence = count > 0 ? totalConf/count : 0;
 
-  // Hip drop: (lHip.y - rHip.y) / torsoHeight
+  // Hip drop: torso-normalized ratio (legacy) + actual pelvic obliquity angle in degrees.
+  // Angle is computed directly from the hip landmarks' vertical and horizontal separation,
+  // which is anthropometry-independent and lines up with the clinical CPD literature.
   if(lHi && rHi && lSh && rSh) {
     var torsoH = Math.abs(((lSh.y+rSh.y)/2) - ((lHi.y+rHi.y)/2));
     if(torsoH > 10) {
       result.hipDrop = (lHi.y - rHi.y) / torsoH; // positive = left hip lower
       result.hipDropAbs = Math.abs(result.hipDrop);
+    }
+    var hipDX = Math.abs(lHi.x - rHi.x);
+    var hipDY = Math.abs(lHi.y - rHi.y);
+    if(hipDX > 10) {
+      result.hipDropDeg = Math.atan2(hipDY, hipDX) * 180 / Math.PI;
     }
   }
 
@@ -2508,8 +2535,8 @@ var REPORT_DATA = {
       notable: 'Your hip is dropping significantly on the swing side during stance, which increases stress on the knee and IT band.',
       mild: 'Your hip is dropping slightly on the swing side during stance -- a sign that your glute medius could be working harder.'
     },
-    whatThisMeans: 'During stance, your pelvis drops excessively on the swing-leg side instead of staying relatively level.',
-    whyItMatters: 'Greater pelvic drop and related hip mechanics are commonly discussed in runners with patellofemoral pain and other lower-chain overload patterns, although not every runner with pelvic drop will have symptoms.',
+    whatThisMeans: 'During stance, your pelvis tilts so the swing-leg side drops below horizontal instead of staying level. Measured as pelvic obliquity in degrees at the moment of mid-stance, compared separately for left-foot stance and right-foot stance. Healthy recreational runners typically sit in the 3\u20138\u00b0 range; values above ~10\u00b0 are consistent with the injured-group means in Bramah et al. 2018. 2D video carries roughly \u00b13\u20135\u00b0 of measurement uncertainty vs 3D motion capture, so a single value near a threshold is a prompt for further assessment, not a diagnosis. A left\u2013right asymmetry of 3\u00b0 or more is itself clinically meaningful, even when both sides are within the healthy range.',
+    whyItMatters: 'Greater pelvic drop and related hip mechanics are commonly discussed in runners with patellofemoral pain, ITBS, MTSS, and other lower-chain overload patterns (Bramah 2018: each 1\u00b0 increase raises the odds of injured classification by ~80%). Not every runner with pelvic drop will have symptoms, but persistent elevation with marked asymmetry warrants a closer look.',
     whyItMattersRef: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC3984468/',
     possibleReasons: [
       {text: 'Hip abductor or glute medius strength may not be sufficient to hold the pelvis level under the demands of single-leg stance.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC9528670/'},
@@ -2706,29 +2733,75 @@ function detectIssues() {
     }
   }
 
-  // 2. HIP DROP (front mid_front, optionally back mid_back)
-  var frontFBM = phases.mid_front && phases.mid_front.frontBackMetrics ? phases.mid_front.frontBackMetrics : null;
-  var backFBM = phases.mid_back && phases.mid_back.frontBackMetrics ? phases.mid_back.frontBackMetrics : null;
-  var hipDropVal = null;
-  if(frontFBM && frontFBM.hipDropAbs !== null) {
-    hipDropVal = frontFBM.hipDropAbs;
-    // Blend with back if available and confident
-    if(backFBM && backFBM.hipDropAbs !== null && backFBM.avgConfidence >= 0.4) {
-      hipDropVal = (frontFBM.hipDropAbs * 2 + backFBM.hipDropAbs) / 3;
+  // 2. HIP DROP -- per-stance pelvic obliquity (degrees), bilateral asymmetry.
+  // Computes CPD angle at L-stance and R-stance from the front frame, blended 2:1 with the
+  // back frame for that same stance side when available. Thresholds are in degrees and
+  // derived from the CPD literature (Bramah 2018, Dingenen 2019, Willson & Davis 2008).
+  // Females run ~1-2 deg higher average pelvic obliquity, so thresholds get a +1 deg bump.
+  var frontL_FBM = phases.mid_front_l && phases.mid_front_l.frontBackMetrics ? phases.mid_front_l.frontBackMetrics : null;
+  var frontR_FBM = phases.mid_front_r && phases.mid_front_r.frontBackMetrics ? phases.mid_front_r.frontBackMetrics : null;
+  var backL_FBM  = phases.mid_back_l  && phases.mid_back_l.frontBackMetrics  ? phases.mid_back_l.frontBackMetrics  : null;
+  var backR_FBM  = phases.mid_back_r  && phases.mid_back_r.frontBackMetrics  ? phases.mid_back_r.frontBackMetrics  : null;
+
+  var blendCPD = function(front, back) {
+    var fVal = front && front.hipDropDeg !== null && front.hipDropDeg !== undefined ? front.hipDropDeg : null;
+    var bVal = back  && back.hipDropDeg  !== null && back.hipDropDeg  !== undefined ? back.hipDropDeg  : null;
+    if(fVal === null && bVal === null) return null;
+    if(fVal === null) return bVal;
+    if(bVal === null) return fVal;
+    // 2:1 front:back weighting, but only if back frame confidence is acceptable
+    if(back.avgConfidence >= 0.4) return (fVal * 2 + bVal) / 3;
+    return fVal;
+  };
+  var lCPD = blendCPD(frontL_FBM, backL_FBM);
+  var rCPD = blendCPD(frontR_FBM, backR_FBM);
+
+  var isFemale = selectedSex === 'female';
+  var mildT    = isFemale ? 9  : 8;   // degrees
+  var notableT = isFemale ? 13 : 12;  // degrees
+  var asymT    = 3;                   // degrees L-R difference
+  var gradeCPD = function(deg) {
+    if(deg === null) return null;
+    if(deg > notableT) return 'notable';
+    if(deg > mildT) return 'mild';
+    return null;
+  };
+  var sevL = gradeCPD(lCPD);
+  var sevR = gradeCPD(rCPD);
+  // Asymmetry: if both sides measured and diff >= 3 deg, upgrade higher side by one notch
+  var asymFlag = false;
+  if(lCPD !== null && rCPD !== null && Math.abs(lCPD - rCPD) >= asymT) {
+    asymFlag = true;
+    var higher = lCPD > rCPD ? 'L' : 'R';
+    if(higher === 'L') {
+      if(sevL === 'mild') sevL = 'notable';
+      else if(!sevL && lCPD > mildT - 2) sevL = 'mild'; // near-mild with asymmetry -> mild
+    } else {
+      if(sevR === 'mild') sevR = 'notable';
+      else if(!sevR && rCPD > mildT - 2) sevR = 'mild';
     }
   }
-  if(hipDropVal !== null && hipDropVal > 0.15) {
-    issues.hipDrop = {detected:true, severity:'notable', details:'Hip drop: '+(hipDropVal*100).toFixed(1)+'%'};
-  } else if(hipDropVal !== null && hipDropVal > 0.08) {
-    issues.hipDrop = {detected:true, severity:'mild', details:'Hip drop: '+(hipDropVal*100).toFixed(1)+'%'};
+  var worstCPD = function(a,b){var o={notable:2,mild:1};return (o[a]||0)>=(o[b]||0)?a:b;};
+  var topCPDSev = worstCPD(sevL, sevR);
+  if(topCPDSev) {
+    var fmtCPD = function(deg, sev){ if(deg===null) return 'no data'; return deg.toFixed(1)+'\u00b0'+(sev?' '+sev:' clear'); };
+    var cpdDetail = 'L-stance: '+fmtCPD(lCPD, sevL)+' \u00b7 R-stance: '+fmtCPD(rCPD, sevR);
+    if(asymFlag) cpdDetail += ' \u00b7 asymmetry '+Math.abs(lCPD-rCPD).toFixed(1)+'\u00b0';
+    issues.hipDrop = {detected:true, severity:topCPDSev, details:cpdDetail, sideSev:{L:sevL, R:sevR}};
   } else {
     issues.hipDrop = {detected:false, severity:null, details:COACHING_CUES.hipDrop.clear};
   }
 
-  // 3. ARMS CROSSING MIDLINE (front mid_front)
+  // 3. ARMS CROSSING MIDLINE (front view). Use whichever front frame has higher confidence.
+  var armsFrame = null;
+  if(frontL_FBM && frontR_FBM) {
+    armsFrame = (frontL_FBM.avgConfidence >= frontR_FBM.avgConfidence) ? frontL_FBM : frontR_FBM;
+  } else {
+    armsFrame = frontL_FBM || frontR_FBM;
+  }
   var maxCross = 0;
-  if(frontFBM) {
-    maxCross = Math.max(frontFBM.lWristCross||0, frontFBM.rWristCross||0);
+  if(armsFrame) {
+    maxCross = Math.max(armsFrame.lWristCross||0, armsFrame.rWristCross||0);
   }
   if(maxCross > 0.15) {
     issues.armsCrossing = {detected:true, severity:'notable', details:'Max crossing: '+(maxCross*100).toFixed(1)+'% of shoulder width'};
@@ -2798,15 +2871,18 @@ function detectIssues() {
     }
   }
 
-  // 6. KNEE VALGUS (front mid_front)
-  var maxValgus = 0;
-  if(frontFBM) {
-    maxValgus = Math.max(frontFBM.lKneeValgus||0, frontFBM.rKneeValgus||0);
-  }
-  if(maxValgus > 0.15) {
-    issues.kneeValgus = {detected:true, severity:'notable', details:'Max valgus: '+(maxValgus*100).toFixed(1)+'% of hip width'};
-  } else if(maxValgus > 0.08) {
-    issues.kneeValgus = {detected:true, severity:'mild', details:'Max valgus: '+(maxValgus*100).toFixed(1)+'% of hip width'};
+  // 6. KNEE VALGUS -- per-stance valgus from each side's front frame.
+  // mid_front_l captures L-stance (use lKneeValgus); mid_front_r captures R-stance (use rKneeValgus).
+  var lValgus = frontL_FBM && frontL_FBM.lKneeValgus !== null && frontL_FBM.lKneeValgus !== undefined ? frontL_FBM.lKneeValgus : null;
+  var rValgus = frontR_FBM && frontR_FBM.rKneeValgus !== null && frontR_FBM.rKneeValgus !== undefined ? frontR_FBM.rKneeValgus : null;
+  var gradeValgus = function(v){ if(v===null) return null; if(v > 0.15) return 'notable'; if(v > 0.08) return 'mild'; return null; };
+  var sevLV = gradeValgus(lValgus);
+  var sevRV = gradeValgus(rValgus);
+  var topValgusSev = worstCPD(sevLV, sevRV);
+  if(topValgusSev) {
+    var fmtV = function(v, sev){ if(v===null) return 'no data'; return (v*100).toFixed(1)+'%'+(sev?' '+sev:' clear'); };
+    var vDetail = 'L-stance: '+fmtV(lValgus, sevLV)+' \u00b7 R-stance: '+fmtV(rValgus, sevRV);
+    issues.kneeValgus = {detected:true, severity:topValgusSev, details:vDetail, sideSev:{L:sevLV, R:sevRV}};
   } else {
     issues.kneeValgus = {detected:false, severity:null, details:COACHING_CUES.kneeValgus.clear};
   }
@@ -3070,13 +3146,21 @@ function downloadSampleReport() {
       trunk:10.2, lKnee:170, rKnee:82, lHip:148, rHip:160, lElbow:92, rElbow:118, lFoot:0.22,
       leadKnee:170, leadHip:148, leadFoot:0.22, nearElbow:92, leadSide:'L', nearElbowSide:'L'
     }, sideView:true},
-    mid_front: {t:1.0, detected:true, kps:null, metrics:null, frontBackMetrics:{
-      hipDrop:0.12, hipDropAbs:0.12, lWristCross:0.09, rWristCross:0.03,
+    mid_front_l: {t:0.8, detected:true, kps:null, metrics:null, frontBackMetrics:{
+      hipDrop:0.12, hipDropAbs:0.12, hipDropDeg:11.2, lWristCross:0.09, rWristCross:0.03,
       lKneeValgus:0.11, rKneeValgus:0, avgConfidence:0.78, stanceSide:'left'
     }, sideView:false},
-    mid_back: {t:0.8, detected:true, kps:null, metrics:null, frontBackMetrics:{
-      hipDrop:0.10, hipDropAbs:0.10, lWristCross:0, rWristCross:0,
+    mid_front_r: {t:1.1, detected:true, kps:null, metrics:null, frontBackMetrics:{
+      hipDrop:-0.08, hipDropAbs:0.08, hipDropDeg:7.3, lWristCross:0.07, rWristCross:0.02,
+      lKneeValgus:0, rKneeValgus:0.06, avgConfidence:0.76, stanceSide:'right'
+    }, sideView:false},
+    mid_back_l: {t:0.8, detected:true, kps:null, metrics:null, frontBackMetrics:{
+      hipDrop:0.10, hipDropAbs:0.10, hipDropDeg:10.1, lWristCross:0, rWristCross:0,
       lKneeValgus:0, rKneeValgus:0, avgConfidence:0.65, stanceSide:'left'
+    }, sideView:false},
+    mid_back_r: {t:1.1, detected:true, kps:null, metrics:null, frontBackMetrics:{
+      hipDrop:-0.07, hipDropAbs:0.07, hipDropDeg:6.8, lWristCross:0, rWristCross:0,
+      lKneeValgus:0, rKneeValgus:0, avgConfidence:0.62, stanceSide:'right'
     }, sideView:false}
   };
 
@@ -3090,11 +3174,11 @@ function downloadSampleReport() {
   // Dummy issues: all 6 detected
   lastIssues = {
     overstriding: {detected:true, severity:'notable', details:'Max offset: 0.32 torso lengths', sideSev:{L:'mild', R:'notable'}},
-    hipDrop: {detected:true, severity:'mild', details:'Hip drop: 11.3%'},
+    hipDrop: {detected:true, severity:'mild', details:'L-stance: 11.2° mild · R-stance: 7.3° clear · asymmetry 3.9°', sideSev:{L:'mild', R:null}},
     armsCrossing: {detected:true, severity:'mild', details:'Max crossing: 9.0% of shoulder width'},
     torsoPosition: {detected:true, severity:'mild', details:'Trunk lean: 1.8 (very upright)', cueKey:'torsoUpright'},
     armAngle: {detected:true, severity:'notable', details:'Avg elbow: 138'},
-    kneeValgus: {detected:true, severity:'mild', details:'Max valgus: 11.0% of hip width'}
+    kneeValgus: {detected:true, severity:'mild', details:'L-stance: 11.0% mild · R-stance: 6.0% clear', sideSev:{L:'mild', R:null}}
   };
 
   // Set save name for the PDF header
