@@ -1040,11 +1040,18 @@ const METRIC_BIO = {
 
 // -- Bell curve SVG builder --
 function getRangeStats(phaseKey, metricKey) {
+  // Prefer robust stats (median + MAD-based SD) when the reference doc has them.
+  // Falls back to classical mean + SD for older docs that pre-date the robust fields.
   var sexRanges = selectedSex ? liveRanges[selectedSex] : null;
   if (sexRanges) {
     var r = sexRanges[phaseKey] ? sexRanges[phaseKey][metricKey] : null;
-    if (r && r.reliable && r.n >= MIN_N && r.mean != null && r.sd != null && r.sd > 0) {
-      return {mean: r.mean, sd: r.sd, source: 'live', n: r.n};
+    if (r && r.reliable && r.n >= MIN_N) {
+      if (r.center != null && r.spread != null && r.spread > 0) {
+        return {mean: r.center, sd: r.spread, source: 'live', n: r.n};
+      }
+      if (r.mean != null && r.sd != null && r.sd > 0) {
+        return {mean: r.mean, sd: r.sd, source: 'live', n: r.n};
+      }
     }
   }
   var d = DEFAULTS[metricKey] || {green:[0,0]};
