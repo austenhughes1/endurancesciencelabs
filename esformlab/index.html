@@ -1060,6 +1060,32 @@ function getRangeStats(phaseKey, metricKey) {
   return {mean: mean, sd: sd || 1, source: 'default', n: 0};
 }
 
+// Pooled stats combine L and R mirror-phase values into one baseline (for symmetric-gait
+// anomalies like overstriding). Returns the same shape as getRangeStats; falls back to
+// classical per-phase stats if pooled data isn't in the doc yet.
+function getPooledStats(metricKey) {
+  var sexRanges = selectedSex ? liveRanges[selectedSex] : null;
+  var p = sexRanges && sexRanges.pooled ? sexRanges.pooled[metricKey] : null;
+  if (p && p.reliable && p.n >= MIN_N) {
+    if (p.center != null && p.spread != null && p.spread > 0) {
+      return {mean: p.center, sd: p.spread, source: 'live', n: p.n};
+    }
+    if (p.mean != null && p.sd != null && p.sd > 0) {
+      return {mean: p.mean, sd: p.sd, source: 'live', n: p.n};
+    }
+  }
+  // Fallback: average of per-phase stats when pooled section isn't present.
+  if (metricKey === 'leadFoot') {
+    var L = getRangeStats('l_foot', 'leadFoot');
+    var R = getRangeStats('r_foot', 'leadFoot');
+    return {mean: (L.mean + R.mean) / 2, sd: (L.sd + R.sd) / 2, source: L.source, n: L.n + R.n};
+  }
+  var d = DEFAULTS[metricKey] || {green:[0,0]};
+  var mean = (d.green[0] + d.green[1]) / 2;
+  var sd   = (d.green[1] - d.green[0]) / 3;
+  return {mean: mean, sd: sd || 1, source: 'default', n: 0};
+}
+
 function buildBellCurveSVG(val, metricKey, phaseKey, fmtFn) {
   if (val===undefined||val===null||!isFinite(val)) return '';
   var stats = getRangeStats(phaseKey||'mid', metricKey||'trunk');
@@ -2629,28 +2655,51 @@ function detectIssues() {
   var issues = {};
 
   // 1. OVERSTRIDING (side: l_foot + r_foot)
-  // Uses elite reference ranges: mild > 1 SD above mean, notable > 2 SD above mean.
-  // For L/R, use the stricter of the two sides: lower mean + lower SD.
+  // Elite baseline: L and R foot-strike leadFoot values pooled into one distribution
+  // (symmetric gait assumption) → single pooled center + spread. Each user side is
+  // z-scored against that pooled baseline. Per-side severity is reported, and the
+  // top-level severity is the worst of the two. z > 1 = mild, z > 2 = notable.
   var lFootM = phases.l_foot && phases.l_foot.metrics ? phases.l_foot.metrics : null;
   var rFootM = phases.r_foot && phases.r_foot.metrics ? phases.r_foot.metrics : null;
-  var maxOffset = null;
-  if(lFootM && lFootM.leadFoot !== undefined) maxOffset = Math.max(maxOffset===null?-Infinity:maxOffset, lFootM.leadFoot);
-  else if(lFootM && lFootM.lFoot !== undefined) maxOffset = Math.max(maxOffset===null?-Infinity:maxOffset, lFootM.lFoot);
-  if(rFootM && rFootM.leadFoot !== undefined) maxOffset = Math.max(maxOffset===null?-Infinity:maxOffset, rFootM.leadFoot);
-  else if(rFootM && rFootM.rFoot !== undefined) maxOffset = Math.max(maxOffset===null?-Infinity:maxOffset, rFootM.rFoot);
-  if(maxOffset === null) {
+  var getSideVal = function(m, sideLetter) {
+    if(!m) return null;
+    if(m.leadFoot !== undefined) return m.leadFoot;
+    var fallback = sideLetter === 'l' ? m.lFoot : m.rFoot;
+    return fallback !== undefined ? fallback : null;
+  };
+  var lVal = getSideVal(lFootM, 'l');
+  var rVal = getSideVal(rFootM, 'r');
+  if(lVal === null && rVal === null) {
     issues.overstriding = {detected:false, severity:null, details:COACHING_CUES.overstriding.clear};
   } else {
-    var lStats = getRangeStats('l_foot', 'leadFoot');
-    var rStats = getRangeStats('r_foot', 'leadFoot');
-    var osMean = Math.min(lStats.mean, rStats.mean);
-    var osSD = Math.min(lStats.sd, rStats.sd);
-    var osMild = osMean + osSD;
-    var osNotable = osMean + 2 * osSD;
-    if(maxOffset > osNotable) {
-      issues.overstriding = {detected:true, severity:'notable', details:'Max foot offset: '+maxOffset.toFixed(2)+' (elite '+osMean.toFixed(2)+' \u00b1 '+osSD.toFixed(2)+')'};
-    } else if(maxOffset > osMild) {
-      issues.overstriding = {detected:true, severity:'mild', details:'Max foot offset: '+maxOffset.toFixed(2)+' (elite '+osMean.toFixed(2)+' \u00b1 '+osSD.toFixed(2)+')'};
+    var poolStats = getPooledStats('leadFoot');
+    var gradeZ = function(z) {
+      if(z === null) return null;
+      if(z > 2) return 'notable';
+      if(z > 1) return 'mild';
+      return null;
+    };
+    var zL = lVal !== null ? (lVal - poolStats.mean) / poolStats.sd : null;
+    var zR = rVal !== null ? (rVal - poolStats.mean) / poolStats.sd : null;
+    var sevL = gradeZ(zL);
+    var sevR = gradeZ(zR);
+    var worst = function(a,b) {
+      var order = {notable:2, mild:1};
+      var aR = order[a]||0, bR = order[b]||0;
+      return aR >= bR ? a : b;
+    };
+    var topSev = worst(sevL, sevR);
+    var formatSide = function(val, z, sev) {
+      if(val === null) return 'no data';
+      var s = val.toFixed(2) + ' (z=' + (z>=0?'+':'') + z.toFixed(1) + ')';
+      if(sev) s += ' ' + sev;
+      else s += ' clear';
+      return s;
+    };
+    if(topSev) {
+      var detail = 'L: ' + formatSide(lVal, zL, sevL) + ' \u00b7 R: ' + formatSide(rVal, zR, sevR) +
+        ' \u00b7 elite pooled ' + poolStats.mean.toFixed(2) + ' \u00b1 ' + poolStats.sd.toFixed(2);
+      issues.overstriding = {detected:true, severity:topSev, details:detail, sideSev:{L:sevL, R:sevR}};
     } else {
       issues.overstriding = {detected:false, severity:null, details:COACHING_CUES.overstriding.clear};
     }
