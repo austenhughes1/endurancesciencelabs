@@ -1100,7 +1100,7 @@ async function autoScan(){
   if(!isFinite(dur)||isNaN(dur)||dur<=0){await new Promise(r=>setTimeout(r,500));dur=videoEl.duration;}
   if(!isFinite(dur)||isNaN(dur)||dur<=0)dur=30;
   initPhases(dur/2);
-  const N=40,samples=[];
+  const N=100,samples=[];
   document.getElementById('scan-phase-list').innerHTML=PHASE_DEFS.map(p=>`<div class="spl-item" id="spl-${p.key}"><div class="spl-dot"></div><span class="spl-name">${p.label}</span><span class="spl-time" id="spl-t-${p.key}">—</span></div>`).join('');
   const sc=document.getElementById('scan-canvas'),sctx=sc.getContext('2d');
   let posesFound=0;
@@ -1127,9 +1127,12 @@ async function autoScan(){
     const g=idx=>(kps[idx]&&kps[idx].score>=MIN_CONF)?kps[idx]:null;
     const lAn=g(15),rAn=g(16),lKn=g(13),lHi=g(11),rHi=g(12),lSh=g(5),rSh=g(6),rKn=g(14);
     const lKnAngle=(lHi&&lKn&&lAn)?calcAngle(lHi,lKn,lAn):null;
+    const rKnAngle=(rHi&&rKn&&rAn)?calcAngle(rHi,rKn,rAn):null;
     const lHipExt=(lSh&&lHi&&lKn)?calcAngle(lSh,lHi,lKn):null;
     const rHipExt=(rSh&&rHi&&rKn)?calcAngle(rSh,rHi,rKn):null;
-    samples.push({t,lAnkleY:lAn?.y,rAnkleY:rAn?.y,lHipExt,rHipExt,lKnAngle,kps});
+    const conf=kps.reduce((sum,k)=>sum+(k.score||0),0)/kps.length;
+    const hipMidX=(lHi&&rHi)?(lHi.x+rHi.x)/2:undefined;
+    samples.push({t,lAnkleY:lAn?.y,rAnkleY:rAn?.y,lAnkleX:lAn?.x,rAnkleX:rAn?.x,hipMidX,lHipExt,rHipExt,lKnAngle,rKnAngle,conf,kps});
   }
   document.getElementById('scan-bar').style.width='100%';
   document.getElementById('scan-step').textContent=`Done · ${posesFound}/${N} frames detected`;
@@ -1169,24 +1172,141 @@ async function autoScan(){
   for(const def of PHASE_DEFS){if(phases[def.key]?.detected)await analyzeCard(def.key);}
 }
 
-// Phase detection
+// Phase detection (side video only).
+// Strategy: locate L and R foot-strike EVENTS via local maxima of ankleY (ankle lowest in frame),
+// then derive every other phase within the stance/swing windows those strikes define. This avoids
+// the old single-global-extremum approach, which mixed phases from unrelated strides.
 function findPhases(samples,dur){
   if(!samples.length)return;
-  const claimed=()=>new Set(Object.values(phases).filter(p=>p?.detected).map(p=>p.t));
+  samples=[...samples].sort((a,b)=>a.t-b.t);
   const det=(key,s)=>{if(s)phases[key]={...phases[key],...s,detected:true};};
-  const withLA=samples.filter(s=>s.lAnkleY!==undefined&&isFinite(s.lAnkleY));
-  const withRA=samples.filter(s=>s.rAnkleY!==undefined&&isFinite(s.rAnkleY));
-  const withKn=samples.filter(s=>s.lKnAngle!==null&&s.lKnAngle!==undefined&&isFinite(s.lKnAngle));
-  const withLH=samples.filter(s=>s.lHipExt!==null&&s.lHipExt!==undefined&&isFinite(s.lHipExt));
-  const withRH=samples.filter(s=>s.rHipExt!==null&&s.rHipExt!==undefined&&isFinite(s.rHipExt));
-  if(withLA.length)det('l_foot',withLA.reduce((a,b)=>b.lAnkleY>a.lAnkleY?b:a));
-  if(withRA.length){const lT=phases.l_foot?.detected?phases.l_foot.t:-99;const pool=withRA.filter(s=>Math.abs(s.t-lT)>.08);if(pool.length)det('r_foot',pool.reduce((a,b)=>b.rAnkleY>a.rAnkleY?b:a));}
-  if(withLH.length){const lFT=phases.l_foot?.detected?phases.l_foot.t:0;const pool=withLH.filter(s=>s.t>lFT+.05);const src=pool.length>=2?pool:withLH;const best=src.reduce((a,b)=>b.lHipExt>a.lHipExt?b:a);if(!claimed().has(best.t))det('l_toe',best);}
-  if(withRH.length){const rFT=phases.r_foot?.detected?phases.r_foot.t:0;const pool=withRH.filter(s=>s.t>rFT+.05);const src=pool.length>=2?pool:withRH;const best=src.reduce((a,b)=>b.rHipExt>a.rHipExt?b:a);if(!claimed().has(best.t))det('r_toe',best);}
-  const sorted=[...samples].sort((a,b)=>a.t-b.t);let foundMid=false;
-  for(let off=0;off<sorted.length&&!foundMid;off++){for(const d of[0,1,-1]){const idx=Math.floor(sorted.length/2)+d*off;if(idx<0||idx>=sorted.length)continue;const s=sorted[idx];if(s&&!claimed().has(s.t)){det('mid',s);foundMid=true;break;}}}
-  if(withKn.length){const s=[...withKn].sort((a,b)=>a.lKnAngle-b.lKnAngle).find(s=>!claimed().has(s.t));if(s)det('peak_kf',s);}
-  if(withKn.length){const s=[...withKn].sort((a,b)=>b.lKnAngle-a.lKnAngle).find(s=>!claimed().has(s.t));if(s)det('swing',s);}
+
+  const localPeaks=(key,minSpacing=2)=>{
+    const peaks=[];
+    for(let i=1;i<samples.length-1;i++){
+      const v=samples[i][key]; if(v===undefined||v===null||!isFinite(v)) continue;
+      let isMax=true;
+      for(let w=1;w<=minSpacing&&isMax;w++){
+        const lo=i-w,hi=i+w;
+        if(lo>=0){const pv=samples[lo][key]; if(pv!==undefined&&pv!==null&&isFinite(pv)&&pv>v) isMax=false;}
+        if(hi<samples.length){const nv=samples[hi][key]; if(nv!==undefined&&nv!==null&&isFinite(nv)&&nv>v) isMax=false;}
+      }
+      if(isMax) peaks.push({idx:i,val:v,t:samples[i].t,s:samples[i]});
+    }
+    return peaks;
+  };
+  const localTroughs=(key,minSpacing=2)=>{
+    const troughs=[];
+    for(let i=1;i<samples.length-1;i++){
+      const v=samples[i][key]; if(v===undefined||v===null||!isFinite(v)) continue;
+      let isMin=true;
+      for(let w=1;w<=minSpacing&&isMin;w++){
+        const lo=i-w,hi=i+w;
+        if(lo>=0){const pv=samples[lo][key]; if(pv!==undefined&&pv!==null&&isFinite(pv)&&pv<v) isMin=false;}
+        if(hi<samples.length){const nv=samples[hi][key]; if(nv!==undefined&&nv!==null&&isFinite(nv)&&nv<v) isMin=false;}
+      }
+      if(isMin) troughs.push({idx:i,val:v,t:samples[i].t,s:samples[i]});
+    }
+    return troughs;
+  };
+  const prominenceFilter=(peaks,key,pct)=>{
+    const vals=samples.map(s=>s[key]).filter(v=>v!==undefined&&v!==null&&isFinite(v)).sort((a,b)=>a-b);
+    if(vals.length<6) return peaks;
+    const cut=vals[Math.floor(vals.length*pct)];
+    return peaks.filter(p=>p.val>=cut);
+  };
+  const prominenceFilterMin=(troughs,key,pct)=>{
+    const vals=samples.map(s=>s[key]).filter(v=>v!==undefined&&v!==null&&isFinite(v)).sort((a,b)=>a-b);
+    if(vals.length<6) return troughs;
+    const cut=vals[Math.floor(vals.length*pct)];
+    return troughs.filter(p=>p.val<=cut);
+  };
+  const score=(c,ref,hi)=>((hi?c.val-ref:ref-c.val)*(0.5+0.5*(c.s.conf||0)));
+  const pickByScore=(cands,ref,hi)=>cands.length?[...cands].sort((a,b)=>score(b,ref,hi)-score(a,ref,hi))[0]:null;
+  const median=key=>{const v=samples.map(s=>s[key]).filter(x=>x!==undefined&&x!==null&&isFinite(x)).sort((a,b)=>a-b); return v.length?v[Math.floor(v.length/2)]:0;};
+
+  // ---- Foot strikes ----
+  const lStrikes=prominenceFilter(localPeaks('lAnkleY',2),'lAnkleY',0.55);
+  const rStrikes=prominenceFilter(localPeaks('rAnkleY',2),'rAnkleY',0.55);
+  const lFoot=pickByScore(lStrikes,median('lAnkleY'),true);
+  const rStrikesFiltered=lFoot?rStrikes.filter(c=>Math.abs(c.t-lFoot.t)>0.10):rStrikes;
+  const rFoot=pickByScore(rStrikesFiltered,median('rAnkleY'),true);
+  if(lFoot) det('l_foot',lFoot.s);
+  if(rFoot) det('r_foot',rFoot.s);
+
+  // ---- Toe-offs ----
+  const lToeCands=prominenceFilter(localPeaks('lHipExt',2),'lHipExt',0.55);
+  const rToeCands=prominenceFilter(localPeaks('rHipExt',2),'rHipExt',0.55);
+  const inWindow=(cands,startT,minDt,maxDt)=>cands.filter(c=>{const dt=c.t-startT;return dt>=minDt&&dt<=maxDt;});
+  let lToe=lFoot?pickByScore(inWindow(lToeCands,lFoot.t,0.08,0.90),median('lHipExt'),true):null;
+  if(!lToe) lToe=pickByScore(lToeCands,median('lHipExt'),true);
+  let rToe=rFoot?pickByScore(inWindow(rToeCands,rFoot.t,0.08,0.90),median('rHipExt'),true):null;
+  if(!rToe) rToe=pickByScore(rToeCands,median('rHipExt'),true);
+
+  const claimedTimes=()=>[lFoot,rFoot,lToe,rToe].filter(Boolean).map(x=>x.t);
+  const tooClose=(t,others,dt=0.05)=>others.some(o=>Math.abs(o-t)<dt);
+
+  if(lToe && !tooClose(lToe.t,[lFoot,rFoot].filter(Boolean).map(x=>x.t))) det('l_toe',lToe.s);
+  if(rToe && !tooClose(rToe.t,[lFoot,rFoot,lToe].filter(Boolean).map(x=>x.t))) det('r_toe',rToe.s);
+
+  // ---- Mid-stance ----
+  const pickMidStance=(side,startT,endT)=>{
+    const ankleKey=side==='left'?'lAnkleX':'rAnkleX';
+    let best=null,bestDist=Infinity;
+    for(const s of samples){
+      if(s.t<startT||s.t>endT) continue;
+      if(s[ankleKey]===undefined||s.hipMidX===undefined) continue;
+      const d=Math.abs(s[ankleKey]-s.hipMidX);
+      const adj=d*(1-0.1*(s.conf||0));
+      if(adj<bestDist){bestDist=adj;best=s;}
+    }
+    return best;
+  };
+  let mid=null;
+  if(lFoot && rFoot && rFoot.t>lFoot.t) mid=pickMidStance('left',lFoot.t+0.02,rFoot.t-0.02);
+  if(!mid && rFoot && lFoot && lFoot.t>rFoot.t) mid=pickMidStance('right',rFoot.t+0.02,lFoot.t-0.02);
+  if(!mid) mid=samples[Math.floor(samples.length/2)];
+  if(mid){
+    const claimed=claimedTimes();
+    if(tooClose(mid.t,claimed)){
+      const alts=[...samples].sort((a,b)=>Math.abs(a.t-mid.t)-Math.abs(b.t-mid.t));
+      for(const a of alts){if(!tooClose(a.t,claimed)){mid=a;break;}}
+    }
+    det('mid',mid);
+  }
+
+  // ---- Peak knee flex ----
+  const kneeTroughs=prominenceFilterMin(localTroughs('lKnAngle',2),'lKnAngle',0.45);
+  let pkfCand=null;
+  if(lToe){
+    const swingWin=kneeTroughs.filter(c=>{const dt=c.t-lToe.t;return dt>=0.05&&dt<=0.70;});
+    pkfCand=pickByScore(swingWin,median('lKnAngle'),false);
+  }
+  if(!pkfCand) pkfCand=pickByScore(kneeTroughs,median('lKnAngle'),false);
+  if(pkfCand){
+    const claimed2=claimedTimes().concat(mid?[mid.t]:[]);
+    if(!tooClose(pkfCand.t,claimed2)){det('peak_kf',pkfCand.s);}
+    else{
+      const sorted=[...kneeTroughs].sort((a,b)=>a.val-b.val);
+      for(const c of sorted){if(!tooClose(c.t,claimed2)){det('peak_kf',c.s);break;}}
+    }
+  }
+
+  // ---- Terminal swing ----
+  const kneePeaks=prominenceFilter(localPeaks('lKnAngle',2),'lKnAngle',0.55);
+  const claimed3=claimedTimes().concat(mid?[mid.t]:[]).concat(phases.peak_kf?.detected?[phases.peak_kf.t]:[]);
+  let swingCand=null;
+  if(phases.peak_kf?.detected){
+    const pkfT=phases.peak_kf.t;
+    const win3=kneePeaks.filter(c=>c.t>pkfT);
+    const sorted2=[...win3].sort((a,b)=>b.val-a.val);
+    for(const c of sorted2){if(!tooClose(c.t,claimed3)){swingCand=c;break;}}
+  }
+  if(!swingCand){
+    const sorted3=[...kneePeaks].sort((a,b)=>b.val-a.val);
+    for(const c of sorted3){if(!tooClose(c.t,claimed3)){swingCand=c;break;}}
+  }
+  if(swingCand) det('swing',swingCand.s);
 }
 
 // Phase grid
