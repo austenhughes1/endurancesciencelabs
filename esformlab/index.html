@@ -2717,7 +2717,7 @@ function detectIssues() {
   } else {
     var armStats = getRangeStats('peak_kf', 'nearElbow');
     var armMild = armStats.mean + 2 * armStats.sd;
-    var armNotable = armStats.mean + 3 * armStats.sd;
+    var armNotable = armStats.mean + 4 * armStats.sd;
     if(pkfElbow > armNotable) {
       issues.armAngle = {detected:true, severity:'notable', details:'Elbow: '+pkfElbow.toFixed(0)+'\u00b0 (elite '+armStats.mean.toFixed(0)+' \u00b1 '+armStats.sd.toFixed(0)+')'};
     } else if(pkfElbow > armMild) {
