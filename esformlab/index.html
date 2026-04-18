@@ -2024,12 +2024,13 @@ function renderMiniMetricsFrontBack(key, fbm) {
     if(maxCross > 0.05) {
       items.push('<span class="mm-item">Arm crossing: detected</span>');
     }
-    var stanceValgusDeg = null;
-    if(fbm.stanceSide === 'left' && fbm.lKneeValgusDeg != null) stanceValgusDeg = fbm.lKneeValgusDeg;
-    else if(fbm.stanceSide === 'right' && fbm.rKneeValgusDeg != null) stanceValgusDeg = fbm.rKneeValgusDeg;
-    if(stanceValgusDeg != null && stanceValgusDeg > 3) {
-      items.push('<span class="mm-item">Stance knee valgus: '+stanceValgusDeg.toFixed(1)+'\u00b0</span>');
-    }
+  }
+  // Knee valgus visible from both front and back frames.
+  var stanceValgusDeg = null;
+  if(fbm.stanceSide === 'left' && fbm.lKneeValgusDeg != null) stanceValgusDeg = fbm.lKneeValgusDeg;
+  else if(fbm.stanceSide === 'right' && fbm.rKneeValgusDeg != null) stanceValgusDeg = fbm.rKneeValgusDeg;
+  if(stanceValgusDeg != null && stanceValgusDeg > 3) {
+    items.push('<span class="mm-item">Stance knee valgus: '+stanceValgusDeg.toFixed(1)+'\u00b0</span>');
   }
   if(items.length===0) {
     items.push('<span class="mm-item">Avg confidence: '+(fbm.avgConfidence||0).toFixed(2)+'</span>');
@@ -2213,17 +2214,17 @@ function renderExpandMetricsFrontBack(fbm) {
     html += '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:var(--right)"></div><strong>R wrist crossing</strong></div>';
     html += '<div class="ep-metric-bio">How far the right wrist crosses the body midline during arm swing.</div>';
     html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(fbm.rWristCross!==null?(fbm.rWristCross*100).toFixed(1)+'% of shoulder width':'--')+'</span></div></div>';
-
-    // Show only stance-leg knee valgus (FPPA in degrees)
-    var stanceValgusDegVal = null;
-    var stanceValgusLabel = 'Stance knee valgus (FPPA)';
-    if(fbm.stanceSide === 'left') { stanceValgusDegVal = fbm.lKneeValgusDeg; }
-    else if(fbm.stanceSide === 'right') { stanceValgusDegVal = fbm.rKneeValgusDeg; }
-    html += '<div class="ep-metric-block">';
-    html += '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:var(--cyan)"></div><strong>' + stanceValgusLabel + '</strong></div>';
-    html += '<div class="ep-metric-bio">Frontal Plane Projection Angle: signed angle of the knee\u2019s deviation from the hip\u2013ankle line. Positive = medial (valgus), negative = lateral (varus).</div>';
-    html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(stanceValgusDegVal!==null?stanceValgusDegVal.toFixed(1)+'\u00b0':'--')+'</span></div></div>';
   }
+
+  // Stance-leg knee valgus (FPPA in degrees) -- measured from both front and back
+  // frames, since hip/knee/ankle are visible from either view.
+  var stanceValgusDegVal = null;
+  if(fbm.stanceSide === 'left') { stanceValgusDegVal = fbm.lKneeValgusDeg; }
+  else if(fbm.stanceSide === 'right') { stanceValgusDegVal = fbm.rKneeValgusDeg; }
+  html += '<div class="ep-metric-block">';
+  html += '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:var(--cyan)"></div><strong>Stance knee valgus (FPPA)' + stanceLabel + '</strong></div>';
+  html += '<div class="ep-metric-bio">Frontal Plane Projection Angle: signed angle of the knee\u2019s deviation from the hip\u2013ankle line. Positive = medial (valgus), negative = lateral (varus).'+(isFront?'':' The back view offers a second look at the same anatomy; detection uses the front-view value.')+'</div>';
+  html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(stanceValgusDegVal!==null&&stanceValgusDegVal!==undefined?stanceValgusDegVal.toFixed(1)+'\u00b0':'--')+'</span></div></div>';
 
   html += '<div class="ep-metric-block">';
   html += '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:var(--cyan)"></div><strong>Avg confidence</strong></div>';
