@@ -584,7 +584,7 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
   <div class="thr-hdr">
     <div>
       <div class="thr-title">Anomaly detection thresholds</div>
-      <div class="thr-sub">The 6 gait anomalies the public analyzer flags, and the ranges it uses to decide mild vs notable. SD-based rules update live as new reference sessions are added.</div>
+      <div class="thr-sub">The 6 gait anomalies the public analyzer flags, and the ranges it uses to decide mild vs notable. Live rows update as new reference sessions are added; fixed rows come from the running gait literature or clinical convention. Detections that have left/right structure (overstriding, hip drop, knee valgus, arms crossing) flag each side independently and surface a side tag on the report.</div>
     </div>
     <div class="thr-toggle" role="tablist" aria-label="Reference population">
       <button id="thr-btn-male"   type="button" onclick="setThresholdsSex('male')">♂ Male</button>
@@ -605,8 +605,8 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
     </table>
   </div>
   <div class="thr-note">
-    <span class="live-dot"></span>Live — derived from the reference dataset for the selected sex (uses elite mean ± SD).&nbsp;&nbsp;
-    <span class="fixed-dot"></span>Fixed — hardcoded ratio threshold, applied identically to both sexes.
+    <span class="live-dot"></span>Live — derived from the reference dataset for the selected sex (median + MAD-based robust SD; one bad session can't move the threshold).&nbsp;&nbsp;
+    <span class="fixed-dot"></span>Fixed — hardcoded threshold from the literature or clinical convention. Hip drop and knee valgus are sex-adjusted (+1° for female); arms crossing is identical for both sexes.
   </div>
 </div>
 
@@ -876,7 +876,7 @@ function renderThresholds() {
     });
   }
 
-  // 5. ARM ANGLE TOO OPEN -- peak knee flex elbow, 2/3 SD above mean
+  // 5. ARM ANGLE TOO OPEN -- peak knee flex elbow, 2/4 SD above mean
   {
     const E = thrLiveStats(sex, 'peak_kf', 'nearElbow');
     rows.push({
