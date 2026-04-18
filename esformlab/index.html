@@ -1744,7 +1744,7 @@ async function autoScanAll(){
 
   // ---- STEP 1: Scan side video (7 side phases) ----
   document.getElementById('scan-sub-text').textContent = 'Scanning side view for 7 gait phases...';
-  var N=40, samples=[];
+  var N=100, samples=[];
   var sc=document.getElementById('scan-canvas'), sctx=sc.getContext('2d');
   var posesFound=0;
 
@@ -1768,7 +1768,20 @@ async function autoScanAll(){
     drawMiniSkeleton(sctx,kps,sc.width/(sideVid.videoWidth||sc.width),sc.height/(sideVid.videoHeight||sc.height));
     var g=function(idx){return (kps[idx]&&kps[idx].score>=MIN_CONF)?kps[idx]:null;};
     var lAn=g(15),rAn=g(16),lKn=g(13),lHi=g(11),rHi=g(12),lSh=g(5),rSh=g(6),rKn=g(14);
-    samples.push({t:t, lAnkleY:lAn?lAn.y:undefined, rAnkleY:rAn?rAn.y:undefined, lHipExt:(lSh&&lHi&&lKn)?calcAngle(lSh,lHi,lKn):null, rHipExt:(rSh&&rHi&&rKn)?calcAngle(rSh,rHi,rKn):null, lKnAngle:(lHi&&lKn&&lAn)?calcAngle(lHi,lKn,lAn):null, kps:kps});
+    var conf=kps.reduce(function(sum,k){return sum+(k.score||0);},0)/kps.length;
+    var hipMidX=(lHi&&rHi)?(lHi.x+rHi.x)/2:undefined;
+    samples.push({
+      t:t,
+      lAnkleY:lAn?lAn.y:undefined, rAnkleY:rAn?rAn.y:undefined,
+      lAnkleX:lAn?lAn.x:undefined, rAnkleX:rAn?rAn.x:undefined,
+      hipMidX:hipMidX,
+      lHipExt:(lSh&&lHi&&lKn)?calcAngle(lSh,lHi,lKn):null,
+      rHipExt:(rSh&&rHi&&rKn)?calcAngle(rSh,rHi,rKn):null,
+      lKnAngle:(lHi&&lKn&&lAn)?calcAngle(lHi,lKn,lAn):null,
+      rKnAngle:(rHi&&rKn&&rAn)?calcAngle(rHi,rKn,rAn):null,
+      conf:conf,
+      kps:kps
+    });
   }
 
   // Detect side phases
@@ -1818,7 +1831,7 @@ async function autoScanAll(){
   var sexInfo=selectedSex?'<span class="ss-item '+selectedSex+'">Ranges: <strong>'+selectedSex+'</strong></span>':'<span class="ss-item">Ranges: <strong>default</strong></span>';
   sb.innerHTML='<span class="ss-item">Side: <strong>'+(sideVid.videoWidth||'?')+'x'+(sideVid.videoHeight||'?')+'</strong></span>'+
     '<span class="ss-item">Duration: <strong>'+sideDur.toFixed(1)+'s</strong></span>'+
-    '<span class="ss-item '+(posesFound<5?'warn':'')+'">Side poses: <strong>'+posesFound+'/'+N+'</strong></span>'+
+    '<span class="ss-item '+(posesFound<15?'warn':'')+'">Side poses: <strong>'+posesFound+'/'+N+'</strong></span>'+
     '<span class="ss-item">Auto-detected: <strong>'+detected+'/9</strong></span>'+sexInfo;
   buildPhaseGroups();buildSummaryTable();
   for(var di=0;di<PHASE_DEFS.length;di++){
@@ -1836,11 +1849,13 @@ async function autoScanAll(){
 async function scanBestStanceFrames(vidEl, viewLabel, barStart, barEnd) {
   var dur = vidEl.duration;
   if(!isFinite(dur)||isNaN(dur)||dur<=0) dur=30;
-  var NFRAMES = 20;
-  var bestL = null, bestR = null;
-  var bestLScore = -1, bestRScore = -1;
+  var NFRAMES = 50;
   var sc = document.getElementById('scan-canvas');
   var sctx = sc.getContext('2d');
+
+  // Collect per-frame stance scores for L and R separately, then pick the best LOCAL peak per side.
+  // This surfaces the best stance moment from any stride instead of biasing toward one global winner.
+  var frames = [];
 
   for(var i=0;i<NFRAMES;i++){
     var t = Math.min((i+0.5)*(dur/NFRAMES), dur-0.05);
@@ -1854,34 +1869,54 @@ async function scanBestStanceFrames(vidEl, viewLabel, barStart, barEnd) {
     try{sctx.drawImage(vidEl,0,0,sc.width,sc.height);}catch(e){}
     var poses=null;try{poses=await detector.estimatePoses(sc);}catch(e){}
     if(!poses||!poses.length){try{poses=await detector.estimatePoses(vidEl);}catch(e){}}
-    if(!poses||!poses.length) continue;
+    if(!poses||!poses.length){ frames.push(null); continue; }
     var kps = poses[0].keypoints;
     drawMiniSkeleton(sctx,kps,sc.width/(vidEl.videoWidth||sc.width),sc.height/(vidEl.videoHeight||sc.height));
     var avgConf = kps.reduce(function(sum,k){return sum+(k.score||0);},0)/kps.length;
 
     var lAn = kps[15], rAn = kps[16], lHi = kps[11], rHi = kps[12];
-    if(!lAn || !rAn || !lHi || !rHi) continue;
-    if((lAn.score||0) < MIN_CONF || (rAn.score||0) < MIN_CONF) continue;
-    if((lHi.score||0) < MIN_CONF || (rHi.score||0) < MIN_CONF) continue;
+    if(!lAn || !rAn || !lHi || !rHi){ frames.push(null); continue; }
+    if((lAn.score||0) < MIN_CONF || (rAn.score||0) < MIN_CONF){ frames.push(null); continue; }
+    if((lHi.score||0) < MIN_CONF || (rHi.score||0) < MIN_CONF){ frames.push(null); continue; }
     var hipWidth = Math.abs(lHi.x - rHi.x);
-    if(hipWidth < 10) continue;
+    if(hipWidth < 10){ frames.push(null); continue; }
     var bodyMidX = (lHi.x + rHi.x) / 2;
 
-    // Lower ankle = planted (stance). Midline proximity bonus rewards "directly under body".
-    var stance = (lAn.y >= rAn.y) ? 'left' : 'right';
-    var stanceAnkle = stance === 'left' ? lAn : rAn;
-    var midlineProx = Math.max(0, 1 - Math.abs(stanceAnkle.x - bodyMidX) / hipWidth);
-    var score = avgConf * (0.5 + 0.5 * midlineProx);
+    // Per-side continuous scores. heightFactor: how much lower (planted) this ankle is vs the other.
+    // midlineProx: how close the planted ankle is to directly under the body midline.
+    var heightDiff = (lAn.y - rAn.y) / hipWidth; // +ve = L is lower
+    var heightFactorL = Math.max(0, heightDiff);
+    var heightFactorR = Math.max(0, -heightDiff);
+    var midProxL = Math.max(0, 1 - Math.abs(lAn.x - bodyMidX) / hipWidth);
+    var midProxR = Math.max(0, 1 - Math.abs(rAn.x - bodyMidX) / hipWidth);
+    var lScore = avgConf * (0.4 + 0.6*Math.min(1, heightFactorL*2)) * (0.3 + 0.7*midProxL);
+    var rScore = avgConf * (0.4 + 0.6*Math.min(1, heightFactorR*2)) * (0.3 + 0.7*midProxR);
+    // Zero out the score for the non-planted side -- lower ankle wins.
+    if(heightDiff < 0) lScore = 0;
+    if(heightDiff > 0) rScore = 0;
 
-    if(stance === 'left' && score > bestLScore){
-      bestLScore = score;
-      bestL = {t:t, kps:kps};
-    } else if(stance === 'right' && score > bestRScore){
-      bestRScore = score;
-      bestR = {t:t, kps:kps};
-    }
+    frames.push({t:t, kps:kps, lScore:lScore, rScore:rScore, conf:avgConf});
   }
-  return {left: bestL, right: bestR};
+
+  // Find local peaks with ~0.2s min spacing, pick the best one per side.
+  function pickBestPeak(scoreKey){
+    var spacing = Math.max(2, Math.round(NFRAMES/20)); // ~2-3 samples
+    var best = null;
+    for(var i=0;i<frames.length;i++){
+      var f = frames[i]; if(!f) continue;
+      var v = f[scoreKey]; if(!v) continue;
+      var isMax = true;
+      for(var w=1; w<=spacing && isMax; w++){
+        var lo = i-w, hi = i+w;
+        if(lo>=0 && frames[lo] && (frames[lo][scoreKey]||0) > v) isMax = false;
+        if(hi<frames.length && frames[hi] && (frames[hi][scoreKey]||0) > v) isMax = false;
+      }
+      if(isMax && (!best || v > best[scoreKey])){ best = f; }
+    }
+    return best ? {t: best.t, kps: best.kps} : null;
+  }
+
+  return {left: pickBestPeak('lScore'), right: pickBestPeak('rScore')};
 }
 
 function applyStanceFrame(phaseKey, frame) {
@@ -1899,24 +1934,204 @@ function applyStanceFrame(phaseKey, frame) {
   }
 }
 
-// Phase detection (side video only)
+// Phase detection (side video only).
+// Strategy: locate L and R foot-strike EVENTS via local maxima of ankleY (ankle lowest in frame),
+// then derive every other phase within the stance/swing windows those strikes define. This avoids
+// the old single-global-extremum approach, which mixed phases from unrelated strides.
 function findPhases(samples,dur){
   if(!samples.length)return;
-  var claimed=function(){return new Set(Object.values(phases).filter(function(p){return p && p.detected;}).map(function(p){return p.t;}));};
+  samples = samples.slice().sort(function(a,b){return a.t-b.t;});
+
   var det=function(key,s){if(s)phases[key]=Object.assign({},phases[key],s,{detected:true});};
-  var withLA=samples.filter(function(s){return s.lAnkleY!==undefined&&isFinite(s.lAnkleY);});
-  var withRA=samples.filter(function(s){return s.rAnkleY!==undefined&&isFinite(s.rAnkleY);});
-  var withKn=samples.filter(function(s){return s.lKnAngle!==null&&s.lKnAngle!==undefined&&isFinite(s.lKnAngle);});
-  var withLH=samples.filter(function(s){return s.lHipExt!==null&&s.lHipExt!==undefined&&isFinite(s.lHipExt);});
-  var withRH=samples.filter(function(s){return s.rHipExt!==null&&s.rHipExt!==undefined&&isFinite(s.rHipExt);});
-  if(withLA.length)det('l_foot',withLA.reduce(function(a,b){return b.lAnkleY>a.lAnkleY?b:a;}));
-  if(withRA.length){var lT=phases.l_foot&&phases.l_foot.detected?phases.l_foot.t:-99;var pool=withRA.filter(function(s){return Math.abs(s.t-lT)>0.08;});if(pool.length)det('r_foot',pool.reduce(function(a,b){return b.rAnkleY>a.rAnkleY?b:a;}));}
-  if(withLH.length){var lFT=phases.l_foot&&phases.l_foot.detected?phases.l_foot.t:0;var pool2=withLH.filter(function(s){return s.t>lFT+0.05;});var src=pool2.length>=2?pool2:withLH;var best=src.reduce(function(a,b){return b.lHipExt>a.lHipExt?b:a;});if(!claimed().has(best.t))det('l_toe',best);}
-  if(withRH.length){var rFT=phases.r_foot&&phases.r_foot.detected?phases.r_foot.t:0;var pool3=withRH.filter(function(s){return s.t>rFT+0.05;});var src2=pool3.length>=2?pool3:withRH;var best2=src2.reduce(function(a,b){return b.rHipExt>a.rHipExt?b:a;});if(!claimed().has(best2.t))det('r_toe',best2);}
-  var sorted=samples.slice().sort(function(a,b){return a.t-b.t;});var foundMid=false;
-  for(var off=0;off<sorted.length&&!foundMid;off++){for(var di=0;di<3;di++){var d=[0,1,-1][di];var idx=Math.floor(sorted.length/2)+d*off;if(idx<0||idx>=sorted.length)continue;var s=sorted[idx];if(s&&!claimed().has(s.t)){det('mid',s);foundMid=true;break;}}}
-  if(withKn.length){var sorted2=withKn.slice().sort(function(a,b){return a.lKnAngle-b.lKnAngle;});var s2=sorted2.find(function(s){return !claimed().has(s.t);});if(s2)det('peak_kf',s2);}
-  if(withKn.length){var sorted3=withKn.slice().sort(function(a,b){return b.lKnAngle-a.lKnAngle;});var s3=sorted3.find(function(s){return !claimed().has(s.t);});if(s3)det('swing',s3);}
+
+  // Local-maxima finder over a numeric key. minSpacing is in samples (not seconds).
+  function localPeaks(key, minSpacing){
+    minSpacing = minSpacing || 2;
+    var peaks = [];
+    for(var i=1;i<samples.length-1;i++){
+      var v = samples[i][key];
+      if(v===undefined||v===null||!isFinite(v)) continue;
+      var isMax = true;
+      for(var w=1; w<=minSpacing && isMax; w++){
+        var lo = i-w, hi = i+w;
+        if(lo>=0){ var pv = samples[lo][key]; if(pv!==undefined&&pv!==null&&isFinite(pv)&&pv>v) isMax=false; }
+        if(hi<samples.length){ var nv = samples[hi][key]; if(nv!==undefined&&nv!==null&&isFinite(nv)&&nv>v) isMax=false; }
+      }
+      if(isMax) peaks.push({idx:i, val:v, t:samples[i].t, s:samples[i]});
+    }
+    return peaks;
+  }
+  function localTroughs(key, minSpacing){
+    minSpacing = minSpacing || 2;
+    var troughs = [];
+    for(var i=1;i<samples.length-1;i++){
+      var v = samples[i][key];
+      if(v===undefined||v===null||!isFinite(v)) continue;
+      var isMin = true;
+      for(var w=1; w<=minSpacing && isMin; w++){
+        var lo = i-w, hi = i+w;
+        if(lo>=0){ var pv = samples[lo][key]; if(pv!==undefined&&pv!==null&&isFinite(pv)&&pv<v) isMin=false; }
+        if(hi<samples.length){ var nv = samples[hi][key]; if(nv!==undefined&&nv!==null&&isFinite(nv)&&nv<v) isMin=false; }
+      }
+      if(isMin) troughs.push({idx:i, val:v, t:samples[i].t, s:samples[i]});
+    }
+    return troughs;
+  }
+  // Keep only peaks whose value is above the given percentile of the full series.
+  function prominenceFilter(peaks, key, pct){
+    var vals = samples.map(function(s){return s[key];}).filter(function(v){return v!==undefined&&v!==null&&isFinite(v);}).sort(function(a,b){return a-b;});
+    if(vals.length<6) return peaks;
+    var cut = vals[Math.floor(vals.length*pct)];
+    return peaks.filter(function(p){ return p.val >= cut; });
+  }
+  function prominenceFilterMin(troughs, key, pct){
+    var vals = samples.map(function(s){return s[key];}).filter(function(v){return v!==undefined&&v!==null&&isFinite(v);}).sort(function(a,b){return a-b;});
+    if(vals.length<6) return troughs;
+    var cut = vals[Math.floor(vals.length*pct)];
+    return troughs.filter(function(p){ return p.val <= cut; });
+  }
+
+  // Score a candidate: prefer high prominence AND high pose confidence.
+  function score(cand, refVal, higherIsBetter){
+    var d = higherIsBetter ? (cand.val - refVal) : (refVal - cand.val);
+    return d * (0.5 + 0.5*(cand.s.conf||0));
+  }
+  function pickByScore(cands, refVal, higherIsBetter){
+    if(!cands.length) return null;
+    return cands.slice().sort(function(a,b){ return score(b,refVal,higherIsBetter) - score(a,refVal,higherIsBetter); })[0];
+  }
+
+  // ---- Foot strikes ----
+  // Local maxima of ankleY (image y increases downward -> ankle at lowest point).
+  var lStrikes = prominenceFilter(localPeaks('lAnkleY', 2), 'lAnkleY', 0.55);
+  var rStrikes = prominenceFilter(localPeaks('rAnkleY', 2), 'rAnkleY', 0.55);
+  var lValsMedian = (function(){ var v=samples.map(function(s){return s.lAnkleY;}).filter(function(x){return x!==undefined&&isFinite(x);}).sort(function(a,b){return a-b;}); return v.length?v[Math.floor(v.length/2)]:0; })();
+  var rValsMedian = (function(){ var v=samples.map(function(s){return s.rAnkleY;}).filter(function(x){return x!==undefined&&isFinite(x);}).sort(function(a,b){return a-b;}); return v.length?v[Math.floor(v.length/2)]:0; })();
+
+  var lFoot = pickByScore(lStrikes, lValsMedian, true);
+  // R strike: must be at least ~0.1s away from L strike
+  var rStrikesFiltered = lFoot ? rStrikes.filter(function(c){ return Math.abs(c.t - lFoot.t) > 0.10; }) : rStrikes;
+  var rFoot = pickByScore(rStrikesFiltered, rValsMedian, true);
+
+  if(lFoot) det('l_foot', lFoot.s);
+  if(rFoot) det('r_foot', rFoot.s);
+
+  // ---- Toe-offs ----
+  // Local maxima of hipExt (hip extended, leg behind body). Toe-off follows same-side foot strike
+  // by roughly 0.15-0.60s at typical running cadence.
+  var lToeCands = prominenceFilter(localPeaks('lHipExt', 2), 'lHipExt', 0.55);
+  var rToeCands = prominenceFilter(localPeaks('rHipExt', 2), 'rHipExt', 0.55);
+  var lHipMed = (function(){ var v=samples.map(function(s){return s.lHipExt;}).filter(function(x){return x!==null&&x!==undefined&&isFinite(x);}).sort(function(a,b){return a-b;}); return v.length?v[Math.floor(v.length/2)]:0; })();
+  var rHipMed = (function(){ var v=samples.map(function(s){return s.rHipExt;}).filter(function(x){return x!==null&&x!==undefined&&isFinite(x);}).sort(function(a,b){return a-b;}); return v.length?v[Math.floor(v.length/2)]:0; })();
+
+  function inWindow(cands, startT, minDt, maxDt){
+    return cands.filter(function(c){ var dt = c.t - startT; return dt >= minDt && dt <= maxDt; });
+  }
+  var lToe = null;
+  if(lFoot){
+    var win = inWindow(lToeCands, lFoot.t, 0.08, 0.90);
+    lToe = pickByScore(win, lHipMed, true);
+  }
+  if(!lToe) lToe = pickByScore(lToeCands, lHipMed, true);
+
+  var rToe = null;
+  if(rFoot){
+    var win2 = inWindow(rToeCands, rFoot.t, 0.08, 0.90);
+    rToe = pickByScore(win2, rHipMed, true);
+  }
+  if(!rToe) rToe = pickByScore(rToeCands, rHipMed, true);
+
+  // Claim-tracking: keep phases from sharing the same frame.
+  function claimedTimes(){
+    return [lFoot,rFoot,lToe,rToe].filter(Boolean).map(function(x){return x.t;});
+  }
+  function tooClose(t, others, dt){
+    dt = dt || 0.05;
+    return others.some(function(o){ return Math.abs(o-t) < dt; });
+  }
+
+  if(lToe && !tooClose(lToe.t, [lFoot,rFoot].filter(Boolean).map(function(x){return x.t;}))) det('l_toe', lToe.s);
+  if(rToe && !tooClose(rToe.t, [lFoot,rFoot,lToe].filter(Boolean).map(function(x){return x.t;}))) det('r_toe', rToe.s);
+
+  // ---- Mid-stance ----
+  // During L stance (lFoot -> rFoot), body passes directly over the left foot --
+  // i.e. |lAnkle.x - hipMid.x| hits its minimum. Use that minimum frame.
+  var mid = null;
+  function pickMidStance(stanceSide, startT, endT){
+    var ankleKey = stanceSide === 'left' ? 'lAnkleX' : 'rAnkleX';
+    var best = null, bestDist = Infinity;
+    for(var i=0;i<samples.length;i++){
+      var s = samples[i];
+      if(s.t < startT || s.t > endT) continue;
+      if(s[ankleKey]===undefined||s.hipMidX===undefined) continue;
+      var d = Math.abs(s[ankleKey] - s.hipMidX);
+      // Tiebreak: slightly prefer higher confidence
+      var adjusted = d * (1 - 0.1*(s.conf||0));
+      if(adjusted < bestDist){ bestDist = adjusted; best = s; }
+    }
+    return best;
+  }
+  if(lFoot && rFoot && rFoot.t > lFoot.t){
+    mid = pickMidStance('left', lFoot.t + 0.02, rFoot.t - 0.02);
+  }
+  if(!mid && rFoot && lFoot && lFoot.t > rFoot.t){
+    mid = pickMidStance('right', rFoot.t + 0.02, lFoot.t - 0.02);
+  }
+  if(!mid){
+    // Fallback to timeline midpoint (old behavior).
+    mid = samples[Math.floor(samples.length/2)];
+  }
+  if(mid){
+    var claimed = claimedTimes();
+    if(tooClose(mid.t, claimed)){
+      // Scan nearby frames for the first non-colliding one.
+      var alts = samples.slice().sort(function(a,b){ return Math.abs(a.t-mid.t) - Math.abs(b.t-mid.t); });
+      for(var k=0;k<alts.length;k++){ if(!tooClose(alts[k].t, claimed)){ mid = alts[k]; break; } }
+    }
+    det('mid', mid);
+  }
+
+  // ---- Peak knee flex ----
+  // Minimum lKnAngle during left swing (after lToe, before next lFoot). Fall back to global trough.
+  var kneeTroughs = prominenceFilterMin(localTroughs('lKnAngle', 2), 'lKnAngle', 0.45);
+  var kneeMed = (function(){ var v=samples.map(function(s){return s.lKnAngle;}).filter(function(x){return x!==null&&x!==undefined&&isFinite(x);}).sort(function(a,b){return a-b;}); return v.length?v[Math.floor(v.length/2)]:0; })();
+
+  var pkfCand = null;
+  if(lToe){
+    // look 0.05-0.70s after toe-off
+    var swingWin = kneeTroughs.filter(function(c){ var dt = c.t - lToe.t; return dt >= 0.05 && dt <= 0.70; });
+    pkfCand = pickByScore(swingWin, kneeMed, false);
+  }
+  if(!pkfCand) pkfCand = pickByScore(kneeTroughs, kneeMed, false);
+
+  if(pkfCand){
+    var claimed2 = claimedTimes().concat(mid?[mid.t]:[]);
+    if(!tooClose(pkfCand.t, claimed2)){
+      det('peak_kf', pkfCand.s);
+    } else {
+      // try next best trough
+      var sorted = kneeTroughs.slice().sort(function(a,b){ return a.val - b.val; });
+      for(var k=0;k<sorted.length;k++){ if(!tooClose(sorted[k].t, claimed2)){ det('peak_kf', sorted[k].s); break; } }
+    }
+  }
+
+  // ---- Terminal swing ----
+  // Maximum lKnAngle (knee near-extended just before next foot-strike).
+  var kneePeaks = prominenceFilter(localPeaks('lKnAngle', 2), 'lKnAngle', 0.55);
+  var claimed3 = claimedTimes().concat(mid?[mid.t]:[]).concat(phases.peak_kf&&phases.peak_kf.detected?[phases.peak_kf.t]:[]);
+  var swingCand = null;
+  if(phases.peak_kf && phases.peak_kf.detected){
+    // Terminal swing comes after peak knee flex, before next same-side strike.
+    var pkfT = phases.peak_kf.t;
+    var win3 = kneePeaks.filter(function(c){ return c.t > pkfT; });
+    var sorted2 = win3.slice().sort(function(a,b){ return b.val - a.val; });
+    for(var k=0;k<sorted2.length;k++){ if(!tooClose(sorted2[k].t, claimed3)){ swingCand = sorted2[k]; break; } }
+  }
+  if(!swingCand){
+    var sorted3 = kneePeaks.slice().sort(function(a,b){ return b.val - a.val; });
+    for(var k=0;k<sorted3.length;k++){ if(!tooClose(sorted3[k].t, claimed3)){ swingCand = sorted3[k]; break; } }
+  }
+  if(swingCand) det('swing', swingCand.s);
 }
 
 // Phase grid
