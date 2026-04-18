@@ -968,7 +968,7 @@ const FIREBASE_CONFIG = {
 const MIN_N = 5;
 
 // -- Ranges state --
-const liveRanges = { male: null, female: null };
+const liveRanges = { male: null, female: null, combined: null };
 let selectedSex  = null; // 'male' | 'female' | null
 
 // Hardcoded defaults
@@ -1064,6 +1064,25 @@ function getRangeStats(phaseKey, metricKey) {
 // Pooled stats combine L and R mirror-phase values into one baseline (for symmetric-gait
 // anomalies like overstriding). Returns the same shape as getRangeStats; falls back to
 // classical per-phase stats if pooled data isn't in the doc yet.
+// Sex-combined stats (reads computed_ranges/combined). Used for metrics where there's
+// no strong evidence of sex differences, so pooling gives a more stable baseline. Falls
+// back to the currently selected sex's stats if the combined doc isn't present.
+function getCombinedStats(phaseKey, metricKey) {
+  var cRanges = liveRanges.combined;
+  if (cRanges) {
+    var r = cRanges[phaseKey] ? cRanges[phaseKey][metricKey] : null;
+    if (r && r.reliable && r.n >= MIN_N) {
+      if (r.center != null && r.spread != null && r.spread > 0) {
+        return {mean: r.center, sd: r.spread, source: 'live', n: r.n};
+      }
+      if (r.mean != null && r.sd != null && r.sd > 0) {
+        return {mean: r.mean, sd: r.sd, source: 'live', n: r.n};
+      }
+    }
+  }
+  return getRangeStats(phaseKey, metricKey);
+}
+
 function getPooledStats(metricKey) {
   var sexRanges = selectedSex ? liveRanges[selectedSex] : null;
   var p = sexRanges && sexRanges.pooled ? sexRanges.pooled[metricKey] : null;
@@ -1136,13 +1155,16 @@ async function initFirebase() {
     var results = await Promise.allSettled([
       db.collection('computed_ranges').doc('male').get(),
       db.collection('computed_ranges').doc('female').get(),
+      db.collection('computed_ranges').doc('combined').get(),
     ]);
-    var mSnap = results[0], fSnap = results[1];
-    if (mSnap.status==='fulfilled'&&mSnap.value.exists) liveRanges.male   = mSnap.value.data().phases||null;
-    if (fSnap.status==='fulfilled'&&fSnap.value.exists) liveRanges.female = fSnap.value.data().phases||null;
-    var mN = liveRanges.male   ? Object.keys(liveRanges.male).length   : 0;
-    var fN = liveRanges.female ? Object.keys(liveRanges.female).length : 0;
-    console.log('esFormLab: loaded live ranges -- male phases: '+mN+', female phases: '+fN);
+    var mSnap = results[0], fSnap = results[1], cSnap = results[2];
+    if (mSnap.status==='fulfilled'&&mSnap.value.exists) liveRanges.male     = mSnap.value.data().phases||null;
+    if (fSnap.status==='fulfilled'&&fSnap.value.exists) liveRanges.female   = fSnap.value.data().phases||null;
+    if (cSnap.status==='fulfilled'&&cSnap.value.exists) liveRanges.combined = cSnap.value.data().phases||null;
+    var mN = liveRanges.male     ? Object.keys(liveRanges.male).length     : 0;
+    var fN = liveRanges.female   ? Object.keys(liveRanges.female).length   : 0;
+    var cN = liveRanges.combined ? Object.keys(liveRanges.combined).length : 0;
+    console.log('esFormLab: loaded live ranges -- male: '+mN+', female: '+fN+', combined: '+cN+' phases');
     updateRangesStatus();
   } catch(e) { console.warn('esFormLab: could not fetch live ranges.', e.message); }
 }
@@ -2864,7 +2886,9 @@ function detectIssues() {
     }
   }
 
-  // 5. ARM ANGLE TOO OPEN (side peak_kf) -- uses elite range
+  // 5. ARM ANGLE TOO OPEN (side peak_kf) -- uses SEX-COMBINED elite range.
+  // No strong evidence for sex differences in elbow carriage; pooling male+female
+  // produces a more stable baseline than the small female-only sample alone.
   var pkfM = phases.peak_kf && phases.peak_kf.metrics ? phases.peak_kf.metrics : null;
   var pkfElbow = null;
   if(pkfM) {
@@ -2880,13 +2904,13 @@ function detectIssues() {
   if(pkfElbow === null) {
     issues.armAngle = {detected:false, severity:null, details:COACHING_CUES.armAngle.clear};
   } else {
-    var armStats = getRangeStats('peak_kf', 'nearElbow');
+    var armStats = getCombinedStats('peak_kf', 'nearElbow');
     var armMild = armStats.mean + 2 * armStats.sd;
     var armNotable = armStats.mean + 4 * armStats.sd;
     if(pkfElbow > armNotable) {
-      issues.armAngle = {detected:true, severity:'notable', details:'Elbow: '+pkfElbow.toFixed(0)+'\u00b0 (elite '+armStats.mean.toFixed(0)+' \u00b1 '+armStats.sd.toFixed(0)+')'};
+      issues.armAngle = {detected:true, severity:'notable', details:'Elbow: '+pkfElbow.toFixed(0)+'\u00b0 (elite '+armStats.mean.toFixed(0)+' \u00b1 '+armStats.sd.toFixed(0)+', pooled sexes)'};
     } else if(pkfElbow > armMild) {
-      issues.armAngle = {detected:true, severity:'mild', details:'Elbow: '+pkfElbow.toFixed(0)+'\u00b0 (elite '+armStats.mean.toFixed(0)+' \u00b1 '+armStats.sd.toFixed(0)+')'};
+      issues.armAngle = {detected:true, severity:'mild', details:'Elbow: '+pkfElbow.toFixed(0)+'\u00b0 (elite '+armStats.mean.toFixed(0)+' \u00b1 '+armStats.sd.toFixed(0)+', pooled sexes)'};
     } else {
       issues.armAngle = {detected:false, severity:null, details:COACHING_CUES.armAngle.clear};
     }
