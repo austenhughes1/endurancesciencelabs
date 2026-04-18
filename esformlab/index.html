@@ -2768,18 +2768,23 @@ function detectIssues() {
   };
   var sevL = gradeCPD(lCPD);
   var sevR = gradeCPD(rCPD);
-  // Asymmetry: if both sides measured and diff >= 3 deg, upgrade higher side by one notch
+  // Asymmetry: clinically meaningful at |L-R| >= 3 deg (Bramah 2018 / PMC3761484).
+  // Only applies when the higher side's absolute CPD exceeds the 4 deg noise floor --
+  // a 3 deg gap between two very low values is indistinguishable from 2D measurement
+  // noise (literature reports +/- 3-5 deg uncertainty vs 3D motion capture).
   var asymFlag = false;
+  var ASYM_FLOOR = 4;
   if(lCPD !== null && rCPD !== null && Math.abs(lCPD - rCPD) >= asymT) {
     asymFlag = true;
-    var higher = lCPD > rCPD ? 'L' : 'R';
-    if(higher === 'L') {
-      if(sevL === 'mild') sevL = 'notable';
-      else if(!sevL && lCPD > mildT - 2) sevL = 'mild'; // near-mild with asymmetry -> mild
-    } else {
-      if(sevR === 'mild') sevR = 'notable';
-      else if(!sevR && rCPD > mildT - 2) sevR = 'mild';
-    }
+    var higherSide = lCPD > rCPD ? 'L' : 'R';
+    var higherVal  = Math.max(lCPD, rCPD);
+    var upgradeSide = function(cur) {
+      if(cur === 'mild') return 'notable';
+      if(!cur && higherVal > ASYM_FLOOR) return 'mild';
+      return cur;
+    };
+    if(higherSide === 'L') sevL = upgradeSide(sevL);
+    else                   sevR = upgradeSide(sevR);
   }
   var worstCPD = function(a,b){var o={notable:2,mild:1};return (o[a]||0)>=(o[b]||0)?a:b;};
   var topCPDSev = worstCPD(sevL, sevR);

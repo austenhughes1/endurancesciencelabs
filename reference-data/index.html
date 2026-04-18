@@ -829,7 +829,7 @@ function renderThresholds() {
     const notableT = sex === 'female' ? 13 : 12;
     rows.push({
       anomaly: 'Hip drop',
-      meta: 'Pelvic obliquity at mid-stance (degrees, front view). L-stance and R-stance graded separately against literature thresholds (Bramah 2018, Dingenen 2019). Asymmetry \u22653\u00b0 between sides upgrades severity.',
+      meta: 'Pelvic obliquity at mid-stance (degrees, front view). L-stance and R-stance graded separately against literature thresholds (Bramah 2018, Dingenen 2019). Asymmetry \u22653\u00b0 flags the higher side as mild when it exceeds the 4\u00b0 noise floor, and upgrades an existing mild to notable.',
       source: 'fixed',
       mild:    'side &gt; ' + mildT + '\u00b0',
       notable: 'side &gt; ' + notableT + '\u00b0',
