@@ -823,17 +823,23 @@ function renderThresholds() {
     });
   }
 
-  // 2. HIP DROP -- fixed ratios
-  rows.push({
-    anomaly: 'Hip drop',
-    meta: 'Contralateral pelvis drop at mid-stance (% of torso height, front view)',
-    source: 'fixed',
-    mild:    '&gt; 8.0%',
-    notable: '&gt; 15.0%',
-    mildRule: '8% torso height',
-    notableRule: '15% torso height',
-    ruleCtx: 'same threshold for male and female',
-  });
+  // 2. HIP DROP -- pelvic obliquity in degrees, per-stance, sex-adjusted. +1 deg for female.
+  {
+    const mildT    = sex === 'female' ? 9  : 8;
+    const notableT = sex === 'female' ? 13 : 12;
+    rows.push({
+      anomaly: 'Hip drop',
+      meta: 'Pelvic obliquity at mid-stance (degrees, front view). L-stance and R-stance graded separately against literature thresholds (Bramah 2018, Dingenen 2019). Asymmetry \u22653\u00b0 between sides upgrades severity.',
+      source: 'fixed',
+      mild:    'side &gt; ' + mildT + '\u00b0',
+      notable: 'side &gt; ' + notableT + '\u00b0',
+      mildRule: 'per-stance CPD > ' + mildT + '\u00b0',
+      notableRule: 'per-stance CPD > ' + notableT + '\u00b0',
+      ruleCtx: sex === 'female'
+        ? 'female +1\u00b0 above male thresholds (Frontiers 2025: females run ~1\u20132\u00b0 higher pelvic obliquity)'
+        : 'male baseline thresholds from CPD literature (2D carries \u00b13\u20135\u00b0 vs 3D)',
+    });
+  }
 
   // 3. ARMS CROSSING MIDLINE -- fixed ratios
   rows.push({
