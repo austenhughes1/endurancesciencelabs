@@ -844,13 +844,13 @@ function renderThresholds() {
   // 3. ARMS CROSSING MIDLINE -- fixed ratios
   rows.push({
     anomaly: 'Arms crossing midline',
-    meta: 'Max wrist cross past body centerline (% shoulder width, front view)',
+    meta: 'Per-arm peak wrist cross past midline (% of inter-shoulder width, front view). L and R graded independently; max across both front frames per arm. Asymmetric crossing surfaces in the side tag.',
     source: 'fixed',
-    mild:    '&gt; 5.0%',
-    notable: '&gt; 15.0%',
-    mildRule: '5% shoulder width',
-    notableRule: '15% shoulder width',
-    ruleCtx: 'same threshold for male and female',
+    mild:    'arm &gt; 5.0%',
+    notable: 'arm &gt; 15.0%',
+    mildRule: 'per-arm cross > 5% shoulder width',
+    notableRule: 'per-arm cross > 15% shoulder width',
+    ruleCtx: 'same threshold for male and female (no published sex-specific cutoffs)',
   });
 
   // 4. TORSO POSITION -- per-phase z-score average across all 7 side-view phases,

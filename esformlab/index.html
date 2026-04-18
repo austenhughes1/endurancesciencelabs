@@ -2666,8 +2666,8 @@ var REPORT_DATA = {
       notable: 'Your arms are clearly crossing your body centerline, which creates rotational force your core has to counteract with every step.',
       mild: 'Your arms are occasionally crossing your body centerline, which creates slight rotational forces.'
     },
-    whatThisMeans: 'Your hands or forearms are swinging across the body past the midline, rather than mostly moving forward and back.',
-    whyItMatters: 'Arm swing helps control whole-body angular momentum. Active arm swing can reduce torso rotation and metabolic cost. Excessive arm crossing is commonly described as a potential economy issue, though there is not strong evidence proving a specific amount of midline crossing is harmful in otherwise healthy runners.',
+    whatThisMeans: 'Your hand swings across the body past the midline (halfway between your shoulders) instead of staying on its own side. Measured per arm at peak forward swing in the front view: each arm is graded against how far past midline its wrist reaches, as a fraction of total shoulder width. Mild flag at &gt;5% (about 2cm past center for a typical adult); notable at &gt;15% (about 6cm past). When only one arm crosses, that asymmetry can reflect compensatory trunk rotation -- often pointing back to a lower-body issue (asymmetric hip drop, foot strike, or stride length) rather than an arm-swing problem in isolation.',
+    whyItMatters: 'Arm swing helps control whole-body angular momentum. Active arm swing can reduce torso rotation and metabolic cost. Excessive arm crossing is commonly described as a potential economy issue, though there is not strong evidence proving a specific amount of midline crossing is harmful in otherwise healthy runners. Asymmetric crossing (one arm only) is a stronger signal than symmetric crossing -- look at your hip drop and overstriding results too if one arm is flagged.',
     whyItMattersRef: 'https://pubmed.ncbi.nlm.nih.gov/25031455/',
     possibleReasons: [
       {text: 'Elbows too far from the body, causing the direction of arm swing to be at an angle rather than straight forward and back.', ref: ''},
@@ -2811,21 +2811,23 @@ function detectIssues() {
     issues.hipDrop = {detected:false, severity:null, details:COACHING_CUES.hipDrop.clear};
   }
 
-  // 3. ARMS CROSSING MIDLINE (front view). Use whichever front frame has higher confidence.
-  var armsFrame = null;
-  if(frontL_FBM && frontR_FBM) {
-    armsFrame = (frontL_FBM.avgConfidence >= frontR_FBM.avgConfidence) ? frontL_FBM : frontR_FBM;
-  } else {
-    armsFrame = frontL_FBM || frontR_FBM;
-  }
-  var maxCross = 0;
-  if(armsFrame) {
-    maxCross = Math.max(armsFrame.lWristCross||0, armsFrame.rWristCross||0);
-  }
-  if(maxCross > 0.15) {
-    issues.armsCrossing = {detected:true, severity:'notable', details:'Max crossing: '+(maxCross*100).toFixed(1)+'% of shoulder width'};
-  } else if(maxCross > 0.05) {
-    issues.armsCrossing = {detected:true, severity:'mild', details:'Max crossing: '+(maxCross*100).toFixed(1)+'% of shoulder width'};
+  // 3. ARMS CROSSING MIDLINE (front view) -- per-arm detection.
+  // Each arm peaks across the body at a different gait moment (right arm forward at L
+  // mid-stance; left arm forward at R mid-stance), so take the max for each arm across
+  // both available front frames. Per-arm severity surfaces asymmetric arm swing, which
+  // can reflect compensatory trunk rotation from a lower-body issue.
+  var crossAt = function(fbm, key){ return fbm && fbm[key] !== null && fbm[key] !== undefined ? fbm[key] : 0; };
+  var hasFront = !!(frontL_FBM || frontR_FBM);
+  var peakLCross = Math.max(crossAt(frontL_FBM, 'lWristCross'), crossAt(frontR_FBM, 'lWristCross'));
+  var peakRCross = Math.max(crossAt(frontL_FBM, 'rWristCross'), crossAt(frontR_FBM, 'rWristCross'));
+  var gradeCross = function(v){ if(v > 0.15) return 'notable'; if(v > 0.05) return 'mild'; return null; };
+  var sevLArm = hasFront ? gradeCross(peakLCross) : null;
+  var sevRArm = hasFront ? gradeCross(peakRCross) : null;
+  var topArmSev = worstCPD(sevLArm, sevRArm);
+  if(topArmSev) {
+    var fmtArm = function(v, sev){ return (v*100).toFixed(1)+'% '+(sev||'clear'); };
+    var armDetail = 'L arm: '+fmtArm(peakLCross, sevLArm)+' \u00b7 R arm: '+fmtArm(peakRCross, sevRArm);
+    issues.armsCrossing = {detected:true, severity:topArmSev, details:armDetail, sideSev:{L:sevLArm, R:sevRArm}, sideTagLabel:'arm'};
   } else {
     issues.armsCrossing = {detected:false, severity:null, details:COACHING_CUES.armsCrossing.clear};
   }
@@ -2984,13 +2986,16 @@ function renderReport(issues) {
       severityIndicator = '<span class="issue-severity clear">&#10003; Clear</span>';
     }
 
-    // Side tag: only when detection has per-side severities and exactly one side triggered
+    // Side tag: only when detection has per-side severities and at least one side triggered.
+    // sideTagLabel lets an issue override the noun ("side" by default; arms crossing uses "arm").
     var sideTag = '';
     if(detected && issue.sideSev) {
       var sL = issue.sideSev.L, sR = issue.sideSev.R;
-      if(sL && !sR)      sideTag = '<span class="issue-side-tag">Left side only</span>';
-      else if(sR && !sL) sideTag = '<span class="issue-side-tag">Right side only</span>';
-      else if(sL && sR)  sideTag = '<span class="issue-side-tag">Both sides</span>';
+      var noun = issue.sideTagLabel || 'side';
+      var nounPlural = noun === 'arm' ? 'arms' : 'sides';
+      if(sL && !sR)      sideTag = '<span class="issue-side-tag">Left '+noun+' only</span>';
+      else if(sR && !sL) sideTag = '<span class="issue-side-tag">Right '+noun+' only</span>';
+      else if(sL && sR)  sideTag = '<span class="issue-side-tag">Both '+nounPlural+'</span>';
     }
 
     var cardClass = 'issue-card';
@@ -3221,7 +3226,7 @@ function downloadSampleReport() {
   lastIssues = {
     overstriding: {detected:true, severity:'notable', details:'Max offset: 0.32 torso lengths', sideSev:{L:'mild', R:'notable'}},
     hipDrop: {detected:true, severity:'mild', details:'L-stance: 11.2° mild · R-stance: 7.3° clear · asymmetry 3.9°', sideSev:{L:'mild', R:null}},
-    armsCrossing: {detected:true, severity:'mild', details:'Max crossing: 9.0% of shoulder width'},
+    armsCrossing: {detected:true, severity:'mild', details:'L arm: 9.0% mild · R arm: 3.0% clear', sideSev:{L:'mild', R:null}, sideTagLabel:'arm'},
     torsoPosition: {detected:true, severity:'mild', details:'Trunk lean: 1.8 (very upright)', cueKey:'torsoUpright'},
     armAngle: {detected:true, severity:'notable', details:'Avg elbow: 138'},
     kneeValgus: {detected:true, severity:'mild', details:'L-stance: 7.8° mild · R-stance: 3.4° clear · asymmetry 4.4°', sideSev:{L:'mild', R:null}}
