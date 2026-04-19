@@ -154,7 +154,7 @@ nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:st
 .phase-card:hover{border-color:rgba(0,229,200,.35);transform:translateY(-1px)}
 .phase-card.dimmed{opacity:.4;pointer-events:none}
 .phase-card.labeled{border-color:rgba(0,229,200,.55)}
-.phase-card.labeled::after{content:'labeled';position:absolute;top:8px;right:8px;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--cyan);background:rgba(0,229,200,.12);border:1px solid rgba(0,229,200,.35);padding:2px 6px;border-radius:4px;z-index:2}
+.phase-card.labeled::after{content:attr(data-label-count);position:absolute;top:8px;right:8px;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--cyan);background:rgba(0,229,200,.12);border:1px solid rgba(0,229,200,.35);padding:2px 6px;border-radius:4px;z-index:2;font-family:var(--mono)}
 .phase-card{position:relative}
 .phase-card.undetected{border-color:rgba(245,166,35,.3);animation:pulse-border 2s ease infinite}
 .pc-hdr{padding:12px 14px 10px;display:flex;align-items:center;gap:9px;border-bottom:1px solid var(--border)}
@@ -845,8 +845,9 @@ body.bar-showing #screen-phases{padding-bottom:120px}
           <div id="ep-label-panel" style="display:none;margin-top:10px;padding:10px 12px;background:var(--panel2);border:1px solid var(--border);border-radius:10px">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
               <span style="font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);font-family:var(--mono)">Admin label</span>
-              <button class="step-btn" id="ep-label-save-btn" onclick="savePhaseLabel(false)" style="font-size:11px;padding:5px 10px">&#10003; Save label</button>
-              <button class="step-btn" id="ep-label-nogood-btn" onclick="savePhaseLabel(true)" style="font-size:11px;padding:5px 10px">&#10007; No good frame</button>
+              <button class="step-btn" id="ep-label-good-btn" onclick="savePhaseFrame('good')" style="font-size:11px;padding:5px 10px;color:#0f2a24;background:#00e5c8;border-color:#00e5c8">&#10003; Good frame</button>
+              <button class="step-btn" id="ep-label-bad-btn" onclick="savePhaseFrame('bad')" style="font-size:11px;padding:5px 10px;color:#2a1a0f;background:#ff6b35;border-color:#ff6b35">&#10007; Bad frame</button>
+              <button class="step-btn" id="ep-label-nogood-btn" onclick="savePhaseFrame('no_good')" style="font-size:11px;padding:5px 10px">&#8212; No good frame in video</button>
               <span id="ep-label-status" style="font-size:11px;color:var(--muted2);margin-left:4px"></span>
             </div>
           </div>
@@ -2331,40 +2332,50 @@ function renderLabelPanel(){
   if(!isAdmin()){ panel.style.display = 'none'; return; }
   panel.style.display = 'block';
   var status = document.getElementById('ep-label-status');
-  var lbl = phaseLabels[expandKey];
-  if(lbl){
-    if(lbl.status === 'no_good')      status.textContent = 'Saved: no good frame in video';
-    else if(lbl.status === 'corrected') status.textContent = 'Saved: corrected to ' + (lbl.trueT||0).toFixed(2) + 's (auto picked ' + (lbl.autoT||0).toFixed(2) + 's)';
-    else                                status.textContent = 'Saved: frame at ' + (lbl.autoT||0).toFixed(2) + 's marked correct';
-    status.style.color = 'var(--good)';
+  var lbl = phaseLabels[expandKey] || {good:[], bad:[], noGood:false};
+  var parts = [];
+  parts.push(lbl.good.length + ' good');
+  parts.push(lbl.bad.length + ' bad');
+  if(lbl.noGood) parts.push('flagged: no valid frame');
+  status.textContent = parts.join(' \u00b7 ');
+  status.style.color = (lbl.good.length || lbl.bad.length || lbl.noGood) ? 'var(--good)' : 'var(--muted2)';
+}
+
+function updatePhaseCardLabelBadge(key){
+  var card = document.getElementById('card-' + key);
+  if(!card) return;
+  var lbl = phaseLabels[key];
+  if(lbl && (lbl.good.length || lbl.bad.length || lbl.noGood)){
+    card.classList.add('labeled');
+    card.dataset.labelCount = lbl.good.length + 'g/' + lbl.bad.length + 'b' + (lbl.noGood?' \u00b7 none':'');
   } else {
-    var moved = Math.abs(epCurrentT - epAutoT) > 0.01;
-    status.textContent = moved ? 'Click Save to label this as a corrected frame.' : 'Click Save to confirm the auto-picked frame is correct.';
-    status.style.color = 'var(--muted2)';
+    card.classList.remove('labeled');
+    delete card.dataset.labelCount;
   }
 }
 
-async function savePhaseLabel(noGood){
+async function savePhaseFrame(kind){
   if(!isAdmin() || !expandKey) return;
-  var btnSave = document.getElementById('ep-label-save-btn');
-  var btnNo   = document.getElementById('ep-label-nogood-btn');
-  var status  = document.getElementById('ep-label-status');
-  btnSave.disabled = true; btnNo.disabled = true;
+  if(kind!=='good' && kind!=='bad' && kind!=='no_good') return;
+  var btnG = document.getElementById('ep-label-good-btn');
+  var btnB = document.getElementById('ep-label-bad-btn');
+  var btnN = document.getElementById('ep-label-nogood-btn');
+  var status = document.getElementById('ep-label-status');
+  btnG.disabled = true; btnB.disabled = true; btnN.disabled = true;
   // Kill any pending scrubber-driven redraw so it can't race with the pose we draw below.
   clearTimeout(epDbt.t);
-  // If the reviewer scrubbed but didn't re-analyze, the pose on file is for the auto frame,
-  // not the corrected frame. Run analysis before saving so trueKps matches trueT.
-  if(!noGood && Math.abs(epCurrentT - epPoseFreshAt) > 0.01 && !epAnalyzing){
-    status.textContent = 'Analyzing corrected frame...'; status.style.color = 'var(--muted2)';
+  // For good/bad frame labels, always ensure the pose on file corresponds to the CURRENT scrubber
+  // position. Re-analyze if it's stale (includes nearby frames the reviewer just moved to).
+  if(kind!=='no_good' && Math.abs(epCurrentT - epPoseFreshAt) > 0.005 && !epAnalyzing){
+    status.textContent = 'Analyzing frame ' + epCurrentT.toFixed(2) + 's...'; status.style.color = 'var(--muted2)';
     try { await epReanalyze(); } catch(e){ console.warn('pre-save analyze failed', e); }
   }
-  status.textContent = 'Saving...'; status.style.color = 'var(--muted2)';
+  status.textContent = 'Saving ' + kind + ' label...'; status.style.color = 'var(--muted2)';
   try {
     if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
     var db = firebase.firestore();
     var ph = phases[expandKey] || {};
     var vidEl = getVideoElForPhase(expandKey);
-    var moved = Math.abs(epCurrentT - epAutoT) > 0.01;
     var payload = {
       sessionId: SESSION_ID,
       phase: expandKey,
@@ -2372,38 +2383,32 @@ async function savePhaseLabel(noGood){
       videoW: vidEl && vidEl.videoWidth ? vidEl.videoWidth : null,
       videoH: vidEl && vidEl.videoHeight ? vidEl.videoHeight : null,
       videoDur: vidEl && isFinite(vidEl.duration) ? vidEl.duration : null,
-      autoT: epAutoT,
-      autoKps: epAutoKps || null,
-      autoMetrics: epAutoMetrics || null,
-      noGood: !!noGood,
-      correct: !noGood && !moved,
-      corrected: !noGood && moved,
-      trueT: noGood ? null : epCurrentT,
-      trueKps: noGood ? null : (ph.kps || null),
-      trueMetrics: noGood ? null : (ph.metrics || null),
+      // The detector's original auto-pick for this phase (for diagnostic analysis).
+      autoPickedT: epAutoT,
+      // The frame being labeled -- good/bad saves this, no_good saves nulls.
+      t:       kind==='no_good' ? null : epCurrentT,
+      kps:     kind==='no_good' ? null : (ph.kps || null),
+      metrics: kind==='no_good' ? null : (ph.metrics || null),
+      isCorrect: kind==='good',
+      noGood:    kind==='no_good',
       userUid: currentUser ? currentUser.uid : null,
       userEmail: currentUser ? (currentUser.email || null) : null,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     };
     var docRef = await db.collection('phase_labels').add(payload);
-    phaseLabels[expandKey] = {
-      status: noGood ? 'no_good' : (moved ? 'corrected' : 'correct'),
-      autoT: epAutoT,
-      trueT: noGood ? null : epCurrentT,
-      docId: docRef.id
-    };
+    if(!phaseLabels[expandKey]) phaseLabels[expandKey] = {good:[], bad:[], noGood:false};
+    if(kind==='good')     phaseLabels[expandKey].good.push({t:epCurrentT, docId:docRef.id});
+    else if(kind==='bad') phaseLabels[expandKey].bad.push({t:epCurrentT, docId:docRef.id});
+    else                  phaseLabels[expandKey].noGood = true;
     renderLabelPanel();
-    var card = document.getElementById('card-' + expandKey);
-    if(card) card.classList.add('labeled');
-    // Redraw the expand canvas with the final pose so the reviewer can see what was saved
-    // (even for "no good" we still show the pose that was picked, if any).
+    updatePhaseCardLabelBadge(expandKey);
     try { await drawExpandFrame(epCurrentT, ph.kps || null); } catch(e){}
   } catch(e){
-    console.error('savePhaseLabel failed', e);
+    console.error('savePhaseFrame failed', e);
     status.textContent = 'Save failed -- see console';
     status.style.color = 'var(--bad)';
   } finally {
-    btnSave.disabled = false; btnNo.disabled = false;
+    btnG.disabled = false; btnB.disabled = false; btnN.disabled = false;
   }
 }
 function closeExpand(){document.getElementById('expand-overlay').classList.remove('open');document.querySelectorAll('.phase-card').forEach(function(c){c.classList.remove('dimmed');});expandKey=null;document.removeEventListener('keydown',onExpandKey);}
