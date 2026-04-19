@@ -1100,7 +1100,7 @@ async function autoScan(){
   if(!isFinite(dur)||isNaN(dur)||dur<=0){await new Promise(r=>setTimeout(r,500));dur=videoEl.duration;}
   if(!isFinite(dur)||isNaN(dur)||dur<=0)dur=30;
   initPhases(dur/2);
-  const N=100,samples=[];
+  const N=150,samples=[];
   document.getElementById('scan-phase-list').innerHTML=PHASE_DEFS.map(p=>`<div class="spl-item" id="spl-${p.key}"><div class="spl-dot"></div><span class="spl-name">${p.label}</span><span class="spl-time" id="spl-t-${p.key}">—</span></div>`).join('');
   const sc=document.getElementById('scan-canvas'),sctx=sc.getContext('2d');
   let posesFound=0;
