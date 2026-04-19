@@ -1372,6 +1372,8 @@ let detector=null, phases={};
 let expandKey=null, epCurrentT=0, epAnalyzing=false;
 // Captured at openExpand() so we can label the auto-picked frame vs. whatever the reviewer moved to.
 var epAutoT = 0, epAutoKps = null;
+// Video time at which ph.kps was last computed -- used to detect stale poses when saving labels.
+var epPoseFreshAt = 0;
 var auth2 = null;
 var currentUser = null;
 var lastIssues = null;
@@ -2276,6 +2278,7 @@ function openExpand(key){
   // Snapshot the auto-picked frame so we can tell later whether the reviewer accepted or moved it.
   epAutoT = ph.t || 0;
   epAutoKps = ph.kps || null;
+  epPoseFreshAt = ph.t || 0;
   var vidEl = getVideoElForPhase(key);
   document.getElementById('expand-overlay').classList.add('open');
   var isUndet=!ph.detected||!ph.kps;
@@ -2345,6 +2348,12 @@ async function savePhaseLabel(noGood){
   var btnNo   = document.getElementById('ep-label-nogood-btn');
   var status  = document.getElementById('ep-label-status');
   btnSave.disabled = true; btnNo.disabled = true;
+  // If the reviewer scrubbed but didn't re-analyze, the pose on file is for the auto frame,
+  // not the corrected frame. Run analysis before saving so trueKps matches trueT.
+  if(!noGood && Math.abs(epCurrentT - epPoseFreshAt) > 0.01 && !epAnalyzing){
+    status.textContent = 'Analyzing corrected frame...'; status.style.color = 'var(--muted2)';
+    try { await epReanalyze(); } catch(e){ console.warn('pre-save analyze failed', e); }
+  }
   status.textContent = 'Saving...'; status.style.color = 'var(--muted2)';
   try {
     if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
@@ -2477,6 +2486,7 @@ async function epReanalyze(){
   }
   var ptEl=document.getElementById('ptime-'+expandKey);if(ptEl){ptEl.textContent=epCurrentT.toFixed(2)+'s';ptEl.style.color='var(--cyan)';}
   renderQualityCard(kps);
+  epPoseFreshAt = epCurrentT;
   btn.disabled=false;btn.textContent='\u21bb Analyze';epAnalyzing=false;
   checkAllAnalyzed();
 }
