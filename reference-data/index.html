@@ -858,7 +858,7 @@ function renderThresholds() {
   // 4. TORSO POSITION -- per-phase z-score average across all 7 side-view phases,
   //    using each phase's own elite mean/SD for trunk lean. Too upright AND excessive lean flagged.
   {
-    const TRUNK_PHASES = ['l_foot','r_foot','l_toe','r_toe','mid','peak_kf','swing'];
+    const TRUNK_PHASES = ['l_foot','r_foot','l_toe','r_toe','mid','peak_kf'];
     let livePhases = 0, minN = Infinity;
     TRUNK_PHASES.forEach(pk => {
       const s = thrLiveStats(sex, pk, 'trunk');
@@ -965,16 +965,15 @@ const PHASE_DEFS = [
   {key:'l_toe',  label:'L toe-off',     desc:'Left foot leaving the ground',      side:'left',  guide:{title:'Left toe-off',       desc:'The moment the left foot pushes off. Hip extension is at maximum.',checks:['Left leg extended behind the body','Ankle plantarflexed (pushing through toes)','Left heel visibly raised','Opposite leg in mid-swing'],tip:'Toe-off is where propulsive power is generated. Limited hip extension = reduced push-off efficiency.'}},
   {key:'r_toe',  label:'R toe-off',     desc:'Right foot leaving the ground',     side:'right', guide:{title:'Right toe-off',      desc:'The moment the right foot pushes off.',checks:['Right leg extended behind the body','Right ankle plantarflexed','Right heel raised','Opposite leg in mid-swing'],tip:'Compare with left toe-off for asymmetries in hip extension.'}},
   {key:'mid',    label:'Mid-stance',    desc:'Body directly over support foot',   side:'center',guide:{title:'Mid-stance',         desc:'The body passes directly over the supporting foot.',checks:['Stance foot roughly under the hip','Swing leg in mid-flight','Trunk vertical or slightly forward','Arms in natural opposite-arm swing'],tip:'Key frame for trunk lean and hip drop — the foundation of running economy.'}},
-  {key:'peak_kf',label:'Peak knee flex',desc:'Maximum knee bend during swing',    side:'center',guide:{title:'Peak knee flexion',  desc:'Maximum knee bend on the swing leg, just after toe-off.',checks:['Swing knee at highest and most bent position','Elite runners pull heel close to glutes','Stance leg extended behind body','Symmetry between left and right swing'],tip:'A lazy, low swing increases ground contact time and metabolic cost.'}},
-  {key:'swing',  label:'Terminal swing',desc:'Leg extended just before landing',  side:'center',guide:{title:'Terminal swing',     desc:'Just before the foot contacts the ground again.',checks:['Swing leg reaching forward','Knee extending but not fully locked','Foot dorsiflexed ready for contact','Opposite arm driving back'],tip:'Overstriding is most visible here — foot should land under center of mass.'}},
+  {key:'peak_kf',label:'Peak knee lift',desc:'Swing knee at its highest point',   side:'center',guide:{title:'Peak knee lift',     desc:"The moment the swing leg's knee reaches its highest point — the hip is maximally flexed forward.",checks:['Swing knee at its apex (highest vertical point)','Thigh approaching horizontal','Heel below the knee, not yet pulled toward glute','Stance leg extended in push-off or brief flight'],tip:'Elite runners show a pronounced knee drive. A low, lazy knee lift wastes energy.'}},
 ];
 
 const PHASE_GROUPS = [
   {label:'Foot strike', keys:['l_foot','r_foot']},
   {label:'Toe-off',     keys:['l_toe','r_toe']},
-  {label:'Swing cycle', keys:['mid','peak_kf','swing']},
+  {label:'Swing cycle', keys:['mid','peak_kf']},
 ];
-const SUMMARY_COL_ORDER = ['l_foot','r_foot','l_toe','r_toe','mid','peak_kf','swing'];
+const SUMMARY_COL_ORDER = ['l_foot','r_foot','l_toe','r_toe','mid','peak_kf'];
 const GROUP_STARTS       = new Set(['l_foot','l_toe','mid']);
 
 const METRIC_ROWS = [
@@ -1003,7 +1002,6 @@ const PHASE_METRICS = {
   r_toe:     ['trunk','leadHip','trailHip','nearElbow'],
   mid:       ['trunk','plantKnee','plantHip','nearElbow'],
   peak_kf:   ['trunk','trailHip','nearElbow'],
-  swing:     ['trunk','leadKnee','leadHip','leadFoot','nearElbow'],
 };
 function isRelevant(phaseKey, metricKey){ const pm=PHASE_METRICS[phaseKey]; return !pm || pm.includes(metricKey); }
 
@@ -1293,38 +1291,25 @@ function findPhases(samples,dur){
     det('mid',mid);
   }
 
-  // ---- Peak knee flex ----
-  const kneeTroughs=prominenceFilterMin(localTroughs('lKnAngle',2),'lKnAngle',0.45);
+  // ---- Peak knee lift ----
+  // The moment the swing knee reaches its highest point. Detected as the minimum of lHipExt
+  // (smallest shoulder-hip-knee angle = hip most flexed forward). Hip angle has a cleaner,
+  // more prominent peak than knee angle during swing, so this is more reliable.
+  const hipTroughs=prominenceFilterMin(localTroughs('lHipExt',2),'lHipExt',0.45);
   let pkfCand=null;
   if(lToe){
-    const swingWin=kneeTroughs.filter(c=>{const dt=c.t-lToe.t;return dt>=0.05&&dt<=0.70;});
-    pkfCand=pickByScore(swingWin,median('lKnAngle'),false);
+    const swingWin=hipTroughs.filter(c=>{const dt=c.t-lToe.t;return dt>=0.10&&dt<=0.70;});
+    pkfCand=pickByScore(swingWin,median('lHipExt'),false);
   }
-  if(!pkfCand) pkfCand=pickByScore(kneeTroughs,median('lKnAngle'),false);
+  if(!pkfCand) pkfCand=pickByScore(hipTroughs,median('lHipExt'),false);
   if(pkfCand){
     const claimed2=claimedTimes().concat(mid?[mid.t]:[]);
     if(!tooClose(pkfCand.t,claimed2)){det('peak_kf',pkfCand.s);}
     else{
-      const sorted=[...kneeTroughs].sort((a,b)=>a.val-b.val);
+      const sorted=[...hipTroughs].sort((a,b)=>a.val-b.val);
       for(const c of sorted){if(!tooClose(c.t,claimed2)){det('peak_kf',c.s);break;}}
     }
   }
-
-  // ---- Terminal swing ----
-  const kneePeaks=prominenceFilter(localPeaks('lKnAngle',2),'lKnAngle',0.55);
-  const claimed3=claimedTimes().concat(mid?[mid.t]:[]).concat(phases.peak_kf?.detected?[phases.peak_kf.t]:[]);
-  let swingCand=null;
-  if(phases.peak_kf?.detected){
-    const pkfT=phases.peak_kf.t;
-    const win3=kneePeaks.filter(c=>c.t>pkfT);
-    const sorted2=[...win3].sort((a,b)=>b.val-a.val);
-    for(const c of sorted2){if(!tooClose(c.t,claimed3)){swingCand=c;break;}}
-  }
-  if(!swingCand){
-    const sorted3=[...kneePeaks].sort((a,b)=>b.val-a.val);
-    for(const c of sorted3){if(!tooClose(c.t,claimed3)){swingCand=c;break;}}
-  }
-  if(swingCand) det('swing',swingCand.s);
 }
 
 // Phase grid
@@ -1660,13 +1645,6 @@ function addFunctionalMetrics(metrics, phaseKey, kps) {
     metrics.plantSide = plantSide === 'l' ? 'L' : 'R';
     if (metrics[plantSide + 'Knee'] != null) metrics.plantKnee = metrics[plantSide + 'Knee'];
     if (metrics[plantSide + 'Hip'] != null) metrics.plantHip = metrics[plantSide + 'Hip'];
-  } else if (phaseKey === 'swing') {
-    const lK = metrics.lKnee, rK = metrics.rKnee;
-    const swingLeadSide = (lK != null && rK != null) ? (lK >= rK ? 'l' : 'r') : (lK != null ? 'l' : 'r');
-    metrics.leadSide = swingLeadSide === 'l' ? 'L' : 'R';
-    if (metrics[swingLeadSide + 'Knee'] != null) metrics.leadKnee = metrics[swingLeadSide + 'Knee'];
-    if (metrics[swingLeadSide + 'Hip'] != null) metrics.leadHip = metrics[swingLeadSide + 'Hip'];
-    if (metrics[swingLeadSide + 'Foot'] != null) metrics.leadFoot = metrics[swingLeadSide + 'Foot'];
   } else if (phaseKey === 'peak_kf') {
     const lK2 = metrics.lKnee, rK2 = metrics.rKnee;
     const pkfLeadSide = (lK2 != null && rK2 != null) ? (lK2 <= rK2 ? 'l' : 'r') : (lK2 != null ? 'l' : 'r');
