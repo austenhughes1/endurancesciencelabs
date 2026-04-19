@@ -30,6 +30,14 @@ service cloud.firestore {
                          && request.auth.uid == "2z9Z3K5ZwShvadUuqZmwMv0s1Od2";
     }
 
+    // ── Phase labels ─────────────────────────────────────────
+    // Admin-supplied ground-truth labels for gait-phase frame detection.
+    // Only the admin can read or write; used to tune detection scoring.
+    match /phase_labels/{labelId} {
+      allow read, write: if request.auth != null
+                         && request.auth.uid == "2z9Z3K5ZwShvadUuqZmwMv0s1Od2";
+    }
+
     // ── User profiles ────────────────────────────────────────
     // Users can read/write their own profile.
     // Coach (admin) can read profiles of athletes assigned to them.

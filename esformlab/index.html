@@ -153,6 +153,9 @@ nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:st
 .phase-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;transition:border-color .2s,transform .15s,opacity .3s}
 .phase-card:hover{border-color:rgba(0,229,200,.35);transform:translateY(-1px)}
 .phase-card.dimmed{opacity:.4;pointer-events:none}
+.phase-card.labeled{border-color:rgba(0,229,200,.55)}
+.phase-card.labeled::after{content:'labeled';position:absolute;top:8px;right:8px;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--cyan);background:rgba(0,229,200,.12);border:1px solid rgba(0,229,200,.35);padding:2px 6px;border-radius:4px;z-index:2}
+.phase-card{position:relative}
 .phase-card.undetected{border-color:rgba(245,166,35,.3);animation:pulse-border 2s ease infinite}
 .pc-hdr{padding:12px 14px 10px;display:flex;align-items:center;gap:9px;border-bottom:1px solid var(--border)}
 .pc-num{width:20px;height:20px;border-radius:50%;background:rgba(0,229,200,.12);border:1px solid rgba(0,229,200,.28);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--cyan);flex-shrink:0;font-family:var(--mono)}
@@ -839,6 +842,14 @@ body.bar-showing #screen-phases{padding-bottom:120px}
             <span class="scrub-nav-label">jump to:</span>
             <div class="nav-phase-btns" id="nav-phase-btns"></div>
           </div>
+          <div id="ep-label-panel" style="display:none;margin-top:10px;padding:10px 12px;background:var(--panel2);border:1px solid var(--border);border-radius:10px">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <span style="font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);font-family:var(--mono)">Admin label</span>
+              <button class="step-btn" id="ep-label-save-btn" onclick="savePhaseLabel(false)" style="font-size:11px;padding:5px 10px">&#10003; Save label</button>
+              <button class="step-btn" id="ep-label-nogood-btn" onclick="savePhaseLabel(true)" style="font-size:11px;padding:5px 10px">&#10007; No good frame</button>
+              <span id="ep-label-status" style="font-size:11px;color:var(--muted2);margin-left:4px"></span>
+            </div>
+          </div>
         </div>
       </div>
       <div class="ep-info-side">
@@ -1359,12 +1370,18 @@ var uploadedFiles = {side: null, front: null, back: null};
 
 let detector=null, phases={};
 let expandKey=null, epCurrentT=0, epAnalyzing=false;
+// Captured at openExpand() so we can label the auto-picked frame vs. whatever the reviewer moved to.
+var epAutoT = 0, epAutoKps = null;
 var auth2 = null;
 var currentUser = null;
 var lastIssues = null;
 var isViewingSaved = false;
 var savedAnalysesList = [];
 const epDbt={};
+// Phase-label tracking (admin-only "is this frame correct?" feedback).
+var SESSION_ID = (function(){ try { return (crypto.randomUUID && crypto.randomUUID()) || String(Date.now())+'-'+Math.random().toString(36).slice(2,10); } catch(e){ return String(Date.now())+'-'+Math.random().toString(36).slice(2,10); } })();
+var phaseLabels = {}; // key -> {status:'correct'|'corrected'|'no_good', trueT?, docId?}
+function isAdmin(){ return !!(currentUser && currentUser.uid === '2z9Z3K5ZwShvadUuqZmwMv0s1Od2'); }
 
 function getVideoElForPhase(key) {
   var def = PHASE_DEFS.find(function(d){return d.key===key;});
@@ -2256,6 +2273,9 @@ function renderMiniMetricsFrontBack(key, fbm) {
 // Expand panel
 function openExpand(key){
   expandKey=key;var ph=phases[key];var idx=PHASE_DEFS.findIndex(function(d){return d.key===key;});epCurrentT=ph.t||0;
+  // Snapshot the auto-picked frame so we can tell later whether the reviewer accepted or moved it.
+  epAutoT = ph.t || 0;
+  epAutoKps = ph.kps || null;
   var vidEl = getVideoElForPhase(key);
   document.getElementById('expand-overlay').classList.add('open');
   var isUndet=!ph.detected||!ph.kps;
@@ -2295,8 +2315,78 @@ function openExpand(key){
   drawExpandFrame(epCurrentT,ph.kps);
   renderQualityCard(ph.kps);
   renderExpandLegSwapWarning(key);
+  renderLabelPanel();
   document.querySelectorAll('.phase-card').forEach(function(c){c.classList.toggle('dimmed',c.id!=='card-'+key);});
   document.addEventListener('keydown',onExpandKey);
+}
+
+function renderLabelPanel(){
+  var panel = document.getElementById('ep-label-panel');
+  if(!panel) return;
+  if(!isAdmin()){ panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+  var status = document.getElementById('ep-label-status');
+  var lbl = phaseLabels[expandKey];
+  if(lbl){
+    if(lbl.status === 'no_good')      status.textContent = 'Saved: no good frame in video';
+    else if(lbl.status === 'corrected') status.textContent = 'Saved: corrected to ' + (lbl.trueT||0).toFixed(2) + 's (auto picked ' + (lbl.autoT||0).toFixed(2) + 's)';
+    else                                status.textContent = 'Saved: frame at ' + (lbl.autoT||0).toFixed(2) + 's marked correct';
+    status.style.color = 'var(--good)';
+  } else {
+    var moved = Math.abs(epCurrentT - epAutoT) > 0.01;
+    status.textContent = moved ? 'Click Save to label this as a corrected frame.' : 'Click Save to confirm the auto-picked frame is correct.';
+    status.style.color = 'var(--muted2)';
+  }
+}
+
+async function savePhaseLabel(noGood){
+  if(!isAdmin() || !expandKey) return;
+  var btnSave = document.getElementById('ep-label-save-btn');
+  var btnNo   = document.getElementById('ep-label-nogood-btn');
+  var status  = document.getElementById('ep-label-status');
+  btnSave.disabled = true; btnNo.disabled = true;
+  status.textContent = 'Saving...'; status.style.color = 'var(--muted2)';
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    var db = firebase.firestore();
+    var ph = phases[expandKey] || {};
+    var vidEl = getVideoElForPhase(expandKey);
+    var moved = Math.abs(epCurrentT - epAutoT) > 0.01;
+    var payload = {
+      sessionId: SESSION_ID,
+      phase: expandKey,
+      videoView: (PHASE_DEFS.find(function(d){return d.key===expandKey;})||{}).videoKey || 'side',
+      videoW: vidEl && vidEl.videoWidth ? vidEl.videoWidth : null,
+      videoH: vidEl && vidEl.videoHeight ? vidEl.videoHeight : null,
+      videoDur: vidEl && isFinite(vidEl.duration) ? vidEl.duration : null,
+      autoT: epAutoT,
+      autoKps: epAutoKps || null,
+      noGood: !!noGood,
+      correct: !noGood && !moved,
+      corrected: !noGood && moved,
+      trueT: noGood ? null : epCurrentT,
+      trueKps: noGood ? null : (ph.kps || null),
+      userUid: currentUser ? currentUser.uid : null,
+      userEmail: currentUser ? (currentUser.email || null) : null,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    var docRef = await db.collection('phase_labels').add(payload);
+    phaseLabels[expandKey] = {
+      status: noGood ? 'no_good' : (moved ? 'corrected' : 'correct'),
+      autoT: epAutoT,
+      trueT: noGood ? null : epCurrentT,
+      docId: docRef.id
+    };
+    renderLabelPanel();
+    var card = document.getElementById('card-' + expandKey);
+    if(card) card.classList.add('labeled');
+  } catch(e){
+    console.error('savePhaseLabel failed', e);
+    status.textContent = 'Save failed -- see console';
+    status.style.color = 'var(--bad)';
+  } finally {
+    btnSave.disabled = false; btnNo.disabled = false;
+  }
 }
 function closeExpand(){document.getElementById('expand-overlay').classList.remove('open');document.querySelectorAll('.phase-card').forEach(function(c){c.classList.remove('dimmed');});expandKey=null;document.removeEventListener('keydown',onExpandKey);}
 function onExpandKey(e){if(e.key==='Escape')closeExpand();}
@@ -2313,6 +2403,7 @@ function epScrub(val){
   if(phases[expandKey])phases[expandKey].t=epCurrentT;
   var ptEl=document.getElementById('ptime-'+expandKey);if(ptEl)ptEl.textContent=epCurrentT.toFixed(2)+'s';
   clearTimeout(epDbt.t);epDbt.t=setTimeout(function(){drawExpandFrame(epCurrentT,null);},100);
+  if(isAdmin()) renderLabelPanel();
 }
 function epStep(frames){var scrub=document.getElementById('ep-scrubber');var newT=Math.max(parseFloat(scrub.min),Math.min(parseFloat(scrub.max),epCurrentT+frames*0.04));scrub.value=newT;epScrub(newT);}
 
