@@ -845,9 +845,7 @@ body.bar-showing #screen-phases{padding-bottom:120px}
           <div id="ep-label-panel" style="display:none;margin-top:10px;padding:10px 12px;background:var(--panel2);border:1px solid var(--border);border-radius:10px">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
               <span style="font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);font-family:var(--mono)">Admin label</span>
-              <button class="step-btn" id="ep-label-good-btn" onclick="savePhaseFrame('good')" style="font-size:11px;padding:5px 10px;color:#0f2a24;background:#00e5c8;border-color:#00e5c8">&#10003; Good frame</button>
-              <button class="step-btn" id="ep-label-bad-btn" onclick="savePhaseFrame('bad')" style="font-size:11px;padding:5px 10px;color:#2a1a0f;background:#ff6b35;border-color:#ff6b35">&#10007; Bad frame</button>
-              <button class="step-btn" id="ep-label-nogood-btn" onclick="savePhaseFrame('no_good')" style="font-size:11px;padding:5px 10px">&#8212; No good frame in video</button>
+              <button class="step-btn" id="ep-label-good-btn" onclick="labelCorrectFrame()" style="font-size:11px;padding:5px 10px;color:#0f2a24;background:#00e5c8;border-color:#00e5c8">&#10003; Correct frame <span style="opacity:.7;font-weight:400">(auto-saves 6 neighbors as bad)</span></button>
               <span id="ep-label-status" style="font-size:11px;color:var(--muted2);margin-left:4px"></span>
             </div>
           </div>
@@ -2332,83 +2330,155 @@ function renderLabelPanel(){
   if(!isAdmin()){ panel.style.display = 'none'; return; }
   panel.style.display = 'block';
   var status = document.getElementById('ep-label-status');
-  var lbl = phaseLabels[expandKey] || {good:[], bad:[], noGood:false};
-  var parts = [];
-  parts.push(lbl.good.length + ' good');
-  parts.push(lbl.bad.length + ' bad');
-  if(lbl.noGood) parts.push('flagged: no valid frame');
+  var lbl = phaseLabels[expandKey] || {good:[], bad:[]};
+  var parts = [lbl.good.length + ' good', lbl.bad.length + ' bad'];
   status.textContent = parts.join(' \u00b7 ');
-  status.style.color = (lbl.good.length || lbl.bad.length || lbl.noGood) ? 'var(--good)' : 'var(--muted2)';
+  status.style.color = (lbl.good.length || lbl.bad.length) ? 'var(--good)' : 'var(--muted2)';
 }
 
 function updatePhaseCardLabelBadge(key){
   var card = document.getElementById('card-' + key);
   if(!card) return;
   var lbl = phaseLabels[key];
-  if(lbl && (lbl.good.length || lbl.bad.length || lbl.noGood)){
+  if(lbl && (lbl.good.length || lbl.bad.length)){
     card.classList.add('labeled');
-    card.dataset.labelCount = lbl.good.length + 'g/' + lbl.bad.length + 'b' + (lbl.noGood?' \u00b7 none':'');
+    card.dataset.labelCount = lbl.good.length + 'g/' + lbl.bad.length + 'b';
   } else {
     card.classList.remove('labeled');
     delete card.dataset.labelCount;
   }
 }
 
-async function savePhaseFrame(kind){
-  if(!isAdmin() || !expandKey) return;
-  if(kind!=='good' && kind!=='bad' && kind!=='no_good') return;
-  var btnG = document.getElementById('ep-label-good-btn');
-  var btnB = document.getElementById('ep-label-bad-btn');
-  var btnN = document.getElementById('ep-label-nogood-btn');
-  var status = document.getElementById('ep-label-status');
-  btnG.disabled = true; btnB.disabled = true; btnN.disabled = true;
-  // Kill any pending scrubber-driven redraw so it can't race with the pose we draw below.
-  clearTimeout(epDbt.t);
-  // For good/bad frame labels, always ensure the pose on file corresponds to the CURRENT scrubber
-  // position. Re-analyze if it's stale (includes nearby frames the reviewer just moved to).
-  if(kind!=='no_good' && Math.abs(epCurrentT - epPoseFreshAt) > 0.005 && !epAnalyzing){
-    status.textContent = 'Analyzing frame ' + epCurrentT.toFixed(2) + 's...'; status.style.color = 'var(--muted2)';
-    try { await epReanalyze(); } catch(e){ console.warn('pre-save analyze failed', e); }
+// Analyze pose + metrics at a given video time, WITHOUT touching the expand-modal UI.
+// Uses an offscreen canvas so we don't fight with the visible one during neighbor scans.
+async function analyzePoseAtT(t, phaseKey){
+  var vidEl = getVideoElForPhase(phaseKey);
+  if(!vidEl || !detector) return null;
+  var dur = vidEl.duration || 0;
+  if(t < 0 || (dur && t > dur - 0.01)) return null;
+  try { await seekTo(t, vidEl); } catch(e){ return null; }
+  var W = vidEl.videoWidth || 640, H = vidEl.videoHeight || 360;
+  var canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  var ctx = canvas.getContext('2d');
+  try { ctx.drawImage(vidEl, 0, 0, W, H); } catch(e) { return null; }
+  var poses = null;
+  try { poses = await detector.estimatePoses(canvas); } catch(e){}
+  if(!poses || !poses.length){ try { poses = await detector.estimatePoses(vidEl); } catch(e){} }
+  if(!poses || !poses.length) return null;
+  var kps = poses[0].keypoints;
+  var vKey = getVideoKeyForPhase(phaseKey);
+  var isFrontBack = (vKey === 'front' || vKey === 'back');
+  var metrics;
+  if(isFrontBack){
+    metrics = computeFrontBackMetrics(kps);
+  } else {
+    metrics = computeMetrics(kps);
+    if(isSideView(kps)) addFunctionalMetrics(metrics, phaseKey, kps);
   }
-  status.textContent = 'Saving ' + kind + ' label...'; status.style.color = 'var(--muted2)';
+  return {t: t, kps: kps, metrics: metrics};
+}
+
+async function writePhaseLabelDoc(phaseKey, frameData, isCorrect){
+  if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+  var db = firebase.firestore();
+  var vidEl = getVideoElForPhase(phaseKey);
+  var payload = {
+    sessionId: SESSION_ID,
+    phase: phaseKey,
+    videoView: (PHASE_DEFS.find(function(d){return d.key===phaseKey;})||{}).videoKey || 'side',
+    videoW: vidEl && vidEl.videoWidth ? vidEl.videoWidth : null,
+    videoH: vidEl && vidEl.videoHeight ? vidEl.videoHeight : null,
+    videoDur: vidEl && isFinite(vidEl.duration) ? vidEl.duration : null,
+    autoPickedT: epAutoT,
+    t: frameData.t,
+    kps: frameData.kps,
+    metrics: frameData.metrics || null,
+    isCorrect: !!isCorrect,
+    userUid: currentUser ? currentUser.uid : null,
+    userEmail: currentUser ? (currentUser.email || null) : null,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  return await db.collection('phase_labels').add(payload);
+}
+
+// Single button: mark CURRENT scrubber frame as correct, then auto-scrub +/- 1,2,3 frames
+// and save each neighbor as a bad frame. Produces 7 training examples per click.
+var FRAME_STEP_SECS = 0.04; // matches epStep (1f = 40ms)
+var NEIGHBOR_OFFSETS = [-3, -2, -1, 1, 2, 3];
+
+async function labelCorrectFrame(){
+  if(!isAdmin() || !expandKey) return;
+  var btnG = document.getElementById('ep-label-good-btn');
+  var status = document.getElementById('ep-label-status');
+  btnG.disabled = true;
+  clearTimeout(epDbt.t);
+  var originalT = epCurrentT;
+  var phaseKey = expandKey;
+
   try {
-    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
-    var db = firebase.firestore();
-    var ph = phases[expandKey] || {};
-    var vidEl = getVideoElForPhase(expandKey);
-    var payload = {
-      sessionId: SESSION_ID,
-      phase: expandKey,
-      videoView: (PHASE_DEFS.find(function(d){return d.key===expandKey;})||{}).videoKey || 'side',
-      videoW: vidEl && vidEl.videoWidth ? vidEl.videoWidth : null,
-      videoH: vidEl && vidEl.videoHeight ? vidEl.videoHeight : null,
-      videoDur: vidEl && isFinite(vidEl.duration) ? vidEl.duration : null,
-      // The detector's original auto-pick for this phase (for diagnostic analysis).
-      autoPickedT: epAutoT,
-      // The frame being labeled -- good/bad saves this, no_good saves nulls.
-      t:       kind==='no_good' ? null : epCurrentT,
-      kps:     kind==='no_good' ? null : (ph.kps || null),
-      metrics: kind==='no_good' ? null : (ph.metrics || null),
-      isCorrect: kind==='good',
-      noGood:    kind==='no_good',
-      userUid: currentUser ? currentUser.uid : null,
-      userEmail: currentUser ? (currentUser.email || null) : null,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    };
-    var docRef = await db.collection('phase_labels').add(payload);
-    if(!phaseLabels[expandKey]) phaseLabels[expandKey] = {good:[], bad:[], noGood:false};
-    if(kind==='good')     phaseLabels[expandKey].good.push({t:epCurrentT, docId:docRef.id});
-    else if(kind==='bad') phaseLabels[expandKey].bad.push({t:epCurrentT, docId:docRef.id});
-    else                  phaseLabels[expandKey].noGood = true;
+    // Ensure the "correct" frame has fresh pose + metrics.
+    status.textContent = 'Analyzing correct frame...'; status.style.color = 'var(--muted2)';
+    var correctData;
+    if(Math.abs(originalT - epPoseFreshAt) < 0.005 && phases[phaseKey] && phases[phaseKey].kps && phases[phaseKey].metrics){
+      correctData = {t: originalT, kps: phases[phaseKey].kps, metrics: phases[phaseKey].metrics};
+    } else {
+      correctData = await analyzePoseAtT(originalT, phaseKey);
+    }
+    if(!correctData){
+      status.textContent = 'Pose not detected at correct frame -- aborted';
+      status.style.color = 'var(--bad)';
+      return;
+    }
+
+    // Save correct frame first.
+    status.textContent = 'Saving correct frame (1/7)...';
+    var correctRef = await writePhaseLabelDoc(phaseKey, correctData, true);
+    if(!phaseLabels[phaseKey]) phaseLabels[phaseKey] = {good:[], bad:[]};
+    phaseLabels[phaseKey].good.push({t: originalT, docId: correctRef.id});
+
+    // Now neighbors.
+    var saved = 1, failed = 0;
+    for(var i = 0; i < NEIGHBOR_OFFSETS.length; i++){
+      var offset = NEIGHBOR_OFFSETS[i];
+      var tNeighbor = originalT + offset * FRAME_STEP_SECS;
+      status.textContent = 'Analyzing neighbor ' + (i+1) + '/6 (' + (offset>0?'+':'') + offset + 'f)...';
+      var nd = await analyzePoseAtT(tNeighbor, phaseKey);
+      if(!nd){ failed++; continue; }
+      try {
+        var ref = await writePhaseLabelDoc(phaseKey, nd, false);
+        phaseLabels[phaseKey].bad.push({t: tNeighbor, docId: ref.id});
+        saved++;
+      } catch(e){
+        console.warn('neighbor save failed', offset, e);
+        failed++;
+      }
+    }
+
     renderLabelPanel();
-    updatePhaseCardLabelBadge(expandKey);
-    try { await drawExpandFrame(epCurrentT, ph.kps || null); } catch(e){}
+    updatePhaseCardLabelBadge(phaseKey);
+
+    // Restore original position + pose overlay.
+    var scrub = document.getElementById('ep-scrubber');
+    if(scrub) scrub.value = originalT;
+    epCurrentT = originalT;
+    document.getElementById('ep-time').textContent = originalT.toFixed(2) + 's';
+    if(phases[phaseKey]){
+      phases[phaseKey].t = originalT;
+      phases[phaseKey].kps = correctData.kps;
+      phases[phaseKey].metrics = correctData.metrics;
+    }
+    epPoseFreshAt = originalT;
+    try { await drawExpandFrame(originalT, correctData.kps); } catch(e){}
+
+    status.textContent = 'Saved ' + saved + '/7 frames' + (failed ? ' (' + failed + ' failed)' : '');
+    status.style.color = 'var(--good)';
   } catch(e){
-    console.error('savePhaseFrame failed', e);
-    status.textContent = 'Save failed -- see console';
+    console.error('labelCorrectFrame failed', e);
+    status.textContent = 'Label failed -- see console';
     status.style.color = 'var(--bad)';
   } finally {
-    btnG.disabled = false; btnB.disabled = false; btnN.disabled = false;
+    btnG.disabled = false;
   }
 }
 function closeExpand(){document.getElementById('expand-overlay').classList.remove('open');document.querySelectorAll('.phase-card').forEach(function(c){c.classList.remove('dimmed');});expandKey=null;document.removeEventListener('keydown',onExpandKey);}
