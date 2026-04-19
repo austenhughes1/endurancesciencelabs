@@ -144,6 +144,9 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 .phase-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;transition:border-color .2s,transform .15s,opacity .3s}
 .phase-card:hover{border-color:rgba(139,124,248,.4);transform:translateY(-1px)}
 .phase-card.dimmed{opacity:.4;pointer-events:none}
+.phase-card{position:relative}
+.phase-card.labeled{border-color:rgba(0,229,200,.55)}
+.phase-card.labeled::after{content:attr(data-label-count);position:absolute;top:8px;right:8px;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--cyan);background:rgba(0,229,200,.12);border:1px solid rgba(0,229,200,.35);padding:2px 6px;border-radius:4px;z-index:2;font-family:var(--mono)}
 .phase-card.undetected{border-color:rgba(245,166,35,.3);animation:pulse-border 2s ease infinite}
 .pc-hdr{padding:12px 14px 10px;display:flex;align-items:center;gap:9px;border-bottom:1px solid var(--border)}
 .pc-num{width:20px;height:20px;border-radius:50%;background:rgba(139,124,248,.12);border:1px solid rgba(139,124,248,.28);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--purple);flex-shrink:0;font-family:var(--mono)}
@@ -557,6 +560,13 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
           <div class="scrub-nav">
             <span class="scrub-nav-label">jump to:</span>
             <div class="nav-phase-btns" id="nav-phase-btns"></div>
+          </div>
+          <div id="ep-label-panel" style="margin-top:10px;padding:10px 12px;background:var(--panel2);border:1px solid var(--border);border-radius:10px">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <span style="font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);font-family:var(--mono)">Train data</span>
+              <button class="step-btn" id="ep-label-good-btn" onclick="labelCorrectFrame()" style="font-size:11px;padding:5px 10px;color:#0f2a24;background:#00e5c8;border-color:#00e5c8">✓ Correct frame <span style="opacity:.7;font-weight:400">(auto-saves 6 neighbors as bad)</span></button>
+              <span id="ep-label-status" style="font-size:11px;color:var(--muted2);margin-left:4px">0 good · 0 bad</span>
+            </div>
           </div>
         </div>
       </div>
@@ -1007,7 +1017,12 @@ function isRelevant(phaseKey, metricKey){ const pm=PHASE_METRICS[phaseKey]; retu
 
 let detector=null,videoEl=null,phases={};
 let expandKey=null,epCurrentT=0,epAnalyzing=false;
+// Snapshot auto-picked frame at modal open so we can label it distinct from scrubbed positions.
+let epAutoT=0, epAutoKps=null, epAutoMetrics=null, epPoseFreshAt=0;
 const epDbt={};
+// Phase-label tracking for training future auto-detection.
+const SESSION_ID = (function(){ try { return (crypto.randomUUID && crypto.randomUUID()) || String(Date.now())+'-'+Math.random().toString(36).slice(2,10); } catch(e){ return String(Date.now())+'-'+Math.random().toString(36).slice(2,10); } })();
+const phaseLabels = {}; // key -> {good:[{t,docId}], bad:[{t,docId}]}
 
 function initPhases(midT){
   const t=(typeof midT==='number'&&isFinite(midT))?midT:0;
@@ -1376,6 +1391,10 @@ function renderMiniMetrics(key,m){
 // Expand panel
 function openExpand(key){
   expandKey=key;const ph=phases[key];const idx=PHASE_DEFS.findIndex(d=>d.key===key);epCurrentT=ph.t||0;
+  epAutoT = ph.t || 0;
+  epAutoKps = ph.kps || null;
+  epAutoMetrics = ph.metrics ? JSON.parse(JSON.stringify(ph.metrics)) : null;
+  epPoseFreshAt = ph.t || 0;
   document.getElementById('expand-overlay').classList.add('open');
   const isUndet=!ph.detected||!ph.kps;
   document.getElementById('ep-hdr').className='ep-hdr'+(isUndet?' undetected':'');
@@ -1392,6 +1411,7 @@ function openExpand(key){
   if(ph.metrics)renderExpandMetrics(ph.metrics);else document.getElementById('ep-metrics').innerHTML='<div class="ep-no-data">Click ↻ Analyze to measure angles</div>';
   drawExpandFrame(epCurrentT,ph.kps);
   renderQualityCard(ph.kps);
+  renderLabelPanel();
   document.querySelectorAll('.phase-card').forEach(c=>c.classList.toggle('dimmed',c.id!==`card-${key}`));
   document.addEventListener('keydown',onExpandKey);
 }
@@ -1448,11 +1468,127 @@ async function epReanalyze(){
   renderMiniMetrics(expandKey,ph.metrics);updateSummaryCol(expandKey);
   const ptEl=document.getElementById(`ptime-${expandKey}`);if(ptEl){ptEl.textContent=epCurrentT.toFixed(2)+'s';ptEl.style.color='var(--purple)';}
   renderQualityCard(kps);
+  epPoseFreshAt = epCurrentT;
   updateSaveSection();btn.disabled=false;btn.textContent='↻ Analyze';epAnalyzing=false;
 }
 function renderExpandMetrics(m){
   const pk=expandKey||'mid';
   document.getElementById('ep-metrics').innerHTML=METRIC_ROWS.filter(r=>isRelevant(pk,r.key)).map(r=>{const v=m[r.key],d=v!=null?r.fmt(v):'---',sl=metricSideLabel(r.key,m);return `<div class="ep-metric"><div class="ep-ml"><div class="ep-dot" style="background:${r.dot}"></div>${r.label}${sl}</div><div style="text-align:right"><div class="ep-mv">${d}</div></div></div>`;}).join('');
+}
+
+// ── Phase-label collection (for training auto-detection) ────────────────────
+function renderLabelPanel(){
+  const status=document.getElementById('ep-label-status');
+  if(!status) return;
+  const lbl=phaseLabels[expandKey]||{good:[],bad:[]};
+  status.textContent = `${lbl.good.length} good · ${lbl.bad.length} bad`;
+  status.style.color = (lbl.good.length||lbl.bad.length) ? 'var(--good)' : 'var(--muted2)';
+}
+function updatePhaseCardLabelBadge(key){
+  const card=document.getElementById(`card-${key}`);
+  if(!card) return;
+  const lbl=phaseLabels[key];
+  if(lbl && (lbl.good.length||lbl.bad.length)){
+    card.classList.add('labeled');
+    card.dataset.labelCount = `${lbl.good.length}g/${lbl.bad.length}b`;
+  } else {
+    card.classList.remove('labeled');
+    delete card.dataset.labelCount;
+  }
+}
+// Detect pose + compute metrics at a given video time WITHOUT touching the expand-modal UI.
+async function analyzePoseAtT(t){
+  if(!videoEl||!detector) return null;
+  const dur=videoEl.duration||0;
+  if(t<0||(dur&&t>dur-0.01)) return null;
+  try{await seekTo(t);}catch(e){return null;}
+  const W=videoEl.videoWidth||640, H=videoEl.videoHeight||360;
+  const canvas=document.createElement('canvas');
+  canvas.width=W; canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  try{ctx.drawImage(videoEl,0,0,W,H);}catch(e){return null;}
+  let poses=null; try{poses=await detector.estimatePoses(canvas);}catch(e){}
+  if(!poses||!poses.length){try{poses=await detector.estimatePoses(videoEl);}catch(e){}}
+  if(!poses||!poses.length) return null;
+  const kps=poses[0].keypoints;
+  const metrics=computeMetrics(kps);
+  if(isSideView(kps)) addFunctionalMetrics(metrics, expandKey, kps);
+  return {t, kps, metrics};
+}
+async function writePhaseLabelDoc(phaseKey, frameData, isCorrect){
+  if(!db) throw new Error('Firestore unavailable');
+  const payload = {
+    sessionId: SESSION_ID,
+    phase: phaseKey,
+    videoView: 'side',
+    videoW: videoEl?.videoWidth || null,
+    videoH: videoEl?.videoHeight || null,
+    videoDur: videoEl && isFinite(videoEl.duration) ? videoEl.duration : null,
+    autoPickedT: epAutoT,
+    t: frameData.t,
+    kps: frameData.kps,
+    metrics: frameData.metrics || null,
+    isCorrect: !!isCorrect,
+    userUid: auth?.currentUser?.uid || null,
+    userEmail: auth?.currentUser?.email || null,
+    source: 'reference-data',
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  return await db.collection('phase_labels').add(payload);
+}
+const FRAME_STEP_SECS = 0.04;
+const NEIGHBOR_OFFSETS = [-3, -2, -1, 1, 2, 3];
+async function labelCorrectFrame(){
+  if(!expandKey) return;
+  const btnG=document.getElementById('ep-label-good-btn');
+  const status=document.getElementById('ep-label-status');
+  btnG.disabled=true;
+  clearTimeout(epDbt.t);
+  const originalT=epCurrentT;
+  const phaseKey=expandKey;
+  try {
+    status.textContent='Analyzing correct frame...'; status.style.color='var(--muted2)';
+    let correctData;
+    if(Math.abs(originalT - epPoseFreshAt) < 0.005 && phases[phaseKey] && phases[phaseKey].kps && phases[phaseKey].metrics){
+      correctData = {t: originalT, kps: phases[phaseKey].kps, metrics: phases[phaseKey].metrics};
+    } else {
+      correctData = await analyzePoseAtT(originalT);
+    }
+    if(!correctData){ status.textContent='Pose not detected at correct frame — aborted'; status.style.color='var(--bad)'; return; }
+    status.textContent='Saving correct frame (1/7)...';
+    const correctRef = await writePhaseLabelDoc(phaseKey, correctData, true);
+    if(!phaseLabels[phaseKey]) phaseLabels[phaseKey] = {good:[], bad:[]};
+    phaseLabels[phaseKey].good.push({t: originalT, docId: correctRef.id});
+
+    let saved=1, failed=0;
+    for(let i=0; i<NEIGHBOR_OFFSETS.length; i++){
+      const offset=NEIGHBOR_OFFSETS[i];
+      const tNeighbor=originalT + offset*FRAME_STEP_SECS;
+      status.textContent = `Analyzing neighbor ${i+1}/6 (${offset>0?'+':''}${offset}f)...`;
+      const nd = await analyzePoseAtT(tNeighbor);
+      if(!nd){ failed++; continue; }
+      try {
+        const ref = await writePhaseLabelDoc(phaseKey, nd, false);
+        phaseLabels[phaseKey].bad.push({t: tNeighbor, docId: ref.id});
+        saved++;
+      } catch(e){ console.warn('neighbor save failed', offset, e); failed++; }
+    }
+    renderLabelPanel();
+    updatePhaseCardLabelBadge(phaseKey);
+    const scrub=document.getElementById('ep-scrubber');
+    if(scrub) scrub.value=originalT;
+    epCurrentT=originalT;
+    document.getElementById('ep-time').textContent=originalT.toFixed(2)+'s';
+    if(phases[phaseKey]){ phases[phaseKey].t=originalT; phases[phaseKey].kps=correctData.kps; phases[phaseKey].metrics=correctData.metrics; }
+    epPoseFreshAt=originalT;
+    try{ await drawExpandFrame(originalT, correctData.kps); }catch(e){}
+    status.textContent = `Saved ${saved}/7 frames` + (failed?` (${failed} failed)`:'');
+    status.style.color='var(--good)';
+  } catch(e){
+    console.error('labelCorrectFrame failed', e);
+    status.textContent='Label failed — see console';
+    status.style.color='var(--bad)';
+  } finally { btnG.disabled=false; }
 }
 
 // Drawing
