@@ -1371,7 +1371,7 @@ var uploadedFiles = {side: null, front: null, back: null};
 let detector=null, phases={};
 let expandKey=null, epCurrentT=0, epAnalyzing=false;
 // Captured at openExpand() so we can label the auto-picked frame vs. whatever the reviewer moved to.
-var epAutoT = 0, epAutoKps = null;
+var epAutoT = 0, epAutoKps = null, epAutoMetrics = null;
 // Video time at which ph.kps was last computed -- used to detect stale poses when saving labels.
 var epPoseFreshAt = 0;
 var auth2 = null;
@@ -2278,6 +2278,8 @@ function openExpand(key){
   // Snapshot the auto-picked frame so we can tell later whether the reviewer accepted or moved it.
   epAutoT = ph.t || 0;
   epAutoKps = ph.kps || null;
+  // Deep-copy so subsequent re-analysis at a corrected frame doesn't mutate the auto snapshot.
+  epAutoMetrics = ph.metrics ? JSON.parse(JSON.stringify(ph.metrics)) : null;
   epPoseFreshAt = ph.t || 0;
   var vidEl = getVideoElForPhase(key);
   document.getElementById('expand-overlay').classList.add('open');
@@ -2372,11 +2374,13 @@ async function savePhaseLabel(noGood){
       videoDur: vidEl && isFinite(vidEl.duration) ? vidEl.duration : null,
       autoT: epAutoT,
       autoKps: epAutoKps || null,
+      autoMetrics: epAutoMetrics || null,
       noGood: !!noGood,
       correct: !noGood && !moved,
       corrected: !noGood && moved,
       trueT: noGood ? null : epCurrentT,
       trueKps: noGood ? null : (ph.kps || null),
+      trueMetrics: noGood ? null : (ph.metrics || null),
       userUid: currentUser ? currentUser.uid : null,
       userEmail: currentUser ? (currentUser.email || null) : null,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
