@@ -1316,16 +1316,15 @@ const PHASE_DEFS = [
   {key:'mid_front_r', label:'R mid-stance (front)', desc:'Right foot planted under body, front view', videoKey:'front', side:'right', detectsIssue:'R hip drop, arm crossing, R knee valgus', guide:{title:'Right foot mid-stance (front view)', desc:'A frontal view at the moment the right foot is planted directly underneath the body.',checks:['Right foot planted flat on the ground','Right foot directly underneath the body -- not ahead or behind','Left leg is in mid-swing','Hips clearly visible for drop measurement'],tip:"Look for the instant the runner's body passes directly over the right stance foot."}},
   {key:'mid_back_l',  label:'L mid-stance (back)',  desc:'Left foot planted under body, rear view',  videoKey:'back',  side:'left',  detectsIssue:'L hip drop confirmation', guide:{title:'Left foot mid-stance (back view)', desc:'A rear view at the moment the left foot is planted directly underneath the body. Confirms left-stance hip drop from the front view.',checks:['Left foot planted flat on the ground','Left foot directly underneath the body','Right leg in mid-swing','PSIS / lower back clearly visible'],tip:"Pick the instant the body passes directly over the left stance foot, viewed from behind."}},
   {key:'mid_back_r',  label:'R mid-stance (back)',  desc:'Right foot planted under body, rear view', videoKey:'back',  side:'right', detectsIssue:'R hip drop confirmation', guide:{title:'Right foot mid-stance (back view)', desc:'A rear view at the moment the right foot is planted directly underneath the body. Confirms right-stance hip drop from the front view.',checks:['Right foot planted flat on the ground','Right foot directly underneath the body','Left leg in mid-swing','PSIS / lower back clearly visible'],tip:"Pick the instant the body passes directly over the right stance foot, viewed from behind."}},
-  {key:'peak_kf',   label:'Peak knee lift',     desc:'Swing knee at its highest point',          videoKey:'side',  side:'center', detectsIssue:'Arm angle', guide:{title:'Peak knee lift', desc:"The moment the swing leg's knee reaches its highest point -- the hip is maximally flexed forward.",checks:['Swing knee at its apex (highest vertical point)','Thigh approaching horizontal','Heel below the knee, not yet pulled toward glute','Stance leg extended in push-off or brief flight'],tip:'Elite runners show a pronounced knee drive. A low, lazy knee lift wastes energy.'}},
 ];
 
 const PHASE_GROUPS = [
   {label:'Stride & propulsion', keys:['l_foot','r_foot','l_toe','r_toe']},
-  {label:'Posture, trunk & arm mechanics', keys:['mid','peak_kf']},
+  {label:'Posture & trunk', keys:['mid']},
   {label:'Hip & lateral mechanics', keys:['mid_front_l','mid_front_r','mid_back_l','mid_back_r']},
 ];
 
-const SUMMARY_COL_ORDER = ['l_foot','r_foot','l_toe','r_toe','mid','peak_kf'];
+const SUMMARY_COL_ORDER = ['l_foot','r_foot','l_toe','r_toe','mid'];
 const GROUP_STARTS       = new Set(['l_foot','l_toe','mid']);
 
 const METRIC_ROWS = [
@@ -1357,7 +1356,6 @@ const PHASE_METRICS = {
   mid_front_r: [],
   mid_back_l:  [],
   mid_back_r:  [],
-  peak_kf:   ['trunk','trailHip','nearElbow'],
 };
 function isRelevant(phaseKey, metricKey){ var pm=PHASE_METRICS[phaseKey]; return !pm || pm.length===0 || pm.includes(metricKey); }
 
@@ -1823,7 +1821,7 @@ async function autoScanAll(){
   try{findPhases(samples,sideDur);}catch(e){console.error('findPhases:',e);}
 
   // Update side phase UI items
-  var sidePhaseKeys = ['l_foot','r_foot','l_toe','r_toe','mid','peak_kf'];
+  var sidePhaseKeys = ['l_foot','r_foot','l_toe','r_toe','mid'];
   sidePhaseKeys.forEach(function(key){
     var ph=phases[key];var item=document.getElementById('spl-'+key);var tEl=document.getElementById('spl-t-'+key);
     if(!item||!tEl)return;
@@ -2148,30 +2146,6 @@ function findPhases(samples,dur){
     det('mid', mid);
   }
 
-  // ---- Peak knee flex (peak knee lift) ----
-  // Defined as the moment the swing-leg knee reaches its highest point -- detected as the
-  // MINIMUM of lHipExt (smallest shoulder-hip-knee angle = hip most flexed forward). Hip angle
-  // has a cleaner peak than knee angle during swing, so this is more reliable than the old
-  // "min knee angle / heel-to-glute" heuristic. Search the 0.10-0.70s window after L toe-off.
-  var hipTroughs = prominenceFilterMin(localTroughs('lHipExt', 2), 'lHipExt', 0.45);
-  var hipTroughMed = (function(){ var v=samples.map(function(s){return s.lHipExt;}).filter(function(x){return x!==null&&x!==undefined&&isFinite(x);}).sort(function(a,b){return a-b;}); return v.length?v[Math.floor(v.length/2)]:0; })();
-
-  var pkfCand = null;
-  if(lToe){
-    var swingWin = hipTroughs.filter(function(c){ var dt = c.t - lToe.t; return dt >= 0.10 && dt <= 0.70; });
-    pkfCand = pickByScore(swingWin, hipTroughMed, false);
-  }
-  if(!pkfCand) pkfCand = pickByScore(hipTroughs, hipTroughMed, false);
-
-  if(pkfCand){
-    var claimed2 = claimedTimes().concat(mid?[mid.t]:[]);
-    if(!tooClose(pkfCand.t, claimed2)){
-      det('peak_kf', pkfCand.s);
-    } else {
-      var sorted = hipTroughs.slice().sort(function(a,b){ return a.val - b.val; });
-      for(var k=0;k<sorted.length;k++){ if(!tooClose(sorted[k].t, claimed2)){ det('peak_kf', sorted[k].s); break; } }
-    }
-  }
 }
 
 // Phase grid
@@ -2946,12 +2920,6 @@ function addFunctionalMetrics(metrics, phaseKey, kps) {
     metrics.plantSide = plantSide === 'l' ? 'L' : 'R';
     if (metrics[plantSide + 'Knee'] != null) metrics.plantKnee = metrics[plantSide + 'Knee'];
     if (metrics[plantSide + 'Hip'] != null) metrics.plantHip = metrics[plantSide + 'Hip'];
-  } else if (phaseKey === 'peak_kf') {
-    var lK2 = metrics.lKnee, rK2 = metrics.rKnee;
-    var pkfLeadSide = (lK2 != null && rK2 != null) ? (lK2 <= rK2 ? 'l' : 'r') : (lK2 != null ? 'l' : 'r');
-    var pkfTrailSide = (pkfLeadSide === 'l') ? 'r' : 'l';
-    metrics.trailSide = pkfTrailSide === 'l' ? 'L' : 'R';
-    if (metrics[pkfTrailSide + 'Hip'] != null) metrics.trailHip = metrics[pkfTrailSide + 'Hip'];
   }
 }
 
@@ -3289,7 +3257,7 @@ function detectIssues() {
   // 4. TORSO POSITION -- z-score average across all side-view phases that measure trunk lean.
   // Each phase is compared to its own elite mean/SD (mid-stance lean differs from peak-KF lean),
   // then z-scores are averaged. |avg z| > 1 = mild, > 2 = notable. Sign picks upright vs lean.
-  var TRUNK_PHASES = ['l_foot','r_foot','l_toe','r_toe','mid','peak_kf'];
+  var TRUNK_PHASES = ['l_foot','r_foot','l_toe','r_toe','mid'];
   var trunkZs = [], userTrunks = [], eliteTrunks = [];
   TRUNK_PHASES.forEach(function(pk) {
     var pm = phases[pk] && phases[pk].metrics ? phases[pk].metrics : null;
@@ -3318,31 +3286,35 @@ function detectIssues() {
     }
   }
 
-  // 5. ARM ANGLE TOO OPEN (side peak_kf) -- uses SEX-COMBINED elite range.
-  // No strong evidence for sex differences in elbow carriage; pooling male+female
-  // produces a more stable baseline than the small female-only sample alone.
-  var pkfM = phases.peak_kf && phases.peak_kf.metrics ? phases.peak_kf.metrics : null;
-  var pkfElbow = null;
-  if(pkfM) {
-    if(pkfM.nearElbow !== undefined) {
-      pkfElbow = pkfM.nearElbow;
-    } else {
-      var eCount = 0, eSum = 0;
-      if(pkfM.lElbow !== undefined) { eSum += pkfM.lElbow; eCount++; }
-      if(pkfM.rElbow !== undefined) { eSum += pkfM.rElbow; eCount++; }
-      if(eCount > 0) pkfElbow = eSum / eCount;
-    }
+  // 5. ARM ANGLE TOO OPEN -- averaged near-elbow at L toe-off (arm forward-drive peak) and
+  // R toe-off (arm back-drive peak). Two readings per runner smooths single-frame noise and
+  // covers both ends of the arm-swing cycle. Uses SEX-COMBINED elite range: no strong evidence
+  // for sex differences in elbow carriage, and pooling gives a more stable baseline.
+  function elbowAt(phaseKey){
+    var m = phases[phaseKey] && phases[phaseKey].metrics ? phases[phaseKey].metrics : null;
+    if(!m) return null;
+    if(m.nearElbow !== undefined && m.nearElbow !== null) return m.nearElbow;
+    var eCount = 0, eSum = 0;
+    if(m.lElbow !== undefined && m.lElbow !== null) { eSum += m.lElbow; eCount++; }
+    if(m.rElbow !== undefined && m.rElbow !== null) { eSum += m.rElbow; eCount++; }
+    return eCount ? eSum / eCount : null;
   }
-  if(pkfElbow === null) {
+  var lToeElbow = elbowAt('l_toe');
+  var rToeElbow = elbowAt('r_toe');
+  var armElbow = null;
+  if(lToeElbow !== null && rToeElbow !== null) armElbow = (lToeElbow + rToeElbow) / 2;
+  else if(lToeElbow !== null) armElbow = lToeElbow;
+  else if(rToeElbow !== null) armElbow = rToeElbow;
+  if(armElbow === null) {
     issues.armAngle = {detected:false, severity:null, details:COACHING_CUES.armAngle.clear};
   } else {
-    var armStats = getCombinedStats('peak_kf', 'nearElbow');
+    var armStats = getCombinedStats('arm_drive', 'nearElbow');
     var armMild = armStats.mean + 2 * armStats.sd;
     var armNotable = armStats.mean + 4 * armStats.sd;
-    if(pkfElbow > armNotable) {
-      issues.armAngle = {detected:true, severity:'notable', details:'Elbow: '+pkfElbow.toFixed(0)+'\u00b0 (elite '+armStats.mean.toFixed(0)+' \u00b1 '+armStats.sd.toFixed(0)+', pooled sexes)'};
-    } else if(pkfElbow > armMild) {
-      issues.armAngle = {detected:true, severity:'mild', details:'Elbow: '+pkfElbow.toFixed(0)+'\u00b0 (elite '+armStats.mean.toFixed(0)+' \u00b1 '+armStats.sd.toFixed(0)+', pooled sexes)'};
+    if(armElbow > armNotable) {
+      issues.armAngle = {detected:true, severity:'notable', details:'Elbow: '+armElbow.toFixed(0)+'\u00b0 (mean L+R toe-off; elite '+armStats.mean.toFixed(0)+' \u00b1 '+armStats.sd.toFixed(0)+', pooled sexes)'};
+    } else if(armElbow > armMild) {
+      issues.armAngle = {detected:true, severity:'mild', details:'Elbow: '+armElbow.toFixed(0)+'\u00b0 (mean L+R toe-off; elite '+armStats.mean.toFixed(0)+' \u00b1 '+armStats.sd.toFixed(0)+', pooled sexes)'};
     } else {
       issues.armAngle = {detected:false, severity:null, details:COACHING_CUES.armAngle.clear};
     }
@@ -4953,7 +4925,7 @@ function closeCompare() {
   document.getElementById('compare-overlay').classList.remove('open');
 }
 
-// For non-side-specific phases (mid, peak_kf, swing), the L/R assignments
+// For non-side-specific phases (mid), the L/R assignments
 // depend on which leg happened to be captured. To compare sessions fairly,
 // we normalize by pairing metrics by functional role rather than L/R label.
 // Pairs: lKnee/rKnee, lHip/rHip, lElbow/rElbow, lFoot/rFoot
@@ -5026,7 +4998,7 @@ function runCompare() {
   html += '<button class="compare-details-toggle" onclick="this.classList.toggle(\'open\');document.getElementById(\'compare-detail-table\').classList.toggle(\'open\')">Angle measurements detail <span class="toggle-arrow">&#9660;</span></button>';
   html += '<div class="compare-details-table" id="compare-detail-table">';
 
-  var sidePhases = ['l_foot','r_foot','l_toe','r_toe','mid','peak_kf'];
+  var sidePhases = ['l_foot','r_foot','l_toe','r_toe','mid'];
   html += '<table class="stbl" style="min-width:500px"><thead><tr><th>Phase</th><th>Metric</th><th>' + (dA.name || 'A') + '</th><th>' + (dB.name || 'B') + '</th><th>Change</th></tr></thead><tbody>';
 
   sidePhases.forEach(function(pk) {
@@ -5474,7 +5446,7 @@ function downloadComparisonPDF() {
   y += cmpHdrH;
 
   // Data rows
-  var cmpSidePhases = ['l_foot','r_foot','l_toe','r_toe','mid','peak_kf'];
+  var cmpSidePhases = ['l_foot','r_foot','l_toe','r_toe','mid'];
   // Helper to render one PDF comparison row
   function pdfCompareRow(pLabel, metricLabel, vA, vB, metricKey) {
     y = pdfCheckPage(doc, y, cmpCellH + 1, margins);

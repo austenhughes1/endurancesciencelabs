@@ -888,15 +888,16 @@ function renderThresholds() {
     });
   }
 
-  // 5. ARM ANGLE TOO OPEN -- peak knee flex elbow, 2/4 robust-SD above center.
-  // Uses the SEX-COMBINED elite baseline (male + female pooled). No strong evidence
-  // for sex differences in elbow carriage, and the female-only sample is too small
-  // to produce stable thresholds on its own.
+  // 5. ARM ANGLE TOO OPEN -- mean of near-elbow at L toe-off (arm forward-drive peak) and
+  // R toe-off (arm back-drive peak). Two readings per runner smooths single-frame noise.
+  // Uses the SEX-COMBINED elite baseline (male + female pooled). No strong evidence for
+  // sex differences in elbow carriage, and the female-only sample is too small to produce
+  // stable thresholds on its own.
   {
-    const E = thrLiveStats('combined', 'peak_kf', 'nearElbow');
+    const E = thrLiveStats('combined', 'arm_drive', 'nearElbow');
     rows.push({
       anomaly: 'Arm angle too open',
-      meta: 'Camera-side elbow angle at peak knee flexion (side view). Pooled across sexes -- same threshold for male and female.',
+      meta: 'Mean of camera-side elbow angle at L toe-off (forward-drive peak) and R toe-off (back-drive peak). Pooled across sexes -- same threshold for male and female.',
       source: E.live ? 'live' : 'fallback',
       n: E.live ? E.n : 0,
       mild:    '&gt; ' + fmtDeg0(E.mean + 2*E.sd),
@@ -2079,8 +2080,50 @@ function computeRanges(sessions){
     result.pooled[p.key] = statsFrom(values);
   });
 
+  // arm_drive: per-session MEAN of near-elbow at l_toe (arm forward-drive peak) and r_toe
+  // (arm back-drive peak). Average smooths single-frame noise. esFormLab reads arm-angle
+  // elite stats from this virtual phase.
+  result.arm_drive = {};
+  const armValues = [];
+  sessions.forEach(s => {
+    const lE = s.phases?.l_toe?.nearElbow;
+    const rE = s.phases?.r_toe?.nearElbow;
+    const vals = [];
+    if (typeof lE === 'number' && isFinite(lE)) vals.push(lE);
+    if (typeof rE === 'number' && isFinite(rE)) vals.push(rE);
+    if (vals.length) armValues.push(vals.reduce((a,b)=>a+b,0) / vals.length);
+  });
+  result.arm_drive.nearElbow = statsFrom(armValues);
+
   return result;
 }
+
+// Admin console helper: re-aggregate computed_ranges from ALL existing reference_sessions.
+// Usage: open reference-data, sign in, then in DevTools console run `await __recomputeRanges()`.
+// One-off for when aggregation logic changes and you don't want to save a new session just to
+// trigger the refresh.
+window.__recomputeRanges = async function(){
+  if(!db){ console.error('Firestore not initialized'); return; }
+  console.log('[recompute] loading all reference sessions...');
+  const allSnap = await db.collection('reference_sessions').get();
+  const allSessions = allSnap.docs.map(d=>d.data());
+  console.log('[recompute] got', allSessions.length, 'sessions');
+  for(const sex of ['male','female']){
+    const subset = allSessions.filter(s=>s.sex===sex);
+    const ranges = computeRanges(subset);
+    await db.collection('computed_ranges').doc(sex).set({
+      lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+      sex, sampleCount: subset.length, phases: ranges,
+    });
+    console.log('[recompute] wrote', sex, '-', subset.length, 'sessions');
+  }
+  const combinedRanges = computeRanges(allSessions);
+  await db.collection('computed_ranges').doc('combined').set({
+    lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+    sex:'combined', sampleCount: allSessions.length, phases: combinedRanges,
+  });
+  console.log('[recompute] wrote combined -', allSessions.length, 'sessions. Done.');
+};
 
 // Seek
 function seekTo(t){
