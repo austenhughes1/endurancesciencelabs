@@ -1788,6 +1788,11 @@ async function autoScanAll(){
     var lAn=g(15),rAn=g(16),lKn=g(13),lHi=g(11),rHi=g(12),lSh=g(5),rSh=g(6),rKn=g(14);
     var conf=kps.reduce(function(sum,k){return sum+(k.score||0);},0)/kps.length;
     var hipMidX=(lHi&&rHi)?(lHi.x+rHi.x)/2:undefined;
+    // Body scale = midShoulder -> midHip pixel distance. Robust to limb movement.
+    // Used downstream to reject frames where the runner is too small/far to pose reliably.
+    var shMidY = (lSh&&rSh)?(lSh.y+rSh.y)/2:(lSh?lSh.y:(rSh?rSh.y:null));
+    var hiMidY = (lHi&&rHi)?(lHi.y+rHi.y)/2:(lHi?lHi.y:(rHi?rHi.y:null));
+    var scale  = (shMidY!=null && hiMidY!=null) ? Math.abs(hiMidY - shMidY) : null;
     samples.push({
       t:t,
       lAnkleY:lAn?lAn.y:undefined, rAnkleY:rAn?rAn.y:undefined,
@@ -1798,9 +1803,23 @@ async function autoScanAll(){
       lKnAngle:(lHi&&lKn&&lAn)?calcAngle(lHi,lKn,lAn):null,
       rKnAngle:(rHi&&rKn&&rAn)?calcAngle(rHi,rKn,rAn):null,
       conf:conf,
+      scale:scale,
       kps:kps
     });
   }
+
+  // Reject frames where the runner is too far/small to pose reliably (common at the start/end
+  // of static-tripod clips). Keep only samples with body scale >= 55% of the median.
+  (function filterByBodyScale(){
+    var vals = samples.map(function(s){return s.scale;}).filter(function(v){return v!=null && isFinite(v) && v>0;});
+    if(vals.length < 8) return;
+    var sorted = vals.slice().sort(function(a,b){return a-b;});
+    var med = sorted[Math.floor(sorted.length/2)];
+    var thresh = med * 0.55;
+    var before = samples.length;
+    samples = samples.filter(function(s){return s.scale!=null && s.scale >= thresh;});
+    console.log('[scale filter] side: kept',samples.length,'of',before,'(threshold',thresh.toFixed(1)+'px, median',med.toFixed(1)+'px)');
+  })();
 
   // Detect side phases
   try{findPhases(samples,sideDur);}catch(e){console.error('findPhases:',e);}
@@ -1913,8 +1932,30 @@ async function scanBestStanceFrames(vidEl, viewLabel, barStart, barEnd) {
     if(heightDiff < 0) lScore = 0;
     if(heightDiff > 0) rScore = 0;
 
-    frames.push({t:t, kps:kps, lScore:lScore, rScore:rScore, conf:avgConf});
+    // Body scale for far/small-runner filtering (applied after loop).
+    var lSh = kps[5], rSh = kps[6];
+    var shMidY = (lSh && rSh && (lSh.score||0)>=MIN_CONF && (rSh.score||0)>=MIN_CONF) ? (lSh.y+rSh.y)/2 : null;
+    var hiMidY = (lHi.y + rHi.y) / 2;
+    var scale  = (shMidY != null) ? Math.abs(hiMidY - shMidY) : null;
+
+    frames.push({t:t, kps:kps, lScore:lScore, rScore:rScore, conf:avgConf, scale:scale});
   }
+
+  // Reject frames where the runner is too far/small (body scale below 55% of median). Zero the
+  // stance scores on those frames so the peak-picker can't select them.
+  (function filterByBodyScale(){
+    var vals = frames.filter(function(f){return f && f.scale!=null && f.scale>0;}).map(function(f){return f.scale;});
+    if(vals.length < 8) return;
+    var sorted = vals.slice().sort(function(a,b){return a-b;});
+    var med = sorted[Math.floor(sorted.length/2)];
+    var thresh = med * 0.55;
+    var dropped = 0;
+    for(var i=0;i<frames.length;i++){
+      var f = frames[i]; if(!f) continue;
+      if(f.scale == null || f.scale < thresh){ f.lScore = 0; f.rScore = 0; dropped++; }
+    }
+    console.log('[scale filter]', viewLabel+':', 'rejected', dropped, 'of', frames.filter(function(f){return !!f;}).length, '(threshold',thresh.toFixed(1)+'px, median',med.toFixed(1)+'px)');
+  })();
 
   // Find local peaks with ~0.2s min spacing, pick the best one per side.
   function pickBestPeak(scoreKey){

@@ -1100,7 +1100,7 @@ async function autoScan(){
   if(!isFinite(dur)||isNaN(dur)||dur<=0){await new Promise(r=>setTimeout(r,500));dur=videoEl.duration;}
   if(!isFinite(dur)||isNaN(dur)||dur<=0)dur=30;
   initPhases(dur/2);
-  const N=150,samples=[];
+  const N=150; let samples=[];
   document.getElementById('scan-phase-list').innerHTML=PHASE_DEFS.map(p=>`<div class="spl-item" id="spl-${p.key}"><div class="spl-dot"></div><span class="spl-name">${p.label}</span><span class="spl-time" id="spl-t-${p.key}">—</span></div>`).join('');
   const sc=document.getElementById('scan-canvas'),sctx=sc.getContext('2d');
   let posesFound=0;
@@ -1132,8 +1132,26 @@ async function autoScan(){
     const rHipExt=(rSh&&rHi&&rKn)?calcAngle(rSh,rHi,rKn):null;
     const conf=kps.reduce((sum,k)=>sum+(k.score||0),0)/kps.length;
     const hipMidX=(lHi&&rHi)?(lHi.x+rHi.x)/2:undefined;
-    samples.push({t,lAnkleY:lAn?.y,rAnkleY:rAn?.y,lAnkleX:lAn?.x,rAnkleX:rAn?.x,hipMidX,lHipExt,rHipExt,lKnAngle,rKnAngle,conf,kps});
+    // Body scale = midShoulder -> midHip pixel distance. Used downstream to reject
+    // frames where the runner is too far/small for reliable pose estimation.
+    const shMidY=(lSh&&rSh)?(lSh.y+rSh.y)/2:(lSh?lSh.y:(rSh?rSh.y:null));
+    const hiMidY=(lHi&&rHi)?(lHi.y+rHi.y)/2:(lHi?lHi.y:(rHi?rHi.y:null));
+    const scale=(shMidY!=null&&hiMidY!=null)?Math.abs(hiMidY-shMidY):null;
+    samples.push({t,lAnkleY:lAn?.y,rAnkleY:rAn?.y,lAnkleX:lAn?.x,rAnkleX:rAn?.x,hipMidX,lHipExt,rHipExt,lKnAngle,rKnAngle,conf,scale,kps});
   }
+
+  // Reject frames where the runner is too far/small to pose reliably (common at the start/end
+  // of static-tripod clips). Keep only samples with body scale >= 55% of the median.
+  (function filterByBodyScale(){
+    const vals=samples.map(s=>s.scale).filter(v=>v!=null&&isFinite(v)&&v>0);
+    if(vals.length<8) return;
+    const sorted=[...vals].sort((a,b)=>a-b);
+    const med=sorted[Math.floor(sorted.length/2)];
+    const thresh=med*0.55;
+    const before=samples.length;
+    samples=samples.filter(s=>s.scale!=null&&s.scale>=thresh);
+    console.log('[scale filter] side: kept',samples.length,'of',before,'(threshold',thresh.toFixed(1)+'px, median',med.toFixed(1)+'px)');
+  })();
   document.getElementById('scan-bar').style.width='100%';
   document.getElementById('scan-step').textContent=`Done · ${posesFound}/${N} frames detected`;
   const diag=document.getElementById('scan-diag');diag.style.display='block';
