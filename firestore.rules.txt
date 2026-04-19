@@ -20,7 +20,7 @@ service cloud.firestore {
       allow read:  if true;
       allow write: if request.auth != null
                    && request.auth.uid == "2z9Z3K5ZwShvadUuqZmwMv0s1Od2"
-                   && sex in ["male", "female"];
+                   && sex in ["male", "female", "combined"];
     }
 
     // ── Reference sessions ───────────────────────────────────
