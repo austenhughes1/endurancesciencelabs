@@ -2348,6 +2348,8 @@ async function savePhaseLabel(noGood){
   var btnNo   = document.getElementById('ep-label-nogood-btn');
   var status  = document.getElementById('ep-label-status');
   btnSave.disabled = true; btnNo.disabled = true;
+  // Kill any pending scrubber-driven redraw so it can't race with the pose we draw below.
+  clearTimeout(epDbt.t);
   // If the reviewer scrubbed but didn't re-analyze, the pose on file is for the auto frame,
   // not the corrected frame. Run analysis before saving so trueKps matches trueT.
   if(!noGood && Math.abs(epCurrentT - epPoseFreshAt) > 0.01 && !epAnalyzing){
@@ -2389,6 +2391,9 @@ async function savePhaseLabel(noGood){
     renderLabelPanel();
     var card = document.getElementById('card-' + expandKey);
     if(card) card.classList.add('labeled');
+    // Redraw the expand canvas with the final pose so the reviewer can see what was saved
+    // (even for "no good" we still show the pose that was picked, if any).
+    try { await drawExpandFrame(epCurrentT, ph.kps || null); } catch(e){}
   } catch(e){
     console.error('savePhaseLabel failed', e);
     status.textContent = 'Save failed -- see console';
