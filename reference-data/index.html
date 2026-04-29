@@ -632,9 +632,15 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
   <div class="thr-hdr">
     <div>
       <div class="thr-title">Frame-selection diagnostic</div>
-      <div class="thr-sub">Compares the detector's auto-picked frame against admin "Correct frame" labels. Run after labeling more sessions to see how detection accuracy is trending per phase. Hits = auto landed within 1 frame (40ms) of the labeled correct frame.</div>
+      <div class="thr-sub">Compares the detector's auto-picked frame against admin "Correct frame" labels. Numbers are <strong>stride-aware</strong> — running gait is cyclic, so a delta of one full step usually means the detector picked a different (still valid) stride, not a wrong event. We collapse the raw delta by an estimated stride period (~700ms) so only the within-stride miss counts. Hit = auto landed within 1 frame (40ms) of the labeled correct frame's beat.</div>
     </div>
-    <button id="diag-run-btn" class="thr-toggle-btn" onclick="runFrameDiagnostic()" style="padding:8px 16px;background:var(--purple);color:#fff;border:none;border-radius:8px;font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.4px;cursor:pointer">Run diagnostic</button>
+    <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
+      <button id="diag-run-btn" class="thr-toggle-btn" onclick="runFrameDiagnostic()" style="padding:8px 16px;background:var(--purple);color:#fff;border:none;border-radius:8px;font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.4px;cursor:pointer">Run diagnostic</button>
+      <label style="font-size:11px;color:var(--muted2);font-family:var(--mono);display:flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" id="diag-validated-only" checked onchange="if(document.getElementById('diag-summary').textContent) runFrameDiagnostic()">
+        Validated labels only
+      </label>
+    </div>
   </div>
   <div id="diag-summary" style="padding:8px 0 12px;font-size:13px;color:var(--muted2);font-family:var(--mono)"></div>
   <div class="thr-table-wrap">
@@ -644,7 +650,7 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
           <th style="width:18%">Phase</th>
           <th style="width:8%">n</th>
           <th style="width:14%">Hit rate (≤1f)</th>
-          <th style="width:16%">Mean bias</th>
+          <th style="width:16%">Within-stride bias</th>
           <th style="width:16%">Median miss</th>
           <th>Distribution (0 / 1 / 2 / 3+ frames off)</th>
         </tr>
@@ -655,8 +661,9 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
     </table>
   </div>
   <div class="thr-note">
-    <strong>Mean bias</strong>: + = detector picks EARLIER than the correct frame, − = detector picks LATER. Use this to spot systematic errors.
-    &nbsp;·&nbsp;<strong>Median miss</strong>: absolute distance in milliseconds.
+    <strong>Within-stride bias</strong>: + = detector picks LATER than the correct frame within a stride, − = detector picks EARLIER. Wrong-stride differences are folded into a within-stride delta first.
+    &nbsp;·&nbsp;<strong>Median miss</strong>: absolute within-stride distance in milliseconds.
+    &nbsp;·&nbsp;<strong>Validated</strong>: rejects labels whose pose violates a basic biomechanical sanity check (e.g. L foot strike where R ankle is on the ground, common with mislabeled L/R from MoveNet keypoint swap).
   </div>
 </div>
 
@@ -1006,13 +1013,69 @@ function handleUploadClick() {
 //  FRAME-SELECTION DIAGNOSTIC
 // ══════════════════════════════════════════════════════════
 // Pulls every phase_labels doc, groups by (sessionId, phase), and compares the detector's
-// auto-picked frame against the admin-labeled "correct" frame. Reports per-phase hit rate,
-// systematic bias (is detector consistently early/late), median miss, and a bin distribution.
-// Hit = |autoPickedT - goodT| within 1 frame (40ms).
+// auto-picked frame against the admin-labeled "correct" frame.
+//
+// Two corrections vs naive raw delta:
+// 1. STRIDE-AWARE DELTA: running gait is cyclic. If admin labels stride #2 and detector picks
+//    stride #5, the raw delta is several hundred ms but the *event-within-stride* error is
+//    near zero. We fold delta modulo an estimated stride period (~700ms default, refined per
+//    session if both L and R foot strike labels exist).
+// 2. POSE SANITY FILTER: catches admin-side label errors -- e.g. at "L foot strike" the
+//    pose shows R ankle on the ground (because MoveNet keypoint swap or admin clicked
+//    wrong instance). Toggle to include/exclude these.
+const DIAG_DEFAULT_STRIDE = 0.7; // seconds, ~180 SPM cadence
+
+// Modulo that handles negative numerator -- collapses delta to [-stride/2, +stride/2].
+function diagWrapDelta(delta, stride){
+  const half = stride / 2;
+  const mod = ((delta + half) % stride + stride) % stride;
+  return mod - half;
+}
+
+// Validate the pose stored in a "correct" label against simple biomechanical invariants for
+// that phase. Returns true if the label looks plausible, false if clearly wrong, null if we
+// can't tell (missing keypoints / metrics).
+function diagLabelIsSane(label){
+  const kps = label.kps;
+  if(!kps || kps.length < 17) return null;
+  const lAn = kps[15], rAn = kps[16];
+  if(!lAn || !rAn || lAn.y == null || rAn.y == null) return null;
+  // y-coords increase downward in the image, so the lower (in image) ankle = higher y.
+  switch(label.phase){
+    case 'l_foot':
+    case 'l_toe':
+    case 'mid_front_l':
+    case 'mid_back_l':
+      return lAn.y > rAn.y;     // L should be on the ground
+    case 'r_foot':
+    case 'r_toe':
+    case 'mid_front_r':
+    case 'mid_back_r':
+      return rAn.y > lAn.y;     // R should be on the ground
+    case 'mid': {
+      // Single-support: one ankle clearly lower than the other.
+      return Math.abs(lAn.y - rAn.y) > 5;
+    }
+    case 'peak_kf': {
+      // Hip flexed forward. lHipExt (shoulder-hip-knee angle) should be < ~145deg if the
+      // labeled side has its knee raised. If we can't read the metric, fall back to "swing
+      // leg ankle higher than stance leg ankle" -- both pose configurations are valid here.
+      const m = label.metrics;
+      if(m && typeof m.lHipExt === 'number' && isFinite(m.lHipExt)){
+        return m.lHipExt < 145 || (typeof m.rHipExt === 'number' && m.rHipExt < 145);
+      }
+      return Math.abs(lAn.y - rAn.y) > 10;
+    }
+    default:
+      return null;
+  }
+}
+
 async function runFrameDiagnostic(){
   const btn = document.getElementById('diag-run-btn');
   const tbody = document.getElementById('diag-tbody');
   const summary = document.getElementById('diag-summary');
+  const validatedOnly = document.getElementById('diag-validated-only')?.checked !== false;
   if(!db){ summary.textContent = 'Firestore not initialized'; return; }
   btn.disabled = true; const origLabel = btn.textContent;
   btn.textContent = 'Loading…';
@@ -1028,16 +1091,52 @@ async function runFrameDiagnostic(){
       if(d.noGood) continue;
       if(d.t == null || d.autoPickedT == null) continue;
       const key = d.sessionId + ':' + d.phase;
-      bySessionPhase[key] = {phase: d.phase, goodT: d.t, autoT: d.autoPickedT, createdAt: d.createdAt};
+      bySessionPhase[key] = {phase: d.phase, goodT: d.t, autoT: d.autoPickedT, kps: d.kps, metrics: d.metrics};
     }
 
-    // Aggregate per phase.
-    const byPhase = {};
+    // Apply sanity filter.
+    let droppedSanity = 0;
+    const passed = {};
     for(const k in bySessionPhase){
       const g = bySessionPhase[k];
+      const sane = diagLabelIsSane(g);
+      if(validatedOnly && sane === false){ droppedSanity++; continue; }
+      passed[k] = g;
+    }
+
+    // Estimate per-session stride period: if both L and R foot strike good-labels exist for a
+    // session, |gap| is one step, so stride ≈ 2 * gap (clamped to a plausible 0.45-1.4s range).
+    const sessionStrides = {};
+    const sessionPhases = {}; // sId -> {phase: goodT}
+    for(const k in passed){
+      const sId = k.split(':')[0];
+      if(!sessionPhases[sId]) sessionPhases[sId] = {};
+      sessionPhases[sId][passed[k].phase] = passed[k].goodT;
+    }
+    for(const sId in sessionPhases){
+      const s = sessionPhases[sId];
+      let stride = DIAG_DEFAULT_STRIDE;
+      if(s.l_foot != null && s.r_foot != null){
+        const stepDur = Math.abs(s.l_foot - s.r_foot);
+        // Admin may have labeled L and R from non-adjacent strides; still take 2*step as a
+        // first-cut estimate, then clamp to [0.45, 1.4]s. Outside that, fall back to default.
+        const guess = stepDur * 2;
+        if(guess >= 0.45 && guess <= 1.4) stride = guess;
+      }
+      sessionStrides[sId] = stride;
+    }
+
+    // Aggregate per phase using stride-wrapped delta.
+    const byPhase = {};
+    for(const k in passed){
+      const g = passed[k];
+      const sId = k.split(':')[0];
+      const stride = sessionStrides[sId] || DIAG_DEFAULT_STRIDE;
+      const rawDelta = g.autoT - g.goodT;
+      const wrapped = diagWrapDelta(rawDelta, stride);
       if(!byPhase[g.phase]) byPhase[g.phase] = {signed: [], absMs: []};
-      byPhase[g.phase].signed.push(g.autoT - g.goodT);
-      byPhase[g.phase].absMs.push(Math.abs(g.autoT - g.goodT) * 1000);
+      byPhase[g.phase].signed.push(wrapped);
+      byPhase[g.phase].absMs.push(Math.abs(wrapped) * 1000);
     }
 
     // Compute stats per phase.
@@ -1051,7 +1150,6 @@ async function runFrameDiagnostic(){
       const meanSigned = p.signed.reduce((a,b)=>a+b,0) / n * 1000; // ms
       const hits = p.absMs.filter(ms => ms <= 60).length; // ≤1 frame + tolerance
       const hitRate = hits / n;
-      // Distribution bins: round to nearest frame (40ms each).
       const bins = [0,0,0,0];
       for(const ms of p.absMs){
         const f = Math.round(ms / 40);
@@ -1064,15 +1162,17 @@ async function runFrameDiagnostic(){
     }
 
     // Summary.
-    const totalSessions = new Set(Object.keys(bySessionPhase).map(k => k.split(':')[0])).size;
-    summary.textContent = `${docs.length} total labels · ${totalSessions} unique sessions · ${rows.length} phase${rows.length===1?'':'s'} with data`;
+    const totalSessions = new Set(Object.keys(passed).map(k => k.split(':')[0])).size;
+    const filterTxt = validatedOnly && droppedSanity > 0
+      ? ` · ${droppedSanity} label${droppedSanity===1?'':'s'} dropped by sanity filter`
+      : '';
+    summary.textContent = `${docs.length} total labels · ${totalSessions} unique sessions · ${rows.length} phase${rows.length===1?'':'s'} with data${filterTxt}`;
 
     if(!rows.length){
-      tbody.innerHTML = '<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--muted2);font-style:italic">No labels yet — mark some "Correct frame" to populate.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--muted2);font-style:italic">No labels passing filter — try unchecking "Validated labels only" or label more sessions.</td></tr>';
       return;
     }
 
-    // Render.
     const phaseLabel = {
       l_foot:'L foot strike', r_foot:'R foot strike',
       l_toe:'L toe-off', r_toe:'R toe-off',
