@@ -1140,7 +1140,9 @@ async function runFrameDiagnostic(){
     }
 
     // Compute stats per phase.
-    const phaseOrder = ['l_foot','r_foot','l_toe','r_toe','mid','peak_kf','mid_front_l','mid_front_r','mid_back_l','mid_back_r'];
+    // Reference-data only collects side-view phases. Front/back phase labels exist in
+    // Firestore (from the esFormLab labeling flow) but aren't relevant here.
+    const phaseOrder = ['l_foot','r_foot','l_toe','r_toe','mid','peak_kf'];
     const rows = [];
     for(const phase of phaseOrder){
       const p = byPhase[phase]; if(!p || !p.absMs.length) continue;
