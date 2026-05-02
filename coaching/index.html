@@ -137,8 +137,39 @@ header{display:none}
 .week-today-btn{font-size:11px;font-weight:600;font-family:var(--mono);color:var(--cyan);cursor:pointer;background:none;border:1px solid rgba(0,229,200,.25);border-radius:6px;padding:4px 10px;transition:all .15s}
 .week-today-btn:hover{background:rgba(0,229,200,.08)}
 .wk-weeks-out{font-size:10px;font-weight:700;color:var(--gold);font-family:var(--mono);padding:2px 8px;background:rgba(245,200,66,.1);border-radius:4px}
-.wk-save-indicator{font-size:10px;font-family:var(--mono);color:var(--good);opacity:0;transition:opacity .3s;margin-left:8px}
-.wk-save-indicator.show{opacity:1}
+.wk-save-indicator{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;font-family:var(--mono);letter-spacing:.5px;text-transform:uppercase;color:var(--good);background:rgba(34,199,138,.14);border:1px solid rgba(34,199,138,.45);padding:5px 11px;border-radius:7px;margin-left:8px;opacity:0;transform:translateY(-3px);transition:opacity .25s ease,transform .25s ease;pointer-events:none}
+.wk-save-indicator.show{opacity:1;transform:translateY(0);animation:savePulse .35s ease}
+@keyframes savePulse{0%{box-shadow:0 0 0 0 rgba(34,199,138,.55)}100%{box-shadow:0 0 0 10px rgba(34,199,138,0)}}
+
+/* ── View toggle (Week / 16-week overview) ─────────── */
+.view-toggle{display:inline-flex;background:var(--panel2);border:1px solid var(--border2);border-radius:8px;padding:2px;margin-left:auto}
+.view-toggle-btn{padding:6px 14px;font-size:10px;font-weight:700;font-family:var(--mono);letter-spacing:.4px;text-transform:uppercase;border:none;border-radius:6px;background:transparent;color:var(--muted2);cursor:pointer;transition:all .15s}
+.view-toggle-btn.active{background:var(--cyan);color:#000}
+.view-toggle-btn:hover:not(.active){color:var(--text)}
+
+/* ── 16-week plan overview table ───────────────────── */
+.plan-overview-wrap{background:var(--panel);border:1px solid var(--border2);border-radius:14px;overflow:hidden;animation:fadeIn .3s ease}
+.plan-overview-header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.plan-overview-title{font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;font-family:var(--mono);color:var(--cyan)}
+.plan-overview-sub{font-size:11px;color:var(--muted2);font-family:var(--mono)}
+.plan-overview-scroll{max-height:78vh;overflow:auto}
+.plan-overview-table{width:100%;border-collapse:collapse;font-size:12px}
+.plan-overview-table thead th{position:sticky;top:0;background:var(--panel2);z-index:1;text-align:left;padding:10px 14px;font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;font-family:var(--mono);color:var(--muted2);border-bottom:1px solid var(--border2);white-space:nowrap}
+.plan-overview-table tbody tr{border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s}
+.plan-overview-table tbody tr:hover{background:rgba(0,229,200,.05)}
+.plan-overview-table tbody tr.current-week-row{background:rgba(0,229,200,.09)}
+.plan-overview-table tbody tr.current-week-row:hover{background:rgba(0,229,200,.13)}
+.plan-overview-table td{padding:12px 14px;vertical-align:top;line-height:1.45}
+.po-week-cell{white-space:nowrap;min-width:130px}
+.po-week-date{font-weight:700;color:var(--text);font-size:12px}
+.po-week-meta{font-size:9px;color:var(--muted2);font-family:var(--mono);margin-top:3px;letter-spacing:.3px;text-transform:uppercase}
+.po-week-meta .po-current-pill{color:var(--cyan)}
+.po-miles{font-family:var(--mono);font-weight:700;color:var(--cyan);font-size:14px;white-space:nowrap}
+.po-miles-empty{color:var(--muted)}
+.po-miles-strava{display:block;font-size:9px;color:var(--muted2);font-weight:500;margin-top:3px;letter-spacing:.2px}
+.po-cell-text{color:var(--text);max-width:260px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap;word-break:break-word}
+.po-cell-empty{color:var(--muted);font-style:italic}
+.plan-overview-empty{padding:60px 20px;text-align:center;color:var(--muted2);font-size:13px;font-family:var(--mono)}
 
 /* ── Week card (LIGHT theme) ────────────────────────── */
 .week-card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:14px;overflow:hidden;animation:fadeIn .3s ease;color:var(--card-text)}
@@ -630,6 +661,7 @@ let stravaCache = {};
 let savingWeeks = {};
 let authMode = 'signin';
 let currentTab = 'training'; // 'training' or 'lifting'
+let viewMode = 'week'; // 'week' (single-week editor) or 'overview' (16-week table)
 let liftingCache = {}; // weekStart -> lifting data
 let expandedCategories = {}; // categoryName -> bool
 
@@ -900,6 +932,7 @@ async function selectAthlete(uid, data, el) {
   liftingCache = {};
   weekOffset = 0;
   currentTab = 'training';
+  viewMode = 'week';
   expandedCategories = {};
 
   document.querySelectorAll('.athlete-item').forEach(e => e.classList.remove('active'));
@@ -1180,10 +1213,120 @@ function renderWeekCard(mondayStr, role) {
       ${field('notes', 'Notes', 'notes', workout.notes, 'notes-athlete', workout.athleteNotes)}
       ${coachEdit ? `<div style="display:flex;align-items:center;gap:10px;margin-top:4px">
         <button class="btn-primary" onclick="saveWeek('${mondayStr}')">Save</button>
-        <span class="wk-save-indicator" id="save-inline-${mondayStr}" style="color:var(--good);font-size:11px;font-family:var(--mono)"></span>
+        <span class="wk-save-indicator" id="save-inline-${mondayStr}">✓ Saved</span>
       </div>` : ''}
     </div>
   </div>`;
+}
+
+// ══════════════════════════════════════════════════════════
+//  RENDER: 16-WEEK PLAN OVERVIEW (read-only table)
+// ══════════════════════════════════════════════════════════
+function renderPlanOverview(role) {
+  const todayMon = getMonday(new Date());
+  const todayMonStr = dateToStr(todayMon);
+  const raceDate = selectedAthletePlan?.raceDate || null;
+
+  // Build rows for offsets -15 .. 0 (16 weeks), most recent first
+  const rows = [];
+  for (let off = 0; off >= -15; off--) {
+    const mon = getWeekMonday(off);
+    const monStr = dateToStr(mon);
+    const w = workoutsCache[monStr] || {};
+    const stravaMi = getWeekStravaMiles(mon, 'Run');
+    const wb = weeksUntil(mon, raceDate);
+    rows.push({ monStr, mon, w, stravaMi, wb, isCurrent: monStr === todayMonStr });
+  }
+
+  const anyData = rows.some(r => r.w.milesPerWeek || r.w.midweekSession || r.w.weekendSession || r.w.longRun || r.w.ancillaryWork || r.w.notes);
+
+  function cell(text) {
+    if (!text || !text.trim()) return `<td><span class="po-cell-empty">—</span></td>`;
+    return `<td><div class="po-cell-text" title="${esc(text)}">${esc(text)}</div></td>`;
+  }
+
+  const headerSub = anyData
+    ? `${rows.filter(r => r.w.milesPerWeek || r.w.midweekSession || r.w.weekendSession || r.w.longRun || r.w.ancillaryWork || r.w.notes).length} of 16 weeks have entries · click any row to edit`
+    : 'No workouts written yet for the last 16 weeks';
+
+  let html = `<div class="plan-overview-wrap">
+    <div class="plan-overview-header">
+      <div class="plan-overview-title">16-week plan overview</div>
+      <div class="plan-overview-sub">${headerSub}</div>
+    </div>
+    <div class="plan-overview-scroll">
+      <table class="plan-overview-table">
+        <thead><tr>
+          <th>Week</th>
+          <th>Miles</th>
+          <th>Midweek</th>
+          <th>Weekend</th>
+          <th>Long run</th>
+          <th>Ancillary</th>
+          <th>Notes</th>
+        </tr></thead>
+        <tbody>`;
+
+  rows.forEach(r => {
+    const dateLabel = formatDateRange(r.mon);
+    const wbLabel = r.isCurrent
+      ? `<span class="po-current-pill">This week</span>`
+      : (r.wb !== null ? `${r.wb} wks out` : '');
+    const milesVal = r.w.milesPerWeek;
+    const milesHtml = milesVal
+      ? `<span class="po-miles">${esc(milesVal)}</span>${r.stravaMi > 0 ? `<span class="po-miles-strava">▲ ${r.stravaMi.toFixed(1)} mi</span>` : ''}`
+      : `<span class="po-miles po-miles-empty">—</span>${r.stravaMi > 0 ? `<span class="po-miles-strava">▲ ${r.stravaMi.toFixed(1)} mi</span>` : ''}`;
+
+    html += `<tr class="${r.isCurrent ? 'current-week-row' : ''}" onclick="openWeekFromOverview('${r.monStr}')">
+      <td class="po-week-cell">
+        <div class="po-week-date">${dateLabel}</div>
+        ${wbLabel ? `<div class="po-week-meta">${wbLabel}</div>` : ''}
+      </td>
+      <td>${milesHtml}</td>
+      ${cell(r.w.midweekSession)}
+      ${cell(r.w.weekendSession)}
+      ${cell(r.w.longRun)}
+      ${cell(r.w.ancillaryWork)}
+      ${cell(r.w.notes)}
+    </tr>`;
+  });
+
+  html += `</tbody></table></div></div>`;
+  return html;
+}
+
+async function setViewMode(mode) {
+  if (mode === viewMode) return;
+  viewMode = mode;
+  if (mode === 'overview') {
+    // Pre-load 16 weeks of workouts + strava (some weeks may already be cached)
+    await Promise.all([
+      loadWorkoutsRange(-15, 0),
+      loadStravaRange(-15, 0)
+    ]);
+  }
+  const role = isCoach ? 'coach' : 'athlete';
+  const weekId = isCoach ? 'coach-week-container' : 'athlete-week-container';
+  const dashId = isCoach ? 'coach-dashboard' : 'athlete-dashboard';
+  renderSingleWeek(weekId, dashId, role);
+}
+
+async function openWeekFromOverview(weekStr) {
+  const targetMon = new Date(weekStr + 'T12:00:00');
+  const todayMon = getMonday(new Date());
+  const diffDays = Math.round((targetMon - todayMon) / (1000 * 60 * 60 * 24));
+  weekOffset = Math.round(diffDays / 7);
+  viewMode = 'week';
+  // Ensure target week's workouts/lifting are loaded for the editor
+  const monStr = dateToStr(getWeekMonday(weekOffset));
+  const loads = [];
+  if (!workoutsCache[monStr]) loads.push(loadWorkoutsRange(weekOffset, weekOffset));
+  if (!liftingCache[monStr]) loads.push(loadLiftingRange(weekOffset, weekOffset));
+  if (loads.length) await Promise.all(loads);
+  const role = isCoach ? 'coach' : 'athlete';
+  const weekId = isCoach ? 'coach-week-container' : 'athlete-week-container';
+  const dashId = isCoach ? 'coach-dashboard' : 'athlete-dashboard';
+  renderSingleWeek(weekId, dashId, role);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1233,19 +1376,37 @@ function renderSingleWeek(weekContainerId, dashContainerId, role) {
     html += `<div class="tab-bar"><button class="tab-btn active">Lifting Plan</button></div>`;
   }
 
-  // Week navigation (shared)
-  html += `<div class="week-nav">
-    <button class="week-nav-btn" onclick="navWeek(-1)">‹</button>
-    <div class="week-nav-label">${formatDateRange(monday)}</div>
-    <button class="week-nav-btn" onclick="navWeek(1)">›</button>
-    ${wb !== null ? `<span class="wk-weeks-out">${wb} weeks out</span>` : ''}
-    <button class="week-today-btn" onclick="navWeekToday()">This week</button>
-    ${currentTab === 'training' ? `<span class="wk-save-indicator" id="save-${mondayStr}">✓ Saved</span>` : ''}
-  </div>`;
+  // The 16-week overview toggle is only meaningful on the training tab with coaching feature
+  const overviewActive = viewMode === 'overview' && currentTab === 'training' && showCoaching;
+  const showViewToggle = currentTab === 'training' && showCoaching;
+
+  // Week navigation (shared) — when overview is active, hide week-specific controls
+  html += `<div class="week-nav">`;
+  if (overviewActive) {
+    html += `<div class="week-nav-label" style="min-width:auto">Last 16 weeks</div>`;
+  } else {
+    html += `<button class="week-nav-btn" onclick="navWeek(-1)">‹</button>
+      <div class="week-nav-label">${formatDateRange(monday)}</div>
+      <button class="week-nav-btn" onclick="navWeek(1)">›</button>
+      ${wb !== null ? `<span class="wk-weeks-out">${wb} weeks out</span>` : ''}
+      <button class="week-today-btn" onclick="navWeekToday()">This week</button>
+      ${currentTab === 'training' ? `<span class="wk-save-indicator" id="save-${mondayStr}">✓ Saved</span>` : ''}`;
+  }
+  if (showViewToggle) {
+    html += `<div class="view-toggle">
+      <button class="view-toggle-btn${viewMode === 'week' ? ' active' : ''}" onclick="setViewMode('week')">Week</button>
+      <button class="view-toggle-btn${viewMode === 'overview' ? ' active' : ''}" onclick="setViewMode('overview')">16-Week</button>
+    </div>`;
+  }
+  html += `</div>`;
 
   // Tab content
   if (currentTab === 'training' && showCoaching) {
-    html += renderWeekCard(mondayStr, role);
+    if (viewMode === 'overview') {
+      html += renderPlanOverview(role);
+    } else {
+      html += renderWeekCard(mondayStr, role);
+    }
   } else if (currentTab === 'lifting' && showLifting) {
     html += renderLiftingWeek(mondayStr, role);
   } else {
@@ -1254,9 +1415,9 @@ function renderSingleWeek(weekContainerId, dashContainerId, role) {
 
   container.innerHTML = html;
 
-  // Also render dashboard below (only for training tab)
+  // Also render dashboard below (only for training tab in single-week mode)
   const dashContainer = document.getElementById(dashContainerId);
-  if (currentTab === 'training' && showCoaching) {
+  if (currentTab === 'training' && showCoaching && viewMode === 'week') {
     renderDashboard(dashContainerId, role);
   } else {
     dashContainer.style.display = 'none';
@@ -1864,16 +2025,20 @@ async function saveWeek(weekKey) {
       workoutsCache[weekKey] = { id: newRef.id, ...data };
     }
 
-    // Show saved confirmation
+    // Show saved confirmation (header pill + inline pill next to button)
     const indicator = document.getElementById(`save-${weekKey}`);
     if (indicator) {
+      indicator.classList.remove('show');
+      void indicator.offsetWidth; // restart animation if back-to-back saves
       indicator.classList.add('show');
-      setTimeout(() => indicator.classList.remove('show'), 2000);
+      setTimeout(() => indicator.classList.remove('show'), 2400);
     }
     const inlineInd = document.getElementById(`save-inline-${weekKey}`);
     if (inlineInd) {
-      inlineInd.textContent = '✓ Saved';
-      setTimeout(() => { inlineInd.textContent = ''; }, 2000);
+      inlineInd.classList.remove('show');
+      void inlineInd.offsetWidth;
+      inlineInd.classList.add('show');
+      setTimeout(() => inlineInd.classList.remove('show'), 2400);
     }
 
     // Notify athlete once per explicit save
