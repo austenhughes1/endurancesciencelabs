@@ -27,7 +27,7 @@ body{font-family:var(--ui);background:var(--bg);color:var(--text);min-height:100
 /* ── Auth ───────────────────────────────────────────── */
 #auth-overlay{position:fixed;inset:0;background:var(--bg);z-index:9000;display:flex;align-items:center;justify-content:center;padding:40px}
 .auth-card{background:var(--panel);border:1px solid var(--border2);border-radius:20px;padding:44px 48px;width:100%;max-width:420px;text-align:center}
-.auth-logo{width:52px;height:52px;background:var(--cyan);border-radius:14px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:14px;color:#000;margin:0 auto 20px}
+.auth-logo{height:64px;width:auto;display:block;margin:0 auto 20px}
 .auth-title{font-size:20px;font-weight:800;margin-bottom:6px}
 .auth-sub{font-size:12px;color:var(--muted2);margin-bottom:28px;line-height:1.6}
 .auth-field{width:100%;background:var(--panel2);border:1px solid var(--border2);border-radius:9px;padding:11px 14px;font-size:13px;color:var(--text);font-family:var(--mono);outline:none;transition:border-color .15s;margin-bottom:10px;display:block}
@@ -438,7 +438,7 @@ header{display:none}
 <!-- ── Auth overlay ─────────────────────────────────── -->
 <div id="auth-overlay">
   <div class="auth-card">
-    <div class="auth-logo">ESL</div>
+    <img src="/images/coaching_logo_abbrev_white_clean.png" alt="Endurance Science Coaching" class="auth-logo">
     <div class="auth-title" id="auth-title">Sign in</div>
     <p class="auth-sub" id="auth-sub">Access your training dashboard.</p>
     <input type="email" class="auth-field" id="auth-email" placeholder="Email" autocomplete="email">
@@ -459,7 +459,7 @@ header{display:none}
 <!-- Site nav -->
 <nav class="site-nav">
   <a href="/" class="nav-logo" aria-label="Endurance Science Labs home">
-    <img src="/images/generic_logo_white_clean.png" alt="Endurance Science Labs" class="nav-logo-img">
+    <img src="/images/coaching_logo_white_clean.png" alt="Endurance Science Coaching" class="nav-logo-img">
     <span class="nav-tagline">Evidence-based<br>endurance coaching</span>
   </a>
   <div class="nav-links">
