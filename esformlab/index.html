@@ -29,10 +29,10 @@ body{font-family:var(--ui);background:var(--bg);color:var(--text);min-height:100
 
 /* Nav */
 nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:sticky;top:0;z-index:300;background:rgba(6,8,13,.97);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
-.nav-logo{display:flex;align-items:center;gap:11px;text-decoration:none;flex-shrink:0;margin-right:32px}
-.nav-logo-mark{width:32px;height:32px;background:var(--cyan);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:13px;color:#000}
-.nav-logo-text{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.3px;line-height:1.2}
-.nav-logo-text span{display:block;font-size:9px;font-weight:500;color:var(--muted2);letter-spacing:.5px;text-transform:uppercase;font-family:var(--mono)}
+.nav-logo{display:flex;align-items:center;gap:12px;text-decoration:none;flex-shrink:0;margin-right:32px}
+.nav-logo-img{height:34px;width:auto;display:block}
+.nav-tagline{display:none;font-family:var(--mono);font-size:9px;font-weight:500;color:var(--muted2);letter-spacing:.4px;text-transform:uppercase;padding-left:12px;border-left:1px solid var(--border2);line-height:1.2}
+@media(min-width:1100px){.nav-tagline{display:block}}
 .nav-links{display:flex;align-items:center;gap:2px;flex:1}
 .nav-link{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600;color:var(--muted2);text-decoration:none;transition:all .15s;border:1px solid transparent}
 .nav-link:hover{color:var(--text);background:rgba(255,255,255,.04)}
@@ -524,9 +524,9 @@ body.bar-showing #screen-phases{padding-bottom:120px}
 
 <!-- Nav -->
 <nav>
-  <a href="/" class="nav-logo">
-    <div class="nav-logo-mark">ESL</div>
-    <div class="nav-logo-text">Endurance Science Labs<span>Evidence-based endurance coaching</span></div>
+  <a href="/" class="nav-logo" aria-label="Endurance Science Labs home">
+    <img src="/images/generic_logo_white_clean.png" alt="Endurance Science Labs" class="nav-logo-img">
+    <span class="nav-tagline">Evidence-based<br>endurance coaching</span>
   </a>
   <div class="nav-links">
     <a href="/"          class="nav-link">Home</a>
