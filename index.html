@@ -46,22 +46,17 @@ nav {
   border-bottom: 1px solid var(--border);
 }
 .nav-logo {
-  display: flex; align-items: center; gap: 11px;
+  display: flex; align-items: center; gap: 12px;
   text-decoration: none; flex-shrink: 0; margin-right: 32px;
 }
-.nav-logo-mark {
-  width: 32px; height: 32px; background: var(--cyan); border-radius: 8px;
-  display: flex; align-items: center; justify-content: center;
-  font-family: var(--mono); font-weight: 700; font-size: 12px; color: #000;
+.nav-logo-img { height: 36px; width: auto; display: block; }
+.nav-tagline {
+  display: none; font-family: var(--mono); font-size: 10px;
+  font-weight: 500; color: var(--muted2); letter-spacing: .4px;
+  text-transform: uppercase; padding-left: 12px;
+  border-left: 1px solid var(--border2); line-height: 1.2;
 }
-.nav-brand {
-  font-family: var(--display); font-size: 16px; font-weight: 600;
-  color: var(--text); letter-spacing: -.2px; line-height: 1.2;
-}
-.nav-brand span {
-  display: block; font-family: var(--body); font-size: 11px;
-  font-weight: 400; color: var(--muted2); letter-spacing: .3px;
-}
+@media (min-width: 1100px) { .nav-tagline { display: block; } }
 .nav-links { display: flex; align-items: center; gap: 2px; flex: 1; }
 .nav-link {
   display: inline-flex; align-items: center; gap: 6px;
@@ -355,12 +350,7 @@ footer {
   flex-wrap: wrap; gap: 20px;
 }
 .footer-brand { display: flex; align-items: center; gap: 10px; }
-.footer-logo {
-  width: 28px; height: 28px; background: var(--cyan); border-radius: 7px;
-  display: flex; align-items: center; justify-content: center;
-  font-family: var(--mono); font-weight: 700; font-size: 11px; color: #000;
-}
-.footer-name { font-family: var(--display); font-size: 15px; font-weight: 600; }
+.footer-logo-img { height: 32px; width: auto; display: block; }
 .footer-links { display: flex; gap: 22px; }
 .footer-link { font-size: 14px; color: var(--muted2); text-decoration: none; transition: color .15s; }
 .footer-link:hover { color: var(--text); }
@@ -371,12 +361,9 @@ footer {
 
 <!-- Nav -->
 <nav>
-  <a href="/" class="nav-logo">
-    <div class="nav-logo-mark">ESL</div>
-    <div class="nav-brand">
-      Endurance Science Labs
-      <span>Evidence-based endurance coaching</span>
-    </div>
+  <a href="/" class="nav-logo" aria-label="Endurance Science Labs home">
+    <img src="/images/generic_logo_white_clean.png" alt="Endurance Science Labs" class="nav-logo-img">
+    <span class="nav-tagline">Evidence-based<br>endurance coaching</span>
   </a>
   <div class="nav-links">
     <a href="/"         class="nav-link active">Home</a>
@@ -567,8 +554,7 @@ footer {
 <!-- Footer -->
 <footer>
   <div class="footer-brand">
-    <div class="footer-logo">ESL</div>
-    <div class="footer-name">Endurance Science Labs</div>
+    <img src="/images/generic_logo_white_clean.png" alt="Endurance Science Labs" class="footer-logo-img">
   </div>
   <div class="footer-links">
     <a href="/"         class="footer-link">Home</a>

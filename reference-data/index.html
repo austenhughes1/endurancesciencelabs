@@ -44,7 +44,7 @@ body{font-family:var(--ui);background:var(--bg);color:var(--text);min-height:100
 
 /* Header */
 header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:300;background:rgba(6,8,13,.97);backdrop-filter:blur(10px)}
-.logo{width:32px;height:32px;background:var(--purple);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:11px;color:#fff;flex-shrink:0}
+.logo-img{height:34px;width:auto;display:block;flex-shrink:0}
 .brand{font-size:15px;font-weight:700;letter-spacing:-.3px}
 .brand em{color:var(--purple);font-style:normal}
 .brand-sub{font-size:9px;color:var(--muted2);font-family:var(--mono);letter-spacing:.4px;text-transform:uppercase;margin-top:1px}
@@ -400,10 +400,9 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 
 <!-- Header -->
 <header>
-  <div class="logo">EFL</div>
+  <img src="/images/generic_logo_white_clean.png" alt="Endurance Science Labs" class="logo-img">
   <div>
-    <div class="brand">ES<em>FormLab</em></div>
-    <div class="brand-sub">Reference data collection</div>
+    <div class="brand-sub" style="margin-top:0;color:var(--purple)">Reference data collection</div>
   </div>
   <div class="hdr-stats">
     <div class="hdr-stat-group">
