@@ -1215,7 +1215,12 @@ async function loadStravaRange(fromWeek, toWeek) {
   snap.forEach(doc => {
     const d = doc.data();
     if (!stravaCache[d.date]) stravaCache[d.date] = [];
-    stravaCache[d.date].push(d);
+    // Idempotent: skip if this activity is already cached for the day.
+    // Without this, overlapping calls (e.g. dashboard loads -16..4, then
+    // 16-week overview re-loads -15..0) double-count every activity.
+    if (!stravaCache[d.date].some(a => a.activityId === d.activityId)) {
+      stravaCache[d.date].push(d);
+    }
   });
 }
 
