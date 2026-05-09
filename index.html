@@ -494,14 +494,13 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
 <nav>
   <a href="/" class="nav-logo" aria-label="Endurance Science Labs home">
     <img src="/images/generic_logo_white_clean.png" alt="Endurance Science Labs" class="nav-logo-img">
-    <span class="nav-tagline">Evidence-based<br>endurance coaching</span>
   </a>
   <div class="nav-links">
     <a href="/"         class="nav-link active">Home</a>
-    <a href="/esformlab/" class="nav-link">esFormLab</a>
+    <a href="/esformlab/" class="nav-link">Form analysis</a>
     <a href="/coaching/"      class="nav-link">Coaching <span class="nav-pill" style="background:rgba(34,199,138,.18);color:var(--good)">Live</span></a>
-    <a href="#"                  class="nav-link">Metabolic Testing <span class="nav-pill">Soon</span></a>
-    <a href="#"                  class="nav-link">Training Plans <span class="nav-pill">Soon</span></a>
+    <span                       class="nav-link" style="cursor:default">Metabolic Testing <span class="nav-pill">Soon</span></span>
+    <span                       class="nav-link" style="cursor:default">Training Plans <span class="nav-pill">Soon</span></span>
   </div>
   <a href="/coaching/" id="auth-indicator" class="auth-indicator" style="display:none;text-decoration:none" title="Open coaching dashboard">
     <img id="auth-avatar" class="auth-avatar" src="">
@@ -518,10 +517,10 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
 <div class="hero">
   <div class="hero-label">◉ Endurance Science Labs</div>
   <h1 class="hero-title">
-    Train smarter.<br>Race <em>faster.</em>
+    Lab-grade analysis.<br>No <em>lab</em> required.
   </h1>
   <p class="hero-sub">
-    Evidence-based coaching, biomechanical analysis, and metabolic testing — for endurance athletes who want to understand their body, not just follow a plan.
+    Evidence-based coaching and biomechanical analysis for runners who want to know what their body is actually doing — not just follow a generic plan.
   </p>
   <div class="hero-actions">
     <a href="/esformlab/" class="btn-primary">Analyze your running form (free) →</a>
@@ -529,18 +528,18 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
   </div>
   <div class="hero-stats">
     <div>
-      <div class="hero-stat-val">7<em>+</em></div>
+      <div class="hero-stat-val">9</div>
       <div class="hero-stat-label">Gait phases analyzed</div>
     </div>
     <div class="stat-divider"></div>
     <div>
       <div class="hero-stat-val">100<em>%</em></div>
-      <div class="hero-stat-label">Browser-based · Private</div>
+      <div class="hero-stat-label">Private · Runs in your browser</div>
     </div>
     <div class="stat-divider"></div>
     <div>
-      <div class="hero-stat-val">0<em>$</em></div>
-      <div class="hero-stat-label">To try esFormLab</div>
+      <div class="hero-stat-val"><em>$</em>0</div>
+      <div class="hero-stat-label">Free to try</div>
     </div>
   </div>
 </div>
@@ -554,7 +553,7 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
 <section id="services">
   <div class="services-header">
     <div class="section-label">Services</div>
-    <h2 class="section-title">Everything you need to run better</h2>
+    <h2 class="section-title">Tools and coaching for the long run</h2>
     <p class="section-sub">A growing suite of tools and services built around the science of endurance performance — for athletes at every level.</p>
   </div>
   <div class="services-grid">
@@ -562,7 +561,7 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
       <div class="sc-icon cyan">◉</div>
       <div class="sc-badge live">● Live now</div>
       <div class="sc-title">esFormLab</div>
-      <p class="sc-desc">Upload a running video and get instant biomechanical analysis across 7 key gait phases — skeleton overlay, joint angles, and plain-language coaching cues. Runs entirely in your browser. No signup required.</p>
+      <p class="sc-desc">Upload a running video and get instant biomechanical analysis across 9 key gait phases — skeleton overlay, joint angles, and plain-language coaching cues. Runs entirely in your browser. No signup required.</p>
       <span class="sc-action">Open esFormLab →</span>
     </a>
     <a href="/coaching/" class="service-card" style="text-decoration:none;color:inherit">
@@ -577,73 +576,45 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
       <div class="sc-badge soon">Coming soon</div>
       <div class="sc-title">Metabolic Testing</div>
       <p class="sc-desc">VO₂ max, lactate threshold, and fat oxidation testing to pinpoint your exact training zones — the foundation of intelligent, data-driven endurance training.</p>
-      <span class="sc-action disabled">Notify me when available →</span>
+      <span class="sc-action disabled">In development →</span>
     </div>
     <div class="service-card soon">
       <div class="sc-icon coral">▶</div>
-      <div class="sc-badge members">Members only</div>
+      <div class="sc-badge soon">Coming soon</div>
       <div class="sc-title">Training Plans</div>
-      <p class="sc-desc">Science-backed plans for 5K through ultramarathon, built with real periodization principles around your schedule — not generic templates repurposed from elsewhere.</p>
-      <span class="sc-action disabled">Coming soon →</span>
+      <p class="sc-desc">Science-backed plans for 5K through ultramarathon, built with real periodization principles around your schedule — not generic templates dressed up as periodization.</p>
+      <span class="sc-action disabled">In development →</span>
     </div>
   </div>
 </section>
 
 <hr class="divider">
 
-<!-- Feature panels — conversion focused -->
-<section id="features" style="padding-bottom:60px">
-  <div class="section-label">Get started</div>
-  <h2 class="section-title">Two ways to run smarter</h2>
-  <p class="section-sub">Whether you want to analyze your own form or work directly with a coach, we have you covered.</p>
-</section>
-
-<div class="feature-panels">
-  <a href="/esformlab/" class="feature-panel">
-    <img class="feature-panel-img" src="images/track_running_legs.jpg" alt="Runner legs on track">
-    <div class="feature-panel-body">
-      <div class="feature-panel-label live">Free to use</div>
-      <div class="feature-panel-title">esFormLab</div>
-      <p class="feature-panel-desc">Upload three short running videos and get an instant biomechanical report. The tool detects overstriding, hip drop, trunk lean issues, arm mechanics, and knee alignment — with specific, evidence-based coaching cues for anything it finds. No account needed. Nothing leaves your browser.</p>
-      <span class="feature-panel-cta">Analyze your running form →</span>
-    </div>
-  </a>
-  <a href="/coaching/" class="feature-panel">
-    <img class="feature-panel-img" src="images/watch_black_and_white.jpg" alt="Runner checking watch">
-    <div class="feature-panel-body">
-      <div class="feature-panel-label live">Now available</div>
-      <div class="feature-panel-title">1-on-1 Coaching</div>
-      <p class="feature-panel-desc">Personalized training built around your goals, schedule, and physiology. Your coach builds and adapts your plan week by week, with direct access for questions and check-ins. Strava integration, race planning, and ongoing form analysis included — not a chatbot, not a template.</p>
-      <span class="feature-panel-cta secondary">Learn more →</span>
-    </div>
-  </a>
-</div>
-
 <!-- How esFormLab works -->
 <section id="how-it-works">
   <div class="section-label">esFormLab</div>
   <h2 class="section-title">Biomechanical analysis in minutes</h2>
-  <p class="section-sub">No specialist equipment. No lab visit. A side-view running video and a browser is all you need.</p>
+  <p class="section-sub">No specialist equipment. No lab visit. Three short clips from your phone and a browser is all you need.</p>
   <div class="hiw-grid">
     <div class="hiw-step">
       <div class="hiw-num">01</div>
-      <div class="hiw-title">Upload your video</div>
-      <p class="hiw-desc">Drop any side-view running clip — treadmill or outdoor track. MP4, MOV, or WebM. Your video never leaves your device and is never uploaded to a server.</p>
+      <div class="hiw-title">Record three short clips</div>
+      <p class="hiw-desc">Capture a side, front, and back view of your stride — treadmill or outdoor track, phone camera is fine. MP4, MOV, or WebM. Your videos never leave your device and are never uploaded to a server.</p>
     </div>
     <div class="hiw-step">
       <div class="hiw-num">02</div>
-      <div class="hiw-title">7 phases detected</div>
-      <p class="hiw-desc">The tool scans your video and identifies 7 key gait phases: left and right foot strike, left and right toe-off, mid-stance, peak knee flex, and terminal swing.</p>
+      <div class="hiw-title">9 phases detected</div>
+      <p class="hiw-desc">The tool identifies key moments in your stride: left and right foot strike, left and right toe-off, mid-stance, peak knee flex, and terminal swing — plus mid-cycle frames from the front and back views.</p>
     </div>
     <div class="hiw-step">
       <div class="hiw-num">03</div>
       <div class="hiw-title">Review and refine</div>
-      <p class="hiw-desc">Each phase shows a skeleton overlay with angle arcs. Scrub frame by frame to get the best frame for each phase, with plain-language coaching guidance built in.</p>
+      <p class="hiw-desc">Each phase shows a skeleton overlay with angle arcs and a detection-quality readout. Scrub frame by frame to land on the right moment, with plain-language coaching guidance built in.</p>
     </div>
     <div class="hiw-step">
       <div class="hiw-num">04</div>
       <div class="hiw-title">Complete your report</div>
-      <p class="hiw-desc">Trunk lean, knee angles, hip extension, arm swing, and foot strike position — compared across all 7 phases and graded against reference ranges from elite runners.</p>
+      <p class="hiw-desc">Detected issues like overstriding, hip drop, knee valgus, and arm mechanics appear with severity grading and coaching cues. Joint angles across all 9 phases are graded against reference ranges from elite runners.</p>
     </div>
   </div>
 </section>
@@ -691,12 +662,13 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
     <img src="/images/generic_logo_white_clean.png" alt="Endurance Science Labs" class="footer-logo-img">
   </div>
   <div class="footer-links">
-    <a href="/"         class="footer-link">Home</a>
-    <a href="/esformlab/" class="footer-link">esFormLab</a>
-    <a href="#"                  class="footer-link">Contact</a>
+    <a href="/"          class="footer-link">Home</a>
+    <a href="/esformlab/"  class="footer-link">esFormLab</a>
+    <a href="/coaching/"       class="footer-link">Coaching</a>
   </div>
-  <div class="footer-copy">© 2025 Endurance Science Labs</div>
+  <div class="footer-copy">© <span id="footer-year"></span> Endurance Science Labs</div>
 </footer>
+<script>document.getElementById('footer-year').textContent = new Date().getFullYear();</script>
 
 <!-- Mobile menu toggle -->
 <script>
