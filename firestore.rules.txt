@@ -135,6 +135,46 @@ service cloud.firestore {
                     && resource.data.coachUid == request.auth.uid;
     }
 
+    // ── Stripe: customer-scoped collections ─────────────────
+    // Managed by the "Run Payments with Stripe" extension.
+    // - customers/{uid}: customer record, created by the extension
+    //   via admin SDK when a user signs in. Readable by that user.
+    // - checkout_sessions: client writes a doc here to start a
+    //   Stripe Checkout; extension writes back the hosted URL.
+    // - subscriptions / payments: written by the extension via
+    //   webhook; the client reads them to check pass status.
+    match /customers/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+
+      match /checkout_sessions/{sessionId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      match /subscriptions/{subId} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+      }
+
+      match /payments/{paymentId} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+
+    // ── Stripe: public product catalog ──────────────────────
+    // Mirror of Stripe products / prices / tax_rates, written
+    // by the extension. Public read so the upgrade UI can show
+    // pricing without requiring sign-in.
+    match /products/{productId} {
+      allow read: if true;
+
+      match /prices/{priceId} {
+        allow read: if true;
+      }
+
+      match /tax_rates/{taxRateId} {
+        allow read: if true;
+      }
+    }
+
     // ── Deny everything else ─────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
