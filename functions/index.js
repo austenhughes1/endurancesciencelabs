@@ -256,6 +256,12 @@ exports.syncStravaActivities = onCall({ cors: true }, async (request) => {
 
   await batch.commit();
 
+  // Mark this athlete as auto-sync-fresh for today (used by the client-side
+  // once-per-day auto-sync trigger on login / page load).
+  await db.collection("users").doc(uid).update({
+    stravaLastSyncedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
   return { synced: count, message: `Synced ${count} activities.` };
 });
 
