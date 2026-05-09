@@ -663,14 +663,13 @@ header{display:none}
   </div>
 </div>
 
-<!-- ── Edit race modal ──────────────────────────────── -->
+<!-- ── Edit races modal ─────────────────────────────── -->
 <div class="modal-overlay" id="race-modal">
   <div class="modal">
-    <div class="modal-title">Edit race info</div>
-    <div class="modal-sub">Update the target race for this athlete's training plan.</div>
-    <input class="modal-field" id="rm-race" placeholder="Race name" autocomplete="off">
-    <input class="modal-field" id="rm-racedate" type="date" autocomplete="off">
-    <label for="rm-racedate" style="font-size:10px;color:var(--muted2);font-family:var(--mono);margin-top:-6px;margin-bottom:10px;display:block">Race date</label>
+    <div class="modal-title">Edit races</div>
+    <div class="modal-sub">Add target races for this athlete's training plan. The "weeks out" counter targets the next upcoming race and resets after each race date passes.</div>
+    <div id="rm-races-list"></div>
+    <button class="btn-ghost" onclick="addRaceRow()" style="margin-top:4px">+ Add race</button>
     <div class="modal-error" id="rm-error"></div>
     <div class="modal-actions">
       <button class="btn-ghost" onclick="closeEditRace()">Cancel</button>
@@ -1166,11 +1165,38 @@ function formatDateRange(monday) {
   return `${mStr} – ${sStr}, ${sun.getFullYear()}`;
 }
 
-function weeksUntil(monday, raceDate) {
-  if (!raceDate) return null;
-  const r = new Date(raceDate);
-  const diff = Math.round((r - monday) / (7 * 24 * 60 * 60 * 1000));
-  return diff >= 0 ? diff : null;
+// Returns array of {name, date} sorted by date ascending. Falls back to legacy
+// single-race fields (raceName/raceDate) for plans created before multi-race
+// support landed.
+function getRaces(plan) {
+  if (!plan) return [];
+  if (Array.isArray(plan.races) && plan.races.length) {
+    return [...plan.races].filter(r => r && r.date)
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+  if (plan.raceDate) return [{ name: plan.raceName || '', date: plan.raceDate }];
+  return [];
+}
+
+// First race whose Monday-of-week is >= the given monday — i.e. the next
+// upcoming race from this week's perspective. After race A passes, the
+// counter automatically targets race B.
+function nextRaceFromMonday(plan, monday) {
+  const races = getRaces(plan);
+  for (const r of races) {
+    const rMon = getMonday(new Date(r.date + 'T12:00:00'));
+    if (rMon >= monday) return { ...r, raceMonday: rMon };
+  }
+  return null;
+}
+
+// Returns { weeksOut, race } or null. weeksOut === 0 means "race week".
+function weeksUntil(monday, plan) {
+  const next = nextRaceFromMonday(plan, monday);
+  if (!next) return null;
+  const diff = Math.round((next.raceMonday - monday) / (7 * 24 * 60 * 60 * 1000));
+  if (diff < 0) return null;
+  return { weeksOut: diff, race: next };
 }
 
 function getWeekMonday(offset) {
@@ -1371,7 +1397,6 @@ function renderWeekCard(mondayStr, role) {
 function renderPlanOverview(role) {
   const todayMon = getMonday(new Date());
   const todayMonStr = dateToStr(todayMon);
-  const raceDate = selectedAthletePlan?.raceDate || null;
 
   // Build rows for offsets -15 .. 0 (16 weeks), most recent first
   const rows = [];
@@ -1381,7 +1406,7 @@ function renderPlanOverview(role) {
     const w = workoutsCache[monStr] || {};
     const stravaRunMi = getWeekStravaMiles(mon, 'Run');
     const stravaCrossMi = getWeekStravaMiles(mon, 'other');
-    const wb = weeksUntil(mon, raceDate);
+    const wb = weeksUntil(mon, selectedAthletePlan);
     rows.push({ monStr, mon, w, stravaRunMi, stravaCrossMi, wb, isCurrent: monStr === todayMonStr });
   }
 
@@ -1416,9 +1441,11 @@ function renderPlanOverview(role) {
 
   rows.forEach(r => {
     const dateLabel = formatDateRange(r.mon);
-    const wbLabel = r.isCurrent
-      ? `<span class="po-current-pill">This week</span>`
-      : (r.wb !== null ? `${r.wb} wks out` : '');
+    const wbLabel = (r.wb && r.wb.weeksOut === 0)
+      ? `<span class="po-current-pill" style="color:var(--gold)">Race week${r.wb.race.name ? ` (${esc(r.wb.race.name)})` : ''}</span>`
+      : r.isCurrent
+        ? `<span class="po-current-pill">This week</span>`
+        : (r.wb ? `${r.wb.weeksOut} wks out` : '');
     const milesVal = r.w.milesPerWeek;
     const stravaSummary =
       (r.stravaRunMi > 0 ? `<span class="po-miles-strava">${STRAVA_LOGO_SVG}${r.stravaRunMi.toFixed(1)} mi run</span>` : '') +
@@ -1487,11 +1514,12 @@ async function openWeekFromOverview(weekStr) {
 // ══════════════════════════════════════════════════════════
 function renderSingleWeek(weekContainerId, dashContainerId, role) {
   const container = document.getElementById(weekContainerId);
-  const raceDate = selectedAthletePlan?.raceDate || null;
   const monday = getWeekMonday(weekOffset);
   const mondayStr = dateToStr(monday);
-  const wb = weeksUntil(monday, raceDate);
-  const raceName = selectedAthletePlan?.raceName || '';
+  const wb = weeksUntil(monday, selectedAthletePlan);
+  const todayDate = new Date();
+  const upcomingRaces = getRaces(selectedAthletePlan)
+    .filter(r => new Date(r.date + 'T23:59:59') >= todayDate);
   const name = role === 'coach'
     ? (selectedAthleteData?.displayName || 'Athlete')
     : (userDoc.displayName || 'My Training');
@@ -1509,11 +1537,15 @@ function renderSingleWeek(weekContainerId, dashContainerId, role) {
   if (currentTab === 'lifting' && !showLifting) currentTab = 'training';
   if (currentTab === 'training' && !showCoaching && showLifting) currentTab = 'lifting';
 
+  const raceHtml = upcomingRaces.length
+    ? `<div class="plan-race">${upcomingRaces.map(r => `<span class="plan-race-name">${esc(r.name || 'Race')}</span> · ${r.date}`).join('&nbsp;&nbsp;|&nbsp;&nbsp;')}</div>`
+    : '';
+
   let html = `
     <div class="plan-header">
       <div class="plan-athlete-name">${esc(name)}</div>
-      ${raceName ? `<div class="plan-race"><span class="plan-race-name">${esc(raceName)}</span>${raceDate ? ' · ' + raceDate : ''}</div>` : ''}
-      ${role === 'coach' ? `<div class="plan-actions"><button class="btn-ghost" onclick="openEditRace()">✎ Race info</button></div>` : ''}
+      ${raceHtml}
+      ${role === 'coach' ? `<div class="plan-actions"><button class="btn-ghost" onclick="openEditRace()">✎ Races</button></div>` : ''}
     </div>`;
 
   // Tab bar (only show if more than one tab available)
@@ -1538,7 +1570,7 @@ function renderSingleWeek(weekContainerId, dashContainerId, role) {
     html += `<button class="week-nav-btn" onclick="navWeek(-1)">‹</button>
       <div class="week-nav-label">${formatDateRange(monday)}</div>
       <button class="week-nav-btn" onclick="navWeek(1)">›</button>
-      ${wb !== null ? `<span class="wk-weeks-out">${wb} weeks out</span>` : ''}
+      ${wb ? `<span class="wk-weeks-out"${wb.weeksOut === 0 ? ' style="color:var(--gold);background:rgba(245,200,66,.18)"' : ''}>${wb.weeksOut === 0 ? `Race week${wb.race.name ? ` · ${esc(wb.race.name)}` : ''}` : `${wb.weeksOut} weeks out${wb.race.name ? ` · ${esc(wb.race.name)}` : ''}`}</span>` : ''}
       <button class="week-today-btn" onclick="navWeekToday()">This week</button>
       ${currentTab === 'training' ? `<span class="wk-save-indicator" id="save-${mondayStr}">✓ Saved</span>` : ''}`;
   }
@@ -2421,11 +2453,30 @@ async function saveProfile() {
 //  EDIT RACE INFO
 // ══════════════════════════════════════════════════════════
 function openEditRace() {
-  const modal = document.getElementById('race-modal');
-  document.getElementById('rm-race').value = selectedAthletePlan?.raceName || '';
-  document.getElementById('rm-racedate').value = selectedAthletePlan?.raceDate || '';
+  const list = document.getElementById('rm-races-list');
+  list.innerHTML = '';
+  const races = getRaces(selectedAthletePlan);
+  if (races.length === 0) {
+    addRaceRow();
+  } else {
+    races.forEach(r => addRaceRow(r.name || '', r.date || ''));
+  }
   document.getElementById('rm-error').textContent = '';
-  modal.classList.add('open');
+  document.getElementById('race-modal').classList.add('open');
+}
+
+function addRaceRow(name = '', date = '') {
+  const list = document.getElementById('rm-races-list');
+  const row = document.createElement('div');
+  row.className = 'race-row';
+  row.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;align-items:center';
+  row.innerHTML = `
+    <input class="modal-field rm-name" placeholder="Race name" value="${esc(name)}" style="flex:1;margin:0">
+    <input class="modal-field rm-date" type="date" value="${esc(date)}" style="width:150px;margin:0;color-scheme:dark">
+    <button type="button" title="Remove" style="background:transparent;border:1px solid var(--border2);color:var(--muted2);width:36px;height:38px;border-radius:7px;cursor:pointer;font-size:16px;flex-shrink:0">×</button>
+  `;
+  row.querySelector('button').addEventListener('click', () => row.remove());
+  list.appendChild(row);
 }
 
 function closeEditRace() {
@@ -2434,17 +2485,35 @@ function closeEditRace() {
 
 async function saveRaceInfo() {
   const btn = document.getElementById('rm-btn');
-  const raceName = document.getElementById('rm-race').value.trim();
-  const raceDate = document.getElementById('rm-racedate').value;
   btn.disabled = true;
+
+  const rows = document.querySelectorAll('#rm-races-list .race-row');
+  const races = [];
+  rows.forEach(row => {
+    const name = row.querySelector('.rm-name').value.trim();
+    const date = row.querySelector('.rm-date').value;
+    if (date) races.push({ name, date });
+  });
+  races.sort((a, b) => a.date.localeCompare(b.date));
+
+  // Backward-compat: keep legacy raceName/raceDate fields populated with the
+  // next upcoming race (or empty if none) so anything still reading them works.
+  const today = new Date();
+  const nextUp = races.find(r => new Date(r.date + 'T23:59:59') >= today);
+  const legacyName = nextUp?.name || '';
+  const legacyDate = nextUp?.date || '';
 
   try {
     await db.collection('trainingPlans').doc(selectedAthletePlan.id).update({
-      raceName, raceDate, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      races, raceName: legacyName, raceDate: legacyDate,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-    await db.collection('users').doc(selectedAthleteUid).update({ raceName, raceDate });
-    selectedAthletePlan.raceName = raceName;
-    selectedAthletePlan.raceDate = raceDate;
+    await db.collection('users').doc(selectedAthleteUid).update({
+      raceName: legacyName, raceDate: legacyDate
+    });
+    selectedAthletePlan.races = races;
+    selectedAthletePlan.raceName = legacyName;
+    selectedAthletePlan.raceDate = legacyDate;
     closeEditRace();
     renderSingleWeek('coach-week-container', 'coach-dashboard', 'coach');
   } catch(e) {
