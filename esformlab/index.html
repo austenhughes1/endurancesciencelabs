@@ -1495,13 +1495,14 @@ async function initFirebase() {
 
 function initAuth() {
   auth2 = firebase.auth();
-  auth2.onAuthStateChanged(function(user) {
+  auth2.onAuthStateChanged(async function(user) {
     currentUser = user;
     updateAuthUI();
     watchPaymentsForPass();
     if (user) {
-      loadAnalysesList();
+      await loadAnalysesList();
       loadUserProfile(user.uid);
+      maybeResumeAfterCheckout();
     }
   });
 }
@@ -1638,8 +1639,17 @@ async function startPassCheckout() {
   if (!currentUser) { signInWithGoogle(); return; }
   var btn = document.getElementById('paywall-cta-btn');
   var originalLabel = btn ? btn.textContent : 'Unlock pass';
-  if (btn) { btn.disabled = true; btn.textContent = 'Opening checkout...'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving and opening checkout...'; }
   try {
+    // Stripe Checkout is a full-page redirect, so all in-memory state
+    // (videos, scrubbed frames, computed angles) gets cleared on return.
+    // Save the analysis to the user's library first so we can auto-load
+    // it back after payment via the resume flag in localStorage.
+    var resumeId = await autosaveAnalysisForResume();
+    if (resumeId) {
+      try { localStorage.setItem('esformlab_resume_id', resumeId); } catch (e) {}
+    }
+
     var db = firebase.firestore();
     var ref = await db.collection('customers').doc(currentUser.uid)
       .collection('checkout_sessions').add({
@@ -1664,6 +1674,60 @@ async function startPassCheckout() {
     console.error('startPassCheckout error:', e);
     alert('Could not start checkout: ' + e.message);
     if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
+  }
+}
+
+async function autosaveAnalysisForResume() {
+  if (!currentUser) return null;
+  var hasData = PHASE_DEFS.some(function(d) { return phases[d.key] && phases[d.key].metrics; });
+  if (!hasData) return null;
+  var now = new Date();
+  var data = {
+    name: 'Pre-checkout autosave',
+    date: now.toISOString().slice(0, 10),
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    sex: selectedSex,
+    phases: {},
+    issues: lastIssues || {},
+    autosave: true,
+  };
+  PHASE_DEFS.forEach(function(def) {
+    var ph = phases[def.key];
+    if (!ph || !ph.detected) return;
+    var entry = { t: ph.t, detected: true };
+    if (ph.metrics && def.videoKey === 'side') {
+      entry.metrics = {};
+      METRIC_ROWS.forEach(function(r) {
+        if (isRelevant(def.key, r.key) && ph.metrics[r.key] !== undefined) {
+          entry.metrics[r.key] = ph.metrics[r.key];
+        }
+      });
+    }
+    if (ph.frontBackMetrics) entry.frontBackMetrics = ph.frontBackMetrics;
+    var q = ph.kps ? getDetectionQuality(ph.kps) : null;
+    entry.quality = q ? q.level : null;
+    data.phases[def.key] = entry;
+  });
+  try {
+    var db = firebase.firestore();
+    var ref = await db.collection('users').doc(currentUser.uid).collection('analyses').add(data);
+    return ref.id;
+  } catch (e) {
+    console.warn('autosave before checkout failed:', e.message);
+    return null;
+  }
+}
+
+function maybeResumeAfterCheckout() {
+  try {
+    var id = localStorage.getItem('esformlab_resume_id');
+    if (!id) return;
+    var found = (savedAnalysesList || []).find(function(a) { return a.id === id; });
+    if (!found) return; // list not ready -- next call will pick it up
+    localStorage.removeItem('esformlab_resume_id');
+    viewSavedAnalysis(id);
+  } catch (e) {
+    console.warn('resume after checkout failed:', e.message);
   }
 }
 
