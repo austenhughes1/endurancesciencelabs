@@ -701,6 +701,7 @@ header{display:none}
     <div class="feedback-footer">
       <button class="feedback-footer-btn" onclick="openFeedbackModal('contact')">✉ Contact Endurance Science Labs</button>
       <button class="feedback-footer-btn bug" onclick="openFeedbackModal('bug')">🐛 See a Bug? Report it Here</button>
+      <button class="feedback-footer-btn" id="manage-sub-btn" onclick="openCustomerPortal()" style="display:none">⚙ Manage subscription</button>
     </div>
   </div>
 </div>
@@ -751,6 +752,7 @@ header{display:none}
     <h1 class="awaiting-title">Subscription active -- welcome aboard!</h1>
     <p class="awaiting-text">Your coach will reach out within 24 hours to set up your training plan and get you onboarded. Your dashboard will appear here as soon as you're matched.</p>
     <p class="awaiting-text-sub">In the meantime, you can <a href="/esformlab/">try esFormLab</a> to start thinking about your form.</p>
+    <p class="awaiting-text-sub"><a href="#" onclick="openCustomerPortal();return false;">Manage subscription &middot; cancel</a></p>
   </div>
 </div>
 </div>
@@ -1219,9 +1221,31 @@ function applyAthleteAccessState() {
   elPaywall.style.display  = 'none';
   elAwaiting.style.display = 'none';
   elDash.style.display     = 'flex';
+  // Manage-subscription footer link only relevant if there's a real
+  // Stripe subscription on file -- admin-granted access has no
+  // Stripe customer portal to manage.
+  const manageBtn = document.getElementById('manage-sub-btn');
+  if (manageBtn) manageBtn.style.display = hasSub ? 'inline-flex' : 'none';
   if (!athleteDashboardLoaded) {
     loadAthleteDashboard();
     athleteDashboardLoaded = true;
+  }
+}
+
+async function openCustomerPortal() {
+  if (!currentUser) return;
+  try {
+    const fns = firebase.app().functions('us-central1');
+    const createPortalLink = fns.httpsCallable('ext-firestore-stripe-payments-createPortalLink');
+    const { data } = await createPortalLink({ returnUrl: window.location.href });
+    if (data && data.url) {
+      window.location.assign(data.url);
+    } else {
+      alert('Could not open the subscription portal. Please try again.');
+    }
+  } catch (e) {
+    console.error('Customer portal error:', e);
+    alert('Could not open the subscription portal: ' + (e.message || e));
   }
 }
 
