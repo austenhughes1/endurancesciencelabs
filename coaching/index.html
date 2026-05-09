@@ -558,6 +558,45 @@ header{display:none}
   .strava-connect{padding:28px 12px}
   .strava-connect-icon{font-size:22px}
 }
+
+/* ── Coaching paywall (athlete who has not subscribed) ─── */
+#athlete-paywall .paywall-main{flex:1;padding:48px 28px;overflow-y:auto;display:flex;flex-direction:column;align-items:center}
+.paywall-hero{text-align:center;max-width:640px;margin-bottom:36px}
+.paywall-eyebrow{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--cyan);font-family:var(--mono);margin-bottom:14px}
+.paywall-title{font-size:32px;font-weight:800;margin:0 0 12px;line-height:1.2}
+.paywall-sub{font-size:15px;color:var(--muted2);line-height:1.65;margin:0}
+.pricing-cards{display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:840px;width:100%}
+.pricing-card{position:relative;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:32px 28px 24px;display:flex;flex-direction:column}
+.pricing-card.pc-featured{border-color:rgba(0,229,200,.4);box-shadow:0 0 0 1px rgba(0,229,200,.15)}
+.pc-badge{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--cyan);color:#000;font-size:10px;font-weight:800;font-family:var(--mono);letter-spacing:.6px;padding:4px 12px;border-radius:6px;white-space:nowrap}
+.pc-name{font-size:13px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono);margin-bottom:8px}
+.pc-price{font-size:38px;font-weight:800;line-height:1;margin-bottom:4px}
+.pc-price span{font-size:15px;font-weight:600;color:var(--muted2)}
+.pc-features{flex:1;margin:20px 0 24px;display:flex;flex-direction:column;gap:11px}
+.pc-feat{font-size:13px;line-height:1.55;color:var(--text);display:flex;gap:8px}
+.pc-feat-off{font-size:13px;line-height:1.55;color:var(--muted);display:flex;gap:8px}
+.pc-feat-icon{flex-shrink:0;color:var(--cyan);font-weight:700}
+.pc-feat-icon-off{flex-shrink:0;color:var(--muted)}
+.pc-btn{width:100%;padding:13px;font-size:13px;font-weight:700;font-family:var(--ui);border-radius:9px;border:1px solid var(--border2);background:transparent;color:var(--text);cursor:pointer;transition:all .15s}
+.pc-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.pc-btn:disabled{opacity:.5;cursor:not-allowed}
+.pc-btn-featured{background:var(--cyan);color:#000;border-color:var(--cyan)}
+.pc-btn-featured:hover{opacity:.88;color:#000;border-color:var(--cyan)}
+.paywall-foot{margin-top:28px;font-size:11px;color:var(--muted2);font-family:var(--mono);text-align:center}
+@media(max-width:680px){
+  .pricing-cards{grid-template-columns:1fr;max-width:480px}
+  .paywall-title{font-size:24px}
+  #athlete-paywall .paywall-main{padding:28px 16px}
+}
+
+/* ── Awaiting coach assignment (subscribed, no coachUid yet) ── */
+#athlete-awaiting .awaiting-main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 28px;text-align:center}
+.awaiting-icon{width:64px;height:64px;border-radius:50%;background:rgba(34,199,138,.15);border:1px solid rgba(34,199,138,.4);color:var(--good);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;margin-bottom:24px}
+.awaiting-title{font-size:24px;font-weight:800;margin:0 0 14px;max-width:560px;line-height:1.3}
+.awaiting-text{font-size:15px;color:var(--muted2);line-height:1.65;margin:0;max-width:560px}
+.awaiting-text-sub{font-size:13px;color:var(--muted2);line-height:1.6;margin:18px 0 0}
+.awaiting-text-sub a{color:var(--cyan);text-decoration:none}
+.awaiting-text-sub a:hover{text-decoration:underline}
 </style>
 </head>
 <body>
@@ -663,6 +702,55 @@ header{display:none}
       <button class="feedback-footer-btn" onclick="openFeedbackModal('contact')">✉ Contact Endurance Science Labs</button>
       <button class="feedback-footer-btn bug" onclick="openFeedbackModal('bug')">🐛 See a Bug? Report it Here</button>
     </div>
+  </div>
+</div>
+
+<!-- Athlete paywall (no coaching subscription / no admin grant) -->
+<div class="layout" id="athlete-paywall" style="display:none">
+  <div class="main paywall-main">
+    <div class="paywall-hero">
+      <div class="paywall-eyebrow">1-ON-1 RUNNING COACHING</div>
+      <h1 class="paywall-title">Pick the plan that fits you</h1>
+      <p class="paywall-sub">Evidence-based training built around your race schedule, your data, and your body. Cancel anytime.</p>
+    </div>
+    <div class="pricing-cards">
+      <div class="pricing-card">
+        <div class="pc-name">Standard Coaching</div>
+        <div class="pc-price">$145<span>/mo</span></div>
+        <div class="pc-features">
+          <div class="pc-feat"><span class="pc-feat-icon">✓</span><span>Custom workouts every week, tailored to your race schedule</span></div>
+          <div class="pc-feat"><span class="pc-feat-icon">✓</span><span>Monthly check-ins to review progress and adjust the plan</span></div>
+          <div class="pc-feat"><span class="pc-feat-icon">✓</span><span>Strava integration with auto-sync</span></div>
+          <div class="pc-feat-off"><span class="pc-feat-icon-off">—</span><span>Unlimited messaging with your coach</span></div>
+          <div class="pc-feat-off"><span class="pc-feat-icon-off">—</span><span>esFormLab full access included</span></div>
+          <div class="pc-feat-off"><span class="pc-feat-icon-off">—</span><span>Complimentary in-person Lactate Test per training block</span></div>
+        </div>
+        <button id="pc-btn-standard" class="pc-btn" onclick="startCoachingCheckout('standard')">Subscribe — $145 / mo</button>
+      </div>
+      <div class="pricing-card pc-featured">
+        <div class="pc-badge">RECOMMENDED</div>
+        <div class="pc-name">Full Access</div>
+        <div class="pc-price">$245<span>/mo</span></div>
+        <div class="pc-features">
+          <div class="pc-feat"><span class="pc-feat-icon">✓</span><span><strong>Everything in Standard</strong>, plus:</span></div>
+          <div class="pc-feat"><span class="pc-feat-icon">✓</span><span>Unlimited direct messaging with your coach</span></div>
+          <div class="pc-feat"><span class="pc-feat-icon">✓</span><span>esFormLab full access -- no separate purchase needed</span></div>
+          <div class="pc-feat"><span class="pc-feat-icon">✓</span><span>One complimentary in-person Lactate Test per training block</span></div>
+        </div>
+        <button id="pc-btn-premium" class="pc-btn pc-btn-featured" onclick="startCoachingCheckout('premium')">Subscribe — $245 / mo</button>
+      </div>
+    </div>
+    <div class="paywall-foot">Cancel anytime &middot; Secure checkout via Stripe &middot; No setup fees</div>
+  </div>
+</div>
+
+<!-- Athlete awaiting coach assignment (subscription active, no coachUid yet) -->
+<div class="layout" id="athlete-awaiting" style="display:none">
+  <div class="main awaiting-main">
+    <div class="awaiting-icon">✓</div>
+    <h1 class="awaiting-title">Subscription active -- welcome aboard!</h1>
+    <p class="awaiting-text">Your coach will reach out within 24 hours to set up your training plan and get you onboarded. Your dashboard will appear here as soon as you're matched.</p>
+    <p class="awaiting-text-sub">In the meantime, you can <a href="/esformlab/">try esFormLab</a> to start thinking about your form.</p>
   </div>
 </div>
 </div>
@@ -1027,12 +1115,145 @@ async function loadUserDoc(user) {
   if (isCoach) {
     document.getElementById('coach-layout').style.display = 'flex';
     document.getElementById('athlete-layout').style.display = 'none';
+    document.getElementById('athlete-paywall').style.display = 'none';
+    document.getElementById('athlete-awaiting').style.display = 'none';
     loadAthleteList();
   } else {
     document.getElementById('coach-layout').style.display = 'none';
-    document.getElementById('athlete-layout').style.display = 'flex';
-    loadAthleteDashboard();
+    // Start watching subscription + user doc; applyAthleteAccessState
+    // picks which athlete layout to show. Dashboard load is deferred
+    // until the user actually has access (paywalled users skip it).
+    watchCoachingSubscription();
+    watchUserDocForAccess();
+    applyAthleteAccessState();
     checkProfileComplete();
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  ATHLETE ACCESS STATE
+// ══════════════════════════════════════════════════════════
+// Live coaching price IDs.
+const COACHING_STANDARD_PRICE_ID = 'price_1TVIadIFO8pppwnFuj3vYy9S';
+const COACHING_PREMIUM_PRICE_ID  = 'price_1TVJJuIFO8pppwnF5uECviT3';
+
+let coachingSubTier = null;       // 'standard' | 'premium' | null
+let coachingSubsUnsub = null;
+let userDocAccessUnsub = null;
+let athleteDashboardLoaded = false;
+
+function watchCoachingSubscription() {
+  if (coachingSubsUnsub) { coachingSubsUnsub(); coachingSubsUnsub = null; }
+  if (!currentUser) { coachingSubTier = null; return; }
+  coachingSubsUnsub = db.collection('customers').doc(currentUser.uid)
+    .collection('subscriptions').onSnapshot(snap => {
+      coachingSubTier = computeCoachingTier(snap.docs);
+      applyAthleteAccessState();
+    }, err => console.warn('coaching subscription snapshot error:', err.message));
+}
+
+function computeCoachingTier(docs) {
+  for (const doc of docs) {
+    const sub = doc.data();
+    if (!['active', 'trialing'].includes(sub.status)) continue;
+    const ids = extractSubPriceIds(sub);
+    if (ids.includes(COACHING_PREMIUM_PRICE_ID)) return 'premium';
+    if (ids.includes(COACHING_STANDARD_PRICE_ID)) return 'standard';
+  }
+  return null;
+}
+
+function extractSubPriceIds(sub) {
+  const ids = [];
+  if (Array.isArray(sub.items)) {
+    for (const item of sub.items) {
+      if (item.price && typeof item.price.id === 'string') ids.push(item.price.id);
+      else if (typeof item.price === 'string') ids.push(item.price);
+    }
+  }
+  if (Array.isArray(sub.prices)) {
+    for (const p of sub.prices) {
+      if (p && typeof p.id === 'string') ids.push(p.id);
+    }
+  }
+  return ids;
+}
+
+function watchUserDocForAccess() {
+  if (userDocAccessUnsub) { userDocAccessUnsub(); userDocAccessUnsub = null; }
+  if (!currentUser) return;
+  userDocAccessUnsub = db.collection('users').doc(currentUser.uid)
+    .onSnapshot(snap => {
+      if (snap.exists) userDoc = Object.assign({}, userDoc, snap.data());
+      applyAthleteAccessState();
+    }, err => console.warn('user doc access snapshot error:', err.message));
+}
+
+function applyAthleteAccessState() {
+  if (!currentUser || !userDoc || isCoach) return;
+  const featuresMap = userDoc.features || {};
+  const hasFeatureGrant = featuresMap.coaching === true;
+  const hasSub = !!coachingSubTier;
+  const isAdmin = currentUser.uid === ADMIN_UID;
+  const hasAccess = isAdmin || hasFeatureGrant || hasSub;
+  const hasCoach = !!userDoc.coachUid;
+
+  const elPaywall  = document.getElementById('athlete-paywall');
+  const elAwaiting = document.getElementById('athlete-awaiting');
+  const elDash     = document.getElementById('athlete-layout');
+
+  if (!hasAccess) {
+    elPaywall.style.display  = 'flex';
+    elAwaiting.style.display = 'none';
+    elDash.style.display     = 'none';
+    return;
+  }
+
+  if (!hasCoach && hasSub && !hasFeatureGrant && !isAdmin) {
+    elPaywall.style.display  = 'none';
+    elAwaiting.style.display = 'flex';
+    elDash.style.display     = 'none';
+    return;
+  }
+
+  elPaywall.style.display  = 'none';
+  elAwaiting.style.display = 'none';
+  elDash.style.display     = 'flex';
+  if (!athleteDashboardLoaded) {
+    loadAthleteDashboard();
+    athleteDashboardLoaded = true;
+  }
+}
+
+async function startCoachingCheckout(tier) {
+  if (!currentUser) return;
+  const priceId = tier === 'premium' ? COACHING_PREMIUM_PRICE_ID : COACHING_STANDARD_PRICE_ID;
+  const btnId = tier === 'premium' ? 'pc-btn-premium' : 'pc-btn-standard';
+  const btn = document.getElementById(btnId);
+  const originalLabel = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Opening checkout...'; }
+  try {
+    const ref = await db.collection('customers').doc(currentUser.uid)
+      .collection('checkout_sessions').add({
+        mode: 'subscription',
+        price: priceId,
+        success_url: window.location.origin + '/coaching/?subscribed=1',
+        cancel_url: window.location.href,
+        allow_promotion_codes: true,
+      });
+    ref.onSnapshot(snap => {
+      const data = snap.data();
+      if (!data) return;
+      if (data.error) {
+        alert('Checkout error: ' + data.error.message);
+        if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
+      }
+      if (data.url) window.location.assign(data.url);
+    });
+  } catch (e) {
+    console.error('startCoachingCheckout error:', e);
+    alert('Could not start checkout: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
   }
 }
 
