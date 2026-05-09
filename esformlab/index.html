@@ -290,7 +290,8 @@ body.bar-showing #screen-phases{padding-bottom:120px}
 .ep-loading.show{display:flex}
 .ep-spinner{width:28px;height:28px;border:2.5px solid var(--border2);border-top-color:var(--cyan);border-radius:50%;animation:spin .7s linear infinite}
 .scrub-section{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
-.scrub-label{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.scrub-label{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.scrub-label .dq-pill{margin-top:0;font-size:10px;padding:3px 9px;text-transform:none;letter-spacing:.3px}
 .scrub-main{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .ep-scrubber{flex:1;-webkit-appearance:none;height:4px;background:var(--panel);border-radius:2px;outline:none;cursor:pointer}
 .ep-scrubber::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;background:var(--cyan);border-radius:50%;cursor:pointer;box-shadow:0 0 0 4px rgba(0,229,200,.15)}
@@ -415,6 +416,18 @@ body.bar-showing #screen-phases{padding-bottom:120px}
 .issue-ref a{color:var(--cyan);text-decoration:none}
 .issue-ref a:hover{text-decoration:underline}
 .issue-confidence{padding:16px 22px;background:rgba(0,229,200,.03);font-size:13px;color:var(--muted2);line-height:1.75;font-style:italic}
+/* ── Mobile auth section (lives inside the hamburger menu) ── */
+.nav-mobile-section{display:none}
+.nav-mobile-user{display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(0,229,200,.06);border:1px solid rgba(0,229,200,.2);border-radius:9px}
+.nav-mobile-avatar{width:30px;height:30px;border-radius:50%;background:var(--panel2);flex-shrink:0;object-fit:cover}
+.nav-mobile-name{font-size:13px;font-weight:600;color:var(--cyan);font-family:var(--mono);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav-mobile-action{width:100%;padding:11px 14px;background:transparent;border:1px solid var(--border2);border-radius:9px;color:var(--text);font-family:var(--ui);font-size:13px;font-weight:600;text-align:left;cursor:pointer;transition:all .15s}
+.nav-mobile-action:hover{border-color:var(--cyan);color:var(--cyan)}
+.nav-mobile-action.signin{background:rgba(0,229,200,.08);border-color:rgba(0,229,200,.3);color:var(--cyan);text-align:center}
+.nav-mobile-action.signin:hover{background:rgba(0,229,200,.15)}
+.nav-mobile-action.signout{color:var(--bad)}
+.nav-mobile-action.signout:hover{border-color:var(--bad)}
+
 /* ── Mobile hamburger toggle ─────────────────────────── */
 .menu-toggle{
   display:none;background:transparent;border:1px solid var(--border2);
@@ -444,9 +457,21 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
   .nav-link{width:100%;padding:10px 12px;font-size:14px;border-radius:8px}
   .menu-toggle{display:flex}
   #hdr-file{display:none}
-  .hdr-right{margin-left:auto;gap:6px;flex-wrap:wrap;justify-content:flex-end}
-  .btn-ghost{padding:5px 10px;font-size:11px}
+  .hdr-right{margin-left:auto;gap:6px;flex-wrap:nowrap;justify-content:flex-end}
+  .hdr-right .btn-ghost{padding:5px 10px;font-size:11px}
   .auth-name{max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  /* Hide auth-related items in hdr-right on mobile — they live in the hamburger menu now */
+  .hdr-right #auth-indicator,
+  .hdr-right #btn-sign-out,
+  .hdr-right #btn-my-analyses{display:none !important}
+
+  /* Show the mobile auth section inside the open hamburger menu */
+  .nav-mobile-section{
+    display:flex;flex-direction:column;gap:8px;
+    margin-top:10px;padding-top:14px;
+    border-top:1px solid var(--border);
+  }
 
   /* Upload */
   #screen-upload{padding:16px;align-items:flex-start;min-height:auto}
@@ -758,6 +783,17 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
     <a href="/coaching/"       class="nav-link">Coaching <span class="soon" style="background:rgba(34,199,138,.18);color:var(--good)">Live</span></a>
     <a href="#"                   class="nav-link">Metabolic Testing <span class="soon">Soon</span></a>
     <a href="#"                   class="nav-link">Training Plans <span class="soon">Soon</span></a>
+
+    <!-- Mobile-only auth section (rendered inside the hamburger menu on phones) -->
+    <div class="nav-mobile-section">
+      <div id="nav-mobile-user-row" class="nav-mobile-user" style="display:none">
+        <img id="nav-mobile-avatar" class="nav-mobile-avatar" src="">
+        <span id="nav-mobile-name" class="nav-mobile-name">Loading…</span>
+      </div>
+      <button id="nav-mobile-signin" class="nav-mobile-action signin" onclick="signInWithGoogle()">Sign in with Google</button>
+      <button id="nav-mobile-my-analyses" class="nav-mobile-action" onclick="openMyAnalyses()" style="display:none">My Sessions</button>
+      <button id="nav-mobile-signout" class="nav-mobile-action signout" onclick="signOutUser()" style="display:none">Sign out</button>
+    </div>
   </div>
   <span id="hdr-file"></span>
   <div class="hdr-right">
@@ -1050,7 +1086,10 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
           <div class="ep-loading" id="ep-loading"><div class="ep-spinner"></div></div>
         </div>
         <div class="scrub-section">
-          <div class="scrub-label">Frame adjustment</div>
+          <div class="scrub-label">
+            <span>Frame adjustment</span>
+            <span id="ep-quality-pill" class="dq-pill" style="display:none"></span>
+          </div>
           <div class="scrub-main">
             <input type="range" class="ep-scrubber" id="ep-scrubber" min="0" max="1" step="0.04" value="0" oninput="epScrub(this.value)">
             <span class="ep-time" id="ep-time">0.00s</span>
@@ -1462,30 +1501,48 @@ function updateAuthUI() {
   var saveBtn = document.getElementById('btn-save');
   var signInSaveBtn = document.getElementById('btn-sign-in-save');
 
+  // Mobile menu auth elements
+  var mUserRow = document.getElementById('nav-mobile-user-row');
+  var mAvatar = document.getElementById('nav-mobile-avatar');
+  var mName = document.getElementById('nav-mobile-name');
+  var mSignIn = document.getElementById('nav-mobile-signin');
+  var mSignOut = document.getElementById('nav-mobile-signout');
+  var mMyAnalyses = document.getElementById('nav-mobile-my-analyses');
+
+  function setName(text) {
+    if (nameEl) nameEl.textContent = text;
+    if (mName) mName.textContent = text;
+  }
+
   if (currentUser) {
     if (indicator) indicator.style.display = 'inline-flex';
     var photoURL = currentUser.photoURL || (currentUser.providerData && currentUser.providerData[0] ? currentUser.providerData[0].photoURL : null);
     if (avatarEl && photoURL) { avatarEl.src = photoURL; avatarEl.style.display = 'block'; }
+    if (mAvatar && photoURL) { mAvatar.src = photoURL; }
     // Try Auth displayName first, then fetch from Firestore user doc
     var authName = currentUser.displayName || (currentUser.providerData && currentUser.providerData[0] ? currentUser.providerData[0].displayName : null);
-    if (authName && nameEl) {
-      nameEl.textContent = authName;
+    if (authName) {
+      setName(authName);
     } else {
-      if (nameEl) nameEl.textContent = 'Loading...';
+      setName('Loading...');
       firebase.firestore().collection('users').doc(currentUser.uid).get().then(function(doc) {
-        if (doc.exists && doc.data().displayName && nameEl) {
-          nameEl.textContent = doc.data().displayName;
-        } else if (nameEl) {
-          nameEl.textContent = currentUser.email ? currentUser.email.split('@')[0] : 'User';
+        if (doc.exists && doc.data().displayName) {
+          setName(doc.data().displayName);
+        } else {
+          setName(currentUser.email ? currentUser.email.split('@')[0] : 'User');
         }
       }).catch(function() {
-        if (nameEl) nameEl.textContent = currentUser.email ? currentUser.email.split('@')[0] : 'User';
+        setName(currentUser.email ? currentUser.email.split('@')[0] : 'User');
       });
     }
     if (signOutBtn) signOutBtn.style.display = 'inline-flex';
     if (myAnalysesBtn) myAnalysesBtn.style.display = 'inline-flex';
     if (saveBtn) saveBtn.style.display = 'inline-flex';
     if (signInSaveBtn) signInSaveBtn.style.display = 'none';
+    if (mUserRow) mUserRow.style.display = 'flex';
+    if (mSignIn) mSignIn.style.display = 'none';
+    if (mSignOut) mSignOut.style.display = 'block';
+    if (mMyAnalyses) mMyAnalyses.style.display = 'block';
     // Admin-only sample report button on upload screen
     var sampleBtn = document.getElementById('btn-sample-report');
     if (sampleBtn) sampleBtn.style.display = currentUser.uid === '2z9Z3K5ZwShvadUuqZmwMv0s1Od2' ? 'block' : 'none';
@@ -1495,6 +1552,10 @@ function updateAuthUI() {
     if (myAnalysesBtn) myAnalysesBtn.style.display = 'none';
     if (saveBtn) saveBtn.style.display = 'none';
     if (signInSaveBtn) signInSaveBtn.style.display = 'inline-flex';
+    if (mUserRow) mUserRow.style.display = 'none';
+    if (mSignIn) mSignIn.style.display = 'block';
+    if (mSignOut) mSignOut.style.display = 'none';
+    if (mMyAnalyses) mMyAnalyses.style.display = 'none';
     var sampleBtn2 = document.getElementById('btn-sample-report');
     if (sampleBtn2) sampleBtn2.style.display = 'none';
   }
@@ -1647,11 +1708,25 @@ function getDetectionQuality(kps){
 
 function renderQualityCard(kps){
   var qCard = document.getElementById('ep-quality-card');
+  var qPill = document.getElementById('ep-quality-pill');
   if(!qCard) return;
-  if(!kps){ qCard.style.display='none'; return; }
+  if(!kps){
+    qCard.style.display='none';
+    if(qPill){ qPill.style.display='none'; qPill.className='dq-pill'; }
+    return;
+  }
   var q = getDetectionQuality(kps);
-  if(!q){ qCard.style.display='none'; return; }
+  if(!q){
+    qCard.style.display='none';
+    if(qPill){ qPill.style.display='none'; qPill.className='dq-pill'; }
+    return;
+  }
   qCard.style.display='block';
+  if(qPill){
+    qPill.className = 'dq-pill ' + q.level;
+    qPill.textContent = q.label;
+    qPill.style.display = 'inline-flex';
+  }
 
   var hint = '';
   if(q.level === 'strong') {
