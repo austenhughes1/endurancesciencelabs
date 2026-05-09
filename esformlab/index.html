@@ -488,18 +488,8 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
   .btn-complete{padding:11px 18px;font-size:13px}
   body.bar-showing #screen-phases{padding-bottom:140px}
 
-  /* Expand overlay — go nearly full-screen on mobile */
-  #expand-overlay{padding:8px}
-  .expand-panel{border-radius:14px;max-height:calc(100vh - 16px)}
-  .ep-hdr{padding:12px 14px;border-radius:14px 14px 0 0;gap:10px}
+  /* Expand overlay — header sizing (fullscreen layout below at ≤700px) */
   .ep-name{font-size:14px}
-  .ep-canvas-side,.ep-info-side{padding:12px}
-  .scrub-section{padding:12px 14px}
-  .step-btns{gap:5px}
-  .step-btn{padding:5px 9px;font-size:10px}
-  .re-btn,.swap-btn{padding:6px 12px;font-size:10px}
-  .scrub-nav{flex-direction:column;align-items:stretch;gap:8px}
-  .nav-phase-btns{margin-left:0;flex-wrap:wrap}
 
   /* Report */
   .report-section{margin-top:24px;padding-top:22px}
@@ -517,6 +507,98 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
   .summary{margin-top:28px;padding-top:22px}
   .summary-title{font-size:18px !important}
   .summary-sub{font-size:13px !important}
+}
+
+/* ── Frame scrub interface — fullscreen mobile (≤700px) ─
+   Canvas + scrub controls stay pinned at top, info content
+   scrolls independently below. Canvas is height-capped so
+   portrait phone videos don't blow past the viewport. */
+@media(max-width:700px){
+  /* Make overlay fully fill the viewport */
+  #expand-overlay{padding:0;align-items:stretch;justify-content:stretch}
+  .expand-panel{
+    border-radius:0;width:100%;max-width:none;
+    height:100vh;height:100dvh;max-height:none;
+    display:flex;flex-direction:column;overflow:hidden;
+  }
+
+  /* Header: fixed at top, no scroll */
+  .ep-hdr{
+    padding:10px 14px;border-radius:0;gap:10px;
+    position:relative;flex-shrink:0;
+  }
+  .ep-num{width:24px;height:24px;font-size:11px}
+  .ep-close{width:36px;height:36px;font-size:20px}
+  .ep-undetected-notice{margin:8px 12px 0;flex-shrink:0;padding:10px 12px}
+
+  /* Body: flex column, canvas-side fixed, info-side scrolls */
+  .ep-body{
+    display:flex;flex-direction:column;
+    flex:1;min-height:0;overflow:hidden;
+  }
+  .ep-canvas-side{
+    flex-shrink:0;border-right:none;
+    border-bottom:1px solid var(--border);
+    padding:8px 10px 10px;
+    background:var(--panel);
+  }
+
+  /* Canvas: cap at ~38vh so scrub controls always fit below */
+  .ep-canvas-wrap{
+    margin-bottom:8px;
+    max-height:38vh;max-height:38dvh;
+    display:flex;align-items:center;justify-content:center;
+    background:#000;
+  }
+  .ep-canvas{
+    width:auto;height:auto;
+    max-width:100%;max-height:38vh;max-height:38dvh;
+    min-height:0;
+    object-fit:contain;
+    touch-action:pinch-zoom;
+  }
+
+  /* Compact scrub-section that fits in the visible area */
+  .scrub-section{padding:10px 12px}
+  .scrub-label{margin-bottom:8px;font-size:9px}
+  .scrub-main{gap:10px;margin-bottom:8px}
+
+  /* Bigger scrubber for touch */
+  .ep-scrubber{height:8px;border-radius:4px}
+  .ep-scrubber::-webkit-slider-thumb{width:26px;height:26px;box-shadow:0 0 0 6px rgba(0,229,200,.18)}
+  .ep-scrubber::-moz-range-thumb{width:26px;height:26px;border:none;background:var(--cyan);border-radius:50%;box-shadow:0 0 0 6px rgba(0,229,200,.18)}
+  .ep-time{font-size:13px;min-width:48px}
+
+  /* Frame step buttons + actions: bigger touch targets, organized rows */
+  .step-btns{gap:6px;align-items:center}
+  .step-label{display:none}
+  .step-btn{
+    padding:0;font-size:12px;font-weight:700;
+    min-width:42px;height:38px;
+    display:inline-flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+  }
+  .re-btn{
+    margin-left:auto;padding:0 16px;font-size:12px;
+    height:38px;flex-shrink:0;
+  }
+  .swap-btn{
+    margin-left:0;padding:0 12px;font-size:11px;
+    height:38px;flex-shrink:0;
+  }
+
+  /* Phase nav row */
+  .scrub-nav{flex-wrap:wrap;gap:6px;margin-top:8px;padding-top:8px}
+  .scrub-nav-label{flex-basis:100%;margin-bottom:2px}
+  .nav-phase-btns{margin-left:0;width:100%;flex-wrap:wrap}
+  .nav-phase-btn{padding:6px 10px;font-size:10px;min-height:30px}
+
+  /* Info side: scrolls independently below the pinned canvas */
+  .ep-info-side{
+    flex:1;min-height:0;overflow-y:auto;
+    padding:12px;gap:12px;
+    -webkit-overflow-scrolling:touch;
+  }
 }
 
 /* ── Phone portrait (≤480px) ─────────────────────────── */
@@ -547,6 +629,14 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
   .issue-card-hdr{gap:6px}
   .issue-side-tag{font-size:9px;padding:1px 6px}
   .issue-severity{font-size:10px;padding:2px 6px}
+
+  /* Scrub interface — even tighter on smallest phones */
+  .ep-canvas-wrap{max-height:34vh;max-height:34dvh}
+  .ep-canvas{max-height:34vh;max-height:34dvh}
+  .step-btn{min-width:38px;height:36px;font-size:11px}
+  .re-btn{padding:0 12px;font-size:11px;height:36px}
+  .swap-btn{padding:0 10px;font-size:10px;height:36px}
+  .step-btn-clear{font-size:10px}
 }
 
 /* Print styles */
@@ -973,7 +1063,7 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
             <button class="step-btn" onclick="epStep(5)">+5f</button>
             <button class="re-btn" id="ep-re-btn" onclick="epReanalyze()">&#8635; Analyze</button>
             <button class="swap-btn" id="ep-swap-btn" onclick="swapLegs()" title="Swap left/right leg assignments">&#8644; Swap L/R</button>
-            <button class="step-btn" onclick="clearOverlay()" title="Clear skeleton overlay" style="margin-left:6px;font-size:10px">✕ Clear</button>
+            <button class="step-btn step-btn-clear" onclick="clearOverlay()" title="Clear skeleton overlay">✕ Clear</button>
           </div>
           <div class="scrub-nav">
             <span class="scrub-nav-label">jump to:</span>
