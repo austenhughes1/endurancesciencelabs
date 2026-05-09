@@ -416,6 +416,9 @@ header{display:none}
 .feat-scope-toggle.show{display:inline-flex}
 .feat-scope-btn{padding:5px 12px;font-size:11px;font-weight:600;font-family:var(--mono);background:transparent;border:none;color:var(--muted2);cursor:pointer;border-radius:6px;transition:all .15s}
 .feat-scope-btn.active{background:rgba(0,229,200,.12);color:var(--cyan)}
+.sidebar-scope{display:none;padding:8px 10px;border-bottom:1px solid var(--border);background:var(--panel2);gap:4px;justify-content:center}
+.sidebar-scope.show{display:flex}
+.feat-paid-badge{display:inline-flex;align-items:center;padding:3px 7px;border-radius:5px;background:rgba(0,229,200,.12);border:1px solid rgba(0,229,200,.3);color:var(--cyan);font-size:9px;font-weight:700;font-family:var(--mono);letter-spacing:.4px;margin-right:6px;white-space:nowrap}
 
 /* ── Feedback footer ────────────────────────────────── */
 .feedback-footer{display:flex;justify-content:center;gap:12px;padding:32px 20px 24px;flex-wrap:wrap}
@@ -619,6 +622,10 @@ header{display:none}
       <span class="sidebar-title">Athletes</span>
       <button class="btn-ghost" onclick="openFeatureAdmin()" style="padding:4px 10px;font-size:10px">⚙ Features</button>
       <button class="btn-ghost" onclick="openAddAthlete()" style="padding:4px 10px;font-size:10px">+ Add</button>
+    </div>
+    <div class="sidebar-scope" id="sidebar-scope">
+      <button class="feat-scope-btn active" id="sidebar-scope-mine" onclick="setSidebarScope('mine')">My athletes</button>
+      <button class="feat-scope-btn" id="sidebar-scope-all" onclick="setSidebarScope('all')">All athletes</button>
     </div>
     <div class="athlete-list" id="athlete-list"></div>
   </div>
@@ -1021,30 +1028,54 @@ async function loadUserDoc(user) {
 // ══════════════════════════════════════════════════════════
 //  COACH: ATHLETE LIST
 // ══════════════════════════════════════════════════════════
+// Sidebar scope works the same as the Features modal scope but is
+// independently selectable so the admin can mix views.
+let sidebarScope = 'mine';
+
+function setSidebarScope(scope) {
+  if (scope !== 'mine' && scope !== 'all') return;
+  if (scope === 'all' && (!currentUser || currentUser.uid !== ADMIN_UID)) return;
+  sidebarScope = scope;
+  document.getElementById('sidebar-scope-mine').classList.toggle('active', scope === 'mine');
+  document.getElementById('sidebar-scope-all').classList.toggle('active', scope === 'all');
+  loadAthleteList();
+}
+
 async function loadAthleteList() {
-  const snap = await db.collection('users')
-    .where('coachUid', '==', currentUser.uid)
-    .get();
+  // Reveal the admin scope toggle on each render so it picks up auth state.
+  const scopeRow = document.getElementById('sidebar-scope');
+  if (scopeRow) scopeRow.classList.toggle('show', currentUser && currentUser.uid === ADMIN_UID);
+
+  const adminAllScope = sidebarScope === 'all' && currentUser && currentUser.uid === ADMIN_UID;
+  const query = adminAllScope
+    ? db.collection('users')
+    : db.collection('users').where('coachUid', '==', currentUser.uid);
+  const snap = await query.get();
 
   const list = document.getElementById('athlete-list');
   list.innerHTML = '';
 
   if (snap.empty) {
-    list.innerHTML = '<div style="padding:16px;text-align:center;font-size:11px;color:var(--muted2);font-family:var(--mono)">No athletes yet.<br>Click + Add to get started.</div>';
+    list.innerHTML = '<div style="padding:16px;text-align:center;font-size:11px;color:var(--muted2);font-family:var(--mono)">' + (adminAllScope ? 'No users found.' : 'No athletes yet.<br>Click + Add to get started.') + '</div>';
     return;
   }
 
   snap.forEach(doc => {
     const d = doc.data();
     const initials = (d.displayName || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+    const isForeign = d.coachUid !== currentUser.uid;
     const item = document.createElement('div');
-    item.className = 'athlete-item' + (selectedAthleteUid === doc.id ? ' active' : '');
+    item.className = 'athlete-item' + (selectedAthleteUid === doc.id ? ' active' : '') + (isForeign ? ' foreign' : '');
     item.dataset.uid = doc.id;
-    item.onclick = () => selectAthlete(doc.id, d, item);
+    if (isForeign) {
+      item.onclick = () => alert('This user belongs to another coach (or no coach). Use the Features modal to manage their access; selecting here would create a duplicate training plan.');
+    } else {
+      item.onclick = () => selectAthlete(doc.id, d, item);
+    }
     item.innerHTML = `
       <div class="athlete-avatar">${initials}</div>
-      <div>
-        <div class="athlete-name">${esc(d.displayName || d.email)}</div>
+      <div style="min-width:0;flex:1">
+        <div class="athlete-name">${esc(d.displayName || d.email)}${isForeign ? ' <span style="font-size:9px;color:var(--muted);font-family:var(--mono);font-weight:600">· OTHER</span>' : ''}</div>
         <div class="athlete-meta">${d.raceName ? esc(d.raceName) : 'No race set'}</div>
         ${d.stravaConnected ? '<div class="athlete-strava">STRAVA ✓</div>' : ''}
       </div>`;
@@ -2609,6 +2640,27 @@ function setFeatureAdminScope(scope) {
   loadFeatureAdminData();
 }
 
+async function fetchPaidPassExpiry(uid) {
+  try {
+    const snap = await db.collection('customers').doc(uid).collection('payments').get();
+    let latest = 0;
+    snap.forEach(doc => {
+      const p = doc.data();
+      if (p.status !== 'succeeded') return;
+      let createdSec = null;
+      if (typeof p.created === 'number') createdSec = p.created;
+      else if (p.created && typeof p.created.seconds === 'number') createdSec = p.created.seconds;
+      if (createdSec !== null && createdSec > latest) latest = createdSec;
+    });
+    if (!latest) return null;
+    const expirySec = latest + (90 * 24 * 60 * 60);
+    if (expirySec * 1000 < Date.now()) return null;
+    return new Date(expirySec * 1000);
+  } catch (e) {
+    return null;
+  }
+}
+
 async function loadFeatureAdminData() {
   const list = document.getElementById('feat-user-list');
   list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted2);font-family:var(--mono);font-size:11px">Loading users…</div>';
@@ -2624,11 +2676,19 @@ async function loadFeatureAdminData() {
       return;
     }
 
+    const users = [];
+    snap.forEach(doc => users.push({ id: doc.id, data: doc.data() }));
+    const expiries = await Promise.all(users.map(u => fetchPaidPassExpiry(u.id)));
+
     let html = '';
-    snap.forEach(doc => {
-      const d = doc.data();
-      const uid = doc.id;
+    users.forEach((u, i) => {
+      const d = u.data;
+      const uid = u.id;
       const features = d.features || {};
+      const expiry = expiries[i];
+      const expiryStr = expiry
+        ? expiry.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        : null;
       html += `<div class="feat-user-row">
         <div style="min-width:0;flex:1">
           <div class="feat-user-name">${esc(d.displayName || d.email)}</div>
@@ -2637,9 +2697,17 @@ async function loadFeatureAdminData() {
         <div class="feat-toggles">
           ${FEATURE_LIST.map(f => {
             const on = features[f] === true;
-            return `<div class="feat-toggle ${on ? 'on' : 'off'}" onclick="toggleUserFeature('${uid}','${f}',${!on},this)">
-              <span class="feat-toggle-dot"></span>${FEATURE_LABELS[f]}
-            </div>`;
+            const wrap = (f === 'esFormLab' && expiryStr)
+              ? `<div style="display:inline-flex;align-items:center;gap:4px">
+                  <span class="feat-paid-badge" title="Active Stripe pass -- access continues even if toggle is off">PAID THRU ${expiryStr.toUpperCase()}</span>
+                  <div class="feat-toggle ${on ? 'on' : 'off'}" onclick="toggleUserFeature('${uid}','${f}',${!on},this)">
+                    <span class="feat-toggle-dot"></span>${FEATURE_LABELS[f]}
+                  </div>
+                </div>`
+              : `<div class="feat-toggle ${on ? 'on' : 'off'}" onclick="toggleUserFeature('${uid}','${f}',${!on},this)">
+                  <span class="feat-toggle-dot"></span>${FEATURE_LABELS[f]}
+                </div>`;
+            return wrap;
           }).join('')}
         </div>
       </div>`;
