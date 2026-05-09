@@ -355,6 +355,136 @@ footer {
 .footer-link { font-size: 14px; color: var(--muted2); text-decoration: none; transition: color .15s; }
 .footer-link:hover { color: var(--text); }
 .footer-copy { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+
+/* ── Mobile hamburger toggle ─────────────────────────── */
+.menu-toggle {
+  display: none;
+  background: transparent;
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  width: 40px; height: 40px;
+  cursor: pointer;
+  padding: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+.menu-toggle span {
+  display: block;
+  width: 18px; height: 2px;
+  background: var(--text);
+  border-radius: 2px;
+  transition: transform .2s, opacity .2s;
+}
+nav.menu-open .menu-toggle span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+nav.menu-open .menu-toggle span:nth-child(2) { opacity: 0; }
+nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+
+/* ── Tablet & large phone (≤768px) ───────────────────── */
+@media (max-width: 768px) {
+  body { font-size: 16px; }
+
+  nav { padding: 0 20px; height: 58px; }
+  .nav-logo { margin-right: 0; }
+  .nav-links {
+    position: absolute;
+    top: 58px; left: 0; right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    background: rgba(8,9,15,0.98);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px 18px;
+    display: none;
+    flex: none;
+  }
+  nav.menu-open .nav-links { display: flex; }
+  .nav-link { width: 100%; padding: 12px 14px; font-size: 15px; border-radius: 10px; }
+  .menu-toggle { display: flex; }
+  .nav-cta { font-size: 13px; padding: 8px 14px; margin-left: auto; }
+  #nav-sign-in { padding: 7px 12px; font-size: 12px; }
+  .auth-name { max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .hero { padding: 64px 20px 60px; }
+  .hero-label { font-size: 11px; padding: 4px 12px; margin-bottom: 24px; }
+  .hero-title { letter-spacing: -1px; margin-bottom: 20px; }
+  .hero-sub { font-size: 17px; margin-bottom: 32px; line-height: 1.7; }
+  .hero-actions { gap: 10px; margin-bottom: 44px; }
+  .btn-primary, .btn-secondary { padding: 13px 24px; font-size: 15px; }
+  .hero-stats { gap: 28px; }
+  .hero-stat-val { font-size: 28px; }
+
+  .hero-image { height: 280px; }
+  .hero-image::before { height: 60px; }
+  .hero-image::after { height: 70px; }
+
+  section { padding: 64px 20px; }
+  .section-sub { font-size: 16px; }
+
+  .feature-panels { padding: 0 20px; gap: 16px; }
+  .feature-panel-img { height: 200px; }
+  .feature-panel-body { padding: 24px 24px 26px; }
+  .feature-panel-title { font-size: 24px; }
+  .feature-panel-desc { font-size: 15px; }
+  .feature-panel-cta { padding: 12px 22px; font-size: 14px; }
+
+  .services-grid { gap: 14px; }
+  .service-card { padding: 24px; }
+  .hiw-grid { margin-top: 36px; gap: 24px; }
+
+  .divider { margin: 0 20px; }
+
+  .cta-band { margin: 0 20px 60px; padding: 44px 24px; }
+  .cta-band-sub { font-size: 16px; margin-bottom: 28px; }
+
+  footer {
+    padding: 32px 20px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .footer-links { flex-wrap: wrap; gap: 18px; }
+}
+
+/* ── Phone portrait (≤480px) ─────────────────────────── */
+@media (max-width: 480px) {
+  nav { padding: 0 14px; }
+  .nav-logo-img { height: 30px; }
+  .nav-cta { padding: 7px 12px; font-size: 12px; }
+  #nav-sign-in { display: none; }
+  .auth-indicator { padding: 3px 6px; margin-right: 4px; }
+  .auth-name { display: none; }
+  .auth-avatar { display: block !important; width: 22px; height: 22px; }
+
+  .hero { padding: 44px 16px 52px; }
+  .hero-title { letter-spacing: -.5px; }
+  .hero-sub { font-size: 16px; }
+  .hero-actions { width: 100%; flex-direction: column; }
+  .hero-actions .btn-primary, .hero-actions .btn-secondary { width: 100%; justify-content: center; }
+  .hero-stats { gap: 18px; flex-direction: column; }
+  .stat-divider { display: none; }
+
+  .hero-image { height: 220px; }
+
+  section { padding: 56px 16px; }
+
+  .feature-panels { padding: 0 16px; }
+  .feature-panel-img { height: 180px; }
+  .feature-panel-body { padding: 22px 20px 24px; }
+
+  .divider { margin: 0 16px; }
+
+  .cta-band { margin: 0 16px 48px; padding: 36px 20px; border-radius: 16px; }
+  .cta-band-actions { flex-direction: column; }
+  .cta-band-actions .btn-primary, .cta-band-actions .btn-secondary { width: 100%; justify-content: center; }
+
+  footer { padding: 28px 16px; }
+  .footer-links { gap: 14px; }
+}
 </style>
 </head>
 <body>
@@ -378,6 +508,9 @@ footer {
   </span>
   <a href="/coaching/" id="nav-sign-in" class="nav-cta" style="background:transparent;border:1px solid var(--border2);color:var(--muted2);margin-right:8px;font-size:13px;padding:8px 16px" onmouseover="this.style.borderColor='var(--cyan)';this.style.color='var(--cyan)'" onmouseout="this.style.borderColor='';this.style.color='var(--muted2)'">Sign in</a>
   <a href="/esformlab/" class="nav-cta">Try esFormLab →</a>
+  <button class="menu-toggle" aria-label="Toggle menu" aria-expanded="false">
+    <span></span><span></span><span></span>
+  </button>
 </nav>
 
 <!-- Hero — centered minimal -->
@@ -563,6 +696,26 @@ footer {
   </div>
   <div class="footer-copy">© 2025 Endurance Science Labs</div>
 </footer>
+
+<!-- Mobile menu toggle -->
+<script>
+(function(){
+  var btn = document.querySelector('.menu-toggle');
+  if (!btn) return;
+  var nav = btn.closest('nav');
+  btn.addEventListener('click', function(){
+    var open = nav.classList.toggle('menu-open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  // Close menu when a nav link is tapped
+  nav.querySelectorAll('.nav-link').forEach(function(a){
+    a.addEventListener('click', function(){
+      nav.classList.remove('menu-open');
+      btn.setAttribute('aria-expanded','false');
+    });
+  });
+})();
+</script>
 
 <!-- Auth persistence across pages -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
