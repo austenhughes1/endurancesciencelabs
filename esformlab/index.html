@@ -37,6 +37,19 @@ body{font-family:var(--ui);background:var(--bg);color:var(--text);min-height:100
 .sg-btn:hover{transform:translateY(-1px)}
 .sg-foot{margin-top:18px;font-size:11px;color:var(--muted2);font-family:var(--mono)}
 
+/* Paywall on the report -- card stays sharp, locked content blurs */
+.paywall-card{position:relative;z-index:5;background:linear-gradient(135deg,rgba(0,229,200,.08),rgba(0,229,200,.02));border:1px solid rgba(0,229,200,.3);border-radius:14px;padding:30px 32px;margin:0 0 24px 0;text-align:center}
+.pw-title{font-size:22px;font-weight:800;margin-bottom:10px;color:var(--cyan)}
+.pw-sub{font-size:14px;color:var(--muted2);line-height:1.65;margin:0 auto 22px;max-width:560px}
+.pw-price{font-size:36px;font-weight:800;color:var(--text);line-height:1.1;margin-bottom:4px}
+.pw-price-sub{font-size:11px;color:var(--muted2);font-family:var(--mono);letter-spacing:.6px;margin-bottom:20px}
+.pw-btn{display:inline-flex;align-items:center;justify-content:center;padding:13px 32px;font-size:14px;font-weight:700;font-family:var(--ui);border-radius:10px;border:none;background:var(--cyan);color:#000;cursor:pointer;transition:opacity .15s}
+.pw-btn:hover{opacity:.88}
+.pw-btn:disabled{opacity:.5;cursor:not-allowed}
+.pw-foot{margin-top:14px;font-size:11px;color:var(--muted2);font-family:var(--mono)}
+#report-locked-content.paywall-blur,
+#summary-section.paywall-blur{filter:blur(8px);pointer-events:none;user-select:none;transition:filter .25s}
+
 /* Nav */
 nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:sticky;top:0;z-index:300;background:rgba(6,8,13,.97);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
 .nav-logo{display:flex;align-items:center;gap:12px;text-decoration:none;flex-shrink:0;margin-right:32px}
@@ -1008,6 +1021,18 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
   <div id="report-section" class="report-section" style="display:none">
     <div class="report-section-title">Your running form report</div>
     <div class="report-section-sub">Based on your video analysis, here is what we found. Detected issues include an explanation of what it means, why it might matter, what could be causing it, and specific cues to work on. Click any detected issue to expand the full breakdown.</div>
+
+    <!-- Paywall card: shown while user has no active 90-day pass -->
+    <div id="paywall-card" class="paywall-card" style="display:none">
+      <div class="pw-title">Unlock your full report</div>
+      <div class="pw-sub">See every detected issue with coaching cues, your bell-curve placement against elite reference data, and download the PDF. One pass covers as many videos as you want for 90 days -- film, drill, refilm, iterate.</div>
+      <div class="pw-price">$90</div>
+      <div class="pw-price-sub">90-DAY PASS &middot; UNLIMITED ANALYSES</div>
+      <button id="paywall-cta-btn" class="pw-btn" onclick="startPassCheckout()">Unlock pass</button>
+      <div class="pw-foot">$29/mo equivalent &middot; 3-month minimum &middot; secure checkout via Stripe</div>
+    </div>
+
+    <div id="report-locked-content">
     <div class="report-actions">
       <button class="btn-download-report" onclick="downloadReport()">&#128196; Download report as PDF</button>
     </div>
@@ -1045,6 +1070,7 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
       </div>
       <div style="font-size:14px;color:var(--text);line-height:1.9"><strong>Both of these scenarios result in over 2 minutes less ground contact time per hour of running.</strong> That is 2 fewer minutes of load going through your muscles and tendons — and 2 more minutes spent in the air, traveling forward efficiently. The energy savings and injury risk reduction from that kind of shift are meaningful, and they come from changes that most runners would barely notice in the moment.</div>
     </div>
+    </div><!-- /#report-locked-content -->
   </div>
 
   <!-- Save analysis -->
@@ -1470,6 +1496,7 @@ function initAuth() {
   auth2.onAuthStateChanged(function(user) {
     currentUser = user;
     updateAuthUI();
+    watchPaymentsForPass();
     if (user) {
       loadAnalysesList();
       loadUserProfile(user.uid);
@@ -1509,7 +1536,133 @@ function signOutUser() {
     currentUser = null;
     savedAnalysesList = [];
     updateAuthUI();
+    if (paymentsUnsub_) { paymentsUnsub_(); paymentsUnsub_ = null; }
+    if (userDocPassUnsub_) { userDocPassUnsub_(); userDocPassUnsub_ = null; }
+    hasPaidPass_ = false;
+    hasGrantedPass_ = false;
+    applyPaywallState();
   });
+}
+
+// ──────────────────────────────────────────────────────────────
+//  Stripe paywall: 90-day pass
+// ──────────────────────────────────────────────────────────────
+// Test-mode price ID. Swap for the live-mode price when going live.
+var STRIPE_PRICE_ID = 'price_1TSjv3IpQrSCpWBRsrDgplXd';
+var PASS_DURATION_SEC = 90 * 24 * 60 * 60;
+
+// Two independent sources of access:
+//   hasPaidPass_   -- a Stripe-succeeded payment within the last 90 days
+//   hasGrantedPass_ -- admin-set users/{uid}.formAnalyzerPassUntil > now
+var hasPaidPass_ = false;
+var hasGrantedPass_ = false;
+var paymentsUnsub_ = null;
+var userDocPassUnsub_ = null;
+
+function watchPaymentsForPass() {
+  if (paymentsUnsub_) { paymentsUnsub_(); paymentsUnsub_ = null; }
+  if (userDocPassUnsub_) { userDocPassUnsub_(); userDocPassUnsub_ = null; }
+  if (!currentUser) {
+    hasPaidPass_ = false;
+    hasGrantedPass_ = false;
+    applyPaywallState();
+    return;
+  }
+  var db = firebase.firestore();
+  paymentsUnsub_ = db.collection('customers').doc(currentUser.uid)
+    .collection('payments').onSnapshot(function(snap) {
+      hasPaidPass_ = computeActivePass(snap.docs);
+      applyPaywallState();
+    }, function(err) {
+      console.warn('payments snapshot error:', err.message);
+    });
+  userDocPassUnsub_ = db.collection('users').doc(currentUser.uid)
+    .onSnapshot(function(snap) {
+      hasGrantedPass_ = computeGrantedPass(snap.exists ? snap.data() : null);
+      applyPaywallState();
+    }, function(err) {
+      console.warn('user doc snapshot error:', err.message);
+    });
+}
+
+function computeActivePass(docs) {
+  var nowSec = Math.floor(Date.now() / 1000);
+  for (var i = 0; i < docs.length; i++) {
+    var p = docs[i].data();
+    if (p.status !== 'succeeded') continue;
+    var c = p.created;
+    var createdSec = (typeof c === 'number') ? c
+      : (c && typeof c.seconds === 'number') ? c.seconds
+      : null;
+    if (createdSec === null) continue;
+    if (nowSec - createdSec < PASS_DURATION_SEC) return true;
+  }
+  return false;
+}
+
+// Admin grant: users/{uid}.formAnalyzerPassUntil is a Firestore Timestamp
+// (or numeric seconds). If present and in the future, the user has access.
+function computeGrantedPass(userData) {
+  if (!userData) return false;
+  var until = userData.formAnalyzerPassUntil;
+  if (!until) return false;
+  var untilSec = (typeof until === 'number') ? until
+    : (until && typeof until.seconds === 'number') ? until.seconds
+    : null;
+  if (untilSec === null) return false;
+  return untilSec > Math.floor(Date.now() / 1000);
+}
+
+function effectiveHasPass() {
+  return hasPaidPass_ || hasGrantedPass_;
+}
+
+function applyPaywallState() {
+  var locked = document.getElementById('report-locked-content');
+  var summary = document.getElementById('summary-section');
+  var paywall = document.getElementById('paywall-card');
+  if (effectiveHasPass()) {
+    if (locked) locked.classList.remove('paywall-blur');
+    if (summary) summary.classList.remove('paywall-blur');
+    if (paywall) paywall.style.display = 'none';
+  } else {
+    if (locked) locked.classList.add('paywall-blur');
+    if (summary) summary.classList.add('paywall-blur');
+    if (paywall) paywall.style.display = 'block';
+  }
+}
+
+async function startPassCheckout() {
+  if (!currentUser) { signInWithGoogle(); return; }
+  var btn = document.getElementById('paywall-cta-btn');
+  var originalLabel = btn ? btn.textContent : 'Unlock pass';
+  if (btn) { btn.disabled = true; btn.textContent = 'Opening checkout...'; }
+  try {
+    var db = firebase.firestore();
+    var ref = await db.collection('customers').doc(currentUser.uid)
+      .collection('checkout_sessions').add({
+        mode: 'payment',
+        price: STRIPE_PRICE_ID,
+        success_url: window.location.origin + '/esformlab/?paid=1',
+        cancel_url: window.location.href,
+        allow_promotion_codes: true,
+      });
+    ref.onSnapshot(function(snap) {
+      var data = snap.data();
+      if (!data) return;
+      if (data.error) {
+        alert('Checkout error: ' + data.error.message);
+        if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
+      }
+      if (data.url) {
+        window.location.assign(data.url);
+      }
+    });
+  } catch (e) {
+    console.error('startPassCheckout error:', e);
+    alert('Could not start checkout: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
+  }
 }
 
 function updateAuthUI() {
@@ -1952,6 +2105,7 @@ function completeAnalysis(){
   var summaryEl = document.getElementById('summary-section');
   if(reportEl) reportEl.style.display='block';
   if(summaryEl) summaryEl.style.display='block';
+  applyPaywallState();
   // Show save section
   var saveEl = document.getElementById('save-section');
   if (saveEl && !isViewingSaved) {
@@ -5207,6 +5361,7 @@ async function viewSavedAnalysis(id) {
       updateSummaryCol(def.key);
     }
   });
+  applyPaywallState();
 
   // Hide save section (it is a saved analysis already)
   var saveEl = document.getElementById('save-section');
