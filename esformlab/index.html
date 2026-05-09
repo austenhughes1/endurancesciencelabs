@@ -1541,8 +1541,10 @@ function signOutUser() {
     updateAuthUI();
     if (paymentsUnsub_) { paymentsUnsub_(); paymentsUnsub_ = null; }
     if (userDocPassUnsub_) { userDocPassUnsub_(); userDocPassUnsub_ = null; }
+    if (coachingSubsUnsub_) { coachingSubsUnsub_(); coachingSubsUnsub_ = null; }
     hasPaidPass_ = false;
     hasGrantedPass_ = false;
+    hasPremiumCoach_ = false;
     applyPaywallState();
   });
 }
@@ -1555,20 +1557,29 @@ function signOutUser() {
 var STRIPE_PRICE_ID = 'price_1TVIadIFO8pppwnFTfqv3CCh';
 var PASS_DURATION_SEC = 90 * 24 * 60 * 60;
 
-// Two independent sources of access:
-//   hasPaidPass_   -- a Stripe-succeeded payment within the last 90 days
-//   hasGrantedPass_ -- admin-set users/{uid}.formAnalyzerPassUntil > now
+// Three independent sources of access:
+//   hasPaidPass_      -- a Stripe-succeeded payment within the last 90 days
+//   hasGrantedPass_   -- admin-set users/{uid}.formAnalyzerPassUntil > now
+//                        OR users/{uid}.features.esFormLab === true
+//   hasPremiumCoach_  -- active Premium ($245/mo) coaching subscription,
+//                        which bundles esFormLab access at no extra cost
 var hasPaidPass_ = false;
 var hasGrantedPass_ = false;
+var hasPremiumCoach_ = false;
 var paymentsUnsub_ = null;
 var userDocPassUnsub_ = null;
+var coachingSubsUnsub_ = null;
+// Live Premium coaching price ID -- mirror of coaching/index.html constant.
+var COACHING_PREMIUM_PRICE_ID = 'price_1TVJJuIFO8pppwnF5uECviT3';
 
 function watchPaymentsForPass() {
   if (paymentsUnsub_) { paymentsUnsub_(); paymentsUnsub_ = null; }
   if (userDocPassUnsub_) { userDocPassUnsub_(); userDocPassUnsub_ = null; }
+  if (coachingSubsUnsub_) { coachingSubsUnsub_(); coachingSubsUnsub_ = null; }
   if (!currentUser) {
     hasPaidPass_ = false;
     hasGrantedPass_ = false;
+    hasPremiumCoach_ = false;
     applyPaywallState();
     return;
   }
@@ -1587,6 +1598,36 @@ function watchPaymentsForPass() {
     }, function(err) {
       console.warn('user doc snapshot error:', err.message);
     });
+  coachingSubsUnsub_ = db.collection('customers').doc(currentUser.uid)
+    .collection('subscriptions').onSnapshot(function(snap) {
+      hasPremiumCoach_ = computePremiumCoachingSub(snap.docs);
+      applyPaywallState();
+    }, function(err) {
+      console.warn('coaching subscription snapshot error:', err.message);
+    });
+}
+
+function computePremiumCoachingSub(docs) {
+  for (var i = 0; i < docs.length; i++) {
+    var sub = docs[i].data();
+    if (sub.status !== 'active' && sub.status !== 'trialing') continue;
+    var ids = [];
+    if (Array.isArray(sub.items)) {
+      for (var j = 0; j < sub.items.length; j++) {
+        var it = sub.items[j];
+        if (it.price && typeof it.price.id === 'string') ids.push(it.price.id);
+        else if (typeof it.price === 'string') ids.push(it.price);
+      }
+    }
+    if (Array.isArray(sub.prices)) {
+      for (var k = 0; k < sub.prices.length; k++) {
+        var p = sub.prices[k];
+        if (p && typeof p.id === 'string') ids.push(p.id);
+      }
+    }
+    if (ids.indexOf(COACHING_PREMIUM_PRICE_ID) !== -1) return true;
+  }
+  return false;
 }
 
 function computeActivePass(docs) {
@@ -1622,7 +1663,7 @@ function computeGrantedPass(userData) {
 }
 
 function effectiveHasPass() {
-  return hasPaidPass_ || hasGrantedPass_;
+  return hasPaidPass_ || hasGrantedPass_ || hasPremiumCoach_;
 }
 
 function applyPaywallState() {
