@@ -452,13 +452,14 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
 
 /* ── Phone portrait (≤480px) ─────────────────────────── */
 @media (max-width: 480px) {
-  nav { padding: 0 14px; }
-  .nav-logo-img { height: 30px; }
+  nav { padding: 0 12px; gap: 6px; }
+  .nav-logo-img { height: 28px; }
   .nav-cta { padding: 7px 12px; font-size: 12px; }
-  #nav-sign-in { display: none; }
-  .auth-indicator { padding: 3px 6px; margin-right: 4px; }
+  #nav-sign-in { padding: 7px 12px; font-size: 12px; }
+  #nav-sign-out { padding: 6px 10px; font-size: 11px; }
+  .auth-indicator { padding: 3px 6px; margin-right: 0; }
   .auth-name { display: none; }
-  .auth-avatar { display: block !important; width: 22px; height: 22px; }
+  .auth-avatar { display: block !important; width: 24px; height: 24px; }
 
   .hero { padding: 44px 16px 52px; }
   .hero-title { letter-spacing: -.5px; }
@@ -502,12 +503,12 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
     <a href="#"                  class="nav-link">Metabolic Testing <span class="nav-pill">Soon</span></a>
     <a href="#"                  class="nav-link">Training Plans <span class="nav-pill">Soon</span></a>
   </div>
-  <span id="auth-indicator" class="auth-indicator" style="display:none">
+  <a href="/coaching/" id="auth-indicator" class="auth-indicator" style="display:none;text-decoration:none" title="Open coaching dashboard">
     <img id="auth-avatar" class="auth-avatar" src="">
     <span id="auth-name" class="auth-name"></span>
-  </span>
-  <a href="/coaching/" id="nav-sign-in" class="nav-cta" style="background:transparent;border:1px solid var(--border2);color:var(--muted2);margin-right:8px;font-size:13px;padding:8px 16px" onmouseover="this.style.borderColor='var(--cyan)';this.style.color='var(--cyan)'" onmouseout="this.style.borderColor='';this.style.color='var(--muted2)'">Sign in</a>
-  <a href="/esformlab/" class="nav-cta">Try esFormLab →</a>
+  </a>
+  <button id="nav-sign-out" class="nav-cta" style="display:none;background:transparent;border:1px solid var(--border2);color:var(--muted2);font-size:13px;padding:8px 16px" onclick="landingSignOut()" onmouseover="this.style.borderColor='var(--bad)';this.style.color='var(--bad)'" onmouseout="this.style.borderColor='';this.style.color='var(--muted2)'">Sign out</button>
+  <a href="/coaching/" id="nav-sign-in" class="nav-cta">Sign in →</a>
   <button class="menu-toggle" aria-label="Toggle menu" aria-expanded="false">
     <span></span><span></span><span></span>
   </button>
@@ -523,7 +524,7 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
     Evidence-based coaching, biomechanical analysis, and metabolic testing — for endurance athletes who want to understand their body, not just follow a plan.
   </p>
   <div class="hero-actions">
-    <a href="/esformlab/" class="btn-primary">Try esFormLab free →</a>
+    <a href="/esformlab/" class="btn-primary">Analyze your running form (free) →</a>
     <a href="#services" class="btn-secondary">Explore services</a>
   </div>
   <div class="hero-stats">
@@ -734,9 +735,11 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
     var nameEl = document.getElementById('auth-name');
     var avatarEl = document.getElementById('auth-avatar');
     var signInBtn = document.getElementById('nav-sign-in');
+    var signOutBtn = document.getElementById('nav-sign-out');
     if (user) {
       if (indicator) indicator.style.display = 'inline-flex';
-      if (signInBtn) { signInBtn.textContent = 'My coaching'; signInBtn.href = '/coaching/'; }
+      if (signInBtn) signInBtn.style.display = 'none';
+      if (signOutBtn) signOutBtn.style.display = 'inline-flex';
       var photoURL = user.photoURL || (user.providerData && user.providerData[0] ? user.providerData[0].photoURL : null);
       if (avatarEl && photoURL) { avatarEl.src = photoURL; avatarEl.style.display = 'block'; }
       // Try Auth displayName first, then fetch from Firestore user doc
@@ -757,9 +760,13 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
       }
     } else {
       if (indicator) indicator.style.display = 'none';
-      if (signInBtn) { signInBtn.textContent = 'Sign in'; signInBtn.href = '/coaching/'; }
+      if (signInBtn) signInBtn.style.display = 'inline-flex';
+      if (signOutBtn) signOutBtn.style.display = 'none';
     }
   });
+  window.landingSignOut = function() {
+    firebase.auth().signOut();
+  };
 })();
 </script>
 </body>
