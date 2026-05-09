@@ -415,6 +415,140 @@ body.bar-showing #screen-phases{padding-bottom:120px}
 .issue-ref a{color:var(--cyan);text-decoration:none}
 .issue-ref a:hover{text-decoration:underline}
 .issue-confidence{padding:16px 22px;background:rgba(0,229,200,.03);font-size:13px;color:var(--muted2);line-height:1.75;font-style:italic}
+/* ── Mobile hamburger toggle ─────────────────────────── */
+.menu-toggle{
+  display:none;background:transparent;border:1px solid var(--border2);
+  border-radius:8px;width:36px;height:36px;cursor:pointer;padding:0;
+  flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  margin-left:6px;flex-shrink:0;
+}
+.menu-toggle span{display:block;width:16px;height:2px;background:var(--text);border-radius:2px;transition:transform .2s,opacity .2s}
+nav.menu-open .menu-toggle span:nth-child(1){transform:translateY(6px) rotate(45deg)}
+nav.menu-open .menu-toggle span:nth-child(2){opacity:0}
+nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-45deg)}
+
+/* ── Tablet & large phone (≤768px) ───────────────────── */
+@media(max-width:768px){
+  /* Nav */
+  nav{padding:0 16px;height:54px;gap:6px}
+  .nav-logo{margin-right:0}
+  .nav-logo-img{height:30px}
+  .nav-links{
+    position:absolute;top:54px;left:0;right:0;
+    flex-direction:column;align-items:stretch;gap:4px;
+    background:rgba(6,8,13,.98);backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--border);padding:10px 16px 14px;
+    display:none;flex:none;
+  }
+  nav.menu-open .nav-links{display:flex}
+  .nav-link{width:100%;padding:10px 12px;font-size:14px;border-radius:8px}
+  .menu-toggle{display:flex}
+  #hdr-file{display:none}
+  .hdr-right{margin-left:auto;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+  .btn-ghost{padding:5px 10px;font-size:11px}
+  .auth-name{max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  /* Upload */
+  #screen-upload{padding:16px;align-items:flex-start;min-height:auto}
+  .upload-card{border-radius:16px}
+  .sex-select-section{padding:20px 18px 0}
+  .sex-divider{margin:0 18px}
+  .drop-zone-inner{padding:18px}
+  .drop-zones-row{grid-template-columns:1fr;gap:12px}
+  .drop-zone{padding:18px 14px}
+  .video-tips{padding:16px 18px;margin-top:14px}
+
+  /* Scanning */
+  #screen-scanning{padding:16px;min-height:calc(100vh - 54px)}
+  .scan-card{padding:22px 20px;border-radius:14px}
+  .scan-title{font-size:17px}
+  .scan-phase-list{grid-template-columns:1fr}
+
+  /* Phases screen */
+  #screen-phases{padding:18px 14px 80px}
+  .instr-banner{padding:22px 20px;border-radius:14px;margin-bottom:20px}
+  .instr-headline{font-size:22px;line-height:1.25}
+  .instr-subhead{font-size:14px;margin-bottom:18px}
+  .instr-step{padding:16px}
+  .instr-step-title{font-size:14px}
+  .instr-step-desc{font-size:13px}
+  .instr-callout{padding:14px 16px}
+  .instr-callout-text{font-size:13px}
+
+  /* Phase cards (already auto-fill, tighten) */
+  .phase-group-cards{grid-template-columns:1fr;gap:10px}
+  .pc-hdr{padding:10px 12px 8px}
+  .pc-name{font-size:11px}
+
+  /* Complete analysis sticky bar */
+  #complete-analysis-bar{padding:12px 16px;gap:12px;flex-wrap:wrap}
+  #complete-analysis-bar .ca-left{flex:1;min-width:0}
+  .ca-title{font-size:13px}
+  .ca-sub{font-size:11px}
+  .btn-complete{padding:11px 18px;font-size:13px}
+  body.bar-showing #screen-phases{padding-bottom:140px}
+
+  /* Expand overlay — go nearly full-screen on mobile */
+  #expand-overlay{padding:8px}
+  .expand-panel{border-radius:14px;max-height:calc(100vh - 16px)}
+  .ep-hdr{padding:12px 14px;border-radius:14px 14px 0 0;gap:10px}
+  .ep-name{font-size:14px}
+  .ep-canvas-side,.ep-info-side{padding:12px}
+  .scrub-section{padding:12px 14px}
+  .step-btns{gap:5px}
+  .step-btn{padding:5px 9px;font-size:10px}
+  .re-btn,.swap-btn{padding:6px 12px;font-size:10px}
+  .scrub-nav{flex-direction:column;align-items:stretch;gap:8px}
+  .nav-phase-btns{margin-left:0;flex-wrap:wrap}
+
+  /* Report */
+  .report-section{margin-top:24px;padding-top:22px}
+  .report-section-title{font-size:18px}
+  .report-section-sub{font-size:13px}
+  .issue-detail-hdr{padding:14px 16px 12px}
+  .issue-detail-title{font-size:14px}
+  .issue-section{padding:14px 16px}
+  .issue-section-text,.issue-bullets li{font-size:13px;line-height:1.7}
+  .issue-card{padding:14px 16px}
+  .issue-card-title{font-size:14px}
+  .issue-card-summary{font-size:12px}
+
+  /* Summary table */
+  .summary{margin-top:28px;padding-top:22px}
+  .summary-title{font-size:18px !important}
+  .summary-sub{font-size:13px !important}
+}
+
+/* ── Phone portrait (≤480px) ─────────────────────────── */
+@media(max-width:480px){
+  nav{padding:0 12px;gap:4px}
+  .hdr-right .btn-ghost{padding:5px 8px;font-size:10px}
+  #btn-rescan,#btn-my-analyses{padding:5px 8px}
+  .auth-indicator{padding:3px 8px}
+  .auth-name{display:none}
+  .auth-avatar{display:block !important}
+
+  /* Upload */
+  .sex-select-row{flex-direction:column;gap:8px}
+  .sex-card{padding:12px 14px}
+  .upload-card{border-radius:14px}
+
+  /* Phases */
+  .instr-headline{font-size:19px}
+  .instr-subhead{font-size:13px}
+  .instr-step-num{width:30px;height:30px;font-size:13px}
+
+  /* Sticky bar — stack vertically on tightest */
+  #complete-analysis-bar{flex-direction:column;align-items:stretch;padding:12px 14px}
+  .btn-complete{width:100%;justify-content:center}
+  body.bar-showing #screen-phases{padding-bottom:170px}
+
+  /* Issue cards */
+  .issue-card-hdr{gap:6px}
+  .issue-side-tag{font-size:9px;padding:1px 6px}
+  .issue-severity{font-size:10px;padding:2px 6px}
+}
+
 /* Print styles */
 @media print{
   body{background:#fff;color:#111;font-size:12pt}
@@ -546,6 +680,9 @@ body.bar-showing #screen-phases{padding-bottom:120px}
     <button class="btn-ghost" id="btn-rescan" onclick="rescan()" style="display:none">&#10227; Re-scan</button>
     <button class="btn-ghost" onclick="startNewSession()">&#8617; New video</button>
   </div>
+  <button class="menu-toggle" aria-label="Toggle menu" aria-expanded="false" onclick="(function(b){var n=b.closest('nav');var o=n.classList.toggle('menu-open');b.setAttribute('aria-expanded',o?'true':'false');})(this)">
+    <span></span><span></span><span></span>
+  </button>
 </nav>
 
 <!-- Upload -->
