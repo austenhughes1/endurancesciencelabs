@@ -1550,8 +1550,9 @@ function signOutUser() {
 // ──────────────────────────────────────────────────────────────
 //  Stripe paywall: 90-day pass
 // ──────────────────────────────────────────────────────────────
-// Test-mode price ID. Swap for the live-mode price when going live.
-var STRIPE_PRICE_ID = 'price_1TSjv3IpQrSCpWBRsrDgplXd';
+// Live-mode price ID. To smoke-test in test mode, swap to a test price
+// AND swap the extension config (API key + webhook secret) back to test.
+var STRIPE_PRICE_ID = 'price_1TVIadIFO8pppwnFTfqv3CCh';
 var PASS_DURATION_SEC = 90 * 24 * 60 * 60;
 
 // Two independent sources of access:
