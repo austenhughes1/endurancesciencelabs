@@ -1086,6 +1086,7 @@ async function selectAthlete(uid, data, el) {
     loadLiftingRange(-16, 4)
   ]);
   renderSingleWeek('coach-week-container', 'coach-dashboard', 'coach');
+  maybeAutoSyncStrava('coach');
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1132,6 +1133,7 @@ async function loadAthleteDashboard() {
   ]);
 
   renderSingleWeek('athlete-week-container', 'athlete-dashboard', 'athlete');
+  maybeAutoSyncStrava('athlete');
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1881,6 +1883,50 @@ async function connectStrava() {
 
 async function syncStrava() {
   return syncStravaFor('athlete');
+}
+
+// Returns true if the timestamp is from today's local-calendar date.
+// Accepts Firestore Timestamp, Date, or null/undefined.
+function isFromToday(ts) {
+  if (!ts) return false;
+  const d = ts.toDate ? ts.toDate() : (ts instanceof Date ? ts : new Date(ts));
+  return dateToStr(d) === dateToStr(new Date());
+}
+
+// Auto-sync Strava once per local-calendar day per athlete on page load /
+// athlete-select. Fires in the background after the dashboard renders with
+// cached data; on success, refreshes the strava cache and re-renders the
+// dashboard so fresh activities appear without a manual Sync click.
+//
+// Server-side syncStravaActivities stamps users/{uid}.stravaLastSyncedAt,
+// so the day-bucket throttle is authoritative across devices.
+async function maybeAutoSyncStrava(role) {
+  const data = role === 'coach' ? selectedAthleteData : userDoc;
+  const uid = role === 'coach' ? selectedAthleteUid : currentUser?.uid;
+  if (!data?.stravaConnected || !uid) return;
+  if (isFromToday(data.stravaLastSyncedAt)) return;
+
+  try {
+    const syncFn = firebase.functions().httpsCallable('syncStravaActivities');
+    const params = role === 'coach' ? { athleteUid: uid } : {};
+    await syncFn(params);
+
+    stravaCache = {};
+    await loadStravaRange(-16, 4);
+    data.stravaLastSyncedAt = firebase.firestore.Timestamp.now();
+
+    // Re-render only the dashboard so any in-progress edits in the week card
+    // aren't blown away. If the dashboard isn't currently mounted (lifting
+    // tab or 16-week overview), the next render will pick up the fresh cache.
+    const dashId = role === 'coach' ? 'coach-dashboard' : 'athlete-dashboard';
+    const dashEl = document.getElementById(dashId);
+    if (dashEl && dashEl.style.display !== 'none' && dashEl.innerHTML.trim() !== '') {
+      renderDashboard(dashId, role);
+    }
+  } catch(e) {
+    // Silent failure — manual Sync button still works; will retry next page load.
+    console.warn('Strava auto-sync failed:', e);
+  }
 }
 
 async function syncStravaFor(role) {
