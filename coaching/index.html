@@ -412,6 +412,10 @@ header{display:none}
 .feat-toggle-dot{width:8px;height:8px;border-radius:50%;transition:background .15s}
 .feat-toggle.on .feat-toggle-dot{background:var(--cyan)}
 .feat-toggle.off .feat-toggle-dot{background:var(--muted)}
+.feat-scope-toggle{display:none;margin-top:12px;border-radius:8px;background:var(--panel2);border:1px solid var(--border2);padding:3px;width:fit-content}
+.feat-scope-toggle.show{display:inline-flex}
+.feat-scope-btn{padding:5px 12px;font-size:11px;font-weight:600;font-family:var(--mono);background:transparent;border:none;color:var(--muted2);cursor:pointer;border-radius:6px;transition:all .15s}
+.feat-scope-btn.active{background:rgba(0,229,200,.12);color:var(--cyan)}
 
 /* ── Feedback footer ────────────────────────────────── */
 .feedback-footer{display:flex;justify-content:center;gap:12px;padding:32px 20px 24px;flex-wrap:wrap}
@@ -716,6 +720,10 @@ header{display:none}
   <div class="modal" style="max-width:560px">
     <div class="modal-title">Manage Feature Access</div>
     <div class="modal-sub">Toggle which features each user can access.</div>
+    <div class="feat-scope-toggle" id="feat-scope-toggle">
+      <button class="feat-scope-btn active" id="feat-scope-mine" onclick="setFeatureAdminScope('mine')">My athletes</button>
+      <button class="feat-scope-btn" id="feat-scope-all" onclick="setFeatureAdminScope('all')">All athletes</button>
+    </div>
     <div class="feat-user-list" id="feat-user-list">
       <div style="text-align:center;padding:20px;color:var(--muted2);font-family:var(--mono);font-size:11px">Loading users…</div>
     </div>
@@ -2577,8 +2585,14 @@ function hasFeature(featureName) {
   return userDoc.features && userDoc.features[featureName] === true;
 }
 
+// 'mine' = users assigned to this coach (default)
+// 'all'  = every user in the project (admin-only escape hatch)
+let featAdminScope = 'mine';
+
 function openFeatureAdmin() {
   document.getElementById('feature-modal').classList.add('open');
+  const scopeToggle = document.getElementById('feat-scope-toggle');
+  if (scopeToggle) scopeToggle.classList.toggle('show', currentUser && currentUser.uid === ADMIN_UID);
   loadFeatureAdminData();
 }
 
@@ -2586,14 +2600,27 @@ function closeFeatureAdmin() {
   document.getElementById('feature-modal').classList.remove('open');
 }
 
+function setFeatureAdminScope(scope) {
+  if (scope !== 'mine' && scope !== 'all') return;
+  if (scope === 'all' && (!currentUser || currentUser.uid !== ADMIN_UID)) return;
+  featAdminScope = scope;
+  document.getElementById('feat-scope-mine').classList.toggle('active', scope === 'mine');
+  document.getElementById('feat-scope-all').classList.toggle('active', scope === 'all');
+  loadFeatureAdminData();
+}
+
 async function loadFeatureAdminData() {
   const list = document.getElementById('feat-user-list');
   list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted2);font-family:var(--mono);font-size:11px">Loading users…</div>';
 
   try {
-    const snap = await db.collection('users').where('coachUid', '==', currentUser.uid).get();
+    const adminAllScope = featAdminScope === 'all' && currentUser && currentUser.uid === ADMIN_UID;
+    const query = adminAllScope
+      ? db.collection('users')
+      : db.collection('users').where('coachUid', '==', currentUser.uid);
+    const snap = await query.get();
     if (snap.empty) {
-      list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted2);font-family:var(--mono);font-size:11px">No athletes yet.</div>';
+      list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted2);font-family:var(--mono);font-size:11px">' + (adminAllScope ? 'No users found.' : 'No athletes yet.') + '</div>';
       return;
     }
 
