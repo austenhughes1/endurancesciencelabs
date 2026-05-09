@@ -1681,6 +1681,24 @@ function applyPaywallState() {
   }
 }
 
+async function openCustomerPortal() {
+  if (!currentUser) { signInWithGoogle(); return; }
+  try {
+    var fns = firebase.app().functions('us-central1');
+    var createPortalLink = fns.httpsCallable('ext-firestore-stripe-payments-createPortalLink');
+    var result = await createPortalLink({ returnUrl: window.location.href });
+    var url = result && result.data && result.data.url;
+    if (url) {
+      window.location.assign(url);
+    } else {
+      alert('Could not open the subscription portal. Please try again.');
+    }
+  } catch (e) {
+    console.error('Customer portal error:', e);
+    alert('Could not open the subscription portal: ' + (e.message || e));
+  }
+}
+
 async function startPassCheckout() {
   if (!currentUser) { signInWithGoogle(); return; }
   var btn = document.getElementById('paywall-cta-btn');

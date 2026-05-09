@@ -1,5 +1,6 @@
 const { onRequest } = require("firebase-functions/v2/https");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onDocumentWritten } = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
@@ -359,3 +360,86 @@ exports.deauthorizeStrava = onCall({ cors: true }, async (request) => {
     revokeWarning,
   };
 });
+
+// ═══════════════════════════════════════════════════════════
+//  onCoachingSubscription -- fires when the Stripe extension
+//  writes/updates a subscription doc. If it's an active
+//  coaching subscription we haven't notified about yet, write
+//  a notification to the admin so they can take the athlete
+//  on as a client.
+// ═══════════════════════════════════════════════════════════
+const COACHING_PRICE_IDS = {
+  "price_1TVIadIFO8pppwnFuj3vYy9S": "Standard",
+  "price_1TVJJuIFO8pppwnF5uECviT3": "Full Access",
+};
+const COACHING_PRICE_AMOUNTS = {
+  "Standard": 145,
+  "Full Access": 245,
+};
+
+function extractSubscriptionPriceIds(sub) {
+  const ids = [];
+  if (Array.isArray(sub.items)) {
+    for (const item of sub.items) {
+      if (item.price && typeof item.price.id === "string") ids.push(item.price.id);
+      else if (typeof item.price === "string") ids.push(item.price);
+    }
+  }
+  if (Array.isArray(sub.prices)) {
+    for (const p of sub.prices) {
+      if (p && typeof p.id === "string") ids.push(p.id);
+    }
+  }
+  return ids;
+}
+
+exports.onCoachingSubscription = onDocumentWritten(
+  "customers/{uid}/subscriptions/{subId}",
+  async (event) => {
+    const after = event.data && event.data.after && event.data.after.data();
+    if (!after) return;
+    if (after.status !== "active" && after.status !== "trialing") return;
+
+    const priceIds = extractSubscriptionPriceIds(after);
+    const matchedPriceId = priceIds.find((id) => COACHING_PRICE_IDS[id]);
+    if (!matchedPriceId) return;
+
+    const tier = COACHING_PRICE_IDS[matchedPriceId];
+    const amount = COACHING_PRICE_AMOUNTS[tier];
+    const uid = event.params.uid;
+    const subId = event.params.subId;
+
+    // Deterministic notification ID -- create() is exactly-once, so a
+    // status change re-firing the trigger won't double-notify.
+    const notifId = `coaching_sub_${subId}`;
+
+    let athleteName = "A new user";
+    try {
+      const userSnap = await db.collection("users").doc(uid).get();
+      if (userSnap.exists) {
+        const u = userSnap.data();
+        athleteName = u.displayName || u.email || athleteName;
+      }
+    } catch (e) {
+      // best-effort name lookup
+    }
+
+    try {
+      await db.collection("notifications").doc(notifId).create({
+        recipientUid: ADMIN_UID,
+        type: "new_coaching_subscription",
+        subscriptionId: subId,
+        athleteUid: uid,
+        tier,
+        message: `${athleteName} just subscribed to ${tier} coaching ($${amount}/mo). Assign them as your athlete to get started.`,
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      // ALREADY_EXISTS -> we've already notified for this subscription
+      if (e && e.code !== 6) {
+        console.error("Failed to write subscription notification:", e);
+      }
+    }
+  }
+);
