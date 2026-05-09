@@ -429,17 +429,122 @@ header{display:none}
 .feedback-modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;align-items:center}
 .feedback-modal-status{font-size:11px;font-family:var(--mono);margin-right:auto}
 
+/* ── Mobile hamburger toggle ─────────────────────────── */
+.menu-toggle{
+  display:none;background:transparent;border:1px solid var(--border2);
+  border-radius:8px;width:36px;height:36px;cursor:pointer;padding:0;
+  flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  margin-left:6px;flex-shrink:0;
+}
+.menu-toggle span{display:block;width:16px;height:2px;background:var(--text);border-radius:2px;transition:transform .2s,opacity .2s}
+.site-nav.menu-open .menu-toggle span:nth-child(1){transform:translateY(6px) rotate(45deg)}
+.site-nav.menu-open .menu-toggle span:nth-child(2){opacity:0}
+.site-nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-45deg)}
+
 /* ── Responsive ─────────────────────────────────────── */
 @media(max-width:900px){
   .sidebar{width:220px}
 }
+@media(max-width:768px){
+  .site-nav{padding:0 16px;height:54px;gap:8px}
+  .nav-logo{margin-right:0}
+  .nav-logo-img{height:30px}
+  .nav-links{
+    position:absolute;top:54px;left:0;right:0;
+    flex-direction:column;align-items:stretch;gap:4px;
+    background:rgba(6,8,13,.98);backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--border);padding:10px 16px 14px;
+    display:none;flex:none;
+  }
+  .site-nav.menu-open .nav-links{display:flex}
+  .nav-link{width:100%;padding:10px 12px;font-size:14px;border-radius:8px}
+  .menu-toggle{display:flex}
+  .role-badge{font-size:8px;padding:2px 6px;margin-left:0}
+  .hdr-right{margin-left:auto;gap:6px}
+  #hdr-user{display:none}
+  .btn-ghost{padding:6px 10px;font-size:11px}
+  .notif-btn{width:32px;height:32px;font-size:14px}
+  .notif-panel{width:calc(100vw - 24px);right:-8px;max-width:340px}
+
+  /* Auth */
+  #auth-overlay{padding:16px}
+  .auth-card{padding:32px 24px;max-width:100%}
+  .auth-logo{height:54px}
+
+  /* Layout / sidebar (overrides 640px split) */
+  .layout{height:auto;min-height:calc(100vh - 54px);overflow:visible}
+
+  /* Plan header */
+  .plan-athlete-name{font-size:18px}
+  .plan-actions{margin-left:0;width:100%;flex-wrap:wrap}
+
+  /* Week nav */
+  .week-nav{flex-wrap:wrap;gap:8px}
+  .week-nav-label{min-width:0;flex:1;font-size:13px}
+  .week-nav-btn{width:32px;height:32px;font-size:16px}
+  .view-toggle{margin-left:0}
+  .view-toggle-btn{padding:5px 10px;font-size:9px}
+
+  /* Plan overview table — keep scrollable but tighten */
+  .plan-overview-header{padding:12px 14px}
+  .plan-overview-table td{padding:10px 10px}
+  .po-cell-text{max-width:200px;-webkit-line-clamp:2}
+
+  /* Week card body */
+  .wk-body{padding:16px;gap:14px}
+
+  /* Modals */
+  .modal-overlay,.feedback-modal-overlay{padding:16px;align-items:flex-start;padding-top:40px}
+  .modal,.feedback-modal{padding:24px}
+  .modal-actions,.feedback-modal-actions{flex-wrap:wrap}
+
+  /* Tab bar */
+  .tab-bar{width:100%;justify-content:stretch}
+  .tab-btn{flex:1;padding:8px 10px;font-size:10px;text-align:center}
+
+  /* Lifting */
+  .lift-cat-header{padding:12px 14px;gap:10px;flex-wrap:wrap}
+  .lift-cat-summary{display:none}
+  .lift-cat-inner{padding:0 14px 14px}
+  .lift-set-header .col-set,.lift-set-num{width:32px}
+  .lift-set-input{padding:7px 8px;font-size:12px}
+  .lift-instructions{padding:14px 16px;font-size:12px}
+
+  /* Feedback footer */
+  .feedback-footer{padding:24px 12px 18px;gap:8px}
+  .feedback-footer-btn{padding:7px 12px;font-size:10px}
+
+  /* Dashboard */
+  .dash-header{padding:14px 16px;flex-wrap:wrap}
+  .dash-body{padding:16px}
+  .chart-wrap{padding:10px 12px 24px 38px;height:160px}
+  .chart-y-labels{left:6px}
+  .act-table th{font-size:8px;padding:6px 4px}
+  .act-table td{font-size:11px;padding:8px 4px}
+  .act-name{font-size:12px}
+}
 @media(max-width:640px){
   .layout{flex-direction:column}
   .sidebar{width:100%;height:auto;max-height:160px;border-right:none;border-bottom:1px solid var(--border)}
+  .sidebar-header{padding:12px 14px 10px}
   .athlete-list{display:flex;flex-direction:row;overflow-x:auto;padding:6px}
   .athlete-item{flex-shrink:0;padding:8px 12px}
   .main{padding:16px}
   .dash-stats{flex-direction:column}
+}
+@media(max-width:480px){
+  .site-nav{padding:0 12px;gap:6px}
+  .role-badge{display:none}
+  .auth-card{padding:28px 18px}
+  .auth-title{font-size:18px}
+  .plan-athlete-name{font-size:16px}
+  .week-nav-label{font-size:12px}
+  .week-today-btn{padding:3px 8px;font-size:10px}
+  .modal,.feedback-modal{padding:20px;border-radius:14px}
+  .feedback-footer{flex-direction:column;align-items:stretch}
+  .feedback-footer-btn{justify-content:center}
+  .strava-connect{padding:28px 12px}
+  .strava-connect-icon{font-size:22px}
 }
 </style>
 </head>
@@ -499,6 +604,9 @@ header{display:none}
     <span id="hdr-user" style="font-size:12px;color:var(--muted2);font-family:var(--mono)"></span>
     <button class="btn-ghost btn-signout" onclick="doSignOut()">Sign out</button>
   </div>
+  <button class="menu-toggle" aria-label="Toggle menu" aria-expanded="false" onclick="(function(b){var n=b.closest('nav');var o=n.classList.toggle('menu-open');b.setAttribute('aria-expanded',o?'true':'false');})(this)">
+    <span></span><span></span><span></span>
+  </button>
 </nav>
 
 <!-- Coach layout -->
