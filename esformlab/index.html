@@ -27,6 +27,16 @@ body{font-family:var(--ui);background:var(--bg);color:var(--text);min-height:100
 .ld-title{font-size:14px;font-weight:700}
 .ld-sub{font-size:11px;color:var(--muted2);font-family:var(--mono)}
 
+/* Sign-in gate -- shown by default, hidden once a user is authenticated */
+#signin-gate{position:fixed;inset:0;background:rgba(6,8,13,.96);display:flex;align-items:center;justify-content:center;z-index:1900;padding:24px}
+.sg-card{max-width:440px;width:100%;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:36px 32px;text-align:center}
+.sg-logo{width:140px;margin:0 auto 18px;display:block}
+.sg-title{font-size:22px;font-weight:700;margin-bottom:10px}
+.sg-sub{font-size:13px;color:var(--muted2);line-height:1.55;margin-bottom:24px}
+.sg-btn{display:inline-flex;align-items:center;justify-content:center;padding:13px 28px;font-size:14px;font-weight:700;font-family:var(--ui);border-radius:10px;border:none;background:var(--cyan);color:#000;cursor:pointer;transition:transform .1s}
+.sg-btn:hover{transform:translateY(-1px)}
+.sg-foot{margin-top:18px;font-size:11px;color:var(--muted2);font-family:var(--mono)}
+
 /* Nav */
 nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:sticky;top:0;z-index:300;background:rgba(6,8,13,.97);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
 .nav-logo{display:flex;align-items:center;gap:12px;text-decoration:none;flex-shrink:0;margin-right:32px}
@@ -771,6 +781,17 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
   <div class="ld-sub">MoveNet Thunder · runs entirely in your browser</div>
 </div>
 
+<!-- Sign-in gate -->
+<div id="signin-gate">
+  <div class="sg-card">
+    <img src="/images/formlab_logo_white_clean.png" alt="esFormLab" class="sg-logo">
+    <div class="sg-title">Sign in to use esFormLab</div>
+    <div class="sg-sub">Sign in with your Google account to upload videos, scrub frames, and run analyses. Your videos never leave your browser -- pose detection runs locally.</div>
+    <button class="sg-btn" onclick="signInWithGoogle()">Sign in with Google</button>
+    <div class="sg-foot">Free to sign in -- 90-day pass unlocks the full report.</div>
+  </div>
+</div>
+
 <!-- Nav -->
 <nav>
   <a href="/" class="nav-logo" aria-label="Endurance Science Labs home">
@@ -1499,6 +1520,7 @@ function updateAuthUI() {
   var myAnalysesBtn = document.getElementById('btn-my-analyses');
   var saveBtn = document.getElementById('btn-save');
   var signInSaveBtn = document.getElementById('btn-sign-in-save');
+  var signinGate = document.getElementById('signin-gate');
 
   // Mobile menu auth elements
   var mUserRow = document.getElementById('nav-mobile-user-row');
@@ -1545,6 +1567,7 @@ function updateAuthUI() {
     // Admin-only sample report button on upload screen
     var sampleBtn = document.getElementById('btn-sample-report');
     if (sampleBtn) sampleBtn.style.display = currentUser.uid === '2z9Z3K5ZwShvadUuqZmwMv0s1Od2' ? 'block' : 'none';
+    if (signinGate) signinGate.style.display = 'none';
   } else {
     if (indicator) indicator.style.display = 'none';
     if (signOutBtn) signOutBtn.style.display = 'none';
@@ -1557,6 +1580,7 @@ function updateAuthUI() {
     if (mMyAnalyses) mMyAnalyses.style.display = 'none';
     var sampleBtn2 = document.getElementById('btn-sample-report');
     if (sampleBtn2) sampleBtn2.style.display = 'none';
+    if (signinGate) signinGate.style.display = 'flex';
   }
 }
 
