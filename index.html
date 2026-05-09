@@ -151,6 +151,11 @@ nav {
   cursor: pointer; text-decoration: none; transition: all .15s; background: transparent;
 }
 .btn-secondary:hover { color: var(--text); border-color: rgba(255,255,255,.28); }
+.btn-secondary.gold {
+  color: var(--gold); border-color: var(--gold);
+  background: rgba(245,200,66,.06); font-weight: 600;
+}
+.btn-secondary.gold:hover { background: var(--gold); color: #000; border-color: var(--gold); }
 
 /* Stats row */
 .hero-stats {
@@ -523,8 +528,8 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
     Evidence-based coaching and biomechanical analysis for runners who want to know what their body is actually doing — not just follow a generic plan.
   </p>
   <div class="hero-actions">
-    <a href="/esformlab/" class="btn-primary">Try the form analyzer (free) →</a>
-    <a href="/coaching/" class="btn-secondary">Explore Coaching and Other Services</a>
+    <a href="/esformlab/" class="btn-primary">Try the form analyzer →</a>
+    <a href="/coaching/" class="btn-secondary gold">Explore Coaching and Other Services</a>
   </div>
   <div class="hero-stats">
     <div>
