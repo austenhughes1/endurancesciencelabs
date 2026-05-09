@@ -1219,6 +1219,11 @@ async function loadStravaRange(fromWeek, toWeek) {
   });
 }
 
+// Strava classifies running as one of three types; treat all as "run" miles.
+function isRunActivity(a) {
+  return a && (a.type === 'Run' || a.type === 'TrailRun' || a.type === 'VirtualRun');
+}
+
 // Get strava miles for a given week (Monday date)
 function getWeekStravaMiles(monday, type) {
   // type: 'Run', 'other', or undefined (all)
@@ -1226,9 +1231,10 @@ function getWeekStravaMiles(monday, type) {
   for (let d = 0; d < 7; d++) {
     const dayStr = dateToStr(addDays(monday, d));
     (stravaCache[dayStr] || []).forEach(a => {
+      const isRun = isRunActivity(a);
       if (!type) total += (a.distance || 0) / 1609.34;
-      else if (type === 'Run' && a.type === 'Run') total += (a.distance || 0) / 1609.34;
-      else if (type === 'other' && a.type !== 'Run') total += (a.distance || 0) / 1609.34;
+      else if (type === 'Run' && isRun) total += (a.distance || 0) / 1609.34;
+      else if (type === 'other' && !isRun) total += (a.distance || 0) / 1609.34;
     });
   }
   return total;
@@ -1240,7 +1246,8 @@ function getWeekStravaStats(monday, type) {
   for (let d = 0; d < 7; d++) {
     const dayStr = dateToStr(addDays(monday, d));
     (stravaCache[dayStr] || []).forEach(a => {
-      const match = !type || (type === 'Run' ? a.type === 'Run' : a.type !== 'Run');
+      const isRun = isRunActivity(a);
+      const match = !type || (type === 'Run' ? isRun : !isRun);
       if (match) {
         miles += (a.distance || 0) / 1609.34;
         time += (a.movingTime || 0);
@@ -1256,7 +1263,7 @@ function getWeekNonRunTime(monday) {
   for (let d = 0; d < 7; d++) {
     const dayStr = dateToStr(addDays(monday, d));
     (stravaCache[dayStr] || []).forEach(a => {
-      if (a.type !== 'Run') time += (a.movingTime || 0);
+      if (!isRunActivity(a)) time += (a.movingTime || 0);
     });
   }
   return time;
@@ -1285,17 +1292,21 @@ function renderWeekCard(mondayStr, role) {
   const coachEdit = role === 'coach';
   const athleteEdit = role === 'athlete';
 
-  let stravaMiles = 0;
+  let stravaRunMi = 0;
+  let stravaCrossMi = 0;
   let stravaDays = [];
   for (let d = 0; d < 7; d++) {
     const dayDate = addDays(monday, d);
     const dayStr = dateToStr(dayDate);
     (stravaCache[dayStr] || []).forEach(a => {
-      const mi = a.distance / 1609.34;
-      stravaMiles += mi;
-      stravaDays.push({ day: DAY_NAMES_SHORT[dayDate.getDay()], mi: mi.toFixed(1) });
+      const mi = (a.distance || 0) / 1609.34;
+      const isRun = isRunActivity(a);
+      if (isRun) stravaRunMi += mi;
+      else stravaCrossMi += mi;
+      stravaDays.push({ day: DAY_NAMES_SHORT[dayDate.getDay()], mi: mi.toFixed(1), isRun });
     });
   }
+  const stravaTotalMi = stravaRunMi + stravaCrossMi;
 
   const coachAttr = coachEdit ? '' : 'readonly';
   const athleteAttr = athleteEdit ? `oninput="debounceSaveAthleteNotes('${mondayStr}')"` : 'readonly';
@@ -1305,13 +1316,22 @@ function renderWeekCard(mondayStr, role) {
       <div class="field-label"><span class="dot ${dotClass}"></span>${label}</div>`;
     if (isMiles) {
       html += `<input class="field-coach miles-input" id="${coachId}-${mondayStr}" value="${esc(coachVal || '')}" ${coachAttr}>`;
-      if (stravaMiles > 0) {
-        html += `<div class="strava-miles">
-          <span class="strava-miles-icon">${STRAVA_LOGO_SVG}</span>
-          <span class="strava-miles-val">${stravaMiles.toFixed(1)} mi</span>
-          <span class="strava-miles-label">logged this week (via Strava)</span>
-        </div>`;
-        if (stravaDays.length > 0) html += `<div class="strava-days">${stravaDays.map(s => `<span class="strava-day">${s.day}: ${s.mi}mi</span>`).join('')}</div>`;
+      if (stravaTotalMi > 0) {
+        if (stravaRunMi > 0) {
+          html += `<div class="strava-miles">
+            <span class="strava-miles-icon">${STRAVA_LOGO_SVG}</span>
+            <span class="strava-miles-val">${stravaRunMi.toFixed(1)} mi</span>
+            <span class="strava-miles-label">run this week (via Strava)</span>
+          </div>`;
+        }
+        if (stravaCrossMi > 0) {
+          html += `<div class="strava-miles">
+            <span class="strava-miles-icon">${STRAVA_LOGO_SVG}</span>
+            <span class="strava-miles-val">${stravaCrossMi.toFixed(1)} mi</span>
+            <span class="strava-miles-label">cross-training this week</span>
+          </div>`;
+        }
+        if (stravaDays.length > 0) html += `<div class="strava-days">${stravaDays.map(s => `<span class="strava-day"${s.isRun ? '' : ' style="opacity:.7"'}>${s.day}: ${s.mi}mi${s.isRun ? '' : ' ⨯'}</span>`).join('')}</div>`;
       }
     } else {
       html += `<textarea class="field-coach" id="${coachId}-${mondayStr}" ${coachAttr}>${esc(coachVal || '')}</textarea>`;
@@ -1354,9 +1374,10 @@ function renderPlanOverview(role) {
     const mon = getWeekMonday(off);
     const monStr = dateToStr(mon);
     const w = workoutsCache[monStr] || {};
-    const stravaMi = getWeekStravaMiles(mon, 'Run');
+    const stravaRunMi = getWeekStravaMiles(mon, 'Run');
+    const stravaCrossMi = getWeekStravaMiles(mon, 'other');
     const wb = weeksUntil(mon, raceDate);
-    rows.push({ monStr, mon, w, stravaMi, wb, isCurrent: monStr === todayMonStr });
+    rows.push({ monStr, mon, w, stravaRunMi, stravaCrossMi, wb, isCurrent: monStr === todayMonStr });
   }
 
   const anyData = rows.some(r => r.w.milesPerWeek || r.w.midweekSession || r.w.weekendSession || r.w.longRun || r.w.ancillaryWork || r.w.notes);
@@ -1394,9 +1415,12 @@ function renderPlanOverview(role) {
       ? `<span class="po-current-pill">This week</span>`
       : (r.wb !== null ? `${r.wb} wks out` : '');
     const milesVal = r.w.milesPerWeek;
+    const stravaSummary =
+      (r.stravaRunMi > 0 ? `<span class="po-miles-strava">${STRAVA_LOGO_SVG}${r.stravaRunMi.toFixed(1)} mi run</span>` : '') +
+      (r.stravaCrossMi > 0 ? `<span class="po-miles-strava">${STRAVA_LOGO_SVG}${r.stravaCrossMi.toFixed(1)} mi cross-training</span>` : '');
     const milesHtml = milesVal
-      ? `<span class="po-miles">${esc(milesVal)}</span>${r.stravaMi > 0 ? `<span class="po-miles-strava">${STRAVA_LOGO_SVG}${r.stravaMi.toFixed(1)} mi</span>` : ''}`
-      : `<span class="po-miles po-miles-empty">—</span>${r.stravaMi > 0 ? `<span class="po-miles-strava">${STRAVA_LOGO_SVG}${r.stravaMi.toFixed(1)} mi</span>` : ''}`;
+      ? `<span class="po-miles">${esc(milesVal)}</span>${stravaSummary}`
+      : `<span class="po-miles po-miles-empty">—</span>${stravaSummary}`;
 
     html += `<tr class="${r.isCurrent ? 'current-week-row' : ''}" onclick="openWeekFromOverview('${r.monStr}')">
       <td class="po-week-cell">
@@ -1622,7 +1646,7 @@ function renderDashboard(containerId, role) {
 
   // Recent activities (last 7 days, runs only for the table)
   const weekAgo = addDays(today, -6);
-  const recentRuns = getStravaActivities(weekAgo, today).filter(a => a.type === 'Run');
+  const recentRuns = getStravaActivities(weekAgo, today).filter(isRunActivity);
 
   let html = `
   <div class="dash-card">
