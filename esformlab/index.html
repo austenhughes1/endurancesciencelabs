@@ -1603,10 +1603,14 @@ function computeActivePass(docs) {
   return false;
 }
 
-// Admin grant: users/{uid}.formAnalyzerPassUntil is a Firestore Timestamp
-// (or numeric seconds). If present and in the future, the user has access.
+// Admin grant — two independent ways to comp access on the user doc:
+//   features.esFormLab === true: boolean toggle in the coaching admin
+//                                Feature Access modal (no expiration)
+//   formAnalyzerPassUntil: Firestore Timestamp / numeric seconds for a
+//                          time-bounded grant set directly in Firestore
 function computeGrantedPass(userData) {
   if (!userData) return false;
+  if (userData.features && userData.features.esFormLab === true) return true;
   var until = userData.formAnalyzerPassUntil;
   if (!until) return false;
   var untilSec = (typeof until === 'number') ? until
