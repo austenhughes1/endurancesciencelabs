@@ -6,8 +6,10 @@ admin.initializeApp();
 const db = admin.firestore();
 
 const STRAVA_TOKEN_URL = "https://www.strava.com/oauth/token";
+const STRAVA_DEAUTHORIZE_URL = "https://www.strava.com/oauth/deauthorize";
 const STRAVA_ACTIVITIES_URL = "https://www.strava.com/api/v3/athlete/activities";
-const SITE_URL = "http://endurancesciencelabs.com/coaching.html";
+const SITE_URL = "https://endurancesciencelabs.com/coaching/";
+const ADMIN_UID = "2z9Z3K5ZwShvadUuqZmwMv0s1Od2";
 
 // ═══════════════════════════════════════════════════════════
 //  stravaCallback — HTTPS endpoint that Strava redirects to
@@ -100,8 +102,7 @@ exports.syncStravaActivities = onCall({ cors: true }, async (request) => {
     throw new HttpsError("unauthenticated", "Must be signed in.");
   }
 
-  // Allow coach to sync on behalf of an athlete
-  const ADMIN_UID = "2z9Z3K5ZwShvadUuqZmwMv0s1Od2";
+  // Allow coach to sync on behalf of an athlete (uses module-level ADMIN_UID)
   let uid = callerUid;
   if (request.data?.athleteUid && callerUid === ADMIN_UID) {
     uid = request.data.athleteUid;
@@ -256,4 +257,99 @@ exports.syncStravaActivities = onCall({ cors: true }, async (request) => {
   await batch.commit();
 
   return { synced: count, message: `Synced ${count} activities.` };
+});
+
+// ═══════════════════════════════════════════════════════════
+//  deauthorizeStrava — Callable function that fully revokes
+//  the athlete's Strava connection per Strava API Agreement:
+//    1. Calls Strava's /oauth/deauthorize to invalidate the token
+//    2. Deletes the stored tokens (private subcollection)
+//    3. Deletes all synced activity data on the training plan
+//    4. Clears stravaConnected/stravaAthleteId on the user doc
+//
+//  Best-effort revoke: if Strava's deauth call fails (network,
+//  already-revoked, etc.), we still complete local cleanup so
+//  the user is never left in a half-disconnected state.
+// ═══════════════════════════════════════════════════════════
+exports.deauthorizeStrava = onCall({ cors: true }, async (request) => {
+  const callerUid = request.auth?.uid;
+  if (!callerUid) {
+    throw new HttpsError("unauthenticated", "Must be signed in.");
+  }
+
+  // Allow admin to deauthorize on behalf of an athlete; otherwise self-only
+  let uid = callerUid;
+  if (request.data?.athleteUid && callerUid === ADMIN_UID) {
+    uid = request.data.athleteUid;
+  }
+
+  const tokenDocRef = db.collection("users").doc(uid).collection("private").doc("strava");
+  const tokenDoc = await tokenDocRef.get();
+
+  let revokeWarning = null;
+
+  // Step 1: Revoke token with Strava (best effort)
+  if (tokenDoc.exists) {
+    const { accessToken } = tokenDoc.data();
+    if (accessToken) {
+      try {
+        const revokeRes = await fetch(STRAVA_DEAUTHORIZE_URL, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!revokeRes.ok) {
+          revokeWarning = `Strava deauthorize returned HTTP ${revokeRes.status}`;
+          console.warn(revokeWarning, await revokeRes.text());
+        }
+      } catch (e) {
+        revokeWarning = `Strava deauthorize request error: ${e.message}`;
+        console.error(revokeWarning);
+      }
+    }
+    // Step 2: Delete stored tokens regardless of revoke outcome
+    await tokenDocRef.delete();
+  }
+
+  // Step 3: Clear public user-doc flags + record disconnect time for audit
+  await db.collection("users").doc(uid).update({
+    stravaConnected: false,
+    stravaAthleteId: null,
+    stravaDisconnectedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  // Step 4: Delete all synced Strava activity data on the user's training plan
+  let deletedActivities = 0;
+  const planSnap = await db.collection("trainingPlans")
+    .where("athleteUid", "==", uid)
+    .limit(1)
+    .get();
+
+  if (!planSnap.empty) {
+    const planId = planSnap.docs[0].id;
+    const actSnap = await db.collection("trainingPlans")
+      .doc(planId)
+      .collection("stravaActivities")
+      .get();
+
+    let batch = db.batch();
+    let count = 0;
+    for (const doc of actSnap.docs) {
+      batch.delete(doc.ref);
+      count++;
+      deletedActivities++;
+      // Firestore batch limit is 500
+      if (count % 450 === 0) {
+        await batch.commit();
+        batch = db.batch();
+        count = 0;
+      }
+    }
+    if (count > 0) await batch.commit();
+  }
+
+  return {
+    success: true,
+    deletedActivities,
+    revokeWarning,
+  };
 });

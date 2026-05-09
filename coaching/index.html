@@ -1737,20 +1737,31 @@ function reconnectStrava() {
 }
 
 async function unlinkStrava() {
-  if (!confirm('Unlink your Strava account? Your synced activity data will remain.')) return;
+  if (!confirm(
+    'Disconnect Strava and revoke access?\n\n' +
+    'This will:\n' +
+    '  • Revoke this app\'s access token with Strava\n' +
+    '  • Delete all activity data this app has synced from Strava\n\n' +
+    'Your data on Strava itself is unaffected. You can reconnect at any time.'
+  )) return;
+
   try {
-    await db.collection('users').doc(currentUser.uid).update({
-      stravaConnected: false,
-      stravaAthleteId: null
-    });
+    const deauthFn = firebase.functions().httpsCallable('deauthorizeStrava');
+    const result = await deauthFn();
+    if (result?.data?.revokeWarning) console.warn('Strava revoke warning:', result.data.revokeWarning);
+
+    // Clear local state to match server-side cleanup
     userDoc.stravaConnected = false;
     userDoc.stravaAthleteId = null;
-    // Re-render dashboard to show connect button
+    stravaCache = {};
+
+    // Re-render dashboard to show the reconnect prompt
     const role = isCoach ? 'coach' : 'athlete';
     const dashId = isCoach ? 'coach-dashboard' : 'athlete-dashboard';
     renderDashboard(dashId, role);
   } catch(e) {
-    console.error('Unlink failed:', e);
+    console.error('Disconnect failed:', e);
+    alert('Failed to disconnect from Strava. Please try again.');
   }
 }
 
