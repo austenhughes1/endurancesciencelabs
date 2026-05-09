@@ -167,6 +167,7 @@ header{display:none}
 .po-miles{font-family:var(--mono);font-weight:700;color:var(--cyan);font-size:14px;white-space:nowrap}
 .po-miles-empty{color:var(--muted)}
 .po-miles-strava{display:block;font-size:9px;color:var(--muted2);font-weight:500;margin-top:3px;letter-spacing:.2px}
+.po-miles-strava .strava-logo{width:9px;height:9px;color:#FC4C02;margin-right:3px;vertical-align:-1px}
 .po-cell-text{color:var(--text);max-width:260px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap;word-break:break-word}
 .po-cell-empty{color:var(--muted);font-style:italic}
 .plan-overview-empty{padding:60px 20px;text-align:center;color:var(--muted2);font-size:13px;font-family:var(--mono)}
@@ -202,9 +203,12 @@ header{display:none}
 .field-athlete-input::placeholder{color:var(--card-muted2)}
 
 /* ── Strava miles summary (light) ───────────────────── */
-.strava-miles{display:flex;align-items:center;gap:6px;padding:6px 10px;background:rgba(252,82,0,.06);border:1px solid rgba(252,82,0,.18);border-radius:8px;margin-top:2px}
-.strava-miles-icon{font-size:11px;font-weight:800;color:#fc5200;font-family:var(--mono)}
-.strava-miles-val{font-size:13px;font-weight:800;font-family:var(--mono);color:#fc5200}
+/* Official Strava mountain logo — used everywhere Strava data appears */
+.strava-logo{display:inline-block;vertical-align:middle;width:1em;height:1em;fill:currentColor;flex-shrink:0}
+.strava-miles{display:flex;align-items:center;gap:6px;padding:6px 10px;background:rgba(252,76,2,.06);border:1px solid rgba(252,76,2,.18);border-radius:8px;margin-top:2px}
+.strava-miles-icon{display:inline-flex;align-items:center;color:#FC4C02}
+.strava-miles-icon .strava-logo{width:13px;height:13px}
+.strava-miles-val{font-size:13px;font-weight:800;font-family:var(--mono);color:#FC4C02}
 .strava-miles-label{font-size:10px;color:var(--card-muted);font-family:var(--mono)}
 .strava-days{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
 .strava-day{font-size:9px;font-family:var(--mono);padding:2px 6px;border-radius:4px;background:rgba(252,82,0,.07);color:#fc5200}
@@ -213,15 +217,21 @@ header{display:none}
 .dash-card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:14px;overflow:hidden;color:var(--card-text);animation:fadeIn .3s ease}
 .dash-header{padding:16px 24px;border-bottom:1px solid var(--card-border);display:flex;align-items:center;gap:12px}
 .dash-title{font-size:15px;font-weight:800;color:var(--card-text)}
-.dash-strava-badge{font-size:10px;font-weight:800;color:#fc5200;font-family:var(--mono);padding:2px 8px;background:rgba(252,82,0,.08);border-radius:4px}
+.dash-strava-badge{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:800;color:#FC4C02;font-family:var(--mono);padding:3px 9px;background:rgba(252,76,2,.08);border-radius:4px}
+.dash-strava-badge .strava-logo{width:10px;height:10px}
+.dash-powered-by{padding:11px 24px;border-top:1px solid var(--card-border);display:flex;align-items:center;justify-content:center;gap:6px;font-size:10px;font-family:var(--mono);color:var(--card-muted);letter-spacing:.5px;text-transform:uppercase;background:rgba(252,76,2,.02)}
+.dash-powered-by .strava-logo{width:11px;height:11px;color:#FC4C02}
 .dash-body{padding:20px 24px}
 
 /* Strava connect prompt */
 .strava-connect{display:flex;flex-direction:column;align-items:center;gap:16px;padding:40px 20px;text-align:center}
-.strava-connect-icon{font-size:36px;color:#fc5200;font-weight:800;font-family:var(--mono)}
+.strava-connect-icon{display:flex;align-items:center;justify-content:center;gap:10px;font-size:30px;color:#FC4C02;font-weight:800;font-family:var(--mono);letter-spacing:1px}
+.strava-connect-icon .strava-logo{width:36px;height:36px}
 .strava-connect-text{font-size:13px;color:var(--card-muted);line-height:1.6;max-width:360px}
-.strava-connect-btn{padding:12px 28px;background:#fc5200;color:#fff;font-weight:700;font-size:14px;font-family:var(--ui);border:none;border-radius:10px;cursor:pointer;transition:opacity .15s}
-.strava-connect-btn:hover{opacity:.85}
+/* Strava-brand-compliant Connect button: orange #FC4C02 + white logo + "Connect with Strava" wordmark */
+.strava-connect-btn{display:inline-flex;align-items:center;gap:9px;padding:0 22px;height:48px;background:#FC4C02;color:#fff;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:700;font-size:14px;letter-spacing:.2px;border:none;border-radius:4px;cursor:pointer;transition:filter .15s}
+.strava-connect-btn:hover{filter:brightness(0.92)}
+.strava-connect-btn .strava-logo{width:18px;height:18px;color:#fff}
 
 /* Mileage chart */
 .chart-section{margin-bottom:28px}
@@ -668,6 +678,10 @@ let expandedCategories = {}; // categoryName -> bool
 const ADMIN_UID = '2z9Z3K5ZwShvadUuqZmwMv0s1Od2';
 const FEATURE_LIST = ['coaching', 'lifting', 'esFormLab'];
 const FEATURE_LABELS = { coaching: 'Coaching', lifting: 'Lifting', esFormLab: 'esFormLab' };
+
+// Official Strava mountain logo (per Strava brand guidelines).
+// Used wherever Strava data is displayed; color inherits from the parent via fill="currentColor".
+const STRAVA_LOGO_SVG = `<svg class="strava-logo" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>`;
 
 // ══════════════════════════════════════════════════════════
 //  LIFTING PLAN DATA (from CSV)
@@ -1186,9 +1200,9 @@ function renderWeekCard(mondayStr, role) {
       html += `<input class="field-coach miles-input" id="${coachId}-${mondayStr}" value="${esc(coachVal || '')}" ${coachAttr}>`;
       if (stravaMiles > 0) {
         html += `<div class="strava-miles">
-          <span class="strava-miles-icon">▲</span>
+          <span class="strava-miles-icon">${STRAVA_LOGO_SVG}</span>
           <span class="strava-miles-val">${stravaMiles.toFixed(1)} mi</span>
-          <span class="strava-miles-label">logged this week</span>
+          <span class="strava-miles-label">logged this week (via Strava)</span>
         </div>`;
         if (stravaDays.length > 0) html += `<div class="strava-days">${stravaDays.map(s => `<span class="strava-day">${s.day}: ${s.mi}mi</span>`).join('')}</div>`;
       }
@@ -1274,8 +1288,8 @@ function renderPlanOverview(role) {
       : (r.wb !== null ? `${r.wb} wks out` : '');
     const milesVal = r.w.milesPerWeek;
     const milesHtml = milesVal
-      ? `<span class="po-miles">${esc(milesVal)}</span>${r.stravaMi > 0 ? `<span class="po-miles-strava">▲ ${r.stravaMi.toFixed(1)} mi</span>` : ''}`
-      : `<span class="po-miles po-miles-empty">—</span>${r.stravaMi > 0 ? `<span class="po-miles-strava">▲ ${r.stravaMi.toFixed(1)} mi</span>` : ''}`;
+      ? `<span class="po-miles">${esc(milesVal)}</span>${r.stravaMi > 0 ? `<span class="po-miles-strava">${STRAVA_LOGO_SVG}${r.stravaMi.toFixed(1)} mi</span>` : ''}`
+      : `<span class="po-miles po-miles-empty">—</span>${r.stravaMi > 0 ? `<span class="po-miles-strava">${STRAVA_LOGO_SVG}${r.stravaMi.toFixed(1)} mi</span>` : ''}`;
 
     html += `<tr class="${r.isCurrent ? 'current-week-row' : ''}" onclick="openWeekFromOverview('${r.monStr}')">
       <td class="po-week-cell">
@@ -1442,16 +1456,17 @@ function renderDashboard(containerId, role) {
       </div>
       <div class="dash-body">
         <div class="strava-connect">
-          <div class="strava-connect-icon">▲ STRAVA</div>
+          <div class="strava-connect-icon">${STRAVA_LOGO_SVG} STRAVA</div>
           <div class="strava-connect-text">
             ${isAthlete
               ? 'Connect your Strava account to automatically sync your training data. Your weekly mileage, recent activities, and workout details will appear here.'
               : 'This athlete has not connected their Strava account yet. Once they do, their training data will appear here.'}
           </div>
-          ${isAthlete ? '<button class="strava-connect-btn" onclick="connectStrava()">Connect Strava</button>' : ''}
+          ${isAthlete ? `<button class="strava-connect-btn" onclick="connectStrava()">${STRAVA_LOGO_SVG} Connect with Strava</button>` : ''}
           ${isAthlete ? `<div style="font-size:10px;color:var(--card-muted2);font-family:var(--mono);margin-top:4px">Your data stays private. Only your coach can see it.</div>` : ''}
         </div>
       </div>
+      <div class="dash-powered-by">${STRAVA_LOGO_SVG} Powered by Strava</div>
     </div>`;
     return;
   }
@@ -1506,7 +1521,7 @@ function renderDashboard(containerId, role) {
   <div class="dash-card">
     <div class="dash-header">
       <div class="dash-title">Training Data</div>
-      <span class="dash-strava-badge">▲ STRAVA CONNECTED</span>
+      <span class="dash-strava-badge">${STRAVA_LOGO_SVG} STRAVA CONNECTED</span>
       <div style="margin-left:auto;display:flex;gap:6px">
         <button class="btn-ghost" onclick="syncStravaFor('${role}')" style="font-size:10px;padding:4px 10px">Sync</button>
         ${role === 'athlete' ? `<button class="btn-ghost" onclick="reconnectStrava()" style="font-size:10px;padding:4px 10px">Reconnect</button>
@@ -1592,6 +1607,7 @@ function renderDashboard(containerId, role) {
       </div>
 
     </div>
+    <div class="dash-powered-by">${STRAVA_LOGO_SVG} Powered by Strava</div>
   </div>`;
 
   container.innerHTML = html;
