@@ -126,7 +126,8 @@ nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:st
 #screen-scanning{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 58px);gap:24px;padding:40px}
 .scan-card{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:32px 36px;width:100%;max-width:500px}
 .scan-title{font-size:20px;font-weight:800;margin-bottom:5px}
-.scan-sub{font-size:13px;color:var(--muted2);margin-bottom:24px;line-height:1.6}
+.scan-sub{font-size:13px;color:var(--muted2);margin-bottom:8px;line-height:1.6}
+.scan-hint{font-size:12px;color:var(--muted2);font-family:var(--mono);background:rgba(0,229,200,.05);border:1px solid rgba(0,229,200,.18);border-radius:8px;padding:9px 12px;margin-bottom:20px;line-height:1.55}
 .scan-preview{width:100%;aspect-ratio:16/9;background:#000;border-radius:10px;overflow:hidden;margin-bottom:18px;position:relative}
 .scan-preview canvas{width:100%;height:100%;object-fit:contain;display:block}
 .scan-preview-label{position:absolute;bottom:8px;left:10px;font-size:9px;color:var(--muted2);font-family:var(--mono);background:rgba(6,8,13,.82);padding:2px 8px;border-radius:4px}
@@ -941,6 +942,7 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
   <div class="scan-card">
     <div class="scan-title">Scanning stride phases</div>
     <div class="scan-sub" id="scan-sub-text">Analyzing your videos for key moments of the running gait cycle.</div>
+    <div class="scan-hint">Each video typically takes 1-3 minutes to process. The preview below populates as frames are scanned -- pose detection runs entirely on your device.</div>
     <div class="scan-preview">
       <canvas id="scan-canvas"></canvas>
       <div class="scan-preview-label" id="scan-label">Preparing...</div>
