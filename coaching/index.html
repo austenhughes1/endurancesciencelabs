@@ -39,6 +39,10 @@ body{font-family:var(--ui);background:var(--bg);color:var(--text);min-height:100
 .auth-note{font-size:10px;color:var(--muted);margin-top:16px;font-family:var(--mono);line-height:1.6}
 .auth-toggle{font-size:11px;color:var(--cyan);cursor:pointer;margin-top:14px;font-family:var(--mono)}
 .auth-toggle:hover{text-decoration:underline}
+.auth-divider{display:flex;align-items:center;gap:10px;margin:14px 0 10px;font-size:10px;color:var(--muted2);font-family:var(--mono);letter-spacing:.4px;text-transform:uppercase}
+.auth-divider::before,.auth-divider::after{content:"";flex:1;height:1px;background:var(--border)}
+.auth-btn-google{width:100%;padding:11px;background:transparent;color:var(--text);font-weight:600;font-size:13px;font-family:var(--ui);border:1px solid var(--border2);border-radius:9px;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px}
+.auth-btn-google:hover{border-color:var(--cyan);color:var(--cyan)}
 
 /* ── Site nav ───────────────────────────────────────── */
 .site-nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:sticky;top:0;z-index:350;background:rgba(6,8,13,.97);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
@@ -614,6 +618,8 @@ header{display:none}
       <input type="text" class="auth-field" id="auth-name" placeholder="Full name" autocomplete="name">
     </div>
     <button class="auth-btn" id="auth-btn" onclick="authAction()">Sign in</button>
+    <div class="auth-divider"><span>or</span></div>
+    <button class="auth-btn-google" onclick="authGoogle()">Continue with Google</button>
     <div class="auth-error" id="auth-error"></div>
     <div class="auth-toggle" id="auth-toggle" onclick="toggleAuthMode()">Need an account? Sign up</div>
     <p class="auth-note">Athletes: use the credentials your coach provided.</p>
@@ -1060,6 +1066,20 @@ async function authAction() {
     errEl.textContent = msg;
     btn.disabled = false;
     btn.textContent = authMode === 'signin' ? 'Sign in' : 'Create account';
+  }
+}
+
+async function authGoogle() {
+  const errEl = document.getElementById('auth-error');
+  errEl.textContent = '';
+  try {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    await auth.signInWithPopup(provider);
+    // onAuthStateChanged will pick up the session and route -- if the
+    // user doc doesn't exist yet (first-time Google sign-in), loadUserDoc
+    // creates it with default athlete fields.
+  } catch (e) {
+    errEl.textContent = e.message || 'Google sign-in failed.';
   }
 }
 
