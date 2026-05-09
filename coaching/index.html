@@ -418,6 +418,11 @@ header{display:none}
 .feat-scope-btn.active{background:rgba(0,229,200,.12);color:var(--cyan)}
 .sidebar-scope{display:none;padding:8px 10px;border-bottom:1px solid var(--border);background:var(--panel2);gap:4px;justify-content:center}
 .sidebar-scope.show{display:flex}
+.sidebar-coach-filter{display:none;padding:6px 10px;border-bottom:1px solid var(--border);background:var(--panel2);align-items:center;gap:8px}
+.sidebar-coach-filter.show{display:flex}
+.sidebar-coach-filter label{font-size:10px;color:var(--muted2);font-family:var(--mono);font-weight:700;letter-spacing:.5px}
+.sidebar-coach-filter select{flex:1;padding:4px 8px;background:var(--panel);border:1px solid var(--border2);border-radius:6px;font-size:11px;color:var(--text);font-family:var(--mono);cursor:pointer;outline:none}
+.athlete-coach-tag{display:inline-block;font-size:9px;color:var(--muted);font-family:var(--mono);font-weight:700;letter-spacing:.3px;margin-left:4px}
 .feat-paid-badge{display:inline-flex;align-items:center;padding:3px 7px;border-radius:5px;background:rgba(0,229,200,.12);border:1px solid rgba(0,229,200,.3);color:var(--cyan);font-size:9px;font-weight:700;font-family:var(--mono);letter-spacing:.4px;margin-right:6px;white-space:nowrap}
 
 /* ── Feedback footer ────────────────────────────────── */
@@ -626,6 +631,12 @@ header{display:none}
     <div class="sidebar-scope" id="sidebar-scope">
       <button class="feat-scope-btn active" id="sidebar-scope-mine" onclick="setSidebarScope('mine')">My athletes</button>
       <button class="feat-scope-btn" id="sidebar-scope-all" onclick="setSidebarScope('all')">All athletes</button>
+    </div>
+    <div class="sidebar-coach-filter" id="sidebar-coach-filter">
+      <label>COACH</label>
+      <select id="sidebar-coach-select" onchange="setCoachFilter(this.value)">
+        <option value="all">All</option>
+      </select>
     </div>
     <div class="athlete-list" id="athlete-list"></div>
   </div>
@@ -1031,13 +1042,22 @@ async function loadUserDoc(user) {
 // Sidebar scope works the same as the Features modal scope but is
 // independently selectable so the admin can mix views.
 let sidebarScope = 'mine';
+// Admin-only secondary filter when sidebarScope is 'all'.
+// Values: 'all' (no filter), 'unassigned', or a specific coach UID.
+let coachFilter = 'all';
 
 function setSidebarScope(scope) {
   if (scope !== 'mine' && scope !== 'all') return;
   if (scope === 'all' && (!currentUser || currentUser.uid !== ADMIN_UID)) return;
   sidebarScope = scope;
+  if (scope === 'mine') coachFilter = 'all';
   document.getElementById('sidebar-scope-mine').classList.toggle('active', scope === 'mine');
   document.getElementById('sidebar-scope-all').classList.toggle('active', scope === 'all');
+  loadAthleteList();
+}
+
+function setCoachFilter(value) {
+  coachFilter = value || 'all';
   loadAthleteList();
 }
 
@@ -1052,30 +1072,91 @@ async function loadAthleteList() {
     : db.collection('users').where('coachUid', '==', currentUser.uid);
   const snap = await query.get();
 
+  // Build a lookup map so we can resolve coachUid -> displayName for the
+  // coach badge, and so we can populate the coach filter dropdown options.
+  const userMap = {};
+  const allUsers = [];
+  snap.forEach(doc => {
+    userMap[doc.id] = doc.data();
+    allUsers.push({ id: doc.id, data: doc.data() });
+  });
+
+  // Coach filter UI: only meaningful in admin "All athletes" scope.
+  const filterRow = document.getElementById('sidebar-coach-filter');
+  const filterSelect = document.getElementById('sidebar-coach-select');
+  if (filterRow) filterRow.classList.toggle('show', adminAllScope);
+  if (adminAllScope && filterSelect) {
+    const coachOpts = [];
+    const seen = new Set();
+    let hasUnassigned = false;
+    allUsers.forEach(u => {
+      const cuid = u.data.coachUid;
+      if (!cuid) { hasUnassigned = true; return; }
+      if (seen.has(cuid)) return;
+      seen.add(cuid);
+      const c = userMap[cuid];
+      const label = c ? (c.displayName || c.email || cuid) : cuid;
+      coachOpts.push({ value: cuid, label: label });
+    });
+    coachOpts.sort((a, b) => a.label.localeCompare(b.label));
+    let optsHtml = '<option value="all">All</option>';
+    coachOpts.forEach(o => {
+      optsHtml += `<option value="${esc(o.value)}">${esc(o.label)}</option>`;
+    });
+    if (hasUnassigned) optsHtml += '<option value="unassigned">Unassigned</option>';
+    filterSelect.innerHTML = optsHtml;
+    if (coachFilter !== 'all' && coachFilter !== 'unassigned' && !seen.has(coachFilter)) {
+      coachFilter = 'all';
+    }
+    filterSelect.value = coachFilter;
+  }
+
+  // Apply the coach filter.
+  const visible = allUsers.filter(u => {
+    if (!adminAllScope) return true;
+    if (coachFilter === 'all') return true;
+    if (coachFilter === 'unassigned') return !u.data.coachUid;
+    return u.data.coachUid === coachFilter;
+  });
+
   const list = document.getElementById('athlete-list');
   list.innerHTML = '';
 
-  if (snap.empty) {
-    list.innerHTML = '<div style="padding:16px;text-align:center;font-size:11px;color:var(--muted2);font-family:var(--mono)">' + (adminAllScope ? 'No users found.' : 'No athletes yet.<br>Click + Add to get started.') + '</div>';
+  if (visible.length === 0) {
+    let msg;
+    if (!adminAllScope) msg = 'No athletes yet.<br>Click + Add to get started.';
+    else if (coachFilter !== 'all') msg = 'No users match this filter.';
+    else msg = 'No users found.';
+    list.innerHTML = '<div style="padding:16px;text-align:center;font-size:11px;color:var(--muted2);font-family:var(--mono)">' + msg + '</div>';
     return;
   }
 
-  snap.forEach(doc => {
-    const d = doc.data();
+  visible.forEach(u => {
+    const d = u.data;
     const initials = (d.displayName || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
     const isForeign = d.coachUid !== currentUser.uid;
+    let coachTag = '';
+    if (isForeign) {
+      if (!d.coachUid) {
+        coachTag = ' <span class="athlete-coach-tag">· UNASSIGNED</span>';
+      } else {
+        const c = userMap[d.coachUid];
+        const coachName = c ? (c.displayName || c.email || 'Other coach') : 'Other coach';
+        coachTag = ` <span class="athlete-coach-tag">· ${esc(coachName).toUpperCase()}</span>`;
+      }
+    }
     const item = document.createElement('div');
-    item.className = 'athlete-item' + (selectedAthleteUid === doc.id ? ' active' : '') + (isForeign ? ' foreign' : '');
-    item.dataset.uid = doc.id;
+    item.className = 'athlete-item' + (selectedAthleteUid === u.id ? ' active' : '') + (isForeign ? ' foreign' : '');
+    item.dataset.uid = u.id;
     if (isForeign) {
       item.onclick = () => alert('This user belongs to another coach (or no coach). Use the Features modal to manage their access; selecting here would create a duplicate training plan.');
     } else {
-      item.onclick = () => selectAthlete(doc.id, d, item);
+      item.onclick = () => selectAthlete(u.id, d, item);
     }
     item.innerHTML = `
       <div class="athlete-avatar">${initials}</div>
       <div style="min-width:0;flex:1">
-        <div class="athlete-name">${esc(d.displayName || d.email)}${isForeign ? ' <span style="font-size:9px;color:var(--muted);font-family:var(--mono);font-weight:600">· OTHER</span>' : ''}</div>
+        <div class="athlete-name">${esc(d.displayName || d.email)}${coachTag}</div>
         <div class="athlete-meta">${d.raceName ? esc(d.raceName) : 'No race set'}</div>
         ${d.stravaConnected ? '<div class="athlete-strava">STRAVA ✓</div>' : ''}
       </div>`;
