@@ -785,6 +785,89 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
 .feedback-modal-textarea:focus{border-color:var(--cyan)}
 .feedback-modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;align-items:center}
 .feedback-modal-status{font-size:11px;font-family:var(--mono);margin-right:auto}
+
+/* ---------- Frame examples modal (correct vs wrong screenshots per phase) ---------- */
+.ep-examples-btn{display:inline-flex;align-items:center;gap:8px;width:100%;justify-content:center;margin:14px 0 0;padding:13px 18px;font-size:13px;font-weight:800;font-family:var(--ui);letter-spacing:.2px;border-radius:10px;border:1px solid rgba(0,229,200,.5);background:linear-gradient(135deg,rgba(0,229,200,.18),rgba(0,229,200,.06));color:var(--cyan);cursor:pointer;transition:all .18s;box-shadow:0 0 0 0 rgba(0,229,200,.0)}
+.ep-examples-btn:hover{border-color:var(--cyan);background:linear-gradient(135deg,rgba(0,229,200,.28),rgba(0,229,200,.1));box-shadow:0 0 0 4px rgba(0,229,200,.12);transform:translateY(-1px)}
+.ep-examples-btn .eb-ico{width:18px;height:18px;border-radius:50%;background:var(--cyan);color:#0f2a24;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:900}
+
+#examples-overlay{position:fixed;inset:0;background:rgba(6,8,13,.92);z-index:600;display:none;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(5px)}
+#examples-overlay.open{display:flex}
+.examples-panel{background:var(--panel);border:1px solid var(--border2);border-radius:18px;width:100%;max-width:980px;max-height:calc(100vh - 32px);overflow-y:auto}
+.ex-hdr{display:flex;align-items:center;gap:12px;padding:18px 22px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--panel);z-index:2;border-radius:18px 18px 0 0}
+.ex-title{font-size:17px;font-weight:800}
+.ex-sub{font-size:11px;color:var(--muted2);font-family:var(--mono);margin-top:2px}
+.ex-close{margin-left:auto;width:32px;height:32px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.ex-close:hover{border-color:var(--bad);color:var(--bad)}
+.ex-body{padding:18px 22px 24px}
+.ex-instruction{background:rgba(0,229,200,.08);border:1px solid rgba(0,229,200,.25);border-left:3px solid var(--cyan);border-radius:10px;padding:14px 16px;margin-bottom:18px;font-size:14px;line-height:1.65;color:var(--text)}
+.ex-instruction strong{color:var(--cyan)}
+.ex-section-label{font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;font-family:var(--mono);margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.ex-section-label.good{color:#00e5c8}
+.ex-section-label.bad{color:#f55050}
+.ex-section-label .es-dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+.ex-section-label.good .es-dot{background:#00e5c8}
+.ex-section-label.bad .es-dot{background:#f55050}
+.ex-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-bottom:22px}
+.ex-card{background:var(--panel2);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.ex-card.good{border-color:rgba(0,229,200,.45)}
+.ex-card.bad{border-color:rgba(245,80,80,.45)}
+.ex-img-wrap{position:relative;aspect-ratio:2/3;background:#000;overflow:hidden}
+.ex-img-wrap img{width:100%;height:100%;display:block;object-fit:cover}
+.ex-tag{position:absolute;top:8px;left:8px;font-size:10px;font-weight:800;font-family:var(--mono);letter-spacing:.5px;padding:4px 8px;border-radius:6px;text-transform:uppercase}
+.ex-tag.good{background:rgba(0,229,200,.9);color:#0f2a24}
+.ex-tag.bad{background:rgba(245,80,80,.9);color:#fff}
+.ex-cap{padding:9px 12px;font-size:11px;color:var(--muted2);line-height:1.5;font-family:var(--mono);min-height:22px}
+@media(max-width:560px){
+  .ex-hdr{padding:14px 16px}
+  .ex-body{padding:14px 16px 20px}
+  .ex-grid{grid-template-columns:1fr 1fr;gap:10px}
+}
+
+/* ---------- Guided tour overlay ---------- */
+#tour-overlay{position:fixed;inset:0;z-index:700;display:none;pointer-events:none}
+#tour-overlay.open{display:block}
+#tour-overlay .tour-mask-piece{position:absolute;background:rgba(6,8,13,.78);pointer-events:auto;transition:all .22s ease}
+#tour-overlay .tour-ring{position:absolute;border:3px solid var(--cyan);border-radius:14px;box-shadow:0 0 0 6px rgba(0,229,200,.25),0 0 32px rgba(0,229,200,.55);pointer-events:none;transition:all .25s ease;animation:tour-pulse 1.6s ease-in-out infinite}
+@keyframes tour-pulse{
+  0%,100%{box-shadow:0 0 0 6px rgba(0,229,200,.25),0 0 32px rgba(0,229,200,.55)}
+  50%{box-shadow:0 0 0 10px rgba(0,229,200,.15),0 0 44px rgba(0,229,200,.7)}
+}
+#tour-overlay .tour-arrow{position:absolute;color:var(--cyan);font-size:34px;line-height:1;pointer-events:none;text-shadow:0 0 12px rgba(0,229,200,.65);animation:tour-bob 1.2s ease-in-out infinite}
+@keyframes tour-bob{
+  0%,100%{transform:translate(0,0)}
+  50%{transform:translate(0,-8px)}
+}
+#tour-overlay .tour-arrow.left{animation-name:tour-bob-x}
+#tour-overlay .tour-arrow.right{animation-name:tour-bob-x-rev}
+@keyframes tour-bob-x{0%,100%{transform:translate(0,0)}50%{transform:translate(-8px,0)}}
+@keyframes tour-bob-x-rev{0%,100%{transform:translate(0,0)}50%{transform:translate(8px,0)}}
+
+#tour-overlay .tour-bubble{position:absolute;background:var(--panel);border:1px solid var(--cyan);border-radius:14px;padding:18px 20px;width:min(360px,calc(100vw - 32px));pointer-events:auto;box-shadow:0 18px 50px rgba(0,0,0,.55),0 0 0 1px rgba(0,229,200,.25)}
+#tour-overlay .tb-step{font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--cyan);font-family:var(--mono);margin-bottom:6px}
+#tour-overlay .tb-title{font-size:16px;font-weight:800;margin-bottom:6px;color:var(--text);line-height:1.35}
+#tour-overlay .tb-desc{font-size:13px;color:var(--muted2);line-height:1.6}
+#tour-overlay .tb-desc strong{color:var(--text)}
+#tour-overlay .tb-actions{display:flex;gap:8px;margin-top:14px;align-items:center}
+#tour-overlay .tb-dots{display:flex;gap:5px;margin-right:auto}
+#tour-overlay .tb-dot{width:6px;height:6px;border-radius:50%;background:var(--border2);transition:background .15s}
+#tour-overlay .tb-dot.cur{background:var(--cyan)}
+#tour-overlay .tb-btn{padding:8px 14px;font-size:12px;font-weight:700;font-family:var(--ui);border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;transition:all .15s}
+#tour-overlay .tb-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+#tour-overlay .tb-btn.primary{border-color:var(--cyan);background:var(--cyan);color:#0f2a24}
+#tour-overlay .tb-btn.primary:hover{background:#7ff0e0}
+#tour-overlay .tb-skip{font-size:11px;color:var(--muted);font-family:var(--mono);cursor:pointer;background:none;border:none;padding:0;margin-right:6px}
+#tour-overlay .tb-skip:hover{color:var(--muted2)}
+@media(max-width:560px){
+  #tour-overlay .tour-bubble{padding:14px 16px;width:min(340px,calc(100vw - 24px))}
+  #tour-overlay .tb-title{font-size:15px}
+  #tour-overlay .tb-desc{font-size:12px}
+  #tour-overlay .tour-arrow{font-size:28px}
+}
+
+/* Help / replay-tour link inside instr banner */
+.instr-help-btn{display:inline-flex;align-items:center;gap:6px;margin-top:14px;padding:8px 14px;font-size:12px;font-weight:700;font-family:var(--ui);border-radius:8px;border:1px solid rgba(0,229,200,.35);background:rgba(0,229,200,.08);color:var(--cyan);cursor:pointer;transition:all .15s}
+.instr-help-btn:hover{background:rgba(0,229,200,.16);border-color:var(--cyan)}
 </style>
 </head>
 <body>
@@ -991,6 +1074,8 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
       </div>
     </div>
 
+    <button class="instr-help-btn" onclick="startTour(true)">&#9432; Show me how this works (guided tour)</button>
+
     <div class="instr-callout">
       <div class="instr-callout-icon">&#9432;</div>
       <div class="instr-callout-text">
@@ -1048,9 +1133,9 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
       <div style="font-size:14px;color:var(--muted2);line-height:1.9;margin-bottom:14px">That said, there are general principles that can be optimized within what is natural for your gait to help you become a more efficient, more resilient athlete. An efficient running stride typically has these things in common:</div>
       <ul style="list-style:none;padding:0;display:flex;flex-direction:column;gap:8px;margin-bottom:18px">
         <li style="font-size:14px;color:var(--text);line-height:1.8;padding-left:18px;position:relative"><span style="position:absolute;left:0;top:10px;width:6px;height:6px;border-radius:50%;background:var(--cyan);display:block"></span><strong>Low ground contact time</strong> — less time on the ground each step means less load and more time traveling forward in the air.</li>
-        <li style="font-size:14px;color:var(--text);line-height:1.8;padding-left:18px;position:relative"><span style="position:absolute;left:0;top:10px;width:6px;height:6px;border-radius:50%;background:var(--cyan);display:block"></span><strong>A cadence that fits your body</strong> — not too low (heavy, plodding steps) and not too high (spinning without covering ground). Most runners do well somewhere in the 170-185 range, but taller runners may naturally be lower.</li>
-        <li style="font-size:14px;color:var(--text);line-height:1.8;padding-left:18px;position:relative"><span style="position:absolute;left:0;top:10px;width:6px;height:6px;border-radius:50%;background:var(--cyan);display:block"></span><strong>Stride length that matches your speed naturally</strong> — longer is not always better. Stride length should come from push-off power and flight time, not from reaching forward.</li>
-        <li style="font-size:14px;color:var(--text);line-height:1.8;padding-left:18px;position:relative"><span style="position:absolute;left:0;top:10px;width:6px;height:6px;border-radius:50%;background:var(--cyan);display:block"></span><strong>Appropriate vertical oscillation</strong> — some up-and-down movement is necessary, but you want a good ratio of stride length to vertical bounce (often called "vertical ratio").</li>
+        <li style="font-size:14px;color:var(--text);line-height:1.8;padding-left:18px;position:relative"><span style="position:absolute;left:0;top:10px;width:6px;height:6px;border-radius:50%;background:var(--cyan);display:block"></span><strong>A cadence that fits your body</strong> — not too low (heavy, plodding steps) and not too high (spinning or scuffing without covering ground). Most runners do well somewhere in the 170-185 range, but taller runners may naturally be lower.</li>
+        <li style="font-size:14px;color:var(--text);line-height:1.8;padding-left:18px;position:relative"><span style="position:absolute;left:0;top:10px;width:6px;height:6px;border-radius:50%;background:var(--cyan);display:block"></span><strong>Stride length </strong> — A longer stride length, when accomplished from a push-off that generates strong vertical force and optimizes flight time (rather than from reaching with the lead leg), is ideal.</li>
+        <li style="font-size:14px;color:var(--text);line-height:1.8;padding-left:18px;position:relative"><span style="position:absolute;left:0;top:10px;width:6px;height:6px;border-radius:50%;background:var(--cyan);display:block"></span><strong>Appropriate vertical oscillation</strong> — As runners, we want to create vertical force when psome up-and-down movement is necessary, but you want a good ratio of stride length to vertical bounce (often called "vertical ratio").</li>
         <li style="font-size:14px;color:var(--text);line-height:1.8;padding-left:18px;position:relative"><span style="position:absolute;left:0;top:10px;width:6px;height:6px;border-radius:50%;background:var(--cyan);display:block"></span><strong>A slight forward lean from the ankles</strong> — not from the waist — to work with gravity rather than against it.</li>
         <li style="font-size:14px;color:var(--text);line-height:1.8;padding-left:18px;position:relative"><span style="position:absolute;left:0;top:10px;width:6px;height:6px;border-radius:50%;background:var(--cyan);display:block"></span><strong>Compact, efficient arm carriage</strong> — driving from the elbows to help produce vertical lift and optimal knee drive each stride, not swinging wide or low.</li>
       </ul>
@@ -1188,6 +1273,10 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
           <div class="pi-desc"  id="ep-guide-desc"></div>
           <div class="pi-checks" id="ep-guide-checks"></div>
           <div class="pi-tip"   id="ep-guide-tip"></div>
+          <button class="ep-examples-btn" id="ep-examples-btn" onclick="openExamples()">
+            <span class="eb-ico">?</span>
+            <span>Show correct vs. wrong example frames</span>
+          </button>
         </div>
 
         <!-- Measurements with bell curve visualizations -->
@@ -1202,6 +1291,41 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
           </div>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Frame examples modal (correct vs wrong screenshots per phase) -->
+<div id="examples-overlay" onclick="if(event.target===this)closeExamples()">
+  <div class="examples-panel">
+    <div class="ex-hdr">
+      <div>
+        <div class="ex-title" id="ex-title">Frame examples</div>
+        <div class="ex-sub" id="ex-sub"></div>
+      </div>
+      <button class="ex-close" onclick="closeExamples()">&#10005;</button>
+    </div>
+    <div class="ex-body" id="ex-body"></div>
+  </div>
+</div>
+
+<!-- Guided tour overlay -->
+<div id="tour-overlay">
+  <div class="tour-mask-piece" id="tour-mask-top"></div>
+  <div class="tour-mask-piece" id="tour-mask-bottom"></div>
+  <div class="tour-mask-piece" id="tour-mask-left"></div>
+  <div class="tour-mask-piece" id="tour-mask-right"></div>
+  <div class="tour-ring" id="tour-ring" style="display:none"></div>
+  <div class="tour-arrow" id="tour-arrow" style="display:none">&#9660;</div>
+  <div class="tour-bubble" id="tour-bubble">
+    <div class="tb-step" id="tb-step">Step 1 of 5</div>
+    <div class="tb-title" id="tb-title">Welcome</div>
+    <div class="tb-desc"  id="tb-desc"></div>
+    <div class="tb-actions">
+      <div class="tb-dots" id="tb-dots"></div>
+      <button class="tb-skip" onclick="endTour(true)">Skip</button>
+      <button class="tb-btn"  id="tb-back" onclick="tourBack()">Back</button>
+      <button class="tb-btn primary" id="tb-next" onclick="tourNext()">Next &#8594;</button>
     </div>
   </div>
 </div>
@@ -2480,6 +2604,10 @@ async function autoScanAll(){
     var dKey = PHASE_DEFS[di].key;
     if(phases[dKey] && phases[dKey].detected) await analyzeCard(dKey);
   }
+  // First-time users: walk them through the review process. Skipped if previously dismissed.
+  if(!isViewingSaved){
+    setTimeout(function(){ startTour(false); }, 600);
+  }
 }
 
 // Scan ~20 frames of a video, return the one with best avg confidence
@@ -3087,8 +3215,317 @@ async function labelCorrectFrame(){
   }
 }
 function closeExpand(){document.getElementById('expand-overlay').classList.remove('open');document.querySelectorAll('.phase-card').forEach(function(c){c.classList.remove('dimmed');});expandKey=null;document.removeEventListener('keydown',onExpandKey);}
-function onExpandKey(e){if(e.key==='Escape')closeExpand();}
+function onExpandKey(e){if(e.key==='Escape'){ if(document.getElementById('examples-overlay').classList.contains('open')){ closeExamples(); return; } if(document.getElementById('tour-overlay').classList.contains('open')) return; closeExpand(); }}
 document.getElementById('expand-overlay').addEventListener('click',function(e){if(e.target===document.getElementById('expand-overlay'))closeExpand();});
+
+// ---------- Frame examples modal ----------
+// Map each phase key to its example-image set. Foot strike images intentionally cover
+// both legs since the visual cue (foot touching ground vs. still airborne) is symmetric.
+var EXAMPLE_SETS = {
+  foot: {
+    title: 'Foot strike: correct vs. wrong frames',
+    instruction: 'Scrub to the <strong>first</strong> frame where the foot touches the ground. If you scrub back one frame, that foot should still be in the air. Don’t pick a frame where the foot has already rolled onto mid-foot or where the runner is fully loaded into stance.',
+    good: [{src:'foostrike_correct.png', cap:'Foot just touching down'}],
+    bad:  [{src:'footstrike_wrong.png',  cap:'Already past initial contact'},
+           {src:'footstrike_wrong_2.png',cap:'Loaded into stance – too late'}]
+  },
+  toe: {
+    title: 'Toe-off: correct vs. wrong frames',
+    instruction: 'Scrub to the <strong>last</strong> frame where the trail foot is still touching the ground. The correct frame shows the forefoot in contact with the ground; the very next frame should show that foot fully in the air.',
+    good: [{src:'toeoff_correct.png', cap:'Last frame in contact'}],
+    bad:  [{src:'toeoff_wrong.png',   cap:'Foot already left the ground'}]
+  },
+  mid: {
+    title: 'Mid-stance (side view): correct vs. wrong frames',
+    instruction: 'Pick the frame where the supporting foot is <strong>directly under your center of mass</strong> — not in front of the body (still loading) and not behind it (starting to push off).',
+    good: [{src:'midstance_correct.png', cap:'Foot under center of mass'}],
+    bad:  [{src:'midstance_wrong.png',   cap:'Foot ahead of body – still loading'},
+           {src:'midstance_wrong_2.png', cap:'Foot behind body – starting toe-off'}]
+  },
+  front: {
+    title: 'Mid-stance (front view): correct vs. wrong frames',
+    instruction: 'Pick a frame where the foot is firmly <strong>planted directly underneath the body</strong>. Avoid frames where the foot has just touched down, or where the runner is rolling onto the toes about to leave the ground.',
+    good: [{src:'front_correct.png', cap:'Planted under body'}],
+    bad:  [{src:'front_wrong.png',   cap:'Foot off-center / not mid-stance'}]
+  },
+  back: {
+    title: 'Mid-stance (back view): correct vs. wrong frames',
+    instruction: 'Pick a frame where the foot is firmly <strong>planted directly underneath the body</strong>. Avoid frames where the foot has just touched down, or where the runner is starting to toe off the ground.',
+    good: [{src:'back_correct.png', cap:'Planted under body'}],
+    bad:  [{src:'back_wrong.png',   cap:'Foot off-center / not mid-stance'}]
+  }
+};
+function exampleSetForPhase(key){
+  if(key==='l_foot'||key==='r_foot') return EXAMPLE_SETS.foot;
+  if(key==='l_toe' ||key==='r_toe' ) return EXAMPLE_SETS.toe;
+  if(key==='mid')                    return EXAMPLE_SETS.mid;
+  if(key==='mid_front_l'||key==='mid_front_r') return EXAMPLE_SETS.front;
+  if(key==='mid_back_l' ||key==='mid_back_r' ) return EXAMPLE_SETS.back;
+  return null;
+}
+function openExamples(){
+  if(!expandKey) return;
+  var set = exampleSetForPhase(expandKey);
+  if(!set) return;
+  var ph = phases[expandKey] || {};
+  document.getElementById('ex-title').textContent = set.title;
+  document.getElementById('ex-sub').textContent = ph.label || '';
+  function renderCards(arr, kind){
+    return arr.map(function(it){
+      return '<div class="ex-card '+kind+'">'+
+        '<div class="ex-img-wrap"><span class="ex-tag '+kind+'">'+(kind==='good'?'✓ Correct':'✕ Wrong')+'</span>'+
+        '<img src="../images/gait-helpers/'+it.src+'" alt="'+(it.cap||'')+'" loading="lazy"></div>'+
+        (it.cap?'<div class="ex-cap">'+it.cap+'</div>':'')+
+      '</div>';
+    }).join('');
+  }
+  document.getElementById('ex-body').innerHTML =
+    '<div class="ex-instruction">'+set.instruction+'</div>'+
+    '<div class="ex-section-label good"><span class="es-dot"></span>Pick a frame that looks like this</div>'+
+    '<div class="ex-grid">'+renderCards(set.good,'good')+'</div>'+
+    '<div class="ex-section-label bad"><span class="es-dot"></span>Avoid frames that look like these</div>'+
+    '<div class="ex-grid">'+renderCards(set.bad,'bad')+'</div>';
+  document.getElementById('examples-overlay').classList.add('open');
+}
+function closeExamples(){
+  document.getElementById('examples-overlay').classList.remove('open');
+}
+
+// ---------- Guided tour ----------
+// Tour state machine. Each step optionally has a `setup` (run before showing) and
+// `target` (a function returning the element to highlight) plus a text bubble.
+// We compute the target's bounding rect on each show so a `clip-path` cuts a hole
+// in the dark mask and we can position a pulsing ring + tooltip beside it.
+var tourState = { active:false, idx:0, steps:null, raf:null };
+var TOUR_SEEN_KEY = 'esfl-tour-seen-v1';
+
+function getTourSteps(){
+  return [
+    {
+      title: 'Review your frames before you finish',
+      desc: 'We picked a frame for each phase of your stride. Your job is to <strong>open every card</strong>, confirm the right moment was caught, and re-analyze if not. Three quick tools make that easy.',
+      target: function(){ return document.querySelector('#phase-groups .phase-card'); },
+      align: 'auto'
+    },
+    {
+      title: 'Open a card to inspect the frame',
+      desc: 'Each card holds one phase of your stride. Click any card to open the inspector with the chosen frame, a pose overlay, and the detection quality.',
+      setup: function(){ if(document.getElementById('expand-overlay').classList.contains('open')) closeExpand(); },
+      target: function(){ return document.querySelector('#phase-groups .phase-card'); },
+      align: 'auto'
+    },
+    {
+      title: 'Scrub or step to a better frame',
+      desc: 'Use the <strong>scrubber</strong> or the <strong>-1f / +1f</strong> step buttons to nudge frames. Press <strong>&#8635; Analyze</strong> after moving to get fresh angles for that exact frame.',
+      setup: function(){ ensureTourCardOpen(); },
+      target: function(){ return document.querySelector('#expand-overlay .scrub-main'); },
+      align: 'below'
+    },
+    {
+      title: 'Not sure which frame is correct? Check the examples',
+      desc: 'This is a <strong>new helper</strong>. Click it inside any card to see annotated correct vs. wrong frames for that phase — with specific guidance on what to scrub to.',
+      setup: function(){ ensureTourCardOpen(); },
+      target: function(){ return document.getElementById('ep-examples-btn'); },
+      align: 'auto'
+    },
+    {
+      title: 'Jump between phases without closing the card',
+      desc: 'Use these buttons to hop to any other phase. Orange pills mean a phase wasn’t auto-detected and needs your attention.',
+      setup: function(){ ensureTourCardOpen(); },
+      target: function(){ return document.getElementById('nav-phase-btns'); },
+      align: 'above'
+    },
+    {
+      title: 'When every card looks right, complete the analysis',
+      desc: 'Once each card matches its description, hit <strong>Complete analysis</strong> at the bottom. We’ll generate the full report with coaching cues.',
+      setup: function(){
+        if(document.getElementById('expand-overlay').classList.contains('open')) closeExpand();
+        var bar=document.getElementById('complete-analysis-bar');
+        if(bar) bar.scrollIntoView({behavior:'smooth',block:'center'});
+      },
+      target: function(){
+        var b = document.getElementById('complete-analysis-bar');
+        if(b && getComputedStyle(b).display!=='none') return b.querySelector('.btn-complete') || b;
+        return document.querySelector('#phase-groups .phase-card');
+      },
+      align: 'above'
+    }
+  ];
+}
+
+function ensureTourCardOpen(){
+  // Tour steps about the expand panel need it open. Pick the first detected card,
+  // or any card if none are detected.
+  if(document.getElementById('expand-overlay').classList.contains('open')) return;
+  var firstDetected = PHASE_DEFS.find(function(d){return phases[d.key] && phases[d.key].detected;});
+  var key = firstDetected ? firstDetected.key : (PHASE_DEFS[0] && PHASE_DEFS[0].key);
+  if(key && phases[key]) openExpand(key);
+}
+
+function startTour(force){
+  if(tourState.active) return;
+  if(!force){
+    try { if(localStorage.getItem(TOUR_SEEN_KEY)==='1') return; } catch(e){}
+  }
+  tourState.steps = getTourSteps();
+  tourState.idx = 0;
+  tourState.active = true;
+  document.getElementById('tour-overlay').classList.add('open');
+  document.addEventListener('keydown', onTourKey);
+  window.addEventListener('resize', positionTour, {passive:true});
+  window.addEventListener('scroll', positionTour, {passive:true});
+  showTourStep(0);
+}
+function endTour(skipped){
+  tourState.active = false;
+  document.getElementById('tour-overlay').classList.remove('open');
+  document.removeEventListener('keydown', onTourKey);
+  window.removeEventListener('resize', positionTour);
+  window.removeEventListener('scroll', positionTour);
+  if(tourState.raf){ cancelAnimationFrame(tourState.raf); tourState.raf=null; }
+  // Leave whatever the user has open as-is; don't force-close their card.
+  try { localStorage.setItem(TOUR_SEEN_KEY,'1'); } catch(e){}
+}
+function onTourKey(e){
+  if(e.key==='Escape'){ endTour(true); return; }
+  if(e.key==='ArrowRight' || e.key==='Enter'){ tourNext(); return; }
+  if(e.key==='ArrowLeft'){ tourBack(); return; }
+}
+function tourNext(){
+  if(!tourState.active) return;
+  if(tourState.idx >= tourState.steps.length-1){ endTour(false); return; }
+  showTourStep(tourState.idx+1);
+}
+function tourBack(){
+  if(!tourState.active || tourState.idx===0) return;
+  showTourStep(tourState.idx-1);
+}
+function showTourStep(i){
+  tourState.idx = i;
+  var step = tourState.steps[i];
+  if(step.setup){ try{ step.setup(); }catch(e){} }
+  // Update text/buttons
+  document.getElementById('tb-step').textContent = 'Step '+(i+1)+' of '+tourState.steps.length;
+  document.getElementById('tb-title').textContent = step.title;
+  document.getElementById('tb-desc').innerHTML  = step.desc;
+  document.getElementById('tb-back').style.visibility = (i===0?'hidden':'visible');
+  document.getElementById('tb-next').textContent = (i===tourState.steps.length-1) ? 'Got it ✓' : 'Next →';
+  var dots = tourState.steps.map(function(_,k){return '<div class="tb-dot '+(k===i?'cur':'')+'"></div>';}).join('');
+  document.getElementById('tb-dots').innerHTML = dots;
+  // Wait for DOM to settle (expand overlay open animation, scroll, etc.) before positioning.
+  requestAnimationFrame(function(){
+    requestAnimationFrame(positionTour);
+  });
+}
+function positionTour(){
+  if(!tourState.active) return;
+  var step = tourState.steps[tourState.idx];
+  var ring  = document.getElementById('tour-ring');
+  var arrow = document.getElementById('tour-arrow');
+  var bubble= document.getElementById('tour-bubble');
+  var mT = document.getElementById('tour-mask-top');
+  var mB = document.getElementById('tour-mask-bottom');
+  var mL = document.getElementById('tour-mask-left');
+  var mR = document.getElementById('tour-mask-right');
+  var tgt = step.target ? step.target() : null;
+  var vw = window.innerWidth, vh = window.innerHeight;
+  var pad = 8;
+  function setMaskFull(){
+    // Cover full viewport (no hole) -- top piece takes everything, others collapse.
+    mT.style.left='0px'; mT.style.top='0px'; mT.style.width=vw+'px'; mT.style.height=vh+'px';
+    mB.style.width='0px'; mB.style.height='0px';
+    mL.style.width='0px'; mL.style.height='0px';
+    mR.style.width='0px'; mR.style.height='0px';
+  }
+  if(!tgt || !tgt.getBoundingClientRect){
+    // Fallback: full dark, no spotlight; center the bubble.
+    setMaskFull();
+    ring.style.display = 'none';
+    arrow.style.display = 'none';
+    bubble.style.left = Math.max(12,(vw - bubble.offsetWidth)/2)+'px';
+    bubble.style.top  = Math.max(12,(vh - bubble.offsetHeight)/2)+'px';
+    return;
+  }
+  // Make sure the target is on-screen.
+  var r = tgt.getBoundingClientRect();
+  if(r.top < 60 || r.bottom > vh - 60){
+    try{ tgt.scrollIntoView({behavior:'smooth', block:'center'}); }catch(e){}
+    setTimeout(positionTour, 280);
+    return;
+  }
+  var top    = Math.max(0,  r.top    - pad);
+  var left   = Math.max(0,  r.left   - pad);
+  var right  = Math.min(vw, r.right  + pad);
+  var bottom = Math.min(vh, r.bottom + pad);
+  // Four dark rectangles surround the target rect, leaving a transparent spotlight in the middle.
+  mT.style.left='0px'; mT.style.top='0px'; mT.style.width=vw+'px'; mT.style.height=top+'px';
+  mB.style.left='0px'; mB.style.top=bottom+'px'; mB.style.width=vw+'px'; mB.style.height=Math.max(0,vh-bottom)+'px';
+  mL.style.left='0px'; mL.style.top=top+'px'; mL.style.width=left+'px'; mL.style.height=(bottom-top)+'px';
+  mR.style.left=right+'px'; mR.style.top=top+'px'; mR.style.width=Math.max(0,vw-right)+'px'; mR.style.height=(bottom-top)+'px';
+  ring.style.display = 'block';
+  ring.style.left   = (left)+'px';
+  ring.style.top    = (top)+'px';
+  ring.style.width  = (right-left)+'px';
+  ring.style.height = (bottom-top)+'px';
+  // Position bubble: prefer right side of target if there's room, else below, else above.
+  var bw = Math.min(360, vw - 24);
+  bubble.style.width = bw+'px';
+  // Measure after width set
+  var bh = bubble.offsetHeight || 180;
+  var place = step.align || 'auto';
+  var bLeft, bTop, arrowDir;
+  function fits(x,y){ return x>=8 && y>=8 && (x+bw)<=vw-8 && (y+bh)<=vh-8; }
+  // Try below
+  var belowX = Math.min(vw - bw - 12, Math.max(12, left - 8));
+  var belowY = bottom + 22;
+  // Try above
+  var aboveX = belowX;
+  var aboveY = top - bh - 22;
+  // Try right
+  var rightX = right + 22;
+  var rightY = Math.min(vh - bh - 12, Math.max(12, top));
+  // Try left
+  var leftX  = left - bw - 22;
+  var leftY  = rightY;
+  var picks;
+  if(place==='below') picks = [['below',belowX,belowY],['above',aboveX,aboveY],['right',rightX,rightY],['left',leftX,leftY]];
+  else if(place==='above') picks = [['above',aboveX,aboveY],['below',belowX,belowY],['right',rightX,rightY],['left',leftX,leftY]];
+  else if(place==='right') picks = [['right',rightX,rightY],['left',leftX,leftY],['below',belowX,belowY],['above',aboveX,aboveY]];
+  else if(place==='left')  picks = [['left',leftX,leftY],['right',rightX,rightY],['below',belowX,belowY],['above',aboveX,aboveY]];
+  else                     picks = [['below',belowX,belowY],['above',aboveX,aboveY],['right',rightX,rightY],['left',leftX,leftY]];
+  var chosen = picks.find(function(p){return fits(p[1],p[2]);}) || picks[0];
+  arrowDir = chosen[0]; bLeft = chosen[1]; bTop = chosen[2];
+  // Clamp inside viewport just in case
+  bLeft = Math.max(8, Math.min(vw - bw - 8, bLeft));
+  bTop  = Math.max(8, Math.min(vh - bh - 8, bTop));
+  bubble.style.left = bLeft+'px';
+  bubble.style.top  = bTop +'px';
+  // Place arrow between target and bubble
+  arrow.style.display = 'block';
+  arrow.className = 'tour-arrow '+arrowDir;
+  if(arrowDir==='below'){
+    arrow.textContent = '▲'; // points up to the target above
+    arrow.style.left = (Math.max(left, Math.min(right-26, bLeft + 24)))+'px';
+    arrow.style.top  = (bottom + 0)+'px';
+  } else if(arrowDir==='above'){
+    arrow.textContent = '▼';
+    arrow.style.left = (Math.max(left, Math.min(right-26, bLeft + 24)))+'px';
+    arrow.style.top  = (top - 36)+'px';
+  } else if(arrowDir==='right'){
+    arrow.textContent = '◀';
+    arrow.style.left = (right + 2)+'px';
+    arrow.style.top  = (Math.max(top, Math.min(bottom-26, bTop + 24)))+'px';
+  } else {
+    arrow.textContent = '▶';
+    arrow.style.left = (left - 36)+'px';
+    arrow.style.top  = (Math.max(top, Math.min(bottom-26, bTop + 24)))+'px';
+  }
+}
+// Reposition continuously while open in case the layout shifts (modal opens etc.).
+(function loop(){
+  if(tourState.active) positionTour();
+  tourState.raf = requestAnimationFrame(loop);
+})();
 
 async function drawExpandFrame(t,kps){
   var vidEl = getVideoElForPhase(expandKey);
