@@ -593,13 +593,16 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
   .ep-close{width:36px;height:36px;font-size:20px}
   .ep-undetected-notice{margin:8px 12px 0;flex-shrink:0;padding:10px 12px}
 
-  /* Body: flex column, canvas-side fixed, info-side scrolls */
+  /* Body: simple column flow on mobile. Previously pinned canvas-side at top
+     with info-side scrolling independently below, but on smaller phones the
+     canvas-side's natural height (canvas + 8-button scrub row + 9-button jump
+     nav, both wrapping) exceeded the available .ep-body height, which clipped
+     the info-side to 0px and hid the Frame examples button + measurements. */
   .ep-body{
     display:flex;flex-direction:column;
-    flex:1;min-height:0;overflow:hidden;
   }
   .ep-canvas-side{
-    flex-shrink:0;border-right:none;
+    border-right:none;
     border-bottom:1px solid var(--border);
     padding:8px 10px 10px;
     background:var(--panel);
@@ -655,11 +658,10 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
   .nav-phase-btns{margin-left:0;width:100%;flex-wrap:wrap}
   .nav-phase-btn{padding:6px 10px;font-size:10px;min-height:30px}
 
-  /* Info side: scrolls independently below the pinned canvas */
+  /* Info side: normal flow below the canvas now that .ep-body itself doesn't
+     constrain height. The parent .expand-panel handles overall scrolling. */
   .ep-info-side{
-    flex:1;min-height:0;overflow-y:auto;
     padding:12px;gap:12px;
-    -webkit-overflow-scrolling:touch;
   }
 }
 
