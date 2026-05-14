@@ -2109,43 +2109,11 @@ function isRelevant(phaseKey, metricKey){ var pm=PHASE_METRICS[phaseKey]; return
 var videoEls = {side: null, front: null, back: null};
 var uploadedFiles = {side: null, front: null, back: null};
 
-// Mobile devices (especially when juggling all three videos) can crawl during the
-// scan because three live video decoders + a hot pose-detection loop saturate memory
-// and trigger thermal throttling. To take pressure off, we release each previous
-// video's decoder buffer between scan stages, then re-attach from uploadedFiles[]
-// before the analyzeCard loop runs. Desktop is fast enough not to need this.
+// Mobile devices can be 10-50x slower than desktop for pose detection because TF.js
+// sometimes silently falls back to WASM (or even CPU) on mobile when it can't get a
+// reliable WebGL context. This flag is used in initModel to force WebGL on mobile,
+// and it's available for any other mobile-specific tweaks we add later.
 var IS_MOBILE_RUNNER = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
-function releaseVideoBuffer(vidEl){
-  if(!vidEl) return;
-  try { vidEl.pause(); } catch(e){}
-  try {
-    var oldSrc = vidEl.src;
-    vidEl.removeAttribute('src');
-    vidEl.load();
-    if(oldSrc && oldSrc.indexOf('blob:') === 0) URL.revokeObjectURL(oldSrc);
-  } catch(e){}
-}
-function reattachVideoBuffer(vidEl, file){
-  return new Promise(function(resolve){
-    if(!vidEl || !file){ resolve(); return; }
-    if(vidEl.src && vidEl.readyState >= 1){ resolve(); return; }
-    var done = false;
-    var finish = function(){
-      if(done) return; done = true;
-      vidEl.removeEventListener('loadedmetadata', finish);
-      vidEl.removeEventListener('loadeddata',     finish);
-      vidEl.removeEventListener('canplay',        finish);
-      clearTimeout(ft);
-      resolve();
-    };
-    vidEl.addEventListener('loadedmetadata', finish, {once:true});
-    vidEl.addEventListener('loadeddata',     finish, {once:true});
-    vidEl.addEventListener('canplay',        finish, {once:true});
-    var ft = setTimeout(finish, 8000);
-    vidEl.src = URL.createObjectURL(file);
-    vidEl.load();
-  });
-}
 
 let detector=null, phases={};
 let expandKey=null, epCurrentT=0, epAnalyzing=false;
@@ -2450,6 +2418,20 @@ async function initModel(){
   initAuth();
   try{
     await tf.ready();
+    // Mobile only: explicitly try to lock the WebGL backend. TF.js's auto-pick on
+    // mobile browsers sometimes silently lands on WASM (or even CPU) -- a 10-50x
+    // slowdown for pose detection. If WebGL really isn't available on this device,
+    // setBackend() throws or returns false and we leave whatever was auto-selected.
+    if(IS_MOBILE_RUNNER){
+      try {
+        var ok = await tf.setBackend('webgl');
+        if(ok === false) throw new Error('WebGL backend not registered');
+        await tf.ready();
+      } catch(e){
+        console.warn('[esfl] mobile WebGL force failed, falling back to', tf.getBackend(), '--', e && e.message);
+      }
+    }
+    console.log('[esfl] tf backend:', tf.getBackend(), '| mobile:', IS_MOBILE_RUNNER);
     detector=await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,{modelType:poseDetection.movenet.modelType.SINGLEPOSE_THUNDER});
     document.getElementById('loader').style.display='none';
   }catch(e){
@@ -2627,19 +2609,11 @@ async function autoScanAll(){
     if(ph && ph.detected){item.classList.add('found');tEl.textContent=ph.t.toFixed(2)+'s';}else{item.classList.add('not-found');tEl.textContent='manual';}
   });
 
-  // Mobile only: release the side video's decoder buffer now that we're done scanning it.
-  // Keeps memory pressure off so the front + back scans don't crawl. We'll re-attach
-  // before the analyzeCard loop and any user card interaction.
-  if(IS_MOBILE_RUNNER) releaseVideoBuffer(sideVid);
-
   // ---- STEP 2: Scan front video for L and R stance frames ----
   document.getElementById('scan-sub-text').textContent = 'Scanning front view for L and R mid-stance frames...';
   var frontBest = await scanBestStanceFrames(frontVid, 'front', 70, 85);
   applyStanceFrame('mid_front_l', frontBest.left);
   applyStanceFrame('mid_front_r', frontBest.right);
-
-  // Mobile only: same release pattern, this time for the front video.
-  if(IS_MOBILE_RUNNER) releaseVideoBuffer(frontVid);
 
   // ---- STEP 3: Scan back video for L and R stance frames ----
   document.getElementById('scan-sub-text').textContent = 'Scanning back view for L and R mid-stance frames...';
@@ -2674,14 +2648,6 @@ async function autoScanAll(){
     '<span class="ss-item '+(posesFound<15?'warn':'')+'">Side poses: <strong>'+posesFound+'/'+N+'</strong></span>'+
     '<span class="ss-item">Auto-detected: <strong>'+detected+'/9</strong></span>'+sexInfo;
   buildPhaseGroups();buildSummaryTable();
-
-  // Mobile only: re-attach the side + front videos before per-phase analysis since
-  // analyzeCard scrubs and re-runs pose detection on the chosen frame.
-  if(IS_MOBILE_RUNNER){
-    await reattachVideoBuffer(sideVid,  uploadedFiles.side);
-    await reattachVideoBuffer(frontVid, uploadedFiles.front);
-  }
-
   for(var di=0;di<PHASE_DEFS.length;di++){
     var dKey = PHASE_DEFS[di].key;
     if(phases[dKey] && phases[dKey].detected) await analyzeCard(dKey);
