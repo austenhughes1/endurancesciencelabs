@@ -856,8 +856,12 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
 #tour-overlay .tb-btn:hover{border-color:var(--cyan);color:var(--cyan)}
 #tour-overlay .tb-btn.primary{border-color:var(--cyan);background:var(--cyan);color:#0f2a24}
 #tour-overlay .tb-btn.primary:hover{background:#7ff0e0}
-#tour-overlay .tb-skip{font-size:11px;color:var(--muted);font-family:var(--mono);cursor:pointer;background:none;border:none;padding:0;margin-right:6px}
-#tour-overlay .tb-skip:hover{color:var(--muted2)}
+#tour-overlay .tb-header{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px}
+#tour-overlay .tb-header .tb-step{margin-bottom:0}
+#tour-overlay .tb-skip-tour{font-size:10px;font-weight:600;letter-spacing:.4px;color:var(--muted);font-family:var(--mono);cursor:pointer;background:transparent;border:1px solid var(--border2);padding:3px 8px;border-radius:6px;transition:all .15s;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:4px}
+#tour-overlay .tb-skip-tour:hover{color:var(--cyan);border-color:var(--cyan)}
+#tour-overlay .tb-skip{font-size:11px;color:var(--muted);font-family:var(--mono);cursor:pointer;background:none;border:none;padding:4px 6px;border-radius:6px;transition:color .15s}
+#tour-overlay .tb-skip:hover{color:var(--cyan)}
 @media(max-width:560px){
   #tour-overlay .tour-bubble{padding:14px 16px;width:min(340px,calc(100vw - 24px))}
   #tour-overlay .tb-title{font-size:15px}
@@ -1322,13 +1326,16 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
   <div class="tour-ring" id="tour-ring" style="display:none"></div>
   <div class="tour-arrow" id="tour-arrow" style="display:none">&#9660;</div>
   <div class="tour-bubble" id="tour-bubble">
-    <div class="tb-step" id="tb-step">Step 1 of 5</div>
+    <div class="tb-header">
+      <div class="tb-step" id="tb-step">Step 1 of 5</div>
+      <button class="tb-skip-tour" onclick="endTour(true)" title="Exit the walkthrough">Skip walkthrough &times;</button>
+    </div>
     <div class="tb-title" id="tb-title">Welcome</div>
     <div class="tb-desc"  id="tb-desc"></div>
     <div class="tb-actions">
       <div class="tb-dots" id="tb-dots"></div>
-      <button class="tb-skip" onclick="endTour(true)">Skip</button>
       <button class="tb-btn"  id="tb-back" onclick="tourBack()">Back</button>
+      <button class="tb-skip" onclick="tourNext()">Skip step</button>
       <button class="tb-btn primary" id="tb-next" onclick="tourNext()">Next &#8594;</button>
     </div>
   </div>
