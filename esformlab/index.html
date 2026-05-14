@@ -1128,8 +1128,8 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
 
     <!-- "Read this regardless" callout -->
     <div style="background:linear-gradient(135deg,rgba(0,229,200,.14),rgba(0,229,200,.04));border:1px solid rgba(0,229,200,.45);border-left:4px solid var(--cyan);border-radius:14px;padding:20px 22px;margin-top:8px;margin-bottom:14px">
-      <div style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--cyan);font-family:var(--mono);margin-bottom:8px">&#9670; Read this section &mdash; even if no issues were flagged</div>
-      <div style="font-size:14px;color:var(--text);line-height:1.8">Whether your analysis flagged a list of issues or showed a clean stride from every angle, this is where the report becomes useful. It is the lens for interpreting your numbers, the framework for separating signal from noise, and where you will figure out what to actually work on. Skip it and the rest of the report is just numbers without context.</div>
+      <div style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--cyan);font-family:var(--mono);margin-bottom:8px">&#9670; Optimize for these &mdash; even if no issues were flagged</div>
+      <div style="font-size:14px;color:var(--text);line-height:1.8">The four principles below are universal &mdash; every runner benefits from optimizing for them, regardless of which issues were flagged above, or whether any were flagged at all. Whether your analysis came back clean or flagged a long list, this section is the lens for interpreting your numbers, the framework for separating signal from noise, and where you will figure out what to actually work on. Skip it and the rest of the report is just numbers without context.</div>
     </div>
 
     <!-- General principles note -->
@@ -4969,7 +4969,7 @@ function downloadReport() {
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(accentR, accentG, accentB);
-  var readRegardless = doc.splitTextToSize('Read this section -- even if no issues were flagged. Whether your analysis flagged a list of issues or showed a clean stride from every angle, this is where the report becomes useful: the lens for interpreting your numbers, the framework for separating signal from noise, and where you will figure out what to actually work on.', contentW);
+  var readRegardless = doc.splitTextToSize('Optimize for these -- even if no issues were flagged. The four principles below are universal: every runner benefits from optimizing for them, regardless of which issues were flagged above, or whether any were flagged at all. Whether your analysis came back clean or flagged a long list, this section is the lens for interpreting your numbers, the framework for separating signal from noise, and where you will figure out what to actually work on.', contentW);
   doc.text(readRegardless, margins.left, y);
   y += readRegardless.length * 4 + 6;
 
@@ -6331,7 +6331,7 @@ function downloadComparisonPDF() {
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(accentR, accentG, accentB);
-  var cmpReadRegardless = doc.splitTextToSize('Read this section -- even if no issues were flagged. Whether your analysis flagged a list of issues or showed a clean stride from every angle, this is where the report becomes useful: the lens for interpreting your numbers, the framework for separating signal from noise, and where you will figure out what to actually work on.', contentW);
+  var cmpReadRegardless = doc.splitTextToSize('Optimize for these -- even if no issues were flagged. The four principles below are universal: every runner benefits from optimizing for them, regardless of which issues were flagged above, or whether any were flagged at all. Whether your analysis came back clean or flagged a long list, this section is the lens for interpreting your numbers, the framework for separating signal from noise, and where you will figure out what to actually work on.', contentW);
   doc.text(cmpReadRegardless, margins.left, y);
   y += cmpReadRegardless.length * 4 + 6;
 
