@@ -4067,20 +4067,20 @@ var REPORT_DATA = {
       notable: 'Your foot is landing well ahead of your hip at contact, which acts like a brake with every stride.',
       mild: 'Your foot is landing slightly ahead of your hip at contact. This is common but can increase braking forces over time.'
     },
-    whatThisMeans: 'Your foot is landing too far in front of your body at initial contact, often with a reaching pattern and a less vertical shin. This can result in a strong heel-first contact farther in front of the body than is ideal.',
+    whatThisMeans: 'Your foot is landing too far in front of your body at initial contact, often with a reaching pattern and a less vertical shin upon landing. This can result in a strong heel-first contact farther in front of the body than is ideal.',
     whyItMatters: 'Landing with the foot far ahead of the hip is linked to greater braking forces, higher knee demands, and a less energy-efficient stride. These higher loading patterns have been associated with several running injury profiles, though the relationship is not perfectly consistent across all studies.',
     whyItMattersRef: 'https://pubmed.ncbi.nlm.nih.gov/26538175/',
     possibleReasons: [
-      {text: 'Low cadence relative to speed -- not enough flight time between steps, often because the trailing leg is not generating enough vertical force at push-off to let the swing leg recover under the body before contact.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC6883353/'},
+      {text: 'Low cadence relative to speed -- not enough flight time between steps, often because the trailing leg is not generating enough vertical force at push-off to let the lead leg naturally land more underneath the body before contact.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC6883353/'},
       {text: 'Reaching forward from the hip or knee in terminal swing instead of letting the body travel over the foot, potentially due to not enough push-off from the trailing leg.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC4714754/'},
       {text: 'Running too upright, which increases the leg angle at contact.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC4714754/'},
       {text: 'Fatigue, downhill running, or pushing pace faster than is well controlled.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC10818105/'},
       {text: 'Measurement note: the selected foot-strike frame may be slightly before or after actual contact, or the side camera may not be perfectly perpendicular.', ref: ''}
     ],
     formCues: [
-      {text: 'Increase cadence. This is the most well-supported first cue for overstriding -- it usually shortens step length and reduces lower-body loading.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC10761631/'},
+      {text: 'Increase cadence by not "reaching" with the lead leg. This is the most well-supported first cue for overstriding -- it usually shortens step length and reduces lower-body loading.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC10761631/'},
       {text: 'Take shorter, quicker steps. Decreasing step length has been shown to reduce musculoskeletal loads and tibial strain.', ref: 'https://pubmed.ncbi.nlm.nih.gov/37488528/'},
-      {text: 'Land closer under you with a more vertical shin. A relatively vertical tibia at landing is tied to lower braking forces. This can be achieved by producing more vertical force with the trailing leg push-off, giving yourself more time in the air to get the leg back underneath you.', ref: 'https://pubmed.ncbi.nlm.nih.gov/26538175/'},
+      {text: 'Land closer underneath your body with a more vertical shin. A relatively vertical tibia at landing is tied to lower braking forces. This can be achieved by producing more vertical force with the trailing leg push-off, giving yourself more time in the air to get the leg back underneath you.', ref: 'https://pubmed.ncbi.nlm.nih.gov/26538175/'},
       {text: 'Run softer and quieter. Soft-landing cues can reduce impact-related forces and work well when paired with cadence feedback.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC10939780/'}
     ],
     confidence: 'This can be flagged with relatively high confidence when it repeats across multiple left and right foot strikes from the side view.'
@@ -4092,7 +4092,7 @@ var REPORT_DATA = {
       notable: 'Your hip is dropping significantly on the swing side during stance, which increases stress on the knee and IT band.',
       mild: 'Your hip is dropping slightly on the swing side during stance -- a sign that your glute medius could be working harder.'
     },
-    whatThisMeans: 'During stance, your pelvis tilts so the swing-leg side drops below horizontal instead of staying level. Measured as pelvic obliquity in degrees at the moment of mid-stance, compared separately for left-foot stance and right-foot stance. Healthy recreational runners typically sit in the 3\u20138\u00b0 range; values above ~10\u00b0 are consistent with the injured-group means in Bramah et al. 2018. 2D video carries roughly \u00b13\u20135\u00b0 of measurement uncertainty vs 3D motion capture, so a single value near a threshold is a prompt for further assessment, not a diagnosis. A left\u2013right asymmetry of 3\u00b0 or more is itself clinically meaningful, even when both sides are within the healthy range.',
+    whatThisMeans: 'During stance, your pelvis tilts so the swing-leg side drops below horizontal instead of staying level. Healthy recreational runners typically sit in the 3\u20138\u00b0 range; values above ~10\u00b0 are consistent with higher injury risk per Bramah et al. 2018. 2D video carries roughly \u00b13\u20135\u00b0 of measurement uncertainty vs 3D motion capture, so a single value near a threshold is a prompt for further assessment, not a diagnosis. A left\u2013right asymmetry of 3\u00b0 or more is itself clinically meaningful, even when both sides are within the healthy range.',
     whyItMatters: 'Greater pelvic drop and related hip mechanics are commonly discussed in runners with patellofemoral pain, ITBS, MTSS, and other lower-chain overload patterns (Bramah 2018: each 1\u00b0 increase raises the odds of injured classification by ~80%). Not every runner with pelvic drop will have symptoms, but persistent elevation with marked asymmetry warrants a closer look.',
     whyItMattersRef: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC3984468/',
     possibleReasons: [
@@ -4128,7 +4128,7 @@ var REPORT_DATA = {
       {text: 'Measurement note: wrong phase frame, side camera not level, or treadmill handrail or background affecting the vertical reference.', ref: ''}
     ],
     formCues: [
-      {text: 'Lean slightly from the ankles, not the waist. The evidence supports a modest forward lean, not a dramatic hinge.', ref: 'https://pubmed.ncbi.nlm.nih.gov/34537800/'},
+      {text: 'Lean slightly from the ankles, not the waist.', ref: 'https://pubmed.ncbi.nlm.nih.gov/34537800/'},
       {text: '"Fall" into the next step. This is a practical cue for creating a small whole-body lean without bending at the hips.', ref: ''},
       {text: 'Quicker feet under you. Increasing cadence can reduce the need to reach in front and may indirectly improve trunk posture.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC3022995/'},
       {text: 'Keep your ribcage stacked over your pelvis, then tip the whole unit slightly forward. Reduce the space between the front of your ribs and your pelvis in a natural way -- do not actively crunch or tuck. This helps distinguish a beneficial lean from bending at the waist.', ref: 'https://pubmed.ncbi.nlm.nih.gov/34537800/'}
@@ -4160,11 +4160,11 @@ var REPORT_DATA = {
     title: 'Arm angle too open',
     clear: 'No significant arm angle issues detected',
     summary: {
-      notable: 'Your elbows are dropping well below the ideal range during the swing phase, making the arm swing significantly less efficient.',
-      mild: 'Your elbows are dropping lower than ideal, which makes the arm swing less efficient and increases energy cost.'
+      notable: 'Your hands are dropping well below the ideal range during the swing phase, which makes the arm swing larger and less efficient, and may increase energy cost.',
+      mild: 'Your hands are dropping lower than ideal, which makes the arm swing larger and less efficient, and may increase energy cost.'
     },
-    whatThisMeans: 'Your elbows are more extended than expected during running, with hands dropping low -- possibly at or below waist level for much of the arm swing.',
-    whyItMatters: 'A very open elbow angle tends to produce a longer, lower arm lever -- which can drag the trunk forward, increase rotational drag through the torso, and reduce running economy. An ideal elbow angle is not precisely defined in the literature, but this is flagged when the elbows are well outside the typical range.',
+    whatThisMeans: 'Your elbows are more extended than expected during running, with hands dropping low and traveling in a wider arc than may be beneficial.',
+    whyItMatters: 'A very open elbow angle tends to produce a longer, lower arm lever -- which can drag the trunk forward, increase rotational drag through the torso, and reduce running economy. An ideal elbow angle is not precisely defined in the literature, but this is flagged when the elbow angles are well outside the typical range.',
     whyItMattersRef: 'https://pubmed.ncbi.nlm.nih.gov/31289110/',
     possibleReasons: [
       {text: 'Natural style -- this may not be a problem on its own for every runner.', ref: ''},
@@ -4173,7 +4173,7 @@ var REPORT_DATA = {
       {text: 'Measurement note: elbow partially occluded, or the phase captured at the end of swing.', ref: ''}
     ],
     formCues: [
-      {text: 'Keep your hands relaxed and let the swing originate at the shoulder, not the hands. Palms should face the torso (not the ground, not pointed away).', ref: 'https://pubmed.ncbi.nlm.nih.gov/31289110/'},
+      {text: 'Keep your hands relaxed and let the swing originate at the shoulder, not the hands. Think of driving forward from the elbow, rather than pumping the hands up and down. Palms should face the torso (not the ground, not pointed away).', ref: 'https://pubmed.ncbi.nlm.nih.gov/31289110/'},
       {text: 'Use the arms to support a strong, vertical push-off rather than to drag yourself forward with a wide, low swing. A more compact arm path keeps the trunk quiet so the legs can do the work of lengthening stride and adding flight time.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC4887549/'}
     ],
     confidence: 'Arm swing is very individual. The goal is an efficient, natural-feeling, compact arm carriage that supports a strong push-off rather than dragging you forward with a wide, low swing.'
@@ -4185,8 +4185,8 @@ var REPORT_DATA = {
       notable: 'Your knee is collapsing noticeably inward during stance, which increases stress on the ACL and patellofemoral joint.',
       mild: 'There is slight inward movement of the knee during stance. This is very common and often responds well to targeted exercises.'
     },
-    whatThisMeans: 'Your knee deviates medially from the hip\u2013ankle line during stance, measured as 2D Frontal Plane Projection Angle (FPPA) at peak knee flexion. Healthy recreational runners typically sit in the 2\u20136\u00b0 range; values above ~10\u00b0 are uncommon in uninjured cohorts. 2D video carries roughly \u00b13\u20135\u00b0 of measurement uncertainty vs 3D motion capture, and FPPA is a composite that captures hip adduction and pelvic drop alongside true knee motion -- so an elevated FPPA usually indicates upstream hip control issues, not isolated knee dysfunction. A left\u2013right asymmetry of 3\u00b0 or more is itself clinically meaningful even when both sides look "OK".',
-    whyItMatters: 'Visible medial knee collapse is associated with patellofemoral pain (PFP), iliotibial band syndrome (ITBS), and medial tibial stress syndrome in runners (Powers 2010; Bramah 2018). Most of that association runs through hip adduction and pelvic drop -- "knee valgus" in running is largely a downstream expression of proximal control. A runner with elevated FPPA should also look at their hip drop result, since strengthening hips/core is usually higher-yield than knee-focused work.',
+    whatThisMeans: 'Your knee collapses inward from the hip\u2013ankle line during stance (measured as 2D Frontal Plane Projection Angle (FPPA) at peak knee flexion). Healthy recreational runners typically sit in the 2\u20136\u00b0 range; values above ~10\u00b0 are uncommon in uninjured cohorts. 2D video carries roughly \u00b13\u20135\u00b0 of measurement uncertainty vs 3D motion capture, and FPPA is a composite that captures hip adduction and pelvic drop alongside true knee motion -- so an elevated FPPA usually indicates upstream hip control issues, not isolated knee dysfunction. A left\u2013right asymmetry of 3\u00b0 or more is itself clinically meaningful even when both sides look "OK".',
+    whyItMatters: 'Visible medial knee collapse is associated with patellofemoral pain (PFP), iliotibial band syndrome (ITBS), and medial tibial stress syndrome in runners (Powers 2010; Bramah 2018). Most of that association runs through hip adduction and pelvic drop -- "knee valgus" in running is largely a downstream expression of hip/glute control. A runner with elevated FPPA should also look at their hip drop result, since strengthening hips/core is usually higher-yield than knee-focused work.',
     whyItMattersRef: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC9818693/',
     possibleReasons: [
       {text: 'Hip strength and control may not be sufficient to keep the knee tracking straight.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC9818693/'},
@@ -4197,7 +4197,7 @@ var REPORT_DATA = {
     ],
     formCues: [
       {text: 'Strengthen the glute medius with side planks, banded clamshells, monster walks, and similar exercises.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC3201064/'},
-      {text: 'Slightly increase step width. Try running on a surface with a visible line and pay attention to where your feet land relative to it.', ref: 'https://pubmed.ncbi.nlm.nih.gov/40095991/'},
+      {text: 'Slightly increase step width. Try running on a surface with a visible line -- ideally, the feet should land to either side of the line, rather than both landing on top of it or crossing to the opposite side.', ref: 'https://pubmed.ncbi.nlm.nih.gov/40095991/'},
       {text: 'Slightly increase cadence. Increasing step rate reduces hip and knee loading and tends to reduce peak hip adduction.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC3022995/'}
     ],
     confidence: '2D running valgus can be noisy from stride to stride. Confirm with multiple frame analyses. You can further confirm by doing loaded or single-leg squats and checking if the knee tracks inward during the squat.'
@@ -4209,7 +4209,7 @@ var REPORT_DATA = {
       notable: 'Your arms are clearly crossing your body centerline, which creates rotational force your core has to counteract with every step.',
       mild: 'Your arms are occasionally crossing your body centerline, which creates slight rotational forces.'
     },
-    whatThisMeans: 'Your hand swings across the body past the midline (halfway between your shoulders) instead of staying on its own side. Measured per arm at peak forward swing in the front view: each arm is graded against how far past midline its wrist reaches, as a fraction of total shoulder width. Mild flag at &gt;5% (about 2cm past center for a typical adult); notable at &gt;15% (about 6cm past). When only one arm crosses, that asymmetry can reflect compensatory trunk rotation -- often pointing back to a lower-body issue (asymmetric hip drop, foot strike, or stride length) rather than an arm-swing problem in isolation.',
+    whatThisMeans: 'Your hand swings across the body past the midline (halfway between your shoulders) instead of staying on its own side. When only one arm crosses, that asymmetry can reflect compensatory trunk rotation -- often pointing back to a lower-body issue (asymmetric hip drop, foot strike, or stride length) rather than an arm-swing problem in isolation.',
     whyItMatters: 'Arm swing helps control whole-body angular momentum. Active arm swing can reduce torso rotation and metabolic cost. Excessive arm crossing is commonly described as a potential economy issue, though there is not strong evidence proving a specific amount of midline crossing is harmful in otherwise healthy runners. Asymmetric crossing (one arm only) is a stronger signal than symmetric crossing -- look at your hip drop and overstriding results too if one arm is flagged.',
     whyItMattersRef: 'https://pubmed.ncbi.nlm.nih.gov/25031455/',
     possibleReasons: [
@@ -4218,7 +4218,7 @@ var REPORT_DATA = {
       {text: 'Measurement note: front or back camera not centered, shoulder landmarks obscured, or the stride captured during a turn or head movement.', ref: ''}
     ],
     formCues: [
-      {text: 'Swing "cheek to hip" -- not across your zipper. The arm swing should focus on the path of the elbow, not the hands. An effective arm swing reduces torso rotation.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC11929735/'},
+      {text: 'Swing "chin to hip" -- not across your zipper. The arm swing should focus on the path of the elbow, not the hands. An effective arm swing reduces torso rotation.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC11929735/'},
       {text: 'Let the arms swing naturally -- do not force a big drive or suppress arm motion. The evidence favors preserving a natural arm swing rather than over-manipulating it.', ref: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC4887549/'},
       {text: 'Relax the shoulders and hands. This is more of a coaching heuristic than a directly trial-backed intervention, but it helps.', ref: ''}
     ],
