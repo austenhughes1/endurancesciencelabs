@@ -593,13 +593,15 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
   .ep-close{width:36px;height:36px;font-size:20px}
   .ep-undetected-notice{margin:8px 12px 0;flex-shrink:0;padding:10px 12px}
 
-  /* Body: simple column flow on mobile. Previously pinned canvas-side at top
-     with info-side scrolling independently below, but on smaller phones the
-     canvas-side's natural height (canvas + 8-button scrub row + 9-button jump
-     nav, both wrapping) exceeded the available .ep-body height, which clipped
-     the info-side to 0px and hid the Frame examples button + measurements. */
+  /* Body: simple column flow on mobile that sizes to its content. The base
+     .ep-body has flex:1 (so it fills the panel) plus display:grid; the base
+     .ep-info-side has overflow-y:auto. Together those made info-side a
+     0-height clipped scroll region on small phones once canvas-side hit its
+     natural height. Override all of that here so the whole .expand-panel
+     scrolls as one column and every child renders at its content height. */
   .ep-body{
-    display:flex;flex-direction:column;
+    display:block;
+    flex:0 0 auto;
   }
   .ep-canvas-side{
     border-right:none;
@@ -658,10 +660,13 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
   .nav-phase-btns{margin-left:0;width:100%;flex-wrap:wrap}
   .nav-phase-btn{padding:6px 10px;font-size:10px;min-height:30px}
 
-  /* Info side: normal flow below the canvas now that .ep-body itself doesn't
-     constrain height. The parent .expand-panel handles overall scrolling. */
+  /* Info side: normal flow below the canvas. We explicitly override the base
+     .ep-info-side rule's overflow-y:auto (which was previously trapping content
+     in a 0-height scroll region) so the parent .expand-panel can scroll the
+     whole panel as one column. */
   .ep-info-side{
     padding:12px;gap:12px;
+    overflow-y:visible;
   }
 }
 
@@ -2551,6 +2556,24 @@ async function autoScanAll(){
   if(IS_MOBILE_RUNNER && scanDetectorPromise && !scanDetector){
     try { await scanDetectorPromise; } catch(e){}
   }
+  // Mobile only: open a TF.js engine scope around the entire scan + analyze loop.
+  // estimatePoses creates intermediate WebGL tensors that the library auto-disposes
+  // *most* of -- but on mobile WebGL we've seen cumulative memory pressure across
+  // multiple scans in the same tab make each subsequent scan slower (closing the
+  // tab fully fixed it). Wrapping in a scope guarantees any tensors created inside
+  // are released when we endScope() at the end of autoScanAll. Model weights were
+  // allocated in initModel (outside this scope) so they are not affected.
+  var tfScopeOpen = false;
+  var tfMemPre = 0;
+  if(IS_MOBILE_RUNNER && typeof tf !== 'undefined' && tf.engine){
+    try {
+      tfMemPre = (tf.memory && tf.memory().numBytes) || 0;
+      tf.engine().startScope();
+      tfScopeOpen = true;
+    } catch(e){
+      console.warn('[esfl] could not open tf scope:', e && e.message);
+    }
+  }
   var sideVid = videoEls.side;
   var frontVid = videoEls.front;
   var backVid = videoEls.back;
@@ -2731,6 +2754,18 @@ async function autoScanAll(){
   for(var di=0;di<PHASE_DEFS.length;di++){
     var dKey = PHASE_DEFS[di].key;
     if(phases[dKey] && phases[dKey].detected) await analyzeCard(dKey);
+  }
+  // Mobile only: close the TF.js scope we opened at the start of the scan, which
+  // disposes all intermediate tensors created during scan + per-card analysis.
+  // Logs the before / after-cleanup tensor memory so we can confirm in console
+  // that the scope is doing what we want.
+  if(tfScopeOpen){
+    try {
+      var tfMemBefore = (tf.memory && tf.memory().numBytes) || 0;
+      tf.engine().endScope();
+      var tfMemAfter = (tf.memory && tf.memory().numBytes) || 0;
+      console.log('[esfl] tf memory bytes  pre-scan='+tfMemPre+'  end-of-scan='+tfMemBefore+'  after-cleanup='+tfMemAfter);
+    } catch(e){ console.warn('[esfl] tf scope close failed:', e && e.message); }
   }
   // First-time users: walk them through the review process. Skipped if previously dismissed.
   if(!isViewingSaved){
