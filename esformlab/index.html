@@ -109,6 +109,14 @@ nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:st
 .video-tip-item strong{color:var(--text)}
 .vt-icon{flex-shrink:0;margin-top:2px;font-size:12px}
 .video-tips-note{margin-top:14px;font-size:11px;color:var(--muted);line-height:1.7;border-top:1px solid var(--border);padding-top:12px;font-family:var(--mono)}
+
+/* Mobile-only performance notice on the upload screen. Hidden on desktop by default; */
+/* only shown when the viewport is narrow enough that the user is almost certainly on a phone. */
+.mobile-perf-notice{display:none;background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.3);border-left:4px solid var(--warn);border-radius:12px;margin:18px 22px 0;padding:14px 16px;gap:12px;align-items:flex-start}
+.mobile-perf-notice .mpn-icon{font-size:20px;line-height:1;color:var(--warn);font-weight:800;flex-shrink:0}
+.mobile-perf-notice .mpn-title{font-size:13px;font-weight:800;color:var(--warn);margin-bottom:4px}
+.mobile-perf-notice .mpn-body{font-size:12px;color:var(--muted2);line-height:1.7}
+@media(max-width:700px){.mobile-perf-notice{display:flex;margin:14px 16px 0}}
 .dz-required{font-size:9px;font-weight:700;color:var(--warn);font-family:var(--mono);letter-spacing:.5px;text-transform:uppercase;margin-top:8px}
 .dz-loaded-info{display:none;margin-top:10px;font-size:11px;color:var(--good);font-family:var(--mono);word-break:break-all}
 .drop-zone.loaded .dz-loaded-info{display:block}
@@ -935,6 +943,15 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
 <!-- Upload -->
 <div id="screen-upload">
   <div class="upload-card">
+
+    <!-- Mobile-only perf / accuracy notice. CSS hides this on desktop. -->
+    <div class="mobile-perf-notice" role="note" aria-label="Mobile performance notice">
+      <div class="mpn-icon">&#9888;</div>
+      <div>
+        <div class="mpn-title">Use a desktop for the most accurate analysis</div>
+        <div class="mpn-body">The pose detection runs in your browser. On mobile it is significantly slower (the full scan of all three videos can take several minutes) and somewhat less accurate. Mobile still works -- but a laptop or desktop gives a noticeably faster and better analysis.</div>
+      </div>
+    </div>
 
     <!-- Sex selector -->
     <div class="sex-select-section">
@@ -2092,6 +2109,44 @@ function isRelevant(phaseKey, metricKey){ var pm=PHASE_METRICS[phaseKey]; return
 var videoEls = {side: null, front: null, back: null};
 var uploadedFiles = {side: null, front: null, back: null};
 
+// Mobile devices (especially when juggling all three videos) can crawl during the
+// scan because three live video decoders + a hot pose-detection loop saturate memory
+// and trigger thermal throttling. To take pressure off, we release each previous
+// video's decoder buffer between scan stages, then re-attach from uploadedFiles[]
+// before the analyzeCard loop runs. Desktop is fast enough not to need this.
+var IS_MOBILE_RUNNER = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+function releaseVideoBuffer(vidEl){
+  if(!vidEl) return;
+  try { vidEl.pause(); } catch(e){}
+  try {
+    var oldSrc = vidEl.src;
+    vidEl.removeAttribute('src');
+    vidEl.load();
+    if(oldSrc && oldSrc.indexOf('blob:') === 0) URL.revokeObjectURL(oldSrc);
+  } catch(e){}
+}
+function reattachVideoBuffer(vidEl, file){
+  return new Promise(function(resolve){
+    if(!vidEl || !file){ resolve(); return; }
+    if(vidEl.src && vidEl.readyState >= 1){ resolve(); return; }
+    var done = false;
+    var finish = function(){
+      if(done) return; done = true;
+      vidEl.removeEventListener('loadedmetadata', finish);
+      vidEl.removeEventListener('loadeddata',     finish);
+      vidEl.removeEventListener('canplay',        finish);
+      clearTimeout(ft);
+      resolve();
+    };
+    vidEl.addEventListener('loadedmetadata', finish, {once:true});
+    vidEl.addEventListener('loadeddata',     finish, {once:true});
+    vidEl.addEventListener('canplay',        finish, {once:true});
+    var ft = setTimeout(finish, 8000);
+    vidEl.src = URL.createObjectURL(file);
+    vidEl.load();
+  });
+}
+
 let detector=null, phases={};
 let expandKey=null, epCurrentT=0, epAnalyzing=false;
 // Captured at openExpand() so we can label the auto-picked frame vs. whatever the reviewer moved to.
@@ -2572,11 +2627,19 @@ async function autoScanAll(){
     if(ph && ph.detected){item.classList.add('found');tEl.textContent=ph.t.toFixed(2)+'s';}else{item.classList.add('not-found');tEl.textContent='manual';}
   });
 
+  // Mobile only: release the side video's decoder buffer now that we're done scanning it.
+  // Keeps memory pressure off so the front + back scans don't crawl. We'll re-attach
+  // before the analyzeCard loop and any user card interaction.
+  if(IS_MOBILE_RUNNER) releaseVideoBuffer(sideVid);
+
   // ---- STEP 2: Scan front video for L and R stance frames ----
   document.getElementById('scan-sub-text').textContent = 'Scanning front view for L and R mid-stance frames...';
   var frontBest = await scanBestStanceFrames(frontVid, 'front', 70, 85);
   applyStanceFrame('mid_front_l', frontBest.left);
   applyStanceFrame('mid_front_r', frontBest.right);
+
+  // Mobile only: same release pattern, this time for the front video.
+  if(IS_MOBILE_RUNNER) releaseVideoBuffer(frontVid);
 
   // ---- STEP 3: Scan back video for L and R stance frames ----
   document.getElementById('scan-sub-text').textContent = 'Scanning back view for L and R mid-stance frames...';
@@ -2611,6 +2674,14 @@ async function autoScanAll(){
     '<span class="ss-item '+(posesFound<15?'warn':'')+'">Side poses: <strong>'+posesFound+'/'+N+'</strong></span>'+
     '<span class="ss-item">Auto-detected: <strong>'+detected+'/9</strong></span>'+sexInfo;
   buildPhaseGroups();buildSummaryTable();
+
+  // Mobile only: re-attach the side + front videos before per-phase analysis since
+  // analyzeCard scrubs and re-runs pose detection on the chosen frame.
+  if(IS_MOBILE_RUNNER){
+    await reattachVideoBuffer(sideVid,  uploadedFiles.side);
+    await reattachVideoBuffer(frontVid, uploadedFiles.front);
+  }
+
   for(var di=0;di<PHASE_DEFS.length;di++){
     var dKey = PHASE_DEFS[di].key;
     if(phases[dKey] && phases[dKey].detected) await analyzeCard(dKey);
