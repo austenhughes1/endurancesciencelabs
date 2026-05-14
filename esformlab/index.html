@@ -276,6 +276,11 @@ nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:st
   display:none;align-items:center;justify-content:space-between;gap:20px;
 }
 #complete-analysis-bar.show{display:flex}
+/* Hide the pinned Complete-analysis bar whenever the frame inspector overlay is open.
+   Without this, on mobile (where the bar is multi-row) it blocks the bottom of the
+   expand panel; on desktop it's just a small visual overlap. Class is toggled from
+   openExpand / closeExpand. */
+body.expand-open #complete-analysis-bar{display:none !important}
 .ca-left{}
 .ca-title{font-size:15px;font-weight:700;color:var(--text)}
 .ca-sub{font-size:12px;color:var(--muted2);margin-top:2px;font-family:var(--mono)}
@@ -3140,6 +3145,7 @@ function openExpand(key){
   epPoseFreshAt = ph.t || 0;
   var vidEl = getVideoElForPhase(key);
   document.getElementById('expand-overlay').classList.add('open');
+  document.body.classList.add('expand-open');
   var isUndet=!ph.detected||!ph.kps;
   document.getElementById('ep-hdr').className='ep-hdr'+(isUndet?' undetected':'');
   document.getElementById('ep-num').textContent=idx+1;document.getElementById('ep-name').textContent=ph.label;document.getElementById('ep-desc').textContent=ph.desc;
@@ -3339,7 +3345,7 @@ async function labelCorrectFrame(){
     btnG.disabled = false;
   }
 }
-function closeExpand(){document.getElementById('expand-overlay').classList.remove('open');document.querySelectorAll('.phase-card').forEach(function(c){c.classList.remove('dimmed');});expandKey=null;document.removeEventListener('keydown',onExpandKey);}
+function closeExpand(){document.getElementById('expand-overlay').classList.remove('open');document.body.classList.remove('expand-open');document.querySelectorAll('.phase-card').forEach(function(c){c.classList.remove('dimmed');});expandKey=null;document.removeEventListener('keydown',onExpandKey);}
 function onExpandKey(e){if(e.key==='Escape'){ if(document.getElementById('examples-overlay').classList.contains('open')){ closeExamples(); return; } if(document.getElementById('tour-overlay').classList.contains('open')) return; closeExpand(); }}
 document.getElementById('expand-overlay').addEventListener('click',function(e){if(e.target===document.getElementById('expand-overlay'))closeExpand();});
 
