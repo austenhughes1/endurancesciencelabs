@@ -581,7 +581,14 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
   .expand-panel{
     border-radius:0;width:100%;max-width:none;
     height:100vh;height:100dvh;max-height:none;
-    display:flex;flex-direction:column;overflow:hidden;
+    display:flex;flex-direction:column;
+    /* overflow-y:auto so the whole panel scrolls as one continuous column.
+       The previous overflow:hidden assumed canvas-side stayed pinned and
+       info-side scrolled internally -- that design is gone now and the
+       hidden override was clipping the Frame examples button, phase guide,
+       and measurements section entirely below the canvas. */
+    overflow-y:auto;overflow-x:hidden;
+    -webkit-overflow-scrolling:touch;
   }
 
   /* Header: fixed at top, no scroll */
