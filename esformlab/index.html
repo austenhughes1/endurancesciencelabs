@@ -1074,7 +1074,7 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
       </div>
     </div>
 
-    <button class="instr-help-btn" onclick="startTour(true)">&#9432; Show me how this works (guided tour)</button>
+    <button class="instr-help-btn" onclick="startTour()">&#9432; Show me how this works (guided tour)</button>
 
     <div class="instr-callout">
       <div class="instr-callout-icon">&#9432;</div>
@@ -2610,7 +2610,7 @@ async function autoScanAll(){
   }
   // First-time users: walk them through the review process. Skipped if previously dismissed.
   if(!isViewingSaved){
-    setTimeout(function(){ startTour(false); }, 600);
+    setTimeout(function(){ startTour(); }, 600);
   }
 }
 
@@ -3301,13 +3301,12 @@ function closeExamples(){
 // We compute the target's bounding rect on each show so a `clip-path` cuts a hole
 // in the dark mask and we can position a pulsing ring + tooltip beside it.
 var tourState = { active:false, idx:0, steps:null, raf:null };
-var TOUR_SEEN_KEY = 'esfl-tour-seen-v1';
 
 function getTourSteps(){
   return [
     {
       title: 'Review your frames before you finish',
-      desc: 'We picked a frame for each phase of your stride. Your job is to <strong>open every card</strong>, confirm the right moment was caught, and re-analyze if not. Three quick tools make that easy.',
+      desc: 'We picked a frame for each phase of your stride. Your job is to <strong>open every card</strong>, confirm the right moment was caught, and re-analyze if not. A few quick tools make that easy.',
       target: function(){ return document.querySelector('#phase-groups .phase-card'); },
       align: 'auto'
     },
@@ -3322,14 +3321,25 @@ function getTourSteps(){
       title: 'Scrub or step to a better frame',
       desc: 'Use the <strong>scrubber</strong> or the <strong>-1f / +1f</strong> step buttons to nudge frames. Press <strong>&#8635; Analyze</strong> after moving to get fresh angles for that exact frame.',
       setup: function(){ ensureTourCardOpen(); },
-      target: function(){ return document.querySelector('#expand-overlay .scrub-main'); },
+      // Multi-target: highlight the scrubber row AND the step-button row together.
+      target: function(){ return [
+        document.querySelector('#expand-overlay .scrub-main'),
+        document.querySelector('#expand-overlay .step-btns')
+      ]; },
       align: 'below'
     },
     {
       title: 'Not sure which frame is correct? Check the examples',
-      desc: 'This is a <strong>new helper</strong>. Click it inside any card to see annotated correct vs. wrong frames for that phase — with specific guidance on what to scrub to.',
+      desc: 'Click this button inside any card to see annotated correct vs. wrong frames for that phase — with specific guidance on what to scrub to.',
       setup: function(){ ensureTourCardOpen(); },
       target: function(){ return document.getElementById('ep-examples-btn'); },
+      align: 'auto'
+    },
+    {
+      title: 'Click Analyze as many times as needed',
+      desc: 'Each click re-analyzes the current frame. Pose detection has some randomness, so a second or third pass on the same frame can sometimes bump detection quality from <em>medium</em> to <em>strong</em>. If multiple re-analyses still don’t improve it, use the scrubber or the examples helper to pick a clearer frame.',
+      setup: function(){ ensureTourCardOpen(); },
+      target: function(){ return document.getElementById('ep-re-btn'); },
       align: 'auto'
     },
     {
@@ -3344,8 +3354,18 @@ function getTourSteps(){
       desc: 'Once each card matches its description, hit <strong>Complete analysis</strong> at the bottom. We’ll generate the full report with coaching cues.',
       setup: function(){
         if(document.getElementById('expand-overlay').classList.contains('open')) closeExpand();
-        var bar=document.getElementById('complete-analysis-bar');
-        if(bar) bar.scrollIntoView({behavior:'smooth',block:'center'});
+        // Force-show the bar so the highlight lands on the actual button even before
+        // the user has finished reviewing every card. endTour / step-back will undo it.
+        var bar = document.getElementById('complete-analysis-bar');
+        if(bar && !bar.classList.contains('show')){
+          bar.classList.add('show');
+          tourState.forcedBarShow = true;
+        }
+        // Give layout a beat to settle (display:none -> flex), then scroll into view.
+        setTimeout(function(){
+          var b2 = document.getElementById('complete-analysis-bar');
+          if(b2){ try{ b2.scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){} }
+        }, 60);
       },
       target: function(){
         var b = document.getElementById('complete-analysis-bar');
@@ -3366,14 +3386,12 @@ function ensureTourCardOpen(){
   if(key && phases[key]) openExpand(key);
 }
 
-function startTour(force){
+function startTour(){
   if(tourState.active) return;
-  if(!force){
-    try { if(localStorage.getItem(TOUR_SEEN_KEY)==='1') return; } catch(e){}
-  }
   tourState.steps = getTourSteps();
   tourState.idx = 0;
   tourState.active = true;
+  tourState.forcedBarShow = false;
   document.getElementById('tour-overlay').classList.add('open');
   document.addEventListener('keydown', onTourKey);
   window.addEventListener('resize', positionTour, {passive:true});
@@ -3387,8 +3405,14 @@ function endTour(skipped){
   window.removeEventListener('resize', positionTour);
   window.removeEventListener('scroll', positionTour);
   if(tourState.raf){ cancelAnimationFrame(tourState.raf); tourState.raf=null; }
+  // If we force-showed the complete-analysis bar for the last step, hide it again so
+  // the user doesn't see a stale 'Complete analysis' bar while they're still reviewing.
+  if(tourState.forcedBarShow){
+    var bar = document.getElementById('complete-analysis-bar');
+    if(bar) bar.classList.remove('show');
+    tourState.forcedBarShow = false;
+  }
   // Leave whatever the user has open as-is; don't force-close their card.
-  try { localStorage.setItem(TOUR_SEEN_KEY,'1'); } catch(e){}
 }
 function onTourKey(e){
   if(e.key==='Escape'){ endTour(true); return; }
@@ -3405,6 +3429,13 @@ function tourBack(){
   showTourStep(tourState.idx-1);
 }
 function showTourStep(i){
+  // If the previous step force-showed the complete-analysis bar but we're navigating
+  // somewhere that isn't the last step, hide it again before running the new step.
+  if(tourState.forcedBarShow && i !== tourState.steps.length-1){
+    var bar0 = document.getElementById('complete-analysis-bar');
+    if(bar0) bar0.classList.remove('show');
+    tourState.forcedBarShow = false;
+  }
   tourState.idx = i;
   var step = tourState.steps[i];
   if(step.setup){ try{ step.setup(); }catch(e){} }
@@ -3441,7 +3472,30 @@ function positionTour(){
     mL.style.width='0px'; mL.style.height='0px';
     mR.style.width='0px'; mR.style.height='0px';
   }
-  if(!tgt || !tgt.getBoundingClientRect){
+  // Compute the spotlight rect. A step's target() can return either a single Element
+  // or an Array of Elements; for the array case we union the bounding rects so one
+  // spotlight covers all of them (e.g. scrubber row + step-button row together).
+  var r = null;
+  var firstTgt = null;
+  if(Array.isArray(tgt)){
+    for(var _ti=0; _ti<tgt.length; _ti++){
+      var _el = tgt[_ti];
+      if(!_el || !_el.getBoundingClientRect) continue;
+      var _er = _el.getBoundingClientRect();
+      if(!firstTgt) firstTgt = _el;
+      if(!r){ r = {top:_er.top, left:_er.left, right:_er.right, bottom:_er.bottom}; }
+      else {
+        if(_er.top    < r.top)    r.top    = _er.top;
+        if(_er.left   < r.left)   r.left   = _er.left;
+        if(_er.right  > r.right)  r.right  = _er.right;
+        if(_er.bottom > r.bottom) r.bottom = _er.bottom;
+      }
+    }
+  } else if(tgt && tgt.getBoundingClientRect){
+    r = tgt.getBoundingClientRect();
+    firstTgt = tgt;
+  }
+  if(!r){
     // Fallback: full dark, no spotlight; center the bubble.
     setMaskFull();
     ring.style.display = 'none';
@@ -3450,10 +3504,9 @@ function positionTour(){
     bubble.style.top  = Math.max(12,(vh - bubble.offsetHeight)/2)+'px';
     return;
   }
-  // Make sure the target is on-screen.
-  var r = tgt.getBoundingClientRect();
+  // Make sure the target is on-screen. Use the first element to drive scrollIntoView.
   if(r.top < 60 || r.bottom > vh - 60){
-    try{ tgt.scrollIntoView({behavior:'smooth', block:'center'}); }catch(e){}
+    try{ firstTgt.scrollIntoView({behavior:'smooth', block:'center'}); }catch(e){}
     setTimeout(positionTour, 280);
     return;
   }
