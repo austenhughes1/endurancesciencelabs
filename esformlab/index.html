@@ -968,7 +968,7 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
       <div class="mpn-icon">&#9888;</div>
       <div>
         <div class="mpn-title">Use a desktop for the most accurate analysis</div>
-        <div class="mpn-body">The pose detection runs in your browser. On mobile it is significantly slower (the full scan of all three videos can take several minutes) and somewhat less accurate. Mobile still works -- but a laptop or desktop gives a noticeably faster and better analysis.</div>
+        <div class="mpn-body">The pose detection runs in your browser. On mobile it is significantly slower (the full scan of all three videos can take several minutes) and somewhat less accurate. Mobile still works -- but a laptop or desktop gives a noticeably faster and better analysis. Also: if you've just run an analysis, the phone may be warm and the next scan will start slowed-down -- let the device sit for a few minutes between runs.</div>
       </div>
     </div>
 
@@ -2642,6 +2642,11 @@ async function autoScanAll(){
   var sideScanDet = scanDetector || detector;
 
   for(var i=0;i<N;i++){
+    // Mobile only: every 10 frames, yield to the browser so it can paint,
+    // collect garbage, and let the SoC breathe between inference bursts.
+    if(IS_MOBILE_RUNNER && i>0 && (i%10)===0){
+      await new Promise(function(r){ setTimeout(r, 60); });
+    }
     var t=Math.min((i+0.5)*(sideDur/N),sideDur-0.05);
     document.getElementById('scan-bar').style.width=Math.round(i/N*70)+'%'; // 0-70% for side
     document.getElementById('scan-step').textContent='Side view: scanning frame '+(i+1)+' of '+N+' at '+t.toFixed(2)+'s';
@@ -2707,11 +2712,26 @@ async function autoScanAll(){
     if(ph && ph.detected){item.classList.add('found');tEl.textContent=ph.t.toFixed(2)+'s';}else{item.classList.add('not-found');tEl.textContent='manual';}
   });
 
+  // Mobile only: brief cool-down between scan stages so the SoC can shed
+  // some heat before the next burst of inference. Without this, three back-
+  // to-back stages of pose estimation thermally throttle the chip and slow
+  // the rest of the scan (and any subsequent scan in the same session).
+  if(IS_MOBILE_RUNNER){
+    document.getElementById('scan-sub-text').textContent = 'Brief cool-down between scans...';
+    await new Promise(function(r){ setTimeout(r, 1500); });
+  }
+
   // ---- STEP 2: Scan front video for L and R stance frames ----
   document.getElementById('scan-sub-text').textContent = 'Scanning front view for L and R mid-stance frames...';
   var frontBest = await scanBestStanceFrames(frontVid, 'front', 70, 85);
   applyStanceFrame('mid_front_l', frontBest.left);
   applyStanceFrame('mid_front_r', frontBest.right);
+
+  // Same cool-down between front and back scans on mobile.
+  if(IS_MOBILE_RUNNER){
+    document.getElementById('scan-sub-text').textContent = 'Brief cool-down between scans...';
+    await new Promise(function(r){ setTimeout(r, 1500); });
+  }
 
   // ---- STEP 3: Scan back video for L and R stance frames ----
   document.getElementById('scan-sub-text').textContent = 'Scanning back view for L and R mid-stance frames...';
@@ -2802,6 +2822,11 @@ async function scanBestStanceFrames(vidEl, viewLabel, barStart, barEnd) {
   var frames = [];
 
   for(var i=0;i<NFRAMES;i++){
+    // Mobile only: yield to the browser every 10 frames -- same reason as
+    // the side-scan loop. With NFRAMES=25 on mobile this fires twice.
+    if(IS_MOBILE_RUNNER && i>0 && (i%10)===0){
+      await new Promise(function(r){ setTimeout(r, 60); });
+    }
     var t = Math.min((i+0.5)*(dur/NFRAMES), dur-0.05);
     var pct = barStart + (i/NFRAMES)*(barEnd-barStart);
     document.getElementById('scan-bar').style.width = Math.round(pct)+'%';
