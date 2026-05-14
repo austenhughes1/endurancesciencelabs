@@ -2116,6 +2116,13 @@ var uploadedFiles = {side: null, front: null, back: null};
 var IS_MOBILE_RUNNER = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
 
 let detector=null, phases={};
+// Mobile only: Lightning is a smaller / faster MoveNet variant used for the scan
+// pass (finding which frame is foot-strike / toe-off / mid-stance). Per-frame
+// analysis (analyzeCard, epReanalyze) keeps using Thunder via `detector`, so the
+// keypoint quality users see in the report is unchanged -- only the scan that
+// picks which frame to analyze runs on the lighter model.
+let scanDetector = null;
+let scanDetectorPromise = null;
 let expandKey=null, epCurrentT=0, epAnalyzing=false;
 // Captured at openExpand() so we can label the auto-picked frame vs. whatever the reviewer moved to.
 var epAutoT = 0, epAutoKps = null, epAutoMetrics = null;
@@ -2432,6 +2439,22 @@ async function initModel(){
       }
     }
     console.log('[esfl] tf backend:', tf.getBackend(), '| mobile:', IS_MOBILE_RUNNER);
+    // Mobile only: kick off the Lightning load in parallel with Thunder. The user can
+    // already start uploading videos while Thunder finishes loading; autoScanAll will
+    // await scanDetectorPromise before the scan begins, so by the time we actually need
+    // Lightning it's almost certainly ready.
+    if(IS_MOBILE_RUNNER){
+      scanDetectorPromise = poseDetection.createDetector(
+        poseDetection.SupportedModels.MoveNet,
+        {modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING}
+      );
+      scanDetectorPromise.then(function(d){
+        scanDetector = d;
+        console.log('[esfl] Lightning scan-pass detector ready');
+      }).catch(function(e){
+        console.warn('[esfl] Lightning scan-pass model failed to load; scan will use Thunder:', e && e.message);
+      });
+    }
     detector=await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,{modelType:poseDetection.movenet.modelType.SINGLEPOSE_THUNDER});
     document.getElementById('loader').style.display='none';
   }catch(e){
@@ -2512,6 +2535,12 @@ function startAllVideos() {
 
 // -- Auto scan all 3 videos sequentially --
 async function autoScanAll(){
+  // Mobile only: make sure the Lightning scan detector is ready before we start the
+  // (heavy) loop. We started it in parallel with Thunder at init, so this usually
+  // resolves immediately; only matters if the user uploaded videos blazingly fast.
+  if(IS_MOBILE_RUNNER && scanDetectorPromise && !scanDetector){
+    try { await scanDetectorPromise; } catch(e){}
+  }
   var sideVid = videoEls.side;
   var frontVid = videoEls.front;
   var backVid = videoEls.back;
@@ -2539,9 +2568,14 @@ async function autoScanAll(){
 
   // ---- STEP 1: Scan side video (7 side phases) ----
   document.getElementById('scan-sub-text').textContent = 'Scanning side view for 7 gait phases...';
-  var N=150, samples=[];
+  // Mobile gets half as many sample frames -- still ~7.5fps on a 10s clip, which is
+  // plenty to find phase extrema, and it linearly reduces inference work + thermal load.
+  var N = IS_MOBILE_RUNNER ? 75 : 150, samples=[];
   var sc=document.getElementById('scan-canvas'), sctx=sc.getContext('2d');
   var posesFound=0;
+  // Mobile uses Lightning for the scan pass (~3-4x faster per inference). Falls back
+  // to Thunder if Lightning didn't load. Desktop always uses Thunder via `detector`.
+  var sideScanDet = scanDetector || detector;
 
   for(var i=0;i<N;i++){
     var t=Math.min((i+0.5)*(sideDur/N),sideDur-0.05);
@@ -2552,8 +2586,8 @@ async function autoScanAll(){
     sc.width=Math.min(400,sideVid.videoWidth||400);sc.height=Math.min(225,sideVid.videoHeight||225);
     if(sideVid.videoWidth>0)sc.height=Math.round(sc.width*sideVid.videoHeight/sideVid.videoWidth);
     try{sctx.drawImage(sideVid,0,0,sc.width,sc.height);}catch(e){}
-    var poses=null;try{poses=await detector.estimatePoses(sc);}catch(e){}
-    if(!poses||!poses.length){try{poses=await detector.estimatePoses(sideVid);}catch(e){}}
+    var poses=null;try{poses=await sideScanDet.estimatePoses(sc);}catch(e){}
+    if(!poses||!poses.length){try{poses=await sideScanDet.estimatePoses(sideVid);}catch(e){}}
     if(!poses||!poses.length)continue;
     posesFound++;
     if(posesFound===1 && !isSideView(poses[0].keypoints)){
@@ -2667,9 +2701,13 @@ async function autoScanAll(){
 async function scanBestStanceFrames(vidEl, viewLabel, barStart, barEnd) {
   var dur = vidEl.duration;
   if(!isFinite(dur)||isNaN(dur)||dur<=0) dur=30;
-  var NFRAMES = 50;
+  // Mobile gets half as many sample frames here too (25 vs 50). At a typical 180 spm
+  // cadence + ~10s clip, 25 evenly-spaced samples still land near several stance
+  // moments per side, and the scoring function picks the best of them.
+  var NFRAMES = IS_MOBILE_RUNNER ? 25 : 50;
   var sc = document.getElementById('scan-canvas');
   var sctx = sc.getContext('2d');
+  var fbScanDet = scanDetector || detector;
 
   // Collect per-frame stance scores for L and R separately, then pick the best LOCAL peak per side.
   // This surfaces the best stance moment from any stride instead of biasing toward one global winner.
@@ -2685,8 +2723,8 @@ async function scanBestStanceFrames(vidEl, viewLabel, barStart, barEnd) {
     sc.width=Math.min(400,vidEl.videoWidth||400);sc.height=Math.min(225,vidEl.videoHeight||225);
     if(vidEl.videoWidth>0)sc.height=Math.round(sc.width*vidEl.videoHeight/vidEl.videoWidth);
     try{sctx.drawImage(vidEl,0,0,sc.width,sc.height);}catch(e){}
-    var poses=null;try{poses=await detector.estimatePoses(sc);}catch(e){}
-    if(!poses||!poses.length){try{poses=await detector.estimatePoses(vidEl);}catch(e){}}
+    var poses=null;try{poses=await fbScanDet.estimatePoses(sc);}catch(e){}
+    if(!poses||!poses.length){try{poses=await fbScanDet.estimatePoses(vidEl);}catch(e){}}
     if(!poses||!poses.length){ frames.push(null); continue; }
     var kps = poses[0].keypoints;
     drawMiniSkeleton(sctx,kps,sc.width/(vidEl.videoWidth||sc.width),sc.height/(vidEl.videoHeight||sc.height));
