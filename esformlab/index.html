@@ -5836,6 +5836,17 @@ function seekTo(t, vidEl2){
 
 // Controls
 async function rescan(){
+  // Mobile only: a second run in the same tab is dramatically slower than the
+  // first because of cumulative GPU / decoder / engine state that we can't fully
+  // clean up in-place. We've tried tf.engine().endScope and it doesn't recover
+  // performance. Easiest reliable reset is to reload the tab -- the user will
+  // need to re-upload videos, but the resulting scan stays fast.
+  if(IS_MOBILE_RUNNER){
+    if(confirm('Re-scan requires reloading the page on mobile so the scan stays fast. You will need to re-upload your videos. Continue?')){
+      window.location.reload();
+    }
+    return;
+  }
   closeExpand();phases={};
   document.getElementById('screen-phases').style.display='none';
   document.getElementById('scan-bar').style.width='0%';
@@ -5963,6 +5974,14 @@ function startNewSession() {
   if (!isViewingSaved) {
     var hasAnalysis = PHASE_DEFS.some(function(d) { return phases[d.key] && phases[d.key].metrics; });
     if (hasAnalysis && !confirm('Start a new session? This will discard your current analysis if it has not been saved.')) return;
+  }
+  // Mobile only: hard-reload instead of in-place reset. The previous scan leaves
+  // accumulated TF.js / WebGL / decoder state that dramatically slows subsequent
+  // scans -- a behavior the user can already reproduce manually by NOT reloading.
+  // location.reload() restores a clean slate.
+  if (IS_MOBILE_RUNNER) {
+    window.location.reload();
+    return;
   }
   isViewingSaved = false;
   lastIssues = null;
