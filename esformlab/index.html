@@ -3505,10 +3505,21 @@ function positionTour(){
     return;
   }
   // Make sure the target is on-screen. Use the first element to drive scrollIntoView.
+  // Skip the guard if the target lives inside a position:fixed/sticky ancestor -- those
+  // elements are already pinned in the viewport (e.g. the bottom 'Complete analysis'
+  // bar) and scrollIntoView won't move them, which would loop forever.
   if(r.top < 60 || r.bottom > vh - 60){
-    try{ firstTgt.scrollIntoView({behavior:'smooth', block:'center'}); }catch(e){}
-    setTimeout(positionTour, 280);
-    return;
+    var anc = firstTgt, pinned = false;
+    while(anc && anc !== document.body){
+      var pos = getComputedStyle(anc).position;
+      if(pos === 'fixed' || pos === 'sticky'){ pinned = true; break; }
+      anc = anc.parentElement;
+    }
+    if(!pinned){
+      try{ firstTgt.scrollIntoView({behavior:'smooth', block:'center'}); }catch(e){}
+      setTimeout(positionTour, 280);
+      return;
+    }
   }
   var top    = Math.max(0,  r.top    - pad);
   var left   = Math.max(0,  r.left   - pad);
