@@ -795,7 +795,7 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
 .feedback-modal-status{font-size:11px;font-family:var(--mono);margin-right:auto}
 
 /* ---------- Frame examples modal (correct vs wrong screenshots per phase) ---------- */
-.ep-examples-btn{display:inline-flex;align-items:center;gap:8px;width:100%;justify-content:center;margin:14px 0 0;padding:13px 18px;font-size:13px;font-weight:800;font-family:var(--ui);letter-spacing:.2px;border-radius:10px;border:1px solid rgba(0,229,200,.5);background:linear-gradient(135deg,rgba(0,229,200,.18),rgba(0,229,200,.06));color:var(--cyan);cursor:pointer;transition:all .18s;box-shadow:0 0 0 0 rgba(0,229,200,.0)}
+.ep-examples-btn{display:inline-flex;align-items:center;gap:8px;width:100%;justify-content:center;padding:13px 18px;font-size:13px;font-weight:800;font-family:var(--ui);letter-spacing:.2px;border-radius:10px;border:1px solid rgba(0,229,200,.5);background:linear-gradient(135deg,rgba(0,229,200,.18),rgba(0,229,200,.06));color:var(--cyan);cursor:pointer;transition:all .18s;box-shadow:0 0 0 0 rgba(0,229,200,.0)}
 .ep-examples-btn:hover{border-color:var(--cyan);background:linear-gradient(135deg,rgba(0,229,200,.28),rgba(0,229,200,.1));box-shadow:0 0 0 4px rgba(0,229,200,.12);transform:translateY(-1px)}
 .ep-examples-btn .eb-ico{width:18px;height:18px;border-radius:50%;background:var(--cyan);color:#0f2a24;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:900}
 
@@ -1282,6 +1282,13 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
         <!-- Detection quality — large and prominent, first thing you see -->
         <div id="ep-quality-card" style="display:none"></div>
 
+        <!-- Frame examples helper (kept high up so it's visible on mobile
+             without scrolling into the phase-guide block below) -->
+        <button class="ep-examples-btn" id="ep-examples-btn" onclick="openExamples()">
+          <span class="eb-ico">?</span>
+          <span>Show example frames for this phase</span>
+        </button>
+
         <!-- Skeleton overlay key -->
         <div style="background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center">
           <span style="font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);font-family:var(--mono)">Overlay key</span>
@@ -1298,10 +1305,6 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
           <div class="pi-desc"  id="ep-guide-desc"></div>
           <div class="pi-checks" id="ep-guide-checks"></div>
           <div class="pi-tip"   id="ep-guide-tip"></div>
-          <button class="ep-examples-btn" id="ep-examples-btn" onclick="openExamples()">
-            <span class="eb-ico">?</span>
-            <span>Show correct vs. wrong example frames</span>
-          </button>
         </div>
 
         <!-- Measurements with bell curve visualizations -->
@@ -2545,6 +2548,30 @@ async function autoScanAll(){
   var frontVid = videoEls.front;
   var backVid = videoEls.back;
 
+  // Detect uploads that didn't actually decode. videoWidth === 0 after the metadata
+  // event means the browser claimed the file loaded but couldn't read pixels from it
+  // (common on Android Chrome with HEVC, or with concurrent-decoder slot limits).
+  // We warn loudly and keep going so any video that DID decode still gets analyzed.
+  var loadStatus = {
+    side:  (sideVid.videoWidth  || 0) > 0,
+    front: (frontVid.videoWidth || 0) > 0,
+    back:  (backVid.videoWidth  || 0) > 0
+  };
+  var failedLabels = [];
+  if(!loadStatus.side)  failedLabels.push('Side');
+  if(!loadStatus.front) failedLabels.push('Front');
+  if(!loadStatus.back)  failedLabels.push('Back');
+  if(failedLabels.length){
+    var step = document.getElementById('scan-step');
+    if(step){
+      step.innerHTML = '&#9888; ' + failedLabels.join(' &amp; ') + ' video' +
+        (failedLabels.length>1?'s':'') + ' failed to load. Re-export as H.264 .mp4 ' +
+        '(or use desktop) for best compatibility -- scanning will continue with whatever did load.';
+      step.style.color = 'var(--bad)';
+    }
+    console.warn('[esfl] video load failure:', failedLabels.join(', '));
+  }
+
   var sideDur = sideVid.duration;
   if(!isFinite(sideDur)||isNaN(sideDur)||sideDur<=0){await new Promise(function(r){setTimeout(r,500);});sideDur=sideVid.duration;}
   if(!isFinite(sideDur)||isNaN(sideDur)||sideDur<=0) sideDur=30;
@@ -2677,10 +2704,22 @@ async function autoScanAll(){
   var detected=PHASE_DEFS.filter(function(d){return phases[d.key] && phases[d.key].detected;}).length;
   var sb=document.getElementById('scan-summary-bar');sb.style.display='flex';
   var sexInfo=selectedSex?'<span class="ss-item '+selectedSex+'">Ranges: <strong>'+selectedSex+'</strong></span>':'<span class="ss-item">Ranges: <strong>default</strong></span>';
-  sb.innerHTML='<span class="ss-item">Side: <strong>'+(sideVid.videoWidth||'?')+'x'+(sideVid.videoHeight||'?')+'</strong></span>'+
+  // Show all three video dimensions and flag any that failed to load so the
+  // user can immediately see which video is broken from the cards screen.
+  var fmtDim = function(v){ var w=v.videoWidth||0,h=v.videoHeight||0; return w>0?(w+'x'+h):'failed'; };
+  var sideFailed  = (sideVid.videoWidth ||0) === 0;
+  var frontFailed = (frontVid.videoWidth||0) === 0;
+  var backFailed  = (backVid.videoWidth ||0) === 0;
+  sb.innerHTML =
+    '<span class="ss-item '+(sideFailed?'warn':'')+'">Side: <strong>'+fmtDim(sideVid)+'</strong></span>'+
+    '<span class="ss-item '+(frontFailed?'warn':'')+'">Front: <strong>'+fmtDim(frontVid)+'</strong></span>'+
+    '<span class="ss-item '+(backFailed?'warn':'')+'">Back: <strong>'+fmtDim(backVid)+'</strong></span>'+
     '<span class="ss-item">Duration: <strong>'+sideDur.toFixed(1)+'s</strong></span>'+
     '<span class="ss-item '+(posesFound<15?'warn':'')+'">Side poses: <strong>'+posesFound+'/'+N+'</strong></span>'+
     '<span class="ss-item">Auto-detected: <strong>'+detected+'/9</strong></span>'+sexInfo;
+  if(sideFailed || frontFailed || backFailed){
+    sb.innerHTML += '<span class="ss-item warn" style="flex-basis:100%">&#9888; A video failed to decode -- try re-exporting as H.264 .mp4 or analyze on desktop.</span>';
+  }
   buildPhaseGroups();buildSummaryTable();
   for(var di=0;di<PHASE_DEFS.length;di++){
     var dKey = PHASE_DEFS[di].key;
