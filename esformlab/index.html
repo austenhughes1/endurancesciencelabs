@@ -1164,6 +1164,26 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
   <button class="btn-complete" onclick="completeAnalysis()">&#9673; Complete analysis &#8594;</button>
 </div>
 
+  <!-- Save analysis (placed above the report so it stays in view for free users whose report is blurred) -->
+  <div id="save-section" class="save-analysis-section" style="display:none">
+    <div class="save-form">
+      <div style="flex:1">
+        <div class="save-form-title">Save this analysis</div>
+        <div class="save-form-sub">Give this session a name so you can find it later and compare it to future sessions.</div>
+      </div>
+      <div class="save-form-fields">
+        <input type="text" class="save-input" id="save-name" placeholder="Session name (e.g. first session, post-cue check)">
+        <input type="date" class="save-date-input" id="save-date">
+        <button class="btn-save-analysis" id="btn-save" onclick="saveAnalysis()">Save analysis</button>
+        <button class="btn-ghost" id="btn-sign-in-save" onclick="signInWithGoogle()" style="display:none">Save your session — free account</button>
+      </div>
+      <div class="save-status" id="save-status"></div>
+    </div>
+    <div style="text-align:center;margin-top:16px">
+      <button class="btn-new-session" onclick="startNewSession()">Start new session (discard current)</button>
+    </div>
+  </div>
+
   <!-- Report: What we found -->
   <div id="report-section" class="report-section" style="display:none">
     <div class="report-section-title">Your running form report</div>
@@ -1222,26 +1242,6 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
       <div style="font-size:14px;color:var(--text);line-height:1.9"><strong>Both of these scenarios result in over 2 minutes less ground contact time per hour of running.</strong> That is 2 fewer minutes of load going through your muscles and tendons — and 2 more minutes spent in the air, traveling forward efficiently. The energy savings and injury risk reduction from that kind of shift are meaningful, and they come from changes that most runners would barely notice in the moment.</div>
     </div>
     </div><!-- /#report-locked-content -->
-  </div>
-
-  <!-- Save analysis -->
-  <div id="save-section" class="save-analysis-section" style="display:none">
-    <div class="save-form">
-      <div style="flex:1">
-        <div class="save-form-title">Save this analysis</div>
-        <div class="save-form-sub">Give this session a name so you can find it later and compare it to future sessions.</div>
-      </div>
-      <div class="save-form-fields">
-        <input type="text" class="save-input" id="save-name" placeholder="Session name (e.g. first session, post-cue check)">
-        <input type="date" class="save-date-input" id="save-date">
-        <button class="btn-save-analysis" id="btn-save" onclick="saveAnalysis()">Save analysis</button>
-        <button class="btn-ghost" id="btn-sign-in-save" onclick="signInWithGoogle()" style="display:none">Save your session — free account</button>
-      </div>
-      <div class="save-status" id="save-status"></div>
-    </div>
-    <div style="text-align:center;margin-top:16px">
-      <button class="btn-new-session" onclick="startNewSession()">Start new session (discard current)</button>
-    </div>
   </div>
 
   <!-- Summary table (side view measurements) -->
