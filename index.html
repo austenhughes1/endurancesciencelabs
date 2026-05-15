@@ -311,14 +311,60 @@ section { padding: 96px 40px; max-width: 1200px; margin: 0 auto; }
 .hiw-title { font-family: var(--display); font-size: 19px; font-weight: 600; letter-spacing: -.2px; }
 .hiw-desc  { font-size: 15px; color: var(--muted2); line-height: 1.8; font-weight: 400; }
 
-/* (photo-break removed)
+/* Hero microcopy under CTA buttons */
+.hero-microcopy {
+  font-size: 13px; color: var(--muted2); font-family: var(--mono);
+  margin: -48px 0 64px; letter-spacing: .2px; position: relative; z-index: 1;
+}
+.hero-microcopy strong { color: var(--text); font-weight: 700; }
+
+/* Photo break — full-width visual between sections */
+.photo-break {
+  position: relative; height: 420px; margin: 0; overflow: hidden;
+}
+.photo-break img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+  filter: brightness(.55) saturate(1.1);
+}
+.photo-break::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 100px;
+  background: linear-gradient(to bottom, var(--bg), transparent);
+  z-index: 2; pointer-events: none;
+}
+.photo-break::after {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 120px;
+  background: linear-gradient(to top, var(--bg), transparent);
+  z-index: 2; pointer-events: none;
+}
+.photo-break-overlay {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; padding: 40px;
+  text-align: center; z-index: 3;
+}
 .photo-break-quote {
   font-family: var(--display); font-size: clamp(22px, 3.5vw, 40px);
-  font-weight: 600; color: var(--text); line-height: 1.4;
-  max-width: 680px; letter-spacing: -.3px;
+  font-weight: 600; color: var(--text); line-height: 1.35;
+  max-width: 720px; letter-spacing: -.3px;
 }
 .photo-break-quote em { font-style: italic; color: var(--cyan); }
-.photo-break-attr { font-size: 14px; color: rgba(255,255,255,.45); margin-top: 18px; font-family: var(--mono); }
+.photo-break-attr { font-size: 13px; color: rgba(255,255,255,.55); margin-top: 18px; font-family: var(--mono); letter-spacing: .4px; }
+@media (max-width: 768px) {
+  .photo-break { height: 320px; }
+  .photo-break-overlay { padding: 28px 20px; }
+}
+
+/* Inline Google CTA in the bottom band */
+.cta-band-google {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 15px 28px; background: #fff; color: #1f1f1f;
+  font-weight: 700; font-size: 15px; font-family: var(--body);
+  border: none; border-radius: 12px; cursor: pointer; text-decoration: none;
+  box-shadow: 0 1px 2px rgba(0,0,0,.18); transition: box-shadow .15s, transform .1s;
+}
+.cta-band-google:hover { box-shadow: 0 2px 10px rgba(0,0,0,.3); transform: translateY(-1px); }
+.cta-band-google svg { width: 18px; height: 18px; flex-shrink: 0; }
+.cta-band-microcopy { margin-top: 16px; font-size: 12px; color: var(--muted2); font-family: var(--mono); letter-spacing: .3px; }
+.cta-band-microcopy strong { color: var(--text); font-weight: 700; }
 
 /* ── Philosophy ──────────────────────────────────────── */
 .philosophy-grid {
@@ -512,7 +558,7 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
     <span id="auth-name" class="auth-name"></span>
   </a>
   <button id="nav-sign-out" class="nav-cta" style="display:none;background:transparent;border:1px solid var(--border2);color:var(--muted2);font-size:13px;padding:8px 16px" onclick="landingSignOut()" onmouseover="this.style.borderColor='var(--bad)';this.style.color='var(--bad)'" onmouseout="this.style.borderColor='';this.style.color='var(--muted2)'">Sign out</button>
-  <a href="/coaching/" id="nav-sign-in" class="nav-cta">Sign in →</a>
+  <a href="/coaching/" id="nav-sign-in" class="nav-cta">Get started — free →</a>
   <button class="menu-toggle" aria-label="Toggle menu" aria-expanded="false">
     <span></span><span></span><span></span>
   </button>
@@ -528,9 +574,10 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
     Evidence-based coaching and biomechanical analysis for runners who want to know what their body is actually doing — not just follow a generic plan.
   </p>
   <div class="hero-actions">
-    <a href="/esformlab/" class="btn-primary">Try the form analyzer →</a>
-    <a href="/coaching/" class="btn-secondary gold">Explore Coaching and Other Services</a>
+    <a href="/esformlab/" class="btn-primary">Try the form analyzer — free →</a>
+    <a href="/coaching/" class="btn-secondary gold">Explore coaching</a>
   </div>
+  <div class="hero-microcopy"><strong>Free account</strong> · No credit card · 1-tap signup with Google</div>
   <div class="hero-stats">
     <div>
       <div class="hero-stat-val">9</div>
@@ -626,6 +673,15 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
 
 <hr class="divider">
 
+<!-- Photo break — visual reinforcement of biomechanics-first message -->
+<div class="photo-break">
+  <img src="images/trail_leg_runner.jpg" alt="Close-up of a runner's stride on trail">
+  <div class="photo-break-overlay">
+    <p class="photo-break-quote">Your stride is <em>data</em>.<br>We help you read it.</p>
+    <div class="photo-break-attr">— Endurance Science Labs</div>
+  </div>
+</div>
+
 <!-- Philosophy -->
 <section id="philosophy">
   <div class="section-label">Our philosophy</div>
@@ -654,11 +710,15 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
 <!-- CTA band -->
 <div class="cta-band">
   <h2 class="cta-band-title">Ready to understand your running?</h2>
-  <p class="cta-band-sub">Try it free — upload your videos, refine the detected phases, and run the full analysis without leaving your browser. Unlock the full biomechanical report and PDF with a paid plan.</p>
+  <p class="cta-band-sub">Create your free account in one tap — try the full form analyzer, save your sessions, and come back any time. Full biomechanical report and PDF unlock with a one-time pass.</p>
   <div class="cta-band-actions">
-    <a href="/esformlab/" class="btn-primary">Try the form analyzer →</a>
-    <a href="#services" class="btn-secondary">See all services</a>
+    <button class="cta-band-google" onclick="landingGoogleSignIn()" aria-label="Continue with Google">
+      <svg viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
+      Continue with Google — free
+    </button>
+    <a href="/esformlab/" class="btn-secondary">Or jump straight to the analyzer →</a>
   </div>
+  <div class="cta-band-microcopy"><strong>Free forever</strong> · No credit card · Save your sessions across devices</div>
 </div>
 
 <!-- Footer -->
@@ -743,6 +803,14 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
   });
   window.landingSignOut = function() {
     firebase.auth().signOut();
+  };
+  window.landingGoogleSignIn = function() {
+    var provider = new firebase.auth.GoogleAuthProvider();
+    firebase.auth().signInWithPopup(provider).then(function() {
+      window.location.href = '/coaching/';
+    }).catch(function(e) {
+      console.error('Sign-in failed:', e && e.message);
+    });
   };
 })();
 </script>

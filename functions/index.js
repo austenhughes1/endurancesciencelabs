@@ -1,6 +1,6 @@
 const { onRequest } = require("firebase-functions/v2/https");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
-const { onDocumentWritten } = require("firebase-functions/v2/firestore");
+const { onDocumentWritten, onDocumentCreated } = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
@@ -440,6 +440,118 @@ exports.onCoachingSubscription = onDocumentWritten(
       if (e && e.code !== 6) {
         console.error("Failed to write subscription notification:", e);
       }
+    }
+
+    // Sync to MailerLite as a coaching subscriber
+    try {
+      const userSnap = await db.collection("users").doc(uid).get();
+      const u = userSnap.exists ? userSnap.data() : {};
+      if (u.email) {
+        await mailerliteUpsert({
+          email: u.email,
+          name: u.displayName || null,
+          groups: [process.env.MAILERLITE_GROUP_COACHING].filter(Boolean),
+        });
+      }
+    } catch (e) {
+      console.error("MailerLite coaching-subscriber sync failed:", e && e.message);
+    }
+  }
+);
+
+// ═══════════════════════════════════════════════════════════
+//  MailerLite sync
+//  ----------------
+//  Capture every signed-up user, then re-tag them when they
+//  buy something. Lets us run lifecycle email to free users
+//  who never converted, and segment paying users separately.
+//
+//  Configuration (set via `firebase functions:secrets:set` or
+//  `firebase functions:config:set` -> env vars):
+//    MAILERLITE_API_KEY          (required to enable sync)
+//    MAILERLITE_GROUP_SIGNED_UP  (group id for new accounts)
+//    MAILERLITE_GROUP_PASS       (group id for 90-day pass buyers)
+//    MAILERLITE_GROUP_COACHING   (group id for coaching subscribers)
+//
+//  If MAILERLITE_API_KEY is unset the sync is a no-op, so this
+//  is safe to deploy before MailerLite is set up.
+// ═══════════════════════════════════════════════════════════
+const MAILERLITE_BASE = "https://connect.mailerlite.com/api";
+
+async function mailerliteUpsert({ email, name, groups }) {
+  const apiKey = process.env.MAILERLITE_API_KEY;
+  if (!apiKey) return;
+  if (!email) return;
+
+  const fields = {};
+  if (name) {
+    const parts = name.trim().split(/\s+/);
+    fields.name = parts[0];
+    if (parts.length > 1) fields.last_name = parts.slice(1).join(" ");
+  }
+
+  const body = {
+    email,
+    status: "active",
+    fields,
+  };
+  if (Array.isArray(groups) && groups.length) body.groups = groups;
+
+  try {
+    const res = await fetch(`${MAILERLITE_BASE}/subscribers`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const txt = await res.text();
+      console.error(`MailerLite upsert failed (${res.status}) for ${email}:`, txt);
+    }
+  } catch (e) {
+    console.error(`MailerLite upsert error for ${email}:`, e && e.message);
+  }
+}
+
+// Fires once per new user document. Pushes the email to MailerLite
+// tagged as "signed up" so we can re-engage non-purchasers later.
+exports.onUserSignup = onDocumentCreated("users/{uid}", async (event) => {
+  const u = event.data && event.data.data();
+  if (!u || !u.email) return;
+  // Skip the admin so internal accounts don't pollute the list
+  if (event.params.uid === ADMIN_UID) return;
+
+  await mailerliteUpsert({
+    email: u.email,
+    name: u.displayName || null,
+    groups: [process.env.MAILERLITE_GROUP_SIGNED_UP].filter(Boolean),
+  });
+});
+
+// Stripe extension writes successful payments to customers/{uid}/payments/{id}.
+// When a payment lands in succeeded state, tag the user in MailerLite as a pass buyer.
+exports.onPassPayment = onDocumentCreated(
+  "customers/{uid}/payments/{paymentId}",
+  async (event) => {
+    const p = event.data && event.data.data();
+    if (!p) return;
+    if (p.status !== "succeeded") return;
+
+    const uid = event.params.uid;
+    try {
+      const userSnap = await db.collection("users").doc(uid).get();
+      const u = userSnap.exists ? userSnap.data() : {};
+      if (!u.email) return;
+      await mailerliteUpsert({
+        email: u.email,
+        name: u.displayName || null,
+        groups: [process.env.MAILERLITE_GROUP_PASS].filter(Boolean),
+      });
+    } catch (e) {
+      console.error("MailerLite pass-payment sync failed:", e && e.message);
     }
   }
 );
