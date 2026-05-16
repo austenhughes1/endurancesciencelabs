@@ -52,6 +52,8 @@ body{font-family:var(--ui);background:var(--bg);color:var(--text);min-height:100
 .pw-sub{font-size:14px;color:var(--muted2);line-height:1.65;margin:0 auto 22px;max-width:560px}
 .pw-price{font-size:36px;font-weight:800;color:var(--text);line-height:1.1;margin-bottom:4px}
 .pw-price-sub{font-size:11px;color:var(--muted2);font-family:var(--mono);letter-spacing:.6px;margin-bottom:20px}
+.pw-value-note{max-width:540px;margin:0 auto 20px;padding:14px 18px;background:rgba(0,229,200,.06);border:1px solid rgba(0,229,200,.18);border-radius:10px;font-size:13px;color:var(--text);line-height:1.7;text-align:left}
+.pw-value-note strong{color:var(--cyan);font-weight:700}
 .pw-btn{display:inline-flex;align-items:center;justify-content:center;padding:13px 32px;font-size:14px;font-weight:700;font-family:var(--ui);border-radius:10px;border:none;background:var(--cyan);color:#000;cursor:pointer;transition:opacity .15s}
 .pw-btn:hover{opacity:.88}
 .pw-btn:disabled{opacity:.5;cursor:not-allowed}
@@ -1202,6 +1204,9 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
       <div class="pw-sub">See every detected issue with coaching cues, your bell-curve placement against elite reference data, and download the PDF. One pass covers as many videos as you want for 90 days -- film, drill, refilm, iterate.</div>
       <div class="pw-price">$90</div>
       <div class="pw-price-sub">90-DAY PASS &middot; UNLIMITED ANALYSES</div>
+      <div class="pw-value-note">
+        <strong>Less than a new pair of running shoes</strong> — and unlike shoes, the insights don't wear out. The form changes you make from this report can pay off for every mile after: better running performance, and possibly lower injury risk.
+      </div>
       <button id="paywall-cta-btn" class="pw-btn" onclick="startPassCheckout()">Unlock pass</button>
       <div class="pw-foot">$29/mo equivalent &middot; 3-month minimum &middot; secure checkout via Stripe</div>
     </div>
