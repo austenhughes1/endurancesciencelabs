@@ -753,6 +753,9 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
 .save-form{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:24px 28px;display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
 .save-form-title{font-size:16px;font-weight:800;margin-bottom:4px}
 .save-form-sub{font-size:13px;color:var(--muted2);line-height:1.7}
+.save-form-note{margin-top:10px;font-size:12.5px;color:var(--muted2);line-height:1.7;background:rgba(0,229,200,.06);border:1px solid rgba(0,229,200,.18);border-radius:9px;padding:10px 13px;display:flex;align-items:flex-start;gap:9px}
+.save-form-note-icon{flex-shrink:0;font-size:12px;color:var(--cyan);font-weight:800;margin-top:2px}
+.save-form-note strong{color:var(--text);font-weight:700}
 .save-form-fields{display:flex;gap:10px;align-items:center;flex-wrap:wrap;flex:1;min-width:280px}
 .save-input{flex:1;min-width:160px;padding:10px 14px;font-size:13px;font-family:var(--ui);background:var(--panel2);border:1px solid var(--border2);border-radius:9px;color:var(--text);outline:none;transition:border-color .15s}
 .save-input:focus{border-color:var(--cyan)}
@@ -1170,6 +1173,10 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
       <div style="flex:1">
         <div class="save-form-title">Save this analysis</div>
         <div class="save-form-sub">Give this session a name so you can find it later and compare it to future sessions.</div>
+        <div class="save-form-note">
+          <span class="save-form-note-icon">◉</span>
+          <span><strong>No pass yet? Save it anyway.</strong> Your analysis stays on your account — unlock the full report whenever you're ready.</span>
+        </div>
       </div>
       <div class="save-form-fields">
         <input type="text" class="save-input" id="save-name" placeholder="Session name (e.g. first session, post-cue check)">
