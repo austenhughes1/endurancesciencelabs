@@ -843,6 +843,10 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
 .ex-body{padding:18px 22px 24px}
 .ex-instruction{background:rgba(0,229,200,.08);border:1px solid rgba(0,229,200,.25);border-left:3px solid var(--cyan);border-radius:10px;padding:14px 16px;margin-bottom:18px;font-size:14px;line-height:1.65;color:var(--text)}
 .ex-instruction strong{color:var(--cyan)}
+.ex-angle-warn{background:rgba(245,166,35,.10);border:1.5px solid rgba(245,166,35,.55);border-left:4px solid var(--warn);border-radius:10px;padding:14px 16px;margin-bottom:14px;font-size:14px;line-height:1.6;color:var(--text)}
+.ex-angle-warn .eaw-head{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--warn);margin-bottom:6px;font-family:var(--mono)}
+.ex-angle-warn .eaw-head-icon{font-size:18px;line-height:1}
+.ex-angle-warn strong{color:var(--warn)}
 .ex-section-label{font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;font-family:var(--mono);margin:0 0 10px;display:flex;align-items:center;gap:8px}
 .ex-section-label.good{color:#00e5c8}
 .ex-section-label.bad{color:#f55050}
@@ -1028,7 +1032,7 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
           <div class="dz-icon">&#9654;</div>
           <div class="dz-title">Side view</div>
           <p class="dz-sub">Film from directly beside the runner</p>
-          <div class="dz-tip"><strong>Best:</strong> Someone moving alongside you at the same pace.<br><strong>Good:</strong> Someone panning the camera to follow you.<br><strong>OK:</strong> Stationary camera, you run past it.<br>Wear clothes that contrast with the background.</div>
+          <div class="dz-tip"><strong>Best:</strong> Someone moving alongside you at the same pace.<br><strong>Good:</strong> Someone panning the camera to follow you.<br><strong>OK:</strong> Stationary camera, you run past it.<br>Wear clothes that contrast with the background.<br><br><strong style="color:var(--warn)">&#9888; Important during review:</strong> Side-view phases must be analyzed on a frame where the runner is <strong>dead-on perpendicular to the camera</strong>, not approaching or leaving it at an angle. Stationary-camera clips will only have a few good frames in the middle of the pass — scrub to those.</div>
           <div class="dz-required">REQUIRED</div>
           <div class="dz-loaded-info" id="dz-info-side"></div>
         </div>
@@ -1107,6 +1111,11 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
   <div class="instr-banner">
     <div class="instr-headline">Before you finish: <em>review every card below</em></div>
     <div class="instr-subhead">We made a first pass at detecting each phase of your running gait. Now you need to open each card, check the frame, and make sure detection is strong. This is what makes your results accurate.</div>
+
+    <div style="margin:14px 0 18px;background:rgba(245,166,35,.10);border:1.5px solid rgba(245,166,35,.55);border-left:4px solid var(--warn);border-radius:12px;padding:14px 18px;color:var(--text);line-height:1.6;font-size:14px">
+      <div style="font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--warn);margin-bottom:6px;font-family:var(--mono)">&#9888; Finish the walkthrough first</div>
+      A guided walkthrough will pop up below. <strong>Step through every bubble before you touch any of the cards or scrubbers.</strong> It only takes about 60 seconds and shows you exactly how to open a card, scrub to the correct frame, and use the example helper photos. Trying to adjust frames before completing the walkthrough is the #1 way to get confused on this screen.
+    </div>
 
     <div class="instr-steps">
       <div class="instr-step">
@@ -1262,6 +1271,11 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
     <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:20px;font-size:13px;color:var(--muted2);line-height:1.8">
       <strong style="color:var(--text)">A note about these reference ranges:</strong> The bell curves and ranges below are based on data from elite-level marathoners. Very few recreational runners will match these ranges across every metric, and that is completely normal. A value outside the elite range does not mean something is wrong or needs to be changed. Running mechanics are highly individual, and what matters most is efficiency and comfort within your own body. This data is provided for informational context only -- not as a target to chase or a diagnosis of a problem.
     </div>
+
+    <div style="background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.45);border-left:4px solid var(--warn);border-radius:12px;padding:14px 18px;margin-bottom:20px;font-size:13px;color:var(--text);line-height:1.75">
+      <strong style="color:var(--warn)">&#9888; If a measurement looks wildly out of range:</strong>
+      Before reading into a value that sits far outside the bell curve, double-check that the right frame was picked for that phase. The most common cause of a wild outlier is the <strong>wrong gait phase</strong> being selected (e.g. a frame partway between foot-strike and mid-stance) or a frame where the runner is <strong>at an angle to the camera</strong> instead of dead-on side. Open that phase card, click <strong>Show example frames for this phase</strong>, and scrub until your frame matches the helper photo as closely as possible -- then click Analyze again. A clean frame almost always brings extreme values back into a sensible range.
+    </div>
     <div class="summary-sub" style="font-size:15px">All angles below are measured in degrees and compared to reference ranges from elite runners. Only the angles that are biomechanically relevant for each gait phase are shown -- a dash indicates the metric is not applicable for that phase. Click any column header to open and re-examine that phase.</div>
     <div class="summary-scroll">
       <table class="stbl" id="summary-table"><thead></thead><tbody></tbody></table>
@@ -1365,7 +1379,7 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
             <span class="toggle-arrow">&#9660;</span>
           </button>
           <div class="ep-measurements-body open" id="ep-meas-body">
-            <div class="ep-measurements-note">Estimated angles for this frame compared to elite reference ranges. The bell curve shows where your value falls relative to the reference population. Accuracy depends on video quality, camera angle, and keypoint confidence.</div>
+            <div class="ep-measurements-note">Estimated angles for this frame compared to elite reference ranges. The bell curve shows where your value falls relative to the reference population. Accuracy depends on video quality, camera angle, and keypoint confidence.<br><br><strong style="color:var(--warn)">&#9888; Wildly out of range?</strong> That is almost always a sign of the wrong gait phase being selected, or a frame where the runner is not dead-on side. Click <strong>Show example frames for this phase</strong> above, scrub until your frame matches the helper photo, and Analyze again before reading into the value.</div>
             <div id="ep-metrics"><div class="ep-no-data">Analyze a frame to see angles</div></div>
           </div>
         </div>
@@ -3256,7 +3270,17 @@ function openExpand(key){
   document.getElementById('ep-time').textContent=epCurrentT.toFixed(2)+'s';
   var guide=ph.guide||PHASE_DEFS[0].guide;
   document.getElementById('ep-guide-title').textContent=guide.title;
-  document.getElementById('ep-guide-desc').innerHTML = guide.desc +
+  var phaseDef = PHASE_DEFS.find(function(d){return d.key===key;});
+  var sideAngleWarnHTML = (phaseDef && phaseDef.videoKey==='side') ? (
+    '<div class="ex-angle-warn" style="margin:14px 0 0">'+
+      '<div class="eaw-head"><span class="eaw-head-icon">&#9888;</span><span>The runner MUST be dead-on side</span></div>'+
+      'Scrub to a frame where the runner is <strong>directly perpendicular</strong> to the camera — passing broadside across the screen. '+
+      '<strong>Do not analyze a frame where the runner is angled toward or away from the camera</strong>, even slightly. '+
+      'Side-view angle measurements (trunk lean, hip, knee, foot offset) are only valid when the camera is looking straight at the runner\'s side. '+
+      'If the auto-picked frame catches the runner mid-approach or mid-departure, use the scrubber to move forward or backward to the dead-on side moment, then click Analyze.'+
+    '</div>'
+  ) : '';
+  document.getElementById('ep-guide-desc').innerHTML = guide.desc + sideAngleWarnHTML +
     '<div style="margin-top:12px;font-size:14px;color:var(--text);line-height:1.8"><strong>Your goal is to get a "Strong detection" reading above.</strong> ' +
     'This means the pose estimation model can clearly identify all major joints, which produces the most reliable measurements.</div>';
   document.getElementById('ep-guide-checks').innerHTML =
@@ -3456,6 +3480,7 @@ document.getElementById('expand-overlay').addEventListener('click',function(e){i
 var EXAMPLE_SETS = {
   foot: {
     title: 'Foot strike: correct vs. wrong frames',
+    angleWarn: true,
     instruction: 'Scrub to the <strong>first</strong> frame where the foot touches the ground. If you scrub back one frame, that foot should still be in the air. Don’t pick a frame where the foot has already rolled onto mid-foot or where the runner is fully loaded into stance.',
     good: [{src:'foostrike_correct.png', cap:'Foot just touching down'}],
     bad:  [{src:'footstrike_wrong.png',  cap:'Already past initial contact'},
@@ -3463,12 +3488,14 @@ var EXAMPLE_SETS = {
   },
   toe: {
     title: 'Toe-off: correct vs. wrong frames',
+    angleWarn: true,
     instruction: 'Scrub to the <strong>last</strong> frame where the trail foot is still touching the ground. The correct frame shows the forefoot in contact with the ground; the very next frame should show that foot fully in the air.',
     good: [{src:'toeoff_correct.png', cap:'Last frame in contact'}],
     bad:  [{src:'toeoff_wrong.png',   cap:'Foot already left the ground'}]
   },
   mid: {
     title: 'Mid-stance (side view): correct vs. wrong frames',
+    angleWarn: true,
     instruction: 'Pick the frame where the supporting foot is <strong>directly under your center of mass</strong> — not in front of the body (still loading) and not behind it (starting to push off).',
     good: [{src:'midstance_correct.png', cap:'Foot under center of mass'}],
     bad:  [{src:'midstance_wrong.png',   cap:'Foot ahead of body – still loading'},
@@ -3511,8 +3538,16 @@ function openExamples(){
       '</div>';
     }).join('');
   }
+  var angleWarnHTML = set.angleWarn ? (
+    '<div class="ex-angle-warn">'+
+      '<div class="eaw-head"><span class="eaw-head-icon">&#9888;</span><span>Step 1 — Make sure the runner is dead-on side</span></div>'+
+      'Before you worry about which gait moment to pick, scrub to a point in the clip where the runner is <strong>directly perpendicular</strong> to the camera (passing dead-on across your field of view). <strong>Do NOT pick a frame where the runner is approaching the camera from the front, or moving away from it at an angle</strong> — even a slight diagonal will skew every angle measured on this phase (trunk lean, hip, knee, foot offset). '+
+      'With a panning camera this is most of the clip; with a stationary camera it is only the few frames where the runner is closest to broadside.'+
+    '</div>'
+  ) : '';
   document.getElementById('ex-body').innerHTML =
-    '<div class="ex-instruction">'+set.instruction+'</div>'+
+    angleWarnHTML +
+    '<div class="ex-instruction">'+(set.angleWarn?'<strong>Step 2 — Pick the right gait moment.</strong> ':'')+set.instruction+'</div>'+
     '<div class="ex-section-label good"><span class="es-dot"></span>Pick a frame that looks like this</div>'+
     '<div class="ex-grid">'+renderCards(set.good,'good')+'</div>'+
     '<div class="ex-section-label bad"><span class="es-dot"></span>Avoid frames that look like these</div>'+
@@ -3532,6 +3567,12 @@ var tourState = { active:false, idx:0, steps:null, raf:null };
 
 function getTourSteps(){
   return [
+    {
+      title: 'Finish this walkthrough first, then adjust your frames',
+      desc: '<strong style="color:var(--warn)">Please do not click on any cards or scrubbers yet.</strong> Take 60 seconds to step through the rest of this walkthrough — it explains exactly how to open a card, scrub to the right frame, re-analyze, and use the helper photos. Once you finish the walkthrough, come back and review every card with this knowledge in hand. People who try to adjust frames before finishing this walkthrough almost always get stuck.',
+      target: function(){ return document.querySelector('#phase-groups .phase-card'); },
+      align: 'auto'
+    },
     {
       title: 'Review your frames before you finish',
       desc: 'We picked a frame for each phase of your stride. Your job is to <strong>open every card</strong>, confirm the right moment was caught, and re-analyze if not. A few quick tools make that easy.',
@@ -5648,6 +5689,24 @@ function downloadReport() {
   var disclaimerBody = doc.splitTextToSize('The bell curves and ranges in the following pages are based on data from elite-level marathoners. Very few recreational runners will match these ranges across every metric, and that is completely normal. A value outside the elite range does not mean something is wrong or needs to be changed. Running mechanics are highly individual, and what matters most is efficiency and comfort within your own body. This data is provided for informational context only -- not as a target to chase or a diagnosis of a problem.', contentW - 12);
   doc.text(disclaimerBody, margins.left + 6, y + 13);
   y += disclaimerH + 10;
+
+  // Outlier callout: wildly out-of-range usually means wrong frame, not real biomechanics.
+  doc.setFillColor(255, 248, 230);
+  doc.setDrawColor(245, 166, 35);
+  doc.setLineWidth(0.4);
+  var outlierBody = 'If a measurement looks wildly out of range, first check that the right frame was picked for that phase. The most common cause of an extreme outlier is the wrong gait phase being selected (e.g. a frame partway between foot-strike and mid-stance) or a side-view frame where the runner was at an angle to the camera instead of dead-on side. Re-open that phase in the analyzer, click "Show example frames for this phase", scrub until your frame matches the helper photo as closely as possible, and click Analyze again. A clean frame almost always brings extreme values back into a sensible range.';
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  var outlierLines = doc.splitTextToSize(outlierBody, contentW - 12);
+  var outlierH = outlierLines.length * 4.2 + 12;
+  doc.roundedRect(margins.left, y, contentW, outlierH, 2, 2, 'FD');
+  doc.setTextColor(bodyR, bodyG, bodyB);
+  doc.setFont('helvetica', 'bold');
+  doc.text('If a measurement looks wildly out of range:', margins.left + 6, y + 7);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(mutedR, mutedG, mutedB);
+  doc.text(outlierLines, margins.left + 6, y + 13);
+  y += outlierH + 10;
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
