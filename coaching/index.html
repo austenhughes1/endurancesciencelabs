@@ -193,31 +193,52 @@ header{display:none}
 .week-card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:14px;overflow:hidden;animation:fadeIn .3s ease;color:var(--card-text)}
 .week-card.current-week{border-color:#00b8a3;box-shadow:0 0 24px rgba(0,229,200,.1)}
 
-.wk-body{padding:20px 24px;display:flex;flex-direction:column;gap:18px}
+.wk-body{padding:0;display:block}
 
-/* ── Field block (light theme) ──────────────────────── */
-.field-block{display:flex;flex-direction:column;gap:5px}
-.field-label{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--card-muted);font-family:var(--mono);display:flex;align-items:center;gap:6px}
-.field-label .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.field-label .dot.miles{background:#16a34a}
-.field-label .dot.midweek{background:#7c3aed}
-.field-label .dot.weekend{background:#0891b2}
-.field-label .dot.long-run{background:#ca8a04}
-.field-label .dot.ancillary{background:#6b7280}
-.field-label .dot.notes{background:#ea580c}
+/* ── Row layout (light theme) ─────────────────────────
+   Coach content + athlete notes side-by-side, with a colored left accent
+   bar keying the field type. Rows separated by hairlines so the card
+   reads as a structured document, not a stack of form blocks. */
+.wk-row{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);border-bottom:1px solid var(--card-border);position:relative}
+.wk-row:last-of-type{border-bottom:none}
+.wk-row::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--row-accent,var(--card-muted2))}
+.wk-row.miles    {--row-accent:#16a34a}
+.wk-row.midweek  {--row-accent:#7c3aed}
+.wk-row.weekend  {--row-accent:#0891b2}
+.wk-row.long-run {--row-accent:#ca8a04}
+.wk-row.ancillary{--row-accent:#6b7280}
+.wk-row.notes    {--row-accent:#ea580c}
 
-.field-coach{width:100%;background:#fff;border:1px solid var(--card-border);border-radius:9px;padding:10px 14px;font-size:13px;color:var(--card-text);font-family:var(--ui);outline:none;transition:border-color .15s;resize:vertical;min-height:42px;line-height:1.5}
-.field-coach:focus{border-color:#0891b2}
-.field-coach[readonly]{background:var(--card-bg2);cursor:default}
-.field-coach.miles-input{font-family:var(--mono);min-height:unset;resize:none}
+.wk-cell{padding:14px 18px;min-width:0}
+.wk-cell.coach{padding-left:22px}
+.wk-cell.athlete{background:rgba(8,145,178,.04);border-left:1px solid var(--card-border)}
 
-.field-athlete{display:flex;flex-direction:column;gap:3px;margin-top:2px}
-.field-athlete-label{font-size:9px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;font-family:var(--mono);color:var(--card-muted2);display:flex;align-items:center;gap:4px}
-.field-athlete-label .athlete-icon{color:#0891b2;font-size:10px}
-.field-athlete-input{width:100%;background:rgba(8,145,178,.04);border:1px solid rgba(8,145,178,.2);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--card-text);font-family:var(--ui);outline:none;transition:border-color .15s;resize:vertical;min-height:34px;line-height:1.5}
-.field-athlete-input:focus{border-color:#0891b2}
-.field-athlete-input[readonly]{cursor:default}
-.field-athlete-input::placeholder{color:var(--card-muted2)}
+.wk-cell-label{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--card-muted);font-family:var(--mono);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.wk-cell.athlete .wk-cell-label{color:#0891b2}
+.wk-cell-label .athlete-icon{font-size:10px;color:#0891b2}
+
+/* Readonly state: render as prose so it reads like a written workout, not
+   a disabled form field. */
+.wk-prose{font-size:14px;line-height:1.6;color:var(--card-text);white-space:pre-wrap;word-wrap:break-word}
+.wk-prose.empty{color:var(--card-muted2);font-style:italic;font-size:13px}
+.wk-prose strong{font-weight:700}
+.wk-miles-readonly{font-family:var(--mono);font-size:22px;font-weight:800;color:var(--card-text);letter-spacing:-.5px;line-height:1.2}
+.wk-miles-readonly .wk-miles-unit{font-size:12px;font-weight:600;color:var(--card-muted);letter-spacing:.5px;text-transform:uppercase;font-family:var(--mono);margin-left:6px;vertical-align:middle}
+.wk-miles-readonly.empty{font-size:14px;color:var(--card-muted2);font-style:italic;font-weight:400;letter-spacing:0}
+
+/* Editable inputs: cleaner border, taller, focus halo. */
+.wk-input{width:100%;box-sizing:border-box;background:#fff;border:1px solid var(--card-border);border-radius:9px;padding:10px 12px;font-size:14px;font-family:var(--ui);color:var(--card-text);outline:none;transition:border-color .15s,box-shadow .15s;resize:vertical;min-height:72px;line-height:1.55}
+.wk-input:focus{border-color:#0891b2;box-shadow:0 0 0 3px rgba(8,145,178,.12)}
+.wk-input::placeholder{color:var(--card-muted2)}
+.wk-input.athlete{background:rgba(8,145,178,.06);border-color:rgba(8,145,178,.28)}
+.wk-input.miles{min-height:unset;resize:none;font-family:var(--mono);font-size:20px;font-weight:700;width:120px;padding:8px 12px;text-align:left}
+
+.wk-actions{display:flex;align-items:center;gap:10px;padding:12px 18px;border-top:1px solid var(--card-border);background:var(--card-bg2)}
+
+@media(max-width:760px){
+  .wk-row{grid-template-columns:1fr}
+  .wk-cell.athlete{border-left:none;border-top:1px solid var(--card-border)}
+}
 
 /* ── Strava miles summary (light) ───────────────────── */
 /* Official Strava mountain logo — used everywhere Strava data appears */
@@ -530,7 +551,9 @@ header{display:none}
   .po-cell-text{max-width:200px;-webkit-line-clamp:2}
 
   /* Week card body */
-  .wk-body{padding:16px;gap:14px}
+  .wk-cell{padding:12px 14px}
+  .wk-cell.coach{padding-left:18px}
+  .wk-actions{padding:10px 14px}
 
   /* Modals */
   .modal-overlay,.feedback-modal-overlay{padding:16px;align-items:flex-start;padding-top:40px}
@@ -1819,55 +1842,89 @@ function renderWeekCard(mondayStr, role) {
   }
   const stravaTotalMi = stravaRunMi + stravaCrossMi;
 
-  const coachAttr = coachEdit ? '' : 'readonly';
-  const athleteAttr = athleteEdit ? `oninput="debounceSaveAthleteNotes('${mondayStr}')"` : 'readonly';
-
-  function field(dotClass, label, coachId, coachVal, athleteId, athleteVal, isMiles) {
-    let html = `<div class="field-block">
-      <div class="field-label"><span class="dot ${dotClass}"></span>${label}</div>`;
-    if (isMiles) {
-      html += `<input class="field-coach miles-input" id="${coachId}-${mondayStr}" value="${esc(coachVal || '')}" ${coachAttr}>`;
-      if (stravaTotalMi > 0) {
-        if (stravaRunMi > 0) {
-          html += `<div class="strava-miles">
-            <span class="strava-miles-icon">${STRAVA_LOGO_SVG}</span>
-            <span class="strava-miles-val">${stravaRunMi.toFixed(1)} mi</span>
-            <span class="strava-miles-label">run this week (via Strava)</span>
-          </div>`;
-        }
-        if (stravaCrossMi > 0) {
-          html += `<div class="strava-miles">
-            <span class="strava-miles-icon">${STRAVA_LOGO_SVG}</span>
-            <span class="strava-miles-val">${stravaCrossMi.toFixed(1)} mi</span>
-            <span class="strava-miles-label">cross-training this week</span>
-          </div>`;
-        }
-        if (stravaDays.length > 0) html += `<div class="strava-days">${stravaDays.map(s => `<span class="strava-day"${s.isRun ? '' : ' style="opacity:.7"'}>${s.day}: ${s.mi}mi${s.isRun ? '' : ' ⨯'}</span>`).join('')}</div>`;
-      }
-    } else {
-      html += `<textarea class="field-coach" id="${coachId}-${mondayStr}" ${coachAttr}>${esc(coachVal || '')}</textarea>`;
+  // Strava block reused inside the miles row when data is present.
+  function stravaInfo() {
+    if (stravaTotalMi <= 0) return '';
+    let html = '';
+    if (stravaRunMi > 0) {
+      html += `<div class="strava-miles">
+        <span class="strava-miles-icon">${STRAVA_LOGO_SVG}</span>
+        <span class="strava-miles-val">${stravaRunMi.toFixed(1)} mi</span>
+        <span class="strava-miles-label">run this week (via Strava)</span>
+      </div>`;
     }
-    html += `<div class="field-athlete">
-      <div class="field-athlete-label"><span class="athlete-icon">◆</span> Athlete notes</div>
-      <textarea class="field-athlete-input" id="${athleteId}-${mondayStr}" ${athleteAttr}>${esc(athleteVal || '')}</textarea>
-    </div></div>`;
+    if (stravaCrossMi > 0) {
+      html += `<div class="strava-miles">
+        <span class="strava-miles-icon">${STRAVA_LOGO_SVG}</span>
+        <span class="strava-miles-val">${stravaCrossMi.toFixed(1)} mi</span>
+        <span class="strava-miles-label">cross-training this week</span>
+      </div>`;
+    }
+    if (stravaDays.length > 0) {
+      html += `<div class="strava-days">${stravaDays.map(s => `<span class="strava-day"${s.isRun ? '' : ' style="opacity:.7"'}>${s.day}: ${s.mi}mi${s.isRun ? '' : ' ⨯'}</span>`).join('')}</div>`;
+    }
     return html;
+  }
+
+  // Render the coach side of a field. Editable -> textarea/input; readonly -> prose.
+  function coachContent(coachId, coachVal, isMiles) {
+    if (isMiles) {
+      if (coachEdit) {
+        return `<input class="wk-input miles" id="${coachId}-${mondayStr}" value="${esc(coachVal || '')}" placeholder="—">${stravaInfo()}`;
+      }
+      const v = (coachVal || '').toString().trim();
+      const prose = v
+        ? `<div class="wk-miles-readonly">${esc(v)}<span class="wk-miles-unit">miles</span></div>`
+        : `<div class="wk-miles-readonly empty">No mileage set yet</div>`;
+      return prose + stravaInfo();
+    }
+    if (coachEdit) {
+      return `<textarea class="wk-input" id="${coachId}-${mondayStr}" placeholder="Write the workout">${esc(coachVal || '')}</textarea>`;
+    }
+    const v = (coachVal || '').trim();
+    return v
+      ? `<div class="wk-prose">${esc(v)}</div>`
+      : `<div class="wk-prose empty">— No workout written yet —</div>`;
+  }
+
+  // Render the athlete side of a field. Editable -> textarea; readonly -> prose.
+  function athleteContent(athleteId, athleteVal) {
+    if (athleteEdit) {
+      return `<textarea class="wk-input athlete" id="${athleteId}-${mondayStr}" placeholder="How did it go? Any notes?" oninput="debounceSaveAthleteNotes('${mondayStr}')">${esc(athleteVal || '')}</textarea>`;
+    }
+    const v = (athleteVal || '').trim();
+    return v
+      ? `<div class="wk-prose">${esc(v)}</div>`
+      : `<div class="wk-prose empty">— No athlete notes yet —</div>`;
+  }
+
+  function row(accentClass, label, coachId, coachVal, athleteId, athleteVal, isMiles) {
+    return `<div class="wk-row ${accentClass}">
+      <div class="wk-cell coach">
+        <div class="wk-cell-label">${label}</div>
+        ${coachContent(coachId, coachVal, isMiles)}
+      </div>
+      <div class="wk-cell athlete">
+        <div class="wk-cell-label"><span class="athlete-icon">&#9670;</span> Athlete notes</div>
+        ${athleteContent(athleteId, athleteVal)}
+      </div>
+    </div>`;
   }
 
   return `
   <div class="week-card${isCurrent ? ' current-week' : ''}">
     <div class="wk-body">
-      ${field('miles', 'Miles / Week', 'miles', workout.milesPerWeek, 'miles-notes', workout.athleteMilesNotes, true)}
-      ${field('midweek', 'Midweek Session', 'midweek', workout.midweekSession, 'midweek-notes', workout.athleteMidweekNotes)}
-      ${field('weekend', 'Weekend Session', 'weekend', workout.weekendSession, 'weekend-notes', workout.athleteWeekendNotes)}
-      ${field('long-run', 'Long Run', 'longrun', workout.longRun, 'longrun-notes', workout.athleteLongRunNotes)}
-      ${field('ancillary', 'Ancillary Work', 'ancillary', workout.ancillaryWork, 'ancillary-notes', workout.athleteAncillaryNotes)}
-      ${field('notes', 'Notes', 'notes', workout.notes, 'notes-athlete', workout.athleteNotes)}
-      ${coachEdit ? `<div style="display:flex;align-items:center;gap:10px;margin-top:4px">
-        <button class="btn-primary" onclick="saveWeek('${mondayStr}')">Save</button>
-        <span class="wk-save-indicator" id="save-inline-${mondayStr}">✓ Saved</span>
-      </div>` : ''}
+      ${row('miles',    'Miles / Week',                  'miles',    workout.milesPerWeek,     'miles-notes',    workout.athleteMilesNotes, true)}
+      ${row('midweek',  'Midweek Session',               'midweek',  workout.midweekSession,   'midweek-notes',  workout.athleteMidweekNotes)}
+      ${row('weekend',  'Weekend Session',               'weekend',  workout.weekendSession,   'weekend-notes',  workout.athleteWeekendNotes)}
+      ${row('long-run', 'Long Run',                      'longrun',  workout.longRun,          'longrun-notes',  workout.athleteLongRunNotes)}
+      ${row('ancillary','Supporting Work',               'ancillary',workout.ancillaryWork,    'ancillary-notes',workout.athleteAncillaryNotes)}
+      ${row('notes',    'General Notes for the Week',    'notes',    workout.notes,            'notes-athlete',  workout.athleteNotes)}
     </div>
+    ${coachEdit ? `<div class="wk-actions">
+      <button class="btn-primary" onclick="saveWeek('${mondayStr}')">Save</button>
+      <span class="wk-save-indicator" id="save-inline-${mondayStr}">&#10003; Saved</span>
+    </div>` : ''}
   </div>`;
 }
 
@@ -1914,7 +1971,7 @@ function renderPlanOverview(role) {
           <th>Midweek</th>
           <th>Weekend</th>
           <th>Long run</th>
-          <th>Ancillary</th>
+          <th>Supporting</th>
           <th>Notes</th>
         </tr></thead>
         <tbody>`;
