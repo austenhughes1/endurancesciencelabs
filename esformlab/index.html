@@ -1030,7 +1030,7 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
     <div class="sg-sub">Create a free account in one tap, then upload your videos and run the gait-phase scan — at no cost. The full running form report and PDF unlock with a one-time pass.</div>
     <div class="sg-bullets">
       <div class="sg-bullet"><span class="sg-bullet-check">✓</span><div><strong>Upload &amp; scan, free</strong> <span>— pose detection runs on your videos at no cost, all 9 gait phases detected</span></div></div>
-      <div class="sg-bullet"><span class="sg-bullet-check">✓</span><div><strong>Sex-specific reference data</strong> <span>— your angles are graded against runners of the same sex, so the bell curves and severity scores are tailored to your body, not averaged across everyone</span></div></div>
+      <div class="sg-bullet"><span class="sg-bullet-check">✓</span><div><strong>Gender-specific reference data</strong> <span>— your angles are graded against runners of the same gender, so the bell curves and severity scores are tailored to your body, not averaged across everyone</span></div></div>
       <div class="sg-bullet"><span class="sg-bullet-check">✓</span><div><strong>Save your sessions</strong> <span>— come back any time and pick up where you left off</span></div></div>
       <div class="sg-bullet"><span class="sg-bullet-check">✓</span><div><strong>100% private</strong> <span>— videos never leave your browser; pose detection runs locally</span></div></div>
     </div>
@@ -1116,9 +1116,9 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
       </div>
     </div>
 
-    <!-- Sex selector -->
+    <!-- Gender selector -->
     <div class="sex-select-section">
-      <span class="sex-select-label">Step 1 -- Select athlete sex for grading ranges</span>
+      <span class="sex-select-label">Step 1 -- Select athlete gender for grading ranges</span>
       <div class="sex-select-row">
         <div class="sex-card" id="sex-card-male" onclick="setSex('male')">
           <div class="sex-card-icon">&#9794;</div>
@@ -1135,9 +1135,9 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
         <button class="sex-skip-btn" onclick="setSex(null)">Skip -- use general defaults</button>
       </div>
       <div style="margin:14px auto 0;max-width:680px;padding:12px 16px;background:rgba(0,229,200,.06);border:1px solid rgba(0,229,200,.25);border-left:3px solid var(--cyan);border-radius:10px;font-size:12.5px;color:var(--muted2);line-height:1.65">
-        <strong style="color:var(--cyan)">Why pick your sex?</strong> Male and female runners differ meaningfully in average gait mechanics &mdash; stride length, hip drop, foot-strike pattern, knee mechanics, and arm carriage all trend differently. esFormLab grades your angles against a reference dataset of runners <strong style="color:var(--text)">of the same sex</strong>, so the bell curves, ranges, and severity scores you see are tailored to your body &mdash; not averaged across everyone.
+        <strong style="color:var(--cyan)">Why pick your gender?</strong> Male and female runners differ meaningfully in average gait mechanics &mdash; stride length, hip drop, foot-strike pattern, knee mechanics, and arm carriage all trend differently. esFormLab grades your angles against a reference dataset of runners <strong style="color:var(--text)">of the same gender</strong>, so the bell curves, ranges, and severity scores you see are tailored to your body &mdash; not averaged across everyone.
       </div>
-      <div class="sex-range-note" id="ranges-status">Selecting a sex loads the relevant reference dataset for angle grading.</div>
+      <div class="sex-range-note" id="ranges-status">Selecting a gender loads the relevant reference dataset for angle grading.</div>
     </div>
 
     <div class="sex-divider"></div>
@@ -2372,7 +2372,7 @@ function setSex(sex) {
 function updateRangesStatus() {
   var el = document.getElementById('ranges-status');
   if (!el) return;
-  if (!selectedSex) { el.className='sex-range-note'; el.textContent='Selecting a sex loads the relevant reference dataset for angle grading.'; return; }
+  if (!selectedSex) { el.className='sex-range-note'; el.textContent='Selecting a gender loads the relevant reference dataset for angle grading.'; return; }
   var r = liveRanges[selectedSex];
   if (r) {
     el.className='sex-range-note';
