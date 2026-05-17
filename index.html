@@ -79,6 +79,15 @@ nav {
 }
 .nav-cta:hover { opacity: .85; }
 .auth-indicator { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; background: rgba(0,229,200,.06); border: 1px solid rgba(0,229,200,.15); margin-right: 8px; }
+.nav-signin-link {
+  display: inline-flex; align-items: center;
+  padding: 9px 14px; margin-right: 4px;
+  font-size: 14px; font-weight: 600; font-family: var(--body);
+  color: var(--muted2); text-decoration: none;
+  border-radius: 8px;
+  transition: color .15s, background .15s;
+}
+.nav-signin-link:hover { color: var(--text); background: rgba(255,255,255,.04); }
 .auth-avatar { width: 24px; height: 24px; border-radius: 50%; display: none; }
 .auth-name { font-size: 12px; font-weight: 600; color: var(--text); }
 
@@ -458,6 +467,8 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
   .menu-toggle { display: flex; }
   .nav-cta { font-size: 13px; padding: 8px 14px; margin-left: auto; }
   #nav-sign-in { padding: 7px 12px; font-size: 12px; }
+  .nav-signin-link { padding: 7px 10px; font-size: 13px; margin-right: 2px; margin-left: auto; }
+  .nav-signin-link + #nav-sign-in { margin-left: 0; }
   .auth-name { max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   .hero { padding: 64px 20px 60px; }
@@ -507,6 +518,8 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
   .nav-logo-img { height: 28px; }
   .nav-cta { padding: 7px 12px; font-size: 12px; }
   #nav-sign-in { padding: 7px 12px; font-size: 12px; }
+  /* Hide the standalone Sign in link on the tightest screens -- the primary CTA already routes to the same /coaching/ gate where users can switch between sign-up and sign-in. */
+  .nav-signin-link { display: none !important; }
   #nav-sign-out { padding: 6px 10px; font-size: 11px; }
   .auth-indicator { padding: 3px 6px; margin-right: 0; }
   .auth-name { display: none; }
@@ -558,6 +571,7 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
     <span id="auth-name" class="auth-name"></span>
   </a>
   <button id="nav-sign-out" class="nav-cta" style="display:none;background:transparent;border:1px solid var(--border2);color:var(--muted2);font-size:13px;padding:8px 16px" onclick="landingSignOut()" onmouseover="this.style.borderColor='var(--bad)';this.style.color='var(--bad)'" onmouseout="this.style.borderColor='';this.style.color='var(--muted2)'">Sign out</button>
+  <a href="/coaching/" id="nav-signin-link" class="nav-signin-link">Sign in</a>
   <a href="/coaching/" id="nav-sign-in" class="nav-cta">Get started — free →</a>
   <button class="menu-toggle" aria-label="Toggle menu" aria-expanded="false">
     <span></span><span></span><span></span>
@@ -794,10 +808,12 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
     var nameEl = document.getElementById('auth-name');
     var avatarEl = document.getElementById('auth-avatar');
     var signInBtn = document.getElementById('nav-sign-in');
+    var signInLink = document.getElementById('nav-signin-link');
     var signOutBtn = document.getElementById('nav-sign-out');
     if (user) {
       if (indicator) indicator.style.display = 'inline-flex';
       if (signInBtn) signInBtn.style.display = 'none';
+      if (signInLink) signInLink.style.display = 'none';
       if (signOutBtn) signOutBtn.style.display = 'inline-flex';
       var photoURL = user.photoURL || (user.providerData && user.providerData[0] ? user.providerData[0].photoURL : null);
       if (avatarEl && photoURL) { avatarEl.src = photoURL; avatarEl.style.display = 'block'; }
@@ -820,6 +836,7 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
     } else {
       if (indicator) indicator.style.display = 'none';
       if (signInBtn) signInBtn.style.display = 'inline-flex';
+      if (signInLink) signInLink.style.display = 'inline-flex';
       if (signOutBtn) signOutBtn.style.display = 'none';
     }
   });
