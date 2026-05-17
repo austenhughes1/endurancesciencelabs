@@ -44,6 +44,27 @@ body{font-family:var(--ui);background:var(--bg);color:var(--text);min-height:100
 .sg-btn-g{width:18px;height:18px;flex-shrink:0}
 .sg-microcopy{margin-top:12px;font-size:11px;color:var(--muted2);font-family:var(--mono);line-height:1.6}
 .sg-microcopy strong{color:var(--text);font-weight:700}
+.sg-email-toggle{margin-top:16px;text-align:center}
+.sg-email-link{background:transparent;border:none;color:var(--cyan);font-size:12px;font-family:var(--mono);cursor:pointer;text-decoration:underline;padding:6px 10px;border-radius:6px;display:inline-flex;align-items:center;gap:6px}
+.sg-email-link:hover{color:#7ff0e0}
+.sg-email-link .sg-caret{font-size:10px;transition:transform .15s}
+.sg-email-link.open .sg-caret{transform:rotate(180deg)}
+.sg-email-form{margin-top:14px;padding-top:16px;border-top:1px solid var(--border);text-align:left}
+.sg-email-mode{display:flex;gap:4px;margin-bottom:12px;background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:4px}
+.sg-mode-tab{flex:1;padding:8px 10px;background:transparent;border:none;border-radius:7px;font-size:12px;font-weight:700;font-family:var(--ui);color:var(--muted2);cursor:pointer;transition:background .15s,color .15s}
+.sg-mode-tab:hover{color:var(--text)}
+.sg-mode-tab.active{background:rgba(0,229,200,.14);color:var(--cyan)}
+.sg-mode-tab.active:hover{color:var(--cyan)}
+.sg-email-input{width:100%;box-sizing:border-box;padding:11px 13px;font-size:14px;font-family:var(--ui);color:var(--text);background:var(--panel2);border:1px solid var(--border);border-radius:9px;outline:none;margin-bottom:10px;transition:border-color .15s}
+.sg-email-input:focus{border-color:var(--cyan)}
+.sg-email-input::placeholder{color:var(--muted)}
+.sg-btn-email{display:inline-flex;align-items:center;justify-content:center;width:100%;padding:11px 18px;font-size:13px;font-weight:700;font-family:var(--ui);border-radius:9px;border:1.5px solid var(--cyan);background:rgba(0,229,200,.14);color:var(--cyan);cursor:pointer;transition:background .15s;margin-top:2px}
+.sg-btn-email:hover{background:rgba(0,229,200,.24)}
+.sg-btn-email:disabled{opacity:.6;cursor:wait}
+.sg-forgot-link{display:block;width:100%;background:transparent;border:none;color:var(--muted2);font-size:11px;font-family:var(--mono);cursor:pointer;margin-top:10px;padding:4px 0;text-align:center;text-decoration:underline}
+.sg-forgot-link:hover{color:var(--cyan)}
+.sg-email-error{margin-top:10px;padding:9px 12px;background:rgba(245,80,80,.1);border:1px solid rgba(245,80,80,.32);border-radius:8px;color:#ff9b9b;font-size:12px;line-height:1.55}
+.sg-email-error.success{background:rgba(34,199,138,.1);border-color:rgba(34,199,138,.32);color:var(--good)}
 .sg-foot{margin-top:14px;padding-top:14px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);font-family:var(--mono);line-height:1.7}
 
 /* Paywall on the report -- card stays sharp, locked content blurs */
@@ -963,6 +984,26 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
       Continue with Google
     </button>
     <div class="sg-microcopy"><strong>Free to try</strong> · No card to start · 1-tap signup</div>
+
+    <div class="sg-email-toggle">
+      <button class="sg-email-link" id="sg-email-toggle-btn" onclick="toggleEmailAuth()" type="button">
+        <span id="sg-email-toggle-label">Or sign up with email instead</span>
+        <span class="sg-caret">&#9660;</span>
+      </button>
+    </div>
+
+    <div class="sg-email-form" id="sg-email-form" style="display:none">
+      <div class="sg-email-mode" role="tablist">
+        <button class="sg-mode-tab active" data-mode="signup" role="tab" onclick="setEmailAuthMode('signup')" type="button">Create account</button>
+        <button class="sg-mode-tab" data-mode="signin" role="tab" onclick="setEmailAuthMode('signin')" type="button">Sign in</button>
+      </div>
+      <input type="email" id="sg-email" class="sg-email-input" placeholder="you@example.com" autocomplete="email" onkeydown="if(event.key==='Enter')submitEmailAuth()">
+      <input type="password" id="sg-password" class="sg-email-input" placeholder="Password (6+ characters)" autocomplete="new-password" onkeydown="if(event.key==='Enter')submitEmailAuth()">
+      <button class="sg-btn-email" id="sg-email-submit" onclick="submitEmailAuth()" type="button">Create account</button>
+      <button class="sg-forgot-link" id="sg-forgot-btn" onclick="sendPasswordReset()" type="button" style="display:none">Forgot your password?</button>
+      <div class="sg-email-error" id="sg-email-error" style="display:none"></div>
+    </div>
+
     <div class="sg-foot">The full running form report — every detected issue with coaching cues, bell-curve placement vs elite reference data, and the PDF — unlocks with a one-time 90-day pass. No subscription.</div>
     <div class="sg-foot" style="border-top:none;padding-top:0;margin-top:10px"><strong style="color:var(--warn)">&#9888; Not medical advice.</strong> esFormLab is provided for educational and informational purposes only. It is not a medical evaluation, is not intended to diagnose, treat, cure, or prevent any disease or injury, and the results do not constitute a medical diagnosis. Use of this tool does not create a doctor&ndash;patient or healthcare-provider relationship. Always consult a qualified healthcare professional before starting a new exercise program or changing your training based on these results. Use is at your own risk.</div>
   </div>
@@ -1788,6 +1829,126 @@ function signInWithGoogle() {
   var provider = new firebase.auth.GoogleAuthProvider();
   auth2.signInWithPopup(provider).catch(function(e) {
     console.error('Sign-in failed:', e.message);
+  });
+}
+
+// -- Email / password auth (collapsible secondary option) --
+var emailAuthMode = 'signup';
+
+function toggleEmailAuth() {
+  var form = document.getElementById('sg-email-form');
+  var btn = document.getElementById('sg-email-toggle-btn');
+  var label = document.getElementById('sg-email-toggle-label');
+  if (!form || !btn || !label) return;
+  var open = form.style.display !== 'none';
+  if (open) {
+    form.style.display = 'none';
+    btn.classList.remove('open');
+    label.textContent = 'Or sign up with email instead';
+  } else {
+    form.style.display = 'block';
+    btn.classList.add('open');
+    label.textContent = 'Hide email signup';
+    setTimeout(function(){ var e = document.getElementById('sg-email'); if(e) e.focus(); }, 60);
+  }
+}
+
+function setEmailAuthMode(mode) {
+  emailAuthMode = (mode === 'signin') ? 'signin' : 'signup';
+  var tabs = document.querySelectorAll('.sg-mode-tab');
+  for (var i=0;i<tabs.length;i++){
+    tabs[i].classList.toggle('active', tabs[i].getAttribute('data-mode') === emailAuthMode);
+  }
+  var submit = document.getElementById('sg-email-submit');
+  if (submit) submit.textContent = (emailAuthMode === 'signup') ? 'Create account' : 'Sign in';
+  var pw = document.getElementById('sg-password');
+  if (pw) {
+    pw.setAttribute('autocomplete', emailAuthMode === 'signup' ? 'new-password' : 'current-password');
+    pw.placeholder = emailAuthMode === 'signup' ? 'Password (6+ characters)' : 'Password';
+  }
+  var forgot = document.getElementById('sg-forgot-btn');
+  if (forgot) forgot.style.display = (emailAuthMode === 'signin') ? 'block' : 'none';
+  clearEmailAuthError();
+}
+
+function clearEmailAuthError() {
+  var err = document.getElementById('sg-email-error');
+  if (!err) return;
+  err.style.display = 'none';
+  err.classList.remove('success');
+  err.textContent = '';
+}
+
+function showEmailAuthError(msg, isSuccess) {
+  var err = document.getElementById('sg-email-error');
+  if (!err) return;
+  err.textContent = msg;
+  err.classList.toggle('success', !!isSuccess);
+  err.style.display = 'block';
+}
+
+function friendlyAuthError(e) {
+  if (!e) return 'Something went wrong. Please try again.';
+  var code = e.code || '';
+  if (code === 'auth/email-already-in-use') return 'An account already exists with that email. Switch to Sign in.';
+  if (code === 'auth/invalid-email')        return 'That email address does not look valid.';
+  if (code === 'auth/weak-password')        return 'Password too weak. Use at least 6 characters.';
+  if (code === 'auth/wrong-password' ||
+      code === 'auth/invalid-credential' ||
+      code === 'auth/invalid-login-credentials') return 'Email or password is wrong. Try again or reset your password.';
+  if (code === 'auth/user-not-found')       return 'No account with that email. Create one with the Create account tab instead.';
+  if (code === 'auth/user-disabled')        return 'This account has been disabled. Contact support.';
+  if (code === 'auth/too-many-requests')    return 'Too many attempts. Please wait a minute and try again.';
+  if (code === 'auth/network-request-failed') return 'Network error. Check your connection and try again.';
+  return e.message || 'Sign-in failed. Please try again.';
+}
+
+function submitEmailAuth() {
+  if (!auth2) return;
+  var emailEl = document.getElementById('sg-email');
+  var pwEl = document.getElementById('sg-password');
+  var submit = document.getElementById('sg-email-submit');
+  if (!emailEl || !pwEl || !submit) return;
+  var email = emailEl.value.trim();
+  var pw = pwEl.value;
+  if (!email || !pw) {
+    showEmailAuthError('Please enter both your email and a password.');
+    return;
+  }
+  if (emailAuthMode === 'signup' && pw.length < 6) {
+    showEmailAuthError('Password must be at least 6 characters.');
+    return;
+  }
+  clearEmailAuthError();
+  submit.disabled = true;
+  var origLabel = (emailAuthMode === 'signup') ? 'Create account' : 'Sign in';
+  submit.textContent = (emailAuthMode === 'signup') ? 'Creating account...' : 'Signing in...';
+  var p = (emailAuthMode === 'signup')
+    ? auth2.createUserWithEmailAndPassword(email, pw)
+    : auth2.signInWithEmailAndPassword(email, pw);
+  p.then(function(){
+    // onAuthStateChanged handles UI from here.
+    pwEl.value = '';
+  }).catch(function(e){
+    submit.disabled = false;
+    submit.textContent = origLabel;
+    showEmailAuthError(friendlyAuthError(e));
+  });
+}
+
+function sendPasswordReset() {
+  if (!auth2) return;
+  var emailEl = document.getElementById('sg-email');
+  if (!emailEl) return;
+  var email = emailEl.value.trim();
+  if (!email) {
+    showEmailAuthError('Type your email in the field above first, then click Forgot password.');
+    return;
+  }
+  auth2.sendPasswordResetEmail(email).then(function(){
+    showEmailAuthError('Password reset email sent. Check your inbox (and spam folder).', true);
+  }).catch(function(e){
+    showEmailAuthError(friendlyAuthError(e));
   });
 }
 
