@@ -1496,12 +1496,8 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
         <!-- Leg swap warning (if applicable) -->
         <div class="leg-swap-warn-expand" id="ep-leg-swap-warning" style="display:none"></div>
 
-        <!-- Inline helper: compact good/bad example frames, populated by JS
-             from EXAMPLE_SETS. Pulls users to "is this the right moment?"
-             before they look at measurements. -->
-        <div class="inline-helper" id="ep-inline-helper" style="display:none"></div>
-
-        <!-- Phase guide -->
+        <!-- Phase guide ("What to look for") -- first card so users read the
+             expected frame description before comparing to reference photos. -->
         <div class="pi-card">
           <div class="pi-label">What to look for</div>
           <div class="pi-title" id="ep-guide-title"></div>
@@ -1509,6 +1505,10 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
           <div class="pi-checks" id="ep-guide-checks"></div>
           <div class="pi-tip"   id="ep-guide-tip"></div>
         </div>
+
+        <!-- Inline helper: compact good/bad example frames, populated by JS
+             from EXAMPLE_SETS. -->
+        <div class="inline-helper" id="ep-inline-helper" style="display:none"></div>
 
         <!-- Detection quality — compact, default-collapsed tips -->
         <div id="ep-quality-card" style="display:none"></div>
@@ -3763,6 +3763,14 @@ document.getElementById('expand-overlay').addEventListener('click',function(e){i
 // ---------- Frame examples modal ----------
 // Map each phase key to its example-image set. Foot strike images intentionally cover
 // both legs since the visual cue (foot touching ground vs. still airborne) is symmetric.
+// Shared "wrong camera angle" examples reused across the three side-view
+// phase sets (foot, toe, mid) -- the camera-angle problem isn't specific
+// to which gait moment was caught, it's about how the clip was filmed.
+var SIDE_WRONG_ANGLE_EXAMPLES = [
+  {src:'side_wrong_angle_1.png', cap:'Wrong angle — runner not dead-on side (camera off-axis)'},
+  {src:'side_wrong_angle_2.png', cap:'Wrong angle — runner approaching at an angle, not perpendicular'}
+];
+
 var EXAMPLE_SETS = {
   foot: {
     title: 'Foot strike: correct vs. wrong frames',
@@ -3770,14 +3778,14 @@ var EXAMPLE_SETS = {
     instruction: 'Scrub to the <strong>first</strong> frame where the foot touches the ground. If you scrub back one frame, that foot should still be in the air. Don’t pick a frame where the foot has already rolled onto mid-foot or where the runner is fully loaded into stance.',
     good: [{src:'foostrike_correct.png', cap:'Foot just touching down'}],
     bad:  [{src:'footstrike_wrong.png',  cap:'Already past initial contact'},
-           {src:'footstrike_wrong_2.png',cap:'Loaded into stance – too late'}]
+           {src:'footstrike_wrong_2.png',cap:'Loaded into stance – too late'}].concat(SIDE_WRONG_ANGLE_EXAMPLES)
   },
   toe: {
     title: 'Toe-off: correct vs. wrong frames',
     angleWarn: true,
     instruction: 'Scrub to the <strong>last</strong> frame where the trail foot is still touching the ground. The correct frame shows the forefoot in contact with the ground; the very next frame should show that foot fully in the air.',
     good: [{src:'toeoff_correct.png', cap:'Last frame in contact'}],
-    bad:  [{src:'toeoff_wrong.png',   cap:'Foot already left the ground'}]
+    bad:  [{src:'toeoff_wrong.png',   cap:'Foot already left the ground'}].concat(SIDE_WRONG_ANGLE_EXAMPLES)
   },
   mid: {
     title: 'Mid-stance (side view): correct vs. wrong frames',
@@ -3785,19 +3793,21 @@ var EXAMPLE_SETS = {
     instruction: 'Pick the frame where the supporting foot is <strong>directly under your center of mass</strong> — not in front of the body (still loading) and not behind it (starting to push off).',
     good: [{src:'midstance_correct.png', cap:'Foot under center of mass'}],
     bad:  [{src:'midstance_wrong.png',   cap:'Foot ahead of body – still loading'},
-           {src:'midstance_wrong_2.png', cap:'Foot behind body – starting toe-off'}]
+           {src:'midstance_wrong_2.png', cap:'Foot behind body – starting toe-off'}].concat(SIDE_WRONG_ANGLE_EXAMPLES)
   },
   front: {
     title: 'Mid-stance (front view): correct vs. wrong frames',
     instruction: 'Pick a frame where the foot is firmly <strong>planted directly underneath the body</strong>. Avoid frames where the foot has just touched down, or where the runner is rolling onto the toes about to leave the ground.',
     good: [{src:'front_correct.png', cap:'Planted under body'}],
-    bad:  [{src:'front_wrong.png',   cap:'Foot off-center / not mid-stance'}]
+    bad:  [{src:'front_wrong.png',       cap:'Foot off-center / not mid-stance'},
+           {src:'front_wrong_angle.png', cap:'Wrong angle — runner not dead-on front (camera off-axis)'}]
   },
   back: {
     title: 'Mid-stance (back view): correct vs. wrong frames',
     instruction: 'Pick a frame where the foot is firmly <strong>planted directly underneath the body</strong>. Avoid frames where the foot has just touched down, or where the runner is starting to toe off the ground.',
     good: [{src:'back_correct.png', cap:'Planted under body'}],
-    bad:  [{src:'back_wrong.png',   cap:'Foot off-center / not mid-stance'}]
+    bad:  [{src:'back_wrong.png',       cap:'Foot off-center / not mid-stance'},
+           {src:'back_wrong_angle.png', cap:'Wrong angle — runner not dead-on behind (camera off-axis)'}]
   }
 };
 // Render the inline helper card in the expand sidebar -- compact good/bad
