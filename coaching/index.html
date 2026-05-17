@@ -586,7 +586,10 @@ header{display:none}
 .paywall-sub{font-size:15px;color:var(--muted2);line-height:1.65;margin:0}
 .pricing-cards{display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:840px;width:100%}
 .pricing-card{position:relative;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:32px 28px 24px;display:flex;flex-direction:column}
-.pricing-card.pc-featured{border-color:rgba(0,229,200,.4);box-shadow:0 0 0 1px rgba(0,229,200,.15)}
+.pricing-card.pc-featured{border-color:rgba(0,229,200,.4);box-shadow:0 0 0 1px rgba(0,229,200,.15);padding-right:128px;overflow:visible}
+.pc-kit-display{position:absolute;right:-8px;top:50%;transform:translateY(-50%);width:130px;pointer-events:none;z-index:1;text-align:center}
+.pc-kit-img{width:100%;height:auto;display:block;filter:drop-shadow(0 14px 30px rgba(0,229,200,.32)) drop-shadow(0 6px 14px rgba(0,0,0,.5))}
+.pc-kit-label{margin-top:6px;font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--cyan);font-family:var(--mono)}
 .pc-badge{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--cyan);color:#000;font-size:10px;font-weight:800;font-family:var(--mono);letter-spacing:.6px;padding:4px 12px;border-radius:6px;white-space:nowrap}
 .pc-name{font-size:13px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono);margin-bottom:8px}
 .pc-price{font-size:38px;font-weight:800;line-height:1;margin-bottom:4px}
@@ -606,6 +609,8 @@ header{display:none}
   .pricing-cards{grid-template-columns:1fr;max-width:480px}
   .paywall-title{font-size:24px}
   #athlete-paywall .paywall-main{padding:28px 16px}
+  .pricing-card.pc-featured{padding-right:28px}
+  .pc-kit-display{position:static;transform:none;width:120px;margin:8px auto 18px}
 }
 
 /* ── Awaiting coach assignment (subscribed, no coachUid yet) ── */
@@ -766,6 +771,10 @@ header{display:none}
       </div>
       <div class="pricing-card pc-featured">
         <div class="pc-badge">RECOMMENDED</div>
+        <div class="pc-kit-display">
+          <img src="/images/eslabs_racing_kit.png" alt="Endurance Science Labs racing singlet — included with Full Access" class="pc-kit-img">
+          <div class="pc-kit-label">Racing kit</div>
+        </div>
         <div class="pc-name">Full Access</div>
         <div class="pc-price">$245<span>/mo</span></div>
         <div class="pc-features">
