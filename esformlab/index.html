@@ -807,7 +807,7 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
 /* Print styles */
 @media print{
   body{background:#fff;color:#111;font-size:12pt}
-  nav,.hdr-right,.btn-ghost,.btn-main,.btn-complete,.instr-banner,.scan-summary,.phase-groups,.phase-group,.pc-canvas-wrap,.pc-footer,.pc-metrics-mini,.report-actions,.save-analysis-section,.btn-new-session,#complete-analysis-bar,#expand-overlay,#my-analyses-overlay,#compare-overlay,#saved-view-banner,#screen-upload,#screen-scanning,.issue-expand-toggle{display:none !important}
+  nav,.hdr-right,.btn-ghost,.btn-main,.btn-complete,.instr-banner,.scan-summary,.phase-groups,.phase-group,.pc-canvas-wrap,.pc-footer,.pc-metrics-mini,.report-actions,.save-analysis-section,.btn-new-session,.coaching-cta,#complete-analysis-bar,#expand-overlay,#my-analyses-overlay,#compare-overlay,#saved-view-banner,#screen-upload,#screen-scanning,.issue-expand-toggle{display:none !important}
   .report-section,.summary,#summary-section{display:block !important;border:none;margin:0;padding:0}
   .issue-card{break-inside:avoid;border:1px solid #ccc;background:#fff;opacity:1 !important;page-break-inside:avoid}
   .issue-card.not-detected{opacity:1 !important}
@@ -830,6 +830,25 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
 
 /* Save analysis section */
 .save-analysis-section{margin-top:32px;padding:28px 0;border-top:1px solid var(--border)}
+
+/* Coaching CTA -- sits at the very bottom of the unlocked report. Blurred
+   for users without a pass, alongside the rest of the gated content. */
+.coaching-cta{margin:40px 0 12px;padding:34px 32px 30px;background:linear-gradient(135deg,rgba(139,124,248,.12),rgba(0,229,200,.05));border:1.5px solid rgba(139,124,248,.36);border-radius:18px;text-align:center;position:relative;overflow:hidden}
+.coaching-cta::before{content:'';position:absolute;top:-60px;right:-60px;width:200px;height:200px;background:radial-gradient(circle,rgba(139,124,248,.18),transparent 70%);pointer-events:none}
+.cca-eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:var(--purple);font-family:var(--mono);background:rgba(139,124,248,.14);border:1px solid rgba(139,124,248,.34);border-radius:20px;padding:5px 14px;margin-bottom:14px;position:relative}
+.cca-title{font-size:28px;font-weight:800;line-height:1.2;margin-bottom:14px;letter-spacing:-.3px;position:relative}
+.cca-body{font-size:15px;color:var(--muted2);line-height:1.75;margin:0 auto 22px;max-width:640px;position:relative}
+.cca-body strong{color:var(--text)}
+.cca-btn{display:inline-flex;align-items:center;gap:8px;padding:14px 28px;font-size:14px;font-weight:800;font-family:var(--ui);border-radius:11px;background:linear-gradient(135deg,#8b7cf8,#a89bff);color:#0f1530;text-decoration:none;transition:transform .12s,box-shadow .15s;box-shadow:0 6px 20px rgba(139,124,248,.36);position:relative;letter-spacing:.2px}
+.cca-btn:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(139,124,248,.5)}
+.cca-btn .cca-arrow{font-size:16px;line-height:1}
+.cca-foot{margin-top:18px;font-size:11px;color:var(--muted);font-family:var(--mono);letter-spacing:.3px;line-height:1.7;position:relative}
+@media(max-width:700px){
+  .coaching-cta{padding:24px 20px;border-radius:14px;margin-top:32px}
+  .cca-title{font-size:22px;margin-bottom:12px}
+  .cca-body{font-size:14px;line-height:1.7}
+  .cca-btn{padding:12px 22px;font-size:13px}
+}
 .save-form{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:24px 28px;display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
 .save-form-title{font-size:16px;font-weight:800;margin-bottom:4px}
 .save-form-sub{font-size:13px;color:var(--muted2);line-height:1.7}
@@ -1113,6 +1132,9 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
       </div>
       <div class="sex-skip">
         <button class="sex-skip-btn" onclick="setSex(null)">Skip -- use general defaults</button>
+      </div>
+      <div style="margin:14px auto 0;max-width:680px;padding:12px 16px;background:rgba(0,229,200,.06);border:1px solid rgba(0,229,200,.25);border-left:3px solid var(--cyan);border-radius:10px;font-size:12.5px;color:var(--muted2);line-height:1.65">
+        <strong style="color:var(--cyan)">Why pick your sex?</strong> Male and female runners differ meaningfully in average gait mechanics &mdash; stride length, hip drop, foot-strike pattern, knee mechanics, and arm carriage all trend differently. esFormLab grades your angles against a reference dataset of runners <strong style="color:var(--text)">of the same sex</strong>, so the bell curves, ranges, and severity scores you see are tailored to your body &mdash; not averaged across everyone.
       </div>
       <div class="sex-range-note" id="ranges-status">Selecting a sex loads the relevant reference dataset for angle grading.</div>
     </div>
@@ -1403,6 +1425,17 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
       <div class="ls-item"><span style="font-family:var(--mono);font-size:10px;color:var(--muted2)">&#9662; Below range</span> -- value is below elite reference band</div>
       <div class="ls-item"><span style="font-family:var(--mono);font-size:10px;color:var(--muted)">-- Not analyzed</span></div>
     </div>
+  </div>
+
+  <!-- Coaching CTA: pushes unlocked users toward personalized coach review.
+       Blurred for non-pass users via applyPaywallState() alongside the rest
+       of the gated report content. -->
+  <div id="coaching-cta-section" class="coaching-cta" style="display:none">
+    <div class="cca-eyebrow">&#9670; Want more from this analysis?</div>
+    <div class="cca-title">Get a coach to walk you through your form</div>
+    <div class="cca-body">Our <strong>premium Full Access coaching</strong> pairs you with one of our coaches who watches your videos with you, talks through every flagged issue, gives you cues that fit <em>your</em> body and stride, and builds a plan to act on what you saw above &mdash; in person or over video chat. Not looking for a long-term commitment? Subscribe for a single month, cancel anytime, and we&rsquo;ll still work with you one-on-one for that month.</div>
+    <a href="/coaching/" class="cca-btn">See coaching plans <span class="cca-arrow">&#8594;</span></a>
+    <div class="cca-foot">Includes esFormLab full access &middot; Free Endurance Science Labs racing kit &middot; Cancel anytime</div>
   </div>
 </div>
 
@@ -2125,14 +2158,17 @@ function effectiveHasPass() {
 function applyPaywallState() {
   var locked = document.getElementById('report-locked-content');
   var summary = document.getElementById('summary-section');
+  var coachingCta = document.getElementById('coaching-cta-section');
   var paywall = document.getElementById('paywall-card');
   if (effectiveHasPass()) {
     if (locked) locked.classList.remove('paywall-blur');
     if (summary) summary.classList.remove('paywall-blur');
+    if (coachingCta) coachingCta.classList.remove('paywall-blur');
     if (paywall) paywall.style.display = 'none';
   } else {
     if (locked) locked.classList.add('paywall-blur');
     if (summary) summary.classList.add('paywall-blur');
+    if (coachingCta) coachingCta.classList.add('paywall-blur');
     if (paywall) paywall.style.display = 'block';
   }
 }
@@ -2727,6 +2763,8 @@ function completeAnalysis(){
   var summaryEl = document.getElementById('summary-section');
   if(reportEl) reportEl.style.display='block';
   if(summaryEl) summaryEl.style.display='block';
+  var ccaSH = document.getElementById('coaching-cta-section');
+  if(ccaSH) ccaSH.style.display='block';
   applyPaywallState();
   // Show save section
   var saveEl = document.getElementById('save-section');
@@ -6274,6 +6312,8 @@ async function rescan(){
   document.getElementById('btn-rescan').style.display='none';
   document.getElementById('report-section').style.display='none';
   document.getElementById('summary-section').style.display='none';
+  var ccaH = document.getElementById('coaching-cta-section');
+  if(ccaH) ccaH.style.display='none';
   var bar = document.getElementById('complete-analysis-bar');
   if(bar) bar.classList.remove('show');
   document.body.classList.remove('bar-showing');
@@ -6293,6 +6333,8 @@ function resetApp(){
   document.getElementById('scan-summary-bar').style.display='none';
   document.getElementById('report-section').style.display='none';
   document.getElementById('summary-section').style.display='none';
+  var ccaR = document.getElementById('coaching-cta-section');
+  if(ccaR) ccaR.style.display='none';
   // Hide save section and reset form
   var saveEl = document.getElementById('save-section');
   if(saveEl) saveEl.style.display='none';
@@ -6409,6 +6451,8 @@ function startNewSession() {
   if (reportEl) reportEl.style.display = 'none';
   var summaryEl = document.getElementById('summary-section');
   if (summaryEl) summaryEl.style.display = 'none';
+  var ccaNS = document.getElementById('coaching-cta-section');
+  if (ccaNS) ccaNS.style.display = 'none';
   // Restore elements that viewSavedAnalysis hides
   var instrBanner = document.querySelector('#screen-phases > .instr-banner');
   if (instrBanner) instrBanner.style.display = '';
@@ -6601,6 +6645,8 @@ async function viewSavedAnalysis(id) {
       updateSummaryCol(def.key);
     }
   });
+  var ccaSV = document.getElementById('coaching-cta-section');
+  if (ccaSV) ccaSV.style.display = 'block';
   applyPaywallState();
 
   // Hide save section (it is a saved analysis already)
