@@ -543,7 +543,10 @@ header{display:none}
   #hdr-user{display:none}
   .btn-ghost{padding:6px 10px;font-size:11px}
   .notif-btn{width:32px;height:32px;font-size:14px}
-  .notif-panel{width:calc(100vw - 24px);right:-8px;max-width:340px}
+  /* Pin to viewport on mobile -- absolute-positioning under the bell
+     button pushed half the panel off-screen because the bell isn't at
+     the viewport edge (sign-out button sits to its right). */
+  .notif-panel{position:fixed;top:60px;left:12px;right:12px;width:auto;max-width:none;max-height:calc(100vh - 80px)}
 
   /* Auth */
   #auth-overlay{padding:16px}
