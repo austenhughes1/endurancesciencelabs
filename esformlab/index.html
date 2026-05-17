@@ -275,18 +275,50 @@ nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:st
 .dq-pill.strong{background:rgba(34,199,138,.1);color:var(--good);border:1px solid rgba(34,199,138,.2)}
 .dq-pill.fair{background:rgba(245,166,35,.08);color:var(--warn);border:1px solid rgba(245,166,35,.2)}
 .dq-pill.weak{background:rgba(245,80,80,.08);color:var(--bad);border:1px solid rgba(245,80,80,.2)}
-.dq-big{padding:18px;border-radius:14px;text-align:center}
-.dq-big.strong{background:rgba(34,199,138,.06);border:2px solid rgba(34,199,138,.3)}
-.dq-big.fair{background:rgba(245,166,35,.06);border:2px solid rgba(245,166,35,.3)}
-.dq-big.weak{background:rgba(245,80,80,.06);border:2px solid rgba(245,80,80,.3)}
-.dq-big-label{font-size:22px;font-weight:800;margin-bottom:4px}
-.dq-big.strong .dq-big-label{color:var(--good)}
-.dq-big.fair .dq-big-label{color:var(--warn)}
-.dq-big.weak .dq-big-label{color:var(--bad)}
-.dq-big-sub{font-size:12px;color:var(--muted2);font-family:var(--mono);line-height:1.6}
-.dq-big-hint{font-size:13px;color:var(--text);line-height:1.75;margin-top:12px;text-align:left}
-.dq-big-hint strong{color:var(--cyan)}
-.dq-big-goal{display:inline-block;margin-top:10px;font-size:11px;font-family:var(--mono);padding:4px 12px;border-radius:20px;background:rgba(34,199,138,.08);border:1px solid rgba(34,199,138,.2);color:var(--good)}
+/* Compact detection-quality card -- replaces the old .dq-big sprawl.
+   Always shows level + 1-line subtitle clarifying what detection quality
+   actually means (NOT whether the frame is correct). Tips expand on click. */
+.dq-compact{padding:10px 14px;border-radius:10px}
+.dq-compact.strong{background:rgba(34,199,138,.06);border:1.5px solid rgba(34,199,138,.28)}
+.dq-compact.fair{background:rgba(245,166,35,.06);border:1.5px solid rgba(245,166,35,.28)}
+.dq-compact.weak{background:rgba(245,80,80,.06);border:1.5px solid rgba(245,80,80,.32)}
+.dq-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.dq-label{font-size:13px;font-weight:800;letter-spacing:.2px}
+.dq-compact.strong .dq-label{color:var(--good)}
+.dq-compact.fair .dq-label{color:var(--warn)}
+.dq-compact.weak .dq-label{color:var(--bad)}
+.dq-okhint{font-size:10px;font-weight:700;color:var(--good);font-family:var(--mono);background:rgba(34,199,138,.14);border:1px solid rgba(34,199,138,.32);padding:2px 8px;border-radius:6px;letter-spacing:.3px}
+.dq-subtitle{font-size:11px;color:var(--muted2);font-family:var(--mono);line-height:1.55;margin-top:6px}
+.dq-subtitle strong{color:var(--text);font-weight:700}
+.dq-expand{display:inline-flex;align-items:center;gap:4px;margin-top:8px;background:transparent;border:none;color:var(--cyan);font-size:11px;font-family:var(--mono);cursor:pointer;text-decoration:underline;padding:2px 0}
+.dq-expand:hover{color:#7ff0e0}
+.dq-expand .dq-caret{font-size:9px;transition:transform .15s}
+.dq-expand.open .dq-caret{transform:rotate(180deg)}
+.dq-tips{display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:12px;color:var(--text);line-height:1.7}
+.dq-tips.open{display:block}
+.dq-tips strong{color:var(--cyan)}
+
+/* Inline helper -- compact good/bad example frames + instruction shown
+   right in the sidebar. Replaces the previous big "Show example frames"
+   button. A "See full annotated guide" link still opens the modal. */
+.inline-helper{background:linear-gradient(135deg,rgba(0,229,200,.08),rgba(0,229,200,.03));border:1.5px solid rgba(0,229,200,.32);border-radius:14px;padding:14px 16px}
+.ih-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.ih-ico{width:28px;height:28px;border-radius:50%;background:rgba(0,229,200,.18);color:var(--cyan);display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;flex-shrink:0}
+.ih-title{font-size:14px;font-weight:800;color:var(--text);line-height:1.35}
+.ih-instruction{font-size:12px;color:var(--muted2);line-height:1.6;margin-bottom:10px}
+.ih-instruction strong{color:var(--text)}
+.ih-section-label{font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;font-family:var(--mono);margin:6px 0;display:flex;align-items:center;gap:6px}
+.ih-section-label.good{color:var(--good)}
+.ih-section-label.bad{color:var(--bad)}
+.ih-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+.ih-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;margin-bottom:8px}
+.ih-card{background:#000;border-radius:8px;overflow:hidden;aspect-ratio:2/3;position:relative;border:1px solid var(--border)}
+.ih-card.good{border-color:rgba(34,199,138,.4)}
+.ih-card.bad{border-color:rgba(245,80,80,.4)}
+.ih-card img{width:100%;height:100%;object-fit:cover;display:block}
+.ih-cap{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(to top,rgba(0,0,0,.88),transparent);padding:18px 6px 5px;font-size:9px;color:#fff;line-height:1.3;font-family:var(--mono)}
+.ih-fullguide{display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:11px;font-family:var(--mono);color:var(--cyan);text-decoration:underline;cursor:pointer;background:transparent;border:none;padding:4px 0}
+.ih-fullguide:hover{color:#7ff0e0}
 
 /* Phase guide -- bigger and more prominent */
 .pi-card{background:rgba(0,229,200,.04) !important;border:1px solid rgba(0,229,200,.18) !important}
@@ -417,7 +449,6 @@ body.bar-showing #screen-phases{padding-bottom:120px}
 .ep-metric-block:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
 .ep-metric-bio{font-size:12px;color:var(--muted2);line-height:1.7;margin-bottom:10px}
 .ep-metric-measured{font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:6px}
-.bell-curve-wrap{margin:6px 0}
 .bell-label{font-size:9px;font-family:var(--mono);fill:var(--muted2)}
 .bell-label-you{fill:var(--text);font-weight:700}
 
@@ -875,9 +906,6 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
 .feedback-modal-status{font-size:11px;font-family:var(--mono);margin-right:auto}
 
 /* ---------- Frame examples modal (correct vs wrong screenshots per phase) ---------- */
-.ep-examples-btn{display:inline-flex;align-items:center;gap:8px;width:100%;justify-content:center;padding:13px 18px;font-size:13px;font-weight:800;font-family:var(--ui);letter-spacing:.2px;border-radius:10px;border:1px solid rgba(0,229,200,.5);background:linear-gradient(135deg,rgba(0,229,200,.18),rgba(0,229,200,.06));color:var(--cyan);cursor:pointer;transition:all .18s;box-shadow:0 0 0 0 rgba(0,229,200,.0)}
-.ep-examples-btn:hover{border-color:var(--cyan);background:linear-gradient(135deg,rgba(0,229,200,.28),rgba(0,229,200,.1));box-shadow:0 0 0 4px rgba(0,229,200,.12);transform:translateY(-1px)}
-.ep-examples-btn .eb-ico{width:18px;height:18px;border-radius:50%;background:var(--cyan);color:#0f2a24;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:900}
 
 #examples-overlay{position:fixed;inset:0;background:rgba(6,8,13,.92);z-index:600;display:none;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(5px)}
 #examples-overlay.open{display:flex}
@@ -1434,24 +1462,10 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
         <!-- Leg swap warning (if applicable) -->
         <div class="leg-swap-warn-expand" id="ep-leg-swap-warning" style="display:none"></div>
 
-        <!-- Detection quality — large and prominent, first thing you see -->
-        <div id="ep-quality-card" style="display:none"></div>
-
-        <!-- Frame examples helper (kept high up so it's visible on mobile
-             without scrolling into the phase-guide block below) -->
-        <button class="ep-examples-btn" id="ep-examples-btn" onclick="openExamples()">
-          <span class="eb-ico">?</span>
-          <span>Show example frames for this phase</span>
-        </button>
-
-        <!-- Skeleton overlay key -->
-        <div style="background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center">
-          <span style="font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);font-family:var(--mono)">Overlay key</span>
-          <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted2)"><span style="width:10px;height:3px;border-radius:2px;background:#00d4aa;display:inline-block"></span> Left side</span>
-          <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted2)"><span style="width:10px;height:3px;border-radius:2px;background:#ff6b35;display:inline-block"></span> Right side</span>
-          <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted2)"><span style="width:10px;height:3px;border-radius:2px;background:#f5c842;display:inline-block"></span> Trunk lean</span>
-          <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted2)"><span style="width:10px;height:3px;border-radius:2px;background:#8b7cf8;display:inline-block"></span> Center</span>
-        </div>
+        <!-- Inline helper: compact good/bad example frames, populated by JS
+             from EXAMPLE_SETS. Pulls users to "is this the right moment?"
+             before they look at measurements. -->
+        <div class="inline-helper" id="ep-inline-helper" style="display:none"></div>
 
         <!-- Phase guide -->
         <div class="pi-card">
@@ -1462,14 +1476,26 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
           <div class="pi-tip"   id="ep-guide-tip"></div>
         </div>
 
-        <!-- Measurements with bell curve visualizations -->
+        <!-- Detection quality — compact, default-collapsed tips -->
+        <div id="ep-quality-card" style="display:none"></div>
+
+        <!-- Skeleton overlay key -->
+        <div style="background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center">
+          <span style="font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);font-family:var(--mono)">Overlay key</span>
+          <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted2)"><span style="width:10px;height:3px;border-radius:2px;background:#00d4aa;display:inline-block"></span> Left side</span>
+          <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted2)"><span style="width:10px;height:3px;border-radius:2px;background:#ff6b35;display:inline-block"></span> Right side</span>
+          <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted2)"><span style="width:10px;height:3px;border-radius:2px;background:#f5c842;display:inline-block"></span> Trunk lean</span>
+          <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted2)"><span style="width:10px;height:3px;border-radius:2px;background:#8b7cf8;display:inline-block"></span> Center</span>
+        </div>
+
+        <!-- Measurements -->
         <div style="margin-top:4px">
           <button class="ep-measurements-toggle open" id="ep-meas-toggle" onclick="toggleMeasurements()">
-            <span>Angle measurements <span style="color:var(--muted);font-weight:400;font-size:11px">(compared to elite reference)</span></span>
+            <span>Angle measurements</span>
             <span class="toggle-arrow">&#9660;</span>
           </button>
           <div class="ep-measurements-body open" id="ep-meas-body">
-            <div class="ep-measurements-note">Estimated angles for this frame compared to elite reference ranges. The bell curve shows where your value falls relative to the reference population. Accuracy depends on video quality, camera angle, and keypoint confidence.<br><br><strong style="color:var(--warn)">&#9888; Wildly out of range?</strong> That is almost always a sign of the wrong gait phase being selected, or a frame where the runner is not dead-on side. Click <strong>Show example frames for this phase</strong> above, scrub until your frame matches the helper photo, and Analyze again before reading into the value.</div>
+            <div class="ep-measurements-note">Angles measured from this frame, compared against elite reference ranges in the final report.</div>
             <div id="ep-metrics"><div class="ep-no-data">Analyze a frame to see angles</div></div>
           </div>
         </div>
@@ -2477,34 +2503,57 @@ function renderQualityCard(kps){
     qPill.style.display = 'inline-flex';
   }
 
-  var hint = '';
+  // Compact card. Always visible: pill + 1-line clarifier. Tips are
+  // collapsed behind a toggle by default.
+  var okHint = (q.level === 'strong') ? '<span class="dq-okhint">Good to use</span>'
+            : (q.level === 'fair')   ? '<span class="dq-okhint">Usually fine to use</span>'
+            : '';
+  var subtitle = (q.level === 'weak')
+    ? 'This is how clearly the model saw your joints in this frame. Measurements from this frame may be unreliable. <strong>This is separate from whether you picked the right gait moment.</strong>'
+    : 'This is how clearly the model saw your joints in this frame. <strong>Separate from whether you picked the right gait moment.</strong>';
+
+  var tipsHTML;
   if(q.level === 'strong') {
-    hint = '<div class="dq-big-hint">Detection is strong. The skeleton overlay should match the runner closely. If the overlay looks off, click <strong>&#8635; Analyze</strong> again -- sometimes a second pass improves accuracy.</div>';
+    tipsHTML = 'The pose model identified all major joints clearly. If the overlay looks off, click <strong>&#8635; Analyze</strong> again — sometimes a second pass improves accuracy.';
   } else if(q.level === 'fair') {
-    hint = '<div class="dq-big-hint">' +
-      '<strong>Fair detection is usable</strong> -- the results are reasonable, but may have larger error margins than Strong. To try for better accuracy:' +
-      '<br>1. Click <strong>&#8635; Analyze</strong> again -- a second attempt often improves results.' +
-      '<br>2. If the overlay still does not match the runner, use the frame step buttons (&#8722;1f / +1f) to select a nearby frame with less motion blur.' +
-      '<br>3. Make sure the selected frame matches what this phase describes (see "What to look for" below).' +
-      '<br><br><span style="color:var(--muted2)">Still not improving? Common causes: clothing blending into the background (wear contrasting colors), video too bright or too dark, runner too far from the camera, or limbs overlapping from the camera angle.</span>' +
-      '</div>' +
-      '<div class="dq-big-goal">&#9678; Ideal: Strong detection</div>';
+    tipsHTML =
+      'Fair detection is usually fine to use. If you want to push it to Strong:' +
+      '<br>&#8226; Click <strong>&#8635; Analyze</strong> again — a second pass often improves things.' +
+      '<br>&#8226; Step <strong>&#8722;1f / +1f</strong> to a nearby frame with less motion blur.' +
+      '<br><br><span style="color:var(--muted2);font-size:11px">Common causes of fair-vs-strong: clothing blending into the background, very bright/dark lighting, runner far from camera, or limbs overlapping.</span>';
   } else {
-    hint = '<div class="dq-big-hint">' +
-      '<strong>Detection is weak -- the measurements may not be reliable.</strong>' +
-      '<br>1. Click <strong>&#8635; Analyze</strong> again -- it sometimes produces a better result on a second or third attempt.' +
-      '<br>2. If still weak, scrub to a different frame. Look for a moment where the runner is clearly visible with no overlap between limbs and minimal motion blur.' +
-      '<br>3. Confirm the frame matches the gait phase described below. If this phase was auto-detected incorrectly, scrub to a frame that matches and re-analyze.' +
-      '<br><br><span style="color:var(--muted2)">If detection stays weak across multiple frames, the issue is likely the video itself: clothing may be too close in color to the background, the lighting may be too bright or too dark, or the runner may be too far from the camera. Re-recording with better contrast (different colored clothes against a uniform background like a turf field or plain wall) will make the biggest difference.</span>' +
-      '</div>' +
-      '<div class="dq-big-goal">&#9678; Goal: Strong detection</div>';
+    tipsHTML =
+      '<strong>Try this:</strong>' +
+      '<br>1. Click <strong>&#8635; Analyze</strong> again — sometimes a second or third pass produces a better result.' +
+      '<br>2. Step to a different frame where the runner is clearly visible with no limb overlap and minimal motion blur.' +
+      '<br>3. Make sure the frame matches the phase described in "What to look for".' +
+      '<br><br><span style="color:var(--muted2);font-size:11px">If detection stays weak across multiple frames, the video itself is the issue: clothing too close in color to background, lighting too bright/dark, or runner too far from camera. Better contrast (different-colored clothes on a uniform background like turf or a plain wall) will make the biggest difference.</span>';
   }
 
-  qCard.innerHTML = '<div class="dq-big '+q.level+'">' +
-    '<div class="dq-big-label">'+q.label+'</div>' +
-    '<div class="dq-big-sub">'+q.note+'</div>' +
-    hint +
+  qCard.innerHTML = '<div class="dq-compact '+q.level+'">' +
+    '<div class="dq-row">' +
+      '<span class="dq-label">'+q.label+'</span>' +
+      okHint +
+    '</div>' +
+    '<div class="dq-subtitle">'+subtitle+'</div>' +
+    '<button class="dq-expand" onclick="toggleQualityDetails(this)" type="button">' +
+      '<span>What does this mean?</span>' +
+      '<span class="dq-caret">&#9660;</span>' +
+    '</button>' +
+    '<div class="dq-tips">'+tipsHTML+'</div>' +
     '</div>';
+}
+
+function toggleQualityDetails(btn){
+  if(!btn) return;
+  var card = btn.closest('.dq-compact');
+  if(!card) return;
+  var tips = card.querySelector('.dq-tips');
+  if(!tips) return;
+  var open = tips.classList.toggle('open');
+  btn.classList.toggle('open', open);
+  var label = btn.querySelector('span:first-child');
+  if(label) label.textContent = open ? 'Hide details' : 'What does this mean?';
 }
 
 function renderSideViewWarning(key){
@@ -3484,25 +3533,15 @@ function openExpand(key){
   var sideAngleWarnHTML = (phaseDef && phaseDef.videoKey==='side') ? (
     '<div class="ex-angle-warn" style="margin:14px 0 0">'+
       '<div class="eaw-head"><span class="eaw-head-icon">&#9888;</span><span>The runner MUST be dead-on side</span></div>'+
-      'Scrub to a frame where the runner is <strong>directly perpendicular</strong> to the camera — passing broadside across the screen. '+
-      '<strong>Do not analyze a frame where the runner is angled toward or away from the camera</strong>, even slightly. '+
-      'Side-view angle measurements (trunk lean, hip, knee, foot offset) are only valid when the camera is looking straight at the runner\'s side. '+
-      'If the auto-picked frame catches the runner mid-approach or mid-departure, use the frame step buttons (&#8722;1f / +1f / &#8722;5f / +5f / &#8722;1s / +1s) to move forward or backward to the dead-on side moment, then click Analyze.'+
+      'Pick a frame where the runner is <strong>directly perpendicular</strong> to the camera, not approaching or leaving at an angle. Even a slight diagonal skews trunk lean, hip, knee, and foot-offset measurements.'+
     '</div>'
   ) : '';
-  document.getElementById('ep-guide-desc').innerHTML = guide.desc + sideAngleWarnHTML +
-    '<div style="margin-top:12px;font-size:14px;color:var(--text);line-height:1.8"><strong>Your goal is to get a "Strong detection" reading above.</strong> ' +
-    'This means the pose estimation model can clearly identify all major joints, which produces the most reliable measurements.</div>';
+  document.getElementById('ep-guide-desc').innerHTML = guide.desc + sideAngleWarnHTML;
   document.getElementById('ep-guide-checks').innerHTML =
     '<div style="font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;font-family:var(--mono)">Confirm this frame shows:</div>' +
-    guide.checks.map(function(c){return '<div class="pi-check"><span class="pi-check-icon">&#9670;</span><span>'+c+'</span></div>';}).join('') +
-    '<div style="margin-top:14px;font-size:13px;color:var(--text);line-height:1.8;border-top:1px solid var(--border);padding-top:12px">' +
-    '<strong>If detection is not Strong:</strong>' +
-    '<br>&#8226; Click <strong style="color:var(--cyan)">&#8635; Analyze</strong> again -- a second or third pass often gets a better result.' +
-    '<br>&#8226; If the skeleton overlay does not match the runner after multiple attempts, use the frame step buttons (&#8722;1f / +1f) to move to a nearby frame.' +
-    '<br>&#8226; If the frame does not match what this phase describes, step further forward or back to find the correct moment in the video.' +
-    '</div>';
+    guide.checks.map(function(c){return '<div class="pi-check"><span class="pi-check-icon">&#9670;</span><span>'+c+'</span></div>';}).join('');
   document.getElementById('ep-guide-tip').textContent='Tip: '+guide.tip;
+  renderInlineHelper(key);
   document.getElementById('nav-phase-btns').innerHTML=PHASE_DEFS.map(function(def,i){return '<button class="nav-phase-btn '+(def.key===key?'cur':'')+' '+(!(phases[def.key]&&phases[def.key].detected)?'undetected':'')+'" onclick="openExpand(\''+def.key+'\')">'+(i+1)+'. '+def.label+'</button>';}).join('');
 
   var vKey = getVideoKeyForPhase(key);
@@ -3722,6 +3761,36 @@ var EXAMPLE_SETS = {
     bad:  [{src:'back_wrong.png',   cap:'Foot off-center / not mid-stance'}]
   }
 };
+// Render the inline helper card in the expand sidebar -- compact good/bad
+// example images, a brief instruction, and a link to open the full annotated
+// modal. Pulls images + text from EXAMPLE_SETS.
+function renderInlineHelper(key){
+  var host = document.getElementById('ep-inline-helper');
+  if(!host) return;
+  var set = exampleSetForPhase(key);
+  if(!set){ host.style.display='none'; host.innerHTML=''; return; }
+  function renderCards(arr, kind){
+    return arr.map(function(it){
+      return '<div class="ih-card '+kind+'">'+
+        '<img src="../images/gait-helpers/'+it.src+'" alt="'+(it.cap||'')+'" loading="lazy">'+
+        (it.cap?'<div class="ih-cap">'+it.cap+'</div>':'')+
+      '</div>';
+    }).join('');
+  }
+  host.style.display = 'block';
+  host.innerHTML =
+    '<div class="ih-head">' +
+      '<span class="ih-ico">&#127919;</span>' +
+      '<span class="ih-title">Did this catch the right moment? Compare to these.</span>' +
+    '</div>' +
+    '<div class="ih-instruction">'+set.instruction+'</div>' +
+    '<div class="ih-section-label good"><span class="ih-dot"></span>Pick a frame like this</div>' +
+    '<div class="ih-grid">'+renderCards(set.good,'good')+'</div>' +
+    '<div class="ih-section-label bad"><span class="ih-dot"></span>Avoid frames like these</div>' +
+    '<div class="ih-grid">'+renderCards(set.bad,'bad')+'</div>' +
+    '<button class="ih-fullguide" onclick="openExamples()" type="button">See full annotated guide &#8599;</button>';
+}
+
 function exampleSetForPhase(key){
   if(key==='l_foot'||key==='r_foot') return EXAMPLE_SETS.foot;
   if(key==='l_toe' ||key==='r_toe' ) return EXAMPLE_SETS.toe;
@@ -3802,10 +3871,10 @@ function getTourSteps(){
       align: 'below'
     },
     {
-      title: 'Not sure which frame is correct? Check the examples',
-      desc: 'Click this button inside any card to see annotated correct vs. wrong frames for that phase — with specific guidance on what to scrub to.',
+      title: 'Compare to correct vs. wrong reference frames',
+      desc: 'Each open card shows compact reference photos right here in the sidebar — what a correct frame for this phase looks like, and frames you should avoid. Match your selected frame as closely as you can. Tap <strong>See full annotated guide</strong> for the bigger version with extra notes.',
       setup: function(){ ensureTourCardOpen(); },
-      target: function(){ return document.getElementById('ep-examples-btn'); },
+      target: function(){ return document.getElementById('ep-inline-helper'); },
       align: 'auto'
     },
     {
@@ -4167,14 +4236,12 @@ function renderExpandMetrics(m){
   document.getElementById('ep-metrics').innerHTML=METRIC_ROWS.filter(function(r){return isRelevant(pk,r.key);}).map(function(r){
     var v=m[r.key],d=v!=null?r.fmt(v):'--';
     var bio=METRIC_BIO[r.key]||'';
-    var bell=v!=null?buildBellCurveSVG(v,r.key,pk,r.fmt):'';
     var pos=v!=null?positionLabel(v,r.key,pk):'';
     var sl=metricSideLabel(r.key,m);
     return '<div class="ep-metric-block">'+
       '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:'+r.dot+'"></div><strong>'+r.label+sl+'</strong></div>'+
       '<div class="ep-metric-bio">'+bio+'</div>'+
-      '<div class="bell-curve-wrap">'+bell+'</div>'+
-      '<div class="ep-metric-measured">Measured value: <span class="ep-mv">'+d+'</span>'+(pos?' -- <span style="color:var(--muted2)">'+pos+'</span>':'')+'</div>'+
+      '<div class="ep-metric-measured">Measured value: <span class="ep-mv">'+d+'</span>'+(pos?' &mdash; <span style="color:var(--muted2)">'+pos+'</span>':'')+'</div>'+
     '</div>';
   }).join('');
 }
