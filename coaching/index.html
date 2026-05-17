@@ -316,6 +316,16 @@ header{display:none}
 .lift-instructions{background:linear-gradient(135deg,rgba(0,229,200,.08) 0%,rgba(139,124,248,.08) 100%);border:1px solid rgba(0,229,200,.25);border-radius:12px;padding:18px 22px;font-size:13px;color:var(--text);line-height:1.7;margin-bottom:18px;font-family:var(--body)}
 .lift-instructions strong{color:var(--cyan);font-weight:700}
 .lift-instructions-title{font-size:15px;font-weight:800;color:var(--cyan);font-family:var(--mono);letter-spacing:.3px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.lift-instructions-credit{margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.07);font-size:11px;color:var(--muted);font-family:var(--mono);letter-spacing:.3px}
+.lift-instructions-credit a{color:var(--muted2);text-decoration:none;border-bottom:1px dotted var(--muted2);transition:color .15s,border-color .15s}
+.lift-instructions-credit a:hover{color:#ff8c5a;border-bottom-color:#ff8c5a}
+.lift-hga-promo{margin-top:24px;background:linear-gradient(135deg,rgba(255,107,53,.10),rgba(255,107,53,.04));border:1px solid rgba(255,107,53,.35);border-left:4px solid #ff6b35;border-radius:14px;padding:22px 26px}
+.lhp-eyebrow{font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#ff8c5a;font-family:var(--mono);margin-bottom:8px}
+.lhp-title{font-size:18px;font-weight:800;color:var(--text);margin-bottom:8px;line-height:1.35}
+.lhp-text{font-size:14px;color:var(--muted2);line-height:1.6;margin-bottom:14px}
+.lhp-text strong{color:var(--text)}
+.lhp-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;background:rgba(255,107,53,.15);border:1px solid rgba(255,107,53,.45);border-radius:9px;color:#ff8c5a;font-weight:700;font-size:13px;font-family:var(--ui);text-decoration:none;transition:all .15s}
+.lhp-btn:hover{background:rgba(255,107,53,.25);border-color:#ff8c5a}
 
 .lift-week-header{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
 .lift-progress{font-size:11px;font-family:var(--mono);color:var(--muted2)}
@@ -957,7 +967,7 @@ const STRAVA_LOGO_SVG = `<svg class="strava-logo" viewBox="0 0 24 24" xmlns="htt
 //  LIFTING PLAN DATA (from CSV)
 // ══════════════════════════════════════════════════════════
 const LIFTING_DATA = {
-  instructions: `Try to hit <strong>one exercise from each category</strong> each week. Do the Isometric/Plyometric category <strong>immediately after a run workout</strong>. For the rest, in your 2-ish lifts per week, pick 3–4 categories, one exercise from each, <strong>3–5 sets of 3–5 reps</strong> at a weight you can only accomplish &lt;10 reps at. ★ = recommended exercises (biggest bang for buck).`,
+  instructions: `Try to hit <strong>one exercise from each category</strong> each week. Do the Isometric/Plyometric category <strong>immediately after a run workout</strong>. For the rest, in your 2-ish lifts per week, pick 3–4 categories, one exercise from each, <strong>3–5 sets of 3–5 reps</strong> at a weight you can only accomplish &lt;10 reps at. ★ = recommended exercises (biggest bang for buck).<div class="lift-instructions-credit">Many lifting videos courtesy of <a href="https://www.highergroundathletics.com/" target="_blank" rel="noopener">Higher Ground Athletics</a>.</div>`,
   categories: [
     {
       name: 'Glutes', tag: 'main',
@@ -3345,6 +3355,15 @@ function renderLiftingWeek(mondayStr, role) {
       </div>
     </div>`;
   });
+
+  // ── Higher Ground Athletics partner promo (bottom of the lifting plan) ──
+  html += `
+    <div class="lift-hga-promo">
+      <div class="lhp-eyebrow">Want it dialed in for you?</div>
+      <div class="lhp-title">Looking to really improve your strength and durability?</div>
+      <div class="lhp-text">Contact <strong>Higher Ground Athletics</strong> for both remote and in-person strength coaching options — programming built specifically for your body, your sport, and your goals.</div>
+      <a class="lhp-btn" href="https://www.highergroundathletics.com/" target="_blank" rel="noopener">Visit highergroundathletics.com →</a>
+    </div>`;
 
   return html;
 }
