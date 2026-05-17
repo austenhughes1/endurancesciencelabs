@@ -69,6 +69,41 @@ body{font-family:var(--ui);background:var(--bg);color:var(--text);min-height:100
 
 /* Paywall on the report -- card stays sharp, locked content blurs */
 .paywall-card{position:relative;z-index:5;background:linear-gradient(135deg,rgba(0,229,200,.08),rgba(0,229,200,.02));border:1px solid rgba(0,229,200,.3);border-radius:14px;padding:30px 32px;margin:0 0 24px 0;text-align:center}
+
+/* Anomaly banner -- locked users only, sits above the paywall card as an
+   incentive. Tone shifts red/orange/green based on detected severity. */
+.anomaly-banner{display:none;align-items:center;gap:16px;padding:20px 24px;margin:0 0 18px;border-radius:14px;animation:ab-glow-pulse 2.4s ease-in-out infinite}
+.anomaly-banner.alert{background:linear-gradient(135deg,rgba(245,80,80,.22),rgba(245,166,35,.10));border:2px solid rgba(245,80,80,.5);border-left:6px solid var(--bad);box-shadow:0 0 0 1px rgba(245,80,80,.2),0 10px 32px rgba(245,80,80,.18)}
+.anomaly-banner.warn{background:linear-gradient(135deg,rgba(245,166,35,.20),rgba(245,166,35,.06));border:2px solid rgba(245,166,35,.55);border-left:6px solid var(--warn);box-shadow:0 0 0 1px rgba(245,166,35,.18),0 10px 32px rgba(245,166,35,.14)}
+.anomaly-banner.clear{background:linear-gradient(135deg,rgba(34,199,138,.16),rgba(0,229,200,.06));border:2px solid rgba(34,199,138,.45);border-left:6px solid var(--good);box-shadow:0 0 0 1px rgba(34,199,138,.18),0 10px 30px rgba(34,199,138,.12);animation:none}
+@keyframes ab-glow-pulse{
+  0%,100%{box-shadow:0 0 0 1px rgba(245,80,80,.2),0 10px 32px rgba(245,80,80,.18)}
+  50%{box-shadow:0 0 0 1px rgba(245,80,80,.28),0 14px 40px rgba(245,80,80,.28)}
+}
+.anomaly-banner.warn{animation-name:ab-glow-pulse-warn}
+@keyframes ab-glow-pulse-warn{
+  0%,100%{box-shadow:0 0 0 1px rgba(245,166,35,.18),0 10px 32px rgba(245,166,35,.14)}
+  50%{box-shadow:0 0 0 1px rgba(245,166,35,.26),0 14px 40px rgba(245,166,35,.22)}
+}
+.ab-icon{font-size:38px;line-height:1;flex-shrink:0}
+.anomaly-banner.alert .ab-icon{color:var(--bad);text-shadow:0 0 14px rgba(245,80,80,.5)}
+.anomaly-banner.warn .ab-icon{color:var(--warn);text-shadow:0 0 14px rgba(245,166,35,.5)}
+.anomaly-banner.clear .ab-icon{color:var(--good);text-shadow:0 0 14px rgba(34,199,138,.45)}
+.ab-content{flex:1;min-width:0}
+.ab-headline{font-size:22px;font-weight:800;line-height:1.2;letter-spacing:-.2px;margin-bottom:6px}
+.anomaly-banner.alert .ab-headline{color:#ff8a8a}
+.anomaly-banner.warn .ab-headline{color:#ffc066}
+.anomaly-banner.clear .ab-headline{color:var(--good)}
+.ab-headline em{font-style:normal;font-size:30px;font-weight:900;margin-right:2px}
+.ab-subline{font-size:14px;color:var(--text);line-height:1.6}
+.ab-subline strong{color:var(--text);font-weight:800}
+@media(max-width:700px){
+  .anomaly-banner{padding:14px 16px;gap:12px;border-radius:12px}
+  .ab-icon{font-size:30px}
+  .ab-headline{font-size:18px}
+  .ab-headline em{font-size:24px}
+  .ab-subline{font-size:13px;line-height:1.55}
+}
 .pw-title{font-size:22px;font-weight:800;margin-bottom:10px;color:var(--cyan)}
 .pw-sub{font-size:14px;color:var(--muted2);line-height:1.65;margin:0 auto 22px;max-width:560px}
 .pw-price{font-size:36px;font-weight:800;color:var(--text);line-height:1.1;margin-bottom:4px}
@@ -1339,6 +1374,10 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
     <div class="report-section-title">Your running form report</div>
     <div class="report-section-sub">Based on your video analysis, here is what we found. Detected issues include an explanation of what it means, why it might matter, what could be causing it, and specific cues to work on. Click any detected issue to expand the full breakdown.</div>
 
+    <!-- Anomaly banner: locked users only, sits above the paywall as an incentive.
+         Populated by renderAnomalyBanner(); shown/hidden by applyPaywallState(). -->
+    <div id="anomaly-banner" class="anomaly-banner"></div>
+
     <!-- Paywall card: shown while user has no active 90-day pass -->
     <div id="paywall-card" class="paywall-card" style="display:none">
       <div class="pw-title">Unlock your full report</div>
@@ -2161,16 +2200,22 @@ function applyPaywallState() {
   var summary = document.getElementById('summary-section');
   var coachingCta = document.getElementById('coaching-cta-section');
   var paywall = document.getElementById('paywall-card');
+  var anomalyBanner = document.getElementById('anomaly-banner');
   if (effectiveHasPass()) {
     if (locked) locked.classList.remove('paywall-blur');
     if (summary) summary.classList.remove('paywall-blur');
     if (coachingCta) coachingCta.classList.remove('paywall-blur');
     if (paywall) paywall.style.display = 'none';
+    if (anomalyBanner) anomalyBanner.style.display = 'none';
   } else {
     if (locked) locked.classList.add('paywall-blur');
     if (summary) summary.classList.add('paywall-blur');
     if (coachingCta) coachingCta.classList.add('paywall-blur');
     if (paywall) paywall.style.display = 'block';
+    // Only display the anomaly banner once renderAnomalyBanner has populated it.
+    if (anomalyBanner && anomalyBanner.getAttribute('data-populated') === '1') {
+      anomalyBanner.style.display = 'flex';
+    }
   }
 }
 
@@ -5073,10 +5118,61 @@ function detectIssues() {
   return issues;
 }
 
+// Populate the anomaly banner shown to locked users above the paywall card.
+// Tone shifts: red if any notable, orange if only mild, green if none. Visibility
+// is later set by applyPaywallState() -- the banner only shows while locked.
+function renderAnomalyBanner(issues) {
+  var banner = document.getElementById('anomaly-banner');
+  if (!banner) return;
+  var notable = 0, mild = 0, total = 0;
+  if (issues) {
+    Object.keys(issues).forEach(function(k){
+      var iss = issues[k];
+      if (iss && iss.detected) {
+        total++;
+        if (iss.severity === 'notable') notable++;
+        else if (iss.severity === 'mild') mild++;
+      }
+    });
+  }
+  var tone, icon, headline, sub;
+  if (total === 0) {
+    tone = 'clear';
+    icon = '&#10003;';
+    headline = 'Clean run &mdash; no form issues flagged';
+    sub = 'Even strong form has room to optimize. Unlock the full report to see your <strong>bell-curve placement against elite reference data</strong>, the <strong>four universal form principles</strong> every runner benefits from, and your <strong>downloadable PDF</strong> for future sessions to compare against.';
+  } else {
+    var noun = total === 1 ? 'anomaly' : 'anomalies';
+    if (notable > 0) {
+      tone = 'alert';
+      icon = '&#9888;';
+      headline = '<em>' + total + '</em> ' + noun + ' detected in your form';
+      sub = 'Unlock the full report to see <strong>exactly what they are</strong>, why each one matters for performance and injury risk, and the <strong>specific coaching cues and drills</strong> to fix each one.';
+    } else {
+      tone = 'warn';
+      icon = '&#9888;';
+      headline = '<em>' + total + '</em> ' + noun + ' detected in your form';
+      sub = 'Mild but worth addressing. Unlock the full report for the <strong>coaching cues, drills, and personalized PDF</strong> showing exactly what to work on before they get worse.';
+    }
+  }
+  banner.className = 'anomaly-banner ' + tone;
+  banner.innerHTML =
+    '<div class="ab-icon">' + icon + '</div>' +
+    '<div class="ab-content">' +
+      '<div class="ab-headline">' + headline + '</div>' +
+      '<div class="ab-subline">' + sub + '</div>' +
+    '</div>';
+  banner.setAttribute('data-populated', '1');
+}
+
 function renderReport(issues) {
   var grid = document.getElementById('report-issues-grid');
   var details = document.getElementById('report-details');
   if(!grid) return;
+
+  // Populate the locked-user incentive banner. Visibility is toggled later
+  // by applyPaywallState() so this is safe to call even when unlocked.
+  renderAnomalyBanner(issues);
 
   var issueList = [
     {key:'overstriding',  dataKey:'overstriding'},
