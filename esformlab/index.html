@@ -933,7 +933,7 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
     <img src="/images/formlab_logo_white_clean.png" alt="esFormLab" class="sg-logo">
     <div class="sg-eyebrow">◉ Free to try</div>
     <div class="sg-title">Try esFormLab on your run</div>
-    <div class="sg-sub">Create a free account in one tap, then upload your videos and run the gait-phase scan — at no cost. The full biomechanical report and PDF unlock with a one-time pass.</div>
+    <div class="sg-sub">Create a free account in one tap, then upload your videos and run the gait-phase scan — at no cost. The full running form report and PDF unlock with a one-time pass.</div>
     <div class="sg-bullets">
       <div class="sg-bullet"><span class="sg-bullet-check">✓</span><div><strong>Upload &amp; scan, free</strong> <span>— pose detection runs on your videos at no cost, all 9 gait phases detected</span></div></div>
       <div class="sg-bullet"><span class="sg-bullet-check">✓</span><div><strong>Save your sessions</strong> <span>— come back any time and pick up where you left off</span></div></div>
@@ -944,7 +944,8 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
       Continue with Google
     </button>
     <div class="sg-microcopy"><strong>Free to try</strong> · No card to start · 1-tap signup</div>
-    <div class="sg-foot">The full biomechanical report — every detected issue with coaching cues, bell-curve placement vs elite reference data, and the PDF — unlocks with a one-time 90-day pass. No subscription.</div>
+    <div class="sg-foot">The full running form report — every detected issue with coaching cues, bell-curve placement vs elite reference data, and the PDF — unlocks with a one-time 90-day pass. No subscription.</div>
+    <div class="sg-foot" style="border-top:none;padding-top:0;margin-top:10px"><strong style="color:var(--warn)">&#9888; Not medical advice.</strong> esFormLab is provided for educational and informational purposes only. It is not a medical evaluation, is not intended to diagnose, treat, cure, or prevent any disease or injury, and the results do not constitute a medical diagnosis. Use of this tool does not create a doctor&ndash;patient or healthcare-provider relationship. Always consult a qualified healthcare professional before starting a new exercise program or changing your training based on these results. Use is at your own risk.</div>
   </div>
 </div>
 
@@ -1158,6 +1159,10 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
       </div>
     </div>
 
+    <div style="margin-top:14px;background:rgba(245,166,35,.06);border:1px solid rgba(245,166,35,.35);border-left:3px solid var(--warn);border-radius:10px;padding:12px 16px;font-size:12px;color:var(--muted2);line-height:1.7">
+      <strong style="color:var(--warn)">&#9888; Not medical advice.</strong> esFormLab provides educational information only. Results are not a medical diagnosis and are not intended to diagnose, treat, cure, or prevent any disease or injury. Use of this tool does not create a doctor&ndash;patient relationship. Consult a qualified healthcare professional before changing your training based on these results.
+    </div>
+
     <div class="instr-legend">
       <div class="il-item"><div class="il-swatch" style="background:var(--left)"></div>Left side</div>
       <div class="il-item"><div class="il-swatch" style="background:var(--right)"></div>Right side</div>
@@ -1272,11 +1277,15 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
       <strong style="color:var(--text)">A note about these reference ranges:</strong> The bell curves and ranges below are based on data from elite-level marathoners. Very few recreational runners will match these ranges across every metric, and that is completely normal. A value outside the elite range does not mean something is wrong or needs to be changed. Running mechanics are highly individual, and what matters most is efficiency and comfort within your own body. This data is provided for informational context only -- not as a target to chase or a diagnosis of a problem.
     </div>
 
+    <div style="background:rgba(245,166,35,.06);border:1.5px solid rgba(245,166,35,.45);border-left:4px solid var(--warn);border-radius:12px;padding:16px 20px;margin-bottom:20px;font-size:13px;color:var(--text);line-height:1.8">
+      <strong style="color:var(--warn)">&#9888; Not medical advice.</strong> This running form analysis is provided for educational and informational purposes only. It is not a medical evaluation and is not intended to diagnose, treat, cure, or prevent any disease, injury, or other health condition. The results &mdash; including any flagged issues, joint angles, severity grades, and coaching cues &mdash; do not constitute a medical diagnosis. Use of this tool does not create a doctor&ndash;patient or healthcare-provider relationship between you and Endurance Science Labs, its coaches, or its contributors. Always consult a qualified healthcare professional before starting a new exercise program or changing your training based on these results. Use of this tool is at your own risk.
+    </div>
+
     <div style="background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.45);border-left:4px solid var(--warn);border-radius:12px;padding:14px 18px;margin-bottom:20px;font-size:13px;color:var(--text);line-height:1.75">
       <strong style="color:var(--warn)">&#9888; If a measurement looks wildly out of range:</strong>
       Before reading into a value that sits far outside the bell curve, double-check that the right frame was picked for that phase. The most common cause of a wild outlier is the <strong>wrong gait phase</strong> being selected (e.g. a frame partway between foot-strike and mid-stance) or a frame where the runner is <strong>at an angle to the camera</strong> instead of dead-on side. Open that phase card, click <strong>Show example frames for this phase</strong>, and scrub until your frame matches the helper photo as closely as possible -- then click Analyze again. A clean frame almost always brings extreme values back into a sensible range.
     </div>
-    <div class="summary-sub" style="font-size:15px">All angles below are measured in degrees and compared to reference ranges from elite runners. Only the angles that are biomechanically relevant for each gait phase are shown -- a dash indicates the metric is not applicable for that phase. Click any column header to open and re-examine that phase.</div>
+    <div class="summary-sub" style="font-size:15px">All angles below are measured in degrees and compared to reference ranges from elite runners. Only the angles relevant for each gait phase are shown -- a dash indicates the metric is not applicable for that phase. Click any column header to open and re-examine that phase.</div>
     <div class="summary-scroll">
       <table class="stbl" id="summary-table"><thead></thead><tbody></tbody></table>
     </div>
@@ -5522,7 +5531,7 @@ function downloadReport() {
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(mutedR, mutedG, mutedB);
-  var angleNote = doc.splitTextToSize('Only the angles that are biomechanically relevant for each gait phase are reported. A dash indicates the metric is not applicable for that phase.', contentW);
+  var angleNote = doc.splitTextToSize('Only the angles relevant for each gait phase are reported. A dash indicates the metric is not applicable for that phase.', contentW);
   doc.text(angleNote, margins.left, y);
   y += angleNote.length * 3.5 + 4;
 
@@ -5689,6 +5698,24 @@ function downloadReport() {
   var disclaimerBody = doc.splitTextToSize('The bell curves and ranges in the following pages are based on data from elite-level marathoners. Very few recreational runners will match these ranges across every metric, and that is completely normal. A value outside the elite range does not mean something is wrong or needs to be changed. Running mechanics are highly individual, and what matters most is efficiency and comfort within your own body. This data is provided for informational context only -- not as a target to chase or a diagnosis of a problem.', contentW - 12);
   doc.text(disclaimerBody, margins.left + 6, y + 13);
   y += disclaimerH + 10;
+
+  // Medical disclaimer: not a diagnosis, no doctor-patient relationship, educational use only.
+  doc.setFillColor(255, 244, 230);
+  doc.setDrawColor(245, 166, 35);
+  doc.setLineWidth(0.4);
+  var medDisclaimerBody = 'This running form analysis is provided for educational and informational purposes only. It is not a medical evaluation and is not intended to diagnose, treat, cure, or prevent any disease, injury, or other health condition. The results -- including any flagged issues, joint angles, severity grades, and coaching cues -- do not constitute a medical diagnosis. Use of this tool, the report, or any related content does not create a doctor-patient or healthcare-provider relationship between you and Endurance Science Labs, its coaches, or its contributors. Always consult a qualified healthcare professional before starting a new exercise program or changing your training based on these results. Use of this tool is at your own risk.';
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  var medLines = doc.splitTextToSize(medDisclaimerBody, contentW - 12);
+  var medH = medLines.length * 4.2 + 12;
+  doc.roundedRect(margins.left, y, contentW, medH, 2, 2, 'FD');
+  doc.setTextColor(bodyR, bodyG, bodyB);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Not medical advice:', margins.left + 6, y + 7);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(mutedR, mutedG, mutedB);
+  doc.text(medLines, margins.left + 6, y + 13);
+  y += medH + 10;
 
   // Outlier callout: wildly out-of-range usually means wrong frame, not real biomechanics.
   doc.setFillColor(255, 248, 230);
