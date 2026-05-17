@@ -440,7 +440,7 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
   <input type="text" class="meta-field" id="meta-event"   placeholder="Race / event">
   <input type="text" class="meta-field" id="meta-pace"    placeholder="Approx. pace">
   <input type="text" class="meta-field" id="meta-notes"   placeholder="Notes">
-  <span class="meta-req-note">* sex + athlete name required to save</span>
+  <span class="meta-req-note">* gender + athlete name required to save</span>
 </div>
 
 <!-- Upload -->
@@ -448,7 +448,7 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
   <div class="drop-zone" id="drop-zone">
     <div class="dz-icon">◉</div>
     <div class="dz-title">Drop a reference video</div>
-    <p class="dz-sub">Upload side-view footage of an elite marathoner. Set the athlete sex above first — data is stored separately for male and female reference populations.</p>
+    <p class="dz-sub">Upload side-view footage of an elite marathoner. Set the athlete gender above first — data is stored separately for male and female reference populations.</p>
     <div class="dz-sex-warning" id="dz-sex-warning">⚠ Select male or female above before uploading</div>
     <input type="file" id="file-input" accept="video/*">
     <button class="btn-main" id="upload-btn" onclick="handleUploadClick()">＋ Choose video file</button>
@@ -496,7 +496,7 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
   <div class="save-wrap">
     <div>
       <div class="save-title">Save reference session</div>
-      <p class="save-sub">Once saved, angles from this session are added to the reference dataset for this sex, and the public gait analyzer's grading ranges update automatically.</p>
+      <p class="save-sub">Once saved, angles from this session are added to the reference dataset for this gender, and the public gait analyzer's grading ranges update automatically.</p>
       <div class="phase-completion" id="phase-completion"></div>
       <div class="save-meta-summary" id="save-meta-summary"></div>
     </div>
@@ -621,8 +621,8 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
     </table>
   </div>
   <div class="thr-note">
-    <span class="live-dot"></span>Live — derived from the reference dataset for the selected sex (median + MAD-based robust SD; one bad session can't move the threshold).&nbsp;&nbsp;
-    <span class="fixed-dot"></span>Fixed — hardcoded threshold from the literature or clinical convention. Hip drop and knee valgus are sex-adjusted (+1° for female); arms crossing is identical for both sexes.
+    <span class="live-dot"></span>Live — derived from the reference dataset for the selected gender (median + MAD-based robust SD; one bad session can't move the threshold).&nbsp;&nbsp;
+    <span class="fixed-dot"></span>Fixed — hardcoded threshold from the literature or clinical convention. Hip drop and knee valgus are gender-adjusted (+1° for female); arms crossing is identical for both genders.
   </div>
 </div>
 
@@ -908,7 +908,7 @@ function renderThresholds() {
     notable: 'arm &gt; 15.0%',
     mildRule: 'per-arm cross > 5% shoulder width',
     notableRule: 'per-arm cross > 15% shoulder width',
-    ruleCtx: 'same threshold for male and female (no published sex-specific cutoffs)',
+    ruleCtx: 'same threshold for male and female (no published gender-specific cutoffs)',
   });
 
   // 4. TORSO POSITION -- per-phase z-score average across all 7 side-view phases,
@@ -2172,7 +2172,7 @@ async function vetSessionData(){
 
 async function saveSession(skipVetting=false){
   const athlete=document.getElementById('meta-athlete')?.value.trim();
-  if(!selectedSex||!athlete){document.getElementById('save-error').textContent='Sex and athlete name are both required.';document.getElementById('save-error').className='save-error show';return;}
+  if(!selectedSex||!athlete){document.getElementById('save-error').textContent='Gender and athlete name are both required.';document.getElementById('save-error').className='save-error show';return;}
 
   // Run data vetting unless explicitly skipped
   if(!skipVetting){
