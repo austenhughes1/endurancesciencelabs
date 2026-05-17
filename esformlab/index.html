@@ -448,9 +448,16 @@ body.bar-showing #screen-phases{padding-bottom:120px}
 .report-section{margin-top:32px;padding-top:28px;border-top:1px solid var(--border)}
 .report-section-title{font-size:22px;font-weight:800;margin-bottom:6px}
 .report-section-sub{font-size:14px;color:var(--muted2);margin-bottom:20px;line-height:1.7}
-.report-actions{display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap}
-.btn-download-report{display:inline-flex;align-items:center;gap:7px;padding:10px 20px;background:var(--panel);border:1px solid var(--border2);border-radius:9px;color:var(--muted2);font-weight:600;font-size:13px;font-family:var(--ui);cursor:pointer;transition:all .15s}
-.btn-download-report:hover{border-color:var(--cyan);color:var(--cyan)}
+.report-actions{display:flex;justify-content:center;gap:10px;margin:8px 0 36px;flex-wrap:wrap}
+.btn-download-report{display:inline-flex;align-items:center;gap:14px;padding:20px 38px;background:var(--cyan);border:none;border-radius:14px;color:#0f2a24;font-weight:800;font-size:17px;font-family:var(--ui);letter-spacing:.2px;cursor:pointer;transition:all .18s;box-shadow:0 14px 38px rgba(0,229,200,.38), 0 4px 12px rgba(0,0,0,.45)}
+.btn-download-report:hover{transform:translateY(-2px);background:#7ff0e0;box-shadow:0 18px 46px rgba(0,229,200,.5), 0 6px 16px rgba(0,0,0,.45)}
+.btn-download-report:active{transform:translateY(0)}
+.btn-download-report .bdr-icon{font-size:24px;line-height:1}
+.btn-download-report .bdr-sub{font-size:11px;font-weight:700;color:rgba(15,42,36,.7);font-family:var(--mono);letter-spacing:.5px;text-transform:uppercase;padding-left:12px;margin-left:2px;border-left:1px solid rgba(15,42,36,.25)}
+@media(max-width:560px){
+  .btn-download-report{padding:16px 24px;font-size:15px;gap:10px;flex-wrap:wrap;justify-content:center}
+  .btn-download-report .bdr-sub{border-left:none;padding-left:0;margin-left:0;width:100%;text-align:center;font-size:10px}
+}
 /* Summary card grid -- 3 columns at a glance */
 .report-issues-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:28px}
 @media(max-width:800px){.report-issues-grid{grid-template-columns:repeat(2,1fr)}}
@@ -1296,7 +1303,11 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
 
     <div id="report-locked-content">
     <div class="report-actions">
-      <button class="btn-download-report" onclick="downloadReport()">&#128196; Download report as PDF</button>
+      <button class="btn-download-report" onclick="downloadReport()">
+        <span class="bdr-icon">&#11015;</span>
+        <span>Download full report as PDF</span>
+        <span class="bdr-sub">save &middot; share &middot; print</span>
+      </button>
     </div>
     <div class="report-issues-grid" id="report-issues-grid"></div>
     <div class="report-details" id="report-details"></div>
