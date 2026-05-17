@@ -235,6 +235,21 @@ header{display:none}
 
 .wk-actions{display:flex;align-items:center;gap:10px;padding:12px 18px;border-top:1px solid var(--card-border);background:var(--card-bg2)}
 
+/* Recurring-tag chips for Supporting Work. Coach-side chips toggle on/off
+   on click; athlete-side pills display the saved selection. */
+.supporting-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.supporting-chips-hint{font-size:10px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--card-muted);font-family:var(--mono);margin-bottom:6px}
+.tag-chip{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;font-size:12px;font-weight:600;font-family:var(--ui);background:#fff;border:1px solid var(--card-border);border-radius:18px;color:var(--card-muted);cursor:pointer;transition:all .12s;user-select:none;line-height:1.2}
+.tag-chip:hover{border-color:#0891b2;color:var(--card-text);background:rgba(8,145,178,.04)}
+.tag-chip.selected{background:#0891b2;border-color:#0891b2;color:#fff}
+.tag-chip.selected:hover{background:#0a7ea3;border-color:#0a7ea3;color:#fff}
+.tag-chip.add{border-style:dashed;color:var(--card-muted);font-weight:500}
+.tag-chip.add:hover{border-color:#0891b2;color:#0891b2;background:transparent}
+
+.supporting-pills{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.tag-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;font-size:13px;font-weight:600;font-family:var(--ui);background:rgba(8,145,178,.10);border:1px solid rgba(8,145,178,.30);border-radius:18px;color:#0a7ea3;line-height:1.3}
+.tag-pill::before{content:'\2713';font-size:11px;opacity:.85;font-weight:800}
+
 @media(max-width:760px){
   .wk-row{grid-template-columns:1fr}
   .wk-cell.athlete{border-left:none;border-top:1px solid var(--card-border)}
@@ -962,6 +977,14 @@ try {
 // ══════════════════════════════════════════════════════════
 //  STATE
 // ══════════════════════════════════════════════════════════
+// Default "Supporting Work" recurring-tag presets used when a coach has
+// never customized theirs. Coach edits land in users/{coachUid}.supportingWorkPresets.
+const DEFAULT_SUPPORTING_PRESETS = [
+  '6-8x :15-:20 hill sprints',
+  '1-2 Lifting Session (see lifting tab)'
+];
+let coachSupportingPresets = DEFAULT_SUPPORTING_PRESETS.slice();
+
 let currentUser = null;
 let userDoc = null;
 let isCoach = false;
@@ -1242,6 +1265,7 @@ async function loadUserDoc(user) {
   }
 
   isCoach = userDoc.role === 'coach';
+  if (isCoach) loadCoachSupportingPresets();
   document.getElementById('hdr-user').textContent = userDoc.displayName || user.displayName || user.email;
 
   const badge = document.getElementById('role-badge');
@@ -1911,6 +1935,56 @@ function renderWeekCard(mondayStr, role) {
     </div>`;
   }
 
+  // Specialized Supporting Work row: coach-side adds a chip strip of
+  // recurring presets above the freeform textarea; athlete-side shows
+  // selected tags as pills above any freeform prose.
+  function supportingRow() {
+    const selectedTags = new Set(Array.isArray(workout.ancillaryTags) ? workout.ancillaryTags : []);
+
+    let coachInner;
+    if (coachEdit) {
+      const chips = coachSupportingPresets.map(p => {
+        const sel = selectedTags.has(p) ? ' selected' : '';
+        return `<button type="button" class="tag-chip${sel}" data-tag="${esc(p)}" onclick="toggleSupportingChip(this)">${esc(p)}</button>`;
+      }).join('');
+      coachInner =
+        `<div class="supporting-chips-hint">Quick add</div>` +
+        `<div class="supporting-chips" id="supporting-chips-${mondayStr}">` +
+          chips +
+          `<button type="button" class="tag-chip add" onclick="promptAddSupportingPreset('${mondayStr}')">+ New tag</button>` +
+        `</div>` +
+        `<textarea class="wk-input" id="ancillary-${mondayStr}" placeholder="Anything else? (freeform)">${esc(workout.ancillaryWork || '')}</textarea>`;
+    } else {
+      let pills = '';
+      if (selectedTags.size > 0) {
+        pills = `<div class="supporting-pills">` +
+          Array.from(selectedTags).map(t => `<span class="tag-pill">${esc(t)}</span>`).join('') +
+        `</div>`;
+      }
+      const freeform = (workout.ancillaryWork || '').trim();
+      let prose;
+      if (freeform) {
+        prose = `<div class="wk-prose">${esc(freeform)}</div>`;
+      } else if (selectedTags.size === 0) {
+        prose = `<div class="wk-prose empty">&mdash; No supporting work set yet &mdash;</div>`;
+      } else {
+        prose = '';
+      }
+      coachInner = pills + prose;
+    }
+
+    return `<div class="wk-row ancillary">
+      <div class="wk-cell coach">
+        <div class="wk-cell-label">Supporting Work</div>
+        ${coachInner}
+      </div>
+      <div class="wk-cell athlete">
+        <div class="wk-cell-label"><span class="athlete-icon">&#9670;</span> Athlete notes</div>
+        ${athleteContent('ancillary-notes', workout.athleteAncillaryNotes)}
+      </div>
+    </div>`;
+  }
+
   return `
   <div class="week-card${isCurrent ? ' current-week' : ''}">
     <div class="wk-body">
@@ -1918,7 +1992,7 @@ function renderWeekCard(mondayStr, role) {
       ${row('midweek',  'Midweek Session',               'midweek',  workout.midweekSession,   'midweek-notes',  workout.athleteMidweekNotes)}
       ${row('weekend',  'Weekend Session',               'weekend',  workout.weekendSession,   'weekend-notes',  workout.athleteWeekendNotes)}
       ${row('long-run', 'Long Run',                      'longrun',  workout.longRun,          'longrun-notes',  workout.athleteLongRunNotes)}
-      ${row('ancillary','Supporting Work',               'ancillary',workout.ancillaryWork,    'ancillary-notes',workout.athleteAncillaryNotes)}
+      ${supportingRow()}
       ${row('notes',    'General Notes for the Week',    'notes',    workout.notes,            'notes-athlete',  workout.athleteNotes)}
     </div>
     ${coachEdit ? `<div class="wk-actions">
@@ -1947,7 +2021,20 @@ function renderPlanOverview(role) {
     rows.push({ monStr, mon, w, stravaRunMi, stravaCrossMi, wb, isCurrent: monStr === todayMonStr });
   }
 
-  const anyData = rows.some(r => r.w.milesPerWeek || r.w.midweekSession || r.w.weekendSession || r.w.longRun || r.w.ancillaryWork || r.w.notes);
+  // Combine selected Supporting Work tags + freeform text for the overview cell.
+  function supportingText(w) {
+    const tags = Array.isArray(w.ancillaryTags) ? w.ancillaryTags : [];
+    const freeform = (w.ancillaryWork || '').trim();
+    const parts = [];
+    if (tags.length) parts.push(tags.map(t => '• ' + t).join('\n'));
+    if (freeform) parts.push(freeform);
+    return parts.join('\n');
+  }
+  function hasSupporting(w) {
+    return (Array.isArray(w.ancillaryTags) && w.ancillaryTags.length) || (w.ancillaryWork && w.ancillaryWork.trim());
+  }
+
+  const anyData = rows.some(r => r.w.milesPerWeek || r.w.midweekSession || r.w.weekendSession || r.w.longRun || hasSupporting(r.w) || r.w.notes);
 
   function cell(text) {
     if (!text || !text.trim()) return `<td><span class="po-cell-empty">—</span></td>`;
@@ -1955,7 +2042,7 @@ function renderPlanOverview(role) {
   }
 
   const headerSub = anyData
-    ? `${rows.filter(r => r.w.milesPerWeek || r.w.midweekSession || r.w.weekendSession || r.w.longRun || r.w.ancillaryWork || r.w.notes).length} of 16 weeks have entries · click any row to edit`
+    ? `${rows.filter(r => r.w.milesPerWeek || r.w.midweekSession || r.w.weekendSession || r.w.longRun || hasSupporting(r.w) || r.w.notes).length} of 16 weeks have entries · click any row to edit`
     : 'No workouts written yet for the last 16 weeks';
 
   let html = `<div class="plan-overview-wrap">
@@ -2000,7 +2087,7 @@ function renderPlanOverview(role) {
       ${cell(r.w.midweekSession)}
       ${cell(r.w.weekendSession)}
       ${cell(r.w.longRun)}
-      ${cell(r.w.ancillaryWork)}
+      ${cell(supportingText(r.w))}
       ${cell(r.w.notes)}
     </tr>`;
   });
@@ -2773,10 +2860,79 @@ async function notifyAthleteWorkoutUpdated(weekKey) {
 }
 
 // ══════════════════════════════════════════════════════════
+//  COACH SUPPORTING-WORK PRESETS (recurring tags)
+// ══════════════════════════════════════════════════════════
+async function loadCoachSupportingPresets() {
+  if (!currentUser || !isCoach) return;
+  try {
+    const doc = await db.collection('users').doc(currentUser.uid).get();
+    const data = doc.exists ? doc.data() : null;
+    if (data && Array.isArray(data.supportingWorkPresets) && data.supportingWorkPresets.length > 0) {
+      coachSupportingPresets = data.supportingWorkPresets.filter(s => typeof s === 'string' && s.trim().length);
+    } else {
+      coachSupportingPresets = DEFAULT_SUPPORTING_PRESETS.slice();
+    }
+  } catch(e) {
+    console.warn('Failed to load supporting-work presets:', e.message);
+  }
+}
+
+async function saveCoachSupportingPresets() {
+  if (!currentUser || !isCoach) return;
+  try {
+    await db.collection('users').doc(currentUser.uid).set({
+      supportingWorkPresets: coachSupportingPresets
+    }, { merge: true });
+  } catch(e) {
+    console.error('Failed to save supporting-work presets:', e);
+  }
+}
+
+// Click handler for chips on the coach side -- toggles selected state.
+// The actual save happens when the coach clicks the row's Save button
+// (saveWeek reads .tag-chip.selected from the supporting-chips row).
+function toggleSupportingChip(btn) {
+  if (!btn) return;
+  btn.classList.toggle('selected');
+}
+
+function promptAddSupportingPreset(weekKey) {
+  const text = window.prompt('Add a recurring Supporting Work tag\n(e.g. "30 min easy spin", "Mobility 15 min"):');
+  if (!text) return;
+  const cleaned = text.trim();
+  if (!cleaned) return;
+  if (coachSupportingPresets.includes(cleaned)) return;
+  coachSupportingPresets.push(cleaned);
+  saveCoachSupportingPresets();
+  // Inject a new chip into the current week's row, pre-selected so the
+  // coach doesn't have to click it again.
+  const row = document.getElementById('supporting-chips-' + weekKey);
+  if (row) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'tag-chip selected';
+    chip.dataset.tag = cleaned;
+    chip.textContent = cleaned;
+    chip.onclick = function(){ toggleSupportingChip(this); };
+    const addBtn = row.querySelector('.tag-chip.add');
+    if (addBtn) row.insertBefore(chip, addBtn);
+    else row.appendChild(chip);
+  }
+}
+
+// ══════════════════════════════════════════════════════════
 //  SAVE: COACH WORKOUTS (explicit save button)
 // ══════════════════════════════════════════════════════════
 async function saveWeek(weekKey) {
   if (!selectedAthletePlan) return;
+
+  // Recurring tags for Supporting Work -- read from the chip row.
+  const supportingChipsRow = document.getElementById(`supporting-chips-${weekKey}`);
+  const selectedTags = supportingChipsRow
+    ? Array.from(supportingChipsRow.querySelectorAll('.tag-chip.selected'))
+        .map(c => (c.dataset.tag || '').trim())
+        .filter(Boolean)
+    : [];
 
   const data = {
     weekStart: weekKey,
@@ -2785,6 +2941,7 @@ async function saveWeek(weekKey) {
     weekendSession: document.getElementById(`weekend-${weekKey}`)?.value.trim() || null,
     longRun: document.getElementById(`longrun-${weekKey}`)?.value.trim() || null,
     ancillaryWork: document.getElementById(`ancillary-${weekKey}`)?.value.trim() || null,
+    ancillaryTags: selectedTags.length ? selectedTags : null,
     notes: document.getElementById(`notes-${weekKey}`)?.value.trim() || null,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   };
