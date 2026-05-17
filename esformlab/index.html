@@ -351,18 +351,20 @@ body.bar-showing #screen-phases{padding-bottom:120px}
 .scrub-section{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
 .scrub-label{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:10px}
 .scrub-label .dq-pill{margin-top:0;font-size:10px;padding:3px 9px;text-transform:none;letter-spacing:.3px}
-.scrub-main{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.ep-scrubber{flex:1;-webkit-appearance:none;height:4px;background:var(--panel);border-radius:2px;outline:none;cursor:pointer}
-.ep-scrubber::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;background:var(--cyan);border-radius:50%;cursor:pointer;box-shadow:0 0 0 4px rgba(0,229,200,.15)}
-.ep-time{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--cyan);min-width:52px;text-align:right;flex-shrink:0}
-.step-btns{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.scrub-stepper-row{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.step-btn-big{padding:10px 14px;font-size:13px;font-weight:700;font-family:var(--mono);border-radius:10px;border:1.5px solid rgba(0,229,200,.28);background:rgba(0,229,200,.07);color:var(--text);cursor:pointer;transition:border-color .12s,background .12s,color .12s,transform .08s;user-select:none;min-width:54px;line-height:1}
+.step-btn-big:hover{border-color:var(--cyan);background:rgba(0,229,200,.16);color:var(--cyan)}
+.step-btn-big:active{transform:scale(.96)}
+.ep-time{font-family:var(--mono);font-size:18px;font-weight:800;color:var(--cyan);min-width:78px;text-align:center;padding:0 6px;line-height:1}
+.scrub-hint{font-size:11px;color:var(--muted2);font-family:var(--mono);line-height:1.65;margin-bottom:12px;padding:9px 12px;background:rgba(0,229,200,.04);border:1px solid rgba(0,229,200,.15);border-radius:8px;text-align:center}
+.scrub-hint strong{color:var(--cyan);font-weight:700}
+.scrub-actions-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .step-btn{padding:5px 11px;font-size:11px;font-weight:700;font-family:var(--mono);border-radius:7px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;transition:all .15s;user-select:none}
 .step-btn:hover{border-color:var(--cyan);color:var(--cyan)}
-.step-label{font-size:10px;color:var(--muted);margin:0 1px}
-.re-btn{margin-left:auto;display:inline-flex;align-items:center;gap:6px;padding:7px 16px;font-size:11px;font-weight:700;font-family:var(--ui);border-radius:8px;border:1px solid rgba(0,229,200,.3);background:rgba(0,229,200,.08);color:var(--cyan);cursor:pointer;transition:all .15s}
+.re-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;font-size:12px;font-weight:700;font-family:var(--ui);border-radius:8px;border:1.5px solid var(--cyan);background:rgba(0,229,200,.14);color:var(--cyan);cursor:pointer;transition:all .15s}
 .re-btn:hover{background:rgba(0,229,200,.15)}
 .re-btn:disabled{opacity:.35;cursor:not-allowed}
-.swap-btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;font-size:11px;font-weight:700;font-family:var(--ui);border-radius:8px;border:1px solid rgba(245,166,35,.3);background:rgba(245,166,35,.08);color:var(--warn);cursor:pointer;transition:all .15s;margin-left:6px}
+.swap-btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;font-size:11px;font-weight:700;font-family:var(--ui);border-radius:8px;border:1px solid rgba(245,166,35,.3);background:rgba(245,166,35,.08);color:var(--warn);cursor:pointer;transition:all .15s}
 .swap-btn:hover{background:rgba(245,166,35,.18)}
 .swap-btn:disabled{opacity:.35;cursor:not-allowed}
 .scrub-nav{display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);flex-wrap:wrap}
@@ -657,17 +659,21 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
   /* Compact scrub-section that fits in the visible area */
   .scrub-section{padding:10px 12px}
   .scrub-label{margin-bottom:8px;font-size:9px}
-  .scrub-main{gap:10px;margin-bottom:8px}
 
-  /* Bigger scrubber for touch */
-  .ep-scrubber{height:8px;border-radius:4px}
-  .ep-scrubber::-webkit-slider-thumb{width:26px;height:26px;box-shadow:0 0 0 6px rgba(0,229,200,.18)}
-  .ep-scrubber::-moz-range-thumb{width:26px;height:26px;border:none;background:var(--cyan);border-radius:50%;box-shadow:0 0 0 6px rgba(0,229,200,.18)}
-  .ep-time{font-size:13px;min-width:48px}
+  /* Bigger frame stepper buttons for touch */
+  .scrub-stepper-row{gap:6px;margin-bottom:8px}
+  .step-btn-big{
+    padding:0;font-size:13px;
+    min-width:48px;height:44px;
+    display:inline-flex;align-items:center;justify-content:center;
+    flex:0 1 auto;
+    border-radius:9px;
+  }
+  .ep-time{font-size:16px;min-width:64px}
+  .scrub-hint{font-size:10px;padding:7px 9px;line-height:1.55}
 
-  /* Frame step buttons + actions: bigger touch targets, organized rows */
-  .step-btns{gap:6px;align-items:center}
-  .step-label{display:none}
+  /* Action row: bigger touch targets */
+  .scrub-actions-row{gap:6px;align-items:center}
   .step-btn{
     padding:0;font-size:12px;font-weight:700;
     min-width:42px;height:38px;
@@ -731,6 +737,8 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
   /* Scrub interface — even tighter on smallest phones */
   .ep-canvas-wrap{max-height:34vh;max-height:34dvh}
   .ep-canvas{max-height:34vh;max-height:34dvh}
+  .step-btn-big{min-width:44px;height:40px;font-size:12px;padding:0}
+  .ep-time{font-size:15px;min-width:58px}
   .step-btn{min-width:38px;height:36px;font-size:11px}
   .re-btn{padding:0 12px;font-size:11px;height:36px}
   .swap-btn{padding:0 10px;font-size:10px;height:36px}
@@ -883,7 +891,7 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
 /* ---------- Guided tour overlay ---------- */
 #tour-overlay{position:fixed;inset:0;z-index:700;display:none;pointer-events:none}
 #tour-overlay.open{display:block}
-#tour-overlay .tour-mask-piece{position:absolute;background:rgba(6,8,13,.78);pointer-events:auto;transition:all .22s ease}
+#tour-overlay .tour-mask-piece{position:absolute;background:rgba(6,8,13,.78);pointer-events:none;transition:all .22s ease}
 #tour-overlay .tour-ring{position:absolute;border:3px solid var(--cyan);border-radius:14px;box-shadow:0 0 0 6px rgba(0,229,200,.25),0 0 32px rgba(0,229,200,.55);pointer-events:none;transition:all .25s ease;animation:tour-pulse 1.6s ease-in-out infinite}
 @keyframes tour-pulse{
   0%,100%{box-shadow:0 0 0 6px rgba(0,229,200,.25),0 0 32px rgba(0,229,200,.55)}
@@ -1135,7 +1143,7 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
 
     <div style="margin:14px 0 18px;background:rgba(245,166,35,.10);border:1.5px solid rgba(245,166,35,.55);border-left:4px solid var(--warn);border-radius:12px;padding:14px 18px;color:var(--text);line-height:1.6;font-size:14px">
       <div style="font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--warn);margin-bottom:6px;font-family:var(--mono)">&#9888; Finish the walkthrough first</div>
-      A guided walkthrough will pop up below. <strong>Step through every bubble before you touch any of the cards or scrubbers.</strong> It only takes about 60 seconds and shows you exactly how to open a card, scrub to the correct frame, and use the example helper photos. Trying to adjust frames before completing the walkthrough is the #1 way to get confused on this screen.
+      A guided walkthrough will pop up below. <strong>Step through every bubble before you touch any of the cards or frame controls.</strong> It only takes about 60 seconds and shows you exactly how to open a card, step to the correct frame, and use the example helper photos. Trying to adjust frames before completing the walkthrough is the #1 way to get confused on this screen.
     </div>
 
     <div class="instr-steps">
@@ -1150,14 +1158,14 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
         <div class="instr-step-num">2</div>
         <div class="instr-step-text">
           <div class="instr-step-title">Get every card to "Strong detection"</div>
-          <div class="instr-step-desc">The large detection quality indicator at the top of each card should read <strong>"Strong detection"</strong> in green. If it does not, click the <strong>Analyze</strong> button again, or use the scrubber to pick a clearer frame.</div>
+          <div class="instr-step-desc">The large detection quality indicator at the top of each card should read <strong>"Strong detection"</strong> in green. If it does not, click the <strong>Analyze</strong> button again, or use the <strong>&#8722;1f / +1f / &#8722;5f / +5f / &#8722;1s / +1s</strong> frame step buttons to pick a clearer frame.</div>
         </div>
       </div>
       <div class="instr-step">
         <div class="instr-step-num">3</div>
         <div class="instr-step-text">
           <div class="instr-step-title">Make sure each frame matches its description</div>
-          <div class="instr-step-desc">Each card describes what the frame should look like (for example, "the moment the left foot contacts the ground"). If the auto-selected frame does not match, <strong>use the scrubber to find the right moment</strong> and click Analyze again.</div>
+          <div class="instr-step-desc">Each card describes what the frame should look like (for example, "the moment the left foot contacts the ground"). If the auto-selected frame does not match, <strong>use the frame step buttons (&#8722;1f / +1f / &#8722;5f / +5f / &#8722;1s / +1s) to find the right moment</strong> and click Analyze again.</div>
         </div>
       </div>
       <div class="instr-step">
@@ -1329,7 +1337,7 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
     </div>
     <div class="ep-undetected-notice" id="ep-undetected-notice">
       <div class="eun-title">&#9888; Not automatically detected</div>
-      <div class="eun-text">Use the scrubber to find the best matching frame, then click &#8635; Analyze.</div>
+      <div class="eun-text">Use the frame step buttons (&#8722;1f / +1f / &#8722;5f / +5f / &#8722;1s / +1s) to find the best matching frame, then click &#8635; Analyze.</div>
     </div>
     <div class="ep-body">
       <div class="ep-canvas-side">
@@ -1342,19 +1350,20 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
             <span>Frame adjustment</span>
             <span id="ep-quality-pill" class="dq-pill" style="display:none"></span>
           </div>
-          <div class="scrub-main">
-            <input type="range" class="ep-scrubber" id="ep-scrubber" min="0" max="1" step="0.04" value="0" oninput="epScrub(this.value)">
+          <div class="scrub-stepper-row">
+            <button class="step-btn-big" onclick="epStep(-25)" title="Back ~1 second (25 frames)">&#8722;1s</button>
+            <button class="step-btn-big" onclick="epStep(-5)" title="Back 5 frames">&#8722;5f</button>
+            <button class="step-btn-big" onclick="epStep(-1)" title="Back 1 frame">&#8722;1f</button>
             <span class="ep-time" id="ep-time">0.00s</span>
+            <button class="step-btn-big" onclick="epStep(1)" title="Forward 1 frame">+1f</button>
+            <button class="step-btn-big" onclick="epStep(5)" title="Forward 5 frames">+5f</button>
+            <button class="step-btn-big" onclick="epStep(25)" title="Forward ~1 second (25 frames)">+1s</button>
           </div>
-          <div class="step-btns">
-            <button class="step-btn" onclick="epStep(-5)">-5f</button>
-            <button class="step-btn" onclick="epStep(-1)">-1f</button>
-            <span class="step-label">frame</span>
-            <button class="step-btn" onclick="epStep(1)">+1f</button>
-            <button class="step-btn" onclick="epStep(5)">+5f</button>
-            <button class="re-btn" id="ep-re-btn" onclick="epReanalyze()">&#8635; Analyze</button>
+          <div class="scrub-hint">Step through the clip with these buttons — <strong>&#8722;1f</strong> / <strong>+1f</strong> nudge one frame at a time, <strong>&#8722;5f</strong> / <strong>+5f</strong> skip ~0.2s, <strong>&#8722;1s</strong> / <strong>+1s</strong> jump a full second. After landing on the right frame, click <strong>&#8635; Analyze</strong> below to re-measure.</div>
+          <div class="scrub-actions-row">
+            <button class="re-btn" id="ep-re-btn" onclick="epReanalyze()">&#8635; Analyze this frame</button>
             <button class="swap-btn" id="ep-swap-btn" onclick="swapLegs()" title="Swap left/right leg assignments">&#8644; Swap L/R</button>
-            <button class="step-btn step-btn-clear" onclick="clearOverlay()" title="Clear skeleton overlay">✕ Clear</button>
+            <button class="step-btn step-btn-clear" onclick="clearOverlay()" title="Clear skeleton overlay" style="margin-left:auto">✕ Clear overlay</button>
           </div>
           <div class="scrub-nav">
             <span class="scrub-nav-label">jump to:</span>
@@ -2220,7 +2229,7 @@ let detector=null, phases={};
 // picks which frame to analyze runs on the lighter model.
 let scanDetector = null;
 let scanDetectorPromise = null;
-let expandKey=null, epCurrentT=0, epAnalyzing=false;
+let expandKey=null, epCurrentT=0, epAnalyzing=false, epDuration=30;
 // Captured at openExpand() so we can label the auto-picked frame vs. whatever the reviewer moved to.
 var epAutoT = 0, epAutoKps = null, epAutoMetrics = null;
 // Video time at which ph.kps was last computed -- used to detect stale poses when saving labels.
@@ -2303,7 +2312,7 @@ function renderQualityCard(kps){
     hint = '<div class="dq-big-hint">' +
       '<strong>Fair detection is usable</strong> -- the results are reasonable, but may have larger error margins than Strong. To try for better accuracy:' +
       '<br>1. Click <strong>&#8635; Analyze</strong> again -- a second attempt often improves results.' +
-      '<br>2. If the overlay still does not match the runner, use the scrubber to select a nearby frame with less motion blur.' +
+      '<br>2. If the overlay still does not match the runner, use the frame step buttons (&#8722;1f / +1f) to select a nearby frame with less motion blur.' +
       '<br>3. Make sure the selected frame matches what this phase describes (see "What to look for" below).' +
       '<br><br><span style="color:var(--muted2)">Still not improving? Common causes: clothing blending into the background (wear contrasting colors), video too bright or too dark, runner too far from the camera, or limbs overlapping from the camera angle.</span>' +
       '</div>' +
@@ -2346,23 +2355,23 @@ function checkLegSwap(key, m) {
     // Proxy: left foot offset should be more positive/forward than right (or at least similar).
     // More reliable: left knee should be more extended (larger angle) than right at contact.
     if(m.lKnee != null && m.rKnee != null && m.rKnee > m.lKnee + 20) {
-      return 'This looks like a right foot strike, not left. The right knee is more extended than the left, which usually means the right foot is the one contacting the ground. Use the scrubber to find the moment when the left foot hits.';
+      return 'This looks like a right foot strike, not left. The right knee is more extended than the left, which usually means the right foot is the one contacting the ground. Use the frame step buttons to find the moment when the left foot hits.';
     }
   }
   if(key === 'r_foot') {
     if(m.lKnee != null && m.rKnee != null && m.lKnee > m.rKnee + 20) {
-      return 'This looks like a left foot strike, not right. The left knee is more extended than the right. Use the scrubber to find the moment when the right foot hits.';
+      return 'This looks like a left foot strike, not right. The left knee is more extended than the right. Use the frame step buttons to find the moment when the right foot hits.';
     }
   }
   if(key === 'l_toe') {
     // At L toe-off, left hip should be more extended (larger angle) than right.
     if(m.lHip != null && m.rHip != null && m.rHip > m.lHip + 15) {
-      return 'This looks like a right-side toe-off, not left. The right hip is more extended than the left, which means the right leg is pushing off. Use the scrubber to find the moment when the left foot leaves the ground.';
+      return 'This looks like a right-side toe-off, not left. The right hip is more extended than the left, which means the right leg is pushing off. Use the frame step buttons to find the moment when the left foot leaves the ground.';
     }
   }
   if(key === 'r_toe') {
     if(m.lHip != null && m.rHip != null && m.lHip > m.rHip + 15) {
-      return 'This looks like a left-side toe-off, not right. The left hip is more extended than the right. Use the scrubber to find the moment when the right foot leaves the ground.';
+      return 'This looks like a left-side toe-off, not right. The left hip is more extended than the right. Use the frame step buttons to find the moment when the right foot leaves the ground.';
     }
   }
   return null;
@@ -3294,8 +3303,8 @@ function openExpand(key){
   document.getElementById('ep-hdr').className='ep-hdr'+(isUndet?' undetected':'');
   document.getElementById('ep-num').textContent=idx+1;document.getElementById('ep-name').textContent=ph.label;document.getElementById('ep-desc').textContent=ph.desc;
   document.getElementById('ep-undetected-notice').className='ep-undetected-notice'+(isUndet?' show':'');
-  var scrub=document.getElementById('ep-scrubber');var dur=vidEl.duration||30;
-  scrub.min=0;scrub.max=isFinite(dur)?dur:30;scrub.step=0.04;scrub.value=epCurrentT;
+  var dur=vidEl.duration||30;
+  epDuration = isFinite(dur)?dur:30;
   document.getElementById('ep-time').textContent=epCurrentT.toFixed(2)+'s';
   var guide=ph.guide||PHASE_DEFS[0].guide;
   document.getElementById('ep-guide-title').textContent=guide.title;
@@ -3306,7 +3315,7 @@ function openExpand(key){
       'Scrub to a frame where the runner is <strong>directly perpendicular</strong> to the camera — passing broadside across the screen. '+
       '<strong>Do not analyze a frame where the runner is angled toward or away from the camera</strong>, even slightly. '+
       'Side-view angle measurements (trunk lean, hip, knee, foot offset) are only valid when the camera is looking straight at the runner\'s side. '+
-      'If the auto-picked frame catches the runner mid-approach or mid-departure, use the scrubber to move forward or backward to the dead-on side moment, then click Analyze.'+
+      'If the auto-picked frame catches the runner mid-approach or mid-departure, use the frame step buttons (&#8722;1f / +1f / &#8722;5f / +5f / &#8722;1s / +1s) to move forward or backward to the dead-on side moment, then click Analyze.'+
     '</div>'
   ) : '';
   document.getElementById('ep-guide-desc').innerHTML = guide.desc + sideAngleWarnHTML +
@@ -3318,8 +3327,8 @@ function openExpand(key){
     '<div style="margin-top:14px;font-size:13px;color:var(--text);line-height:1.8;border-top:1px solid var(--border);padding-top:12px">' +
     '<strong>If detection is not Strong:</strong>' +
     '<br>&#8226; Click <strong style="color:var(--cyan)">&#8635; Analyze</strong> again -- a second or third pass often gets a better result.' +
-    '<br>&#8226; If the skeleton overlay does not match the runner after multiple attempts, use the scrubber to move to a nearby frame.' +
-    '<br>&#8226; If the frame does not match what this phase describes, scrub further to find the correct moment in the video.' +
+    '<br>&#8226; If the skeleton overlay does not match the runner after multiple attempts, use the frame step buttons (&#8722;1f / +1f) to move to a nearby frame.' +
+    '<br>&#8226; If the frame does not match what this phase describes, step further forward or back to find the correct moment in the video.' +
     '</div>';
   document.getElementById('ep-guide-tip').textContent='Tip: '+guide.tip;
   document.getElementById('nav-phase-btns').innerHTML=PHASE_DEFS.map(function(def,i){return '<button class="nav-phase-btn '+(def.key===key?'cur':'')+' '+(!(phases[def.key]&&phases[def.key].detected)?'undetected':'')+'" onclick="openExpand(\''+def.key+'\')">'+(i+1)+'. '+def.label+'</button>';}).join('');
@@ -3420,7 +3429,7 @@ async function writePhaseLabelDoc(phaseKey, frameData, isCorrect){
   return await db.collection('phase_labels').add(payload);
 }
 
-// Single button: mark CURRENT scrubber frame as correct, then auto-scrub +/- 1,2,3 frames
+// Single button: mark CURRENT frame as correct, then auto-step +/- 1,2,3 frames
 // and save each neighbor as a bad frame. Produces 7 training examples per click.
 var FRAME_STEP_SECS = 0.04; // matches epStep (1f = 40ms)
 var NEIGHBOR_OFFSETS = [-3, -2, -1, 1, 2, 3];
@@ -3477,8 +3486,6 @@ async function labelCorrectFrame(){
     updatePhaseCardLabelBadge(phaseKey);
 
     // Restore original position + pose overlay.
-    var scrub = document.getElementById('ep-scrubber');
-    if(scrub) scrub.value = originalT;
     epCurrentT = originalT;
     document.getElementById('ep-time').textContent = originalT.toFixed(2) + 's';
     if(phases[phaseKey]){
@@ -3598,7 +3605,7 @@ function getTourSteps(){
   return [
     {
       title: 'Finish this walkthrough first, then adjust your frames',
-      desc: '<strong style="color:var(--warn)">Please do not click on any cards or scrubbers yet.</strong> Take 60 seconds to step through the rest of this walkthrough — it explains exactly how to open a card, scrub to the right frame, re-analyze, and use the helper photos. Once you finish the walkthrough, come back and review every card with this knowledge in hand. People who try to adjust frames before finishing this walkthrough almost always get stuck.',
+      desc: '<strong style="color:var(--warn)">Please do not click on any cards or frame controls yet.</strong> Take 60 seconds to step through the rest of this walkthrough — it explains exactly how to open a card, step to the right frame, re-analyze, and use the helper photos. Once you finish the walkthrough, come back and review every card with this knowledge in hand. People who try to adjust frames before finishing this walkthrough almost always get stuck.',
       target: function(){ return document.querySelector('#phase-groups .phase-card'); },
       align: 'auto'
     },
@@ -3616,14 +3623,10 @@ function getTourSteps(){
       align: 'auto'
     },
     {
-      title: 'Scrub or step to a better frame',
-      desc: 'Use the <strong>scrubber</strong> or the <strong>-1f / +1f</strong> step buttons to nudge frames. Press <strong>&#8635; Analyze</strong> after moving to get fresh angles for that exact frame.',
+      title: 'Step to a better frame',
+      desc: 'Click the <strong>&#8722;1f / +1f</strong> buttons to nudge one frame at a time, <strong>&#8722;5f / +5f</strong> to skip ~0.2 seconds, or <strong>&#8722;1s / +1s</strong> to jump a full second. After landing on the right frame, press <strong>&#8635; Analyze this frame</strong> to re-measure.',
       setup: function(){ ensureTourCardOpen(); },
-      // Multi-target: highlight the scrubber row AND the step-button row together.
-      target: function(){ return [
-        document.querySelector('#expand-overlay .scrub-main'),
-        document.querySelector('#expand-overlay .step-btns')
-      ]; },
+      target: function(){ return document.querySelector('#expand-overlay .scrub-stepper-row'); },
       align: 'below'
     },
     {
@@ -3635,7 +3638,7 @@ function getTourSteps(){
     },
     {
       title: 'Click Analyze as many times as needed',
-      desc: 'Each click re-analyzes the current frame. Pose detection has some randomness, so a second or third pass on the same frame can sometimes bump detection quality from <em>medium</em> to <em>strong</em>. If multiple re-analyses still don’t improve it, use the scrubber or the examples helper to pick a clearer frame.',
+      desc: 'Each click re-analyzes the current frame. Pose detection has some randomness, so a second or third pass on the same frame can sometimes bump detection quality from <em>medium</em> to <em>strong</em>. If multiple re-analyses still don’t improve it, use the frame step buttons or the examples helper to pick a clearer frame.',
       setup: function(){ ensureTourCardOpen(); },
       target: function(){ return document.getElementById('ep-re-btn'); },
       align: 'auto'
@@ -3693,7 +3696,10 @@ function startTour(){
   document.getElementById('tour-overlay').classList.add('open');
   document.addEventListener('keydown', onTourKey);
   window.addEventListener('resize', positionTour, {passive:true});
-  window.addEventListener('scroll', positionTour, {passive:true});
+  // Capture phase catches scroll on nested scrollable containers too
+  // (.expand-panel, .ep-info-side) so the spotlight tracks the target as
+  // the user scrolls anywhere in the page.
+  document.addEventListener('scroll', positionTour, {capture:true, passive:true});
   showTourStep(0);
 }
 function endTour(skipped){
@@ -3701,7 +3707,7 @@ function endTour(skipped){
   document.getElementById('tour-overlay').classList.remove('open');
   document.removeEventListener('keydown', onTourKey);
   window.removeEventListener('resize', positionTour);
-  window.removeEventListener('scroll', positionTour);
+  document.removeEventListener('scroll', positionTour, {capture:true});
   if(tourState.raf){ cancelAnimationFrame(tourState.raf); tourState.raf=null; }
   // If we force-showed the complete-analysis bar for the last step, hide it again so
   // the user doesn't see a stale 'Complete analysis' bar while they're still reviewing.
@@ -3745,8 +3751,25 @@ function showTourStep(i){
   document.getElementById('tb-next').textContent = (i===tourState.steps.length-1) ? 'Got it ✓' : 'Next →';
   var dots = tourState.steps.map(function(_,k){return '<div class="tb-dot '+(k===i?'cur':'')+'"></div>';}).join('');
   document.getElementById('tb-dots').innerHTML = dots;
-  // Wait for DOM to settle (expand overlay open animation, scroll, etc.) before positioning.
+  // Auto-scroll the target into view ONCE per step (not on every scroll event --
+  // that fought the user when they tried to scroll the expand panel themselves).
   requestAnimationFrame(function(){
+    var tgt = step.target ? step.target() : null;
+    var firstEl = Array.isArray(tgt) ? tgt.find(function(t){return t && t.scrollIntoView;}) : tgt;
+    if(firstEl && firstEl.scrollIntoView){
+      // Don't yank a target that's already in a pinned/fixed bar.
+      var anc = firstEl, pinned = false;
+      while(anc && anc !== document.body){
+        var pos = getComputedStyle(anc).position;
+        if(pos === 'fixed' || pos === 'sticky'){ pinned = true; break; }
+        anc = anc.parentElement;
+      }
+      if(!pinned){
+        try{ firstEl.scrollIntoView({behavior:'smooth', block:'center'}); }catch(e){}
+      }
+    }
+    // Position the spotlight after the scroll has had a moment to settle.
+    setTimeout(positionTour, 260);
     requestAnimationFrame(positionTour);
   });
 }
@@ -3772,7 +3795,7 @@ function positionTour(){
   }
   // Compute the spotlight rect. A step's target() can return either a single Element
   // or an Array of Elements; for the array case we union the bounding rects so one
-  // spotlight covers all of them (e.g. scrubber row + step-button row together).
+  // spotlight covers all of them (e.g. multiple rows of frame controls).
   var r = null;
   var firstTgt = null;
   if(Array.isArray(tgt)){
@@ -3802,23 +3825,10 @@ function positionTour(){
     bubble.style.top  = Math.max(12,(vh - bubble.offsetHeight)/2)+'px';
     return;
   }
-  // Make sure the target is on-screen. Use the first element to drive scrollIntoView.
-  // Skip the guard if the target lives inside a position:fixed/sticky ancestor -- those
-  // elements are already pinned in the viewport (e.g. the bottom 'Complete analysis'
-  // bar) and scrollIntoView won't move them, which would loop forever.
-  if(r.top < 60 || r.bottom > vh - 60){
-    var anc = firstTgt, pinned = false;
-    while(anc && anc !== document.body){
-      var pos = getComputedStyle(anc).position;
-      if(pos === 'fixed' || pos === 'sticky'){ pinned = true; break; }
-      anc = anc.parentElement;
-    }
-    if(!pinned){
-      try{ firstTgt.scrollIntoView({behavior:'smooth', block:'center'}); }catch(e){}
-      setTimeout(positionTour, 280);
-      return;
-    }
-  }
+  // Note: we used to auto-scroll the target back into view here on every
+  // scroll/resize tick. That fought the user when they tried to scroll the
+  // expand panel themselves -- the tour kept yanking the page back. Initial
+  // scroll-into-view now happens once per step in showTourStep().
   var top    = Math.max(0,  r.top    - pad);
   var left   = Math.max(0,  r.left   - pad);
   var right  = Math.min(vw, r.right  + pad);
@@ -3906,7 +3916,7 @@ function epScrub(val){
   clearTimeout(epDbt.t);epDbt.t=setTimeout(function(){drawExpandFrame(epCurrentT,null);},100);
   if(isAdmin()) renderLabelPanel();
 }
-function epStep(frames){var scrub=document.getElementById('ep-scrubber');var newT=Math.max(parseFloat(scrub.min),Math.min(parseFloat(scrub.max),epCurrentT+frames*0.04));scrub.value=newT;epScrub(newT);}
+function epStep(frames){var newT=Math.max(0,Math.min(epDuration,epCurrentT+frames*0.04));epScrub(newT);}
 
 async function epReanalyze(){
   if(!detector||epAnalyzing)return;epAnalyzing=true;
