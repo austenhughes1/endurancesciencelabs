@@ -104,14 +104,25 @@ nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:st
 /* Drop zone (inside card) */
 .drop-zone-inner{padding:28px 32px 32px}
 .drop-zones-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
-.drop-zone{border:1.5px dashed rgba(0,229,200,.22);border-radius:16px;padding:24px 16px;text-align:center;cursor:pointer;background:rgba(0,229,200,.02);transition:all .2s}
+.drop-zone{border:1.5px dashed rgba(0,229,200,.22);border-radius:16px;padding:24px 16px;text-align:center;cursor:pointer;background:rgba(0,229,200,.02);transition:border-color .2s,background .2s,box-shadow .2s}
 .drop-zone:hover,.drop-zone.over{border-color:var(--cyan);background:rgba(0,229,200,.06)}
-.drop-zone.loaded{border-color:var(--good);border-style:solid;background:rgba(34,199,138,.04)}
+.drop-zone.loaded{border:2.5px solid var(--good);background:rgba(34,199,138,.15);box-shadow:0 0 0 4px rgba(34,199,138,.16),0 10px 30px rgba(34,199,138,.22);animation:dz-loaded-pulse .45s ease-out}
+@keyframes dz-loaded-pulse{0%{transform:scale(1)}50%{transform:scale(1.03)}100%{transform:scale(1)}}
 .dz-icon{width:44px;height:44px;border-radius:14px;background:rgba(0,229,200,.12);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:20px}
+.dz-check{display:none;width:64px;height:64px;border-radius:50%;background:var(--good);color:#06120d;font-size:36px;font-weight:900;line-height:1;align-items:center;justify-content:center;margin:0 auto 14px;box-shadow:0 0 0 6px rgba(34,199,138,.18),0 6px 20px rgba(34,199,138,.45)}
+.drop-zone.loaded .dz-icon{display:none}
+.drop-zone.loaded .dz-check{display:flex}
+.drop-zone.loaded .dz-title{color:var(--good);font-size:16px}
 .dz-title{font-size:15px;font-weight:800;margin-bottom:6px}
 .dz-sub{color:var(--muted2);font-size:11px;line-height:1.7}
+.drop-zone.loaded .dz-sub{display:none}
 .dz-tip{font-size:10px;color:var(--muted);line-height:1.65;margin-top:10px;text-align:left;border-top:1px solid var(--border);padding-top:8px}
 .dz-tip strong{color:var(--muted2)}
+.drop-zone.loaded .dz-tip{display:none}
+.dz-loaded-status{display:none;font-size:12px;font-weight:800;font-family:var(--mono);letter-spacing:1.5px;text-transform:uppercase;color:var(--good);margin:10px 0 4px}
+.drop-zone.loaded .dz-loaded-status{display:block}
+.dz-loaded-replace{display:none;margin-top:14px;padding-top:10px;border-top:1px dashed rgba(34,199,138,.3);font-size:10px;color:var(--muted2);font-family:var(--mono);letter-spacing:.4px}
+.drop-zone.loaded .dz-loaded-replace{display:block}
 .video-tips{margin-top:20px;background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:22px 26px}
 .video-tips-title{font-size:14px;font-weight:800;margin-bottom:12px;color:var(--text)}
 .video-tips-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -129,7 +140,7 @@ nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:st
 .mobile-perf-notice .mpn-body{font-size:12px;color:var(--muted2);line-height:1.7}
 @media(max-width:700px){.mobile-perf-notice{display:flex;margin:14px 16px 0}}
 .dz-required{font-size:9px;font-weight:700;color:var(--warn);font-family:var(--mono);letter-spacing:.5px;text-transform:uppercase;margin-top:8px}
-.dz-loaded-info{display:none;margin-top:10px;font-size:11px;color:var(--good);font-family:var(--mono);word-break:break-all}
+.dz-loaded-info{display:none;margin-top:2px;font-size:13px;font-weight:600;color:var(--text);font-family:var(--mono);word-break:break-all;line-height:1.45}
 .drop-zone.loaded .dz-loaded-info{display:block}
 .drop-zone.loaded .dz-required{display:none}
 .btn-main{display:inline-flex;align-items:center;gap:7px;margin-top:18px;padding:11px 22px;background:var(--cyan);color:#000;font-weight:700;font-size:13px;font-family:var(--ui);border:none;border-radius:9px;cursor:pointer;transition:opacity .15s}
@@ -1031,29 +1042,38 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
 
         <div class="drop-zone" id="drop-zone-side" onclick="document.getElementById('file-input-side').click()" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="handleDrop(event,'side')">
           <div class="dz-icon">&#9654;</div>
+          <div class="dz-check">&#10003;</div>
           <div class="dz-title">Side view</div>
           <p class="dz-sub">Film from directly beside the runner</p>
           <div class="dz-tip"><strong>Best:</strong> Someone moving alongside you at the same pace.<br><strong>Good:</strong> Someone panning the camera to follow you.<br><strong>OK:</strong> Stationary camera, you run past it.<br>Wear clothes that contrast with the background.<br><br><strong style="color:var(--warn)">&#9888; Important during review:</strong> Side-view phases must be analyzed on a frame where the runner is <strong>dead-on perpendicular to the camera</strong>, not approaching or leaving it at an angle. Stationary-camera clips will only have a few good frames in the middle of the pass — scrub to those.</div>
           <div class="dz-required">REQUIRED</div>
+          <div class="dz-loaded-status">Video loaded</div>
           <div class="dz-loaded-info" id="dz-info-side"></div>
+          <div class="dz-loaded-replace">Click to replace</div>
         </div>
 
         <div class="drop-zone" id="drop-zone-front" onclick="document.getElementById('file-input-front').click()" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="handleDrop(event,'front')">
           <div class="dz-icon">&#9673;</div>
+          <div class="dz-check">&#10003;</div>
           <div class="dz-title">Front view</div>
           <p class="dz-sub">Film from directly in front</p>
           <div class="dz-tip"><strong>Run straight toward the camera.</strong> Do not run at an angle -- even a slight angle will skew hip drop and knee alignment measurements. Wear contrasting clothes against the background.</div>
           <div class="dz-required">REQUIRED</div>
+          <div class="dz-loaded-status">Video loaded</div>
           <div class="dz-loaded-info" id="dz-info-front"></div>
+          <div class="dz-loaded-replace">Click to replace</div>
         </div>
 
         <div class="drop-zone" id="drop-zone-back" onclick="document.getElementById('file-input-back').click()" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="handleDrop(event,'back')">
           <div class="dz-icon">&#9679;</div>
+          <div class="dz-check">&#10003;</div>
           <div class="dz-title">Back view</div>
           <p class="dz-sub">Film from directly behind</p>
           <div class="dz-tip"><strong>Run straight away from the camera.</strong> Keep the camera dead center behind you, not at an angle. Wear contrasting clothes against the background.</div>
           <div class="dz-required">REQUIRED</div>
+          <div class="dz-loaded-status">Video loaded</div>
           <div class="dz-loaded-info" id="dz-info-back"></div>
+          <div class="dz-loaded-replace">Click to replace</div>
         </div>
 
       </div>
@@ -2557,7 +2577,7 @@ function loadFile(viewKey, file) {
   var zone = document.getElementById('drop-zone-'+viewKey);
   var info = document.getElementById('dz-info-'+viewKey);
   if(zone) zone.classList.add('loaded');
-  if(info) info.innerHTML = '\u2713 ' + file.name;
+  if(info) info.textContent = file.name;
   checkAllUploaded();
 }
 
