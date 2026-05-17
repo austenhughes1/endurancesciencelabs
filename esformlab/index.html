@@ -3914,22 +3914,19 @@ function showTourStep(i){
   document.getElementById('tb-dots').innerHTML = dots;
   // Auto-scroll the target into view ONCE per step (not on every scroll event --
   // that fought the user when they tried to scroll the expand panel themselves).
+  // scrollIntoView walks up the ancestor chain and scrolls the nearest scrollable
+  // container (e.g. .expand-panel, .ep-info-side, or the document) -- it's safe
+  // to call even for targets inside a position:fixed modal; the modal itself
+  // won't move, but its internal overflow:auto child will.
   requestAnimationFrame(function(){
     var tgt = step.target ? step.target() : null;
     var firstEl = Array.isArray(tgt) ? tgt.find(function(t){return t && t.scrollIntoView;}) : tgt;
     if(firstEl && firstEl.scrollIntoView){
-      // Don't yank a target that's already in a pinned/fixed bar.
-      var anc = firstEl, pinned = false;
-      while(anc && anc !== document.body){
-        var pos = getComputedStyle(anc).position;
-        if(pos === 'fixed' || pos === 'sticky'){ pinned = true; break; }
-        anc = anc.parentElement;
-      }
-      if(!pinned){
-        try{ firstEl.scrollIntoView({behavior:'smooth', block:'center'}); }catch(e){}
-      }
+      try{ firstEl.scrollIntoView({behavior:'smooth', block:'center'}); }catch(e){}
     }
-    // Position the spotlight after the scroll has had a moment to settle.
+    // Position the spotlight after the scroll has had a moment to settle. While
+    // the smooth scroll animates, the capture-phase scroll listener will keep
+    // repositioning the ring to track the target.
     setTimeout(positionTour, 260);
     requestAnimationFrame(positionTour);
   });
