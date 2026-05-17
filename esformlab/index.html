@@ -115,7 +115,9 @@ body{font-family:var(--ui);background:var(--bg);color:var(--text);min-height:100
 .pw-btn:disabled{opacity:.5;cursor:not-allowed}
 .pw-foot{margin-top:14px;font-size:11px;color:var(--muted2);font-family:var(--mono)}
 #report-locked-content.paywall-blur,
-#summary-section.paywall-blur{filter:blur(8px);pointer-events:none;user-select:none;transition:filter .25s}
+#summary-section.paywall-blur,
+#coaching-cta-section.paywall-blur,
+#report-footnotes.paywall-blur{filter:blur(8px);pointer-events:none;user-select:none;transition:filter .25s}
 
 /* Nav */
 nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:sticky;top:0;z-index:300;background:rgba(6,8,13,.97);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
@@ -507,6 +509,62 @@ body.bar-showing #screen-phases{padding-bottom:120px}
 .sv.na{color:var(--muted)}
 .sv-pos{display:block;font-size:9px;font-weight:600;color:var(--muted2);font-family:var(--mono);margin-top:1px}
 .legend-strip{display:flex;gap:18px;align-items:center;margin-top:14px;flex-wrap:wrap}
+
+/* Compact "Four principles" card -- replaces the previous wall of text
+   "How to read your stride". Default state is the 2x2 grid of scannable
+   principle cards; the full long-form discussion + wearable tracking +
+   math examples sit behind an expand toggle. PDF download link offers a
+   second path to depth. */
+.principles-card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:26px 26px 22px;margin-top:14px}
+.pr-eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--cyan);font-family:var(--mono);background:rgba(0,229,200,.08);border:1px solid rgba(0,229,200,.25);border-radius:20px;padding:4px 12px;margin-bottom:14px}
+.pr-title{font-size:22px;font-weight:800;line-height:1.2;margin-bottom:8px;letter-spacing:-.2px}
+.pr-intro{font-size:14px;color:var(--muted2);line-height:1.7;margin-bottom:20px;max-width:680px}
+.pr-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+.pr-card{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:16px 18px}
+.pr-card-num{font-size:10px;font-weight:700;letter-spacing:.9px;color:var(--cyan);font-family:var(--mono);margin-bottom:6px}
+.pr-card-title{font-size:15px;font-weight:800;color:var(--text);line-height:1.25;margin-bottom:8px}
+.pr-card-summary{font-size:13px;color:var(--muted2);line-height:1.65}
+.pr-card-summary strong{color:var(--text)}
+.pr-actions{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding-top:16px;border-top:1px solid var(--border)}
+.pr-expand-btn{display:inline-flex;align-items:center;gap:6px;background:transparent;border:1px solid var(--border2);color:var(--text);font-size:13px;font-weight:600;font-family:var(--ui);border-radius:9px;padding:9px 14px;cursor:pointer;transition:all .12s}
+.pr-expand-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.pr-expand-btn .pr-caret{font-size:10px;transition:transform .15s}
+.pr-expand-btn.open .pr-caret{transform:rotate(180deg)}
+.pr-pdf-link{font-size:13px;color:var(--cyan);text-decoration:underline;cursor:pointer;font-family:var(--mono);background:transparent;border:none;padding:0}
+.pr-pdf-link:hover{color:#7ff0e0}
+.pr-expand-body{display:none;margin-top:18px;padding-top:18px;border-top:1px solid var(--border)}
+.pr-expand-body.open{display:block}
+.pr-fullprinciple{margin-bottom:16px}
+.pr-fp-title{font-size:13px;font-weight:800;color:var(--cyan);font-family:var(--mono);margin-bottom:6px;letter-spacing:.3px}
+.pr-fp-body{font-size:14px;color:var(--muted2);line-height:1.85}
+.pr-fp-body strong{color:var(--text)}
+.pr-section-title{font-size:15px;font-weight:700;color:var(--text);margin:20px 0 10px;padding-top:14px;border-top:1px solid var(--border)}
+.pr-section-body{font-size:14px;color:var(--muted2);line-height:1.85;margin-bottom:12px}
+.pr-section-body strong{color:var(--text)}
+.pr-example-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:8px 0 12px}
+.pr-example-card{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.pr-example-label{font-size:11px;font-weight:700;color:var(--cyan);font-family:var(--mono);margin-bottom:6px}
+.pr-example-body{font-size:12px;color:var(--muted2);line-height:1.7}
+.pr-conclusion{font-size:14px;color:var(--text);line-height:1.85}
+.pr-conclusion strong{color:var(--text)}
+@media(max-width:700px){
+  .principles-card{padding:20px 18px 18px}
+  .pr-title{font-size:19px}
+  .pr-grid{grid-template-columns:1fr}
+  .pr-actions{flex-direction:column;align-items:stretch;gap:10px}
+  .pr-pdf-link{text-align:center;padding:6px 0}
+  .pr-example-grid{grid-template-columns:1fr}
+}
+
+/* Compact footnote-style disclaimer cards at the very bottom of the
+   report -- moved out of the summary section so the table reads cleanly. */
+.report-footnotes{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:24px;padding-top:22px;border-top:1px solid var(--border)}
+.report-footnote{background:rgba(245,166,35,.04);border:1px solid rgba(245,166,35,.20);border-radius:10px;padding:12px 14px;font-size:11px;color:var(--muted2);line-height:1.7;font-family:var(--mono)}
+.report-footnote .rf-head{display:flex;align-items:center;gap:6px;color:var(--warn);font-weight:700;margin-bottom:4px;font-size:11px;letter-spacing:.3px;text-transform:uppercase}
+.report-footnote strong{color:var(--text);font-weight:700}
+@media(max-width:700px){
+  .report-footnotes{grid-template-columns:1fr;gap:10px}
+}
 .ls-item{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted2);font-weight:600}
 .ls-dot{width:8px;height:8px;border-radius:50%}
 
@@ -1402,40 +1460,77 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
     <div class="report-issues-grid" id="report-issues-grid"></div>
     <div class="report-details" id="report-details"></div>
 
-    <!-- "Read this regardless" callout -->
-    <div style="background:linear-gradient(135deg,rgba(0,229,200,.14),rgba(0,229,200,.04));border:1px solid rgba(0,229,200,.45);border-left:4px solid var(--cyan);border-radius:14px;padding:20px 22px;margin-top:8px;margin-bottom:14px">
-      <div style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--cyan);font-family:var(--mono);margin-bottom:8px">&#9670; Optimize for these &mdash; even if no issues were flagged</div>
-      <div style="font-size:14px;color:var(--text);line-height:1.8">The four principles below are universal &mdash; every runner benefits from optimizing for them, regardless of which issues were flagged above, or whether any were flagged at all. Whether your analysis came back clean or flagged a long list, this section is the lens for interpreting your numbers, the framework for separating signal from noise, and where you will figure out what to actually work on. Skip it and the rest of the report is just numbers without context.</div>
-    </div>
-
-    <!-- General principles note -->
-    <div style="background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:28px 26px;margin-top:8px">
-      <div style="font-size:18px;font-weight:800;margin-bottom:14px">How to read your stride</div>
-      <div style="font-size:14px;color:var(--muted2);line-height:1.9;margin-bottom:18px">Every runner's stride is highly individual, shaped by body proportions, joint mobility, sporting history, injury history, age, and many other factors. What is optimal for one person may be quite different for another — whether that is stride length, knee angle at toe-off, or any of the dozens of metrics that can be analyzed. There is no single "perfect" number for any of these.</div>
-      <div style="font-size:14px;color:var(--muted2);line-height:1.9;margin-bottom:14px">That said, there are a handful of principles that &mdash; optimized within what is natural for your gait &mdash; will make almost anyone a more efficient, more resilient athlete. Think of them less as a checklist and more as a feedback loop: getting one closer to optimal almost always moves the others in the right direction on its own. The four below are where the highest leverage usually lives, and they are what the cards above are trying to point you toward.</div>
-      <ul style="list-style:none;padding:0;display:flex;flex-direction:column;gap:8px;margin-bottom:18px">
-        <li style="font-size:14px;color:var(--text);line-height:1.8;padding-left:18px;position:relative"><span style="position:absolute;left:0;top:10px;width:6px;height:6px;border-radius:50%;background:var(--cyan);display:block"></span><strong>Stride length should come from push-off, not from reaching ahead.</strong> This is the engine of the whole stride. When stride length is generated by pushing strongly off the back foot to create vertical force, rather than by reaching forward with the lead leg, three things tend to happen at once: your foot lands more underneath your body instead of out in front (less braking, less knee load), ground contact time drops (less load on muscles and tendons), and vertical oscillation goes up &mdash; but productively, because the extra airtime is what is lengthening your stride and allows more time for you to move through the gait cycle efficiently. Reaching with the lead leg lengthens the stride on paper but adds braking force and loads the knee.</li>
-        <li style="font-size:14px;color:var(--text);line-height:1.8;padding-left:18px;position:relative"><span style="position:absolute;left:0;top:10px;width:6px;height:6px;border-radius:50%;background:var(--cyan);display:block"></span><strong>A cadence that fits your body.</strong> Not too low (heavy, plodding steps) and not too high (spinning or scuffing without covering ground). Most runners do well somewhere in the 165-185 range, but taller runners may naturally settle lower. Cadence rarely needs to be a direct target on its own &mdash; when push-off improves and stride length lengthens, cadence often improves as well. For one runner, improvement might be an increase in cadence, as they are now landing more underneath the body rather than reaching out in front; for another, it might be a drop in cadence, as they now have enough time for the leg to move through the full gait cycle, without rushing to get the lead foot back on the ground.</li>
-        <li style="font-size:14px;color:var(--text);line-height:1.8;padding-left:18px;position:relative"><span style="position:absolute;left:0;top:10px;width:6px;height:6px;border-radius:50%;background:var(--cyan);display:block"></span><strong>Forward lean, from the ankles.</strong> A slight forward lean from the ankles &mdash; not from the waist &mdash; lets you work with gravity rather than against it. This should run through the body as a single line: lean at ankles, neutral pelvis (neither tipped forward into a lower-back arch nor tucked under), ribs stacked over the hips (not flared out), head over the shoulders. When the lean bends at the waist, or the back is arched, you lose the gravity assist and load up the lower back.</li>
-        <li style="font-size:14px;color:var(--text);line-height:1.8;padding-left:18px;position:relative"><span style="position:absolute;left:0;top:10px;width:6px;height:6px;border-radius:50%;background:var(--cyan);display:block"></span><strong>Relaxed, compact arms &mdash; without forcing them tight.</strong> Arm carriage affects shoulder tension, breathing, and how much rotational drag your trunk has to absorb every step. Aim for compact, efficient, and relaxed: shoulders dropped (not pulled back), shoulder blades not squeezed together.</li>
-      </ul>
-
-      <div style="font-size:15px;font-weight:700;margin-bottom:10px;color:var(--text)">Tracking your progress with wearable data</div>
-      <div style="font-size:14px;color:var(--muted2);line-height:1.9;margin-bottom:14px">If you have a running watch or wearable that measures stride length, ground contact time, and vertical oscillation, those numbers are how you will know whether a form change is actually working. (Many heart rate straps measure this accurately, such as the Garmin Pro+). A real improvement to metrics discussed above, for example, should show up as a longer stride length, a lower ground contact time, and a stable or improving vertical ratio (vertical oscillation divided by stride length). The data does not have to move on every metric every time, but the direction should match the cue. If you make a change you think is helping and the data flatly does not move &mdash; or moves the wrong way &mdash; it is probably not the right change for your body, and worth trying something else rather than forcing it.</div>
-
-      <div style="font-size:15px;font-weight:700;margin-bottom:10px;color:var(--text)">Why small changes add up</div>
-      <div style="font-size:14px;color:var(--muted2);line-height:1.9;margin-bottom:14px">When a form change strengthens push-off, lengthens stride, or shifts cadence closer to your optimal range, the cumulative effect over an hour of running can be surprisingly large. Consider these examples:</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
-        <div style="background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:16px 18px">
-          <div style="font-size:12px;font-weight:700;color:var(--cyan);font-family:var(--mono);margin-bottom:8px">EXAMPLE A: HIGH CADENCE RUNNER</div>
-          <div style="font-size:13px;color:var(--muted2);line-height:1.8">Cadence drops from 190 to 185 spm<br>Ground contact time drops from 230 ms to 225 ms</div>
+    <!-- Compact four-principles card: scannable 2x2 grid by default, full
+         long-form discussion + wearable tracking + math example tucked
+         behind an expand toggle. -->
+    <div class="principles-card">
+      <div class="pr-eyebrow">&#9670; Read this regardless</div>
+      <div class="pr-title">Four universal principles</div>
+      <div class="pr-intro">These apply whether your run came back clean or flagged a long list. Every runner benefits from optimizing for them &mdash; they&rsquo;re the lens for interpreting your numbers and the cards above.</div>
+      <div class="pr-grid">
+        <div class="pr-card">
+          <div class="pr-card-num">01</div>
+          <div class="pr-card-title">Stride from push-off, not reach</div>
+          <div class="pr-card-summary">Drive the back foot to lengthen your stride, instead of reaching forward with the lead leg. <strong>Less braking, less knee load, shorter ground contact.</strong></div>
         </div>
-        <div style="background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:16px 18px">
-          <div style="font-size:12px;font-weight:700;color:var(--cyan);font-family:var(--mono);margin-bottom:8px">EXAMPLE B: LOW CADENCE RUNNER</div>
-          <div style="font-size:13px;color:var(--muted2);line-height:1.8">Cadence rises from 165 to 170 spm<br>Ground contact time drops from 250 ms to 230 ms</div>
+        <div class="pr-card">
+          <div class="pr-card-num">02</div>
+          <div class="pr-card-title">Cadence that fits your body</div>
+          <div class="pr-card-summary">Most runners settle in the <strong>165&ndash;185 range</strong>, but cadence rarely needs to be a direct target. When push-off improves, cadence tends to follow.</div>
+        </div>
+        <div class="pr-card">
+          <div class="pr-card-num">03</div>
+          <div class="pr-card-title">Forward lean from the ankles</div>
+          <div class="pr-card-summary">One straight line: lean at the <strong>ankles</strong> (not the waist), neutral pelvis, ribs over hips, head over shoulders. Work with gravity, not against it.</div>
+        </div>
+        <div class="pr-card">
+          <div class="pr-card-num">04</div>
+          <div class="pr-card-title">Relaxed, compact arms</div>
+          <div class="pr-card-summary">Shoulders dropped (not pulled back), shoulder blades not squeezed together. <strong>Tight arms add rotational drag</strong> and shoulder tension.</div>
         </div>
       </div>
-      <div style="font-size:14px;color:var(--text);line-height:1.9"><strong>Both of these scenarios result in over 2 minutes less ground contact time per hour of running.</strong> That is 2 fewer minutes of load going through your muscles and tendons — and 2 more minutes spent in the air, traveling forward efficiently. The energy savings and injury risk reduction from that kind of shift are meaningful, and they come from changes that most runners would barely notice in the moment.</div>
+      <div class="pr-actions">
+        <button class="pr-expand-btn" id="pr-expand-btn" onclick="togglePrinciplesDepth()" type="button">
+          <span id="pr-expand-label">Read the full breakdown of each principle</span>
+          <span class="pr-caret">&#9660;</span>
+        </button>
+        <button class="pr-pdf-link" onclick="downloadReport()" type="button">Or download the PDF for the full deep dive &rarr;</button>
+      </div>
+      <div class="pr-expand-body" id="pr-expand-body">
+        <div class="pr-fullprinciple">
+          <div class="pr-fp-title">01 &middot; Stride from push-off, not reach</div>
+          <div class="pr-fp-body">This is the engine of the whole stride. When stride length is generated by pushing strongly off the back foot to create vertical force, rather than by reaching forward with the lead leg, three things tend to happen at once: your foot lands more underneath your body instead of out in front (less braking, less knee load), ground contact time drops (less load on muscles and tendons), and vertical oscillation goes up &mdash; but productively, because the extra airtime is what is lengthening your stride and allows more time for you to move through the gait cycle efficiently. Reaching with the lead leg lengthens the stride on paper but adds braking force and loads the knee.</div>
+        </div>
+        <div class="pr-fullprinciple">
+          <div class="pr-fp-title">02 &middot; Cadence that fits your body</div>
+          <div class="pr-fp-body">Not too low (heavy, plodding steps) and not too high (spinning or scuffing without covering ground). Most runners do well somewhere in the 165&ndash;185 range, but taller runners may naturally settle lower. Cadence rarely needs to be a direct target on its own &mdash; when push-off improves and stride length lengthens, cadence often improves as well. For one runner, improvement might be an increase in cadence, as they are now landing more underneath the body rather than reaching out in front; for another, it might be a drop in cadence, as they now have enough time for the leg to move through the full gait cycle, without rushing to get the lead foot back on the ground.</div>
+        </div>
+        <div class="pr-fullprinciple">
+          <div class="pr-fp-title">03 &middot; Forward lean from the ankles</div>
+          <div class="pr-fp-body">A slight forward lean from the ankles &mdash; not from the waist &mdash; lets you work with gravity rather than against it. This should run through the body as a single line: lean at ankles, neutral pelvis (neither tipped forward into a lower-back arch nor tucked under), ribs stacked over the hips (not flared out), head over the shoulders. When the lean bends at the waist, or the back is arched, you lose the gravity assist and load up the lower back.</div>
+        </div>
+        <div class="pr-fullprinciple">
+          <div class="pr-fp-title">04 &middot; Relaxed, compact arms</div>
+          <div class="pr-fp-body">Arm carriage affects shoulder tension, breathing, and how much rotational drag your trunk has to absorb every step. Aim for compact, efficient, and relaxed: shoulders dropped (not pulled back), shoulder blades not squeezed together.</div>
+        </div>
+
+        <div class="pr-section-title">Tracking your progress with wearable data</div>
+        <div class="pr-section-body">If you have a running watch or wearable that measures stride length, ground contact time, and vertical oscillation, those numbers are how you will know whether a form change is actually working. (Many heart rate straps measure this accurately, such as the Garmin Pro+). A real improvement to the metrics discussed above should show up as a longer stride length, a lower ground contact time, and a stable or improving vertical ratio (vertical oscillation divided by stride length). The data does not have to move on every metric every time, but the direction should match the cue. If you make a change you think is helping and the data flatly does not move &mdash; or moves the wrong way &mdash; it is probably not the right change for your body, and worth trying something else rather than forcing it.</div>
+
+        <div class="pr-section-title">Why small changes add up</div>
+        <div class="pr-section-body">When a form change strengthens push-off, lengthens stride, or shifts cadence closer to your optimal range, the cumulative effect over an hour of running can be surprisingly large. Consider these examples:</div>
+        <div class="pr-example-grid">
+          <div class="pr-example-card">
+            <div class="pr-example-label">EXAMPLE A &middot; HIGH CADENCE RUNNER</div>
+            <div class="pr-example-body">Cadence drops from 190 to 185 spm<br>Ground contact time drops from 230 ms to 225 ms</div>
+          </div>
+          <div class="pr-example-card">
+            <div class="pr-example-label">EXAMPLE B &middot; LOW CADENCE RUNNER</div>
+            <div class="pr-example-body">Cadence rises from 165 to 170 spm<br>Ground contact time drops from 250 ms to 230 ms</div>
+          </div>
+        </div>
+        <div class="pr-conclusion"><strong>Both scenarios result in over 2 minutes less ground contact time per hour of running.</strong> That is 2 fewer minutes of load going through your muscles and tendons &mdash; and 2 more minutes spent in the air, travelling forward efficiently. The energy savings and injury-risk reduction from that kind of shift are meaningful, and they come from changes most runners would barely notice in the moment.</div>
+      </div>
     </div>
     </div><!-- /#report-locked-content -->
   </div>
@@ -1447,14 +1542,6 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
       <strong style="color:var(--text)">A note about these reference ranges:</strong> The bell curves and ranges below are based on data from elite-level marathoners. Very few recreational runners will match these ranges across every metric, and that is completely normal. A value outside the elite range does not mean something is wrong or needs to be changed. Running mechanics are highly individual, and what matters most is efficiency and comfort within your own body. This data is provided for informational context only -- not as a target to chase or a diagnosis of a problem.
     </div>
 
-    <div style="background:rgba(245,166,35,.06);border:1.5px solid rgba(245,166,35,.45);border-left:4px solid var(--warn);border-radius:12px;padding:16px 20px;margin-bottom:20px;font-size:13px;color:var(--text);line-height:1.8">
-      <strong style="color:var(--warn)">&#9888; Not medical advice.</strong> This running form analysis is provided for educational and informational purposes only. It is not a medical evaluation and is not intended to diagnose, treat, cure, or prevent any disease, injury, or other health condition. The results &mdash; including any flagged issues, joint angles, severity grades, and coaching cues &mdash; do not constitute a medical diagnosis. Use of this tool does not create a doctor&ndash;patient or healthcare-provider relationship between you and Endurance Science Labs, its coaches, or its contributors. Always consult a qualified healthcare professional before starting a new exercise program or changing your training based on these results. Use of this tool is at your own risk.
-    </div>
-
-    <div style="background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.45);border-left:4px solid var(--warn);border-radius:12px;padding:14px 18px;margin-bottom:20px;font-size:13px;color:var(--text);line-height:1.75">
-      <strong style="color:var(--warn)">&#9888; If a measurement looks wildly out of range:</strong>
-      Before reading into a value that sits far outside the bell curve, double-check that the right frame was picked for that phase. The most common cause of a wild outlier is the <strong>wrong gait phase</strong> being selected (e.g. a frame partway between foot-strike and mid-stance) or a frame where the runner is <strong>at an angle to the camera</strong> instead of dead-on side. Open that phase card, click <strong>Show example frames for this phase</strong>, and scrub until your frame matches the helper photo as closely as possible -- then click Analyze again. A clean frame almost always brings extreme values back into a sensible range.
-    </div>
     <div class="summary-sub" style="font-size:15px">All angles below are measured in degrees and compared to reference ranges from elite runners. Only the angles relevant for each gait phase are shown -- a dash indicates the metric is not applicable for that phase. Click any column header to open and re-examine that phase.</div>
     <div class="summary-scroll">
       <table class="stbl" id="summary-table"><thead></thead><tbody></tbody></table>
@@ -1476,6 +1563,20 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
     <div class="cca-body">Our <strong>premium Full Access coaching</strong> pairs you with one of our coaches who watches your videos with you, talks through every flagged issue, gives you cues that fit <em>your</em> body and stride, and builds a plan to act on what you saw above &mdash; in person or over video chat. Not looking for a long-term commitment? Subscribe for a single month, cancel anytime, and we&rsquo;ll still work with you one-on-one for that month.</div>
     <a href="/coaching/" class="cca-btn">See coaching plans <span class="cca-arrow">&#8594;</span></a>
     <div class="cca-foot">Includes esFormLab full access &middot; Free Endurance Science Labs racing kit &middot; Cancel anytime</div>
+  </div>
+
+  <!-- Compact footnotes -- legal disclaimer + scrubbing reminder. Moved out
+       of the summary section so the table reads cleanly. Side-by-side on
+       desktop, stacked on mobile. -->
+  <div id="report-footnotes" class="report-footnotes" style="display:none">
+    <div class="report-footnote">
+      <div class="rf-head">&#9888; Not medical advice</div>
+      This running form analysis is for educational and informational purposes only &mdash; not a medical evaluation, not a diagnosis, and not a substitute for consultation with a qualified healthcare professional. Always consult one before starting a new exercise program or changing your training based on these results. Use at your own risk.
+    </div>
+    <div class="report-footnote">
+      <div class="rf-head">&#9888; A value looks wildly out of range?</div>
+      Almost always means the <strong>wrong gait phase</strong> was selected, or the camera was <strong>off-axis</strong> on a side-view frame. Open that phase card, compare your frame to the helper photos, and re-analyze. A clean frame almost always pulls extreme values back into a sensible range.
+    </div>
   </div>
 </div>
 
@@ -2199,18 +2300,21 @@ function applyPaywallState() {
   var locked = document.getElementById('report-locked-content');
   var summary = document.getElementById('summary-section');
   var coachingCta = document.getElementById('coaching-cta-section');
+  var footnotes = document.getElementById('report-footnotes');
   var paywall = document.getElementById('paywall-card');
   var anomalyBanner = document.getElementById('anomaly-banner');
   if (effectiveHasPass()) {
     if (locked) locked.classList.remove('paywall-blur');
     if (summary) summary.classList.remove('paywall-blur');
     if (coachingCta) coachingCta.classList.remove('paywall-blur');
+    if (footnotes) footnotes.classList.remove('paywall-blur');
     if (paywall) paywall.style.display = 'none';
     if (anomalyBanner) anomalyBanner.style.display = 'none';
   } else {
     if (locked) locked.classList.add('paywall-blur');
     if (summary) summary.classList.add('paywall-blur');
     if (coachingCta) coachingCta.classList.add('paywall-blur');
+    if (footnotes) footnotes.classList.add('paywall-blur');
     if (paywall) paywall.style.display = 'block';
     // Only display the anomaly banner once renderAnomalyBanner has populated it.
     if (anomalyBanner && anomalyBanner.getAttribute('data-populated') === '1') {
@@ -2626,6 +2730,16 @@ function renderQualityCard(kps){
     '</div>';
 }
 
+function togglePrinciplesDepth(){
+  var btn  = document.getElementById('pr-expand-btn');
+  var body = document.getElementById('pr-expand-body');
+  var lbl  = document.getElementById('pr-expand-label');
+  if(!btn || !body || !lbl) return;
+  var open = body.classList.toggle('open');
+  btn.classList.toggle('open', open);
+  lbl.textContent = open ? 'Hide the full breakdown' : 'Read the full breakdown of each principle';
+}
+
 function toggleQualityDetails(btn){
   if(!btn) return;
   var card = btn.closest('.dq-compact');
@@ -2811,6 +2925,8 @@ function completeAnalysis(){
   if(summaryEl) summaryEl.style.display='block';
   var ccaSH = document.getElementById('coaching-cta-section');
   if(ccaSH) ccaSH.style.display='block';
+  var rfnSH = document.getElementById('report-footnotes');
+  if(rfnSH) rfnSH.style.display='grid';
   applyPaywallState();
   // Show save section
   var saveEl = document.getElementById('save-section');
@@ -6421,6 +6537,8 @@ async function rescan(){
   document.getElementById('summary-section').style.display='none';
   var ccaH = document.getElementById('coaching-cta-section');
   if(ccaH) ccaH.style.display='none';
+  var rfnH = document.getElementById('report-footnotes');
+  if(rfnH) rfnH.style.display='none';
   var bar = document.getElementById('complete-analysis-bar');
   if(bar) bar.classList.remove('show');
   document.body.classList.remove('bar-showing');
@@ -6442,6 +6560,8 @@ function resetApp(){
   document.getElementById('summary-section').style.display='none';
   var ccaR = document.getElementById('coaching-cta-section');
   if(ccaR) ccaR.style.display='none';
+  var rfnR = document.getElementById('report-footnotes');
+  if(rfnR) rfnR.style.display='none';
   // Hide save section and reset form
   var saveEl = document.getElementById('save-section');
   if(saveEl) saveEl.style.display='none';
@@ -6560,6 +6680,8 @@ function startNewSession() {
   if (summaryEl) summaryEl.style.display = 'none';
   var ccaNS = document.getElementById('coaching-cta-section');
   if (ccaNS) ccaNS.style.display = 'none';
+  var rfnNS = document.getElementById('report-footnotes');
+  if (rfnNS) rfnNS.style.display = 'none';
   // Restore elements that viewSavedAnalysis hides
   var instrBanner = document.querySelector('#screen-phases > .instr-banner');
   if (instrBanner) instrBanner.style.display = '';
@@ -6754,6 +6876,8 @@ async function viewSavedAnalysis(id) {
   });
   var ccaSV = document.getElementById('coaching-cta-section');
   if (ccaSV) ccaSV.style.display = 'block';
+  var rfnSV = document.getElementById('report-footnotes');
+  if (rfnSV) rfnSV.style.display = 'grid';
   applyPaywallState();
 
   // Hide save section (it is a saved analysis already)
