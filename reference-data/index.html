@@ -635,9 +635,9 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
     </div>
     <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
       <button id="diag-run-btn" class="thr-toggle-btn" onclick="runFrameDiagnostic()" style="padding:8px 16px;background:var(--purple);color:#fff;border:none;border-radius:8px;font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.4px;cursor:pointer">Run diagnostic</button>
-      <label style="font-size:11px;color:var(--muted2);font-family:var(--mono);display:flex;align-items:center;gap:6px;cursor:pointer">
+      <label style="font-size:11px;color:var(--muted2);font-family:var(--mono);display:flex;align-items:center;gap:6px;cursor:pointer" title="Drops labels with weak pose detection, phase/pose mismatch, edge-of-video timing, or metric values that are >3.5 MAD from the same-phase cohort median.">
         <input type="checkbox" id="diag-validated-only" checked onchange="if(document.getElementById('diag-summary').textContent) runFrameDiagnostic()">
-        Validated labels only
+        Filter outlier labels
       </label>
     </div>
   </div>
@@ -662,7 +662,7 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
   <div class="thr-note">
     <strong>Within-stride bias</strong>: + = detector picks LATER than the correct frame within a stride, − = detector picks EARLIER. Wrong-stride differences are folded into a within-stride delta first.
     &nbsp;·&nbsp;<strong>Median miss</strong>: absolute within-stride distance in milliseconds.
-    &nbsp;·&nbsp;<strong>Validated</strong>: rejects labels whose pose violates a basic biomechanical sanity check (e.g. L foot strike where R ankle is on the ground, common with mislabeled L/R from MoveNet keypoint swap).
+    &nbsp;·&nbsp;<strong>Outlier filter</strong> drops labels for any of: corrupt or weak pose (avg major-joint score < 0.40), phase/pose mismatch (e.g. L foot strike where R ankle is on the ground), within 0.20s of the video edge, or anchor-metric value &gt; 3.5 MAD from same-phase cohort median. The summary breaks down how many fell out by reason.
   </div>
 </div>
 
@@ -1070,6 +1070,81 @@ function diagLabelIsSane(label){
   }
 }
 
+// Phase-anchor metric: the single value most diagnostic of "did the admin actually pick
+// the right gait phase?" If this is wildly out of cohort, the label is probably misclicked.
+// Returns null if the value can't be read from this label.
+function diagPhaseAnchor(label){
+  const m = label.metrics;
+  if(!m) return null;
+  const num = v => (typeof v === 'number' && isFinite(v)) ? v : null;
+  switch(label.phase){
+    case 'l_foot':
+    case 'r_foot':   return num(m.leadHip);   // forward hip flexion at contact
+    case 'l_toe':
+    case 'r_toe':    return num(m.trailHip);  // hip extension at push-off
+    case 'mid':      return num(m.plantHip);
+    // addFunctionalMetrics stores trailHip (the extending stance leg, ~170-200deg)
+    // for peak_kf, not leadHip -- so trailHip is the actually-available anchor.
+    case 'peak_kf':  return num(m.trailHip);
+    default:         return null; // front/back phases: angles not meaningful (different view)
+  }
+}
+
+// Median-absolute-deviation outlier test. More robust than mean/stdev for small,
+// hand-labeled samples where one bad label can blow up a parametric stdev.
+function diagMadStats(vals){
+  if(vals.length < 6) return null;
+  const sorted = [...vals].sort((a,b)=>a-b);
+  const median = sorted[Math.floor(sorted.length/2)];
+  const dev = sorted.map(v => Math.abs(v - median)).sort((a,b)=>a-b);
+  const mad = dev[Math.floor(dev.length/2)];
+  return {median, mad};
+}
+
+// Quality of the pose stored on a label. Catches frames where MoveNet locked onto a
+// background person, gave up on a limb, or returned garbage.
+function diagPoseQuality(label){
+  const kps = label.kps;
+  if(!kps || kps.length < 17) return {ok:false, reason:'missing_kps'};
+  // Major joints: shoulders, hips, knees, ankles.
+  const idx = [5,6,11,12,13,14,15,16];
+  const scores = idx.map(i => (kps[i] && typeof kps[i].score === 'number') ? kps[i].score : 0);
+  const avg = scores.reduce((a,b)=>a+b,0) / scores.length;
+  const zeroCount = scores.filter(s => s < 0.05).length;
+  if(zeroCount >= 4) return {ok:false, reason:'corrupt_pose'};
+  if(avg < 0.40)     return {ok:false, reason:'weak_pose'};
+  return {ok:true, avgScore: avg};
+}
+
+// Master outlier verdict. Returns {ok:true} or {ok:false, reason:'...'}.
+// phaseStats is {median, mad} for the phase's anchor metric, may be null.
+function diagOutlierVerdict(label, phaseStats){
+  if(label.t == null || !isFinite(label.t)) return {ok:false, reason:'bad_t'};
+
+  const q = diagPoseQuality(label);
+  if(!q.ok) return q;
+
+  const sane = diagLabelIsSane(label);
+  if(sane === false) return {ok:false, reason:'phase_sanity'};
+
+  // Within 0.20s of either video end: pose is usually unreliable at clip boundaries
+  // (motion blur from fade-in, runner partially out of frame, etc).
+  if(typeof label.videoDur === 'number' && isFinite(label.videoDur) && label.videoDur > 1){
+    if(label.t < 0.20 || label.t > label.videoDur - 0.20){
+      return {ok:false, reason:'edge_of_video'};
+    }
+  }
+
+  if(phaseStats && phaseStats.mad > 0){
+    const v = diagPhaseAnchor(label);
+    if(v != null){
+      const z = Math.abs(v - phaseStats.median) / phaseStats.mad;
+      if(z > 3.5) return {ok:false, reason:'metric_outlier'};
+    }
+  }
+  return {ok:true};
+}
+
 async function runFrameDiagnostic(){
   const btn = document.getElementById('diag-run-btn');
   const tbody = document.getElementById('diag-tbody');
@@ -1084,24 +1159,61 @@ async function runFrameDiagnostic(){
     const docs = snap.docs.map(d => d.data());
 
     // Group by (sessionId, phase): keep the latest "correct" label per group.
+    // Carry through videoDur so we can flag edge-of-video labels later.
     const bySessionPhase = {};
     for(const d of docs){
       if(!d.isCorrect) continue;
       if(d.noGood) continue;
       if(d.t == null || d.autoPickedT == null) continue;
       const key = d.sessionId + ':' + d.phase;
-      bySessionPhase[key] = {phase: d.phase, goodT: d.t, autoT: d.autoPickedT, kps: d.kps, metrics: d.metrics};
+      bySessionPhase[key] = {
+        phase: d.phase, goodT: d.t, autoT: d.autoPickedT,
+        kps: d.kps, metrics: d.metrics, videoDur: d.videoDur,
+        // Stored under the same name diagLabelIsSane/diagOutlierVerdict expect.
+        t: d.t
+      };
     }
 
-    // Apply sanity filter.
-    let droppedSanity = 0;
-    const passed = {};
+    // Outlier filter, two passes:
+    //   pass 1 — drop integrity / pose / sanity / edge failures (no cohort stats yet).
+    //   pass 2 — compute per-phase MAD on survivors, then drop metric outliers.
+    // Drops are tallied by reason so the summary can explain what happened.
+    const dropCounts = {};
+    const bumpDrop = r => { dropCounts[r] = (dropCounts[r]||0) + 1; };
+    const pass1 = {};
     for(const k in bySessionPhase){
       const g = bySessionPhase[k];
-      const sane = diagLabelIsSane(g);
-      if(validatedOnly && sane === false){ droppedSanity++; continue; }
-      passed[k] = g;
+      if(!validatedOnly){ pass1[k] = g; continue; }
+      const v = diagOutlierVerdict(g, null);
+      if(!v.ok){ bumpDrop(v.reason); continue; }
+      pass1[k] = g;
     }
+    let passed;
+    if(validatedOnly){
+      // Build per-phase anchor stats from pass1 survivors.
+      const anchorsByPhase = {};
+      for(const k in pass1){
+        const g = pass1[k];
+        const v = diagPhaseAnchor(g);
+        if(v == null) continue;
+        (anchorsByPhase[g.phase] = anchorsByPhase[g.phase] || []).push(v);
+      }
+      const phaseStatsMap = {};
+      for(const ph in anchorsByPhase){
+        const s = diagMadStats(anchorsByPhase[ph]);
+        if(s) phaseStatsMap[ph] = s;
+      }
+      passed = {};
+      for(const k in pass1){
+        const g = pass1[k];
+        const v = diagOutlierVerdict(g, phaseStatsMap[g.phase] || null);
+        if(!v.ok){ bumpDrop(v.reason); continue; }
+        passed[k] = g;
+      }
+    } else {
+      passed = pass1;
+    }
+    const droppedTotal = Object.values(dropCounts).reduce((a,b)=>a+b,0);
 
     // Estimate per-session stride period: if both L and R foot strike good-labels exist for a
     // session, |gap| is one step, so stride ≈ 2 * gap (clamped to a plausible 0.45-1.4s range).
@@ -1164,9 +1276,21 @@ async function runFrameDiagnostic(){
 
     // Summary.
     const totalSessions = new Set(Object.keys(passed).map(k => k.split(':')[0])).size;
-    const filterTxt = validatedOnly && droppedSanity > 0
-      ? ` · ${droppedSanity} label${droppedSanity===1?'':'s'} dropped by sanity filter`
-      : '';
+    const reasonLabels = {
+      missing_kps:    'missing pose data',
+      corrupt_pose:   'corrupt pose',
+      weak_pose:      'weak pose detection',
+      phase_sanity:   'phase/pose mismatch',
+      edge_of_video:  'edge of video',
+      metric_outlier: 'metric outlier (cohort)',
+      bad_t:          'bad timestamp'
+    };
+    let filterTxt = '';
+    if(validatedOnly && droppedTotal > 0){
+      const parts = Object.keys(dropCounts).sort((a,b)=>dropCounts[b]-dropCounts[a])
+        .map(r => `${dropCounts[r]} ${reasonLabels[r]||r}`);
+      filterTxt = ` · ${droppedTotal} dropped (${parts.join(', ')})`;
+    }
     summary.textContent = `${docs.length} total labels · ${totalSessions} unique sessions · ${rows.length} phase${rows.length===1?'':'s'} with data${filterTxt}`;
 
     if(!rows.length){
