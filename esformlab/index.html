@@ -3498,45 +3498,69 @@ function findPhases(samples,dur){
     return cands.slice().sort(function(a,b){ return score(b,refVal,higherIsBetter) - score(a,refVal,higherIsBetter); })[0];
   }
 
-  // ---- Foot strikes ----
-  // Local maxima of ankleY (image y increases downward -> ankle at lowest point).
+  // ---- Foot strikes and toe-offs (derived from ankle-Y stance plateau) ----
+  // Old approach picked extrema (ankleY max, hipExt max) and was systematically late on
+  // every phase in the diagnostic (+5 to +36ms bias, ~half the labels 3+ frames off).
+  // The events are EDGES of the stance plateau, not extrema:
+  //   foot strike = first frame the descending ankle goes flat = leading edge of ankleY peak
+  //   toe-off     = last frame before the ankle starts to lift  = trailing edge of same peak
+  // Tolerance is 5% of trunk-height (scale-normalized) so we tolerate ankle jitter without
+  // eating into the swing rise. A single noisy below-threshold sample inside the plateau
+  // is allowed; two in a row ends the walk.
+  var scaleValsForTol = samples.map(function(s){return s.scale;}).filter(function(v){return v!=null && isFinite(v) && v>0;}).sort(function(a,b){return a-b;});
+  var scaleMedForTol = scaleValsForTol.length ? scaleValsForTol[Math.floor(scaleValsForTol.length/2)] : null;
+  var plateauTol = (scaleMedForTol != null) ? scaleMedForTol * 0.05 : 8;
+  function findStancePlateau(key, peakIdx){
+    var peakVal = samples[peakIdx][key];
+    if(peakVal == null || !isFinite(peakVal)) return null;
+    var threshold = peakVal - plateauTol;
+    var lo = peakIdx, gap = 0;
+    for(var i = peakIdx - 1; i >= 0; i--){
+      var v = samples[i][key];
+      if(v == null || !isFinite(v) || v < threshold){ if(++gap >= 2) break; continue; }
+      gap = 0; lo = i;
+    }
+    var hi = peakIdx; gap = 0;
+    for(var j = peakIdx + 1; j < samples.length; j++){
+      var v2 = samples[j][key];
+      if(v2 == null || !isFinite(v2) || v2 < threshold){ if(++gap >= 2) break; continue; }
+      gap = 0; hi = j;
+    }
+    return {lo:lo, hi:hi};
+  }
+
   var lStrikes = prominenceFilter(localPeaks('lAnkleY', 2), 'lAnkleY', 0.55);
   var rStrikes = prominenceFilter(localPeaks('rAnkleY', 2), 'rAnkleY', 0.55);
   var lValsMedian = (function(){ var v=samples.map(function(s){return s.lAnkleY;}).filter(function(x){return x!==undefined&&isFinite(x);}).sort(function(a,b){return a-b;}); return v.length?v[Math.floor(v.length/2)]:0; })();
   var rValsMedian = (function(){ var v=samples.map(function(s){return s.rAnkleY;}).filter(function(x){return x!==undefined&&isFinite(x);}).sort(function(a,b){return a-b;}); return v.length?v[Math.floor(v.length/2)]:0; })();
 
-  var lFoot = pickByScore(lStrikes, lValsMedian, true);
-  // R strike: must be at least ~0.1s away from L strike
-  var rStrikesFiltered = lFoot ? rStrikes.filter(function(c){ return Math.abs(c.t - lFoot.t) > 0.10; }) : rStrikes;
-  var rFoot = pickByScore(rStrikesFiltered, rValsMedian, true);
+  var lPeak = pickByScore(lStrikes, lValsMedian, true);
+  var rStrikesFiltered = lPeak ? rStrikes.filter(function(c){ return Math.abs(c.t - lPeak.t) > 0.10; }) : rStrikes;
+  var rPeak = pickByScore(rStrikesFiltered, rValsMedian, true);
+
+  var lFoot = null, lToe = null;
+  if(lPeak){
+    var lb = findStancePlateau('lAnkleY', lPeak.idx);
+    if(lb && lb.lo !== lb.hi){
+      lFoot = {idx:lb.lo, t:samples[lb.lo].t, s:samples[lb.lo]};
+      lToe  = {idx:lb.hi, t:samples[lb.hi].t, s:samples[lb.hi]};
+    } else {
+      lFoot = lPeak;
+    }
+  }
+  var rFoot = null, rToe = null;
+  if(rPeak){
+    var rb = findStancePlateau('rAnkleY', rPeak.idx);
+    if(rb && rb.lo !== rb.hi){
+      rFoot = {idx:rb.lo, t:samples[rb.lo].t, s:samples[rb.lo]};
+      rToe  = {idx:rb.hi, t:samples[rb.hi].t, s:samples[rb.hi]};
+    } else {
+      rFoot = rPeak;
+    }
+  }
 
   if(lFoot) det('l_foot', lFoot.s);
   if(rFoot) det('r_foot', rFoot.s);
-
-  // ---- Toe-offs ----
-  // Local maxima of hipExt (hip extended, leg behind body). Toe-off follows same-side foot strike
-  // by roughly 0.15-0.60s at typical running cadence.
-  var lToeCands = prominenceFilter(localPeaks('lHipExt', 2), 'lHipExt', 0.55);
-  var rToeCands = prominenceFilter(localPeaks('rHipExt', 2), 'rHipExt', 0.55);
-  var lHipMed = (function(){ var v=samples.map(function(s){return s.lHipExt;}).filter(function(x){return x!==null&&x!==undefined&&isFinite(x);}).sort(function(a,b){return a-b;}); return v.length?v[Math.floor(v.length/2)]:0; })();
-  var rHipMed = (function(){ var v=samples.map(function(s){return s.rHipExt;}).filter(function(x){return x!==null&&x!==undefined&&isFinite(x);}).sort(function(a,b){return a-b;}); return v.length?v[Math.floor(v.length/2)]:0; })();
-
-  function inWindow(cands, startT, minDt, maxDt){
-    return cands.filter(function(c){ var dt = c.t - startT; return dt >= minDt && dt <= maxDt; });
-  }
-  var lToe = null;
-  if(lFoot){
-    var win = inWindow(lToeCands, lFoot.t, 0.08, 0.90);
-    lToe = pickByScore(win, lHipMed, true);
-  }
-  if(!lToe) lToe = pickByScore(lToeCands, lHipMed, true);
-
-  var rToe = null;
-  if(rFoot){
-    var win2 = inWindow(rToeCands, rFoot.t, 0.08, 0.90);
-    rToe = pickByScore(win2, rHipMed, true);
-  }
-  if(!rToe) rToe = pickByScore(rToeCands, rHipMed, true);
 
   // Claim-tracking: keep phases from sharing the same frame.
   function claimedTimes(){
