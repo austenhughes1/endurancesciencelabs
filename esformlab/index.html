@@ -3551,22 +3551,42 @@ function findPhases(samples,dur){
   if(rToe && !tooClose(rToe.t, [lFoot,rFoot,lToe].filter(Boolean).map(function(x){return x.t;}))) det('r_toe', rToe.s);
 
   // ---- Mid-stance ----
-  // During L stance (lFoot -> rFoot), body passes directly over the left foot --
-  // i.e. |lAnkle.x - hipMid.x| hits its minimum. Use that minimum frame.
+  // Pick the frame where the stance foot is directly under center of mass (ankle X ==
+  // hipMid X, offset == 0) AND detection is strongest. Old code minimized raw |ankle -
+  // hipMid| pixels with only a tiny confidence nudge, so noisy frames at the true min
+  // beat clean frames a few pixels away. New approach: normalize the offset by trunk
+  // height for scale-invariance, build a tight near-zero band, then pick the best-detected
+  // frame in that band.
   var mid = null;
   function pickMidStance(stanceSide, startT, endT){
     var ankleKey = stanceSide === 'left' ? 'lAnkleX' : 'rAnkleX';
-    var best = null, bestDist = Infinity;
+    var cands = [];
     for(var i=0;i<samples.length;i++){
       var s = samples[i];
       if(s.t < startT || s.t > endT) continue;
-      if(s[ankleKey]===undefined||s.hipMidX===undefined) continue;
-      var d = Math.abs(s[ankleKey] - s.hipMidX);
-      // Tiebreak: slightly prefer higher confidence
-      var adjusted = d * (1 - 0.1*(s.conf||0));
-      if(adjusted < bestDist){ bestDist = adjusted; best = s; }
+      if(s[ankleKey]==null || s.hipMidX==null) continue;
+      var sc = (typeof s.scale === 'number' && s.scale > 0) ? s.scale : null;
+      var offsetPx = Math.abs(s[ankleKey] - s.hipMidX);
+      var offsetNorm = sc ? offsetPx / sc : null;
+      cands.push({s:s, offsetPx:offsetPx, offsetNorm:offsetNorm, conf:s.conf||0});
     }
-    return best;
+    if(!cands.length) return null;
+    var withNorm = cands.filter(function(c){ return c.offsetNorm != null; });
+    if(withNorm.length){
+      withNorm.sort(function(a,b){ return a.offsetNorm - b.offsetNorm; });
+      var minOff = withNorm[0].offsetNorm;
+      var band = Math.max(0.04, minOff + 0.03);
+      var bandSet = withNorm.filter(function(c){ return c.offsetNorm <= band; });
+      bandSet.sort(function(a,b){ return (b.conf - a.conf) || (a.offsetNorm - b.offsetNorm); });
+      return bandSet[0].s;
+    }
+    // Fallback when no scale data: same logic in raw pixels.
+    cands.sort(function(a,b){ return a.offsetPx - b.offsetPx; });
+    var minPx = cands[0].offsetPx;
+    var bandPx = minPx + 4;
+    var bandSet2 = cands.filter(function(c){ return c.offsetPx <= bandPx; });
+    bandSet2.sort(function(a,b){ return (b.conf - a.conf) || (a.offsetPx - b.offsetPx); });
+    return bandSet2[0].s;
   }
   if(lFoot && rFoot && rFoot.t > lFoot.t){
     mid = pickMidStance('left', lFoot.t + 0.02, rFoot.t - 0.02);

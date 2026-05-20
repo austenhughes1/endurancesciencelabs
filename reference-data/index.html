@@ -1647,17 +1647,49 @@ function findPhases(samples,dur){
   if(rToe && !tooClose(rToe.t,[lFoot,rFoot,lToe].filter(Boolean).map(x=>x.t))) det('r_toe',rToe.s);
 
   // ---- Mid-stance ----
+  // Austen's spec: pick the frame where the stance foot is directly under center of mass
+  // (ankle X == hipMid X, i.e. offset == 0) AND detection is strongest.
+  //
+  // OLD code minimized raw |ankle - hipMid| in pixels with only a 10% nudge from confidence.
+  // That treated a pose-blur frame with offset=2px the same as a clean frame at offset=4px,
+  // which was why mid-stance was the worst phase in the diagnostic. New approach:
+  //   1. Normalize each candidate's |ankle - hipMid| by trunk height (sh→hip vertical
+  //      distance) so the band is scale-invariant across runners/camera distances.
+  //   2. Find the minimum normalized offset, then accept any frame whose offset is within
+  //      max(0.04, minOffset + 0.03) of it — a tight "effectively zero" band.
+  //   3. From that band pick the frame with the strongest pose confidence; tiebreak by
+  //      smaller offset.
   const pickMidStance=(side,startT,endT)=>{
     const ankleKey=side==='left'?'lAnkleX':'rAnkleX';
-    let best=null,bestDist=Infinity;
+    const cands=[];
     for(const s of samples){
       if(s.t<startT||s.t>endT) continue;
-      if(s[ankleKey]===undefined||s.hipMidX===undefined) continue;
-      const d=Math.abs(s[ankleKey]-s.hipMidX);
-      const adj=d*(1-0.1*(s.conf||0));
-      if(adj<bestDist){bestDist=adj;best=s;}
+      if(s[ankleKey]==null||s.hipMidX==null) continue;
+      // scale = midShoulder→midHip vertical distance (proxy for trunk height in px).
+      // If scale is missing we still include the sample, but use pixel distance as a
+      // last-resort fallback at the very end.
+      const sc = (typeof s.scale === 'number' && s.scale > 0) ? s.scale : null;
+      const offsetPx = Math.abs(s[ankleKey] - s.hipMidX);
+      const offsetNorm = sc ? offsetPx / sc : null;
+      cands.push({s, offsetPx, offsetNorm, conf:s.conf||0});
     }
-    return best;
+    if(!cands.length) return null;
+    const withNorm = cands.filter(c => c.offsetNorm != null);
+    if(withNorm.length){
+      withNorm.sort((a,b)=>a.offsetNorm-b.offsetNorm);
+      const minOff = withNorm[0].offsetNorm;
+      const band = Math.max(0.04, minOff + 0.03);
+      const band_set = withNorm.filter(c => c.offsetNorm <= band);
+      band_set.sort((a,b)=> (b.conf - a.conf) || (a.offsetNorm - b.offsetNorm));
+      return band_set[0].s;
+    }
+    // Fallback (no trunk-scale anywhere in the window): same idea but in raw pixels.
+    cands.sort((a,b)=>a.offsetPx-b.offsetPx);
+    const minPx = cands[0].offsetPx;
+    const bandPx = minPx + 4; // ~4px of slack
+    const band_set = cands.filter(c => c.offsetPx <= bandPx);
+    band_set.sort((a,b)=> (b.conf - a.conf) || (a.offsetPx - b.offsetPx));
+    return band_set[0].s;
   };
   let mid=null;
   if(lFoot && rFoot && rFoot.t>lFoot.t) mid=pickMidStance('left',lFoot.t+0.02,rFoot.t-0.02);
@@ -1673,22 +1705,53 @@ function findPhases(samples,dur){
   }
 
   // ---- Peak knee lift ----
-  // The moment the swing knee reaches its highest point. Detected as the minimum of lHipExt
-  // (smallest shoulder-hip-knee angle = hip most flexed forward). Hip angle has a cleaner,
-  // more prominent peak than knee angle during swing, so this is more reliable.
-  const hipTroughs=prominenceFilterMin(localTroughs('lHipExt',2),'lHipExt',0.45);
-  let pkfCand=null;
-  if(lToe){
-    const swingWin=hipTroughs.filter(c=>{const dt=c.t-lToe.t;return dt>=0.10&&dt<=0.70;});
-    pkfCand=pickByScore(swingWin,median('lHipExt'),false);
+  // The moment the swing knee reaches its highest point — the swing leg has the most flexed
+  // hip (smallest shoulder-hip-knee angle). The OLD code only watched lHipExt, which biased
+  // detection toward L-swing strides and missed R-swing peaks entirely. We now take the
+  // per-frame minimum of the two sides — whichever leg happens to be swinging.
+  //
+  // Two-stage pick (matches Austen's spec):
+  //   1. Restrict to a swing window of ~10-15 video frames after toe-off (≈0.10-0.70s post
+  //      L toe-off, the plausible swing range). Fall back to the full clip if no lToe.
+  //   2. Within that window, require a strict local minimum (val < both immediate
+  //      neighbors) so single-frame noise dips don't win. Among the strict local mins,
+  //      pick the smallest hip angle (= highest knee lift); break ties by pose confidence.
+  const leadHipArr = samples.map(s => {
+    const l = s.lHipExt, r = s.rHipExt;
+    const okL = l != null && isFinite(l);
+    const okR = r != null && isFinite(r);
+    if(!okL && !okR) return null;
+    if(!okL) return r;
+    if(!okR) return l;
+    return Math.min(l, r);
+  });
+  function collectPkfCands(startT, endT){
+    const out = [];
+    for(let i=1;i<samples.length-1;i++){
+      const v = leadHipArr[i];
+      if(v == null) continue;
+      const t = samples[i].t;
+      if(t < startT || t > endT) continue;
+      const p = leadHipArr[i-1], n = leadHipArr[i+1];
+      // Strict local min vs immediate neighbors. Skip the candidate if either neighbor
+      // is missing or not strictly larger -- prevents flat plateaus and noise spikes.
+      if(p == null || n == null) continue;
+      if(!(v < p) || !(v < n)) continue;
+      out.push({idx:i, val:v, t, s:samples[i]});
+    }
+    // Smallest hip angle wins; tiebreak by confidence so a noisy frame doesn't out-rank a
+    // crisp one at the same depth.
+    out.sort((a,b)=> (a.val - b.val) || ((b.s.conf||0) - (a.s.conf||0)));
+    return out;
   }
-  if(!pkfCand) pkfCand=pickByScore(hipTroughs,median('lHipExt'),false);
+  let pkfList = lToe ? collectPkfCands(lToe.t + 0.10, lToe.t + 0.70) : [];
+  if(!pkfList.length) pkfList = collectPkfCands(-Infinity, Infinity);
+  const pkfCand = pkfList[0] || null;
   if(pkfCand){
     const claimed2=claimedTimes().concat(mid?[mid.t]:[]);
     if(!tooClose(pkfCand.t,claimed2)){det('peak_kf',pkfCand.s);}
     else{
-      const sorted=[...hipTroughs].sort((a,b)=>a.val-b.val);
-      for(const c of sorted){if(!tooClose(c.t,claimed2)){det('peak_kf',c.s);break;}}
+      for(const c of pkfList.slice(1)){if(!tooClose(c.t,claimed2)){det('peak_kf',c.s);break;}}
     }
   }
 }
