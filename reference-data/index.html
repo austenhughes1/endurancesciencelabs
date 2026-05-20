@@ -1622,29 +1622,72 @@ function findPhases(samples,dur){
   const pickByScore=(cands,ref,hi)=>cands.length?[...cands].sort((a,b)=>score(b,ref,hi)-score(a,ref,hi))[0]:null;
   const median=key=>{const v=samples.map(s=>s[key]).filter(x=>x!==undefined&&x!==null&&isFinite(x)).sort((a,b)=>a-b); return v.length?v[Math.floor(v.length/2)]:0;};
 
-  // ---- Foot strikes ----
-  const lStrikes=prominenceFilter(localPeaks('lAnkleY',2),'lAnkleY',0.55);
-  const rStrikes=prominenceFilter(localPeaks('rAnkleY',2),'rAnkleY',0.55);
-  const lFoot=pickByScore(lStrikes,median('lAnkleY'),true);
-  const rStrikesFiltered=lFoot?rStrikes.filter(c=>Math.abs(c.t-lFoot.t)>0.10):rStrikes;
-  const rFoot=pickByScore(rStrikesFiltered,median('rAnkleY'),true);
-  if(lFoot) det('l_foot',lFoot.s);
-  if(rFoot) det('r_foot',rFoot.s);
+  // ---- Foot strikes and toe-offs (derived from ankle-Y stance plateau) ----
+  // Old approach picked extrema (ankleY max, hipExt max) and was systematically late on
+  // every phase in the diagnostic (+5 to +36ms bias, ~half the labels 3+ frames off).
+  // The events are EDGES of the stance plateau, not extrema:
+  //   foot strike = first frame the descending ankle goes flat = leading edge of ankleY peak
+  //   toe-off     = last frame before the ankle starts to lift  = trailing edge of same peak
+  // Tolerance is 5% of trunk-height (scale-normalized) so we tolerate ankle jitter without
+  // eating into the swing rise. A single noisy below-threshold sample inside the plateau
+  // is allowed; two in a row ends the walk.
+  const scaleVals = samples.map(s => s.scale).filter(v => v != null && isFinite(v) && v > 0).sort((a,b)=>a-b);
+  const scaleMed = scaleVals.length ? scaleVals[Math.floor(scaleVals.length/2)] : null;
+  const plateauTol = scaleMed != null ? scaleMed * 0.05 : 8;
+  function findStancePlateau(key, peakIdx){
+    const peakVal = samples[peakIdx][key];
+    if(peakVal == null || !isFinite(peakVal)) return null;
+    const threshold = peakVal - plateauTol;
+    let lo = peakIdx, gap = 0;
+    for(let i = peakIdx - 1; i >= 0; i--){
+      const v = samples[i][key];
+      if(v == null || !isFinite(v) || v < threshold){ if(++gap >= 2) break; continue; }
+      gap = 0; lo = i;
+    }
+    let hi = peakIdx; gap = 0;
+    for(let i = peakIdx + 1; i < samples.length; i++){
+      const v = samples[i][key];
+      if(v == null || !isFinite(v) || v < threshold){ if(++gap >= 2) break; continue; }
+      gap = 0; hi = i;
+    }
+    return {lo, hi};
+  }
 
-  // ---- Toe-offs ----
-  const lToeCands=prominenceFilter(localPeaks('lHipExt',2),'lHipExt',0.55);
-  const rToeCands=prominenceFilter(localPeaks('rHipExt',2),'rHipExt',0.55);
-  const inWindow=(cands,startT,minDt,maxDt)=>cands.filter(c=>{const dt=c.t-startT;return dt>=minDt&&dt<=maxDt;});
-  let lToe=lFoot?pickByScore(inWindow(lToeCands,lFoot.t,0.08,0.90),median('lHipExt'),true):null;
-  if(!lToe) lToe=pickByScore(lToeCands,median('lHipExt'),true);
-  let rToe=rFoot?pickByScore(inWindow(rToeCands,rFoot.t,0.08,0.90),median('rHipExt'),true):null;
-  if(!rToe) rToe=pickByScore(rToeCands,median('rHipExt'),true);
+  const lStrikes = prominenceFilter(localPeaks('lAnkleY', 2), 'lAnkleY', 0.55);
+  const rStrikes = prominenceFilter(localPeaks('rAnkleY', 2), 'rAnkleY', 0.55);
+  const lPeak = pickByScore(lStrikes, median('lAnkleY'), true);
+  const rStrikesFiltered = lPeak ? rStrikes.filter(c => Math.abs(c.t - lPeak.t) > 0.10) : rStrikes;
+  const rPeak = pickByScore(rStrikesFiltered, median('rAnkleY'), true);
 
-  const claimedTimes=()=>[lFoot,rFoot,lToe,rToe].filter(Boolean).map(x=>x.t);
-  const tooClose=(t,others,dt=0.05)=>others.some(o=>Math.abs(o-t)<dt);
+  let lFoot = null, lToe = null;
+  if(lPeak){
+    const b = findStancePlateau('lAnkleY', lPeak.idx);
+    if(b && b.lo !== b.hi){
+      lFoot = {idx:b.lo, t:samples[b.lo].t, s:samples[b.lo]};
+      lToe  = {idx:b.hi, t:samples[b.hi].t, s:samples[b.hi]};
+    } else {
+      lFoot = lPeak; // plateau collapsed — degrade to old behaviour for foot strike only
+    }
+  }
+  let rFoot = null, rToe = null;
+  if(rPeak){
+    const b = findStancePlateau('rAnkleY', rPeak.idx);
+    if(b && b.lo !== b.hi){
+      rFoot = {idx:b.lo, t:samples[b.lo].t, s:samples[b.lo]};
+      rToe  = {idx:b.hi, t:samples[b.hi].t, s:samples[b.hi]};
+    } else {
+      rFoot = rPeak;
+    }
+  }
 
-  if(lToe && !tooClose(lToe.t,[lFoot,rFoot].filter(Boolean).map(x=>x.t))) det('l_toe',lToe.s);
-  if(rToe && !tooClose(rToe.t,[lFoot,rFoot,lToe].filter(Boolean).map(x=>x.t))) det('r_toe',rToe.s);
+  if(lFoot) det('l_foot', lFoot.s);
+  if(rFoot) det('r_foot', rFoot.s);
+
+  const claimedTimes = () => [lFoot, rFoot, lToe, rToe].filter(Boolean).map(x => x.t);
+  const tooClose = (t, others, dt = 0.05) => others.some(o => Math.abs(o - t) < dt);
+
+  if(lToe && !tooClose(lToe.t, [lFoot, rFoot].filter(Boolean).map(x => x.t))) det('l_toe', lToe.s);
+  if(rToe && !tooClose(rToe.t, [lFoot, rFoot, lToe].filter(Boolean).map(x => x.t))) det('r_toe', rToe.s);
 
   // ---- Mid-stance ----
   // Austen's spec: pick the frame where the stance foot is directly under center of mass
