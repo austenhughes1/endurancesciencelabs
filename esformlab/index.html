@@ -3210,6 +3210,14 @@ async function autoScanAll(){
   // Detect side phases
   try{findPhases(samples,sideDur);}catch(e){console.error('findPhases:',e);}
 
+  // Two-pass refinement: re-locate L/R foot-strike + toe-off at native fps in a
+  // ±0.20s window around each leg's coarse plateau. Removes the coarse-sampling
+  // resolution ceiling on the four side-stride phases. Mid-stance keeps its coarse
+  // pick (its acceptance band is wide enough that resolution isn't the bottleneck).
+  document.getElementById('scan-step').textContent='Side view: refining foot-strike + toe-off edges...';
+  try { await refineLegPlateau('left',  sideVid); } catch(e){ console.error('refine L plateau:',e); }
+  try { await refineLegPlateau('right', sideVid); } catch(e){ console.error('refine R plateau:',e); }
+
   // Update side phase UI items
   var sidePhaseKeys = ['l_foot','r_foot','l_toe','r_toe','mid'];
   sidePhaseKeys.forEach(function(key){
@@ -3632,6 +3640,99 @@ function findPhases(samples,dur){
     det('mid', mid);
   }
 
+}
+
+// ── Two-pass refinement for foot-strike + toe-off (side view) ───────────────
+// The coarse 150-sample side scan can be as sparse as ~67ms/sample on long clips. That's
+// a hard resolution ceiling for the stance-plateau edges. Here we densely re-sample pose
+// at ~30Hz in a tight window around each leg's coarse plateau, then re-walk the edges
+// from the dense data. Refinement always uses the high-accuracy Thunder detector, even
+// on mobile (where the coarse scan may have used Lightning) -- the dense scan is short
+// enough that the thermal cost is acceptable.
+async function _denseRefinePoseForAnkle(sideVid, det, t, ankleIdx){
+  var dur = sideVid.duration || 0;
+  if(t < 0 || (dur && t > dur - 0.01)) return null;
+  try { await seekTo(t, sideVid); } catch(e){ return null; }
+  var W = sideVid.videoWidth || 640, H = sideVid.videoHeight || 360;
+  var canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  var ctx = canvas.getContext('2d');
+  try { ctx.drawImage(sideVid, 0, 0, W, H); } catch(e){ return null; }
+  var poses = null;
+  try { poses = await det.estimatePoses(canvas); } catch(e){}
+  if(!poses || !poses.length){
+    try { poses = await det.estimatePoses(sideVid); } catch(e){}
+  }
+  if(!poses || !poses.length) return null;
+  var kps = poses[0].keypoints;
+  if(!kps || kps.length < 17) return null;
+  var an = (kps[ankleIdx] && kps[ankleIdx].score >= MIN_CONF) ? kps[ankleIdx] : null;
+  if(!an || an.y == null) return null;
+  var lSh = (kps[5]  && kps[5].score  >= MIN_CONF) ? kps[5]  : null;
+  var rSh = (kps[6]  && kps[6].score  >= MIN_CONF) ? kps[6]  : null;
+  var lHi = (kps[11] && kps[11].score >= MIN_CONF) ? kps[11] : null;
+  var rHi = (kps[12] && kps[12].score >= MIN_CONF) ? kps[12] : null;
+  var shMidY = (lSh && rSh) ? (lSh.y + rSh.y)/2 : (lSh ? lSh.y : (rSh ? rSh.y : null));
+  var hiMidY = (lHi && rHi) ? (lHi.y + rHi.y)/2 : (lHi ? lHi.y : (rHi ? rHi.y : null));
+  var scale = (shMidY != null && hiMidY != null) ? Math.abs(hiMidY - shMidY) : null;
+  return {t:t, ankleY:an.y, scale:scale, kps:kps};
+}
+
+async function refineLegPlateau(side, sideVid){
+  var footKey = side === 'left' ? 'l_foot' : 'r_foot';
+  var toeKey  = side === 'left' ? 'l_toe'  : 'r_toe';
+  var ankleIdx = side === 'left' ? 15 : 16;
+  var fp = phases[footKey], tp = phases[toeKey];
+  if((!fp || !fp.detected) && (!tp || !tp.detected)) return;
+
+  var coarseStart = ((fp && fp.detected) ? fp.t : tp.t) - 0.20;
+  var coarseEnd   = ((tp && tp.detected) ? tp.t : fp.t) + 0.20;
+  var dur = sideVid.duration || 0;
+  var t0 = Math.max(0.02, coarseStart);
+  var t1 = Math.min(dur - 0.05, coarseEnd);
+  if(t1 - t0 < 0.08) return;
+
+  var det = detector; // Thunder; always available by the time scan starts.
+  if(!det) return;
+
+  var STEP = 0.033; // ~30Hz
+  var dense = [];
+  for(var t = t0; t <= t1; t += STEP){
+    var s = await _denseRefinePoseForAnkle(sideVid, det, t, ankleIdx);
+    if(s) dense.push(s);
+  }
+  if(dense.length < 4) return;
+
+  var peakIdx = 0;
+  for(var i = 1; i < dense.length; i++){
+    if(dense[i].ankleY > dense[peakIdx].ankleY) peakIdx = i;
+  }
+
+  var scales = dense.map(function(d){return d.scale;}).filter(function(v){return v != null && isFinite(v) && v > 0;}).sort(function(a,b){return a-b;});
+  var scaleMed = scales.length ? scales[Math.floor(scales.length/2)] : null;
+  var tol = (scaleMed != null) ? scaleMed * 0.05 : 8;
+  var threshold = dense[peakIdx].ankleY - tol;
+
+  var lo = peakIdx, gap = 0;
+  for(var j = peakIdx - 1; j >= 0; j--){
+    var v = dense[j].ankleY;
+    if(v == null || !isFinite(v) || v < threshold){ if(++gap >= 2) break; continue; }
+    gap = 0; lo = j;
+  }
+  var hi = peakIdx; gap = 0;
+  for(var k2 = peakIdx + 1; k2 < dense.length; k2++){
+    var v2 = dense[k2].ankleY;
+    if(v2 == null || !isFinite(v2) || v2 < threshold){ if(++gap >= 2) break; continue; }
+    gap = 0; hi = k2;
+  }
+  if(lo === hi) return; // plateau collapsed -- keep coarse picks.
+
+  phases[footKey] = Object.assign({}, phases[footKey], {
+    t: dense[lo].t, kps: dense[lo].kps, detected: true
+  });
+  phases[toeKey] = Object.assign({}, phases[toeKey], {
+    t: dense[hi].t, kps: dense[hi].kps, detected: true
+  });
 }
 
 // Phase grid

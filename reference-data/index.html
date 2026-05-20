@@ -1545,6 +1545,12 @@ async function autoScan(){
     diag.style.paddingLeft = '10px';
   }
   try{findPhases(samples,dur);}catch(e){console.error('findPhases:',e);}
+  // Two-pass refinement: re-locate each leg's foot-strike + toe-off at native fps in
+  // a tight window around the coarse plateau. Removes the coarse-sampling resolution
+  // ceiling that the diagnostic exposed (+5 to +36ms late biases on all four phases).
+  document.getElementById('scan-step').textContent='Refining foot-strike + toe-off edges…';
+  try { await refineLegPlateau('left');  } catch(e){ console.error('refine L plateau:',e); }
+  try { await refineLegPlateau('right'); } catch(e){ console.error('refine R plateau:',e); }
   PHASE_DEFS.forEach(def=>{
     const ph=phases[def.key];const item=document.getElementById(`spl-${def.key}`);const tEl=document.getElementById(`spl-t-${def.key}`);
     if(!item||!tEl)return;
@@ -1797,6 +1803,104 @@ function findPhases(samples,dur){
       for(const c of pkfList.slice(1)){if(!tooClose(c.t,claimed2)){det('peak_kf',c.s);break;}}
     }
   }
+}
+
+// ── Two-pass refinement for foot-strike + toe-off ───────────────────────────
+// The 150-sample coarse scan can be as sparse as ~67ms/sample on long clips. That's a
+// hard resolution ceiling for the stance-plateau edges. Here we densely re-sample pose
+// at ~30Hz in a tight window around each leg's coarse plateau, then re-walk the edges
+// from the dense data. Mid-stance and peak knee lift stay on the coarse signal -- their
+// detection bands are wider and less sensitive to sample resolution.
+async function _densePoseForAnkle(t, ankleIdx){
+  const dur = videoEl.duration || 0;
+  if(t < 0 || (dur && t > dur - 0.01)) return null;
+  try { await seekTo(t); } catch(e){ return null; }
+  const W = videoEl.videoWidth || 640, H = videoEl.videoHeight || 360;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  try { ctx.drawImage(videoEl, 0, 0, W, H); } catch(e){ return null; }
+  let poses = null;
+  try { poses = await detector.estimatePoses(canvas); } catch(e){}
+  if(!poses || !poses.length){
+    try { poses = await detector.estimatePoses(videoEl); } catch(e){}
+  }
+  if(!poses || !poses.length) return null;
+  const kps = poses[0].keypoints;
+  if(!kps || kps.length < 17) return null;
+  const an = (kps[ankleIdx] && kps[ankleIdx].score >= MIN_CONF) ? kps[ankleIdx] : null;
+  if(!an || an.y == null) return null;
+  const lSh = (kps[5]  && kps[5].score  >= MIN_CONF) ? kps[5]  : null;
+  const rSh = (kps[6]  && kps[6].score  >= MIN_CONF) ? kps[6]  : null;
+  const lHi = (kps[11] && kps[11].score >= MIN_CONF) ? kps[11] : null;
+  const rHi = (kps[12] && kps[12].score >= MIN_CONF) ? kps[12] : null;
+  const shMidY = (lSh && rSh) ? (lSh.y + rSh.y)/2 : (lSh ? lSh.y : (rSh ? rSh.y : null));
+  const hiMidY = (lHi && rHi) ? (lHi.y + rHi.y)/2 : (lHi ? lHi.y : (rHi ? rHi.y : null));
+  const scale = (shMidY != null && hiMidY != null) ? Math.abs(hiMidY - shMidY) : null;
+  return {t, ankleY: an.y, scale, kps};
+}
+
+async function refineLegPlateau(side){
+  const footKey = side === 'left' ? 'l_foot' : 'r_foot';
+  const toeKey  = side === 'left' ? 'l_toe'  : 'r_toe';
+  const ankleIdx = side === 'left' ? 15 : 16;
+  const fp = phases[footKey], tp = phases[toeKey];
+  // Need at least one coarse pick to anchor the dense window.
+  if(!fp?.detected && !tp?.detected) return;
+
+  // ±0.20s padding around the coarse plateau handles the worst observed coarse-late
+  // bias (~36ms) plus normal swing-rise margin at native fps.
+  const coarseStart = (fp?.detected ? fp.t : tp.t) - 0.20;
+  const coarseEnd   = (tp?.detected ? tp.t : fp.t) + 0.20;
+  const dur = videoEl.duration || 0;
+  const t0 = Math.max(0.02, coarseStart);
+  const t1 = Math.min(dur - 0.05, coarseEnd);
+  if(t1 - t0 < 0.08) return;
+
+  const STEP = 0.033; // ~30Hz, denser than any coarse sampling we'd see.
+  const dense = [];
+  for(let t = t0; t <= t1; t += STEP){
+    const s = await _densePoseForAnkle(t, ankleIdx);
+    if(s) dense.push(s);
+  }
+  if(dense.length < 4) return;
+
+  // Locate the ankleY peak inside the dense window.
+  let peakIdx = 0;
+  for(let i = 1; i < dense.length; i++){
+    if(dense[i].ankleY > dense[peakIdx].ankleY) peakIdx = i;
+  }
+
+  // Plateau tolerance from the dense window's own scale median -- avoids inheriting a
+  // stale global value if the coarse scan had different framing for some samples.
+  const scales = dense.map(s => s.scale).filter(v => v != null && isFinite(v) && v > 0).sort((a,b)=>a-b);
+  const scaleMed = scales.length ? scales[Math.floor(scales.length/2)] : null;
+  const tol = scaleMed != null ? scaleMed * 0.05 : 8;
+  const threshold = dense[peakIdx].ankleY - tol;
+
+  let lo = peakIdx, gap = 0;
+  for(let i = peakIdx - 1; i >= 0; i--){
+    const v = dense[i].ankleY;
+    if(v == null || !isFinite(v) || v < threshold){ if(++gap >= 2) break; continue; }
+    gap = 0; lo = i;
+  }
+  let hi = peakIdx; gap = 0;
+  for(let i = peakIdx + 1; i < dense.length; i++){
+    const v = dense[i].ankleY;
+    if(v == null || !isFinite(v) || v < threshold){ if(++gap >= 2) break; continue; }
+    gap = 0; hi = i;
+  }
+  if(lo === hi) return; // plateau collapsed in dense data -- keep coarse picks.
+
+  // Update phase records. analyzeCard() will later re-detect at this t and refresh
+  // metrics; setting kps here keeps the initial mini-canvas overlay aligned with the
+  // refined frame instead of the coarse one.
+  phases[footKey] = Object.assign({}, phases[footKey], {
+    t: dense[lo].t, kps: dense[lo].kps, detected: true
+  });
+  phases[toeKey] = Object.assign({}, phases[toeKey], {
+    t: dense[hi].t, kps: dense[hi].kps, detected: true
+  });
 }
 
 // Phase grid
