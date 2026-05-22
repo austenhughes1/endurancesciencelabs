@@ -56,18 +56,33 @@
     substrate oxidation, training zones — and an honest sensitivity readout.
   </p>
 
+  <!-- Prerequisite gate (hidden when a saved VLamax is found) -->
+  <div id="prereq" style="display:none">
+    <div class="panel" style="border-left:4px solid var(--purple)">
+      <div class="panel-h">First, run a sprint VLamax test</div>
+      <p class="panel-sub">Mode A needs your maximum glycolytic rate (VLamax) as a known input. Run the 15-second sprint test in Mode B and save the result to your profile — Mode A will use it automatically from that point on.</p>
+      <a class="btn primary" href="/esmetlab/mode-b/">Go to Mode B — Sprint VLamax →</a>
+    </div>
+  </div>
+
+  <!-- Active wizard (revealed only when VLamax is on file) -->
+  <div id="wizard" style="display:none">
+
+  <div id="vlamax-card" class="panel" style="background:linear-gradient(135deg,rgba(139,124,248,.10),rgba(0,229,200,.04));border:1px solid rgba(139,124,248,.30);display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:18px">
+    <!-- populated by app.js with saved VLamax + measurement date -->
+  </div>
+
   <div class="stepper">
     <div class="s active" id="step-bar-1"></div>
     <div class="s"        id="step-bar-2"></div>
     <div class="s"        id="step-bar-3"></div>
-    <div class="s"        id="step-bar-4"></div>
   </div>
 
   <!-- ───────── Step 1: Athlete ───────── -->
   <section class="step-section active" data-step="1">
     <div class="panel">
       <div class="panel-h">1. Athlete</div>
-      <p class="panel-sub">Body composition rescales the absolute substrate values (g/min). Sex influences default reference ranges and population priors only.</p>
+      <p class="panel-sub">Body composition rescales the absolute substrate values (g/min). Sex influences default reference ranges only.</p>
 
       <div class="grid-2">
         <div class="field">
@@ -99,60 +114,14 @@
     </div>
     <div class="nav-actions">
       <span></span>
-      <button class="btn primary" data-go="2">Next: VLamax →</button>
+      <button class="btn primary" data-go="2">Next: Step test →</button>
     </div>
   </section>
 
-  <!-- ───────── Step 2: VLamax ───────── -->
+  <!-- ───────── Step 2: Step Test Stages ───────── -->
   <section class="step-section" data-step="2">
     <div class="panel">
-      <div class="panel-h">2. VLamax</div>
-      <p class="panel-sub">Choose how you'd like to provide your maximum glycolytic rate. A measured sprint is the most accurate.</p>
-
-      <div class="radio-row" id="vlamax-mode-tabs">
-        <label class="active"><input type="radio" name="vlamax-mode" value="direct" checked><span>I have my VLamax</span></label>
-        <label><input type="radio" name="vlamax-mode" value="sprint"><span>Compute from sprint</span></label>
-        <label><input type="radio" name="vlamax-mode" value="prior"><span>Estimate from population</span></label>
-      </div>
-
-      <div id="vlamax-direct" style="margin-top: 16px">
-        <label class="field">
-          <span class="lab">VLamax (mmol · L⁻¹ · s⁻¹)</span>
-          <input type="number" id="vlamax_direct" step="0.01" min="0.10" max="1.20" value="0.50">
-          <span class="hint">Typical range 0.20 (aerobic-dominant) – 0.90 (sprinter-dominant)</span>
-        </label>
-      </div>
-
-      <div id="vlamax-sprint" style="display:none; margin-top:16px">
-        <div class="grid-3">
-          <label class="field"><span class="lab">Pre-sprint La</span>
-            <input type="number" id="sp_la_pre" step="0.1" min="0" max="5" value="1.4">
-          </label>
-          <label class="field"><span class="lab">Peak post-sprint La</span>
-            <input type="number" id="sp_la_post" step="0.1" min="2" max="30" value="11.0">
-          </label>
-          <label class="field"><span class="lab">Sprint duration (s)</span>
-            <input type="number" id="sp_dur" step="1" min="10" max="30" value="15">
-          </label>
-        </div>
-        <div class="info" id="sprint-readout"></div>
-      </div>
-
-      <div id="vlamax-prior" style="display:none; margin-top:16px">
-        <div class="warn">⚠ Population priors reduce profile accuracy substantially. Use only if you have no sprint data.</div>
-        <div id="prior-readout" class="info"></div>
-      </div>
-    </div>
-    <div class="nav-actions">
-      <button class="btn ghost"   data-go="1">← Back</button>
-      <button class="btn primary" data-go="3">Next: Step test →</button>
-    </div>
-  </section>
-
-  <!-- ───────── Step 3: Step Test Stages ───────── -->
-  <section class="step-section" data-step="3">
-    <div class="panel">
-      <div class="panel-h">3. Step test stages</div>
+      <div class="panel-h">2. Step test stages</div>
       <p class="panel-sub">
         Add 3–6 stages. Each stage should be ≥3 minutes (5+ preferred) for steady state. Sample lactate within 30s of stage end. Final stage should reach &gt;4 mmol/L for the fit to anchor properly.
       </p>
@@ -175,25 +144,27 @@
       <div id="stage-warnings"></div>
     </div>
     <div class="nav-actions">
-      <button class="btn ghost"   data-go="2">← Back</button>
+      <button class="btn ghost"   data-go="1">← Back</button>
       <button class="btn primary" id="run">Run profile →</button>
     </div>
   </section>
 
-  <!-- ───────── Step 4: Results ───────── -->
-  <section class="step-section" data-step="4">
+  <!-- ───────── Step 3: Results ───────── -->
+  <section class="step-section" data-step="3">
     <div id="results-root"></div>
     <div class="nav-actions">
-      <button class="btn ghost" data-go="3">← Edit inputs</button>
+      <button class="btn ghost" data-go="2">← Edit inputs</button>
       <button class="btn cyan"  id="export-pdf">Download PDF →</button>
     </div>
   </section>
 
+  </div><!-- /#wizard -->
 </div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
@@ -203,10 +174,13 @@
     projectId: 'es-form-labs',
   });
   const ADMIN_UID = '2z9Z3K5ZwShvadUuqZmwMv0s1Od2';
+  window.__esml = { user: null };
   firebase.auth().onAuthStateChanged(function(user) {
     if (user && user.uid === ADMIN_UID) {
+      window.__esml.user = user;
       document.getElementById('gate').style.display = 'none';
       document.getElementById('app').style.display  = 'block';
+      window.dispatchEvent(new CustomEvent('esml-auth', { detail: { user: user } }));
     } else {
       document.getElementById('gate').style.display = 'block';
       document.getElementById('app').style.display  = 'none';
