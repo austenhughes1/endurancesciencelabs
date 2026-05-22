@@ -2683,6 +2683,14 @@ async function analyzeCard(key){
     if(!ph.sideView){renderSideViewWarning(key);}else{renderMiniMetrics(key,ph.metrics);updateSummaryCol(key);renderLegSwapWarning(key,ph.metrics);}
   }
   if(badge){badge.className='pc-badge ok';badge.textContent='analyzed';}if(loading)loading.classList.remove('show');
+  // Keep the Results report in sync with the displayed metrics. Detection
+  // runs once at completeAnalysis() and stores lastIssues; without this,
+  // refining a frame afterward updates the on-card numbers but leaves the
+  // report stuck on the original detection result.
+  if (lastIssues !== null) {
+    lastIssues = detectIssues();
+    renderReport(lastIssues);
+  }
   checkAllAnalyzed();
 }
 
