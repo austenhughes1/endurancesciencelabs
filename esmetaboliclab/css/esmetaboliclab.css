@@ -353,6 +353,28 @@ table.zones td.num { font-family: var(--mono); }
   background: rgba(0,229,200,.06); border: 1px solid rgba(0,229,200,.20);
   border-left: 3px solid var(--cyan); border-radius: 10px;
 }
+
+/* Tabs inside a modal (e.g. Cycling / Running in the step-test guide) */
+.esml-tabs {
+  display: flex; gap: 6px; padding: 4px;
+  background: var(--panel2); border: 1px solid var(--border);
+  border-radius: 12px; margin-bottom: 22px;
+}
+.esml-tab {
+  flex: 1; padding: 10px 16px; border-radius: 8px;
+  background: transparent; border: none; cursor: pointer;
+  color: var(--muted2); font-family: var(--body);
+  font-weight: 600; font-size: 14px;
+  transition: all .15s;
+}
+.esml-tab:hover { color: var(--text); background: rgba(255,255,255,.03); }
+.esml-tab.active {
+  background: rgba(139,124,248,.16);
+  color: var(--purple);
+  border: 1px solid rgba(139,124,248,.28);
+}
+.esml-tab-pane { display: none; }
+.esml-tab-pane.active { display: block; }
 .esml-checklist, .esml-steps { list-style: none; padding: 0; margin: 0 0 14px; }
 .esml-checklist li, .esml-steps li {
   padding: 7px 0; padding-left: 26px; position: relative;

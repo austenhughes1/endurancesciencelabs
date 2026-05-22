@@ -14,9 +14,11 @@ import { computeVLamax } from '../js/lib/mader/sprint.js';
 import { generateZones } from '../js/ui/zones.js';
 import { minPerKmToPaceString, paceStringToMinPerKm } from '../js/lib/mader/sport.js';
 import { wireHowToMeasureTriggers } from '../js/ui/how-to-measure.js';
+import { wireStepTestTriggers }    from '../js/ui/how-to-step-test.js';
 
-// Wire the page-level "How to measure blood lactate" button.
+// Wire the page-level protocol buttons.
 wireHowToMeasureTriggers();
+wireStepTestTriggers();
 
 const $   = (sel) => document.querySelector(sel);
 const $$  = (sel) => Array.from(document.querySelectorAll(sel));
