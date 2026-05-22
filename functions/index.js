@@ -3,6 +3,7 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentWritten, onDocumentCreated } = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
 const { renderReport } = require("./report-renderer");
+const { renderComparisonReport } = require("./comparison-renderer");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -667,9 +668,11 @@ exports.generateFormReport = onCall({ cors: true, memory: "512MiB" }, async (req
       db.collection("computed_ranges").doc("female").get(),
       db.collection("computed_ranges").doc("combined").get(),
     ]);
-    if (reads[0].exists) liveRanges.male = reads[0].data();
-    if (reads[1].exists) liveRanges.female = reads[1].data();
-    if (reads[2].exists) liveRanges.combined = reads[2].data();
+    // The computed_ranges docs are structured { phases: { <phaseKey>: { <metricKey>: {...} } } }.
+    // The renderer expects the inner `.phases` map, matching how the client populates liveRanges.
+    if (reads[0].exists) liveRanges.male = reads[0].data().phases || null;
+    if (reads[1].exists) liveRanges.female = reads[1].data().phases || null;
+    if (reads[2].exists) liveRanges.combined = reads[2].data().phases || null;
   } catch (e) {
     console.warn("computed_ranges fetch failed, falling back to defaults:", e && e.message);
   }
@@ -685,5 +688,77 @@ exports.generateFormReport = onCall({ cors: true, memory: "512MiB" }, async (req
   return {
     pdfBase64: buf.toString("base64"),
     filename: "esformlab-report-" + new Date().toISOString().slice(0, 10) + ".pdf",
+  };
+});
+
+// ═══════════════════════════════════════════════════════════
+//  generateComparisonReport — server-rendered comparison PDF.
+//  Caller passes the two analysis IDs (idA, idB) from their
+//  own users/{uid}/analyses subcollection. We verify (a) the
+//  caller has an active esFormLab pass, and (b) both analyses
+//  exist under the caller's uid (admin UID may override by
+//  passing ownerUid to compare another user's analyses).
+// ═══════════════════════════════════════════════════════════
+exports.generateComparisonReport = onCall({ cors: true, memory: "512MiB" }, async (request) => {
+  const uid = request.auth && request.auth.uid;
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "Must be signed in to download the comparison report.");
+  }
+
+  const hasPass = await verifyActivePass(uid);
+  if (!hasPass) {
+    throw new HttpsError("permission-denied", "An active esFormLab pass is required to download the comparison report.");
+  }
+
+  const data = request.data || {};
+  const idA = typeof data.idA === "string" ? data.idA : null;
+  const idB = typeof data.idB === "string" ? data.idB : null;
+  if (!idA || !idB) throw new HttpsError("invalid-argument", "Two analysis IDs are required.");
+  if (idA === idB) throw new HttpsError("invalid-argument", "Pick two different analyses to compare.");
+
+  // Default to the caller's own subcollection. Admin may pass ownerUid to compare a different user's saved analyses.
+  const ownerUid = (uid === ADMIN_UID && typeof data.ownerUid === "string" && data.ownerUid) ? data.ownerUid : uid;
+
+  let aSnap, bSnap;
+  try {
+    [aSnap, bSnap] = await Promise.all([
+      db.collection("users").doc(ownerUid).collection("analyses").doc(idA).get(),
+      db.collection("users").doc(ownerUid).collection("analyses").doc(idB).get(),
+    ]);
+  } catch (e) {
+    console.error("comparison analyses fetch failed:", e && e.message);
+    throw new HttpsError("internal", "Could not load the selected analyses.");
+  }
+  if (!aSnap.exists || !bSnap.exists) {
+    throw new HttpsError("not-found", "One or both selected analyses were not found.");
+  }
+  const dA = aSnap.data();
+  const dB = bSnap.data();
+
+  const liveRanges = { male: null, female: null, combined: null };
+  try {
+    const reads = await Promise.all([
+      db.collection("computed_ranges").doc("male").get(),
+      db.collection("computed_ranges").doc("female").get(),
+      db.collection("computed_ranges").doc("combined").get(),
+    ]);
+    if (reads[0].exists) liveRanges.male = reads[0].data().phases || null;
+    if (reads[1].exists) liveRanges.female = reads[1].data().phases || null;
+    if (reads[2].exists) liveRanges.combined = reads[2].data().phases || null;
+  } catch (e) {
+    console.warn("computed_ranges fetch failed, falling back to defaults:", e && e.message);
+  }
+
+  let buf;
+  try {
+    buf = renderComparisonReport({ dA, dB, liveRanges });
+  } catch (e) {
+    console.error("renderComparisonReport failed:", e);
+    throw new HttpsError("internal", "Failed to generate comparison PDF.");
+  }
+
+  return {
+    pdfBase64: buf.toString("base64"),
+    filename: "esformlab-comparison-" + new Date().toISOString().slice(0, 10) + ".pdf",
   };
 });
