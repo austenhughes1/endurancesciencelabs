@@ -728,7 +728,7 @@ header{display:none}
     <a href="/" class="nav-link">Home</a>
     <a href="/esformlab/" class="nav-link">Form analysis</a>
     <a href="/coaching/" class="nav-link active">Coaching</a>
-    <span class="nav-link" style="cursor:default">Metabolic Testing <span class="nav-pill">Soon</span></span>
+    <span id="nav-esmetlab" class="nav-link" style="cursor:default">Metabolic Testing <span class="nav-pill">Soon</span></span>
   </div>
   <span class="role-badge" id="role-badge"></span>
   <div class="hdr-right">
@@ -1252,6 +1252,17 @@ if (auth) {
       currentUser = user;
       document.getElementById('auth-overlay').style.display = 'none';
       document.getElementById('app').style.display = 'block';
+      // Admin: swap the "Metabolic Testing — Soon" placeholder for a live link.
+      if (user.uid === ADMIN_UID) {
+        const slot = document.getElementById('nav-esmetlab');
+        if (slot) {
+          const a = document.createElement('a');
+          a.href = '/esmetlab/';
+          a.className = 'nav-link';
+          a.innerHTML = 'Metabolic Testing <span class="nav-pill" style="background:rgba(139,124,248,.18);color:#8b7cf8">Preview</span>';
+          slot.parentNode.replaceChild(a, slot);
+        }
+      }
       await loadUserDoc(user);
       startNotificationListener();
     }
