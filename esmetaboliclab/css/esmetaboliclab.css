@@ -295,6 +295,121 @@ table.zones th, table.zones td { padding: 9px 12px; border-bottom: 1px solid var
 table.zones th { font-family: var(--mono); font-size: 11px; color: var(--muted2); text-transform: uppercase; letter-spacing: .5px; }
 table.zones td.num { font-family: var(--mono); }
 
+/* ── Modal (reusable) ────────────────────────────────────── */
+.esml-modal-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(8,9,15,0.78); backdrop-filter: blur(6px);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 48px 24px; overflow-y: auto;
+  animation: esml-fade-in 0.15s ease;
+}
+@keyframes esml-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.esml-modal {
+  position: relative; max-width: 640px; width: 100%;
+  background: var(--panel); border: 1px solid var(--border2);
+  border-radius: 16px; padding: 36px 40px;
+  animation: esml-slide-up 0.2s ease;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+}
+@keyframes esml-slide-up {
+  from { transform: translateY(12px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+.esml-modal-close {
+  position: absolute; top: 14px; right: 14px;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: transparent; border: 1px solid var(--border2);
+  color: var(--muted2); font-size: 18px; line-height: 1;
+  cursor: pointer; transition: all .15s;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--body);
+}
+.esml-modal-close:hover { background: rgba(255,255,255,.06); color: var(--text); }
+.esml-modal-title  { font-family: var(--display); font-size: 28px; font-weight: 700; margin-bottom: 12px; line-height: 1.15; letter-spacing: -.5px; }
+.esml-modal-lede   { color: var(--muted2); font-size: 15px; line-height: 1.65; margin-bottom: 22px; }
+.esml-modal-h3     { font-family: var(--display); font-size: 17px; font-weight: 600; margin: 22px 0 10px; }
+.esml-modal-p      { color: var(--muted2); font-size: 14px; line-height: 1.7; margin-bottom: 12px; }
+.esml-modal-foot   { font-size: 11px; line-height: 1.7; color: var(--muted); font-family: var(--mono); margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--border); }
+.esml-modal-callout {
+  margin-top: 22px; padding: 18px 20px;
+  background: rgba(0,229,200,.06); border: 1px solid rgba(0,229,200,.20);
+  border-left: 3px solid var(--cyan); border-radius: 10px;
+}
+.esml-checklist, .esml-steps { list-style: none; padding: 0; margin: 0 0 14px; }
+.esml-checklist li, .esml-steps li {
+  padding: 7px 0; padding-left: 26px; position: relative;
+  color: var(--text); font-size: 14px; line-height: 1.6;
+}
+.esml-checklist li::before {
+  content: '◆'; position: absolute; left: 0; color: var(--cyan); font-size: 11px; top: 11px;
+}
+.esml-steps { counter-reset: step; }
+.esml-steps li { counter-increment: step; }
+.esml-steps li::before {
+  content: counter(step) '.'; position: absolute; left: 0; color: var(--purple);
+  font-family: var(--mono); font-size: 12px; font-weight: 700; top: 9px;
+}
+
+/* ── Saved sessions panel (Sprint VLamax) ────────────────── */
+.sess-panel-h {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap; margin-bottom: 16px;
+}
+.sess-panel-h .panel-h { margin-bottom: 0; }
+.sess-empty {
+  text-align: center; padding: 36px 20px;
+  background: var(--panel2); border: 1px dashed var(--border2); border-radius: 12px;
+}
+.sess-empty p { color: var(--muted2); font-size: 14px; line-height: 1.7; margin-bottom: 18px; max-width: 380px; margin-left: auto; margin-right: auto; }
+.sess-list { display: flex; flex-direction: column; gap: 10px; }
+.sess-card {
+  background: var(--panel2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px 20px;
+  display: grid; grid-template-columns: 1fr auto; gap: 8px 18px;
+  align-items: center; transition: border-color .15s;
+}
+.sess-card.latest { border-color: rgba(139,124,248,.40); border-left: 3px solid var(--purple); }
+.sess-card-date { font-family: var(--mono); font-size: 12px; color: var(--muted2); letter-spacing: .3px; }
+.sess-card-date .latest-pill {
+  display: inline-block; margin-left: 8px; padding: 2px 7px; border-radius: 4px;
+  background: rgba(139,124,248,.18); color: var(--purple);
+  font-size: 9px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase;
+}
+.sess-card-val { font-family: var(--display); font-size: 24px; font-weight: 700; color: var(--text); line-height: 1.1; }
+.sess-card-val .unit { font-family: var(--mono); font-size: 11px; color: var(--muted2); font-weight: 400; margin-left: 4px; }
+.sess-card-meta {
+  grid-column: 1 / -1; font-size: 12px; color: var(--muted2);
+  padding-top: 8px; border-top: 1px solid var(--border); font-family: var(--mono);
+}
+.sess-foot { color: var(--muted2); font-size: 12px; line-height: 1.6; margin-top: 14px; font-family: var(--mono); }
+
+/* ── Inline "new session" form ───────────────────────────── */
+.new-session-card {
+  background: linear-gradient(135deg, rgba(139,124,248,.10), rgba(0,229,200,.04));
+  border: 1px solid rgba(139,124,248,.32);
+  border-left: 4px solid var(--purple);
+  border-radius: 14px; padding: 22px 24px; margin-bottom: 18px;
+}
+.new-session-h {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; margin-bottom: 6px;
+}
+.new-session-h .h-title { font-family: var(--display); font-size: 19px; font-weight: 600; }
+.new-session-sub { color: var(--muted2); font-size: 13px; line-height: 1.65; margin-bottom: 16px; }
+.new-session-result { margin-top: 14px; }
+.new-session-result-box {
+  background: rgba(0,229,200,.06); border: 1px solid rgba(0,229,200,.22);
+  border-left: 3px solid var(--cyan);
+  padding: 14px 18px; border-radius: 10px;
+}
+.new-session-result-label { font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 1px; color: var(--cyan); margin-bottom: 4px; }
+.new-session-result-val   { font-family: var(--display); font-size: 26px; font-weight: 700; color: var(--text); }
+.new-session-result-val .unit { font-family: var(--mono); font-size: 11px; color: var(--muted2); font-weight: 400; margin-left: 4px; }
+.new-session-actions { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+
 /* ── Footer ──────────────────────────────────────────────── */
 footer.esml {
   padding: 28px 24px; border-top: 1px solid var(--border);

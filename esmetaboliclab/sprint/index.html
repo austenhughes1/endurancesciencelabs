@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VLamax Sprint Calculator — esMetabolicLab</title>
+<title>Sprint VLamax Test — esMetabolicLab</title>
 <meta name="robots" content="noindex,nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -13,18 +13,15 @@
   #gate h1 { font-family: var(--display); font-size: 28px; margin-bottom: 12px; }
   #gate p  { color: var(--muted2); font-size: 15px; }
   #app { display: none; }
-  .result-vlamax {
-    background: linear-gradient(135deg, rgba(139,124,248,.10), rgba(0,229,200,.06));
-    border: 1px solid rgba(139,124,248,.30);
-    border-radius: 14px; padding: 26px; text-align: center; margin: 22px 0;
+  .howto-trigger {
+    display: inline-flex; align-items: center; gap: 8px; padding: 11px 20px;
+    background: rgba(0,229,200,0.06); border: 1px solid rgba(0,229,200,.24);
+    color: var(--cyan); border-radius: 10px; font-weight: 600; font-size: 14px;
+    text-decoration: none; cursor: pointer; font-family: var(--body);
+    transition: all .15s; margin-bottom: 22px;
   }
-  .result-vlamax .val { font-family: var(--display); font-size: 56px; font-weight: 700; color: var(--purple); line-height: 1; }
-  .result-vlamax .unit { font-family: var(--mono); font-size: 13px; color: var(--muted2); margin-top: 8px; letter-spacing: .5px; }
-  .result-vlamax .interp { font-size: 14px; color: var(--text); max-width: 460px; margin: 14px auto 0; line-height: 1.6; }
-  .badge { display: inline-block; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-family: var(--mono); letter-spacing: .5px; }
-  .badge.low  { background: rgba(34,199,138,.14); color: var(--good); }
-  .badge.mid  { background: rgba(245,200,66,.14); color: var(--gold); }
-  .badge.high { background: rgba(255,107,53,.14); color: var(--coral); }
+  .howto-trigger:hover { background: rgba(0,229,200,.10); border-color: rgba(0,229,200,.40); text-decoration: none; }
+  .howto-trigger .icon { font-size: 16px; }
 </style>
 </head>
 <body>
@@ -47,71 +44,23 @@
 </nav>
 
 <div class="page">
-  <p style="margin-bottom:12px"><a href="/esmetaboliclab/">← All modes</a></p>
+  <p style="margin-bottom:12px"><a href="/esmetaboliclab/">← All tools</a></p>
   <div class="section-label">◈ Sprint VLamax Test</div>
-  <h1 class="page-title">VLamax — <em>sprint</em> test</h1>
+  <h1 class="page-title">Find your <em>glycolytic</em> ceiling.</h1>
   <p class="page-sub">
-    Enter your pre/post-sprint blood lactate values and we'll compute your maximum
-    glycolytic capacity using Mader's 1994 protocol — corrected for the alactic
-    phosphagen contribution. Save the result to your profile; the full Lactate Step Test requires it.
+    A 15-second all-out sprint, with a blood-lactate sample before and a few
+    minutes after, tells us how fast your muscles can produce lactate at maximum
+    effort — your VLamax. This is the first input the Lactate Step Test needs to
+    build your full metabolic profile.
   </p>
 
-  <div id="saved-banner" style="display:none"></div>
+  <button type="button" class="howto-trigger" data-howto-measure>
+    <span class="icon">◆</span> How to measure blood lactate
+  </button>
 
-  <div class="panel">
-    <div class="panel-h">Sprint inputs</div>
-    <p class="panel-sub">
-      Protocol: warm up at least 10 minutes, take a pre-sprint capillary lactate,
-      perform an all-out 15-second sprint (cycling: ergometer at max effort; running: maximal track or treadmill sprint), then sample peak lactate at 3, 5, 7, and 9 minutes post — take the highest reading as <em>La_peak</em>.
-    </p>
-
-    <div class="grid-3">
-      <label class="field">
-        <span class="lab">Pre-sprint lactate (mmol/L)</span>
-        <input type="number" id="la_pre" step="0.1" min="0" max="5" value="1.4">
-        <span class="hint">Typical resting/warmup: 0.8–1.8</span>
-      </label>
-      <label class="field">
-        <span class="lab">Peak post-sprint lactate (mmol/L)</span>
-        <input type="number" id="la_post" step="0.1" min="2" max="30" value="11.0">
-        <span class="hint">Sampled across 3–9 min post; take the max</span>
-      </label>
-      <label class="field">
-        <span class="lab">Sprint duration (s)</span>
-        <input type="number" id="duration" step="1" min="10" max="30" value="15">
-        <span class="hint">Mader protocol: 15s</span>
-      </label>
-    </div>
-
-    <details style="margin-top:12px">
-      <summary style="cursor:pointer; color: var(--muted2); font-size: 13px; font-family: var(--mono);">Advanced — phosphagen time</summary>
-      <div style="margin-top: 10px">
-        <label class="field" style="max-width: 280px">
-          <span class="lab">Alactic time t_PCr (s)</span>
-          <input type="number" id="t_pcr" step="0.1" min="2" max="6" value="3.5">
-          <span class="hint">Default 3.5 s (Mader 1994). Quittmann et al. 2018 supports.</span>
-        </label>
-      </div>
-    </details>
+  <div id="sprint-root">
+    <!-- populated by app.js: sessions list + inline new-session form -->
   </div>
-
-  <div id="result"></div>
-
-  <details class="edu">
-    <summary>What is VLamax, and why does it matter?</summary>
-    <div class="body">
-      <p>VLamax is the maximum rate at which your body can accumulate lactate in the blood — a proxy for the glycolytic flux ceiling of your muscle. It's expressed in mmol/L per second.</p>
-      <p>A higher VLamax is characteristic of sprint/power-trained athletes. A lower VLamax is characteristic of long-duration aerobic athletes — and in fact, lowering VLamax through aerobic-base training is one of the few well-established ways to <em>raise</em> your MLSS (anaerobic threshold) at a fixed VO₂max.</p>
-      <p>VLamax and VO₂max together are the two primary inputs to the Mader bioenergetic model. Together they determine MLSS, fat oxidation rates, training zone boundaries, and substrate crossover points.</p>
-    </div>
-  </details>
-  <details class="edu">
-    <summary>Why subtract the phosphagen time?</summary>
-    <div class="body">
-      <p>The first ~3 seconds of a maximal sprint are powered primarily by ATP and phosphocreatine — not by glycolysis. The standard Mader formula corrects for this by subtracting the alactic phosphagen time (default 3.5 s, range 2.5–4.5 s) from the sprint duration when computing glycolytic rate.</p>
-      <p>Without the correction, VLamax would be systematically underestimated, especially for short (10–15s) sprints where the phosphagen fraction is large.</p>
-    </div>
-  </details>
 
   <footer class="esml">
     © <span id="footer-year"></span> Endurance Science Labs · esMetabolicLab admin preview
@@ -145,171 +94,7 @@
   document.getElementById('footer-year').textContent = new Date().getFullYear();
 </script>
 
-<script type="module">
-import { computeVLamax } from '../js/lib/mader/sprint.js';
-
-const $ = (id) => document.getElementById(id);
-const db = firebase.firestore();
-
-let savedSnapshot = null;   // last { value, measured_at, inputs } persisted
-
-function categorize(v) {
-  if (v < 0.30) return { cls: 'low',  text: 'Low — aerobic-dominant phenotype. Typical of long-distance specialists.' };
-  if (v < 0.55) return { cls: 'mid',  text: 'Moderate — balanced glycolytic/oxidative profile.' };
-  return            { cls: 'high', text: 'High — glycolytic-dominant phenotype. Typical of sprinters and short-event specialists.' };
-}
-
-function fmtDate(ts) {
-  if (!ts) return '—';
-  let d;
-  if (ts.toDate) d = ts.toDate();
-  else d = new Date(ts);
-  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-}
-
-function readInputs() {
-  return {
-    La_pre:        +$('la_pre').value,
-    La_peak_post:  +$('la_post').value,
-    duration_s:    +$('duration').value,
-    t_PCr_s:       +$('t_pcr').value,
-  };
-}
-
-function inputsMatchSaved(inputs) {
-  if (!savedSnapshot || !savedSnapshot.inputs) return false;
-  const s = savedSnapshot.inputs;
-  return Math.abs(s.La_pre        - inputs.La_pre)       < 1e-6
-      && Math.abs(s.La_peak_post  - inputs.La_peak_post) < 1e-6
-      && Math.abs(s.duration_s    - inputs.duration_s)   < 1e-6
-      && Math.abs(s.t_PCr_s       - inputs.t_PCr_s)      < 1e-6;
-}
-
-function renderSavedBanner() {
-  const banner = $('saved-banner');
-  if (!savedSnapshot) { banner.style.display = 'none'; return; }
-  banner.style.display = 'block';
-  banner.innerHTML =
-    '<div class="info" style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:18px">' +
-      '<div>' +
-        '<strong>Saved VLamax on file:</strong> ' + savedSnapshot.value.toFixed(3) + ' mmol/L/s' +
-        ' &middot; tested ' + fmtDate(savedSnapshot.measured_at) +
-      '</div>' +
-      '<a class="btn primary" href="/esmetaboliclab/profile/" style="padding:8px 16px;font-size:13px">Open the Lactate Step Test →</a>' +
-    '</div>';
-}
-
-function recompute() {
-  const inputs = readInputs();
-  const r = computeVLamax(inputs);
-  renderResult(r, inputs);
-}
-
-function renderResult(r, inputs) {
-  // Bad inputs (e.g. user just cleared a field) → soft empty state.
-  if (!isFinite(r.VLamax) || r.glycolytic_time_s <= 0) {
-    $('result').innerHTML =
-      '<div class="panel"><div class="panel-sub">Enter pre/post-sprint lactate values and sprint duration to compute VLamax.</div></div>';
-    return;
-  }
-
-  const cat = categorize(r.VLamax);
-  const warningsHtml = r.warnings.length
-    ? r.warnings.map(w => '<div class="warn">⚠ ' + w + '</div>').join('')
-    : '';
-
-  const isSavedExact = inputsMatchSaved(inputs);
-  const saveLabel = !savedSnapshot
-    ? 'Save VLamax to profile →'
-    : (isSavedExact ? '✓ Saved to your profile' : 'Update saved VLamax →');
-
-  $('result').innerHTML =
-    '<div class="result-vlamax">' +
-      '<div class="val">' + r.VLamax.toFixed(3) + '</div>' +
-      '<div class="unit">mmol · L⁻¹ · s⁻¹</div>' +
-      '<div class="interp"><span class="badge ' + cat.cls + '">' + cat.cls.toUpperCase() + '</span> &nbsp;' + cat.text + '</div>' +
-    '</div>' +
-    warningsHtml +
-    '<div class="panel">' +
-      '<div class="panel-h">Calculation</div>' +
-      '<table class="zones">' +
-        '<tr><th>ΔLa (post − pre)</th><td class="num">' + r.delta_La.toFixed(2) + ' mmol/L</td></tr>' +
-        '<tr><th>Glycolytic time (t<sub>test</sub> − t<sub>PCr</sub>)</th><td class="num">' + r.glycolytic_time_s.toFixed(2) + ' s</td></tr>' +
-        '<tr><th>VLamax = ΔLa / glycolytic time</th><td class="num">' + r.VLamax.toFixed(4) + ' mmol/L/s</td></tr>' +
-      '</table>' +
-      '<p style="margin-top:14px; font-size:13px; color:var(--muted2); line-height:1.7">' +
-        'Reference: Mader 1994; Quittmann et al. 2018, 2020 (within-subject CV 5–15% across sessions — a single value is a snapshot).' +
-      '</p>' +
-    '</div>' +
-    '<div class="panel">' +
-      '<div class="panel-h">' + (savedSnapshot ? 'Profile' : 'Save to profile') + '</div>' +
-      '<p style="font-size:14px; color:var(--muted2); line-height:1.7; margin-bottom:14px">' +
-        (savedSnapshot
-          ? (isSavedExact
-              ? 'These inputs match what\'s saved on your profile. Edit any value above to update.'
-              : 'Your inputs differ from what\'s saved (' + savedSnapshot.value.toFixed(3) + '). Save to overwrite.')
-          : 'The Lactate Step Test requires a saved VLamax. Click below to write this value to your profile.') +
-      '</p>' +
-      '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">' +
-        '<button class="btn primary" id="save-btn"' + (isSavedExact ? ' disabled' : '') + '>' + saveLabel + '</button>' +
-        '<a class="btn ghost" href="/esmetaboliclab/profile/">Continue to Lactate Step Test →</a>' +
-      '</div>' +
-    '</div>';
-
-  const btn = $('save-btn');
-  if (btn) btn.addEventListener('click', () => saveVLamax(r, inputs));
-}
-
-async function saveVLamax(result, inputs) {
-  const user = window.__esml && window.__esml.user;
-  if (!user) { alert('Sign in required.'); return; }
-  const payload = {
-    value: result.VLamax,
-    measured_at: firebase.firestore.FieldValue.serverTimestamp(),
-    inputs: inputs,
-  };
-  await db.collection('users').doc(user.uid).set(
-    { esmetlab: { vlamax: payload } },
-    { merge: true }
-  );
-  savedSnapshot = { value: result.VLamax, measured_at: new Date(), inputs };
-  renderSavedBanner();
-  recompute();   // re-renders save button as "✓ Saved"
-}
-
-async function loadSavedVLamax(user) {
-  try {
-    const doc = await db.collection('users').doc(user.uid).get();
-    const data = doc.exists ? doc.data() : null;
-    const v = data && data.esmetlab && data.esmetlab.vlamax;
-    if (v && typeof v.value === 'number') {
-      savedSnapshot = v;
-      if (v.inputs) {
-        if (typeof v.inputs.La_pre === 'number')       $('la_pre').value   = v.inputs.La_pre;
-        if (typeof v.inputs.La_peak_post === 'number') $('la_post').value  = v.inputs.La_peak_post;
-        if (typeof v.inputs.duration_s === 'number')   $('duration').value = v.inputs.duration_s;
-        if (typeof v.inputs.t_PCr_s === 'number')      $('t_pcr').value    = v.inputs.t_PCr_s;
-      }
-      renderSavedBanner();
-    }
-  } catch (e) {
-    console.warn('VLamax load failed:', e);
-  }
-  recompute();   // always render a live result, with or without saved data
-}
-
-// Live recompute on every input edit
-['la_pre','la_post','duration','t_pcr'].forEach(id =>
-  $(id).addEventListener('input', recompute)
-);
-
-// First paint (before auth resolves) so the page never sits with an empty result panel
-recompute();
-
-// Then load saved profile and re-render once it arrives
-window.addEventListener('esml-auth', (ev) => loadSavedVLamax(ev.detail.user));
-if (window.__esml && window.__esml.user) loadSavedVLamax(window.__esml.user);
-</script>
+<script type="module" src="./app.js"></script>
 
 </body>
 </html>
