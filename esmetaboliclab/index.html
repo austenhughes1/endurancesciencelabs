@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>esMetLab — Metabolic Testing | Endurance Science Labs</title>
+<title>esMetabolicLab — Metabolic Testing | Endurance Science Labs</title>
 <meta name="robots" content="noindex,nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/esmetlab.css">
+<link rel="stylesheet" href="css/esmetaboliclab.css">
 <style>
   /* Coming-soon splash (default — shown until auth resolves as admin) */
   #soon {
@@ -37,7 +37,7 @@
 
 <!-- Soon-splash visible to everyone until we confirm an admin session -->
 <div id="soon">
-  <div class="label">⬡ esMetLab</div>
+  <div class="label">⬡ esMetabolicLab</div>
   <h1>Metabolic testing.<br>Coming <em>soon.</em></h1>
   <p class="lede">VO₂max, lactate threshold, and fat oxidation — derived from your own lactate step test, fully in your browser. We're building it now.</p>
   <p class="micro"><a href="/">← Back to Endurance Science Labs</a></p>
@@ -51,32 +51,33 @@
       <a href="/"          class="nav-link">Home</a>
       <a href="/esformlab/" class="nav-link">Form analysis</a>
       <a href="/coaching/" class="nav-link">Coaching</a>
-      <a href="/esmetlab/" class="nav-link active">Metabolic Testing <span class="nav-pill" style="background:rgba(139,124,248,.18);color:var(--purple)">Preview</span></a>
+      <a href="/esmetaboliclab/" class="nav-link active">Metabolic Testing <span class="nav-pill" style="background:rgba(139,124,248,.18);color:var(--purple)">Preview</span></a>
     </div>
   </nav>
 
   <div class="page">
-    <div class="section-label">⬡ esMetLab — admin preview</div>
+    <div class="section-label">⬡ esMetabolicLab — admin preview</div>
     <h1 class="page-title">Your <em>metabolic</em> profile,<br>without a lab.</h1>
     <p class="page-sub">
-      Pick how you want to start. Both modes feed the same Mader/Heck bioenergetic
-      engine — choose based on the data you already have in front of you.
+      The Sprint VLamax Test is a one-time prerequisite. Once it's saved
+      to your profile, the Lactate Step Test fits your VO₂max and returns
+      a full metabolic profile from the same Mader/Heck engine.
       <strong>All math runs locally in your browser.</strong>
     </p>
 
     <div class="tile-grid">
-      <a href="mode-b/" class="tile">
+      <a href="sprint/" class="tile">
         <div class="tile-icon cyan">◈</div>
         <div class="tile-badge">Start here</div>
         <div class="tile-title">Sprint VLamax Test</div>
-        <p class="tile-desc">Required prerequisite to Mode A. Run a 15-second all-out sprint with pre/post blood lactate, compute your maximum glycolytic rate (VLamax), and save it to your profile.</p>
+        <p class="tile-desc">Run a 15-second all-out sprint with pre/post blood lactate, compute your maximum glycolytic rate (VLamax), and save it to your profile. Required before running the Lactate Step Test.</p>
         <div class="tile-need">Need: pre-sprint La · peak post-sprint La · sprint duration</div>
       </a>
 
-      <a href="mode-a/" class="tile">
+      <a href="profile/" class="tile">
         <div class="tile-icon">◉</div>
         <div class="tile-badge">Full profile</div>
-        <div class="tile-title">Lactate Step Test → Full Profile</div>
+        <div class="tile-title">Lactate Step Test</div>
         <p class="tile-desc">3–6 step-test stages with post-stage blood lactate. Fits VO₂max from the curve and returns MLSS, LT1, Fatmax, fat/CHO oxidation, and training zones — using the VLamax saved from your sprint test.</p>
         <div class="tile-need">Need: saved VLamax + 3–6 stage lactate values + body comp</div>
       </a>
@@ -102,7 +103,7 @@
       <details class="edu">
         <summary>What is this tool, and why does it exist?</summary>
         <div class="body">
-          <p>esMetLab implements the Mader/Heck bioenergetic model of human exercise metabolism, first published in 1984 by the German Sport University Cologne group. It's the same family of model that commercial tools like INSCYD, Aerotune, and Sentiero are built on.</p>
+          <p>esMetabolicLab implements the Mader/Heck bioenergetic model of human exercise metabolism, first published in 1984 by the German Sport University Cologne group. It's the same family of model that commercial tools like INSCYD, Aerotune, and Sentiero are built on.</p>
           <p>What's different here: the math is open, the assumptions are surfaced, the implementation is documented, and your data never leaves the browser. The trade-off is honesty about what the model can and can't tell you — see "What this tool can't tell you" below.</p>
         </div>
       </details>
@@ -118,7 +119,7 @@
   </div>
 
   <footer class="esml">
-    © <span id="footer-year"></span> Endurance Science Labs · esMetLab is a private admin preview
+    © <span id="footer-year"></span> Endurance Science Labs · esMetabolicLab is a private admin preview
     <div class="disclaimer">
       Not medical advice. Information here is for educational purposes only and does not constitute a medical diagnosis or replace consultation with a qualified healthcare professional.
     </div>

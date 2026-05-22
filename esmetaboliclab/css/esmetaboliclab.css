@@ -1,5 +1,5 @@
 /* ─────────────────────────────────────────────────────────────
-   esMetLab — shared styles. Mirrors the site's design tokens
+   esMetabolicLab — shared styles. Mirrors the site's design tokens
    (cyan/gold/coral/purple on warm-near-black, geometric icons,
    serif headlines / sans body / mono accents). Self-contained:
    no esFormLab classes leak through.
@@ -185,7 +185,59 @@ input:focus, select:focus { outline: none; border-color: var(--purple); }
   width: 0; height: 0;
 }
 
-/* ── Stage table (Mode A step inputs) ────────────────────── */
+/* ── Saved VLamax card (Profile step 1) ──────────────────── */
+.vlamax-card {
+  background: linear-gradient(135deg, rgba(139,124,248,.12), rgba(0,229,200,.04));
+  border: 1px solid rgba(139,124,248,.32);
+  border-left: 4px solid var(--purple);
+  border-radius: 14px;
+  padding: 22px 24px;
+  margin-bottom: 22px;
+}
+.vlc-summary {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 18px; flex-wrap: wrap;
+}
+.vlc-meta { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.vlc-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: 1px; text-transform: uppercase; color: var(--purple);
+  background: rgba(139,124,248,.16); border: 1px solid rgba(139,124,248,.28);
+  border-radius: 6px; padding: 3px 9px; align-self: flex-start;
+}
+.vlc-val {
+  font-family: var(--display); font-size: 32px; font-weight: 700;
+  color: var(--text); line-height: 1.1; letter-spacing: -.5px;
+}
+.vlc-val .vlc-unit,
+.vlc-unit { font-family: var(--mono); font-size: 13px; color: var(--muted2); font-weight: 400; }
+.vlc-date { font-size: 13px; color: var(--muted2); }
+.vlc-actions { display: flex; gap: 10px; }
+.vlc-actions .btn { padding: 9px 18px; font-size: 13px; }
+
+.vlc-divider { height: 1px; background: rgba(139,124,248,.20); margin: 20px 0 18px; }
+.vlc-form-h { font-family: var(--display); font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+.vlc-form-sub { color: var(--muted2); font-size: 13px; line-height: 1.65; margin-bottom: 16px; }
+.vlc-result { margin-top: 14px; }
+.vlc-result-empty {
+  font-family: var(--mono); font-size: 12px; color: var(--muted2);
+  padding: 12px 14px; background: var(--panel2); border-radius: 8px;
+  border: 1px dashed var(--border2);
+}
+.vlc-result-box {
+  background: rgba(0,229,200,.06); border: 1px solid rgba(0,229,200,.22);
+  border-left: 3px solid var(--cyan);
+  padding: 14px 18px; border-radius: 10px;
+}
+.vlc-result-label {
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: 1px; color: var(--cyan); margin-bottom: 4px;
+}
+.vlc-result-val { font-family: var(--display); font-size: 26px; font-weight: 700; color: var(--text); }
+.vlc-form-actions { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+
+/* ── Stage table (step-test inputs) ────────────────────── */
 table.stages { width: 100%; border-collapse: collapse; font-size: 14px; }
 table.stages th, table.stages td { padding: 10px 8px; border-bottom: 1px solid var(--border); text-align: left; }
 table.stages th { font-family: var(--mono); font-size: 11px; color: var(--muted2); text-transform: uppercase; letter-spacing: .5px; font-weight: 600; }
