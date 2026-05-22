@@ -13,6 +13,10 @@ import { getMetabolicProfile } from '../js/lib/mader/index.js';
 import { computeVLamax } from '../js/lib/mader/sprint.js';
 import { generateZones } from '../js/ui/zones.js';
 import { minPerKmToPaceString, paceStringToMinPerKm } from '../js/lib/mader/sport.js';
+import { wireHowToMeasureTriggers } from '../js/ui/how-to-measure.js';
+
+// Wire the page-level "How to measure blood lactate" button.
+wireHowToMeasureTriggers();
 
 const $   = (sel) => document.querySelector(sel);
 const $$  = (sel) => Array.from(document.querySelectorAll(sel));

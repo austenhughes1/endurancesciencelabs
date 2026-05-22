@@ -65,6 +65,10 @@
       tempo, threshold, and the intensity where you burn fat fastest.
     </p>
 
+    <button type="button" class="howto-trigger" data-howto-measure>
+      <span class="icon">◆</span> How to measure blood lactate
+    </button>
+
     <div class="tile-grid">
       <a href="sprint/" class="tile">
         <div class="tile-icon cyan">◈</div>
@@ -145,6 +149,11 @@
     }
   });
   document.getElementById('footer-year').textContent = new Date().getFullYear();
+</script>
+
+<script type="module">
+  import { wireHowToMeasureTriggers } from './js/ui/how-to-measure.js';
+  wireHowToMeasureTriggers();
 </script>
 
 </body>

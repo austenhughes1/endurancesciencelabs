@@ -295,6 +295,21 @@ table.zones th, table.zones td { padding: 9px 12px; border-bottom: 1px solid var
 table.zones th { font-family: var(--mono); font-size: 11px; color: var(--muted2); text-transform: uppercase; letter-spacing: .5px; }
 table.zones td.num { font-family: var(--mono); }
 
+/* ── "How to measure lactate" trigger (reusable) ─────────── */
+.howto-trigger {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 11px 20px; margin-bottom: 22px;
+  background: rgba(0,229,200,0.06); border: 1px solid rgba(0,229,200,.24);
+  color: var(--cyan); border-radius: 10px;
+  font-family: var(--body); font-weight: 600; font-size: 14px;
+  text-decoration: none; cursor: pointer; transition: all .15s;
+}
+.howto-trigger:hover {
+  background: rgba(0,229,200,.10); border-color: rgba(0,229,200,.40);
+  text-decoration: none;
+}
+.howto-trigger .icon { font-size: 16px; }
+
 /* ── Modal (reusable) ────────────────────────────────────── */
 .esml-modal-overlay {
   position: fixed; inset: 0; z-index: 9999;
