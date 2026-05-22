@@ -679,7 +679,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <script>
 'use strict';
@@ -4266,54 +4265,6 @@ function detectIssues() {
 // Tone shifts: red if any notable, orange if only mild, green if none. Visibility
 // is later set by applyPaywallState() -- the banner only shows while locked.
 
-function pdfDrawFooter(doc, margins) {
-  var pageH = 279.4;
-  var pageW = 215.9;
-  doc.setDrawColor(0, 137, 123);
-  doc.setLineWidth(0.3);
-  doc.line(margins.left, pageH - 12, pageW - margins.right, pageH - 12);
-  doc.setFontSize(8);
-  doc.setTextColor(119, 119, 119);
-  doc.text('esFormLab -- Endurance Science Labs', margins.left, pageH - 8);
-  var pageNum = doc.internal.getNumberOfPages();
-  doc.text('Page ' + pageNum, pageW - margins.right, pageH - 8, {align: 'right'});
-}
-
-function pdfCheckPage(doc, y, needed, margins) {
-  if (y + needed > 279.4 - margins.bottom) {
-    doc.addPage();
-    pdfDrawFooter(doc, margins);
-    return margins.top;
-  }
-  return y;
-}
-
-function pdfDrawBadge(doc, severity, x, y) {
-  var label = '';
-  var bgR = 0, bgG = 0, bgB = 0;
-  var txtR = 255, txtG = 255, txtB = 255;
-  if (severity === 'notable') {
-    label = 'NOTABLE';
-    bgR = 216; bgG = 67; bgB = 21;
-  } else if (severity === 'mild') {
-    label = 'MILD';
-    bgR = 239; bgG = 108; bgB = 0;
-  } else {
-    label = 'CLEAR';
-    bgR = 34; bgG = 199; bgB = 138;
-  }
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'bold');
-  var tw = doc.getTextWidth(label) + 4;
-  var bh = 4.5;
-  doc.setFillColor(bgR, bgG, bgB);
-  doc.roundedRect(x, y - 3.2, tw, bh, 1.5, 1.5, 'F');
-  doc.setTextColor(txtR, txtG, txtB);
-  doc.text(label, x + 2, y);
-  doc.setFont('helvetica', 'normal');
-  return x + tw + 2;
-}
-
 // Calls the generateFormReport Cloud Function, which enforces the pass-status
 // check server-side and renders the PDF in Node. Removing the in-browser
 // renderer is what closes the DevTools-bypass: there is no client-side path
@@ -4946,499 +4897,53 @@ function runCompare() {
   resultsEl.innerHTML = html;
 }
 
-function downloadComparisonPDF() {
-  if (!window.jspdf || !window.jspdf.jsPDF) {
-    alert('PDF library is still loading. Please try again in a moment.');
-    return;
-  }
+// Calls the server-rendered generateComparisonReport Cloud Function,
+// which enforces the active-pass check and ownership of both analyses
+// server-side. Replaces the old in-browser jsPDF renderer.
+async function downloadComparisonPDF() {
+  if (!currentUser) { alert('Please sign in to download the comparison report.'); return; }
   var idA = document.getElementById('compare-a') ? document.getElementById('compare-a').value : null;
   var idB = document.getElementById('compare-b') ? document.getElementById('compare-b').value : null;
   if (!idA || !idB || idA === idB) { alert('Select two different analyses to compare.'); return; }
-  var itemA = savedAnalysesList.find(function(a) { return a.id === idA; });
-  var itemB = savedAnalysesList.find(function(a) { return a.id === idB; });
-  if (!itemA || !itemB) { alert('Could not find the selected analyses.'); return; }
 
-  var dA = itemA.data, dB = itemB.data;
-  var issuesA = dA.issues || {}, issuesB = dB.issues || {};
+  var btnEls = Array.prototype.slice.call(document.querySelectorAll('button[onclick*="downloadComparisonPDF"]'));
+  var origLabels = btnEls.map(function(b) { return b.innerHTML; });
+  btnEls.forEach(function(b) { b.disabled = true; b.innerHTML = 'Generating PDF…'; });
 
-  var doc = new window.jspdf.jsPDF({unit: 'mm', format: 'letter'});
-  var pageW = 215.9, pageH = 279.4;
-  var margins = {top: 20, bottom: 20, left: 20, right: 20};
-  var contentW = pageW - margins.left - margins.right;
-  var y = margins.top;
-  var accentR = 0, accentG = 137, accentB = 123;
-  var bodyR = 51, bodyG = 51, bodyB = 51;
-  var mutedR = 119, mutedG = 119, mutedB = 119;
-  var goodR = 34, goodG = 199, goodB = 138;
-  var warnR = 239, warnG = 108, warnB = 0;
-  var badR = 216, badG = 67, badB = 21;
+  try {
+    var fns = firebase.app().functions('us-central1');
+    var call = fns.httpsCallable('generateComparisonReport');
+    var res = await call({ idA: idA, idB: idB });
+    var data = res && res.data ? res.data : {};
+    if (!data.pdfBase64) throw new Error('Empty response from comparison renderer.');
 
-  var dateStr = new Date().toISOString().slice(0, 10);
-
-  // ====== PAGE 1: Cover + Issue Comparison ======
-
-  // Logo
-  doc.setFillColor(accentR, accentG, accentB);
-  doc.roundedRect(margins.left, y, 16, 16, 3, 3, 'F');
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(255, 255, 255);
-  doc.text('ESL', margins.left + 8, y + 10, {align: 'center'});
-
-  doc.setTextColor(bodyR, bodyG, bodyB);
-  doc.setFontSize(18);
-  doc.text('Endurance Science Labs', margins.left + 20, y + 7);
-  doc.setFontSize(12);
-  doc.setTextColor(accentR, accentG, accentB);
-  doc.text('esFormLab', margins.left + 20, y + 14);
-  y += 22;
-
-  doc.setDrawColor(accentR, accentG, accentB);
-  doc.setLineWidth(0.5);
-  doc.line(margins.left, y, pageW - margins.right, y);
-  y += 8;
-
-  // Title
-  doc.setFontSize(16);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(bodyR, bodyG, bodyB);
-  doc.text('Session comparison report', margins.left, y);
-  y += 6;
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(mutedR, mutedG, mutedB);
-  doc.text('Generated ' + dateStr, margins.left, y);
-  y += 10;
-
-  // Session cards side by side
-  var cardW = (contentW - 8) / 2;
-  var cardH = 18;
-
-  doc.setFillColor(245, 248, 252);
-  doc.setDrawColor(210, 215, 225);
-  doc.setLineWidth(0.2);
-  doc.roundedRect(margins.left, y, cardW, cardH, 2, 2, 'FD');
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(accentR, accentG, accentB);
-  doc.text('SESSION A', margins.left + 4, y + 5);
-  doc.setFontSize(11);
-  doc.setTextColor(bodyR, bodyG, bodyB);
-  doc.text(dA.name || 'Untitled', margins.left + 4, y + 11);
-  doc.setFontSize(9);
-  doc.setTextColor(mutedR, mutedG, mutedB);
-  doc.text((dA.date || '') + (dA.sex ? '  --  ' + dA.sex : ''), margins.left + 4, y + 15);
-
-  var cardBx = margins.left + cardW + 8;
-  doc.setFillColor(245, 248, 252);
-  doc.roundedRect(cardBx, y, cardW, cardH, 2, 2, 'FD');
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(accentR, accentG, accentB);
-  doc.text('SESSION B', cardBx + 4, y + 5);
-  doc.setFontSize(11);
-  doc.setTextColor(bodyR, bodyG, bodyB);
-  doc.text(dB.name || 'Untitled', cardBx + 4, y + 11);
-  doc.setFontSize(9);
-  doc.setTextColor(mutedR, mutedG, mutedB);
-  doc.text((dB.date || '') + (dB.sex ? '  --  ' + dB.sex : ''), cardBx + 4, y + 15);
-
-  y += cardH + 12;
-
-  // Issue comparison table
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(accentR, accentG, accentB);
-  doc.text('Issue comparison', margins.left, y);
-  y += 8;
-
-  var issueKeys = [
-    {key: 'overstriding', title: 'Overstriding'},
-    {key: 'hipDrop', title: 'Hip drop'},
-    {key: 'armsCrossing', title: 'Arms crossing midline'},
-    {key: 'torsoPosition', title: 'Torso position'},
-    {key: 'armAngle', title: 'Arm angle'},
-    {key: 'kneeValgus', title: 'Knee valgus'}
-  ];
-
-  function cmpSevRank(issue) {
-    if (!issue || !issue.detected) return 0;
-    if (issue.severity === 'mild') return 1;
-    if (issue.severity === 'notable') return 2;
-    return 0;
-  }
-  function cmpSevText(issue) {
-    if (!issue || !issue.detected) return 'Clear';
-    if (issue.severity === 'notable') return 'Notable';
-    if (issue.severity === 'mild') return 'Mild';
-    return 'Clear';
-  }
-
-  // Table header
-  var colIssueW = 40, colAW = 38, colBW = 38, colDirW = contentW - colIssueW - colAW - colBW;
-  var headerRowH = 14;
-  var rowH = 10;
-  var tblX = margins.left;
-
-  doc.setFillColor(240, 240, 240);
-  doc.rect(tblX, y, contentW, headerRowH, 'F');
-  doc.setDrawColor(204, 204, 204);
-  doc.setLineWidth(0.2);
-  doc.line(tblX, y, tblX + contentW, y);
-  doc.line(tblX, y + headerRowH, tblX + contentW, y + headerRowH);
-
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(bodyR, bodyG, bodyB);
-  doc.text('Issue', tblX + 3, y + 6);
-  // Wrap session names in header cells
-  var hdrNameA = doc.splitTextToSize(dA.name || 'A', colAW - 4);
-  var hdrNameB = doc.splitTextToSize(dB.name || 'B', colBW - 4);
-  doc.text(hdrNameA, tblX + colIssueW + 2, y + 5);
-  doc.text(hdrNameB, tblX + colIssueW + colAW + 2, y + 5);
-  doc.text('Change', tblX + colIssueW + colAW + colBW + 3, y + 6);
-
-  // Vertical gridlines for header
-  doc.line(tblX + colIssueW, y, tblX + colIssueW, y + headerRowH);
-  doc.line(tblX + colIssueW + colAW, y, tblX + colIssueW + colAW, y + headerRowH);
-  doc.line(tblX + colIssueW + colAW + colBW, y, tblX + colIssueW + colAW + colBW, y + headerRowH);
-  doc.line(tblX, y, tblX, y + headerRowH);
-  doc.line(tblX + contentW, y, tblX + contentW, y + headerRowH);
-
-  y += headerRowH;
-
-  // Issue rows
-  issueKeys.forEach(function(ik) {
-    var a = issuesA[ik.key], b = issuesB[ik.key];
-    var rA = cmpSevRank(a), rB = cmpSevRank(b);
-    var dir = rB < rA ? 'Improved' : rB === rA ? 'No change' : 'Worsened';
-    var sevA = cmpSevText(a), sevB = cmpSevText(b);
-
-    // Row background
-    doc.setDrawColor(204, 204, 204);
-    doc.setLineWidth(0.2);
-    doc.line(tblX, y + rowH, tblX + contentW, y + rowH);
-
-    // Issue name
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(bodyR, bodyG, bodyB);
-    doc.text(ik.title, tblX + 3, y + 7);
-
-    // Session A severity
-    if (rA === 2) doc.setTextColor(badR, badG, badB);
-    else if (rA === 1) doc.setTextColor(warnR, warnG, warnB);
-    else doc.setTextColor(goodR, goodG, goodB);
-    doc.setFont('helvetica', 'bold');
-    doc.text(sevA, tblX + colIssueW + 3, y + 7);
-
-    // Session B severity
-    if (rB === 2) doc.setTextColor(badR, badG, badB);
-    else if (rB === 1) doc.setTextColor(warnR, warnG, warnB);
-    else doc.setTextColor(goodR, goodG, goodB);
-    doc.text(sevB, tblX + colIssueW + colAW + 3, y + 7);
-
-    // Direction
-    if (dir === 'Improved') doc.setTextColor(goodR, goodG, goodB);
-    else if (dir === 'Worsened') doc.setTextColor(badR, badG, badB);
-    else doc.setTextColor(mutedR, mutedG, mutedB);
-    doc.text(dir, tblX + colIssueW + colAW + colBW + 3, y + 7);
-
-    // Vertical gridlines
-    doc.setDrawColor(204, 204, 204);
-    doc.line(tblX, y, tblX, y + rowH);
-    doc.line(tblX + colIssueW, y, tblX + colIssueW, y + rowH);
-    doc.line(tblX + colIssueW + colAW, y, tblX + colIssueW + colAW, y + rowH);
-    doc.line(tblX + colIssueW + colAW + colBW, y, tblX + colIssueW + colAW + colBW, y + rowH);
-    doc.line(tblX + contentW, y, tblX + contentW, y + rowH);
-
-    y += rowH;
-  });
-
-  // Bottom border
-  doc.line(tblX, y, tblX + contentW, y);
-
-  pdfDrawFooter(doc, margins);
-
-  // ====== PAGE 2: Understanding Your Stride ======
-  doc.addPage();
-  pdfDrawFooter(doc, margins);
-  y = margins.top;
-
-  doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(accentR, accentG, accentB);
-  doc.text('How to read your stride', margins.left, y);
-  y += 8;
-  doc.setDrawColor(accentR, accentG, accentB);
-  doc.setLineWidth(0.4);
-  doc.line(margins.left, y, pageW - margins.right, y);
-  y += 8;
-
-  // "Read this regardless" callout -- bold, accent color
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(accentR, accentG, accentB);
-  var cmpReadRegardless = doc.splitTextToSize('Optimize for these -- even if no issues were flagged. The four principles below are universal: every runner benefits from optimizing for them, regardless of which issues were flagged above, or whether any were flagged at all. Whether your analysis came back clean or flagged a long list, this section is the lens for interpreting your numbers, the framework for separating signal from noise, and where you will figure out what to actually work on.', contentW);
-  doc.text(cmpReadRegardless, margins.left, y);
-  y += cmpReadRegardless.length * 4 + 6;
-
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(bodyR, bodyG, bodyB);
-  var cmpIntro1 = doc.splitTextToSize('Every runner\'s stride is highly individual, shaped by body proportions, joint mobility, sporting history, injury history, age, and many other factors. What is optimal for one person may be quite different for another -- whether that is stride length, knee angle at toe-off, or any of the dozens of metrics that can be analyzed. There is no single "perfect" number for any of these.', contentW);
-  doc.text(cmpIntro1, margins.left, y);
-  y += cmpIntro1.length * 4 + 4;
-
-  var cmpIntro2 = doc.splitTextToSize('That said, there are a handful of principles that -- optimized within what is natural for your gait -- will make almost anyone a more efficient, more resilient athlete. Think of them less as a checklist and more as a feedback loop: getting one closer to optimal almost always moves the others in the right direction on its own. The four below are where the highest leverage usually lives, and they are what the cards above are trying to point you toward.', contentW);
-  doc.text(cmpIntro2, margins.left, y);
-  y += cmpIntro2.length * 4 + 6;
-
-  var cmpPrinciples = [
-    {title: 'Stride length should come from push-off, not from reaching ahead', desc: 'When stride length is generated by pushing strongly off the back foot to create vertical force, rather than by reaching forward with the lead leg, three things tend to happen at once: your foot lands more underneath your body instead of out in front (less braking, less knee load), ground contact time drops (less load on muscles and tendons), and vertical oscillation goes up -- but productively, because the extra airtime is what is lengthening your stride and allows more time for you to move through the gait cycle efficiently. Reaching with the lead leg lengthens the stride on paper but adds braking force and loads the knee.'},
-    {title: 'A cadence that fits your body', desc: 'Not too low (heavy, plodding steps) and not too high (spinning or scuffing without covering ground). Most runners do well somewhere in the 165-185 range, but taller runners may naturally settle lower. Cadence rarely needs to be a direct target on its own -- when push-off improves and stride length lengthens, cadence often improves as well. For one runner, improvement might be an increase in cadence, as they are now landing more underneath the body rather than reaching out in front; for another, it might be a drop in cadence, as they now have enough time for the leg to move through the full gait cycle, without rushing to get the lead foot back on the ground.'},
-    {title: 'Forward lean, from the ankles', desc: 'A slight forward lean from the ankles -- not from the waist -- lets you work with gravity rather than against it. This should run through the body as a single line: lean at ankles, neutral pelvis (neither tipped forward into a lower-back arch nor tucked under), ribs stacked over the hips (not flared out), head over the shoulders. When the lean bends at the waist, or the back is arched, you lose the gravity assist and load up the lower back.'},
-    {title: 'Relaxed, compact arms -- without forcing them tight', desc: 'Arm carriage affects shoulder tension, breathing, and how much rotational drag your trunk has to absorb every step. Aim for compact, efficient, and relaxed: shoulders dropped (not pulled back), shoulder blades not squeezed together.'}
-  ];
-  cmpPrinciples.forEach(function(sp) {
-    y = pdfCheckPage(doc, y, 14, margins);
-    doc.setFillColor(accentR, accentG, accentB);
-    doc.circle(margins.left + 2, y - 1, 1.2, 'F');
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(bodyR, bodyG, bodyB);
-    doc.text(sp.title, margins.left + 6, y);
-    y += 4;
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(mutedR, mutedG, mutedB);
-    var dLines = doc.splitTextToSize(sp.desc, contentW - 6);
-    doc.text(dLines, margins.left + 6, y);
-    y += dLines.length * 4 + 4;
-  });
-
-  // Tracking section
-  y = pdfCheckPage(doc, y, 30, margins);
-  y += 4;
-  doc.setFontSize(13);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(bodyR, bodyG, bodyB);
-  doc.text('Tracking your progress with wearable data', margins.left, y);
-  y += 6;
-
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(bodyR, bodyG, bodyB);
-  var cmpTrackingText = doc.splitTextToSize('If you have a running watch or wearable that measures stride length, ground contact time, and vertical oscillation, those numbers are how you will know whether a form change is actually working. (Many heart rate straps measure this accurately, such as the Garmin Pro+). A real improvement to metrics discussed above, for example, should show up as a longer stride length, a lower ground contact time, and a stable or improving vertical ratio (vertical oscillation divided by stride length). The data does not have to move on every metric every time, but the direction should match the cue. If you make a change you think is helping and the data flatly does not move -- or moves the wrong way -- it is probably not the right change for your body, and worth trying something else rather than forcing it.', contentW);
-  doc.text(cmpTrackingText, margins.left, y);
-  y += cmpTrackingText.length * 4 + 6;
-
-  // Why small changes add up
-  y = pdfCheckPage(doc, y, 45, margins);
-  doc.setFontSize(13);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(bodyR, bodyG, bodyB);
-  doc.text('Why small changes add up', margins.left, y);
-  y += 6;
-
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(bodyR, bodyG, bodyB);
-  var cmpSmallChanges = doc.splitTextToSize('When a form change strengthens push-off, lengthens stride, or shifts cadence closer to your optimal range, the cumulative effect over an hour of running can be surprisingly large. Consider these examples:', contentW);
-  doc.text(cmpSmallChanges, margins.left, y);
-  y += cmpSmallChanges.length * 4 + 5;
-
-  // Example boxes side by side
-  var cmpBoxW = (contentW - 6) / 2;
-  var cmpBoxH = 22;
-  var cmpBoxY = y;
-
-  doc.setFillColor(245, 248, 252);
-  doc.roundedRect(margins.left, cmpBoxY, cmpBoxW, cmpBoxH, 2, 2, 'F');
-  doc.setDrawColor(210, 215, 225);
-  doc.setLineWidth(0.2);
-  doc.roundedRect(margins.left, cmpBoxY, cmpBoxW, cmpBoxH, 2, 2, 'S');
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(accentR, accentG, accentB);
-  doc.text('EXAMPLE A: HIGH CADENCE RUNNER', margins.left + 4, cmpBoxY + 5);
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(mutedR, mutedG, mutedB);
-  doc.text('Cadence: 190 to 185 spm', margins.left + 4, cmpBoxY + 11);
-  doc.text('Ground contact: 230 to 225 ms', margins.left + 4, cmpBoxY + 15);
-
-  var cmpBoxBx = margins.left + cmpBoxW + 6;
-  doc.setFillColor(245, 248, 252);
-  doc.roundedRect(cmpBoxBx, cmpBoxY, cmpBoxW, cmpBoxH, 2, 2, 'F');
-  doc.setDrawColor(210, 215, 225);
-  doc.roundedRect(cmpBoxBx, cmpBoxY, cmpBoxW, cmpBoxH, 2, 2, 'S');
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(accentR, accentG, accentB);
-  doc.text('EXAMPLE B: LOW CADENCE RUNNER', cmpBoxBx + 4, cmpBoxY + 5);
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(mutedR, mutedG, mutedB);
-  doc.text('Cadence: 165 to 170 spm', cmpBoxBx + 4, cmpBoxY + 11);
-  doc.text('Ground contact: 250 to 230 ms', cmpBoxBx + 4, cmpBoxY + 15);
-
-  y = cmpBoxY + cmpBoxH + 6;
-
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(bodyR, bodyG, bodyB);
-  var cmpPunchline = doc.splitTextToSize('Both of these scenarios result in over 2 minutes less ground contact time per hour of running. That is 2 fewer minutes of your body needing to stabilize while the foot is planted, with load going through your muscles and tendons -- and 2 more minutes spent in the air, traveling forward without exerting force into the ground. While not a linear relationship (e.g., a 3% improvement in flight time like the examples above doesn\'t necessarily mean exactly 3% faster or 3% less energy used), efficiency improvements and injury risk reduction from that kind of shift can be meaningful.', contentW);
-  doc.text(cmpPunchline, margins.left, y);
-  y += cmpPunchline.length * 4 + 4;
-
-  // ====== PAGE 3: Angle Comparison Table ======
-  doc.addPage();
-  pdfDrawFooter(doc, margins);
-  y = margins.top;
-
-  doc.setFontSize(16);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(accentR, accentG, accentB);
-  doc.text('Angle measurement comparison', margins.left, y);
-  y += 8;
-  doc.setDrawColor(accentR, accentG, accentB);
-  doc.setLineWidth(0.4);
-  doc.line(margins.left, y, pageW - margins.right, y);
-  y += 8;
-
-  // Disclaimer
-  doc.setFillColor(245, 248, 252);
-  doc.setDrawColor(210, 215, 225);
-  doc.setLineWidth(0.3);
-  var cmpDisclaimer = 'Values highlighted in green moved closer to the elite reference range center. Values in amber moved further away. Small changes (under 0.5 degrees) are shown in grey. Large deviations may be due to measurement errors or suboptimal frame selection. These comparisons are informational -- not every change needs action.';
-  var cmpDiscLines = doc.splitTextToSize(cmpDisclaimer, contentW - 12);
-  var cmpDiscH = cmpDiscLines.length * 4 + 8;
-  doc.roundedRect(margins.left, y, contentW, cmpDiscH, 2, 2, 'FD');
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(mutedR, mutedG, mutedB);
-  doc.text(cmpDiscLines, margins.left + 6, y + 5);
-  y += cmpDiscH + 8;
-
-  // Table
-  var cmpColPhase = 26, cmpColMetric = 20;
-  var cmpColVal = 28, cmpColDelta = 22;
-  var cmpCellH = 7;
-  var cmpTblX = margins.left;
-  var cmpTblW = contentW;
-  var cmpHdrH = 14;
-
-  // Header
-  doc.setFillColor(240, 240, 240);
-  doc.rect(cmpTblX, y, cmpTblW, cmpHdrH, 'F');
-  doc.setDrawColor(204, 204, 204);
-  doc.setLineWidth(0.2);
-  doc.line(cmpTblX, y, cmpTblX + cmpTblW, y);
-  doc.line(cmpTblX, y + cmpHdrH, cmpTblX + cmpTblW, y + cmpHdrH);
-
-  doc.setFontSize(6.5);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(bodyR, bodyG, bodyB);
-  doc.text('Phase', cmpTblX + 2, y + 5);
-  doc.text('Metric', cmpTblX + cmpColPhase + 2, y + 5);
-  // Wrap session names
-  var cmpHdrA = doc.splitTextToSize(dA.name || 'A', cmpColVal - 4);
-  var cmpHdrB = doc.splitTextToSize(dB.name || 'B', cmpColVal - 4);
-  doc.text(cmpHdrA, cmpTblX + cmpColPhase + cmpColMetric + 2, y + 4);
-  doc.text(cmpHdrB, cmpTblX + cmpColPhase + cmpColMetric + cmpColVal + 2, y + 4);
-  doc.text('Change', cmpTblX + cmpColPhase + cmpColMetric + cmpColVal * 2 + 2, y + 5);
-
-  // Header gridlines
-  var cmpCols = [0, cmpColPhase, cmpColPhase + cmpColMetric, cmpColPhase + cmpColMetric + cmpColVal, cmpColPhase + cmpColMetric + cmpColVal * 2, cmpTblW];
-  cmpCols.forEach(function(cx) {
-    doc.line(cmpTblX + cx, y, cmpTblX + cx, y + cmpHdrH);
-  });
-
-  y += cmpHdrH;
-
-  // Data rows
-  var cmpSidePhases = ['l_foot','r_foot','l_toe','r_toe','mid'];
-  // Helper to render one PDF comparison row
-  function pdfCompareRow(pLabel, metricLabel, vA, vB, metricKey) {
-    y = pdfCheckPage(doc, y, cmpCellH + 1, margins);
-    var sampleRow = METRIC_ROWS.find(function(r) { return r.key === metricKey; }) || METRIC_ROWS[0];
-    var fA = vA != null ? sampleRow.fmt(vA) : '--';
-    var fB = vB != null ? sampleRow.fmt(vB) : '--';
-    var delta = '';
-    var deltaR2 = mutedR, deltaG2 = mutedG, deltaB2 = mutedB;
-    if (vA != null && vB != null) {
-      var diff = vB - vA;
-      delta = (diff > 0 ? '+' : '') + diff.toFixed(1);
-      var rng = getRange('mid', metricKey);
-      var center = (rng.green[0] + rng.green[1]) / 2;
-      if (Math.abs(diff) < 0.5) { deltaR2 = 180; deltaG2 = 180; deltaB2 = 180; }
-      else if (Math.abs(vB - center) < Math.abs(vA - center)) { deltaR2 = goodR; deltaG2 = goodG; deltaB2 = goodB; }
-      else { deltaR2 = warnR; deltaG2 = warnG; deltaB2 = warnB; }
+    var binary = atob(data.pdfBase64);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    var blob = new Blob([bytes], { type: 'application/pdf' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = data.filename || ('esformlab-comparison-' + new Date().toISOString().slice(0,10) + '.pdf');
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+  } catch (err) {
+    console.error('downloadComparisonPDF failed:', err);
+    var code = err && err.code;
+    if (code === 'functions/permission-denied' || code === 'permission-denied') {
+      alert('An active esFormLab pass is required to download the comparison report.');
+    } else if (code === 'functions/unauthenticated' || code === 'unauthenticated') {
+      alert('Please sign in to download the comparison report.');
+    } else if (code === 'functions/not-found' || code === 'not-found') {
+      alert('Could not find one or both selected analyses.');
+    } else {
+      alert('Could not generate the comparison PDF. Please try again in a moment.\n\n' + (err && err.message ? err.message : ''));
     }
-    doc.setDrawColor(204, 204, 204);
-    doc.setLineWidth(0.15);
-    doc.line(cmpTblX, y + cmpCellH, cmpTblX + cmpTblW, y + cmpCellH);
-
-    doc.setFontSize(7.5);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(bodyR, bodyG, bodyB);
-    doc.text(pLabel.slice(0, 14), cmpTblX + 2, y + 5);
-    doc.text(metricLabel, cmpTblX + cmpColPhase + 2, y + 5);
-    doc.setFont('courier', 'normal');
-    doc.setFontSize(7.5);
-    doc.text(fA, cmpTblX + cmpColPhase + cmpColMetric + 2, y + 5);
-    doc.text(fB, cmpTblX + cmpColPhase + cmpColMetric + cmpColVal + 2, y + 5);
-    doc.setFont('courier', 'bold');
-    doc.setTextColor(deltaR2, deltaG2, deltaB2);
-    doc.text(delta, cmpTblX + cmpColPhase + cmpColMetric + cmpColVal * 2 + 2, y + 5);
-    cmpCols.forEach(function(cx) {
-      doc.setDrawColor(204, 204, 204);
-      doc.line(cmpTblX + cx, y, cmpTblX + cx, y + cmpCellH);
-    });
-    y += cmpCellH;
+  } finally {
+    btnEls.forEach(function(b, i) { b.disabled = false; b.innerHTML = origLabels[i]; });
   }
-
-  cmpSidePhases.forEach(function(pk) {
-    var phA = dA.phases ? dA.phases[pk] : null;
-    var phB = dB.phases ? dB.phases[pk] : null;
-    var mA = phA ? phA.metrics : null;
-    var mB = phB ? phB.metrics : null;
-    var pDef = PHASE_DEFS.find(function(d) { return d.key === pk; });
-    var pLabel = pDef ? pDef.label : pk;
-
-    {
-      // Use METRIC_ROWS + isRelevant for all phases (functional keys for bilateral, L/R for side-specific)
-      METRIC_ROWS.forEach(function(r) {
-        if (!isRelevant(pk, r.key)) return;
-        var vA = mA ? mA[r.key] : null;
-        var vB = mB ? mB[r.key] : null;
-        if (vA == null && vB == null) return;
-        var slA = metricSideLabel(r.key, mA);
-        var slB = metricSideLabel(r.key, mB);
-        var sl = slA || slB;
-        pdfCompareRow(pLabel, r.label + sl, vA, vB, r.key);
-      });
-    }
-  });
-
-  // Bottom border
-  doc.setDrawColor(204, 204, 204);
-  doc.setLineWidth(0.2);
-  doc.line(cmpTblX, y, cmpTblX + cmpTblW, y);
-
-  // ====== Update all page footers with total page count ======
-  var cmpTotalPages = doc.internal.getNumberOfPages();
-  for (var cp = 1; cp <= cmpTotalPages; cp++) {
-    doc.setPage(cp);
-    doc.setFontSize(8);
-    doc.setTextColor(mutedR, mutedG, mutedB);
-    doc.setFillColor(255, 255, 255);
-    doc.rect(pageW - margins.right - 30, pageH - 11, 30, 6, 'F');
-    doc.text('Page ' + cp + ' of ' + cmpTotalPages, pageW - margins.right, pageH - 8, {align: 'right'});
-  }
-
-  var cmpFilename = 'esformlab-comparison-' + dateStr + '.pdf';
-  doc.save(cmpFilename);
 }
 
 // ══════════════════════════════════════════════════════════

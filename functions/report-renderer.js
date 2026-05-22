@@ -1222,4 +1222,16 @@ function renderReport(input) {
   return Buffer.from(doc.output("arraybuffer"));
 }
 
-module.exports = { renderReport };
+module.exports = {
+  renderReport,
+  // Shared constants + helpers re-used by comparison-renderer.js.
+  // Exported so the comparison renderer can stay parameter-driven
+  // without duplicating the same tables and pdf helpers.
+  PHASE_DEFS,
+  METRIC_ROWS,
+  isRelevant,
+  metricSideLabel,
+  makeHelpers,
+  pdfDrawFooter,
+  pdfCheckPage,
+};
