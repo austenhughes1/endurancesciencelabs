@@ -680,6 +680,15 @@
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
 
+<!-- Extracted modules. Loaded before the main inline script so the
+     functions/vars they declare are on window by the time the inline
+     script's top-level initModel() call runs. None of these files
+     execute anything at top-level beyond declarations, so they have no
+     ordering dependency on the main script. -->
+<script src="report-render.js"></script>
+<script src="saved-analyses.js"></script>
+<script src="auth-paywall.js"></script>
+
 <script>
 'use strict';
 
@@ -4000,8 +4009,5 @@ document.addEventListener('keydown', function(e) {
 
 initModel();
 </script>
-<script src="report-render.js"></script>
-<script src="saved-analyses.js"></script>
-<script src="auth-paywall.js"></script>
 </body>
 </html>
