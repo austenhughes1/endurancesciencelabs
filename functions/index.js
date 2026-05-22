@@ -2,6 +2,7 @@ const { onRequest } = require("firebase-functions/v2/https");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentWritten, onDocumentCreated } = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
+const { renderReport } = require("./report-renderer");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -11,6 +12,11 @@ const STRAVA_DEAUTHORIZE_URL = "https://www.strava.com/oauth/deauthorize";
 const STRAVA_ACTIVITIES_URL = "https://www.strava.com/api/v3/athlete/activities";
 const SITE_URL = "https://endurancesciencelabs.com/coaching/";
 const ADMIN_UID = "2z9Z3K5ZwShvadUuqZmwMv0s1Od2";
+
+// Pass-duration / price-id constants mirror the client-side esformlab logic.
+// Keep these in sync with the same constants at the top of esformlab/index.html.
+const PASS_DURATION_SEC = 90 * 24 * 60 * 60;
+const COACHING_PREMIUM_PRICE_ID = "price_1TVJJuIFO8pppwnF5uECviT3";
 
 // ═══════════════════════════════════════════════════════════
 //  stravaCallback — HTTPS endpoint that Strava redirects to
@@ -555,3 +561,129 @@ exports.onPassPayment = onDocumentCreated(
     }
   }
 );
+
+// ═══════════════════════════════════════════════════════════
+//  Pass verification: mirrors the client-side three-source
+//  check (paid Stripe pass / admin grant / Premium coaching
+//  subscription) but reads via the admin SDK so it cannot be
+//  spoofed from the browser. Used to gate report PDF rendering.
+// ═══════════════════════════════════════════════════════════
+async function verifyActivePass(uid) {
+  if (uid === ADMIN_UID) return true;
+
+  const nowSec = Math.floor(Date.now() / 1000);
+
+  // 1. Paid pass: any succeeded payment within PASS_DURATION_SEC.
+  try {
+    const paymentsSnap = await db.collection("customers").doc(uid).collection("payments").get();
+    for (const doc of paymentsSnap.docs) {
+      const p = doc.data();
+      if (p.status !== "succeeded") continue;
+      const c = p.created;
+      const createdSec = typeof c === "number" ? c : c && typeof c.seconds === "number" ? c.seconds : null;
+      if (createdSec === null) continue;
+      if (nowSec - createdSec < PASS_DURATION_SEC) return true;
+    }
+  } catch (e) {
+    console.warn("verifyActivePass payments check failed:", e && e.message);
+  }
+
+  // 2. Admin grant: users/{uid}.features.esFormLab === true OR formAnalyzerPassUntil > now.
+  try {
+    const userSnap = await db.collection("users").doc(uid).get();
+    if (userSnap.exists) {
+      const u = userSnap.data();
+      if (u.features && u.features.esFormLab === true) return true;
+      const until = u.formAnalyzerPassUntil;
+      const untilSec = typeof until === "number" ? until : until && typeof until.seconds === "number" ? until.seconds : null;
+      if (untilSec !== null && untilSec > nowSec) return true;
+    }
+  } catch (e) {
+    console.warn("verifyActivePass user-doc check failed:", e && e.message);
+  }
+
+  // 3. Premium coaching subscription bundles esFormLab access.
+  try {
+    const subsSnap = await db.collection("customers").doc(uid).collection("subscriptions").get();
+    for (const doc of subsSnap.docs) {
+      const sub = doc.data();
+      if (sub.status !== "active" && sub.status !== "trialing") continue;
+      const ids = [];
+      if (Array.isArray(sub.items)) {
+        for (const it of sub.items) {
+          if (it.price && typeof it.price.id === "string") ids.push(it.price.id);
+          else if (typeof it.price === "string") ids.push(it.price);
+        }
+      }
+      if (Array.isArray(sub.prices)) {
+        for (const p of sub.prices) {
+          if (p && typeof p.id === "string") ids.push(p.id);
+        }
+      }
+      if (ids.includes(COACHING_PREMIUM_PRICE_ID)) return true;
+    }
+  } catch (e) {
+    console.warn("verifyActivePass subscription check failed:", e && e.message);
+  }
+
+  return false;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  generateFormReport — server-rendered PDF. The client sends
+//  the analysis payload (phases + detected issues + sex +
+//  athlete name); we verify the caller has an active pass and
+//  render the PDF using a Node port of the old browser
+//  downloadReport(). Returns the PDF as base64 for the client
+//  to save as a Blob.
+// ═══════════════════════════════════════════════════════════
+exports.generateFormReport = onCall({ cors: true, memory: "512MiB" }, async (request) => {
+  const uid = request.auth && request.auth.uid;
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "Must be signed in to download the report.");
+  }
+
+  const hasPass = await verifyActivePass(uid);
+  if (!hasPass) {
+    throw new HttpsError("permission-denied", "An active esFormLab pass is required to download the report.");
+  }
+
+  const data = request.data || {};
+  const phases = data.phases && typeof data.phases === "object" ? data.phases : {};
+  const lastIssues = data.lastIssues && typeof data.lastIssues === "object" ? data.lastIssues : null;
+  if (!lastIssues) {
+    throw new HttpsError("invalid-argument", "Missing analysis results -- complete an analysis before downloading.");
+  }
+  const selectedSex = data.selectedSex === "male" || data.selectedSex === "female" ? data.selectedSex : null;
+  const athleteName = typeof data.athleteName === "string" ? data.athleteName : "";
+
+  // Pull the same computed_ranges docs the browser uses, via admin SDK.
+  // Anyone can read these (rules allow read:true), but we fetch server-side
+  // so the renderer is fully self-contained.
+  const liveRanges = { male: null, female: null, combined: null };
+  try {
+    const reads = await Promise.all([
+      db.collection("computed_ranges").doc("male").get(),
+      db.collection("computed_ranges").doc("female").get(),
+      db.collection("computed_ranges").doc("combined").get(),
+    ]);
+    if (reads[0].exists) liveRanges.male = reads[0].data();
+    if (reads[1].exists) liveRanges.female = reads[1].data();
+    if (reads[2].exists) liveRanges.combined = reads[2].data();
+  } catch (e) {
+    console.warn("computed_ranges fetch failed, falling back to defaults:", e && e.message);
+  }
+
+  let buf;
+  try {
+    buf = renderReport({ athleteName, selectedSex, phases, lastIssues, liveRanges });
+  } catch (e) {
+    console.error("renderReport failed:", e);
+    throw new HttpsError("internal", "Failed to generate report PDF.");
+  }
+
+  return {
+    pdfBase64: buf.toString("base64"),
+    filename: "esformlab-report-" + new Date().toISOString().slice(0, 10) + ".pdf",
+  };
+});
