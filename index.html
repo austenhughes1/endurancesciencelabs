@@ -563,7 +563,7 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
     <a href="/"         class="nav-link active">Home</a>
     <a href="/esformlab/" class="nav-link">Form analysis</a>
     <a href="/coaching/"      class="nav-link">Coaching <span class="nav-pill" style="background:rgba(34,199,138,.18);color:var(--good)">Live</span></a>
-    <span                       class="nav-link" style="cursor:default">Metabolic Testing <span class="nav-pill">Soon</span></span>
+    <span id="nav-esmetlab"     class="nav-link" style="cursor:default">Metabolic Testing <span class="nav-pill">Soon</span></span>
   </div>
   <a href="/coaching/" id="auth-indicator" class="auth-indicator" style="display:none;text-decoration:none" title="Open coaching dashboard">
     <img id="auth-avatar" class="auth-avatar" src="">
@@ -636,7 +636,7 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
       <p class="sc-desc">Our athletes range from sub-4 minute milers to beginners looking to complete their first marathon — we customize the plan to your goals, experience and schedule. Weekly check-ins, adaptive planning, and direct access to your coach — not a chatbot.</p>
       <span class="sc-action">Open coaching dashboard →</span>
     </a>
-    <div class="service-card soon">
+    <div class="service-card soon" id="tile-esmetlab">
       <div class="sc-icon purple">⬡</div>
       <div class="sc-badge soon">Coming soon</div>
       <div class="sc-title">Metabolic Testing</div>
@@ -802,7 +802,35 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
     projectId: "es-form-labs"
   };
   if (!firebase.apps.length) firebase.initializeApp(config);
+  var ADMIN_UID = '2z9Z3K5ZwShvadUuqZmwMv0s1Od2';
+  function upgradeEsMetLabNav(user) {
+    var el = document.getElementById('nav-esmetlab');
+    if (el && user && user.uid === ADMIN_UID) {
+      var a = document.createElement('a');
+      a.href = '/esmetlab/';
+      a.className = 'nav-link';
+      a.innerHTML = 'Metabolic Testing <span class="nav-pill" style="background:rgba(139,124,248,.18);color:var(--purple)">Preview</span>';
+      el.parentNode.replaceChild(a, el);
+    }
+    // Also upgrade the home-page service-card tile for admin
+    var tile = document.getElementById('tile-esmetlab');
+    if (tile && user && user.uid === ADMIN_UID) {
+      var a2 = document.createElement('a');
+      a2.href = '/esmetlab/';
+      a2.className = 'service-card live';
+      a2.style.textDecoration = 'none';
+      a2.style.color = 'inherit';
+      a2.innerHTML =
+        '<div class="sc-icon purple">⬡</div>' +
+        '<div class="sc-badge live" style="background:rgba(139,124,248,.18);color:var(--purple)">● Preview · admin</div>' +
+        '<div class="sc-title">Metabolic Testing</div>' +
+        '<p class="sc-desc">VO₂ max, lactate threshold, and fat oxidation derived from your own lactate step test — Mader/Heck bioenergetic model, fully in your browser.</p>' +
+        '<span class="sc-action">Open esMetLab →</span>';
+      tile.parentNode.replaceChild(a2, tile);
+    }
+  }
   firebase.auth().onAuthStateChanged(function(user) {
+    upgradeEsMetLabNav(user);
     var indicator = document.getElementById('auth-indicator');
     var nameEl = document.getElementById('auth-name');
     var avatarEl = document.getElementById('auth-avatar');

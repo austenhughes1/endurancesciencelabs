@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lactate Step Test — esMetLab</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/esmetlab.css">
+<style>
+  #gate { max-width: 560px; margin: 120px auto; padding: 32px; background: var(--panel); border: 1px solid var(--border); border-radius: 16px; text-align: center; }
+  #gate h1 { font-family: var(--display); font-size: 28px; margin-bottom: 12px; }
+  #gate p  { color: var(--muted2); font-size: 15px; }
+  #app { display: none; }
+  .stepper { display: flex; gap: 4px; margin-bottom: 28px; }
+  .stepper .s {
+    flex: 1; height: 5px; background: var(--panel2); border-radius: 3px;
+    transition: background .2s;
+  }
+  .stepper .s.done { background: var(--purple); }
+  .stepper .s.active { background: var(--cyan); }
+  .step-section { display: none; }
+  .step-section.active { display: block; }
+  .nav-actions { display: flex; gap: 12px; justify-content: space-between; margin-top: 20px; }
+  /* Plotly container */
+  .plt { width: 100%; min-height: 380px; }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <h1>Admin only</h1>
+  <p>esMetLab is in private admin preview. Sign in with your admin account to continue.</p>
+  <p style="margin-top:16px"><a href="/" style="color:var(--cyan)">← Back to home</a></p>
+</div>
+
+<div id="app">
+<nav class="esml-nav">
+  <a href="/" class="nav-logo"><img src="/images/generic_logo_white_clean.png" alt="Endurance Science Labs" class="nav-logo-img"></a>
+  <div class="nav-links">
+    <a href="/"           class="nav-link">Home</a>
+    <a href="/esformlab/" class="nav-link">Form analysis</a>
+    <a href="/coaching/"  class="nav-link">Coaching</a>
+    <a href="/esmetlab/"  class="nav-link active">Metabolic Testing <span class="nav-pill" style="background:rgba(139,124,248,.18);color:var(--purple)">Preview</span></a>
+  </div>
+</nav>
+
+<div class="page">
+  <p style="margin-bottom:12px"><a href="/esmetlab/">← All modes</a></p>
+  <div class="section-label">◉ Mode A · Full Profile</div>
+  <h1 class="page-title">Lactate <em>step test</em> → full metabolic profile</h1>
+  <p class="page-sub">
+    Walk through your athlete inputs, VLamax, and step-test stages.
+    We'll fit VO₂max from the curve and return MLSS, LT1, Fatmax,
+    substrate oxidation, training zones — and an honest sensitivity readout.
+  </p>
+
+  <div class="stepper">
+    <div class="s active" id="step-bar-1"></div>
+    <div class="s"        id="step-bar-2"></div>
+    <div class="s"        id="step-bar-3"></div>
+    <div class="s"        id="step-bar-4"></div>
+  </div>
+
+  <!-- ───────── Step 1: Athlete ───────── -->
+  <section class="step-section active" data-step="1">
+    <div class="panel">
+      <div class="panel-h">1. Athlete</div>
+      <p class="panel-sub">Body composition rescales the absolute substrate values (g/min). Sex influences default reference ranges and population priors only.</p>
+
+      <div class="grid-2">
+        <div class="field">
+          <span class="lab">Sex</span>
+          <div class="radio-row">
+            <label><input type="radio" name="sex" value="M" checked><span>♂ Male</span></label>
+            <label><input type="radio" name="sex" value="F"><span>♀ Female</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <span class="lab">Sport</span>
+          <div class="radio-row">
+            <label><input type="radio" name="sport" value="cycling" checked><span>Cycling</span></label>
+            <label><input type="radio" name="sport" value="running"><span>Running</span></label>
+          </div>
+        </div>
+      </div>
+      <div class="grid-2">
+        <label class="field">
+          <span class="lab">Body mass (kg)</span>
+          <input type="number" id="bodyMass" step="0.1" min="30" max="160" value="75">
+        </label>
+        <label class="field">
+          <span class="lab">Body fat (%)</span>
+          <input type="number" id="bodyFatPct" step="0.1" min="3" max="45" value="12">
+          <span class="hint">Skinfold or DEXA preferred. Smart-scale OK but less accurate.</span>
+        </label>
+      </div>
+    </div>
+    <div class="nav-actions">
+      <span></span>
+      <button class="btn primary" data-go="2">Next: VLamax →</button>
+    </div>
+  </section>
+
+  <!-- ───────── Step 2: VLamax ───────── -->
+  <section class="step-section" data-step="2">
+    <div class="panel">
+      <div class="panel-h">2. VLamax</div>
+      <p class="panel-sub">Choose how you'd like to provide your maximum glycolytic rate. A measured sprint is the most accurate.</p>
+
+      <div class="radio-row" id="vlamax-mode-tabs">
+        <label class="active"><input type="radio" name="vlamax-mode" value="direct" checked><span>I have my VLamax</span></label>
+        <label><input type="radio" name="vlamax-mode" value="sprint"><span>Compute from sprint</span></label>
+        <label><input type="radio" name="vlamax-mode" value="prior"><span>Estimate from population</span></label>
+      </div>
+
+      <div id="vlamax-direct" style="margin-top: 16px">
+        <label class="field">
+          <span class="lab">VLamax (mmol · L⁻¹ · s⁻¹)</span>
+          <input type="number" id="vlamax_direct" step="0.01" min="0.10" max="1.20" value="0.50">
+          <span class="hint">Typical range 0.20 (aerobic-dominant) – 0.90 (sprinter-dominant)</span>
+        </label>
+      </div>
+
+      <div id="vlamax-sprint" style="display:none; margin-top:16px">
+        <div class="grid-3">
+          <label class="field"><span class="lab">Pre-sprint La</span>
+            <input type="number" id="sp_la_pre" step="0.1" min="0" max="5" value="1.4">
+          </label>
+          <label class="field"><span class="lab">Peak post-sprint La</span>
+            <input type="number" id="sp_la_post" step="0.1" min="2" max="30" value="11.0">
+          </label>
+          <label class="field"><span class="lab">Sprint duration (s)</span>
+            <input type="number" id="sp_dur" step="1" min="10" max="30" value="15">
+          </label>
+        </div>
+        <div class="info" id="sprint-readout"></div>
+      </div>
+
+      <div id="vlamax-prior" style="display:none; margin-top:16px">
+        <div class="warn">⚠ Population priors reduce profile accuracy substantially. Use only if you have no sprint data.</div>
+        <div id="prior-readout" class="info"></div>
+      </div>
+    </div>
+    <div class="nav-actions">
+      <button class="btn ghost"   data-go="1">← Back</button>
+      <button class="btn primary" data-go="3">Next: Step test →</button>
+    </div>
+  </section>
+
+  <!-- ───────── Step 3: Step Test Stages ───────── -->
+  <section class="step-section" data-step="3">
+    <div class="panel">
+      <div class="panel-h">3. Step test stages</div>
+      <p class="panel-sub">
+        Add 3–6 stages. Each stage should be ≥3 minutes (5+ preferred) for steady state. Sample lactate within 30s of stage end. Final stage should reach &gt;4 mmol/L for the fit to anchor properly.
+      </p>
+
+      <table class="stages" id="stages">
+        <thead>
+          <tr>
+            <th>Stage</th>
+            <th><span id="intensity-header">Power (W)</span></th>
+            <th>Duration (min)</th>
+            <th>Lactate (mmol/L)</th>
+            <th>HR (bpm) <span style="font-weight:400; text-transform:none">— optional</span></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="stages-body"></tbody>
+      </table>
+      <button class="btn ghost row-add" id="add-stage">+ Add stage</button>
+
+      <div id="stage-warnings"></div>
+    </div>
+    <div class="nav-actions">
+      <button class="btn ghost"   data-go="2">← Back</button>
+      <button class="btn primary" id="run">Run profile →</button>
+    </div>
+  </section>
+
+  <!-- ───────── Step 4: Results ───────── -->
+  <section class="step-section" data-step="4">
+    <div id="results-root"></div>
+    <div class="nav-actions">
+      <button class="btn ghost" data-go="3">← Edit inputs</button>
+      <button class="btn cyan"  id="export-pdf">Download PDF →</button>
+    </div>
+  </section>
+
+</div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+  firebase.initializeApp({
+    apiKey: 'AIzaSyDh4LorLQx1DPovQIA4HM3127fAYpyuaY8',
+    authDomain: 'es-form-labs.firebaseapp.com',
+    projectId: 'es-form-labs',
+  });
+  const ADMIN_UID = '2z9Z3K5ZwShvadUuqZmwMv0s1Od2';
+  firebase.auth().onAuthStateChanged(function(user) {
+    if (user && user.uid === ADMIN_UID) {
+      document.getElementById('gate').style.display = 'none';
+      document.getElementById('app').style.display  = 'block';
+    } else {
+      document.getElementById('gate').style.display = 'block';
+      document.getElementById('app').style.display  = 'none';
+    }
+  });
+</script>
+
+<script type="module" src="./app.js"></script>
+
+</body>
+</html>

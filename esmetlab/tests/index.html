@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>esMetLab — Engine tests (admin)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/esmetlab.css">
+<style>
+  .gate { max-width: 540px; margin: 120px auto; padding: 32px; background: var(--panel); border: 1px solid var(--border); border-radius: 16px; text-align: center; }
+  .gate h1 { font-family: var(--display); font-size: 28px; margin-bottom: 12px; }
+  .gate p  { color: var(--muted2); font-size: 15px; }
+  main    { display: none; max-width: 1080px; margin: 40px auto; padding: 0 24px; }
+  h1.page-title { font-family: var(--display); font-weight: 700; font-size: 42px; letter-spacing: -1px; margin-bottom: 8px; }
+  .page-sub  { color: var(--muted2); margin-bottom: 32px; }
+  .test-block { border: 1px solid var(--border); border-radius: 14px; padding: 22px; margin-bottom: 18px; background: var(--panel); }
+  .test-block h2 { font-family: var(--display); font-size: 19px; margin-bottom: 12px; }
+  table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted2); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; font-size: 10px; }
+  .pass { color: var(--good); font-weight: 700; }
+  .fail { color: var(--coral); font-weight: 700; }
+  .num  { color: var(--cyan); }
+  .pill { display: inline-block; padding: 3px 9px; border-radius: 6px; font-family: var(--mono); font-size: 11px; }
+  .pill.pass { background: rgba(34,199,138,.14); color: var(--good); }
+  .pill.fail { background: rgba(255,107,53,.14); color: var(--coral); }
+  .summary { font-family: var(--mono); font-size: 13px; color: var(--muted2); margin-top: 14px; }
+</style>
+</head>
+<body>
+
+<div class="gate" id="gate">
+  <h1>Admin only</h1>
+  <p>This page runs the engine validation suite. Sign in with your admin account to continue.</p>
+  <p style="margin-top:16px"><a href="/" style="color:var(--cyan)">← Back to home</a></p>
+</div>
+
+<main id="main">
+  <h1 class="page-title">Engine validation</h1>
+  <p class="page-sub">Mader/Heck implementation correctness checks. All tests should pass before any Mode A/B work is trusted.</p>
+
+  <div id="results"></div>
+  <div id="ref-results"></div>
+</main>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script>
+  firebase.initializeApp({
+    apiKey: 'AIzaSyDh4LorLQx1DPovQIA4HM3127fAYpyuaY8',
+    authDomain: 'es-form-labs.firebaseapp.com',
+    projectId: 'es-form-labs',
+  });
+  const ADMIN_UID = '2z9Z3K5ZwShvadUuqZmwMv0s1Od2';
+  firebase.auth().onAuthStateChanged(function(user) {
+    if (user && user.uid === ADMIN_UID) {
+      document.getElementById('gate').style.display = 'none';
+      document.getElementById('main').style.display = 'block';
+      runSuite();
+    }
+  });
+</script>
+
+<script type="module">
+import * as eng from '../js/lib/mader/index.js';
+import { REFERENCE_CASES, unitChecks } from '../js/lib/validation/reference-cases.js';
+import { vO2ToIntensity } from '../js/lib/mader/sport.js';
+
+window.runSuite = function () {
+  // ── Unit checks ──────────────────────────────
+  const unit = unitChecks(eng);
+  const u = document.getElementById('results');
+  let unitPass = 0;
+  let html = '<div class="test-block"><h2>Kinetic unit checks</h2><table>';
+  html += '<tr><th>Check</th><th>Got</th><th>Expected</th><th>Status</th></tr>';
+  for (const c of unit) {
+    if (c.ok) unitPass++;
+    html += '<tr><td>' + c.name + '</td><td class="num">' + c.actual + '</td>'
+         + '<td>' + c.expected + '</td><td><span class="pill ' + (c.ok ? 'pass' : 'fail') + '">'
+         + (c.ok ? 'PASS' : 'FAIL') + '</span></td></tr>';
+  }
+  html += '</table><div class="summary">' + unitPass + '/' + unit.length + ' passed</div></div>';
+  u.innerHTML = html;
+
+  // ── Reference cases ──────────────────────────
+  const r = document.getElementById('ref-results');
+  let refHtml = '<div class="test-block"><h2>Reference cases (published targets)</h2><table>';
+  refHtml += '<tr><th>Case</th><th>Quantity</th><th>Got</th><th>Target</th><th>Tol</th><th>Status</th></tr>';
+
+  let refPass = 0, refTotal = 0;
+  for (const c of REFERENCE_CASES) {
+    const profile = eng.getMetabolicProfile(c.inputs);
+    if ('MLSS_W' in c.expected) {
+      refTotal++;
+      const got = profile.mlss.intensity;
+      const tgt = c.expected.MLSS_W.value;
+      const tol = c.expected.MLSS_W.tol;
+      const ok = Math.abs(got - tgt) <= tol;
+      if (ok) refPass++;
+      refHtml += '<tr><td>' + c.id + '</td><td>MLSS (W)</td>'
+              + '<td class="num">' + got.toFixed(1) + '</td><td>' + tgt + '</td>'
+              + '<td>±' + tol + '</td><td><span class="pill ' + (ok ? 'pass' : 'fail') + '">'
+              + (ok ? 'PASS' : 'FAIL') + '</span></td></tr>';
+    }
+    if ('MLSS_relative_lower_than' in c.expected) {
+      refTotal++;
+      const got = profile.mlss.x;
+      const max = c.expected.MLSS_relative_lower_than;
+      const ok = got < max;
+      if (ok) refPass++;
+      refHtml += '<tr><td>' + c.id + '</td><td>MLSS / VO₂max</td>'
+              + '<td class="num">' + (got * 100).toFixed(1) + '%</td><td>&lt; ' + (max * 100).toFixed(0) + '%</td>'
+              + '<td>—</td><td><span class="pill ' + (ok ? 'pass' : 'fail') + '">'
+              + (ok ? 'PASS' : 'FAIL') + '</span></td></tr>';
+    }
+    if ('MLSS_relative_higher_than' in c.expected) {
+      refTotal++;
+      const got = profile.mlss.x;
+      const min = c.expected.MLSS_relative_higher_than;
+      const ok = got > min;
+      if (ok) refPass++;
+      refHtml += '<tr><td>' + c.id + '</td><td>MLSS / VO₂max</td>'
+              + '<td class="num">' + (got * 100).toFixed(1) + '%</td><td>&gt; ' + (min * 100).toFixed(0) + '%</td>'
+              + '<td>—</td><td><span class="pill ' + (ok ? 'pass' : 'fail') + '">'
+              + (ok ? 'PASS' : 'FAIL') + '</span></td></tr>';
+    }
+  }
+  refHtml += '</table><div class="summary">' + refPass + '/' + refTotal + ' passed</div></div>';
+
+  // ── Sensitivity check (Section 5.1, Case 4) ──
+  // Build a synthetic step-test that's consistent with the canonical case,
+  // then perturb each stage by ±0.5 mmol/L and verify VO2max moves <~2%.
+  const synth = {
+    sport: 'cycling', sex: 'M', bodyMass: 75, bodyFatPct: 12,
+    VLamax: 0.5,
+    steps: [
+      { intensity: 150, durationMin: 4, lactate: 1.4 },
+      { intensity: 200, durationMin: 4, lactate: 1.9 },
+      { intensity: 240, durationMin: 4, lactate: 2.8 },
+      { intensity: 270, durationMin: 4, lactate: 4.0 },
+      { intensity: 300, durationMin: 4, lactate: 6.5 },
+    ],
+  };
+  const fitted = eng.getMetabolicProfile(synth);
+  const sens = fitted.diagnostics.sensitivity;
+  const sensOk = sens && (sens.max_VO2max_shift / sens.base_VO2max) < 0.05;
+  refHtml += '<div class="test-block"><h2>Sensitivity (synthetic step test)</h2><table>'
+          + '<tr><th>Quantity</th><th>Value</th><th>Status</th></tr>'
+          + '<tr><td>Fitted VO₂max</td><td class="num">' + fitted.VO2max.toFixed(1) + ' mL/min/kg</td><td>—</td></tr>'
+          + '<tr><td>Fit RMSE (lactate)</td><td class="num">' + fitted.diagnostics.rmse.toFixed(3) + ' mmol/L</td><td>—</td></tr>'
+          + (sens ? ('<tr><td>Max VO₂max shift for ±0.5 mmol/L lactate</td>'
+                  + '<td class="num">' + sens.max_VO2max_shift.toFixed(2) + ' mL/min/kg ('
+                  + (sens.max_VO2max_shift / sens.base_VO2max * 100).toFixed(2) + '%)</td>'
+                  + '<td><span class="pill ' + (sensOk ? 'pass' : 'fail') + '">' + (sensOk ? 'PASS' : 'FAIL') + '</span></td></tr>') : '')
+          + '</table></div>';
+
+  r.innerHTML = refHtml;
+};
+</script>
+
+</body>
+</html>

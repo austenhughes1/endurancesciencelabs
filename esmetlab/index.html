@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>esMetLab — Metabolic Testing | Endurance Science Labs</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/esmetlab.css">
+<style>
+  /* Coming-soon splash (default — shown until auth resolves as admin) */
+  #soon {
+    max-width: 640px; margin: 120px auto; padding: 48px 32px; text-align: center;
+  }
+  #soon .label {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+    color: var(--purple); font-family: var(--mono);
+    background: rgba(139,124,248,.08); border: 1px solid rgba(139,124,248,.20);
+    border-radius: 16px; padding: 5px 14px; margin-bottom: 28px;
+  }
+  #soon h1 {
+    font-family: var(--display); font-weight: 700;
+    font-size: clamp(40px, 6vw, 64px); letter-spacing: -1.5px; line-height: 1.05;
+    margin-bottom: 18px;
+  }
+  #soon h1 em { font-style: italic; color: var(--purple); }
+  #soon .lede { color: var(--muted2); font-size: 18px; line-height: 1.7; margin-bottom: 28px; }
+  #soon .micro { font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: .4px; }
+
+  /* Admin app (shown only to admin UID) */
+  #app { display: none; }
+</style>
+</head>
+<body>
+
+<!-- Soon-splash visible to everyone until we confirm an admin session -->
+<div id="soon">
+  <div class="label">⬡ esMetLab</div>
+  <h1>Metabolic testing.<br>Coming <em>soon.</em></h1>
+  <p class="lede">VO₂max, lactate threshold, and fat oxidation — derived from your own lactate step test, fully in your browser. We're building it now.</p>
+  <p class="micro"><a href="/">← Back to Endurance Science Labs</a></p>
+</div>
+
+<!-- Admin app -->
+<div id="app">
+  <nav class="esml-nav">
+    <a href="/" class="nav-logo"><img src="/images/generic_logo_white_clean.png" alt="Endurance Science Labs" class="nav-logo-img"></a>
+    <div class="nav-links">
+      <a href="/"          class="nav-link">Home</a>
+      <a href="/esformlab/" class="nav-link">Form analysis</a>
+      <a href="/coaching/" class="nav-link">Coaching</a>
+      <a href="/esmetlab/" class="nav-link active">Metabolic Testing <span class="nav-pill" style="background:rgba(139,124,248,.18);color:var(--purple)">Preview</span></a>
+    </div>
+  </nav>
+
+  <div class="page">
+    <div class="section-label">⬡ esMetLab — admin preview</div>
+    <h1 class="page-title">Your <em>metabolic</em> profile,<br>without a lab.</h1>
+    <p class="page-sub">
+      Pick how you want to start. Both modes feed the same Mader/Heck bioenergetic
+      engine — choose based on the data you already have in front of you.
+      <strong>All math runs locally in your browser.</strong>
+    </p>
+
+    <div class="tile-grid">
+      <a href="mode-a/" class="tile">
+        <div class="tile-icon">◉</div>
+        <div class="tile-badge">Highest accuracy</div>
+        <div class="tile-title">Lactate Step Test → Full Profile</div>
+        <p class="tile-desc">3–6 step-test stages with post-stage blood lactate, plus a sprint or estimated VLamax. Fits VO₂max from the curve and returns MLSS, LT1, Fatmax, fat/CHO oxidation, and training zones.</p>
+        <div class="tile-need">Need: 3–6 stage lactate values · 15-second sprint pre/post La · body comp</div>
+      </a>
+
+      <a href="mode-b/" class="tile">
+        <div class="tile-icon cyan">◈</div>
+        <div class="tile-badge">Calculator</div>
+        <div class="tile-title">VLamax Sprint Calculator</div>
+        <p class="tile-desc">Compute VLamax directly from a 15-second all-out sprint's pre/post blood lactate values. Useful on its own, and feeds Mode A.</p>
+        <div class="tile-need">Need: pre-sprint La · peak post-sprint La · sprint duration</div>
+      </a>
+
+      <div class="tile disabled">
+        <div class="tile-icon gold">▶</div>
+        <div class="tile-badge v2">v2 · coming soon</div>
+        <div class="tile-title">Power/Pace-only Profile</div>
+        <p class="tile-desc">Derive your profile from max efforts at 15s, 3min, 6min, 12min — no lactate measurements needed. Less accurate but requires no needles.</p>
+        <div class="tile-need">In development</div>
+      </div>
+
+      <a href="tests/" class="tile">
+        <div class="tile-icon coral">⬢</div>
+        <div class="tile-badge">admin</div>
+        <div class="tile-title">Engine validation</div>
+        <p class="tile-desc">Runs the unit checks and published-reference cases (Hauser 2014, INSCYD Fig 5, sensitivity tests). All should pass green before trusting the engine.</p>
+        <div class="tile-need">Internal use only</div>
+      </a>
+    </div>
+
+    <div style="margin-top:36px">
+      <details class="edu">
+        <summary>What is this tool, and why does it exist?</summary>
+        <div class="body">
+          <p>esMetLab implements the Mader/Heck bioenergetic model of human exercise metabolism, first published in 1984 by the German Sport University Cologne group. It's the same family of model that commercial tools like INSCYD, Aerotune, and Sentiero are built on.</p>
+          <p>What's different here: the math is open, the assumptions are surfaced, the implementation is documented, and your data never leaves the browser. The trade-off is honesty about what the model can and can't tell you — see "What this tool can't tell you" below.</p>
+        </div>
+      </details>
+      <details class="edu">
+        <summary>What this tool can't tell you</summary>
+        <div class="body">
+          <p>The Mader model assumes a standard active-muscle fraction (~28% body mass) and standard Hill kinetic constants. Individuals vary, and the model was calibrated primarily on trained European male cyclists. Sex-specific validation in the published literature is thin.</p>
+          <p>VLamax has known reliability issues — within-subject variability of 5–15% between sessions is typical. A single measurement is a snapshot, not a permanent reading.</p>
+          <p>The model captures the steady-state metabolic balance well. It is more approximate for non-steady-state efforts (intervals, surges, tactical race dynamics).</p>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <footer class="esml">
+    © <span id="footer-year"></span> Endurance Science Labs · esMetLab is a private admin preview
+    <div class="disclaimer">
+      Not medical advice. Information here is for educational purposes only and does not constitute a medical diagnosis or replace consultation with a qualified healthcare professional.
+    </div>
+  </footer>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script>
+  firebase.initializeApp({
+    apiKey: 'AIzaSyDh4LorLQx1DPovQIA4HM3127fAYpyuaY8',
+    authDomain: 'es-form-labs.firebaseapp.com',
+    projectId: 'es-form-labs',
+  });
+  const ADMIN_UID = '2z9Z3K5ZwShvadUuqZmwMv0s1Od2';
+  firebase.auth().onAuthStateChanged(function(user) {
+    if (user && user.uid === ADMIN_UID) {
+      document.getElementById('soon').style.display = 'none';
+      document.getElementById('app').style.display  = 'block';
+    } else {
+      document.getElementById('soon').style.display = 'block';
+      document.getElementById('app').style.display  = 'none';
+    }
+  });
+  document.getElementById('footer-year').textContent = new Date().getFullYear();
+</script>
+
+</body>
+</html>

@@ -1168,7 +1168,7 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
     <a href="/"          class="nav-link">Home</a>
     <a href="/esformlab/"  class="nav-link active">Form analysis</a>
     <a href="/coaching/"       class="nav-link">Coaching <span class="soon" style="background:rgba(34,199,138,.18);color:var(--good)">Live</span></a>
-    <span                        class="nav-link" style="cursor:default">Metabolic Testing <span class="soon">Soon</span></span>
+    <span id="nav-esmetlab"      class="nav-link" style="cursor:default">Metabolic Testing <span class="soon">Soon</span></span>
 
     <!-- Mobile-only auth section (rendered inside the hamburger menu on phones) -->
     <div class="nav-mobile-section">
@@ -2005,6 +2005,7 @@ function initAuth() {
     currentUser = user;
     updateAuthUI();
     watchPaymentsForPass();
+    upgradeEsMetLabNav(user);
     if (user) {
       await loadAnalysesList();
       loadUserProfile(user.uid);
@@ -2619,6 +2620,18 @@ const epDbt={};
 var SESSION_ID = (function(){ try { return (crypto.randomUUID && crypto.randomUUID()) || String(Date.now())+'-'+Math.random().toString(36).slice(2,10); } catch(e){ return String(Date.now())+'-'+Math.random().toString(36).slice(2,10); } })();
 var phaseLabels = {}; // key -> {status:'correct'|'corrected'|'no_good', trueT?, docId?}
 function isAdmin(){ return !!(currentUser && currentUser.uid === '2z9Z3K5ZwShvadUuqZmwMv0s1Od2'); }
+
+function upgradeEsMetLabNav(user) {
+  var el = document.getElementById('nav-esmetlab');
+  if (!el) return;
+  if (user && user.uid === '2z9Z3K5ZwShvadUuqZmwMv0s1Od2') {
+    var a = document.createElement('a');
+    a.href = '/esmetlab/';
+    a.className = 'nav-link';
+    a.innerHTML = 'Metabolic Testing <span class="soon" style="background:rgba(139,124,248,.18);color:#8b7cf8">Preview</span>';
+    el.parentNode.replaceChild(a, el);
+  }
+}
 
 function getVideoElForPhase(key) {
   var def = PHASE_DEFS.find(function(d){return d.key===key;});
