@@ -323,15 +323,26 @@ function openCompare(idA, idB) {
     '<div style="flex:1;min-width:200px"><label style="font-size:11px;font-family:var(--mono);color:var(--muted2);display:block;margin-bottom:4px">Session B (later)</label><select class="save-input" id="compare-b" onchange="runCompare()">' + optionsHtml + '</select></div>' +
   '</div>';
 
-  if (idA && idB) {
-    document.getElementById('compare-a').value = idA;
-    document.getElementById('compare-b').value = idB;
-  } else {
-    if (savedAnalysesList.length >= 2) {
-      document.getElementById('compare-a').value = savedAnalysesList[1].id;
-      document.getElementById('compare-b').value = savedAnalysesList[0].id;
+  if (!idA || !idB) {
+    // Default to the two most-recently-saved sessions when no IDs are supplied.
+    idA = savedAnalysesList[1].id;
+    idB = savedAnalysesList[0].id;
+  }
+  // Always render A as the OLDER session by the user-entered analysis date.
+  // Callers (the My Analyses checkbox flow, "Compare with this") may pass
+  // them in arbitrary order; the labels promise A=earlier / B=later, so we
+  // sort here rather than asking each caller to.
+  var aItem = savedAnalysesList.find(function(x) { return x.id === idA; });
+  var bItem = savedAnalysesList.find(function(x) { return x.id === idB; });
+  if (aItem && bItem) {
+    var aDate = (aItem.data && aItem.data.date) || '';
+    var bDate = (bItem.data && bItem.data.date) || '';
+    if (aDate && bDate && aDate > bDate) {
+      var tmp = idA; idA = idB; idB = tmp;
     }
   }
+  document.getElementById('compare-a').value = idA;
+  document.getElementById('compare-b').value = idB;
   runCompare();
 }
 
@@ -388,7 +399,11 @@ function runCompare() {
 
   var html = '<div style="margin-top:20px">';
 
-  html += '<div style="text-align:center;margin-bottom:20px"><button class="btn-download-report" onclick="downloadComparisonPDF()" style="font-size:14px;padding:12px 28px;background:rgba(0,229,200,.08);border:1px solid rgba(0,229,200,.3);color:#00e5c8">&#128196; Download comparison report as PDF</button></div>';
+  html += '<div style="text-align:center;margin:8px 0 24px"><button class="btn-download-report" onclick="downloadComparisonPDF()">' +
+            '<span class="bdr-icon">&#11015;</span>' +
+            '<span>Download comparison report as PDF</span>' +
+            '<span class="bdr-sub">save &middot; share &middot; print</span>' +
+          '</button></div>';
   html += '<div style="font-size:14px;font-weight:700;margin-bottom:12px;padding:0 22px">Issue changes</div>';
   html += '<div class="compare-grid">';
 
