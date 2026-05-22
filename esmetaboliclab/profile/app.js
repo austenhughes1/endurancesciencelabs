@@ -1,8 +1,8 @@
 /*
- * Mode A controller: stitches the wizard UI to the Mader engine.
+ * Profile controller: stitches the wizard UI to the Mader engine.
  *
  *   - VLamax is a prerequisite, loaded from users/{uid}.esmetlab.vlamax.
- *     If absent, the wizard is hidden and a "go run Mode B first" prompt
+ *     If absent, the wizard is hidden and a "go run the sprint test first" prompt
  *     is shown instead.
  *   - 3-step wizard: Athlete → Step test → Results.
  *   - on "Run profile", calls getMetabolicProfile(...) and renders results.
@@ -10,6 +10,7 @@
  */
 
 import { getMetabolicProfile } from '../js/lib/mader/index.js';
+import { computeVLamax } from '../js/lib/mader/sprint.js';
 import { generateZones } from '../js/ui/zones.js';
 import { minPerKmToPaceString, paceStringToMinPerKm } from '../js/lib/mader/sport.js';
 
@@ -35,6 +36,7 @@ const state = {
   bodyFatPct: 12,
   VLamax: null,           // set after Firestore load
   VLamax_measured_at: null,
+  VLamax_inputs: null,    // {La_pre, La_peak_post, duration_s, t_PCr_s}
   stages: [
     { intensity: 150, durationMin: 4, lactate: 1.4, hr: '' },
     { intensity: 200, durationMin: 4, lactate: 2.0, hr: '' },
@@ -60,16 +62,130 @@ function showPrereq() {
   $('#wizard').style.display = 'none';
 }
 
+function renderVLamaxCard() {
+  // Default to the saved values if available, else sane defaults so the
+  // recalc form can compute even on a profile that's not fully populated yet.
+  const inp = state.VLamax_inputs || { La_pre: 1.4, La_peak_post: 11.0, duration_s: 15, t_PCr_s: 3.5 };
+  const card = $('#vlamax-card');
+  card.innerHTML =
+    '<div class="vlc-summary">' +
+      '<div class="vlc-meta">' +
+        '<div class="vlc-pill">◈ Saved Sprint VLamax</div>' +
+        '<div class="vlc-val">' + state.VLamax.toFixed(3) +
+          ' <span class="vlc-unit">mmol·L⁻¹·s⁻¹</span></div>' +
+        '<div class="vlc-date">Saved ' + fmtDate(state.VLamax_measured_at) +
+          ' from your Sprint VLamax Test</div>' +
+      '</div>' +
+      '<div class="vlc-actions">' +
+        '<button type="button" class="btn ghost" id="vlc-toggle">Recalculate VLamax</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="vlc-form" id="vlc-form" hidden>' +
+      '<div class="vlc-divider"></div>' +
+      '<div class="vlc-form-h">Recalculate from new sprint data</div>' +
+      '<p class="vlc-form-sub">Enter your latest 15-second sprint values. The new VLamax updates live below; click Save to overwrite the value on your profile.</p>' +
+      '<div class="grid-3">' +
+        '<label class="field"><span class="lab">Pre-sprint La (mmol/L)</span>' +
+          '<input type="number" id="vlc-la-pre" step="0.1" min="0" max="5" value="' + inp.La_pre + '"></label>' +
+        '<label class="field"><span class="lab">Peak post-sprint La (mmol/L)</span>' +
+          '<input type="number" id="vlc-la-post" step="0.1" min="2" max="30" value="' + inp.La_peak_post + '"></label>' +
+        '<label class="field"><span class="lab">Sprint duration (s)</span>' +
+          '<input type="number" id="vlc-dur" step="1" min="10" max="30" value="' + inp.duration_s + '"></label>' +
+      '</div>' +
+      '<details style="margin-top:8px"><summary style="cursor:pointer;color:var(--muted2);font-size:13px;font-family:var(--mono)">Advanced — phosphagen time</summary>' +
+        '<label class="field" style="max-width:280px;margin-top:10px"><span class="lab">Alactic time t_PCr (s)</span>' +
+        '<input type="number" id="vlc-tpcr" step="0.1" min="2" max="6" value="' + inp.t_PCr_s + '"></label>' +
+      '</details>' +
+      '<div class="vlc-result" id="vlc-result"></div>' +
+      '<div class="vlc-form-actions">' +
+        '<button type="button" class="btn primary" id="vlc-save">Save updated VLamax</button>' +
+        '<button type="button" class="btn ghost"   id="vlc-cancel">Cancel</button>' +
+      '</div>' +
+    '</div>';
+  wireRecalcCard();
+}
+
+function wireRecalcCard() {
+  const toggle = $('#vlc-toggle');
+  const form   = $('#vlc-form');
+  toggle.addEventListener('click', () => {
+    const open = !form.hasAttribute('hidden');
+    if (open) { form.setAttribute('hidden', ''); toggle.textContent = 'Recalculate VLamax'; }
+    else      { form.removeAttribute('hidden'); toggle.textContent = 'Hide recalculate'; recalcLive(); $('#vlc-la-pre').focus(); }
+  });
+  $('#vlc-cancel').addEventListener('click', () => {
+    form.setAttribute('hidden', ''); toggle.textContent = 'Recalculate VLamax';
+  });
+  ['vlc-la-pre','vlc-la-post','vlc-dur','vlc-tpcr'].forEach(id =>
+    $('#' + id).addEventListener('input', recalcLive)
+  );
+  $('#vlc-save').addEventListener('click', saveRecalc);
+}
+
+function readRecalcInputs() {
+  return {
+    La_pre:        +$('#vlc-la-pre').value,
+    La_peak_post:  +$('#vlc-la-post').value,
+    duration_s:    +$('#vlc-dur').value,
+    t_PCr_s:       +$('#vlc-tpcr').value,
+  };
+}
+
+function recalcLive() {
+  const inputs = readRecalcInputs();
+  const r = computeVLamax(inputs);
+  if (!isFinite(r.VLamax) || r.glycolytic_time_s <= 0) {
+    $('#vlc-result').innerHTML = '<div class="vlc-result-empty">Enter all three sprint values to compute.</div>';
+    return;
+  }
+  const warnHtml = r.warnings.length
+    ? '<div style="font-size:12px;color:var(--gold);margin-top:6px">⚠ ' + r.warnings.join(' ') + '</div>'
+    : '';
+  $('#vlc-result').innerHTML =
+    '<div class="vlc-result-box">' +
+      '<div class="vlc-result-label">NEW VLAMAX</div>' +
+      '<div class="vlc-result-val">' + r.VLamax.toFixed(3) +
+        ' <span class="vlc-unit">mmol·L⁻¹·s⁻¹</span></div>' +
+      warnHtml +
+    '</div>';
+}
+
+async function saveRecalc() {
+  const user = window.__esml && window.__esml.user;
+  if (!user) { alert('Sign in required.'); return; }
+  const inputs = readRecalcInputs();
+  const r = computeVLamax(inputs);
+  if (!isFinite(r.VLamax) || r.glycolytic_time_s <= 0) {
+    alert('Sprint values are not valid — recheck the inputs.');
+    return;
+  }
+  const btn = $('#vlc-save');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const db = firebase.firestore();
+    await db.collection('users').doc(user.uid).set(
+      { esmetlab: { vlamax: {
+        value: r.VLamax,
+        measured_at: firebase.firestore.FieldValue.serverTimestamp(),
+        inputs: inputs,
+      } } },
+      { merge: true }
+    );
+    state.VLamax = r.VLamax;
+    state.VLamax_measured_at = new Date();
+    state.VLamax_inputs = inputs;
+    renderVLamaxCard();   // re-render — form collapsed, new saved value shown
+  } catch (e) {
+    console.error('Save failed:', e);
+    alert('Save failed: ' + e.message);
+    btn.disabled = false; btn.textContent = 'Save updated VLamax';
+  }
+}
+
 function showWizard() {
   $('#prereq').style.display = 'none';
   $('#wizard').style.display = 'block';
-  $('#vlamax-card').innerHTML =
-    '<div>' +
-      '<div style="font-family:var(--mono);font-size:10px;color:var(--muted2);letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px">Using saved VLamax</div>' +
-      '<div style="font-family:var(--display);font-size:24px;font-weight:700;color:var(--purple)">' + state.VLamax.toFixed(3) + ' <span style="font-family:var(--mono);font-size:12px;color:var(--muted2);font-weight:400">mmol·L⁻¹·s⁻¹</span></div>' +
-      '<div style="font-size:12px;color:var(--muted2);margin-top:4px">Tested ' + fmtDate(state.VLamax_measured_at) + '</div>' +
-    '</div>' +
-    '<a class="btn ghost" href="/esmetlab/mode-b/" style="padding:8px 16px;font-size:13px">Re-test VLamax →</a>';
+  renderVLamaxCard();
 }
 
 async function loadVLamax(user) {
@@ -81,6 +197,7 @@ async function loadVLamax(user) {
     if (v && typeof v.value === 'number') {
       state.VLamax = v.value;
       state.VLamax_measured_at = v.measured_at || null;
+      state.VLamax_inputs = v.inputs || null;
       showWizard();
     } else {
       showPrereq();
@@ -432,7 +549,7 @@ $('#export-pdf').addEventListener('click', async () => {
   let y = 18;
 
   doc.setFontSize(18);
-  doc.text('esMetLab — Metabolic Profile', 14, y); y += 8;
+  doc.text('esMetabolicLab — Metabolic Profile', 14, y); y += 8;
   doc.setFontSize(11); doc.setTextColor(100);
   doc.text('Generated ' + new Date().toISOString().slice(0, 10) + ' · admin preview', 14, y); y += 10;
 
@@ -478,7 +595,7 @@ $('#export-pdf').addEventListener('click', async () => {
 
   if (y > 260) { doc.addPage(); y = 16; }
   doc.setFontSize(8); doc.setTextColor(120);
-  doc.text('Not medical advice. esMetLab is provided for educational purposes only and does not constitute a medical diagnosis. Consult a qualified healthcare professional before changing your training based on these results.', 14, y, { maxWidth: W - 28 });
+  doc.text('Not medical advice. esMetabolicLab is provided for educational purposes only and does not constitute a medical diagnosis. Consult a qualified healthcare professional before changing your training based on these results.', 14, y, { maxWidth: W - 28 });
 
-  doc.save('esmetlab-profile-' + new Date().toISOString().slice(0, 10) + '.pdf');
+  doc.save('esmetaboliclab-profile-' + new Date().toISOString().slice(0, 10) + '.pdf');
 });

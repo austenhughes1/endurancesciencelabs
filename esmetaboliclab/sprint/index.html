@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VLamax Sprint Calculator — esMetLab</title>
+<title>VLamax Sprint Calculator — esMetabolicLab</title>
 <meta name="robots" content="noindex,nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../css/esmetlab.css">
+<link rel="stylesheet" href="../css/esmetaboliclab.css">
 <style>
   #gate { max-width: 560px; margin: 120px auto; padding: 32px; background: var(--panel); border: 1px solid var(--border); border-radius: 16px; text-align: center; }
   #gate h1 { font-family: var(--display); font-size: 28px; margin-bottom: 12px; }
@@ -31,7 +31,7 @@
 
 <div id="gate">
   <h1>Admin only</h1>
-  <p>esMetLab is in private admin preview. Sign in with your admin account to continue.</p>
+  <p>esMetabolicLab is in private admin preview. Sign in with your admin account to continue.</p>
   <p style="margin-top:16px"><a href="/" style="color:var(--cyan)">← Back to home</a></p>
 </div>
 
@@ -42,18 +42,18 @@
     <a href="/"           class="nav-link">Home</a>
     <a href="/esformlab/" class="nav-link">Form analysis</a>
     <a href="/coaching/"  class="nav-link">Coaching</a>
-    <a href="/esmetlab/"  class="nav-link active">Metabolic Testing <span class="nav-pill" style="background:rgba(139,124,248,.18);color:var(--purple)">Preview</span></a>
+    <a href="/esmetaboliclab/"  class="nav-link active">Metabolic Testing <span class="nav-pill" style="background:rgba(139,124,248,.18);color:var(--purple)">Preview</span></a>
   </div>
 </nav>
 
 <div class="page">
-  <p style="margin-bottom:12px"><a href="/esmetlab/">← All modes</a></p>
-  <div class="section-label">◈ Mode B · Sprint VLamax</div>
+  <p style="margin-bottom:12px"><a href="/esmetaboliclab/">← All modes</a></p>
+  <div class="section-label">◈ Sprint VLamax Test</div>
   <h1 class="page-title">VLamax — <em>sprint</em> test</h1>
   <p class="page-sub">
     Enter your pre/post-sprint blood lactate values and we'll compute your maximum
     glycolytic capacity using Mader's 1994 protocol — corrected for the alactic
-    phosphagen contribution. Save the result to your profile; Mode A requires it.
+    phosphagen contribution. Save the result to your profile; the full Lactate Step Test requires it.
   </p>
 
   <div id="saved-banner" style="display:none"></div>
@@ -114,7 +114,7 @@
   </details>
 
   <footer class="esml">
-    © <span id="footer-year"></span> Endurance Science Labs · esMetLab admin preview
+    © <span id="footer-year"></span> Endurance Science Labs · esMetabolicLab admin preview
     <div class="disclaimer">Not medical advice. Educational use only.</div>
   </footer>
 </div>
@@ -195,7 +195,7 @@ function renderSavedBanner() {
         '<strong>Saved VLamax on file:</strong> ' + savedSnapshot.value.toFixed(3) + ' mmol/L/s' +
         ' &middot; tested ' + fmtDate(savedSnapshot.measured_at) +
       '</div>' +
-      '<a class="btn primary" href="/esmetlab/mode-a/" style="padding:8px 16px;font-size:13px">Open Mode A →</a>' +
+      '<a class="btn primary" href="/esmetaboliclab/profile/" style="padding:8px 16px;font-size:13px">Open the Lactate Step Test →</a>' +
     '</div>';
 }
 
@@ -248,11 +248,11 @@ function renderResult(r, inputs) {
           ? (isSavedExact
               ? 'These inputs match what\'s saved on your profile. Edit any value above to update.'
               : 'Your inputs differ from what\'s saved (' + savedSnapshot.value.toFixed(3) + '). Save to overwrite.')
-          : 'Mode A requires a saved VLamax. Click below to write this value to your profile.') +
+          : 'The Lactate Step Test requires a saved VLamax. Click below to write this value to your profile.') +
       '</p>' +
       '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">' +
         '<button class="btn primary" id="save-btn"' + (isSavedExact ? ' disabled' : '') + '>' + saveLabel + '</button>' +
-        '<a class="btn ghost" href="/esmetlab/mode-a/">Continue to Mode A →</a>' +
+        '<a class="btn ghost" href="/esmetaboliclab/profile/">Continue to Lactate Step Test →</a>' +
       '</div>' +
     '</div>';
 

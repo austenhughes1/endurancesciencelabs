@@ -807,7 +807,7 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
     var el = document.getElementById('nav-esmetlab');
     if (el && user && user.uid === ADMIN_UID) {
       var a = document.createElement('a');
-      a.href = '/esmetlab/';
+      a.href = '/esmetaboliclab/';
       a.className = 'nav-link';
       a.innerHTML = 'Metabolic Testing <span class="nav-pill" style="background:rgba(139,124,248,.18);color:var(--purple)">Preview</span>';
       el.parentNode.replaceChild(a, el);
@@ -816,7 +816,7 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
     var tile = document.getElementById('tile-esmetlab');
     if (tile && user && user.uid === ADMIN_UID) {
       var a2 = document.createElement('a');
-      a2.href = '/esmetlab/';
+      a2.href = '/esmetaboliclab/';
       a2.className = 'service-card live';
       a2.style.textDecoration = 'none';
       a2.style.color = 'inherit';
@@ -825,7 +825,7 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
         '<div class="sc-badge live" style="background:rgba(139,124,248,.18);color:var(--purple)">● Preview · admin</div>' +
         '<div class="sc-title">Metabolic Testing</div>' +
         '<p class="sc-desc">VO₂ max, lactate threshold, and fat oxidation derived from your own lactate step test — Mader/Heck bioenergetic model, fully in your browser.</p>' +
-        '<span class="sc-action">Open esMetLab →</span>';
+        '<span class="sc-action">Open esMetabolicLab →</span>';
       tile.parentNode.replaceChild(a2, tile);
     }
   }
