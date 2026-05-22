@@ -36,11 +36,17 @@ const MODAL_HTML = `
          target="_blank" rel="noopener">Buy a Lactate Plus meter →</a>
 
       <h3 class="esml-modal-h3">Protocol — per sample</h3>
+      <div class="warn" style="margin-bottom:14px">
+        ⚠ <strong>The lancing site must be completely dry.</strong> Any sweat
+        or water on the skin can dramatically skew the reading. If you're
+        testing mid-session or just warmed up, towel off and wipe with alcohol
+        before drawing the sample — and let the alcohol fully evaporate too.
+      </div>
       <ol class="esml-steps">
-        <li>Wipe your fingertip with alcohol and let it air-dry.</li>
+        <li>Wipe your fingertip thoroughly with alcohol and let it air-dry. Confirm there's no remaining sweat, alcohol, or moisture before continuing.</li>
         <li>Lance the side of the fingertip — it's less sensitive than the pad and stays usable across multiple samples.</li>
-        <li>Wipe the first drop away with gauze; surface fluid can throw off the reading.</li>
-        <li>Insert a fresh test strip into the meter, then apply the next drop so it fully covers the test well.</li>
+        <li>Wipe the first drop away with gauze; surface fluid can throw off the reading. Encourage a fresh second drop by gently milking the finger.</li>
+        <li>Touch <em>only</em> the tip of the test strip to the blood drop — never let the strip contact your skin. The strip wicks the blood up on its own.</li>
         <li>Wait for the reading — typically about 13 seconds on a Lactate Plus.</li>
       </ol>
 
