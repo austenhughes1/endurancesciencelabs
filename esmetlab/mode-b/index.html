@@ -48,13 +48,15 @@
 
 <div class="page">
   <p style="margin-bottom:12px"><a href="/esmetlab/">← All modes</a></p>
-  <div class="section-label">◈ Mode B · Calculator</div>
-  <h1 class="page-title">VLamax — <em>sprint</em> calculator</h1>
+  <div class="section-label">◈ Mode B · Sprint VLamax</div>
+  <h1 class="page-title">VLamax — <em>sprint</em> test</h1>
   <p class="page-sub">
     Enter your pre/post-sprint blood lactate values and we'll compute your maximum
     glycolytic capacity using Mader's 1994 protocol — corrected for the alactic
-    phosphagen contribution. Useful on its own, and as an input to the full Mode A profile.
+    phosphagen contribution. Save the result to your profile; Mode A requires it.
   </p>
+
+  <div id="saved-banner" style="display:none"></div>
 
   <div class="panel">
     <div class="panel-h">Sprint inputs</div>
@@ -122,6 +124,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script>
   firebase.initializeApp({
     apiKey: 'AIzaSyDh4LorLQx1DPovQIA4HM3127fAYpyuaY8',
@@ -129,10 +132,13 @@
     projectId: 'es-form-labs',
   });
   const ADMIN_UID = '2z9Z3K5ZwShvadUuqZmwMv0s1Od2';
+  window.__esml = { user: null };
   firebase.auth().onAuthStateChanged(function(user) {
     if (user && user.uid === ADMIN_UID) {
+      window.__esml.user = user;
       document.getElementById('gate').style.display = 'none';
       document.getElementById('app').style.display  = 'block';
+      window.dispatchEvent(new CustomEvent('esml-auth', { detail: { user: user } }));
     } else {
       document.getElementById('gate').style.display = 'block';
       document.getElementById('app').style.display  = 'none';
@@ -145,6 +151,10 @@
 import { computeVLamax } from '../js/lib/mader/sprint.js';
 
 const $ = (id) => document.getElementById(id);
+const db = firebase.firestore();
+
+let lastResult = null;     // most recently computed VLamax (in-memory)
+let savedSnapshot = null;  // {value, measured_at, inputs} from Firestore
 
 function categorize(v) {
   if (v < 0.30) return { cls: 'low',  text: 'Low — aerobic-dominant phenotype. Typical of long-distance specialists.' };
@@ -152,18 +162,74 @@ function categorize(v) {
   return            { cls: 'high', text: 'High — glycolytic-dominant phenotype. Typical of sprinters and short-event specialists.' };
 }
 
-$('compute').addEventListener('click', function () {
-  const r = computeVLamax({
-    La_pre:        +$('la_pre').value,
-    La_peak_post:  +$('la_post').value,
-    duration_s:    +$('duration').value,
-    t_PCr_s:       +$('t_pcr').value,
-  });
-  const cat = categorize(r.VLamax);
-  let warningsHtml = '';
-  if (r.warnings.length) {
-    warningsHtml = r.warnings.map(w => '<div class="warn">⚠ ' + w + '</div>').join('');
+function fmtDate(ts) {
+  let d;
+  if (!ts) return '—';
+  if (ts.toDate) d = ts.toDate();
+  else if (typeof ts === 'number') d = new Date(ts);
+  else if (typeof ts === 'string') d = new Date(ts);
+  else d = new Date();
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function renderSavedBanner() {
+  const banner = $('saved-banner');
+  if (!savedSnapshot) { banner.style.display = 'none'; return; }
+  banner.style.display = 'block';
+  banner.innerHTML =
+    '<div class="info" style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">' +
+      '<div>' +
+        '<strong>Saved VLamax on file:</strong> ' + savedSnapshot.value.toFixed(3) + ' mmol/L/s' +
+        ' &middot; tested ' + fmtDate(savedSnapshot.measured_at) +
+      '</div>' +
+      '<a class="btn primary" href="/esmetlab/mode-a/" style="padding:8px 16px;font-size:13px">Open Mode A →</a>' +
+    '</div>';
+}
+
+async function loadSavedVLamax(user) {
+  try {
+    const doc = await db.collection('users').doc(user.uid).get();
+    const data = doc.exists ? doc.data() : null;
+    const v = data && data.esmetlab && data.esmetlab.vlamax;
+    if (v && typeof v.value === 'number') {
+      savedSnapshot = v;
+      // Prefill inputs from the saved run, so a re-test feels continuous
+      if (v.inputs) {
+        if (typeof v.inputs.La_pre === 'number')       $('la_pre').value   = v.inputs.La_pre;
+        if (typeof v.inputs.La_peak_post === 'number') $('la_post').value  = v.inputs.La_peak_post;
+        if (typeof v.inputs.duration_s === 'number')   $('duration').value = v.inputs.duration_s;
+        if (typeof v.inputs.t_PCr_s === 'number')      $('t_pcr').value    = v.inputs.t_PCr_s;
+      }
+      renderSavedBanner();
+    }
+  } catch (e) {
+    console.warn('VLamax load failed:', e);
   }
+}
+
+async function saveVLamax(result, inputs) {
+  const user = window.__esml && window.__esml.user;
+  if (!user) { alert('Sign in required.'); return; }
+  const payload = {
+    value: result.VLamax,
+    measured_at: firebase.firestore.FieldValue.serverTimestamp(),
+    inputs: inputs,
+  };
+  await db.collection('users').doc(user.uid).set(
+    { esmetlab: { vlamax: payload } },
+    { merge: true }
+  );
+  savedSnapshot = { value: result.VLamax, measured_at: new Date(), inputs };
+  renderSavedBanner();
+  const btn = $('save-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '✓ Saved to your profile'; }
+}
+
+function renderResult(r, inputs) {
+  const cat = categorize(r.VLamax);
+  const warningsHtml = r.warnings.length
+    ? r.warnings.map(w => '<div class="warn">⚠ ' + w + '</div>').join('')
+    : '';
 
   $('result').innerHTML =
     '<div class="result-vlamax">' +
@@ -184,11 +250,33 @@ $('compute').addEventListener('click', function () {
       '</p>' +
     '</div>' +
     '<div class="panel">' +
-      '<div class="panel-h">Use this in Mode A</div>' +
-      '<p style="font-size:14px; color:var(--muted2); line-height:1.7; margin-bottom:14px">Feed this VLamax into the Lactate Step Test to fit your VO₂max and get the full metabolic profile.</p>' +
-      '<a class="btn primary" href="/esmetlab/mode-a/?vlamax=' + r.VLamax.toFixed(4) + '">Continue to Mode A →</a>' +
+      '<div class="panel-h">Save this to your profile</div>' +
+      '<p style="font-size:14px; color:var(--muted2); line-height:1.7; margin-bottom:14px">Mode A (full metabolic profile) requires a saved VLamax. Saving overwrites the previous value on your profile.</p>' +
+      '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">' +
+        '<button class="btn primary" id="save-btn">Save VLamax to profile →</button>' +
+        '<a class="btn ghost" href="/esmetlab/mode-a/">Skip — go to Mode A</a>' +
+      '</div>' +
     '</div>';
+
+  $('save-btn').addEventListener('click', () => saveVLamax(r, inputs));
+}
+
+$('compute').addEventListener('click', function () {
+  const inputs = {
+    La_pre:        +$('la_pre').value,
+    La_peak_post:  +$('la_post').value,
+    duration_s:    +$('duration').value,
+    t_PCr_s:       +$('t_pcr').value,
+  };
+  const r = computeVLamax(inputs);
+  lastResult = r;
+  renderResult(r, inputs);
 });
+
+// Auth-aware: load saved value once admin is confirmed
+window.addEventListener('esml-auth', (ev) => loadSavedVLamax(ev.detail.user));
+// If auth resolved before the module loaded, pick it up immediately
+if (window.__esml && window.__esml.user) loadSavedVLamax(window.__esml.user);
 </script>
 
 </body>

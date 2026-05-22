@@ -1,25 +1,28 @@
 /*
  * Mode A controller: stitches the wizard UI to the Mader engine.
- * - 4-step wizard with state held in a single object
- * - on "Run profile", calls getMetabolicProfile(...) and renders results
- * - Plotly for charts, jsPDF for export
+ *
+ *   - VLamax is a prerequisite, loaded from users/{uid}.esmetlab.vlamax.
+ *     If absent, the wizard is hidden and a "go run Mode B first" prompt
+ *     is shown instead.
+ *   - 3-step wizard: Athlete → Step test → Results.
+ *   - on "Run profile", calls getMetabolicProfile(...) and renders results.
+ *   - Plotly for charts, jsPDF for export.
  */
 
-import { computeVLamax, estimateVLamaxFromPriors } from '../js/lib/mader/sprint.js';
 import { getMetabolicProfile } from '../js/lib/mader/index.js';
 import { generateZones } from '../js/ui/zones.js';
-import { minPerKmToPaceString, paceStringToMinPerKm, intensityToVO2 } from '../js/lib/mader/sport.js';
+import { minPerKmToPaceString, paceStringToMinPerKm } from '../js/lib/mader/sport.js';
 
 const $   = (sel) => document.querySelector(sel);
 const $$  = (sel) => Array.from(document.querySelectorAll(sel));
 const fmt = {
-  W:  (v) => v.toFixed(0) + ' W',
-  V:  (v) => v.toFixed(1) + ' mL/min/kg',
-  La: (v) => v.toFixed(2) + ' mmol/L',
-  G:  (v) => v.toFixed(2) + ' g/min',
-  pct:(v) => (v * 100).toFixed(1) + '%',
-  ms: (v) => v.toFixed(2) + ' m/s',
-  pace: (v) => minPerKmToPaceString(1000 / (v * 60)) + ' /km',
+  W:   (v) => v.toFixed(0) + ' W',
+  V:   (v) => v.toFixed(1) + ' mL/min/kg',
+  La:  (v) => v.toFixed(2) + ' mmol/L',
+  G:   (v) => v.toFixed(2) + ' g/min',
+  pct: (v) => (v * 100).toFixed(1) + '%',
+  ms:  (v) => v.toFixed(2) + ' m/s',
+  pace:(v) => minPerKmToPaceString(1000 / (v * 60)) + ' /km',
 };
 
 /* ───────── State ───────── */
@@ -30,8 +33,8 @@ const state = {
   sport: 'cycling',
   bodyMass: 75,
   bodyFatPct: 12,
-  vlamaxMode: 'direct',
-  VLamax: 0.50,
+  VLamax: null,           // set after Firestore load
+  VLamax_measured_at: null,
   stages: [
     { intensity: 150, durationMin: 4, lactate: 1.4, hr: '' },
     { intensity: 200, durationMin: 4, lactate: 2.0, hr: '' },
@@ -42,20 +45,63 @@ const state = {
   profile: null,
 };
 
-// VLamax prefill from ?vlamax=… query param (from Mode B handoff)
-const qp = new URLSearchParams(location.search);
-if (qp.has('vlamax')) {
-  const v = parseFloat(qp.get('vlamax'));
-  if (isFinite(v) && v > 0 && v < 2) state.VLamax = v;
+/* ───────── Auth + VLamax prerequisite load ───────── */
+
+function fmtDate(ts) {
+  if (!ts) return '—';
+  let d;
+  if (ts.toDate) d = ts.toDate();
+  else d = new Date(ts);
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
+
+function showPrereq() {
+  $('#prereq').style.display = 'block';
+  $('#wizard').style.display = 'none';
+}
+
+function showWizard() {
+  $('#prereq').style.display = 'none';
+  $('#wizard').style.display = 'block';
+  $('#vlamax-card').innerHTML =
+    '<div>' +
+      '<div style="font-family:var(--mono);font-size:10px;color:var(--muted2);letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px">Using saved VLamax</div>' +
+      '<div style="font-family:var(--display);font-size:24px;font-weight:700;color:var(--purple)">' + state.VLamax.toFixed(3) + ' <span style="font-family:var(--mono);font-size:12px;color:var(--muted2);font-weight:400">mmol·L⁻¹·s⁻¹</span></div>' +
+      '<div style="font-size:12px;color:var(--muted2);margin-top:4px">Tested ' + fmtDate(state.VLamax_measured_at) + '</div>' +
+    '</div>' +
+    '<a class="btn ghost" href="/esmetlab/mode-b/" style="padding:8px 16px;font-size:13px">Re-test VLamax →</a>';
+}
+
+async function loadVLamax(user) {
+  try {
+    const db = firebase.firestore();
+    const doc = await db.collection('users').doc(user.uid).get();
+    const data = doc.exists ? doc.data() : null;
+    const v = data && data.esmetlab && data.esmetlab.vlamax;
+    if (v && typeof v.value === 'number') {
+      state.VLamax = v.value;
+      state.VLamax_measured_at = v.measured_at || null;
+      showWizard();
+    } else {
+      showPrereq();
+    }
+  } catch (e) {
+    console.error('Failed to load VLamax:', e);
+    showPrereq();
+  }
+}
+
+window.addEventListener('esml-auth', (ev) => loadVLamax(ev.detail.user));
+if (window.__esml && window.__esml.user) loadVLamax(window.__esml.user);
 
 /* ───────── Step navigation ───────── */
 
 function gotoStep(n) {
   state.step = n;
   $$('.step-section').forEach(el => el.classList.toggle('active', +el.dataset.step === n));
-  for (let i = 1; i <= 4; i++) {
+  for (let i = 1; i <= 3; i++) {
     const bar = document.getElementById('step-bar-' + i);
+    if (!bar) continue;
     bar.classList.toggle('active', i === n);
     bar.classList.toggle('done',   i < n);
   }
@@ -69,7 +115,7 @@ document.querySelectorAll('input[name=sex]').forEach(r => r.addEventListener('ch
 document.querySelectorAll('input[name=sport]').forEach(r => r.addEventListener('change', e => {
   state.sport = e.target.value;
   renderIntensityHeader();
-  renderStages();   // intensity placeholder text needs an update
+  renderStages();
 }));
 $('#bodyMass').addEventListener('input', e => state.bodyMass = +e.target.value);
 $('#bodyFatPct').addEventListener('input', e => state.bodyFatPct = +e.target.value);
@@ -80,46 +126,7 @@ function renderIntensityHeader() {
 }
 renderIntensityHeader();
 
-/* ───────── Step 2: VLamax mode tabs ───────── */
-
-function showVLamaxPanel(mode) {
-  state.vlamaxMode = mode;
-  $('#vlamax-direct').style.display = mode === 'direct' ? 'block' : 'none';
-  $('#vlamax-sprint').style.display = mode === 'sprint' ? 'block' : 'none';
-  $('#vlamax-prior').style.display  = mode === 'prior'  ? 'block' : 'none';
-  $$('#vlamax-mode-tabs label').forEach((lab) => {
-    const inp = lab.querySelector('input');
-    lab.classList.toggle('active', inp && inp.value === mode);
-  });
-  if (mode === 'sprint') updateSprintReadout();
-  if (mode === 'prior')  updatePriorReadout();
-  if (mode === 'direct') state.VLamax = +$('#vlamax_direct').value;
-}
-document.querySelectorAll('input[name=vlamax-mode]').forEach(r => r.addEventListener('change', e => showVLamaxPanel(e.target.value)));
-$('#vlamax_direct').addEventListener('input', e => state.VLamax = +e.target.value);
-$('#vlamax_direct').value = state.VLamax.toFixed(2);
-
-['sp_la_pre','sp_la_post','sp_dur'].forEach(id => $('#' + id).addEventListener('input', updateSprintReadout));
-function updateSprintReadout() {
-  const r = computeVLamax({
-    La_pre: +$('#sp_la_pre').value,
-    La_peak_post: +$('#sp_la_post').value,
-    duration_s: +$('#sp_dur').value,
-  });
-  state.VLamax = r.VLamax;
-  let html = 'VLamax = <strong>' + r.VLamax.toFixed(3) + ' mmol/L/s</strong> '
-           + '(ΔLa = ' + r.delta_La.toFixed(1) + ', glycolytic time = ' + r.glycolytic_time_s.toFixed(1) + 's)';
-  if (r.warnings.length) html += '<br><span style="color:var(--gold)">⚠ ' + r.warnings.join(' ') + '</span>';
-  $('#sprint-readout').innerHTML = html;
-}
-function updatePriorReadout() {
-  const v = estimateVLamaxFromPriors({ sex: state.sex, sport: state.sport });
-  state.VLamax = v;
-  $('#prior-readout').innerHTML = 'Estimated VLamax = <strong>' + v.toFixed(2) + ' mmol/L/s</strong> for a typical '
-    + (state.sex === 'M' ? 'male' : 'female') + ' ' + state.sport + ' athlete. Accuracy is approximate.';
-}
-
-/* ───────── Step 3: stages table ───────── */
+/* ───────── Step 2: stages table ───────── */
 
 const stagesBody = $('#stages-body');
 
@@ -216,9 +223,13 @@ function checkStageWarnings() {
 
 renderStages();
 
-/* ───────── Step 3 → 4: Run profile ───────── */
+/* ───────── Run profile ───────── */
 
 $('#run').addEventListener('click', () => {
+  if (!state.VLamax) {
+    alert('VLamax not loaded — please run a sprint test first.');
+    return;
+  }
   try {
     state.profile = getMetabolicProfile({
       sport: state.sport,
@@ -233,7 +244,7 @@ $('#run').addEventListener('click', () => {
       })),
     });
     renderResults();
-    gotoStep(4);
+    gotoStep(3);
   } catch (e) {
     alert('Profile run failed: ' + e.message);
     console.error(e);
@@ -245,13 +256,11 @@ $('#run').addEventListener('click', () => {
 function renderResults() {
   const p = state.profile;
   const sport = state.sport;
-  const unit = sport === 'cycling' ? 'W' : 'm/s';
   const fmtIntensity = sport === 'cycling' ? fmt.W : fmt.pace;
 
-  // Headline metric cards
   const metrics = [
     { label: 'VO₂max',  value: fmt.V(p.VO2max), note: p.inputs.VO2max_supplied ? 'as supplied' : 'fitted from your curve' },
-    { label: 'VLamax',  value: p.VLamax.toFixed(3) + ' mmol/L/s', note: '' },
+    { label: 'VLamax',  value: p.VLamax.toFixed(3) + ' mmol/L/s', note: 'from sprint test on ' + fmtDate(state.VLamax_measured_at) },
     { label: 'MLSS',    value: fmtIntensity(p.mlss.intensity), note: fmt.pct(p.mlss.x) + ' of VO₂max · ' + fmt.La(p.mlss.lactate) },
     { label: 'LT1',     value: fmtIntensity(p.lt1.intensity),  note: fmt.pct(p.lt1.x) + ' of VO₂max · ' + fmt.La(p.lt1.lactate) },
     { label: 'Fatmax',  value: fmtIntensity(p.fatmax.intensity), note: fmt.G(p.fatmax.fat_g_per_min) + ' at ' + fmt.pct(p.fatmax.x) + ' of VO₂max' },
@@ -262,7 +271,6 @@ function renderResults() {
     (m.note ? '<div class="metric-note">' + m.note + '</div>' : '') +
     '</div>').join('');
 
-  // Sensitivity
   let sensHtml = '';
   if (p.diagnostics.sensitivity) {
     const s = p.diagnostics.sensitivity;
@@ -273,13 +281,11 @@ function renderResults() {
              + 'This shows how robust the result is to small measurement errors.</div>';
   }
 
-  // Warnings
   let warnHtml = '';
   if (p.diagnostics.warnings && p.diagnostics.warnings.length) {
     warnHtml = p.diagnostics.warnings.map(w => '<div class="warn">⚠ ' + w + '</div>').join('');
   }
 
-  // Zones
   const zones = generateZones(sport, { MLSS_intensity: p.mlss.intensity, LT1_intensity: p.lt1.intensity });
   let zonesHtml = '';
   if (zones.coggan) zonesHtml += zoneTableHtml('Coggan 7-zone (cycling)', zones.coggan, sport);
@@ -343,40 +349,26 @@ function educationHtml() {
 /* ───────── Charts ───────── */
 
 function drawCharts(p) {
-  const ctx = { bodyMass: state.bodyMass, GE: 0.225, Cr: 3.86 };
-  const xs = p.curves.xs;
-  const intensities = p.curves.intensities;
   const sport = state.sport;
+  const intensities = p.curves.intensities;
   const xLabel = sport === 'cycling' ? 'Power (W)' : 'Speed (m/s)';
 
-  // Map stages to (intensity, lactate) points for the overlay
   const stagePts_x = state.stages.map(s => s.intensity);
   const stagePts_y = state.stages.map(s => s.lactate);
 
-  /* ───── Lactate plot: production / elimination + simulated curve + measured ───── */
   const data1 = [
-    {
-      x: intensities, y: p.curves.vLass,
+    { x: intensities, y: p.curves.vLass,
       name: 'vLass — glycolytic production',
-      mode: 'lines', line: { color: '#ff6b35', width: 2.5 },
-      yaxis: 'y2',
-    },
-    {
-      x: intensities, y: p.curves.vLaoxmax,
+      mode: 'lines', line: { color: '#ff6b35', width: 2.5 }, yaxis: 'y2' },
+    { x: intensities, y: p.curves.vLaoxmax,
       name: 'vLaoxmax — oxidative elimination cap',
-      mode: 'lines', line: { color: '#00e5c8', width: 2.5, dash: 'dot' },
-      yaxis: 'y2',
-    },
-    {
-      x: intensities, y: p.curves.lactate,
+      mode: 'lines', line: { color: '#00e5c8', width: 2.5, dash: 'dot' }, yaxis: 'y2' },
+    { x: intensities, y: p.curves.lactate,
       name: 'Simulated [La]',
-      mode: 'lines', line: { color: '#8b7cf8', width: 2.5 },
-    },
-    {
-      x: stagePts_x, y: stagePts_y,
+      mode: 'lines', line: { color: '#8b7cf8', width: 2.5 } },
+    { x: stagePts_x, y: stagePts_y,
       name: 'Measured [La]',
-      mode: 'markers', marker: { color: '#f5c842', size: 10, line: { color: '#0e1018', width: 2 } },
-    },
+      mode: 'markers', marker: { color: '#f5c842', size: 10, line: { color: '#0e1018', width: 2 } } },
   ];
 
   const layout1 = {
@@ -400,20 +392,13 @@ function drawCharts(p) {
   };
   Plotly.newPlot('chart-lactate', data1, layout1, { displayModeBar: false, responsive: true });
 
-  /* ───── Substrate plot: fat + CHO g/min ───── */
   const data2 = [
-    {
-      x: intensities, y: p.curves.fatOx,
-      name: 'Fat oxidation', mode: 'lines',
+    { x: intensities, y: p.curves.fatOx, name: 'Fat oxidation', mode: 'lines',
       line: { color: '#f5c842', width: 2.5 },
-      fill: 'tozeroy', fillcolor: 'rgba(245,200,66,0.10)',
-    },
-    {
-      x: intensities, y: p.curves.choOx,
-      name: 'CHO oxidation', mode: 'lines',
+      fill: 'tozeroy', fillcolor: 'rgba(245,200,66,0.10)' },
+    { x: intensities, y: p.curves.choOx, name: 'CHO oxidation', mode: 'lines',
       line: { color: '#ff6b35', width: 2.5 },
-      fill: 'tozeroy', fillcolor: 'rgba(255,107,53,0.08)',
-    },
+      fill: 'tozeroy', fillcolor: 'rgba(255,107,53,0.08)' },
   ];
   const layout2 = {
     paper_bgcolor: '#0e1018', plot_bgcolor: '#0e1018',
@@ -472,7 +457,6 @@ $('#export-pdf').addEventListener('click', async () => {
   }
   y += 4;
 
-  // Sensitivity
   if (p.diagnostics.sensitivity) {
     const s = p.diagnostics.sensitivity;
     doc.setFontSize(11); doc.setTextColor(0); doc.text('Sensitivity', 14, y); y += 5;
@@ -483,7 +467,6 @@ $('#export-pdf').addEventListener('click', async () => {
     y += 12;
   }
 
-  // Chart snapshots — capture via Plotly
   for (const id of ['chart-lactate', 'chart-substrate']) {
     try {
       const img = await Plotly.toImage(id, { format: 'png', width: 760, height: 380 });
@@ -493,14 +476,9 @@ $('#export-pdf').addEventListener('click', async () => {
     } catch (e) { /* keep going */ }
   }
 
-  // Disclaimer
   if (y > 260) { doc.addPage(); y = 16; }
   doc.setFontSize(8); doc.setTextColor(120);
   doc.text('Not medical advice. esMetLab is provided for educational purposes only and does not constitute a medical diagnosis. Consult a qualified healthcare professional before changing your training based on these results.', 14, y, { maxWidth: W - 28 });
 
   doc.save('esmetlab-profile-' + new Date().toISOString().slice(0, 10) + '.pdf');
 });
-
-/* ───────── Init prefill ───────── */
-
-if (state.VLamax !== 0.5) { $('#vlamax_direct').value = state.VLamax.toFixed(3); }
