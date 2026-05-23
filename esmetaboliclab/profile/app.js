@@ -15,6 +15,7 @@ import { generateZones } from '../js/ui/zones.js';
 import { minPerKmToPaceString, paceStringToMinPerKm } from '../js/lib/mader/sport.js';
 import { wireHowToMeasureTriggers } from '../js/ui/how-to-measure.js';
 import { wireStepTestTriggers }    from '../js/ui/how-to-step-test.js';
+import { drawLactateChart, drawSubstrateChart } from '../js/ui/charts.js';
 
 // Wire the page-level protocol buttons.
 wireHowToMeasureTriggers();
@@ -472,73 +473,8 @@ function educationHtml() {
 /* ───────── Charts ───────── */
 
 function drawCharts(p) {
-  const sport = state.sport;
-  const intensities = p.curves.intensities;
-  const xLabel = sport === 'cycling' ? 'Power (W)' : 'Speed (m/s)';
-
-  const stagePts_x = state.stages.map(s => s.intensity);
-  const stagePts_y = state.stages.map(s => s.lactate);
-
-  const data1 = [
-    { x: intensities, y: p.curves.vLass,
-      name: 'vLass — glycolytic production',
-      mode: 'lines', line: { color: '#ff6b35', width: 2.5 }, yaxis: 'y2' },
-    { x: intensities, y: p.curves.vLaoxmax,
-      name: 'vLaoxmax — oxidative elimination cap',
-      mode: 'lines', line: { color: '#00e5c8', width: 2.5, dash: 'dot' }, yaxis: 'y2' },
-    { x: intensities, y: p.curves.lactate,
-      name: 'Simulated [La]',
-      mode: 'lines', line: { color: '#8b7cf8', width: 2.5 } },
-    { x: stagePts_x, y: stagePts_y,
-      name: 'Measured [La]',
-      mode: 'markers', marker: { color: '#f5c842', size: 10, line: { color: '#0e1018', width: 2 } } },
-  ];
-
-  const layout1 = {
-    paper_bgcolor: '#0e1018', plot_bgcolor: '#0e1018',
-    font: { color: '#e8ecf8', family: 'DM Sans, sans-serif' },
-    margin: { t: 16, r: 60, b: 50, l: 60 },
-    xaxis: { title: xLabel, gridcolor: '#1a1d27', zerolinecolor: '#1a1d27' },
-    yaxis: { title: '[La] (mmol/L)', gridcolor: '#1a1d27', zerolinecolor: '#1a1d27', rangemode: 'tozero' },
-    yaxis2: { title: 'Flux (mmol/L/s)', overlaying: 'y', side: 'right', gridcolor: 'transparent', rangemode: 'tozero' },
-    legend: { orientation: 'h', y: -0.18, x: 0 },
-    shapes: [
-      { type: 'line', x0: p.mlss.intensity, x1: p.mlss.intensity, y0: 0, y1: 1, yref: 'paper',
-        line: { color: '#22c78a', width: 1.5, dash: 'dash' } },
-      { type: 'line', x0: p.lt1.intensity,  x1: p.lt1.intensity,  y0: 0, y1: 1, yref: 'paper',
-        line: { color: '#8b7cf8', width: 1.5, dash: 'dash' } },
-    ],
-    annotations: [
-      { x: p.mlss.intensity, y: 1, yref: 'paper', text: 'MLSS', showarrow: false, font: { color: '#22c78a' }, yshift: -8 },
-      { x: p.lt1.intensity,  y: 1, yref: 'paper', text: 'LT1',  showarrow: false, font: { color: '#8b7cf8' }, yshift: -8 },
-    ],
-  };
-  Plotly.newPlot('chart-lactate', data1, layout1, { displayModeBar: false, responsive: true });
-
-  const data2 = [
-    { x: intensities, y: p.curves.fatOx, name: 'Fat oxidation', mode: 'lines',
-      line: { color: '#f5c842', width: 2.5 },
-      fill: 'tozeroy', fillcolor: 'rgba(245,200,66,0.10)' },
-    { x: intensities, y: p.curves.choOx, name: 'CHO oxidation', mode: 'lines',
-      line: { color: '#ff6b35', width: 2.5 },
-      fill: 'tozeroy', fillcolor: 'rgba(255,107,53,0.08)' },
-  ];
-  const layout2 = {
-    paper_bgcolor: '#0e1018', plot_bgcolor: '#0e1018',
-    font: { color: '#e8ecf8', family: 'DM Sans, sans-serif' },
-    margin: { t: 16, r: 30, b: 50, l: 60 },
-    xaxis: { title: xLabel, gridcolor: '#1a1d27', zerolinecolor: '#1a1d27' },
-    yaxis: { title: 'g/min',  gridcolor: '#1a1d27', zerolinecolor: '#1a1d27', rangemode: 'tozero' },
-    legend: { orientation: 'h', y: -0.18, x: 0 },
-    shapes: [
-      { type: 'line', x0: p.fatmax.intensity, x1: p.fatmax.intensity, y0: 0, y1: 1, yref: 'paper',
-        line: { color: '#f5c842', width: 1.5, dash: 'dash' } },
-    ],
-    annotations: [
-      { x: p.fatmax.intensity, y: 1, yref: 'paper', text: 'Fatmax', showarrow: false, font: { color: '#f5c842' }, yshift: -8 },
-    ],
-  };
-  Plotly.newPlot('chart-substrate', data2, layout2, { displayModeBar: false, responsive: true });
+  drawLactateChart('chart-lactate', p, state.sport, state.stages);
+  drawSubstrateChart('chart-substrate', p, state.sport);
 }
 
 /* ───────── PDF export ───────── */
