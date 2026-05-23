@@ -39,7 +39,6 @@ const state = {
   sport: 'running',
   sex: 'M',
   bodyMass: 70,
-  bodyFatPct: 12,
   efforts: { sprint15s: '', peak3min: '', peak6min: '', peak12min: '' },
   sessions: [],
   newFormOpen: false,
@@ -112,16 +111,14 @@ function hydrateActiveFromSession(s) {
     state.profile = getMetabolicProfile({
       sport: s.inputs.sport,
       sex:   s.inputs.sex,
-      bodyMass:   s.inputs.bodyMass,
-      bodyFatPct: s.inputs.bodyFatPct,
+      bodyMass: s.inputs.bodyMass,
       VLamax: s.derived.VLamax,
       VO2max: s.derived.VO2max,
       steps: [],
     });
     state.sport = s.inputs.sport;
     state.sex   = s.inputs.sex;
-    state.bodyMass   = s.inputs.bodyMass;
-    state.bodyFatPct = s.inputs.bodyFatPct;
+    state.bodyMass = s.inputs.bodyMass;
   } catch (e) {
     console.warn('Replay failed:', e);
   }
@@ -135,11 +132,10 @@ async function saveSession(derived, sportInputs, efforts) {
     id: generateId(),
     measured_at: firebase.firestore.Timestamp.now(),
     inputs: {
-      sport:      sportInputs.sport,
-      sex:        sportInputs.sex,
-      bodyMass:   sportInputs.bodyMass,
-      bodyFatPct: sportInputs.bodyFatPct,
-      efforts:    efforts,
+      sport:    sportInputs.sport,
+      sex:      sportInputs.sex,
+      bodyMass: sportInputs.bodyMass,
+      efforts:  efforts,
     },
     derived: {
       VLamax: derived.VLamax,
@@ -169,12 +165,12 @@ function newFormHTML() {
   const prefill = lastMatches
     ? {
         sport: last.inputs.sport, sex: last.inputs.sex,
-        bodyMass: last.inputs.bodyMass, bodyFatPct: last.inputs.bodyFatPct,
+        bodyMass: last.inputs.bodyMass,
         efforts: last.inputs.efforts || state.efforts,
       }
     : {
         sport: state.sport, sex: state.sex,
-        bodyMass: state.bodyMass, bodyFatPct: state.bodyFatPct,
+        bodyMass: state.bodyMass,
         efforts: state.efforts,
       };
 
@@ -211,16 +207,10 @@ function newFormHTML() {
         </div>
       </div>
 
-      <div class="grid-2">
-        <label class="field">
-          <span class="lab">Body mass (kg)</span>
-          <input type="number" id="ps-mass" step="0.1" min="30" max="160" value="${prefill.bodyMass}">
-        </label>
-        <label class="field">
-          <span class="lab">Body fat (%)</span>
-          <input type="number" id="ps-bf"   step="0.1" min="3"  max="45" value="${prefill.bodyFatPct}">
-        </label>
-      </div>
+      <label class="field" style="max-width:280px">
+        <span class="lab">Body mass (kg)</span>
+        <input type="number" id="ps-mass" step="0.1" min="30" max="160" value="${prefill.bodyMass}">
+      </label>
 
       <div style="margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--muted2);letter-spacing:.5px;text-transform:uppercase">Max effort intensities — <span id="ps-intensity-unit">${intensityHeader}</span></div>
       <div class="grid-2" style="margin-top:6px">
@@ -265,7 +255,7 @@ function wireNewForm() {
     render();
   }));
 
-  ['ps-mass', 'ps-bf', 'ps-sprint', 'ps-3min', 'ps-6min', 'ps-12min'].forEach((id) => {
+  ['ps-mass', 'ps-sprint', 'ps-3min', 'ps-6min', 'ps-12min'].forEach((id) => {
     $('#' + id).addEventListener('input', recalcPreview);
   });
 
@@ -279,10 +269,9 @@ function wireNewForm() {
 }
 
 function readForm() {
-  const sport = (document.querySelector('input[name="ps-sport"]:checked') || {}).value || 'cycling';
+  const sport = (document.querySelector('input[name="ps-sport"]:checked') || {}).value || 'running';
   const sex   = (document.querySelector('input[name="ps-sex"]:checked')   || {}).value || 'M';
-  const bodyMass   = parseFloat($('#ps-mass').value);
-  const bodyFatPct = parseFloat($('#ps-bf').value);
+  const bodyMass = parseFloat($('#ps-mass').value);
 
   const efforts = {
     sprint15s: parseIntensity(sport, $('#ps-sprint').value),
@@ -290,7 +279,7 @@ function readForm() {
     peak6min:  parseIntensity(sport, $('#ps-6min').value),
     peak12min: parseIntensity(sport, $('#ps-12min').value),
   };
-  return { sport, sex, bodyMass, bodyFatPct, efforts };
+  return { sport, sex, bodyMass, efforts };
 }
 
 function effortsComplete(efforts) {
@@ -300,9 +289,8 @@ function effortsComplete(efforts) {
 function recalcPreview() {
   const inputs = readForm();
   if (!isFinite(inputs.bodyMass) || inputs.bodyMass <= 0
-      || !isFinite(inputs.bodyFatPct) || inputs.bodyFatPct < 0
       || !effortsComplete(inputs.efforts)) {
-    $('#ps-result').innerHTML = '<div class="vlc-result-empty" style="font-family:var(--mono);font-size:12px;color:var(--muted2);padding:12px 14px;background:var(--panel2);border-radius:8px;border:1px dashed var(--border2)">Fill in body comp and all four efforts to preview your derived VO₂max and VLamax.</div>';
+    $('#ps-result').innerHTML = '<div class="vlc-result-empty" style="font-family:var(--mono);font-size:12px;color:var(--muted2);padding:12px 14px;background:var(--panel2);border-radius:8px;border:1px dashed var(--border2)">Fill in body mass and all four efforts to preview your derived VO₂max and VLamax.</div>';
     return;
   }
 
@@ -310,7 +298,7 @@ function recalcPreview() {
   try {
     derived = derivePowerProfile({
       sport: inputs.sport, sex: inputs.sex,
-      bodyMass: inputs.bodyMass, bodyFatPct: inputs.bodyFatPct,
+      bodyMass: inputs.bodyMass,
       efforts: inputs.efforts,
     });
   } catch (e) {

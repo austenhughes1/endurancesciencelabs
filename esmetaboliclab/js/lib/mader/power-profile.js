@@ -150,7 +150,6 @@ export function deriveVO2max({ sport, peak6min, bodyMass, GE, Cr }) {
  * @param {string} input.sport         'cycling' | 'running'
  * @param {string} input.sex           'M' | 'F'
  * @param {number} input.bodyMass      kg
- * @param {number} input.bodyFatPct    %
  * @param {Object} input.efforts       { sprint15s, peak3min, peak6min, peak12min }
  * @param {Object} [input.options]     { GE, Cr }
  * @returns {{

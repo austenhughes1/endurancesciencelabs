@@ -68,7 +68,6 @@ function buildCurves(VO2max, VLamax, sport, ctx) {
  * @param {string} inputs.sport          'cycling' | 'running'
  * @param {string} inputs.sex            'M' | 'F'
  * @param {number} inputs.bodyMass       kg
- * @param {number} inputs.bodyFatPct     %
  * @param {number} inputs.VLamax         mmol/L/s
  * @param {Array}  inputs.steps          [{intensity, durationMin, lactate}]
  * @param {number} [inputs.VO2max]       if supplied, skip the fit
@@ -128,7 +127,7 @@ export function getMetabolicProfile(inputs) {
   const curves = buildCurves(VO2max, inputs.VLamax, sport, ctx);
 
   return {
-    inputs:    { sport, sex: inputs.sex, bodyMass: inputs.bodyMass, bodyFatPct: inputs.bodyFatPct,
+    inputs:    { sport, sex: inputs.sex, bodyMass: inputs.bodyMass,
                  VLamax: inputs.VLamax, VO2max_supplied: inputs.VO2max != null, options: ctx },
     VO2max,
     VLamax: inputs.VLamax,
