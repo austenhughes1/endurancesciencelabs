@@ -97,22 +97,27 @@ export function deriveVLamax({ sport, sprint15s, bodyMass, sex }) {
 
 /* ───────── VO2max derivation ──────────────────────────────
  *
- * 6-min max effort corresponds approximately to 105–108% of VO2max-
- * equivalent intensity for trained athletes (Hawley & Noakes 1992 family
- * of work). We use the 6-min value as the primary anchor and apply a
- * small downscale to land at VO2max proper.
+ * RUNNING. We use Léger's empirical "MAS → VO2max" relation
+ * (Léger & Lambert 1980, Léger & Mercier 1984):
  *
- *   VO2max ≈ 0.95 × VO2_demand_at_6min
+ *   VO2max (mL/min/kg) ≈ 3.5 × velocity (km/h) = 12.6 × velocity (m/s)
  *
- * The 0.95 figure is a reasonable point estimate across trained athletes.
- * Highly anaerobic athletes (sprinters) may have a larger gap (use a
- * lower factor — they sustain less VO2 over 6 min); pure aerobic types a
- * smaller gap. We don't auto-adjust; instead we surface the implied
- * 3-min : 6-min : 12-min ratio so the user can see if the shape is
- * unusual.
+ * The 6-min max effort is treated as MAS (Maximal Aerobic Speed —
+ * velocity at VO2max). This is more reliable than computing
+ * Cr × v × 60/20.9 with a population Cr, because (a) Cr at maximal
+ * effort runs higher than the canonical 3.86 J/kg/m sustainable value
+ * (closer to 4.2–4.4 with anaerobic + neuromuscular overhead), and
+ * (b) Léger's regression has been validated against hundreds of athletes
+ * across the fitness spectrum.
+ *
+ * CYCLING. VO2 demand at 6-min max ≈ VO2max (cyclists can sustain
+ * VO2max for roughly that long). No additional scale factor.
+ *
+ *   VO2max (mL/min/kg) = P_6min × 60 / (GE × 20.9) / bodyMass
+ *
+ * Caveat for both: testing at altitude under-estimates sea-level VO2max
+ * by roughly 5–10%, depending on altitude and acclimatization.
  */
-
-const VO2MAX_FACTOR = 0.95;
 
 /**
  * Derive VO2max from 6-min max effort.
@@ -122,22 +127,19 @@ const VO2MAX_FACTOR = 0.95;
  * @param {number} input.peak6min W (cycling) | m/s (running)
  * @param {number} input.bodyMass kg
  * @param {number} [input.GE]     cycling gross efficiency (default 0.225)
- * @param {number} [input.Cr]     running energy cost (default 3.86)
  * @returns {{ VO2max: number, VO2_demand_at_6min: number }}
  */
-export function deriveVO2max({ sport, peak6min, bodyMass, GE, Cr }) {
-  let vo2_at_6min;
-  if (sport === 'cycling') {
-    vo2_at_6min = powerToVO2(peak6min, bodyMass, GE || MADER.cycling_GE_default);
-  } else if (sport === 'running') {
-    vo2_at_6min = speedToVO2(peak6min, Cr || MADER.Cr_default_J_per_kg_per_m);
-  } else {
-    throw new Error('Unsupported sport: ' + sport);
+export function deriveVO2max({ sport, peak6min, bodyMass, GE }) {
+  if (sport === 'running') {
+    // Léger 1980/84: VO2max ≈ 12.6 × MAS in m/s
+    const vo2max = 12.6 * peak6min;
+    return { VO2max: vo2max, VO2_demand_at_6min: vo2max };
   }
-  return {
-    VO2max: VO2MAX_FACTOR * vo2_at_6min,
-    VO2_demand_at_6min: vo2_at_6min,
-  };
+  if (sport === 'cycling') {
+    const vo2_at_6min = powerToVO2(peak6min, bodyMass, GE || MADER.cycling_GE_default);
+    return { VO2max: vo2_at_6min, VO2_demand_at_6min: vo2_at_6min };
+  }
+  throw new Error('Unsupported sport: ' + sport);
 }
 
 /* ───────── Full power-profile derivation ─────────────────── */
@@ -165,14 +167,13 @@ export function deriveVO2max({ sport, peak6min, bodyMass, GE, Cr }) {
 export function derivePowerProfile(input) {
   const { sport, sex, bodyMass, efforts, options } = input;
   const GE = (options && options.GE) || MADER.cycling_GE_default;
-  const Cr = (options && options.Cr) || MADER.Cr_default_J_per_kg_per_m;
 
   const vlx = deriveVLamax({
     sport, sprint15s: efforts.sprint15s, bodyMass, sex,
   });
 
   const vo2 = deriveVO2max({
-    sport, peak6min: efforts.peak6min, bodyMass, GE, Cr,
+    sport, peak6min: efforts.peak6min, bodyMass, GE,
   });
 
   // Power-duration shape sanity
