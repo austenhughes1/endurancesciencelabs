@@ -529,9 +529,11 @@ function resultsBlockHTML() {
       <details class="edu" style="margin-top:18px">
         <summary>How are these numbers derived?</summary>
         <div class="body">
-          <p><strong>VLamax</strong> comes from your 15-second sprint power (cycling) or speed (running), via an empirical linear regression calibrated to typical population ranges. This is the least-reliable part of the estimate — VLamax varies substantially at any given sprint power, and individual phenotype matters a lot.</p>
-          <p><strong>VO₂max</strong> is derived from your 6-minute max effort. 6-min max is widely used as a VO₂max-equivalent power surrogate in the lab (Hawley & Noakes 1992 and the body of work that followed). We apply a small ~0.95× downscale to account for the typical 5–8% anaerobic contribution at 6-min duration.</p>
-          <p>Once VO₂max and VLamax are estimated, the Mader/Heck engine runs exactly as it would on lactate-anchored values — MLSS, LT1, Fatmax, and substrate curves come from the same equations.</p>
+          <p><strong>VLamax</strong> comes from your 15-second sprint effort, via an empirical linear regression calibrated to typical population ranges (cycling: relative sprint power in W/kg; running: average sprint speed in m/s). This is the least-reliable part of the estimate — VLamax varies substantially at any given sprint output, and individual phenotype matters a lot.</p>
+          <p><strong>VO₂max — running.</strong> We use Léger's 1980 / 1984 empirical relation: <code>VO₂max (mL/min/kg) ≈ 12.6 × v</code>, where <em>v</em> is your 6-minute max speed in m/s. The 6-min max is treated as your "MAS" (Maximal Aerobic Speed — the velocity at which VO₂max is reached). Léger's regression is validated across hundreds of athletes and bakes in the population-typical mix of running economy plus the small anaerobic contribution at 6-min duration.</p>
+          <p><strong>VO₂max — cycling.</strong> We compute the oxygen demand of your 6-minute power directly: <code>VO₂max ≈ P × 60 / (GE × 20.9) / bodyMass</code>, assuming a gross efficiency of 22.5%. Cyclists can sustain near-VO₂max for ~6 minutes, so no additional scale factor is applied.</p>
+          <p><strong>Altitude caveat.</strong> If you tested at altitude (Boulder/Denver etc. are around 1,500 m), your 6-min max is roughly 5–10% slower than your sea-level equivalent. The VO₂max estimate from that data will be correspondingly low for your sea-level fitness. For an apples-to-apples lab-style number, repeat the field test at sea level.</p>
+          <p>Once VO₂max and VLamax are settled, the Mader/Heck engine runs exactly as it would on lactate-anchored values — MLSS, LT1, Fatmax, and substrate curves come from the same equations. References: Léger &amp; Lambert 1980; Léger &amp; Mercier 1984; di Prampero 1986; Mader &amp; Heck 1986.</p>
         </div>
       </details>
     </div>
