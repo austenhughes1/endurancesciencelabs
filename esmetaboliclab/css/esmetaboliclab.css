@@ -109,6 +109,55 @@ nav.esml-nav {
 .btn.ghost { color: var(--muted2); }
 .btn[disabled] { opacity: .4; cursor: not-allowed; }
 
+/* ── Two-path landing layout ─────────────────────────────── */
+.path-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 26px;
+}
+@media (max-width: 880px) {
+  .path-grid { grid-template-columns: 1fr; gap: 32px; }
+}
+.path {
+  display: flex; flex-direction: column; gap: 12px;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 18px; padding: 26px;
+  position: relative;
+}
+.path-have { border-left: 4px solid var(--cyan); }
+.path-skip { border-left: 4px solid var(--gold); }
+.path-header { margin-bottom: 6px; }
+.path-eyebrow {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  letter-spacing: .8px; text-transform: uppercase;
+  padding: 4px 10px; border-radius: 6px; margin-bottom: 12px;
+}
+.path-have .path-eyebrow { color: var(--cyan); background: rgba(0,229,200,.08); border: 1px solid rgba(0,229,200,.20); }
+.path-skip .path-eyebrow { color: var(--gold); background: rgba(245,200,66,.10); border: 1px solid rgba(245,200,66,.24); }
+.path-title { font-family: var(--display); font-size: 22px; font-weight: 700; line-height: 1.2; margin-bottom: 8px; letter-spacing: -.3px; }
+.path-sub { color: var(--muted2); font-size: 14px; line-height: 1.7; margin-bottom: 4px; }
+.path-step-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 50%;
+  font-family: var(--mono); font-size: 12px; font-weight: 700;
+  background: rgba(139,124,248,.18); color: var(--purple);
+  margin-top: 8px;
+}
+.path .tile {
+  /* tighter than the original tile grid */
+  padding: 22px;
+}
+.tile-caveat {
+  margin-top: 14px; padding: 11px 14px;
+  background: rgba(245,200,66,.08); border: 1px solid rgba(245,200,66,.24);
+  border-left: 3px solid var(--gold); border-radius: 8px;
+  font-size: 12px; color: var(--gold); line-height: 1.6;
+}
+.admin-footer-link {
+  text-align: center; margin-top: 28px; font-family: var(--mono); font-size: 11px;
+}
+.admin-footer-link a { color: var(--muted); opacity: .7; }
+.admin-footer-link a:hover { color: var(--muted2); opacity: 1; text-decoration: none; }
+
 /* ── Tile cards (mode selection) ─────────────────────────── */
 .tile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
 .tile {
