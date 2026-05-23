@@ -92,57 +92,10 @@
   <div class="panel">
     <div class="panel-h">Request a session</div>
     <p class="panel-sub">
-      Fill in a few details and we'll reach out to schedule. Pricing and exact
-      location are arranged when we follow up. Sessions are typically held in
-      the Boulder area; Denver-area travel by arrangement.
+      Tell us a few details and we'll reach out by email to schedule. Pricing
+      and exact location are arranged when we follow up.
     </p>
-
-    <form id="ip-form">
-      <div class="grid-2">
-        <label class="field">
-          <span class="lab">Your name</span>
-          <input type="text" id="ip-name" required>
-        </label>
-        <label class="field">
-          <span class="lab">Email</span>
-          <input type="email" id="ip-email" required>
-        </label>
-      </div>
-      <div class="grid-2">
-        <label class="field">
-          <span class="lab">Phone (optional)</span>
-          <input type="tel" id="ip-phone">
-        </label>
-        <div class="field">
-          <span class="lab">Sport</span>
-          <div class="radio-row">
-            <label><input type="radio" name="ip-sport" value="cycling" checked><span>Cycling</span></label>
-            <label><input type="radio" name="ip-sport" value="running"><span>Running</span></label>
-            <label><input type="radio" name="ip-sport" value="both"><span>Both</span></label>
-          </div>
-        </div>
-      </div>
-      <div class="field">
-        <span class="lab">Where are you?</span>
-        <div class="radio-row">
-          <label><input type="radio" name="ip-area" value="boulder" checked><span>Boulder area</span></label>
-          <label><input type="radio" name="ip-area" value="denver"><span>Denver area</span></label>
-          <label><input type="radio" name="ip-area" value="other"><span>Elsewhere</span></label>
-        </div>
-      </div>
-      <label class="field">
-        <span class="lab">Preferred window (optional)</span>
-        <input type="text" id="ip-timing" placeholder="e.g. weekday mornings, next 2–3 weeks">
-      </label>
-      <label class="field">
-        <span class="lab">Anything else we should know? (optional)</span>
-        <textarea id="ip-notes" rows="4" style="width:100%;padding:10px 14px;background:var(--panel2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--body);font-size:15px;resize:vertical"></textarea>
-        <span class="hint">Goals, current training, any health considerations, scheduling constraints…</span>
-      </label>
-
-      <button type="submit" class="btn primary" id="ip-submit" style="margin-top:8px">Send request →</button>
-      <div class="ip-form-status" id="ip-status"></div>
-    </form>
+    <button class="btn primary" type="button" data-in-person-request>Request a session →</button>
   </div>
 
   <footer class="esml">
@@ -174,66 +127,11 @@
     }
   });
   document.getElementById('footer-year').textContent = new Date().getFullYear();
+</script>
 
-  // ── Form submit → Firestore notification ──────────────────
-  document.getElementById('ip-form').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const user = window.__esml && window.__esml.user;
-    if (!user) { return; }
-
-    const $ = (id) => document.getElementById(id);
-    const radio = (name) => {
-      const el = document.querySelector('input[name="' + name + '"]:checked');
-      return el ? el.value : '';
-    };
-    const payload = {
-      name:   $('ip-name').value.trim(),
-      email:  $('ip-email').value.trim(),
-      phone:  $('ip-phone').value.trim() || null,
-      sport:  radio('ip-sport'),
-      area:   radio('ip-area'),
-      timing: $('ip-timing').value.trim() || null,
-      notes:  $('ip-notes').value.trim() || null,
-    };
-
-    if (!payload.name || !payload.email) {
-      const s = $('ip-status');
-      s.className = 'ip-form-status err';
-      s.textContent = 'Name and email are required.';
-      return;
-    }
-
-    const btn = $('ip-submit');
-    btn.disabled = true; btn.textContent = 'Sending…';
-
-    const summary = '[In-person test] ' + payload.name + ' (' + payload.sport + ', ' + payload.area + ')'
-                  + ' — ' + payload.email
-                  + (payload.notes ? ' · ' + payload.notes.slice(0, 120) : '');
-
-    try {
-      await firebase.firestore().collection('notifications').add({
-        recipientUid: ADMIN_UID,
-        senderUid:    user.uid,
-        type:         'in_person_request',
-        message:      summary,
-        payload:      payload,
-        read:         false,
-        createdAt:    firebase.firestore.FieldValue.serverTimestamp(),
-      });
-      const s = $('ip-status');
-      s.className = 'ip-form-status ok';
-      s.innerHTML = '<strong>Request sent.</strong> Your coach will reach out by email within a few days. If you don\'t hear back, send a follow-up to <a href="mailto:austen.hughes@finalforms.com" style="color:inherit;text-decoration:underline">austen.hughes@finalforms.com</a>.';
-      document.getElementById('ip-form').reset();
-      btn.textContent = 'Sent ✓';
-      setTimeout(() => { btn.disabled = false; btn.textContent = 'Send request →'; }, 4000);
-    } catch (err) {
-      console.error('In-person request submit failed:', err);
-      const s = $('ip-status');
-      s.className = 'ip-form-status err';
-      s.textContent = 'Send failed: ' + (err.message || err) + '. Please try again, or email directly.';
-      btn.disabled = false; btn.textContent = 'Send request →';
-    }
-  });
+<script type="module">
+  import { wireInPersonRequestTriggers } from '../js/ui/in-person-request.js';
+  wireInPersonRequestTriggers();
 </script>
 
 </body>
