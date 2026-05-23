@@ -40,7 +40,6 @@ const state = {
   sex: 'M',
   sport: 'running',
   bodyMass: 70,
-  bodyFatPct: 12,
   VLamax: null,           // set after Firestore load
   VLamax_measured_at: null,
   VLamax_inputs: null,    // {La_pre, La_peak_post, duration_s, t_PCr_s}
@@ -243,7 +242,6 @@ document.querySelectorAll('input[name=sport]').forEach(r => r.addEventListener('
   renderStages();
 }));
 $('#bodyMass').addEventListener('input', e => state.bodyMass = +e.target.value);
-$('#bodyFatPct').addEventListener('input', e => state.bodyFatPct = +e.target.value);
 
 function renderIntensityHeader() {
   const h = document.getElementById('intensity-header');
@@ -360,7 +358,6 @@ $('#run').addEventListener('click', () => {
       sport: state.sport,
       sex: state.sex,
       bodyMass: state.bodyMass,
-      bodyFatPct: state.bodyFatPct,
       VLamax: state.VLamax,
       steps: state.stages.map(s => ({
         intensity: s.intensity,
@@ -499,7 +496,7 @@ $('#export-pdf').addEventListener('click', async () => {
   doc.setTextColor(0); doc.setFontSize(12);
   doc.text('Athlete', 14, y); y += 6;
   doc.setFontSize(10); doc.setTextColor(60);
-  doc.text('Sport: ' + state.sport + '   Sex: ' + state.sex + '   Mass: ' + state.bodyMass + ' kg   Body fat: ' + state.bodyFatPct + '%', 14, y); y += 8;
+  doc.text('Sport: ' + state.sport + '   Sex: ' + state.sex + '   Mass: ' + state.bodyMass + ' kg', 14, y); y += 8;
 
   doc.setTextColor(0); doc.setFontSize(12); doc.text('Results', 14, y); y += 6;
   const lines = [

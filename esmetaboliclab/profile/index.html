@@ -91,7 +91,7 @@
   <section class="step-section active" data-step="1">
     <div class="panel">
       <div class="panel-h">1. Athlete</div>
-      <p class="panel-sub">Body composition rescales the absolute substrate values (g/min). Sex influences default reference ranges only.</p>
+      <p class="panel-sub">Body mass scales the absolute substrate values (g/min). Sex influences reference-range comparisons only.</p>
 
       <div class="grid-2">
         <div class="field">
@@ -109,17 +109,10 @@
           </div>
         </div>
       </div>
-      <div class="grid-2">
-        <label class="field">
-          <span class="lab">Body mass (kg)</span>
-          <input type="number" id="bodyMass" step="0.1" min="30" max="160" value="70">
-        </label>
-        <label class="field">
-          <span class="lab">Body fat (%)</span>
-          <input type="number" id="bodyFatPct" step="0.1" min="3" max="45" value="12">
-          <span class="hint">Skinfold or DEXA preferred. Smart-scale OK but less accurate.</span>
-        </label>
-      </div>
+      <label class="field" style="max-width:280px">
+        <span class="lab">Body mass (kg)</span>
+        <input type="number" id="bodyMass" step="0.1" min="30" max="160" value="70">
+      </label>
     </div>
     <div class="nav-actions">
       <span></span>

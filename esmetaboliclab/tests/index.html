@@ -132,7 +132,6 @@ window.runSuite = function () {
   // Build a synthetic step-test that's consistent with the canonical case,
   // then perturb each stage by ±0.5 mmol/L and verify VO2max moves <~2%.
   const synth = {
-    sport: 'cycling', sex: 'M', bodyMass: 75, bodyFatPct: 12,
     VLamax: 0.5,
     steps: [
       { intensity: 150, durationMin: 4, lactate: 1.4 },
