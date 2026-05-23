@@ -13,6 +13,7 @@ import { getMetabolicProfile } from '../js/lib/mader/index.js';
 import { computeVLamax } from '../js/lib/mader/sprint.js';
 import { generateZones } from '../js/ui/zones.js';
 import { minPerKmToPaceString, paceStringToMinPerKm, speedToPaceDualString } from '../js/lib/mader/sport.js';
+import { paceInputHTML, wirePaceInputs, readPaceMps } from '../js/ui/pace-input.js';
 import { wireHowToMeasureTriggers } from '../js/ui/how-to-measure.js';
 import { wireStepTestTriggers }    from '../js/ui/how-to-step-test.js';
 import { drawLactateChart, drawSubstrateChart } from '../js/ui/charts.js';
@@ -245,7 +246,7 @@ $('#bodyMass').addEventListener('input', e => state.bodyMass = +e.target.value);
 
 function renderIntensityHeader() {
   const h = document.getElementById('intensity-header');
-  if (h) h.textContent = state.sport === 'cycling' ? 'Power (W)' : 'Speed (m/s) or pace (mm:ss)';
+  if (h) h.textContent = state.sport === 'cycling' ? 'Power (W)' : 'Pace';
 }
 renderIntensityHeader();
 
@@ -254,36 +255,18 @@ renderIntensityHeader();
 const stagesBody = $('#stages-body');
 
 function intensityPlaceholder() {
-  return state.sport === 'cycling' ? '200' : '4:30 or 3.7';
-}
-
-function parseIntensity(s) {
-  if (state.sport === 'running') {
-    const t = String(s).trim();
-    if (/^\d+:\d+(\.\d+)?$/.test(t)) {
-      const pace = paceStringToMinPerKm(t);
-      return 1000 / (pace * 60); // m/s
-    }
-  }
-  const v = parseFloat(s);
-  return isFinite(v) ? v : 0;
-}
-
-function intensityDisplay(val) {
-  if (state.sport === 'running') {
-    if (val > 0 && val < 12) {
-      const pace = 1000 / (val * 60);
-      return minPerKmToPaceString(pace);
-    }
-  }
-  return String(val);
+  return state.sport === 'cycling' ? '200' : '7:00';
 }
 
 function renderStages() {
   stagesBody.innerHTML = state.stages.map((s, i) => `
     <tr>
       <td style="font-family:var(--mono);color:var(--muted2)">${i + 1}</td>
-      <td><input type="text"  data-i="${i}" data-k="intensity" value="${intensityDisplay(s.intensity)}" placeholder="${intensityPlaceholder()}"></td>
+      <td>${
+        state.sport === 'running'
+          ? paceInputHTML({ id: 'stage-intensity-' + i, mps: s.intensity, placeholder: intensityPlaceholder(), extraAttrs: 'data-i="' + i + '" data-k="intensity"' })
+          : '<input type="text" data-i="' + i + '" data-k="intensity" value="' + (s.intensity || '') + '" placeholder="' + intensityPlaceholder() + '">'
+      }</td>
       <td><input type="number" step="0.5" min="2" max="10" data-i="${i}" data-k="durationMin" value="${s.durationMin}"></td>
       <td><input type="number" step="0.1" min="0"  max="25" data-i="${i}" data-k="lactate" value="${s.lactate}"></td>
       <td><input type="number" step="1"   min="50" max="220" data-i="${i}" data-k="hr"      value="${s.hr}"></td>
@@ -295,10 +278,17 @@ function renderStages() {
     inp.addEventListener('input', e => {
       const i = +e.target.dataset.i;
       const k = e.target.dataset.k;
-      const v = e.target.value;
-      if (k === 'intensity') state.stages[i][k] = parseIntensity(v);
-      else if (k === 'hr')   state.stages[i][k] = v;
-      else                   state.stages[i][k] = +v;
+      if (!k) return;  // unit-toggle button has no data-k
+      if (k === 'intensity') {
+        if (state.sport === 'running') {
+          const mps = readPaceMps(e.target);
+          state.stages[i][k] = isFinite(mps) ? mps : 0;
+        } else {
+          const v = parseFloat(e.target.value);
+          state.stages[i][k] = isFinite(v) ? v : 0;
+        }
+      } else if (k === 'hr')   state.stages[i][k] = e.target.value;
+      else                     state.stages[i][k] = +e.target.value;
       checkStageWarnings();
     });
   });
@@ -309,11 +299,24 @@ function renderStages() {
       renderStages();
     });
   });
+
+  // Pace-unit toggle: when the user flips the unit, re-read every running
+  // stage in the new unit (the display has already been converted).
+  wirePaceInputs(() => {
+    if (state.sport !== 'running') return;
+    stagesBody.querySelectorAll('input.pace-text').forEach((inp) => {
+      const i = +inp.dataset.i;
+      const mps = readPaceMps(inp);
+      if (isFinite(mps)) state.stages[i].intensity = mps;
+    });
+    checkStageWarnings();
+  });
+
   checkStageWarnings();
 }
 
 $('#add-stage').addEventListener('click', () => {
-  if (state.stages.length >= 6) return;
+  if (state.stages.length >= 9) return;
   const last = state.stages[state.stages.length - 1];
   state.stages.push({
     intensity: state.sport === 'cycling' ? Math.round(last.intensity + 30) : +(last.intensity + 0.3).toFixed(2),
@@ -326,7 +329,7 @@ $('#add-stage').addEventListener('click', () => {
 
 function checkStageWarnings() {
   const out = [];
-  if (state.stages.length < 3) out.push('Need at least 3 stages for a meaningful fit.');
+  if (state.stages.length < 5) out.push('Need at least 5 stages for a meaningful fit (most tests run 5–9).');
   for (let i = 1; i < state.stages.length; i++) {
     if (state.stages[i].intensity <= state.stages[i - 1].intensity)
       out.push('Stage ' + (i + 1) + ' intensity should exceed stage ' + i + '.');
