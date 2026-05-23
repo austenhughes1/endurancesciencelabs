@@ -12,7 +12,7 @@
 import { getMetabolicProfile } from '../js/lib/mader/index.js';
 import { computeVLamax } from '../js/lib/mader/sprint.js';
 import { generateZones } from '../js/ui/zones.js';
-import { minPerKmToPaceString, paceStringToMinPerKm } from '../js/lib/mader/sport.js';
+import { minPerKmToPaceString, paceStringToMinPerKm, speedToPaceDualString } from '../js/lib/mader/sport.js';
 import { wireHowToMeasureTriggers } from '../js/ui/how-to-measure.js';
 import { wireStepTestTriggers }    from '../js/ui/how-to-step-test.js';
 import { drawLactateChart, drawSubstrateChart } from '../js/ui/charts.js';
@@ -30,7 +30,7 @@ const fmt = {
   G:   (v) => v.toFixed(2) + ' g/min',
   pct: (v) => (v * 100).toFixed(1) + '%',
   ms:  (v) => v.toFixed(2) + ' m/s',
-  pace:(v) => minPerKmToPaceString(1000 / (v * 60)) + ' /km',
+  pace:(v) => speedToPaceDualString(v),
 };
 
 /* ───────── State ───────── */
@@ -38,18 +38,19 @@ const fmt = {
 const state = {
   step: 1,
   sex: 'M',
-  sport: 'cycling',
-  bodyMass: 75,
+  sport: 'running',
+  bodyMass: 70,
   bodyFatPct: 12,
   VLamax: null,           // set after Firestore load
   VLamax_measured_at: null,
   VLamax_inputs: null,    // {La_pre, La_peak_post, duration_s, t_PCr_s}
   stages: [
-    { intensity: 150, durationMin: 4, lactate: 1.4, hr: '' },
-    { intensity: 200, durationMin: 4, lactate: 2.0, hr: '' },
-    { intensity: 240, durationMin: 4, lactate: 3.0, hr: '' },
-    { intensity: 270, durationMin: 4, lactate: 4.5, hr: '' },
-    { intensity: 300, durationMin: 4, lactate: 7.0, hr: '' },
+    // Default to running speeds (8:00, 7:30, 7:00, 6:30, 6:00 per mile)
+    { intensity: 3.35, durationMin: 5, lactate: 1.4, hr: '' },
+    { intensity: 3.58, durationMin: 5, lactate: 2.0, hr: '' },
+    { intensity: 3.83, durationMin: 5, lactate: 3.0, hr: '' },
+    { intensity: 4.13, durationMin: 5, lactate: 4.5, hr: '' },
+    { intensity: 4.47, durationMin: 5, lactate: 7.5, hr: '' },
   ],
   profile: null,
 };

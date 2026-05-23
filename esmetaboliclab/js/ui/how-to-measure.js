@@ -57,7 +57,7 @@ const MODAL_HTML = `
           can run the protocol with you — equipment, technique, and a walk-through
           of your results, all in one session.
         </p>
-        <a class="btn primary" href="/coaching/">Request an in-person session →</a>
+        <button class="btn primary" type="button" data-in-person-request>Request an in-person session →</button>
       </div>
 
       <p class="esml-modal-foot">
@@ -99,6 +99,18 @@ export function showHowToMeasureModal() {
   overlay.addEventListener('click', (e) => {
     // Only close on backdrop click — not click bubbling from inside the modal card
     if (e.target === overlay) close();
+  });
+
+  // Wire the in-person CTA inside this modal to open the request modal.
+  // Lazy-load to avoid a hard dependency cycle.
+  root.querySelectorAll('[data-in-person-request]').forEach((el) => {
+    el.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const { showInPersonRequestModal } = await import('./in-person-request.js');
+      // Close this modal first so we don't stack two on top of each other
+      close();
+      showInPersonRequestModal();
+    });
   });
 
   // Move keyboard focus to the close button for accessibility

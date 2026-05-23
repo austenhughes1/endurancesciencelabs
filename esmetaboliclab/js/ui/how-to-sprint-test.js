@@ -29,19 +29,19 @@ const MODAL_HTML = `
       <div class="section-label" style="margin-bottom:18px">◈ Sprint VLamax protocol</div>
       <h2 class="esml-modal-title">How to run a Sprint VLamax test</h2>
       <p class="esml-modal-lede">
-        A single 15-second all-out sprint, with a blood-lactate sample before
-        and several after, tells us how fast your muscles can pump lactate into
-        your bloodstream at maximum glycolytic effort — your VLamax. Plan for
-        <strong>30 minutes</strong> from warm-up to the last sample.
+        A single 15-second all-out sprint, with a finger-prick lactate sample
+        before and several more after, tells us your VLamax — how quickly your
+        body produces lactate at maximum effort. Plan for <strong>30 minutes</strong>
+        from warm-up to the last sample.
       </p>
 
       <h3 class="esml-modal-h3">What you need</h3>
       <ul class="esml-checklist">
         <li>Handheld lactate meter, strips, lancets, alcohol wipes, gauze — see the <a href="#" data-howto-measure style="color:var(--cyan)">measurement protocol</a></li>
-        <li>An effort medium: stationary ergometer for cycling, treadmill or flat track for running</li>
+        <li>An effort medium: stationary trainer or ergometer for cycling, treadmill or flat track for running</li>
         <li>Stopwatch with a clear 15-second timer (or a partner counting down)</li>
-        <li>Fan + water + towel</li>
-        <li>A partner is ideal — sampling lactate while you're recovering is much easier with a second person</li>
+        <li>Fan + towel. Small sips of plain water are fine if you need them — <strong>but no sports drinks, gels, or anything with carbs or electrolytes</strong>, they'll skew your lactate readings.</li>
+        <li>A partner is ideal — sampling while you're recovering is much easier with a second person</li>
         <li>30 minutes uninterrupted</li>
       </ul>
 
@@ -60,16 +60,16 @@ const MODAL_HTML = `
 
       <h3 class="esml-modal-h3">2 — Pre-sprint lactate sample</h3>
       <ol class="esml-steps">
-        <li><strong>Take a capillary lactate sample</strong> after the warm-up is complete and you've been recovered for 1–2 minutes. Expected range: 0.8–1.8 mmol/L. This is your baseline.</li>
-        <li><strong>Do not skip this sample.</strong> Your VLamax is computed as <em>(peak − baseline) / glycolytic time</em>, so the baseline matters directly to the result.</li>
+        <li><strong>Take a lactate sample</strong> after the warm-up is complete and you've been recovered for 1–2 minutes. Expected range: 0.8–1.8 mmol/L. This is your baseline.</li>
+        <li><strong>Do not skip this sample.</strong> Your VLamax is computed as <em>(peak − baseline) / effective time</em>, so the baseline matters directly to the result.</li>
       </ol>
 
       <h3 class="esml-modal-h3">3 — Pre-prep your sampling finger</h3>
       <div class="warn" style="margin-bottom:14px">
         ⚠ <strong>Do this before the sprint, not after.</strong> Setting up
-        sampling gear after the sprint costs you 60+ seconds — long enough to
-        miss the peak in rapid-clearance athletes whose peak arrives at the
-        end of the sprint or within 30 seconds.
+        sampling gear after the sprint costs you 30–60 seconds — long enough
+        to miss the peak in athletes whose peak arrives the moment the sprint
+        ends and falls fast from there.
       </div>
       <ol class="esml-steps">
         <li>Choose a different finger from the one you used for the pre-sample.</li>
@@ -80,23 +80,22 @@ const MODAL_HTML = `
 
       <h3 class="esml-modal-h3">4 — The 15-second all-out sprint</h3>
       <ol class="esml-steps">
-        <li>Position yourself for the sprint — on the ergometer with appropriate resistance, or at the start of a flat sprint zone (track straight, treadmill at speed already running for a flying start).</li>
-        <li>On "go", attack <strong>maximally for exactly 15 seconds</strong>. Effort must be all-out from the first second — not paced. The whole point is to push glycolysis to its ceiling.</li>
+        <li>Position yourself for the sprint — on the trainer with appropriate resistance, or at the start of a flat sprint zone (track straight, treadmill at speed for a flying start).</li>
+        <li>On "go", attack <strong>maximally for exactly 15 seconds</strong>. The effort has to be all-out from the first second — not paced, not held back. Empty the tank.</li>
         <li>Stop at 15 seconds. <strong>Do not "cool down" actively.</strong> Sit or stand quietly — active recovery accelerates lactate clearance and lowers your measured peak. Walk only if you feel light-headed.</li>
       </ol>
 
       <h3 class="esml-modal-h3">5 — Post-sprint lactate sampling</h3>
       <div class="warn" style="margin-bottom:14px">
-        ⚠ <strong>Take your first sample within 30 seconds of finishing.</strong>
-        Some athletes peak essentially at the end of the sprint and fall fast
-        — if your first sample is at 1 minute, you may have already missed it.
-        This is why step 3 (prepping the sampling finger beforehand) matters.
+        ⚠ <strong>Take your first sample immediately upon finishing.</strong>
+        Some athletes peak the moment the sprint ends and fall fast — if your
+        first sample is at 1 minute, you may have already missed it. This is
+        why step 3 (prepping the sampling finger beforehand) matters.
       </div>
       <p class="esml-modal-p">
-        Blood lactate continues to climb after the sprint ends because lactate
-        has to diffuse out of muscle into capillary blood — but capillary
-        perfusion at the working muscle is at its highest <em>during</em> the
-        sprint, so the leading edge of the lactate wave reaches your fingertip
+        Blood lactate continues to climb for a while after the sprint ends —
+        lactate has to make its way from the working muscle into the capillary
+        blood at your fingertip. But the leading edge of that wave can arrive
         very quickly in some athletes. The timing of peak varies widely:
       </p>
       <ul class="esml-checklist">
@@ -106,12 +105,12 @@ const MODAL_HTML = `
         <li><strong>5–7 minutes</strong> — occasionally seen, especially with very high muscle mass</li>
       </ul>
       <p class="esml-modal-p">
-        Sample at the <strong>end of the sprint (within 30 seconds)</strong>,
-        then at <strong>1, 3, 5, and 7 minutes</strong>, then every 2 minutes
-        after that. Keep sampling until your latest reading has dropped by at
-        least <strong>1 mmol/L</strong> below your highest — only then can you
-        be confident you've captured the true peak. <strong>The peak is
-        whichever sample is highest</strong>, regardless of when it landed.
+        Sample <strong>immediately upon finishing</strong>, then at <strong>1,
+        2, and 3 minutes</strong>, then every 2 minutes after that —
+        <strong>but only continue if your lactate is still rising</strong>.
+        The moment a reading comes back lower than the previous one, you've
+        passed peak: stop sampling. <strong>The peak is whichever sample is
+        highest</strong>, regardless of when it landed.
       </p>
 
       <h3 class="esml-modal-h3">6 — Enter your peak</h3>
@@ -123,12 +122,13 @@ const MODAL_HTML = `
 
       <h3 class="esml-modal-h3">Common pitfalls</h3>
       <ul class="esml-checklist">
-        <li><strong>First sample taken too late.</strong> If your first post-sprint sample is at 1 minute or later, you may have already missed the peak — especially if your physiology clears lactate quickly. Pre-prep the finger and take a sample within 30 seconds of finishing.</li>
+        <li><strong>First sample taken too late.</strong> If your first post-sprint sample is at 1 minute or later, you may have already missed the peak — especially if your body clears lactate quickly. Pre-prep the finger and sample immediately upon finishing.</li>
         <li><strong>Sampling gear not ready before the sprint.</strong> Fumbling with alcohol wipes, strips, and lances after the sprint ends costs you the early-peak window. Prep everything during the warm-up.</li>
         <li><strong>Active cool-down between sprint and sampling.</strong> Even gentle spinning or walking accelerates clearance and lowers the measured peak. Sit or stand still.</li>
-        <li><strong>Sprint wasn't truly all-out.</strong> Pacing the 15 seconds defeats the purpose — VLamax requires glycolysis at its ceiling. If your post-sprint lactate barely budges from baseline, the effort wasn't maximal.</li>
+        <li><strong>Sprint wasn't truly all-out.</strong> Pacing the 15 seconds defeats the purpose. If your post-sprint lactate barely budges from baseline, the effort wasn't maximal — re-test after another warm-up and don't hold anything back.</li>
         <li><strong>Sweat or moisture on the lancing site.</strong> Towel off and alcohol-wipe before each sample. See the <a href="#" data-howto-measure style="color:var(--cyan)">measurement protocol</a>.</li>
-        <li><strong>Stopping sampling too early.</strong> If your latest reading is still climbing or steady, take another. Only stop when you've seen a clear drop of ≥1 mmol/L from the high point.</li>
+        <li><strong>Sports drinks, gels, or electrolytes during the test.</strong> Anything with carbs or electrolytes will skew your lactate readings. Plain water in small sips is fine.</li>
+        <li><strong>Stopping sampling too early.</strong> If your latest reading is still climbing or flat, take another. The only safe stopping point is when a reading comes back lower than the previous one.</li>
         <li><strong>Insufficient warm-up.</strong> A cold sprint produces a smaller lactate response. Don't skip the warm-up.</li>
       </ul>
 

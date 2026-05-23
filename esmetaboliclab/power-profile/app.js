@@ -18,7 +18,7 @@ import { getMetabolicProfile } from '../js/lib/mader/index.js';
 import { derivePowerProfile }  from '../js/lib/mader/power-profile.js';
 import { generateZones }       from '../js/ui/zones.js';
 import { drawLactateChart, drawSubstrateChart } from '../js/ui/charts.js';
-import { minPerKmToPaceString, paceStringToMinPerKm } from '../js/lib/mader/sport.js';
+import { minPerKmToPaceString, paceStringToMinPerKm, speedToPaceDualString } from '../js/lib/mader/sport.js';
 
 const $   = (sel) => document.querySelector(sel);
 const $$  = (sel) => Array.from(document.querySelectorAll(sel));
@@ -29,16 +29,16 @@ const fmt = {
   G:   (v) => v.toFixed(2) + ' g/min',
   pct: (v) => (v * 100).toFixed(1) + '%',
   ms:  (v) => v.toFixed(2) + ' m/s',
-  pace:(v) => minPerKmToPaceString(1000 / (v * 60)) + ' /km',
+  pace:(v) => speedToPaceDualString(v),
 };
 const db = firebase.firestore();
 
 /* ───────── State ───────── */
 
 const state = {
-  sport: 'cycling',
+  sport: 'running',
   sex: 'M',
-  bodyMass: 75,
+  bodyMass: 70,
   bodyFatPct: 12,
   efforts: { sprint15s: '', peak3min: '', peak6min: '', peak12min: '' },
   sessions: [],
@@ -161,8 +161,12 @@ async function saveSession(derived, sportInputs, efforts) {
 /* ───────── New-session form (inline) ───────── */
 
 function newFormHTML() {
+  // Prefer the last saved session as a prefill source, but only if it
+  // matches the currently-selected sport — different sports use different
+  // intensity units and we don't want to splat watts into a running form.
   const last = state.sessions[state.sessions.length - 1];
-  const prefill = (last && last.inputs)
+  const lastMatches = last && last.inputs && last.inputs.sport === state.sport;
+  const prefill = lastMatches
     ? {
         sport: last.inputs.sport, sex: last.inputs.sex,
         bodyMass: last.inputs.bodyMass, bodyFatPct: last.inputs.bodyFatPct,
@@ -252,9 +256,11 @@ function newFormHTML() {
 
 function wireNewForm() {
   const sportRadios = document.querySelectorAll('input[name="ps-sport"]');
-  sportRadios.forEach(r => r.addEventListener('change', () => {
-    // Re-render to update placeholders for the chosen sport
-    render();
+  sportRadios.forEach((r) => r.addEventListener('change', (e) => {
+    // Persist the new sport to state, clear effort values (units don't carry
+    // across sports), and re-render with the form still open.
+    state.sport = e.target.value;
+    state.efforts = { sprint15s: '', peak3min: '', peak6min: '', peak12min: '' };
     state.newFormOpen = true;
     render();
   }));

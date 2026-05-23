@@ -122,12 +122,12 @@ function newFormHTML() {
         <button type="button" class="btn ghost" id="ns-cancel" style="padding:7px 14px;font-size:12px">Cancel</button>
       </div>
       <p class="new-session-sub">
-        Warm up at least 10 minutes. Take a pre-sprint capillary lactate.
-        Perform an all-out 15-second sprint. Sample lactate within
-        <strong>30 seconds of finishing</strong>, then at <strong>1, 3, 5, and
-        7 minutes</strong> post, then every 2 minutes until your reading drops
-        ≥ 1 mmol/L from the high. Peak timing varies a lot between athletes —
-        use the highest reading as your peak.
+        Warm up at least 10 minutes. Take a pre-sprint lactate sample.
+        Perform an all-out 15-second sprint. Sample
+        <strong>immediately upon finishing</strong>, then at
+        <strong>1, 2, and 3 minutes</strong>, then every 2 minutes — but only
+        if lactate is still rising. The moment a reading drops below the
+        previous one, you've passed peak: enter the highest reading.
         <a href="#" data-howto-sprint-protocol style="color:var(--cyan)">Full protocol →</a> &nbsp;·&nbsp;
         <a href="#" data-howto-measure style="color:var(--cyan)">How do I measure lactate? →</a>
       </p>
@@ -140,7 +140,7 @@ function newFormHTML() {
         <label class="field">
           <span class="lab">Peak post-sprint lactate (mmol/L)</span>
           <input type="number" id="ns-la-post" step="0.1" min="2" max="30" value="${inp.La_peak_post}">
-          <span class="hint">Highest reading across the 1–7+ min post window</span>
+          <span class="hint">Highest reading across your post-sprint samples</span>
         </label>
         <label class="field">
           <span class="lab">Sprint duration (s)</span>

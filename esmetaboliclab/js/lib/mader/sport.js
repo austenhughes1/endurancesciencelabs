@@ -87,6 +87,24 @@ export function minPerKmToPaceString(p) {
   return min + ':' + (sec < 10 ? '0' : '') + sec;
 }
 
+/** m/s → minutes per mile */
+const METERS_PER_MILE = 1609.344;
+export function speedToPace_min_per_mile(v_m_per_s) {
+  if (v_m_per_s <= 0) return Infinity;
+  return METERS_PER_MILE / v_m_per_s / 60;
+}
+
+/**
+ * Format a speed in m/s as "m:ss/mi · m:ss/km" — used everywhere a running
+ * pace is shown so US athletes and the rest of the world can both read it.
+ */
+export function speedToPaceDualString(v_m_per_s) {
+  if (!isFinite(v_m_per_s) || v_m_per_s <= 0) return '—';
+  const mi = minPerKmToPaceString(speedToPace_min_per_mile(v_m_per_s));
+  const km = minPerKmToPaceString(speedToPace_min_per_km(v_m_per_s));
+  return mi + '/mi · ' + km + '/km';
+}
+
 /**
  * Forward dispatcher: given a stage's recorded intensity (in the user's chosen
  * unit), return VO2 demand in mL/min/kg.
