@@ -280,15 +280,15 @@ const MODAL_HTML = `
       ${SHARED_HEAD}
 
       <div class="esml-tabs" role="tablist" style="margin-top:14px">
-        <button class="esml-tab active" type="button" data-tab="cycling" role="tab">⊙ Cycling</button>
-        <button class="esml-tab" type="button" data-tab="running" role="tab">▷ Running</button>
+        <button class="esml-tab active" type="button" data-tab="running" role="tab">▷ Running</button>
+        <button class="esml-tab" type="button" data-tab="cycling" role="tab">⊙ Cycling</button>
       </div>
 
-      <div class="esml-tab-pane active" data-pane="cycling">
-        ${CYCLING_PROTOCOL}
-      </div>
-      <div class="esml-tab-pane" data-pane="running">
+      <div class="esml-tab-pane active" data-pane="running">
         ${RUNNING_PROTOCOL}
+      </div>
+      <div class="esml-tab-pane" data-pane="cycling">
+        ${CYCLING_PROTOCOL}
       </div>
 
       ${SHARED_FOOTER}

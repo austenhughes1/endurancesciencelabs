@@ -19,6 +19,7 @@ import { derivePowerProfile }  from '../js/lib/mader/power-profile.js';
 import { generateZones }       from '../js/ui/zones.js';
 import { drawLactateChart, drawSubstrateChart } from '../js/ui/charts.js';
 import { minPerKmToPaceString, paceStringToMinPerKm, speedToPaceDualString } from '../js/lib/mader/sport.js';
+import { distanceInputHTML, wireDistanceInputs, readDistanceMeters, metersToDistanceString, getDefaultDistanceUnit } from '../js/ui/distance-input.js';
 
 const $   = (sel) => document.querySelector(sel);
 const $$  = (sel) => Array.from(document.querySelectorAll(sel));
@@ -59,24 +60,32 @@ function fmtIntensity(sport, v) {
   return sport === 'cycling' ? fmt.W(v) : fmt.pace(v);
 }
 
-function parseIntensity(sport, raw) {
-  if (sport === 'running') {
-    const t = String(raw).trim();
-    if (/^\d+:\d+(\.\d+)?$/.test(t)) {
-      const pace = paceStringToMinPerKm(t);
-      return 1000 / (pace * 60); // m/s
-    }
-  }
+/* Effort durations in seconds — used to convert between distance (what the
+ * user enters for running) and m/s (what the engine consumes). */
+const EFFORT_DUR_S = {
+  sprint15s: 15,
+  peak3min:  180,
+  peak6min:  360,
+  peak12min: 720,
+};
+
+function parseCyclingPower(raw) {
   const v = parseFloat(raw);
   return isFinite(v) ? v : NaN;
 }
 
-function intensityPlaceholder(sport, duration) {
-  if (sport === 'cycling') {
-    return ({ sprint15s: '1000', peak3min: '380', peak6min: '340', peak12min: '305' })[duration];
-  }
-  return ({ sprint15s: '8.0',  peak3min: '5.9',  peak6min: '5.3',  peak12min: '4.9'  })[duration];
+/** Cycling placeholders by duration. Running uses distance-input placeholders. */
+function cyclingPlaceholder(duration) {
+  return ({ sprint15s: '1000', peak3min: '380', peak6min: '340', peak12min: '305' })[duration];
 }
+
+/** Per-unit running distance placeholders (typical values for a trained runner). */
+const RUNNING_DIST_PLACEHOLDERS = {
+  sprint15s: { m: '100',  mi: '0.062' },
+  peak3min:  { m: '1000', mi: '0.62'  },
+  peak6min:  { m: '1900', mi: '1.18'  },
+  peak12min: { m: '3500', mi: '2.17'  },
+};
 
 function generateId() {
   return 'p_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
@@ -174,7 +183,46 @@ function newFormHTML() {
         efforts: state.efforts,
       };
 
-  const intensityHeader = prefill.sport === 'cycling' ? 'Power (W)' : 'Speed (m/s) or pace (mm:ss/km)';
+  const isRunning = prefill.sport === 'running';
+
+  // For running, convert the stored m/s into meters so the form displays
+  // the distance the user actually ran. Cycling stays in raw watts.
+  const effortValueAttr = (key) => {
+    const v = prefill.efforts && prefill.efforts[key];
+    if (!isFinite(+v) || +v <= 0) return '';
+    return isRunning ? metersToDistanceString(+v * EFFORT_DUR_S[key], getDefaultDistanceUnit()) : v;
+  };
+  // Render a single effort input — distance-input for running, plain power input for cycling
+  const effortInput = (key, idSuffix) => {
+    if (isRunning) {
+      const meters = prefill.efforts && isFinite(+prefill.efforts[key]) && +prefill.efforts[key] > 0
+        ? +prefill.efforts[key] * EFFORT_DUR_S[key]
+        : null;
+      return distanceInputHTML({
+        id: 'ps-' + idSuffix,
+        meters: meters,
+        placeholders: RUNNING_DIST_PLACEHOLDERS[key],
+      });
+    }
+    return '<input type="text" id="ps-' + idSuffix + '" placeholder="' + cyclingPlaceholder(key)
+         + '" value="' + (prefill.efforts && prefill.efforts[key] || '') + '">';
+  };
+
+  const subCopy = isRunning
+    ? `For each duration, run all-out and record the distance you covered.
+       On a <strong>track</strong>, read off the exact meters. On a
+       <strong>flat outdoor route with GPS</strong>, record the miles.
+       Toggle the unit on any field. Each effort must be a <strong>genuine
+       maximum</strong> — pacing leaves the result unreliable.`
+    : `Use your best 15-second sprint, 3-minute, 6-minute, and 12-minute
+       all-out efforts. These can come from a structured field test you
+       run today or from prior race / interval files in TrainingPeaks /
+       Strava / Garmin. Each must be a <strong>genuine maximum</strong> for
+       that duration; pacing leaves the result unreliable.`;
+
+  const effortHeader = isRunning ? 'Distance covered in each duration' : 'Max effort power (W)';
+  const sprintHint   = isRunning ? 'Track: usually 90–130 m at race speed' : 'Average across the full 15 seconds, not the 1-sec peak';
+  const sixMinHint   = isRunning ? 'VO₂max-equivalent effort — the headline number' : 'VO₂max-equivalent intensity — the headline number';
 
   return `
     <div class="new-session-card" id="ps-form">
@@ -182,20 +230,14 @@ function newFormHTML() {
         <div class="h-title">▶ New power profile</div>
         <button type="button" class="btn ghost" id="ps-cancel" style="padding:7px 14px;font-size:12px">Cancel</button>
       </div>
-      <p class="new-session-sub">
-        Use your best 15-second sprint, 3-minute, 6-minute, and 12-minute
-        all-out efforts. These can come from a structured field test you
-        run today or from prior race / interval files in TrainingPeaks /
-        Strava / Garmin. Each must be a <strong>genuine maximum</strong> for
-        that duration; pacing leaves the result unreliable.
-      </p>
+      <p class="new-session-sub">${subCopy}</p>
 
       <div class="grid-2">
         <div class="field">
           <span class="lab">Sport</span>
           <div class="radio-row">
-            <label><input type="radio" name="ps-sport" value="cycling"${prefill.sport === 'cycling' ? ' checked' : ''}><span>Cycling</span></label>
             <label><input type="radio" name="ps-sport" value="running"${prefill.sport === 'running' ? ' checked' : ''}><span>Running</span></label>
+            <label><input type="radio" name="ps-sport" value="cycling"${prefill.sport === 'cycling' ? ' checked' : ''}><span>Cycling</span></label>
           </div>
         </div>
         <div class="field">
@@ -212,27 +254,27 @@ function newFormHTML() {
         <input type="number" id="ps-mass" step="0.1" min="30" max="160" value="${prefill.bodyMass}">
       </label>
 
-      <div style="margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--muted2);letter-spacing:.5px;text-transform:uppercase">Max effort intensities — <span id="ps-intensity-unit">${intensityHeader}</span></div>
+      <div style="margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--muted2);letter-spacing:.5px;text-transform:uppercase">${effortHeader}</div>
       <div class="grid-2" style="margin-top:6px">
         <label class="field">
           <span class="lab">15-second sprint</span>
-          <input type="text" id="ps-sprint" placeholder="${intensityPlaceholder(prefill.sport, 'sprint15s')}" value="${prefill.efforts.sprint15s ?? ''}">
-          <span class="hint">Average across the full 15 seconds, not the 1-sec peak</span>
+          ${effortInput('sprint15s', 'sprint')}
+          <span class="hint">${sprintHint}</span>
         </label>
         <label class="field">
           <span class="lab">3-minute max</span>
-          <input type="text" id="ps-3min"   placeholder="${intensityPlaceholder(prefill.sport, 'peak3min')}" value="${prefill.efforts.peak3min ?? ''}">
+          ${effortInput('peak3min', '3min')}
         </label>
       </div>
       <div class="grid-2">
         <label class="field">
           <span class="lab">6-minute max</span>
-          <input type="text" id="ps-6min"   placeholder="${intensityPlaceholder(prefill.sport, 'peak6min')}" value="${prefill.efforts.peak6min ?? ''}">
-          <span class="hint">VO₂max-equivalent intensity — the headline number</span>
+          ${effortInput('peak6min', '6min')}
+          <span class="hint">${sixMinHint}</span>
         </label>
         <label class="field">
           <span class="lab">12-minute max</span>
-          <input type="text" id="ps-12min"  placeholder="${intensityPlaceholder(prefill.sport, 'peak12min')}" value="${prefill.efforts.peak12min ?? ''}">
+          ${effortInput('peak12min', '12min')}
         </label>
       </div>
 
@@ -256,7 +298,8 @@ function wireNewForm() {
   }));
 
   ['ps-mass', 'ps-sprint', 'ps-3min', 'ps-6min', 'ps-12min'].forEach((id) => {
-    $('#' + id).addEventListener('input', recalcPreview);
+    const el = $('#' + id);
+    if (el) el.addEventListener('input', recalcPreview);
   });
 
   $('#ps-cancel').addEventListener('click', () => {
@@ -265,6 +308,12 @@ function wireNewForm() {
   });
 
   $('#ps-save').addEventListener('click', onSave);
+
+  // For running, wire the distance-unit toggle and recompute on flip
+  if (state.sport === 'running') {
+    wireDistanceInputs(() => recalcPreview());
+  }
+
   recalcPreview();
 }
 
@@ -273,11 +322,23 @@ function readForm() {
   const sex   = (document.querySelector('input[name="ps-sex"]:checked')   || {}).value || 'M';
   const bodyMass = parseFloat($('#ps-mass').value);
 
+  // Running: the form holds distances; convert to m/s via the known duration.
+  // Cycling: the form holds watts directly.
+  function readOne(idSuffix, key) {
+    const el = $('#ps-' + idSuffix);
+    if (!el) return NaN;
+    if (sport === 'running') {
+      const meters = readDistanceMeters(el);
+      if (!isFinite(meters) || meters <= 0) return NaN;
+      return meters / EFFORT_DUR_S[key];
+    }
+    return parseCyclingPower(el.value);
+  }
   const efforts = {
-    sprint15s: parseIntensity(sport, $('#ps-sprint').value),
-    peak3min:  parseIntensity(sport, $('#ps-3min').value),
-    peak6min:  parseIntensity(sport, $('#ps-6min').value),
-    peak12min: parseIntensity(sport, $('#ps-12min').value),
+    sprint15s: readOne('sprint',  'sprint15s'),
+    peak3min:  readOne('3min',    'peak3min'),
+    peak6min:  readOne('6min',    'peak6min'),
+    peak12min: readOne('12min',   'peak12min'),
   };
   return { sport, sex, bodyMass, efforts };
 }
@@ -355,15 +416,22 @@ async function onSave() {
 
 function effortsLine(sport, efforts) {
   if (!efforts) return '';
-  const unit = sport === 'cycling' ? 'W' : 'm/s';
-  const fmt = sport === 'cycling'
-    ? (v) => Math.round(v) + ' ' + unit
-    : (v) => v.toFixed(1) + ' ' + unit;
-  return `15s ${fmt(efforts.sprint15s)} · 3m ${fmt(efforts.peak3min)} · 6m ${fmt(efforts.peak6min)} · 12m ${fmt(efforts.peak12min)}`;
+  if (sport === 'cycling') {
+    const f = (v) => Math.round(v) + ' W';
+    return `15s ${f(efforts.sprint15s)} · 3m ${f(efforts.peak3min)} · 6m ${f(efforts.peak6min)} · 12m ${f(efforts.peak12min)}`;
+  }
+  // Running: convert each m/s back into the distance covered, displayed in
+  // the user's current preferred unit (m or mi).
+  const unit = getDefaultDistanceUnit();
+  const dist = (mps, durKey) => {
+    const meters = mps * EFFORT_DUR_S[durKey];
+    return metersToDistanceString(meters, unit) + ' ' + unit;
+  };
+  return `15s ${dist(efforts.sprint15s, 'sprint15s')} · 3m ${dist(efforts.peak3min, 'peak3min')} · 6m ${dist(efforts.peak6min, 'peak6min')} · 12m ${dist(efforts.peak12min, 'peak12min')}`;
 }
 
 function sessionCardHTML(s, isLatest) {
-  const sport = (s.inputs && s.inputs.sport) || 'cycling';
+  const sport = (s.inputs && s.inputs.sport) || 'running';
   const latestPill = isLatest ? '<span class="latest-pill">Latest · active</span>' : '';
   const derived = s.derived || {};
   return `
