@@ -16,6 +16,7 @@
 
 import { computeVLamax } from '../js/lib/mader/sprint.js';
 import { showHowToMeasureModal, wireHowToMeasureTriggers } from '../js/ui/how-to-measure.js';
+import { showSprintProtocolModal, wireSprintProtocolTriggers } from '../js/ui/how-to-sprint-test.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -122,8 +123,12 @@ function newFormHTML() {
       </div>
       <p class="new-session-sub">
         Warm up at least 10 minutes. Take a pre-sprint capillary lactate.
-        Perform an all-out 15-second sprint. Sample peak lactate at 3, 5, 7,
-        and 9 minutes after — enter the highest reading as your peak.
+        Perform an all-out 15-second sprint. Sample lactate within
+        <strong>30 seconds of finishing</strong>, then at <strong>1, 3, 5, and
+        7 minutes</strong> post, then every 2 minutes until your reading drops
+        ≥ 1 mmol/L from the high. Peak timing varies a lot between athletes —
+        use the highest reading as your peak.
+        <a href="#" data-howto-sprint-protocol style="color:var(--cyan)">Full protocol →</a> &nbsp;·&nbsp;
         <a href="#" data-howto-measure style="color:var(--cyan)">How do I measure lactate? →</a>
       </p>
       <div class="grid-3">
@@ -135,7 +140,7 @@ function newFormHTML() {
         <label class="field">
           <span class="lab">Peak post-sprint lactate (mmol/L)</span>
           <input type="number" id="ns-la-post" step="0.1" min="2" max="30" value="${inp.La_peak_post}">
-          <span class="hint">Sampled across 3–9 min post; take the max</span>
+          <span class="hint">Highest reading across the 1–7+ min post window</span>
         </label>
         <label class="field">
           <span class="lab">Sprint duration (s)</span>
@@ -209,8 +214,9 @@ function wireNewForm() {
     }
   });
 
-  // Wire the inline "How do I measure lactate?" link
+  // Wire the inline "Full protocol" + "How do I measure lactate?" links
   wireHowToMeasureTriggers();
+  wireSprintProtocolTriggers();
 
   // Initial render of the result
   liveRecalc();
@@ -295,8 +301,9 @@ function render() {
 
 /* ───────── Init ───────── */
 
-// Wire the page-level "How to measure" button
+// Wire the page-level protocol buttons
 wireHowToMeasureTriggers();
+wireSprintProtocolTriggers();
 
 // Load sessions once auth is ready
 window.addEventListener('esml-auth', (ev) => loadSessions(ev.detail.user));
