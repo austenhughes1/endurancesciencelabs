@@ -69,57 +69,77 @@
       <span class="icon">◆</span> How to measure blood lactate
     </button>
 
-    <div class="path-grid">
+    <!-- ── Step 1: pick a path ─────────────────────────────────── -->
+    <section class="fork" id="fork">
+      <h2 class="fork-q">First — do you have a lactate meter?</h2>
+      <p class="fork-sub">Or are you willing to buy one (about $300)? The
+        lactate-based route is way more accurate. If a meter isn't on the
+        table for you, no worries — we've got two ways to estimate without one.</p>
+      <div class="fork-cards">
+        <button type="button" class="fork-card fork-have" data-fork="have">
+          <div class="fork-icon">◆</div>
+          <div class="fork-title">Yes — or I'll get one</div>
+          <div class="fork-desc">I have a meter, or I'm willing to buy one. Take me through the proper protocol.</div>
+          <div class="fork-cta">Show me the lactate route →</div>
+        </button>
+        <button type="button" class="fork-card fork-skip" data-fork="skip">
+          <div class="fork-icon">▷</div>
+          <div class="fork-title">No — and I don't want one</div>
+          <div class="fork-desc">No needles for me. Show me the alternatives.</div>
+          <div class="fork-cta">Show me the no-needle options →</div>
+        </button>
+      </div>
+    </section>
 
-      <!-- Path 1: have / will get a meter (the accurate DIY route) -->
-      <section class="path path-have">
-        <div class="path-header">
-          <div class="path-eyebrow">◆ Have a lactate meter (or willing to get one)?</div>
-          <h2 class="path-title">Test yourself in two steps.</h2>
-          <p class="path-sub">The accurate route. Two short blood-lactate tests at home build a complete metabolic profile.</p>
+    <!-- ── Step 2a: the lactate route (revealed if "have") ─────── -->
+    <section class="path path-have" id="path-have" style="display:none">
+      <div class="path-back"><button type="button" class="link-button" data-fork="reset">← change my answer</button></div>
+      <div class="path-header">
+        <div class="path-eyebrow">◆ The lactate route</div>
+        <h2 class="path-title">Test yourself in two steps.</h2>
+        <p class="path-sub">Two short blood-lactate tests at home build a complete metabolic profile. The most accurate route — the same protocol a sports-science lab would use.</p>
+      </div>
+      <div class="path-step-num">1</div>
+      <a href="sprint/" class="tile">
+        <div class="tile-icon cyan">◈</div>
+        <div class="tile-badge">30 min</div>
+        <div class="tile-title">Sprint VLamax Test</div>
+        <p class="tile-desc">A 15-second all-out sprint with pre- and post-sprint blood lactate gives us your maximum glycolytic rate. Save it once — the step test uses it from then on.</p>
+      </a>
+      <div class="path-step-num">2</div>
+      <a href="profile/" class="tile">
+        <div class="tile-icon">◉</div>
+        <div class="tile-badge">45–60 min</div>
+        <div class="tile-title">Lactate Step Test</div>
+        <p class="tile-desc">5–9 incremental stages with post-stage blood lactate. The shape of the curve tells us your VO₂max, MLSS, LT1, Fatmax, fat-burning sweet spot, and personalized training zones.</p>
+      </a>
+    </section>
+
+    <!-- ── Step 2b: the no-needle route (revealed if "skip") ───── -->
+    <section class="path path-skip" id="path-skip" style="display:none">
+      <div class="path-back"><button type="button" class="link-button" data-fork="reset">← change my answer</button></div>
+      <div class="path-header">
+        <div class="path-eyebrow">▷ The no-needle route</div>
+        <h2 class="path-title">Two ways to get a profile without sampling.</h2>
+        <p class="path-sub">Either skip equipment entirely with the in-browser estimate, or have an ESL coach run the real protocol with you in person.</p>
+      </div>
+      <a href="power-profile/" class="tile">
+        <div class="tile-icon gold">▶</div>
+        <div class="tile-badge">Estimate</div>
+        <div class="tile-title">Power / Pace-only Profile</div>
+        <p class="tile-desc">Estimate your VO₂max and VLamax from max efforts at four durations (15s, 3 min, 6 min, 12 min). No blood samples needed — runs entirely in your browser.</p>
+        <div class="tile-caveat">
+          ⚠ <strong>Notably less accurate</strong> than the lactate-anchored route.
+          VLamax is back-derived from sprint power via empirical regression rather than directly measured. Useful as a starting point, but the lactate version is the one to trust.
         </div>
-        <div class="path-step-num">1</div>
-        <a href="sprint/" class="tile">
-          <div class="tile-icon cyan">◈</div>
-          <div class="tile-badge">~30 min</div>
-          <div class="tile-title">Sprint VLamax Test</div>
-          <p class="tile-desc">A 15-second all-out sprint with pre- and post-sprint blood lactate gives us your maximum glycolytic rate. Save it once — the step test uses it from then on.</p>
-        </a>
-        <div class="path-step-num">2</div>
-        <a href="profile/" class="tile">
-          <div class="tile-icon">◉</div>
-          <div class="tile-badge">~45 min</div>
-          <div class="tile-title">Lactate Step Test</div>
-          <p class="tile-desc">3–6 incremental stages with post-stage blood lactate. The shape of the curve tells us your VO₂max, MLSS, LT1, Fatmax, fat-burning sweet spot, and personalized training zones.</p>
-        </a>
-      </section>
-
-      <!-- Path 2: no meter, doesn't want one -->
-      <section class="path path-skip">
-        <div class="path-header">
-          <div class="path-eyebrow">▷ Don't have a meter, and don't want one?</div>
-          <h2 class="path-title">Two ways to get a profile without one.</h2>
-          <p class="path-sub">Either skip the equipment entirely with the in-browser estimate, or have an ESL coach run the real protocol with you.</p>
-        </div>
-        <a href="power-profile/" class="tile">
-          <div class="tile-icon gold">▶</div>
-          <div class="tile-badge">Estimate</div>
-          <div class="tile-title">Power / Pace-only Profile</div>
-          <p class="tile-desc">Estimate your VO₂max and VLamax from max efforts at four durations (15s, 3 min, 6 min, 12 min). No blood samples needed — runs entirely in your browser.</p>
-          <div class="tile-caveat">
-            ⚠ <strong>Notably less accurate</strong> than the lactate-anchored route.
-            VLamax is back-derived from sprint power via empirical regression rather than directly measured. Useful as a starting point, but the lactate version is the one to trust.
-          </div>
-        </a>
-        <a href="in-person/" class="tile">
-          <div class="tile-icon purple">▷</div>
-          <div class="tile-badge">Boulder / Denver</div>
-          <div class="tile-title">In-person test with an ESL coach</div>
-          <p class="tile-desc">We bring the meter and the experience, run the full sprint + step-test protocol with you, and walk through your results in person. Sessions are typically held in the Boulder area; Denver-area travel by arrangement.</p>
-        </a>
-      </section>
-
-    </div>
+      </a>
+      <a href="in-person/" class="tile">
+        <div class="tile-icon purple">▷</div>
+        <div class="tile-badge">Boulder / Denver</div>
+        <div class="tile-title">In-person test with an ESL coach</div>
+        <p class="tile-desc">We bring the meter and the experience, run the full sprint + step-test protocol with you, and walk through your results in person. Sessions are typically held in the Boulder area; Denver-area travel by arrangement.</p>
+      </a>
+    </section>
 
     <p class="admin-footer-link">
       <a href="tests/">Engine validation (admin) →</a>
@@ -127,7 +147,7 @@
 
     <div style="margin-top:36px">
       <details class="edu">
-        <summary>What is this tool, and why does it exist?</summary>
+        <summary>What's the science behind this tool?</summary>
         <div class="body">
           <p>esMetabolicLab implements the Mader/Heck bioenergetic model of human exercise metabolism, first published in 1984 by the German Sport University Cologne group. It's the same family of model that commercial tools like INSCYD, Aerotune, and Sentiero are built on.</p>
           <p>What's different here: the math is open, the assumptions are surfaced, the implementation is documented, and your data never leaves the browser. The trade-off is honesty about what the model can and can't tell you — see "What this tool can't tell you" below.</p>
@@ -176,6 +196,47 @@
 <script type="module">
   import { wireHowToMeasureTriggers } from './js/ui/how-to-measure.js';
   wireHowToMeasureTriggers();
+</script>
+
+<script>
+  // Fork choice: pick the lactate route ('have') or the no-needle route ('skip').
+  // Persists in localStorage so returning visitors land directly on their path.
+  (function() {
+    const KEY = 'esml-path-choice';
+    const fork  = document.getElementById('fork');
+    const have  = document.getElementById('path-have');
+    const skip  = document.getElementById('path-skip');
+    function apply(choice) {
+      if (choice === 'have') {
+        fork.style.display = 'none';
+        have.style.display = 'block';
+        skip.style.display = 'none';
+      } else if (choice === 'skip') {
+        fork.style.display = 'none';
+        have.style.display = 'none';
+        skip.style.display = 'block';
+      } else {
+        fork.style.display = 'block';
+        have.style.display = 'none';
+        skip.style.display = 'none';
+      }
+    }
+    document.querySelectorAll('[data-fork]').forEach((el) => {
+      el.addEventListener('click', () => {
+        const v = el.dataset.fork;
+        if (v === 'reset') {
+          localStorage.removeItem(KEY);
+          apply(null);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+          localStorage.setItem(KEY, v);
+          apply(v);
+        }
+      });
+    });
+    // Initial state from saved choice
+    try { apply(localStorage.getItem(KEY)); } catch (e) { apply(null); }
+  })();
 </script>
 
 </body>
