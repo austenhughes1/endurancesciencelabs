@@ -57,6 +57,11 @@ const MODAL_HTML = `
             <label><input type="radio" name="ipm-area" value="other"><span>Elsewhere</span></label>
           </div>
         </div>
+        <label class="field" id="ipm-area-other-row" style="display:none">
+          <span class="lab">Where, specifically?</span>
+          <input type="text" id="ipm-area-other" placeholder="City, state — or as much as you'd like to share">
+          <span class="hint">Required when you select Elsewhere — helps us tell you if travel's feasible.</span>
+        </label>
         <label class="field">
           <span class="lab">Preferred window (optional)</span>
           <input type="text" id="ipm-timing" placeholder="e.g. weekday mornings, next 2–3 weeks">
@@ -108,6 +113,17 @@ export function showInPersonRequestModal() {
   overlay.addEventListener('click',   (e) => { if (e.target === overlay) teardown(root, onKey, prevOverflow); });
   closeBtn.focus({ preventScroll: true });
 
+  const $f = (id) => root.querySelector('#' + id);
+
+  // "Elsewhere" radio toggles a required free-text location field
+  const otherRow = $f('ipm-area-other-row');
+  root.querySelectorAll('input[name="ipm-area"]').forEach((r) => {
+    r.addEventListener('change', () => {
+      const sel = root.querySelector('input[name="ipm-area"]:checked');
+      otherRow.style.display = (sel && sel.value === 'other') ? 'block' : 'none';
+    });
+  });
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -115,23 +131,34 @@ export function showInPersonRequestModal() {
       const el = root.querySelector('input[name="' + name + '"]:checked');
       return el ? el.value : '';
     };
-    const $f = (id) => root.querySelector('#' + id);
 
+    const area = radio('ipm-area');
+    const areaOther = $f('ipm-area-other').value.trim();
     const payload = {
-      name:   $f('ipm-name').value.trim(),
-      email:  $f('ipm-email').value.trim(),
-      phone:  $f('ipm-phone').value.trim() || null,
-      sport:  radio('ipm-sport'),
-      area:   radio('ipm-area'),
-      timing: $f('ipm-timing').value.trim() || null,
-      notes:  $f('ipm-notes').value.trim() || null,
+      name:       $f('ipm-name').value.trim(),
+      email:      $f('ipm-email').value.trim(),
+      phone:      $f('ipm-phone').value.trim() || null,
+      sport:      radio('ipm-sport'),
+      area:       area,
+      area_other: area === 'other' ? (areaOther || null) : null,
+      timing:     $f('ipm-timing').value.trim() || null,
+      notes:      $f('ipm-notes').value.trim() || null,
     };
-    if (!payload.name || !payload.email) {
+
+    const errStyle = () => {
       statusEl.style.display = 'block';
       statusEl.style.background = 'rgba(255,81,99,.10)';
       statusEl.style.border = '1px solid rgba(255,81,99,.30)';
       statusEl.style.color = 'var(--bad)';
+    };
+    if (!payload.name || !payload.email) {
+      errStyle();
       statusEl.textContent = 'Name and email are required.';
+      return;
+    }
+    if (area === 'other' && !areaOther) {
+      errStyle();
+      statusEl.textContent = 'Please tell us where you are when selecting "Elsewhere".';
       return;
     }
 
@@ -139,7 +166,10 @@ export function showInPersonRequestModal() {
     btn.disabled = true; btn.textContent = 'Sending…';
 
     const sender = (window.__esml && window.__esml.user) ? window.__esml.user : null;
-    const summary = '[In-person test] ' + payload.name + ' (' + payload.sport + ', ' + payload.area + ')'
+    const areaLabel = payload.area === 'other' && payload.area_other
+                    ? 'other: ' + payload.area_other
+                    : payload.area;
+    const summary = '[In-person test] ' + payload.name + ' (' + payload.sport + ', ' + areaLabel + ')'
                   + ' — ' + payload.email
                   + (payload.notes ? ' · ' + payload.notes.slice(0, 120) : '');
 

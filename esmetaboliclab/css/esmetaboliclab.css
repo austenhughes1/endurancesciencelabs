@@ -109,17 +109,105 @@ nav.esml-nav {
 .btn.ghost { color: var(--muted2); }
 .btn[disabled] { opacity: .4; cursor: not-allowed; }
 
-/* ── Two-path landing layout ─────────────────────────────── */
-.path-grid {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 26px;
+/* ── Fork choice (landing step 1) ───────────────────────── */
+.fork {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 36px 32px;
+  margin-bottom: 28px;
+  text-align: center;
 }
-@media (max-width: 880px) {
-  .path-grid { grid-template-columns: 1fr; gap: 32px; }
+.fork-q {
+  font-family: var(--display);
+  font-size: clamp(26px, 3.4vw, 36px);
+  font-weight: 700;
+  letter-spacing: -.5px;
+  line-height: 1.15;
+  margin-bottom: 12px;
 }
+.fork-sub {
+  color: var(--muted2);
+  font-size: 15px;
+  line-height: 1.7;
+  max-width: 580px;
+  margin: 0 auto 28px;
+}
+.fork-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  max-width: 760px;
+  margin: 0 auto;
+}
+@media (max-width: 720px) {
+  .fork-cards { grid-template-columns: 1fr; }
+}
+.fork-card {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 28px 24px;
+  background: var(--panel2);
+  border: 2px solid var(--border2);
+  border-radius: 16px;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--body);
+  transition: all .15s;
+  color: var(--text);
+}
+.fork-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--purple);
+  background: rgba(139,124,248,.06);
+}
+.fork-have:hover { border-color: var(--cyan);  background: rgba(0,229,200,.06); }
+.fork-skip:hover { border-color: var(--gold);  background: rgba(245,200,66,.06); }
+.fork-icon {
+  font-size: 28px;
+  width: 52px; height: 52px;
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+}
+.fork-have .fork-icon { background: rgba(0,229,200,.10); color: var(--cyan); }
+.fork-skip .fork-icon { background: rgba(245,200,66,.12); color: var(--gold); }
+.fork-title {
+  font-family: var(--display);
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-top: 4px;
+}
+.fork-desc {
+  color: var(--muted2);
+  font-size: 14px;
+  line-height: 1.6;
+  flex: 1;
+}
+.fork-cta {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  margin-top: 6px;
+}
+.fork-have .fork-cta { color: var(--cyan); }
+.fork-skip .fork-cta { color: var(--gold); }
+
+/* "← change my answer" link above a revealed path */
+.path-back { margin-bottom: 18px; }
+.link-button {
+  background: transparent; border: none; cursor: pointer;
+  font-family: var(--mono); font-size: 12px; color: var(--muted2);
+  padding: 0; letter-spacing: .3px;
+}
+.link-button:hover { color: var(--text); text-decoration: underline; }
+
+/* ── Path layout (revealed after fork choice) ────────────── */
 .path {
-  display: flex; flex-direction: column; gap: 12px;
+  display: flex; flex-direction: column; gap: 14px;
   background: var(--panel); border: 1px solid var(--border);
-  border-radius: 18px; padding: 26px;
+  border-radius: 18px; padding: 30px;
   position: relative;
 }
 .path-have { border-left: 4px solid var(--cyan); }
@@ -129,23 +217,20 @@ nav.esml-nav {
   display: inline-flex; align-items: center; gap: 6px;
   font-family: var(--mono); font-size: 11px; font-weight: 700;
   letter-spacing: .8px; text-transform: uppercase;
-  padding: 4px 10px; border-radius: 6px; margin-bottom: 12px;
+  padding: 4px 10px; border-radius: 6px; margin-bottom: 14px;
 }
 .path-have .path-eyebrow { color: var(--cyan); background: rgba(0,229,200,.08); border: 1px solid rgba(0,229,200,.20); }
 .path-skip .path-eyebrow { color: var(--gold); background: rgba(245,200,66,.10); border: 1px solid rgba(245,200,66,.24); }
-.path-title { font-family: var(--display); font-size: 22px; font-weight: 700; line-height: 1.2; margin-bottom: 8px; letter-spacing: -.3px; }
-.path-sub { color: var(--muted2); font-size: 14px; line-height: 1.7; margin-bottom: 4px; }
+.path-title { font-family: var(--display); font-size: 26px; font-weight: 700; line-height: 1.18; margin-bottom: 10px; letter-spacing: -.5px; }
+.path-sub { color: var(--muted2); font-size: 15px; line-height: 1.7; margin-bottom: 4px; }
 .path-step-num {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 26px; height: 26px; border-radius: 50%;
-  font-family: var(--mono); font-size: 12px; font-weight: 700;
+  width: 30px; height: 30px; border-radius: 50%;
+  font-family: var(--mono); font-size: 13px; font-weight: 700;
   background: rgba(139,124,248,.18); color: var(--purple);
-  margin-top: 8px;
+  margin-top: 10px;
 }
-.path .tile {
-  /* tighter than the original tile grid */
-  padding: 22px;
-}
+.path .tile { padding: 22px; }
 .tile-caveat {
   margin-top: 14px; padding: 11px 14px;
   background: rgba(245,200,66,.08); border: 1px solid rgba(245,200,66,.24);
@@ -204,13 +289,16 @@ label.field {
 label.field > .lab { display: block; margin-bottom: 6px; color: var(--muted2); font-size: 12px; letter-spacing: .3px; text-transform: uppercase; font-family: var(--mono); }
 label.field > .hint { display: block; margin-top: 4px; font-size: 12px; color: var(--muted); font-family: var(--mono); }
 
-input[type=number], input[type=text], select {
+input[type=number], input[type=text], input[type=email], input[type=tel],
+input[type=date], input[type=search], input[type=url], textarea, select {
   width: 100%; padding: 10px 14px;
   background: var(--panel2); border: 1px solid var(--border2);
   border-radius: 8px; color: var(--text); font-family: var(--body); font-size: 15px;
   transition: border-color .15s;
+  appearance: none;
+  -webkit-appearance: none;
 }
-input:focus, select:focus { outline: none; border-color: var(--purple); }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--purple); }
 
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
