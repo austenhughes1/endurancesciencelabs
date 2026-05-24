@@ -143,10 +143,15 @@ function readRecalcInputs() {
 function recalcLive() {
   const inputs = readRecalcInputs();
   const r = computeVLamax(inputs);
+  const saveBtn = $('#vlc-save');
   if (!isFinite(r.VLamax) || r.glycolytic_time_s <= 0) {
     $('#vlc-result').innerHTML = '<div class="vlc-result-empty">Enter all three sprint values to compute.</div>';
+    if (saveBtn) saveBtn.disabled = true;
     return;
   }
+  const errHtml = r.errors && r.errors.length
+    ? '<div style="font-size:13px;color:var(--bad);background:rgba(255,81,99,.08);border:1px solid rgba(255,81,99,.30);border-radius:8px;padding:10px 12px;margin-top:10px;line-height:1.55">✕ ' + r.errors.join('<br>✕ ') + '</div>'
+    : '';
   const warnHtml = r.warnings.length
     ? '<div style="font-size:12px;color:var(--gold);margin-top:6px">⚠ ' + r.warnings.join(' ') + '</div>'
     : '';
@@ -155,8 +160,10 @@ function recalcLive() {
       '<div class="vlc-result-label">NEW VLAMAX</div>' +
       '<div class="vlc-result-val">' + r.VLamax.toFixed(3) +
         ' <span class="vlc-unit">mmol·L⁻¹·s⁻¹</span></div>' +
+      errHtml +
       warnHtml +
     '</div>';
+  if (saveBtn) saveBtn.disabled = !!(r.errors && r.errors.length);
 }
 
 async function saveRecalc() {
@@ -166,6 +173,10 @@ async function saveRecalc() {
   const r = computeVLamax(inputs);
   if (!isFinite(r.VLamax) || r.glycolytic_time_s <= 0) {
     alert('Sprint values are not valid — recheck the inputs.');
+    return;
+  }
+  if (r.errors && r.errors.length) {
+    alert(r.errors.join('\n\n'));
     return;
   }
   const btn = $('#vlc-save');

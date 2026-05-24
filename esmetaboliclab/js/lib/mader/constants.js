@@ -133,6 +133,6 @@ export function altitudeFactor(alt_m, x_rel) {
 // Outside these, surface a "check inputs" warning in the report.
 export const SANITY_RANGES = {
   VO2max:   { lo: 25,   hi: 95   },  // mL/min/kg
-  VLamax:   { lo: 0.15, hi: 1.0  },  // mmol/L/s
+  VLamax:   { lo: 0.15, hi: 1.5  },  // mmol/L/s — 1.0 = average ceiling, 1.5 covers elite sprinters
   MLSS_pct_VO2max: { lo: 0.35, hi: 0.90 },  // ratio MLSS-VO2 / VO2max
 };

@@ -165,11 +165,16 @@ function wireNewForm() {
       // t_PCr_s left at the library default — not exposed in the UI
     };
     const r = computeVLamax(inputs);
+    const saveBtn = $('#ns-save');
     if (!isFinite(r.VLamax) || r.glycolytic_time_s <= 0) {
       $('#ns-result').innerHTML = '<div class="vlc-result-empty" style="font-family:var(--mono);font-size:12px;color:var(--muted2);padding:12px 14px;background:var(--panel2);border-radius:8px;border:1px dashed var(--border2)">Enter all three values to see your VLamax.</div>';
+      if (saveBtn) saveBtn.disabled = true;
       return;
     }
     const ph = phenotype(r.VLamax);
+    const errHtml = r.errors && r.errors.length
+      ? '<div style="font-size:13px;color:var(--bad);background:rgba(255,81,99,.08);border:1px solid rgba(255,81,99,.30);border-radius:8px;padding:10px 12px;margin-top:10px;line-height:1.55">✕ ' + r.errors.join('<br>✕ ') + '</div>'
+      : '';
     const warnHtml = r.warnings.length
       ? '<div style="font-size:12px;color:var(--gold);margin-top:8px">⚠ ' + r.warnings.join(' ') + '</div>'
       : '';
@@ -178,9 +183,11 @@ function wireNewForm() {
         <div class="new-session-result-label">YOUR VLAMAX</div>
         <div class="new-session-result-val">${r.VLamax.toFixed(3)}<span class="unit">mmol·L⁻¹·s⁻¹</span></div>
         <div style="font-size:12px;color:var(--muted2);margin-top:6px">${ph.text} profile</div>
+        ${errHtml}
         ${warnHtml}
       </div>
     `;
+    if (saveBtn) saveBtn.disabled = !!(r.errors && r.errors.length);
   };
 
   ['ns-la-pre', 'ns-la-post', 'ns-dur'].forEach((id) =>
@@ -201,6 +208,10 @@ function wireNewForm() {
     const r = computeVLamax(inputs);
     if (!isFinite(r.VLamax) || r.glycolytic_time_s <= 0) {
       alert('Enter valid pre/post lactate values and a sprint duration above 3.5 seconds.');
+      return;
+    }
+    if (r.errors && r.errors.length) {
+      alert(r.errors.join('\n\n'));
       return;
     }
     const btn = $('#ns-save');
