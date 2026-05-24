@@ -348,9 +348,10 @@
 
     // Banner summary
     if (m.uploadAccess) {
-      var label = m.source === 'lifetime' ? 'Lifetime access'
-                 : m.source === 'yearly'   ? 'Active yearly subscription'
-                 : m.source === 'single'   ? 'Single-session access (until ' + fmtDate(m.until) + ')'
+      var label = m.source === 'lifetime'     ? 'Lifetime access'
+                 : m.source === 'yearly'       ? 'Active yearly subscription'
+                 : m.source === 'single'       ? 'Single-session access (until ' + fmtDate(m.until) + ')'
+                 : m.source === 'admin-grant'  ? 'Admin grant — lifetime access'
                  : 'Active';
       statusHtml = '<span class="ok-icon">✓</span> '
                  + '<strong>' + label + '</strong> &middot; you can upload lactate data on the '

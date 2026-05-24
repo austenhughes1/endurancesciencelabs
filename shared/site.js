@@ -76,6 +76,7 @@ var state = {
   metlabYearlyPeriodEnd: null,
   metlabSingleUntil: null,        // unix seconds when the 7-day window expires
   metlabInPersonLatest: null,     // unix seconds of most recent in-person payment
+  metlabAdminGranted: false,      // users/{uid}.features.esMetabolicLab — coach grant
   emailAuthMode: 'signup'
 };
 var authListeners = [];
@@ -121,6 +122,7 @@ auth.onAuthStateChanged(function (user) {
   state.metlabYearlyPeriodEnd = null;
   state.metlabSingleUntil = null;
   state.metlabInPersonLatest = null;
+  state.metlabAdminGranted = false;
   if (user) attachPassWatchers(user.uid);
   notifyAuthListeners();
   refreshMountedNav();
@@ -153,9 +155,13 @@ function passSnapshot() {
     unlocked = true; source = 'paid'; until = state.paidPassUntil;
   }
 
-  // esMetabolicLab upload access — any of: lifetime / active yearly / unexpired single.
+  // esMetabolicLab upload access — any of: admin grant / lifetime / active
+  // yearly / unexpired single. Admin grant (users/{uid}.features.esMetabolicLab)
+  // acts as a lifetime grant for coaches/beta testers without a Stripe purchase.
   var metlabUpload = false, metlabSource = null, metlabUntil = null;
-  if (state.metlabHasLifetime) {
+  if (state.metlabAdminGranted) {
+    metlabUpload = true; metlabSource = 'admin-grant';
+  } else if (state.metlabHasLifetime) {
     metlabUpload = true; metlabSource = 'lifetime';
   } else if (state.metlabYearlyActive) {
     metlabUpload = true; metlabSource = 'yearly'; metlabUntil = state.metlabYearlyPeriodEnd;
@@ -182,7 +188,8 @@ function passSnapshot() {
       yearlyActive: state.metlabYearlyActive,
       yearlyPeriodEnd: state.metlabYearlyPeriodEnd,
       singleSessionUntil: state.metlabSingleUntil,
-      inPersonLatest: state.metlabInPersonLatest
+      inPersonLatest: state.metlabInPersonLatest,
+      adminGranted: state.metlabAdminGranted
     }
   };
 }
@@ -192,6 +199,7 @@ function attachPassWatchers(uid) {
     state.userDoc = snap.exists ? snap.data() : {};
     state.hasGrantedFlag = !!(state.userDoc.features && state.userDoc.features.esFormLab === true);
     state.grantedUntilSec = toSeconds(state.userDoc.formAnalyzerPassUntil);
+    state.metlabAdminGranted = !!(state.userDoc.features && state.userDoc.features.esMetabolicLab === true);
     notifyPassListeners();
   }, function (err) { console.warn('users doc snapshot:', err.message); });
 
