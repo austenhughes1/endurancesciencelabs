@@ -442,13 +442,17 @@ function renderResults() {
     '<div class="metric-grid">' + metricsHtml + '</div>' +
     precisionExpandableHtml() +
     sensHtml + warnHtml +
-    '<div class="chart-block"><div class="chart-title">Lactate production vs elimination</div>' +
-      '<div class="chart-sub">The intersection is MLSS — where your glycolytic flux equals your maximum oxidative elimination capacity. Your measured stages are overlaid on the simulated lactate curve.</div>' +
-      '<div id="chart-lactate" class="plt"></div></div>' +
-    '<div class="chart-block"><div class="chart-title">Substrate oxidation</div>' +
-      '<div class="chart-sub">Grams of fat and CHO oxidized per minute across intensities. Fatmax is where fat oxidation peaks.</div>' +
-      '<div id="chart-substrate" class="plt"></div></div>' +
     '<div class="panel"><div class="panel-h">Training zones</div>' + zonesHtml + '</div>' +
+    '<div class="chart-block"><div class="chart-title">Lactate response across intensities</div>' +
+      '<div class="chart-sub">How your blood lactate behaves — and how fast you produce and clear it — at every effort level. Your measured stages are overlaid as yellow dots.</div>' +
+      '<div id="chart-lactate" class="plt"></div>' +
+      lactateChartExplainerHtml() +
+    '</div>' +
+    '<div class="chart-block"><div class="chart-title">Fat vs carbohydrate burning</div>' +
+      '<div class="chart-sub">Grams of fat and carbs burned per minute at each intensity. Fatmax (yellow dashed line) is where fat-burning peaks.</div>' +
+      '<div id="chart-substrate" class="plt"></div>' +
+      substrateChartExplainerHtml() +
+    '</div>' +
     educationHtml();
 
   // Wire pace-unit toggle (running only)
@@ -481,6 +485,37 @@ function zoneTableHtml(title, rows, sport) {
          '<table class="zones"><tr><th>Zone</th><th>Label</th><th>Range</th></tr>' +
          rows.map(r => '<tr><td>Z' + r.zone + '</td><td>' + r.label + '</td><td class="num">' + fmtRange(r.lo, r.hi) + '</td></tr>').join('') +
          '</table>';
+}
+
+function lactateChartExplainerHtml() {
+  return '' +
+    '<details class="edu" style="margin-top:14px"><summary>What this chart shows</summary>' +
+    '<div class="body">' +
+      '<p>Three curves and two reference markers, all plotted against your effort level (x-axis).</p>' +
+      '<ul style="margin:0 0 10px 18px;padding:0">' +
+        '<li><strong style="color:#8b7cf8">Purple solid line — Predicted blood lactate</strong>. The lactate concentration in your blood you\'d settle at if you held each pace for several minutes. It stays low and flat through easy and moderate efforts, then sweeps upward as you approach threshold.</li>' +
+        '<li><strong style="color:#ff6b35">Orange solid line — Lactate production rate</strong>. How fast your muscles are pumping lactate into the blood at each pace. Reads on the right y-axis (mmol per liter per second). Small at easy pace; ramps up steeply once glycolysis kicks in. (Technical name: <em>vLass</em>.)</li>' +
+        '<li><strong style="color:#00e5c8">Cyan dotted line — Max lactate clearance rate</strong>. The fastest your body can remove lactate from the blood via oxidation. Also on the right y-axis. Mostly limited by your aerobic capacity. (Technical: <em>vLaoxmax</em>.)</li>' +
+        '<li><strong style="color:#f5c842">Yellow dots — Your measured samples</strong>. The lactate readings you recorded at each step-test stage, plotted at the stage\'s pace. These are how the curve gets fit to your physiology.</li>' +
+        '<li><strong style="color:#22c78a">Green dashed vertical — MLSS</strong>. The intensity where production meets clearance. Below this you can hold pace indefinitely; above it lactate accumulates without bound and you fade.</li>' +
+        '<li><strong style="color:#8b7cf8">Purple dashed vertical — LT1</strong>. Where blood lactate first rises noticeably above resting. The upper edge of your "all-day easy" zone.</li>' +
+      '</ul>' +
+      '<p>The key insight: <strong>MLSS is where the production curve crosses the clearance curve.</strong> Push faster and you\'re making lactate faster than you can clear it.</p>' +
+    '</div></details>';
+}
+
+function substrateChartExplainerHtml() {
+  return '' +
+    '<details class="edu" style="margin-top:14px"><summary>What this chart shows</summary>' +
+    '<div class="body">' +
+      '<p>How much fat vs carbohydrate you burn per minute at each effort.</p>' +
+      '<ul style="margin:0 0 10px 18px;padding:0">' +
+        '<li><strong style="color:#f5c842">Yellow area — Fat burned</strong>. Grams of fat oxidized per minute. Rises through easy and moderate paces, peaks around <strong>Fatmax</strong>, then falls as harder efforts force a shift to carbohydrate.</li>' +
+        '<li><strong style="color:#ff6b35">Orange area — Carbs burned</strong>. Grams of carbohydrate (mostly muscle glycogen) oxidized per minute. Small at easy pace; climbs steeply as you push past tempo into threshold and above.</li>' +
+        '<li><strong style="color:#f5c842">Yellow dashed vertical — Fatmax</strong>. The intensity where fat-burning is highest in g/min. Long-run / aerobic-base territory.</li>' +
+      '</ul>' +
+      '<p>Why this matters: <strong>fat is essentially unlimited fuel</strong> (most people carry tens of thousands of calories as body fat). Carbohydrate is limited — you store maybe 1,500–2,000 calories as muscle glycogen, and once you burn through that you crash. The fitter you are aerobically, the higher your Fatmax intensity — meaning you can burn fat at faster paces and save carb stores for surges and finishing kicks.</p>' +
+    '</div></details>';
 }
 
 function precisionExpandableHtml() {
@@ -522,8 +557,9 @@ function educationHtml() {
 /* ───────── Charts ───────── */
 
 function drawCharts(p) {
-  drawLactateChart('chart-lactate', p, state.sport, state.stages);
-  drawSubstrateChart('chart-substrate', p, state.sport);
+  const opts = { paceUnit: getDefaultPaceUnit() };
+  drawLactateChart('chart-lactate', p, state.sport, state.stages, opts);
+  drawSubstrateChart('chart-substrate', p, state.sport, opts);
 }
 
 /* ───────── PDF export ───────── */
