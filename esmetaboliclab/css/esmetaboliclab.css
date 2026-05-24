@@ -374,6 +374,31 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 .pace-unit-toggle:hover { background: rgba(139,124,248,.18); }
 .pace-unit-toggle:focus-visible { outline: 2px solid var(--purple); outline-offset: -2px; }
 
+/* Two-option pill that lives inside .pace-input for per-input unit toggles
+   (e.g. distance: m | mi). Both options visible, active one highlighted. */
+.unit-toggle-inline {
+  display: inline-flex; align-self: stretch; flex-shrink: 0;
+  border-left: 1px solid var(--border2);
+}
+.unit-toggle-inline button {
+  background: transparent; border: none;
+  border-right: 1px solid var(--border2);
+  padding: 0 12px; min-width: 38px;
+  color: var(--muted2); font-family: var(--mono);
+  font-size: 11px; font-weight: 700; letter-spacing: .3px;
+  cursor: pointer; transition: background .12s, color .12s;
+}
+.unit-toggle-inline button:last-child { border-right: none; }
+.unit-toggle-inline button:hover:not(.active) {
+  background: rgba(255,255,255,.04); color: var(--text);
+}
+.unit-toggle-inline button.active {
+  background: rgba(139,124,248,.18); color: var(--purple);
+}
+.unit-toggle-inline button:focus-visible {
+  outline: 2px solid var(--purple); outline-offset: -2px;
+}
+
 .radio-row { display: flex; gap: 10px; flex-wrap: wrap; }
 .radio-row label {
   flex: 1; min-width: 0; cursor: pointer; padding: 10px 14px;
@@ -615,11 +640,24 @@ table.zones td.num { font-family: var(--mono); }
 .sess-list { display: flex; flex-direction: column; gap: 10px; }
 .sess-card {
   background: var(--panel2); border: 1px solid var(--border);
-  border-radius: 12px; padding: 16px 20px;
+  border-radius: 12px; padding: 16px 20px 16px 20px;
   display: grid; grid-template-columns: 1fr auto; gap: 8px 18px;
   align-items: center; transition: border-color .15s;
+  position: relative;
 }
 .sess-card.latest { border-color: rgba(139,124,248,.40); border-left: 3px solid var(--purple); }
+.sess-card .sess-delete {
+  position: absolute; top: 6px; right: 8px;
+  width: 22px; height: 22px;
+  background: transparent; border: 1px solid var(--border2); border-radius: 50%;
+  color: var(--muted); font-size: 14px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0.35; transition: opacity .12s, color .12s, border-color .12s, background .12s;
+  font-family: var(--body);
+}
+.sess-card:hover .sess-delete { opacity: 1; }
+.sess-card .sess-delete:hover { color: var(--bad); border-color: var(--bad); background: rgba(255,81,99,.08); }
+.sess-card .sess-delete:disabled { opacity: 0.5; cursor: not-allowed; }
 .sess-card-date { font-family: var(--mono); font-size: 12px; color: var(--muted2); letter-spacing: .3px; }
 .sess-card-date .latest-pill {
   display: inline-block; margin-left: 8px; padding: 2px 7px; border-radius: 4px;

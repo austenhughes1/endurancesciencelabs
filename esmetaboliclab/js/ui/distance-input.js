@@ -43,16 +43,18 @@ export function metersToDistanceString(m, unit) {
   return String(Math.round(m));
 }
 
-function labelFor(unit) { return unit; /* 'm' or 'mi' */ }
-
 /**
  * @param {Object} opts
  * @param {string} opts.id              element id for the <input>
  * @param {number} [opts.meters]        initial value as meters (formatted into current unit)
  * @param {string} [opts.value]         literal string to put in the input (overrides meters)
  * @param {Object} [opts.placeholders]  { m: '100', mi: '0.062' } — picked based on current unit
- * @param {string} [opts.unit]          override saved/default unit
+ * @param {string} [opts.unit]          initial unit for this input (defaults to the user's last-used)
  * @param {string} [opts.extraAttrs]    raw attribute string appended to the input
+ *
+ * Renders a text input with an inline two-button pill toggle on the right
+ * showing BOTH unit options (m and mi) with the active one highlighted.
+ * Each input is independent — flipping one doesn't affect any others.
  */
 export function distanceInputHTML(opts) {
   const unit = opts.unit || getDefaultDistanceUnit();
@@ -61,51 +63,64 @@ export function distanceInputHTML(opts) {
     : (opts.meters != null ? metersToDistanceString(+opts.meters, unit) : '');
   const ph = (opts.placeholders && opts.placeholders[unit]) || '';
   const extraAttrs = opts.extraAttrs || '';
-  // Stash both placeholders on the element so the toggle can flip them
   const phData =
     'data-placeholder-m="' + ((opts.placeholders && opts.placeholders.m) || '') + '"' +
     ' data-placeholder-mi="' + ((opts.placeholders && opts.placeholders.mi) || '') + '"';
   return `
     <div class="pace-input distance-input">
       <input type="text" id="${opts.id}" class="pace-text" data-unit="${unit}" value="${value}" placeholder="${ph}" inputmode="decimal" autocomplete="off" ${phData} ${extraAttrs}>
-      <button type="button" class="pace-unit-toggle" data-distance-unit-toggle aria-label="Toggle distance unit">${labelFor(unit)}</button>
+      <div class="unit-toggle-inline" role="group" aria-label="Distance unit">
+        <button type="button" data-dist-set="m"  class="${unit === 'm'  ? 'active' : ''}" aria-pressed="${unit === 'm'  ? 'true' : 'false'}">m</button>
+        <button type="button" data-dist-set="mi" class="${unit === 'mi' ? 'active' : ''}" aria-pressed="${unit === 'mi' ? 'true' : 'false'}">mi</button>
+      </div>
     </div>
   `;
 }
 
 /**
- * Wire all distance-unit toggles on the page. Idempotent.
- * @param {Function} [onUnitChange]
+ * Wire all distance-input pill clicks. Per-input only — no cross-input
+ * sync, so each field can carry its own unit. Idempotent.
+ *
+ * @param {Function} [onUnitChange]  optional callback (field-scoped: receives
+ *                                   newUnit AND the affected wrapper element)
  */
 export function wireDistanceInputs(onUnitChange) {
-  document.querySelectorAll('[data-distance-unit-toggle]').forEach((btn) => {
-    if (btn.dataset.distWired === '1') return;
-    btn.dataset.distWired = '1';
-    btn.addEventListener('click', () => {
-      const wrap = btn.closest('.distance-input');
-      if (!wrap) return;
-      const me = wrap.querySelector('input');
-      const oldUnit = me.dataset.unit || 'mi';
-      const newUnit = oldUnit === 'mi' ? 'm' : 'mi';
+  document.querySelectorAll('.distance-input').forEach((wrap) => {
+    if (wrap.dataset.distWired === '1') return;
+    wrap.dataset.distWired = '1';
+    const input = wrap.querySelector('input');
+    if (!input) return;
+    wrap.querySelectorAll('[data-dist-set]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const newUnit = btn.dataset.distSet;
+        const oldUnit = input.dataset.unit || 'mi';
+        if (newUnit === oldUnit) return;
 
-      document.querySelectorAll('.distance-input input[data-unit]').forEach((inp) => {
-        const from = inp.dataset.unit || 'mi';
-        if (from === newUnit) return;
-        const meters = parseDistanceMeters(inp.value, from);
-        inp.dataset.unit = newUnit;
-        inp.value = isFinite(meters) ? metersToDistanceString(meters, newUnit) : inp.value;
-        // Swap placeholder
-        const phSwap = inp.getAttribute('data-placeholder-' + newUnit) || '';
-        if (phSwap) inp.setAttribute('placeholder', phSwap);
-      });
-      document.querySelectorAll('[data-distance-unit-toggle]').forEach((b) => {
-        b.textContent = labelFor(newUnit);
-      });
+        // Convert the value into the new unit
+        const meters = parseDistanceMeters(input.value, oldUnit);
+        input.dataset.unit = newUnit;
+        input.value = isFinite(meters) ? metersToDistanceString(meters, newUnit) : input.value;
 
-      setDefaultDistanceUnit(newUnit);
-      if (typeof onUnitChange === 'function') {
-        try { onUnitChange(newUnit); } catch (e) { console.warn(e); }
-      }
+        // Update placeholder for the new unit
+        const phSwap = input.getAttribute('data-placeholder-' + newUnit) || '';
+        if (phSwap) input.setAttribute('placeholder', phSwap);
+
+        // Update active highlight on this wrap's two pill buttons only
+        wrap.querySelectorAll('[data-dist-set]').forEach((b) => {
+          const isActive = b.dataset.distSet === newUnit;
+          b.classList.toggle('active', isActive);
+          b.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+
+        // Remember the most recently chosen unit so the next fresh form
+        // opens with what the user last used (per-input still independent
+        // for editing).
+        setDefaultDistanceUnit(newUnit);
+
+        if (typeof onUnitChange === 'function') {
+          try { onUnitChange(newUnit, wrap); } catch (e) { console.warn(e); }
+        }
+      });
     });
   });
 }

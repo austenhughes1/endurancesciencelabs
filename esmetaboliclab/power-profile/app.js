@@ -168,6 +168,24 @@ async function saveSession(derived, sportInputs) {
   window.scrollTo({ top: document.querySelector('#results-block').offsetTop - 24, behavior: 'smooth' });
 }
 
+async function deleteSession(id) {
+  const user = window.__esml && window.__esml.user;
+  if (!user) throw new Error('Sign in required.');
+  const newSessions = state.sessions.filter((s) => s.id !== id);
+  await db.collection('users').doc(user.uid).set({
+    esmetlab: { powerProfiles: newSessions },
+  }, { merge: true });
+  state.sessions = newSessions;
+  if (newSessions.length > 0) {
+    // Re-hydrate the new latest session as the active profile
+    hydrateActiveFromSession(newSessions[newSessions.length - 1]);
+  } else {
+    // No sessions left — clear the active profile so the results pane goes empty
+    state.profile = null;
+  }
+  render();
+}
+
 /* ───────── New-session form (inline) ───────── */
 
 function newFormHTML() {
@@ -483,6 +501,7 @@ function sessionCardHTML(s, isLatest) {
   const derived = s.derived || {};
   return `
     <div class="sess-card ${isLatest ? 'latest' : ''}">
+      <button type="button" class="sess-delete" data-session-delete="${s.id}" title="Delete this session" aria-label="Delete this session">×</button>
       <div>
         <div class="sess-card-date">${fmtDate(s.measured_at)} ${latestPill}</div>
       </div>
@@ -690,6 +709,24 @@ function render() {
       if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   }
+
+  // Wire the per-card delete buttons
+  document.querySelectorAll('[data-session-delete]').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const id = btn.dataset.sessionDelete;
+      if (!window.confirm('Delete this power profile session? This cannot be undone.')) return;
+      btn.disabled = true;
+      try {
+        await deleteSession(id);
+      } catch (err) {
+        console.error('Delete failed:', err);
+        alert('Failed to delete: ' + (err.message || err));
+        btn.disabled = false;
+      }
+    });
+  });
 
   // Wire the pace-unit pill toggle (running results only)
   const pillRoot = $('#pace-unit-pill');
