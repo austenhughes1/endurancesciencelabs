@@ -35,6 +35,7 @@ var FIREBASE_CONFIG = {
 var ADMIN_UID = '2z9Z3K5ZwShvadUuqZmwMv0s1Od2';
 var STRIPE_PASS_PRICE_ID = 'price_1TVIadIFO8pppwnFTfqv3CCh';
 var COACHING_PREMIUM_PRICE_ID = 'price_1TVJJuIFO8pppwnF5uECviT3';
+var COACHING_STANDARD_PRICE_ID = 'price_1TVIadIFO8pppwnFuj3vYy9S';
 var PASS_DURATION_SEC = 90 * 24 * 60 * 60;
 
 if (typeof firebase === 'undefined') {
@@ -55,6 +56,7 @@ var state = {
   hasGrantedFlag: false,
   grantedUntilSec: null,
   hasPremiumCoach: false,
+  hasStandardCoach: false,
   premiumCoachPeriodEnd: null,
   emailAuthMode: 'signup'
 };
@@ -94,6 +96,7 @@ auth.onAuthStateChanged(function (user) {
   state.hasGrantedFlag = false;
   state.grantedUntilSec = null;
   state.hasPremiumCoach = false;
+  state.hasStandardCoach = false;
   state.premiumCoachPeriodEnd = null;
   if (user) attachPassWatchers(user.uid);
   notifyAuthListeners();
@@ -135,6 +138,7 @@ function passSnapshot() {
     hasGrantedFlag: state.hasGrantedFlag,
     grantedUntilSec: state.grantedUntilSec,
     hasPremiumCoach: state.hasPremiumCoach,
+    hasStandardCoach: state.hasStandardCoach,
     premiumCoachPeriodEnd: state.premiumCoachPeriodEnd
   };
 }
@@ -169,15 +173,18 @@ function attachPassWatchers(uid) {
 
   passWatchers.subs = db.collection('customers').doc(uid).collection('subscriptions')
     .onSnapshot(function (snap) {
-      var found = null;
+      var foundPremium = null;
+      var foundStandard = false;
       snap.docs.forEach(function (d) {
         var sub = d.data();
         if (sub.status !== 'active' && sub.status !== 'trialing') return;
-        if (collectPriceIds(sub).indexOf(COACHING_PREMIUM_PRICE_ID) === -1) return;
-        found = sub;
+        var ids = collectPriceIds(sub);
+        if (ids.indexOf(COACHING_PREMIUM_PRICE_ID) !== -1) { foundPremium = sub; return; }
+        if (ids.indexOf(COACHING_STANDARD_PRICE_ID) !== -1) { foundStandard = true; }
       });
-      state.hasPremiumCoach = !!found;
-      state.premiumCoachPeriodEnd = found ? toSeconds(found.current_period_end) : null;
+      state.hasPremiumCoach = !!foundPremium;
+      state.hasStandardCoach = !!foundStandard;
+      state.premiumCoachPeriodEnd = foundPremium ? toSeconds(foundPremium.current_period_end) : null;
       notifyPassListeners();
     }, function (err) { console.warn('subs snapshot:', err.message); });
 }

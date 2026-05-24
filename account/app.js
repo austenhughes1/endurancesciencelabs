@@ -4,6 +4,11 @@
 // User profile + features + billing page. Uses the shared site.js
 // for auth, nav, and effective-pass state -- this file only handles
 // account-page-specific UI.
+//
+// Profile fields are optional for everyone by default; for users who
+// are coaching clients (active sub OR a coach has claimed them) a
+// banner + required-field markers prompt them to complete the
+// fields the coach needs.
 // ════════════════════════════════════════════════════════════════
 
 (function () {
@@ -13,6 +18,25 @@ if (!window.esLabs) {
   console.error('account/app.js: esLabs must be loaded first');
   return;
 }
+
+// Canonical PR distance order -- used for the dropdown options and for
+// sorting saved PRs in the rendered list.
+var PR_DISTANCES = [
+  { key: '800m',     label: '800m' },
+  { key: '1500m',    label: '1500m' },
+  { key: 'mile',     label: 'Mile' },
+  { key: '5k',       label: '5K' },
+  { key: '10k',      label: '10K' },
+  { key: 'half',     label: 'Half marathon' },
+  { key: 'marathon', label: 'Marathon' },
+  { key: '50k',      label: '50K' },
+  { key: '50mi',     label: '50 mile' },
+  { key: '100mi',    label: '100 mile' }
+];
+
+// Required fields for coaching clients. injury history + PRs are
+// optional even for coaching clients -- not every athlete has them.
+var COACHING_REQUIRED = ['displayName', 'dob', 'gender', 'runningYears', 'weeklyMiles', 'goals'];
 
 esLabs.mountNav('#acct-nav', { active: 'home' });
 
@@ -26,7 +50,7 @@ esLabs.mountAuthGate('#acct-gate', {
 });
 
 var pageState = {
-  userDoc: null,        // null until the first user-doc-derived snapshot arrives
+  userDoc: null,
   shellRendered: false
 };
 
@@ -44,10 +68,6 @@ esLabs.onAuthChange(function (user) {
   }
 });
 
-// The shared module watches users/{uid}, payments, and subscriptions.
-// We re-read the doc directly here for profile fields (displayName,
-// gender, dob) because the shared module only surfaces the
-// pass-relevant fields.
 var unsubUserDoc = null;
 
 esLabs.onAuthChange(function (user) {
@@ -62,6 +82,31 @@ esLabs.onAuthChange(function (user) {
 esLabs.onPassChange(function () { renderApp(); });
 
 // ──────────────────────────────────────────────────────────────
+//  Coaching-client detection
+// ──────────────────────────────────────────────────────────────
+// Returns true if the user must complete the profile for their coach.
+function isCoachingClient(userDoc, pass) {
+  if (!userDoc) return false;
+  // Coaches don't need to complete an athlete profile.
+  if (userDoc.role === 'coach') return false;
+  if (pass && (pass.hasPremiumCoach || pass.hasStandardCoach)) return true;
+  if (userDoc.coachUid) return true;
+  return false;
+}
+
+// Returns the list of required-field keys that are currently missing.
+function missingRequiredFields(userDoc) {
+  if (!userDoc) return COACHING_REQUIRED.slice();
+  return COACHING_REQUIRED.filter(function (k) {
+    var v = userDoc[k];
+    if (k === 'weeklyMiles' || k === 'runningYears') {
+      return v === null || v === undefined || v === '' || isNaN(Number(v));
+    }
+    return !v || (typeof v === 'string' && v.trim() === '');
+  });
+}
+
+// ──────────────────────────────────────────────────────────────
 //  Main render
 // ──────────────────────────────────────────────────────────────
 function renderApp() {
@@ -69,38 +114,79 @@ function renderApp() {
   var user = esLabs.user;
   if (!root || !user || pageState.userDoc === null) return;
 
-  if (!pageState.shellRendered) {
-    var doc = pageState.userDoc || {};
-    var displayName = doc.displayName || user.displayName || '';
-    var email = user.email || '';
-    var gender = (doc.gender === 'male' || doc.gender === 'female') ? doc.gender : '';
-    var dob = doc.dob || '';
+  var doc = pageState.userDoc || {};
+  var pass = esLabs.getPassState();
+  var coachingClient = isCoachingClient(doc, pass);
 
+  if (!pageState.shellRendered) {
     root.innerHTML = ''
-      + profileCardHtml(displayName, email, gender, dob)
+      + '<div id="banner-mount"></div>'
+      + profileCardHtml(doc, user.email)
+      + trainingCardHtml(doc)
+      + prsCardHtml(doc)
+      + saveBarHtml()
       + '<div id="features-card-mount"></div>'
       + dangerZoneHtml(user);
 
     wireProfileCard();
+    wireTrainingCard();
+    wirePrsCard();
+    wireSaveBar();
     wireDangerZone();
     pageState.shellRendered = true;
   }
 
-  var mount = document.getElementById('features-card-mount');
-  if (mount) {
-    mount.innerHTML = featuresCardHtml(esLabs.getPassState());
+  // Re-render banner + features on every state change. Form cards
+  // keep their in-flight edits.
+  var bannerMount = document.getElementById('banner-mount');
+  if (bannerMount) bannerMount.innerHTML = bannerHtml(doc, coachingClient);
+
+  applyRequiredMarkers(coachingClient);
+
+  var featMount = document.getElementById('features-card-mount');
+  if (featMount) {
+    featMount.innerHTML = featuresCardHtml(pass);
     wireFeaturesCard();
   }
 }
 
-function profileCardHtml(displayName, email, gender, dob) {
+// ──────────────────────────────────────────────────────────────
+//  Banner (coaching client + incomplete profile)
+// ──────────────────────────────────────────────────────────────
+function bannerHtml(userDoc, coachingClient) {
+  if (!coachingClient) return '';
+  var missing = missingRequiredFields(userDoc);
+  if (missing.length === 0) return '';
+  return ''
+    + '<div class="coach-banner">'
+    + '  <div class="coach-banner-icon">&#9888;</div>'
+    + '  <div class="coach-banner-body">'
+    + '    <div class="coach-banner-title">Required for your coach</div>'
+    + '    <div class="coach-banner-text">Please complete the fields marked <span class="req-star">*</span> below so your coach can train you effectively.</div>'
+    + '  </div>'
+    + '</div>';
+}
+
+function applyRequiredMarkers(coachingClient) {
+  document.querySelectorAll('[data-required]').forEach(function (el) {
+    el.style.display = coachingClient ? 'inline' : 'none';
+  });
+}
+
+// ──────────────────────────────────────────────────────────────
+//  Profile card
+// ──────────────────────────────────────────────────────────────
+function profileCardHtml(doc, email) {
+  var displayName = doc.displayName || (esLabs.user && esLabs.user.displayName) || '';
+  var gender = (doc.gender === 'male' || doc.gender === 'female') ? doc.gender : '';
+  var dob = doc.dob || '';
   return ''
     + '<section class="acct-card">'
     + '  <h2>Profile</h2>'
     + '  <p class="card-sub">Your name appears on saved sessions. Date of birth and gender personalize how reference ranges grade your gait analysis.</p>'
     + '  <div class="field-grid">'
     + '    <div class="field">'
-    + '      <span class="field-label">Name</span>'
+    + '      <span class="field-label">Name<span class="req-star" data-required>*</span></span>'
     + '      <input id="f-name" class="field-input" type="text" maxlength="80" value="' + esc(displayName) + '" placeholder="Your name">'
     + '    </div>'
     + '    <div class="field">'
@@ -108,20 +194,16 @@ function profileCardHtml(displayName, email, gender, dob) {
     + '      <div class="field-static">' + esc(email) + ' <span class="lock-pill">Read-only</span></div>'
     + '    </div>'
     + '    <div class="field">'
-    + '      <span class="field-label">Date of birth</span>'
+    + '      <span class="field-label">Date of birth<span class="req-star" data-required>*</span></span>'
     + '      <input id="f-dob" class="field-input" type="date" value="' + esc(dob) + '" max="' + todayIso() + '">'
     + '    </div>'
     + '    <div class="field">'
-    + '      <span class="field-label">Gender</span>'
+    + '      <span class="field-label">Gender<span class="req-star" data-required>*</span></span>'
     + '      <div class="radio-row" id="f-gender">'
     + '        <label class="radio-pill' + (gender === 'male' ? ' checked' : '') + '" data-val="male"><input type="radio" name="acct-gender" value="male"' + (gender === 'male' ? ' checked' : '') + '><span>&#9794; Male</span></label>'
     + '        <label class="radio-pill' + (gender === 'female' ? ' checked' : '') + '" data-val="female"><input type="radio" name="acct-gender" value="female"' + (gender === 'female' ? ' checked' : '') + '><span>&#9792; Female</span></label>'
     + '      </div>'
     + '    </div>'
-    + '  </div>'
-    + '  <div class="save-row">'
-    + '    <span class="save-status" id="save-status"></span>'
-    + '    <button class="btn-primary" id="btn-save-profile">Save changes</button>'
     + '  </div>'
     + '</section>';
 }
@@ -138,39 +220,211 @@ function wireProfileCard() {
       }
     });
   }
-  document.getElementById('btn-save-profile').addEventListener('click', saveProfile);
 }
 
-function saveProfile() {
+// ──────────────────────────────────────────────────────────────
+//  Training profile card
+// ──────────────────────────────────────────────────────────────
+function trainingCardHtml(doc) {
+  var years = (doc.runningYears !== undefined && doc.runningYears !== null) ? String(doc.runningYears) : '';
+  var miles = (doc.weeklyMiles !== undefined && doc.weeklyMiles !== null) ? String(doc.weeklyMiles) : '';
+  var goals = doc.goals || '';
+  var injuries = doc.injuryHistory || '';
+  return ''
+    + '<section class="acct-card">'
+    + '  <h2>Training profile</h2>'
+    + '  <p class="card-sub">Background your coach uses to tailor your plan. Leave anything blank if it doesn&rsquo;t apply.</p>'
+    + '  <div class="field-grid">'
+    + '    <div class="field">'
+    + '      <span class="field-label">Years running<span class="req-star" data-required>*</span></span>'
+    + '      <input id="f-years" class="field-input" type="number" min="0" max="80" step="0.5" value="' + esc(years) + '" placeholder="e.g. 3">'
+    + '    </div>'
+    + '    <div class="field">'
+    + '      <span class="field-label">Typical miles per week<span class="req-star" data-required>*</span></span>'
+    + '      <input id="f-miles" class="field-input" type="number" min="0" max="300" step="1" value="' + esc(miles) + '" placeholder="e.g. 30">'
+    + '    </div>'
+    + '  </div>'
+    + '  <div class="field" style="margin-top:16px">'
+    + '    <span class="field-label">Goals<span class="req-star" data-required>*</span></span>'
+    + '    <textarea id="f-goals" class="field-input field-textarea" rows="3" maxlength="600" placeholder="What are you training for? Specific races, time goals, distances, life-goals (“finish my first marathon”), etc.">' + esc(goals) + '</textarea>'
+    + '  </div>'
+    + '  <div class="field" style="margin-top:14px">'
+    + '    <span class="field-label">Injury history <span class="field-label-hint">(optional)</span></span>'
+    + '    <textarea id="f-injuries" class="field-input field-textarea" rows="3" maxlength="800" placeholder="Recent or recurring injuries your coach should know about. Leave blank if none.">' + esc(injuries) + '</textarea>'
+    + '  </div>'
+    + '</section>';
+}
+
+function wireTrainingCard() {
+  // Nothing reactive yet -- values are read at save time.
+}
+
+// ──────────────────────────────────────────────────────────────
+//  Personal records card
+// ──────────────────────────────────────────────────────────────
+function prsCardHtml(doc) {
+  var prs = normalizePrs(doc.prs);
+  return ''
+    + '<section class="acct-card">'
+    + '  <h2>Personal records</h2>'
+    + '  <p class="card-sub">Your current PR at each distance. Add a date if you remember it. One PR per distance &mdash; updating is replacing.</p>'
+    + '  <div id="prs-list" class="prs-list">'
+    +      prs.map(function (pr) { return prRowHtml(pr); }).join('')
+    + '  </div>'
+    + '  <button type="button" class="btn-add-pr" id="btn-add-pr">+ Add PR</button>'
+    + '</section>';
+}
+
+// Returns an array of { distance, time, date }, sorted by canonical
+// distance order. Tolerates the legacy-array shape in case anyone
+// wrote to the field in the past.
+function normalizePrs(raw) {
+  var byDist = {};
+  if (raw && typeof raw === 'object') {
+    if (Array.isArray(raw)) {
+      raw.forEach(function (entry) {
+        if (entry && entry.distance) byDist[entry.distance] = { time: entry.time || '', date: entry.date || '' };
+      });
+    } else {
+      Object.keys(raw).forEach(function (dist) {
+        var entry = raw[dist];
+        if (entry && typeof entry === 'object') {
+          byDist[dist] = { time: entry.time || '', date: entry.date || '' };
+        }
+      });
+    }
+  }
+  var out = [];
+  PR_DISTANCES.forEach(function (d) {
+    if (byDist[d.key]) {
+      out.push({ distance: d.key, time: byDist[d.key].time, date: byDist[d.key].date });
+    }
+  });
+  return out;
+}
+
+function prRowHtml(pr) {
+  var distance = (pr && pr.distance) || '';
+  var time = (pr && pr.time) || '';
+  var date = (pr && pr.date) || '';
+  var optsHtml = '<option value="">Select distance…</option>'
+    + PR_DISTANCES.map(function (d) {
+        return '<option value="' + esc(d.key) + '"' + (d.key === distance ? ' selected' : '') + '>' + esc(d.label) + '</option>';
+      }).join('');
+  return ''
+    + '<div class="pr-row" data-pr-row>'
+    + '  <input type="text" class="field-input pr-time" placeholder="e.g. 18:30 or 1:23:45" value="' + esc(time) + '" data-pr-time>'
+    + '  <select class="field-input pr-distance" data-pr-distance>' + optsHtml + '</select>'
+    + '  <input type="date" class="field-input pr-date" value="' + esc(date) + '" max="' + todayIso() + '" data-pr-date title="Date set (optional)">'
+    + '  <button type="button" class="pr-remove" data-pr-remove title="Remove">&times;</button>'
+    + '</div>';
+}
+
+function wirePrsCard() {
+  document.getElementById('btn-add-pr').addEventListener('click', addPrRow);
+  document.getElementById('prs-list').addEventListener('click', function (e) {
+    var t = e.target.closest('[data-pr-remove]');
+    if (t) {
+      var row = t.closest('[data-pr-row]');
+      if (row) row.parentNode.removeChild(row);
+      refreshAddPrButton();
+    }
+  });
+  refreshAddPrButton();
+}
+
+function addPrRow() {
+  var list = document.getElementById('prs-list');
+  var wrap = document.createElement('div');
+  wrap.innerHTML = prRowHtml({ distance: '', time: '', date: '' });
+  list.appendChild(wrap.firstElementChild);
+  refreshAddPrButton();
+}
+
+function refreshAddPrButton() {
+  var btn = document.getElementById('btn-add-pr');
+  if (!btn) return;
+  var rowCount = document.querySelectorAll('#prs-list .pr-row').length;
+  if (rowCount >= PR_DISTANCES.length) {
+    btn.disabled = true;
+    btn.textContent = 'All distances added';
+  } else {
+    btn.disabled = false;
+    btn.textContent = '+ Add PR';
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+//  Unified save bar
+// ──────────────────────────────────────────────────────────────
+function saveBarHtml() {
+  return ''
+    + '<div class="save-bar">'
+    + '  <span class="save-status" id="save-status"></span>'
+    + '  <button class="btn-primary" id="btn-save-profile">Save changes</button>'
+    + '</div>';
+}
+
+function wireSaveBar() {
+  document.getElementById('btn-save-profile').addEventListener('click', saveAll);
+}
+
+function saveAll() {
   var btn = document.getElementById('btn-save-profile');
   var user = esLabs.user;
   if (!user) return;
+
   var name = (document.getElementById('f-name').value || '').trim();
   var dob = (document.getElementById('f-dob').value || '').trim();
   var genderInput = document.querySelector('#f-gender input[name="acct-gender"]:checked');
   var gender = genderInput ? genderInput.value : '';
+  var yearsRaw = (document.getElementById('f-years').value || '').trim();
+  var milesRaw = (document.getElementById('f-miles').value || '').trim();
+  var goals = (document.getElementById('f-goals').value || '').trim();
+  var injuries = (document.getElementById('f-injuries').value || '').trim();
 
   if (dob) {
-    var parts = dob.split('-');
-    if (parts.length !== 3 || isNaN(Date.parse(dob))) {
-      setStatus('That date of birth does not look valid.', 'error');
-      return;
-    }
+    if (isNaN(Date.parse(dob))) { setStatus('That date of birth does not look valid.', 'error'); return; }
     if (new Date(dob + 'T00:00:00').getTime() > Date.now()) {
       setStatus('Date of birth cannot be in the future.', 'error');
       return;
     }
   }
+  if (yearsRaw && (isNaN(Number(yearsRaw)) || Number(yearsRaw) < 0 || Number(yearsRaw) > 80)) {
+    setStatus('Years running should be a number between 0 and 80.', 'error');
+    return;
+  }
+  if (milesRaw && (isNaN(Number(milesRaw)) || Number(milesRaw) < 0 || Number(milesRaw) > 300)) {
+    setStatus('Typical miles per week should be a number between 0 and 300.', 'error');
+    return;
+  }
+
+  // PRs: collect rows, dedupe by distance (last entry wins), drop rows with no time or no distance.
+  var prsMap = {};
+  document.querySelectorAll('#prs-list .pr-row').forEach(function (row) {
+    var d = row.querySelector('[data-pr-distance]').value;
+    var t = (row.querySelector('[data-pr-time]').value || '').trim();
+    var dt = (row.querySelector('[data-pr-date]').value || '').trim();
+    if (!d || !t) return;
+    prsMap[d] = { time: t };
+    if (dt) prsMap[d].date = dt;
+  });
 
   btn.disabled = true;
   btn.textContent = 'Saving…';
   setStatus('');
 
   var fb = esLabs.firebase;
+  var del = fb.firestore.FieldValue.delete();
   var payload = {
-    displayName: name || fb.firestore.FieldValue.delete(),
-    gender: gender || fb.firestore.FieldValue.delete(),
-    dob: dob || fb.firestore.FieldValue.delete(),
+    displayName: name || del,
+    gender: gender || del,
+    dob: dob || del,
+    runningYears: yearsRaw === '' ? del : Number(yearsRaw),
+    weeklyMiles: milesRaw === '' ? del : Number(milesRaw),
+    goals: goals || del,
+    injuryHistory: injuries || del,
+    prs: Object.keys(prsMap).length ? prsMap : del,
     updatedAt: fb.firestore.FieldValue.serverTimestamp()
   };
 
@@ -180,7 +434,7 @@ function saveProfile() {
     })
     .then(function () { setStatus('Saved.', 'success'); })
     .catch(function (e) {
-      console.error('saveProfile error:', e);
+      console.error('saveAll error:', e);
       setStatus('Could not save: ' + (e.message || e), 'error');
     })
     .then(function () {
@@ -198,7 +452,7 @@ function setStatus(msg, kind) {
 }
 
 // ──────────────────────────────────────────────────────────────
-//  Features + billing card
+//  Features + billing card  (unchanged from previous version)
 // ──────────────────────────────────────────────────────────────
 function featuresCardHtml(pass) {
   return ''
@@ -263,6 +517,11 @@ function coachingRow(pass) {
     line = pass.premiumCoachPeriodEnd
       ? 'Premium coaching subscription &middot; renews ' + formatDate(pass.premiumCoachPeriodEnd)
       : 'Premium coaching subscription active.';
+    cta = '<a class="btn-link" href="/coaching/">Coaching dashboard &rarr;</a>'
+        + '<button class="btn-link" id="btn-portal-feat-coach">Manage subscription</button>';
+  } else if (pass.hasStandardCoach) {
+    badge = '<span class="badge unlocked">Active</span>';
+    line = 'Coaching subscription active.';
     cta = '<a class="btn-link" href="/coaching/">Coaching dashboard &rarr;</a>'
         + '<button class="btn-link" id="btn-portal-feat-coach">Manage subscription</button>';
   } else {
