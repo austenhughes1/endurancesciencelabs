@@ -600,12 +600,16 @@ function resultsBlockHTML() {
 
   return `
     <div id="results-block">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin:30px 0 14px">
-        <h2 style="font-family:var(--display);font-size:24px;font-weight:700;margin:0">Active profile</h2>
-        <button id="export-power-pdf" class="btn cyan" type="button" style="padding:9px 16px;font-size:13px">Download PDF →</button>
-      </div>
+      <h2 style="font-family:var(--display);font-size:24px;font-weight:700;margin:30px 0 14px">Active profile</h2>
       ${paceTogglePillHtml}
       <div class="metric-grid">${metricsHtml}</div>
+      <div class="report-actions">
+        <button class="btn-download-report" id="export-power-pdf" type="button">
+          <span class="bdr-icon">⬇</span>
+          <span>Download profile as PDF</span>
+          <span class="bdr-sub">save · share · print</span>
+        </button>
+      </div>
       ${precisionExpandableHtml()}
       ${warnHtml}
       <div class="panel"><div class="panel-h">Training zones</div>${zonesHtml}</div>
@@ -807,9 +811,10 @@ function render() {
         alert('PDF library not loaded yet — try again in a moment.');
         return;
       }
-      const orig = pdfBtn.textContent;
+      const label = pdfBtn.querySelector('span:nth-child(2)');
+      const orig = label ? label.textContent : pdfBtn.textContent;
       pdfBtn.disabled = true;
-      pdfBtn.textContent = 'Building PDF…';
+      if (label) label.textContent = 'Building PDF…';
       try {
         await downloadPowerProfileReport({
           profile:    state.profile,
@@ -823,7 +828,7 @@ function render() {
         alert('Couldn’t build the PDF: ' + (e.message || e));
       } finally {
         pdfBtn.disabled = false;
-        pdfBtn.textContent = orig;
+        if (label) label.textContent = orig;
       }
     });
   }
