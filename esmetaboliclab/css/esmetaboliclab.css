@@ -304,6 +304,36 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 @media (max-width: 640px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
 
+/* ── Unit pill toggle (e.g. min/mi ↔ min/km on results page) ──── */
+.unit-pill {
+  display: inline-flex;
+  background: var(--panel2);
+  border: 1px solid var(--border2);
+  border-radius: 9px;
+  padding: 3px;
+  margin-bottom: 12px;
+  position: relative;
+}
+.unit-pill button {
+  background: transparent;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  color: var(--muted2);
+  cursor: pointer;
+  transition: all .12s;
+  min-width: 64px;
+}
+.unit-pill button.active {
+  background: rgba(139,124,248,.18);
+  color: var(--purple);
+}
+.unit-pill button:hover:not(.active) { color: var(--text); }
+
 /* ── Pace / distance input with right-edge unit toggle ──── */
 .pace-input {
   display: flex; align-items: stretch;

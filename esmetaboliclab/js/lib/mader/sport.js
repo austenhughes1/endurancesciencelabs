@@ -95,14 +95,22 @@ export function speedToPace_min_per_mile(v_m_per_s) {
 }
 
 /**
- * Format a speed in m/s as "m:ss/mi · m:ss/km" — used everywhere a running
- * pace is shown so US athletes and the rest of the world can both read it.
+ * Format a speed in m/s as "m:ss/mi · m:ss/km" — both units side by side.
  */
 export function speedToPaceDualString(v_m_per_s) {
   if (!isFinite(v_m_per_s) || v_m_per_s <= 0) return '—';
   const mi = minPerKmToPaceString(speedToPace_min_per_mile(v_m_per_s));
   const km = minPerKmToPaceString(speedToPace_min_per_km(v_m_per_s));
   return mi + '/mi · ' + km + '/km';
+}
+
+/**
+ * Format a speed in m/s in a single unit ('mi' or 'km').
+ */
+export function speedToPaceString(v_m_per_s, unit) {
+  if (!isFinite(v_m_per_s) || v_m_per_s <= 0) return '—';
+  if (unit === 'km') return minPerKmToPaceString(speedToPace_min_per_km(v_m_per_s)) + '/km';
+  return minPerKmToPaceString(speedToPace_min_per_mile(v_m_per_s)) + '/mi';
 }
 
 /**

@@ -18,8 +18,9 @@ import { getMetabolicProfile } from '../js/lib/mader/index.js';
 import { derivePowerProfile }  from '../js/lib/mader/power-profile.js';
 import { generateZones }       from '../js/ui/zones.js';
 import { drawLactateChart, drawSubstrateChart } from '../js/ui/charts.js';
-import { minPerKmToPaceString, paceStringToMinPerKm, speedToPaceDualString } from '../js/lib/mader/sport.js';
+import { minPerKmToPaceString, paceStringToMinPerKm, speedToPaceString } from '../js/lib/mader/sport.js';
 import { distanceInputHTML, wireDistanceInputs, readDistanceMeters, metersToDistanceString, getDefaultDistanceUnit } from '../js/ui/distance-input.js';
+import { getDefaultPaceUnit, setDefaultPaceUnit } from '../js/ui/pace-input.js';
 
 const $   = (sel) => document.querySelector(sel);
 const $$  = (sel) => Array.from(document.querySelectorAll(sel));
@@ -30,7 +31,7 @@ const fmt = {
   G:   (v) => v.toFixed(2) + ' g/min',
   pct: (v) => (v * 100).toFixed(1) + '%',
   ms:  (v) => v.toFixed(2) + ' m/s',
-  pace:(v) => speedToPaceDualString(v),
+  pace:(v) => speedToPaceString(v, getDefaultPaceUnit()),
 };
 const db = firebase.firestore();
 
@@ -510,9 +511,18 @@ function resultsBlockHTML() {
   if (zones.friel)  zonesHtml += zoneTableHtml('Friel 7-zone (running)',  zones.friel, sport);
   if (zones.seiler) zonesHtml += zoneTableHtml('Seiler 3-zone',           zones.seiler, sport);
 
+  const u = getDefaultPaceUnit();
+  const paceTogglePillHtml = sport === 'running'
+    ? '<div class="unit-pill" id="pace-unit-pill" role="tablist" aria-label="Pace display unit">'
+      + '<button type="button" data-pace-unit="mi" class="' + (u === 'mi' ? 'active' : '') + '">min/mi</button>'
+      + '<button type="button" data-pace-unit="km" class="' + (u === 'km' ? 'active' : '') + '">min/km</button>'
+    + '</div>'
+    : '';
+
   return `
     <div id="results-block">
       <h2 style="font-family:var(--display);font-size:24px;font-weight:700;margin:30px 0 14px">Active profile</h2>
+      ${paceTogglePillHtml}
       <div class="metric-grid">${metricsHtml}</div>
       ${warnHtml}
       <div class="chart-block">
@@ -533,6 +543,7 @@ function resultsBlockHTML() {
           <p><strong>VO₂max — running.</strong> We use Léger's 1980 / 1984 empirical relation: <code>VO₂max (mL/min/kg) ≈ 12.6 × v</code>, where <em>v</em> is your 6-minute max speed in m/s. The 6-min max is treated as your "MAS" (Maximal Aerobic Speed — the velocity at which VO₂max is reached). Léger's regression is validated across hundreds of athletes and bakes in the population-typical mix of running economy plus the small anaerobic contribution at 6-min duration.</p>
           <p><strong>VO₂max — cycling.</strong> We compute the oxygen demand of your 6-minute power directly: <code>VO₂max ≈ P × 60 / (GE × 20.9) / bodyMass</code>, assuming a gross efficiency of 22.5%. Cyclists can sustain near-VO₂max for ~6 minutes, so no additional scale factor is applied.</p>
           <p><strong>Altitude caveat.</strong> If you tested at altitude (Boulder/Denver etc. are around 1,500 m), your 6-min max is roughly 5–10% slower than your sea-level equivalent. The VO₂max estimate from that data will be correspondingly low for your sea-level fitness. For an apples-to-apples lab-style number, repeat the field test at sea level.</p>
+          <p><strong>One internal compromise.</strong> Léger's regression for the forward VO₂max step has an implicit running cost of <code>Cr ≈ 4.39 J·kg⁻¹·m⁻¹</code>. The engine's inverse (VO₂ → speed for MLSS, LT1, Fatmax, zones) uses <code>Cr = 4.20 J·kg⁻¹·m⁻¹</code> — a population-average that splits the difference between submaximal Cr (3.86, di Prampero) and max-effort Cr (4.39, Léger). The mismatch comes from the fact that one regression is keyed to max-effort tests and the other to lab calorimetry. Highly efficient runners (Cr ≈ 3.6–3.9) will see their MLSS and zone paces slightly under-estimated; less efficient runners (Cr ≈ 4.3–4.6), slightly over-estimated. A per-athlete Cr would fix this; a single global value can't.</p>
           <p>Once VO₂max and VLamax are settled, the Mader/Heck engine runs exactly as it would on lactate-anchored values — MLSS, LT1, Fatmax, and substrate curves come from the same equations. References: Léger &amp; Lambert 1980; Léger &amp; Mercier 1984; di Prampero 1986; Mader &amp; Heck 1986.</p>
         </div>
       </details>
@@ -576,6 +587,17 @@ function render() {
       render();
       const card = $('#ps-form');
       if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
+  // Wire the pace-unit pill toggle (running results only)
+  const pillRoot = $('#pace-unit-pill');
+  if (pillRoot) {
+    pillRoot.querySelectorAll('button').forEach((b) => {
+      b.addEventListener('click', () => {
+        setDefaultPaceUnit(b.dataset.paceUnit);
+        render();
+      });
     });
   }
 

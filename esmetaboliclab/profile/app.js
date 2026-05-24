@@ -12,8 +12,8 @@
 import { getMetabolicProfile } from '../js/lib/mader/index.js';
 import { computeVLamax } from '../js/lib/mader/sprint.js';
 import { generateZones } from '../js/ui/zones.js';
-import { minPerKmToPaceString, paceStringToMinPerKm, speedToPaceDualString } from '../js/lib/mader/sport.js';
-import { paceInputHTML, wirePaceInputs, readPaceMps } from '../js/ui/pace-input.js';
+import { minPerKmToPaceString, paceStringToMinPerKm, speedToPaceString } from '../js/lib/mader/sport.js';
+import { paceInputHTML, wirePaceInputs, readPaceMps, getDefaultPaceUnit, setDefaultPaceUnit } from '../js/ui/pace-input.js';
 import { wireHowToMeasureTriggers } from '../js/ui/how-to-measure.js';
 import { wireStepTestTriggers }    from '../js/ui/how-to-step-test.js';
 import { drawLactateChart, drawSubstrateChart } from '../js/ui/charts.js';
@@ -31,7 +31,7 @@ const fmt = {
   G:   (v) => v.toFixed(2) + ' g/min',
   pct: (v) => (v * 100).toFixed(1) + '%',
   ms:  (v) => v.toFixed(2) + ' m/s',
-  pace:(v) => speedToPaceDualString(v),
+  pace:(v) => speedToPaceString(v, getDefaultPaceUnit()),
 };
 
 /* ───────── State ───────── */
@@ -417,7 +417,17 @@ function renderResults() {
   if (zones.friel)  zonesHtml += zoneTableHtml('Friel 7-zone (running)',  zones.friel, sport);
   if (zones.seiler) zonesHtml += zoneTableHtml('Seiler 3-zone',           zones.seiler, sport);
 
+  // Running pages show all paces in one unit at a time; cycling has no toggle.
+  const u = getDefaultPaceUnit();
+  const paceTogglePillHtml = sport === 'running'
+    ? '<div class="unit-pill" id="pace-unit-pill" role="tablist" aria-label="Pace display unit">'
+      + '<button type="button" data-pace-unit="mi" class="' + (u === 'mi' ? 'active' : '') + '">min/mi</button>'
+      + '<button type="button" data-pace-unit="km" class="' + (u === 'km' ? 'active' : '') + '">min/km</button>'
+    + '</div>'
+    : '';
+
   $('#results-root').innerHTML =
+    paceTogglePillHtml +
     '<div class="metric-grid">' + metricsHtml + '</div>' +
     sensHtml + warnHtml +
     '<div class="chart-block"><div class="chart-title">Lactate production vs elimination</div>' +
@@ -428,6 +438,17 @@ function renderResults() {
       '<div id="chart-substrate" class="plt"></div></div>' +
     '<div class="panel"><div class="panel-h">Training zones</div>' + zonesHtml + '</div>' +
     educationHtml();
+
+  // Wire pace-unit toggle (running only)
+  const pillRoot = $('#pace-unit-pill');
+  if (pillRoot) {
+    pillRoot.querySelectorAll('button').forEach((b) => {
+      b.addEventListener('click', () => {
+        setDefaultPaceUnit(b.dataset.paceUnit);
+        renderResults();
+      });
+    });
+  }
 
   drawCharts(p);
 }
