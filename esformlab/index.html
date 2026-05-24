@@ -6,6 +6,7 @@
 <title>esFormLab — Endurance Science Labs</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/site.css">
 <link rel="stylesheet" href="esformlab.css">
 </head>
 <body>
@@ -16,87 +17,11 @@
   <div class="ld-sub">MoveNet Thunder · runs entirely in your browser</div>
 </div>
 
-<!-- Sign-in gate -->
-<div id="signin-gate">
-  <div class="sg-card">
-    <img src="/images/formlab_logo_white_clean.png" alt="esFormLab" class="sg-logo">
-    <div class="sg-eyebrow">◉ Free to try</div>
-    <div class="sg-title">Try esFormLab on your run</div>
-    <div class="sg-sub">Create a free account in one tap, then upload your videos and run the gait-phase scan — at no cost. The full running form report and PDF unlock with a one-time pass.</div>
-    <div class="sg-bullets">
-      <div class="sg-bullet"><span class="sg-bullet-check">✓</span><div><strong>Upload &amp; scan, free</strong> <span>— pose detection runs on your videos at no cost, all 9 gait phases detected</span></div></div>
-      <div class="sg-bullet"><span class="sg-bullet-check">✓</span><div><strong>Gender-specific reference data</strong> <span>— your angles are graded against runners of the same gender, so the bell curves and severity scores are tailored to your body, not averaged across everyone</span></div></div>
-      <div class="sg-bullet"><span class="sg-bullet-check">✓</span><div><strong>Save your sessions</strong> <span>— come back any time and pick up where you left off</span></div></div>
-      <div class="sg-bullet"><span class="sg-bullet-check">✓</span><div><strong>100% private</strong> <span>— videos never leave your browser; pose detection runs locally</span></div></div>
-    </div>
-    <button class="sg-btn" onclick="signInWithGoogle()" aria-label="Continue with Google">
-      <svg class="sg-btn-g" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
-      Continue with Google
-    </button>
-    <div class="sg-microcopy"><strong>Free to try</strong> · No card to start · 1-tap signup</div>
+<!-- Sign-in gate (rendered by /shared/site.js with esFormLab-specific copy) -->
+<div id="esfl-gate"></div>
 
-    <div class="sg-email-toggle">
-      <button class="sg-email-link" id="sg-email-toggle-btn" onclick="toggleEmailAuth()" type="button">
-        <span id="sg-email-toggle-label">Or sign up with email instead</span>
-        <span class="sg-caret">&#9660;</span>
-      </button>
-    </div>
-
-    <div class="sg-email-form" id="sg-email-form" style="display:none">
-      <div class="sg-email-mode" role="tablist">
-        <button class="sg-mode-tab active" data-mode="signup" role="tab" onclick="setEmailAuthMode('signup')" type="button">Create account</button>
-        <button class="sg-mode-tab" data-mode="signin" role="tab" onclick="setEmailAuthMode('signin')" type="button">Sign in</button>
-      </div>
-      <input type="email" id="sg-email" class="sg-email-input" placeholder="you@example.com" autocomplete="email" onkeydown="if(event.key==='Enter')submitEmailAuth()">
-      <input type="password" id="sg-password" class="sg-email-input" placeholder="Password (6+ characters)" autocomplete="new-password" onkeydown="if(event.key==='Enter')submitEmailAuth()">
-      <button class="sg-btn-email" id="sg-email-submit" onclick="submitEmailAuth()" type="button">Create account</button>
-      <button class="sg-forgot-link" id="sg-forgot-btn" onclick="sendPasswordReset()" type="button" style="display:none">Forgot your password?</button>
-      <div class="sg-email-error" id="sg-email-error" style="display:none"></div>
-    </div>
-
-    <div class="sg-foot">The full running form report — every detected issue with coaching cues, bell-curve placement vs elite reference data, and the PDF — unlocks with a one-time 90-day pass. No subscription.</div>
-    <div class="sg-foot" style="border-top:none;padding-top:0;margin-top:10px"><strong style="color:var(--warn)">&#9888; Not medical advice.</strong> esFormLab is provided for educational and informational purposes only. It is not a medical evaluation, is not intended to diagnose, treat, cure, or prevent any disease or injury, and the results do not constitute a medical diagnosis. Use of this tool does not create a doctor&ndash;patient or healthcare-provider relationship. Always consult a qualified healthcare professional before starting a new exercise program or changing your training based on these results. Use is at your own risk.</div>
-  </div>
-</div>
-
-<!-- Nav -->
-<nav>
-  <a href="/" class="nav-logo" aria-label="Endurance Science Labs home">
-    <img src="/images/formlab_logo_white_clean.png" alt="esFormLab — Endurance Science Labs" class="nav-logo-img">
-  </a>
-  <div class="nav-links">
-    <a href="/"          class="nav-link">Home</a>
-    <a href="/esformlab/"  class="nav-link active">Form analysis</a>
-    <a href="/coaching/"       class="nav-link">Coaching <span class="soon" style="background:rgba(34,199,138,.18);color:var(--good)">Live</span></a>
-    <span id="nav-esmetlab"      class="nav-link" style="cursor:default">Metabolic Testing <span class="soon">Soon</span></span>
-
-    <!-- Mobile-only auth section (rendered inside the hamburger menu on phones) -->
-    <div class="nav-mobile-section">
-      <a href="/account/" id="nav-mobile-user-row" class="nav-mobile-user" style="display:none;text-decoration:none">
-        <img id="nav-mobile-avatar" class="nav-mobile-avatar" src="">
-        <span id="nav-mobile-name" class="nav-mobile-name">Loading…</span>
-      </a>
-      <button id="nav-mobile-signin" class="nav-mobile-action signin" onclick="signInWithGoogle()">Continue with Google</button>
-      <a id="nav-mobile-account" class="nav-mobile-action" href="/account/" style="display:none;text-decoration:none">My account</a>
-      <button id="nav-mobile-my-analyses" class="nav-mobile-action" onclick="openMyAnalyses()" style="display:none">My Sessions</button>
-      <button id="nav-mobile-signout" class="nav-mobile-action signout" onclick="signOutUser()" style="display:none">Sign out</button>
-    </div>
-  </div>
-  <span id="hdr-file"></span>
-  <div class="hdr-right">
-    <button class="btn-ghost" id="btn-my-analyses" onclick="openMyAnalyses()" style="display:none">My Sessions</button>
-    <a href="/account/" id="auth-indicator" class="auth-indicator" style="display:none;text-decoration:none" title="My account">
-      <img id="auth-avatar" class="auth-avatar" src="">
-      <span id="auth-name" class="auth-name"></span>
-    </a>
-    <button class="btn-ghost" id="btn-sign-out" onclick="signOutUser()" style="display:none">Sign out</button>
-    <button class="btn-ghost" id="btn-rescan" onclick="rescan()" style="display:none">&#10227; Re-scan</button>
-    <button class="btn-ghost" onclick="startNewSession()">&#8617; New video</button>
-  </div>
-  <button class="menu-toggle" aria-label="Toggle menu" aria-expanded="false" onclick="(function(b){var n=b.closest('nav');var o=n.classList.toggle('menu-open');b.setAttribute('aria-expanded',o?'true':'false');})(this)">
-    <span></span><span></span><span></span>
-  </button>
-</nav>
+<!-- Nav (rendered by /shared/site.js) -->
+<nav class="eslabs-nav" id="esfl-nav"></nav>
 
 <!-- Upload -->
 <div id="screen-upload">
@@ -678,6 +603,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
+<script src="/shared/site.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
 
@@ -696,17 +622,39 @@
 'use strict';
 
 // ==============================================================
-//  FIREBASE CONFIG
+//  Universal nav + sign-in gate (shared/site.js)
 // ==============================================================
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyDh4LorLQx1DPovQIA4HM3127fAYpyuaY8",
-  authDomain: "es-form-labs.firebaseapp.com",
-  projectId: "es-form-labs",
-  storageBucket: "es-form-labs.firebasestorage.app",
-  messagingSenderId: "215373817428",
-  appId: "1:215373817428:web:9a80d81815f6843ce2afc1",
-  measurementId: "G-P2RRN15M8K"
-};
+esLabs.mountNav('#esfl-nav', {
+  active: 'esformlab',
+  extrasHtml: ''
+    + '<span id="hdr-file"></span>'
+    + '<button class="btn-ghost" id="btn-my-analyses" onclick="openMyAnalyses()" style="display:none">My Sessions</button>'
+    + '<button class="btn-ghost" id="btn-rescan" onclick="rescan()" style="display:none">&#10227; Re-scan</button>'
+    + '<button class="btn-ghost" onclick="startNewSession()">&#8617; New video</button>',
+  mobileExtrasHtml: ''
+    + '<button class="nav-mobile-action" id="nav-mobile-my-analyses" onclick="openMyAnalyses()" style="display:none">My Sessions</button>',
+  onRender: function (nav, user) {
+    // updateAuthUI in auth-paywall.js toggles the My Sessions / Save / Sign-in-to-save buttons.
+    if (typeof updateAuthUI === 'function') updateAuthUI();
+  }
+});
+
+esLabs.mountAuthGate('#esfl-gate', {
+  logo: '/images/formlab_logo_white_clean.png',
+  eyebrow: '◉ Free to try',
+  headline: 'Try esFormLab on your run',
+  sub: 'Create a free account in one tap, then upload your videos and run the gait-phase scan — at no cost. The full running form report and PDF unlock with a one-time pass.',
+  bullets: [
+    { strong: 'Upload & scan, free', span: '— pose detection runs on your videos at no cost, all 9 gait phases detected' },
+    { strong: 'Gender-specific reference data', span: '— your angles are graded against runners of the same gender, so the bell curves and severity scores are tailored to your body, not averaged across everyone' },
+    { strong: 'Save your sessions', span: '— come back any time and pick up where you left off' },
+    { strong: '100% private', span: '— videos never leave your browser; pose detection runs locally' }
+  ],
+  microcopy: '<strong>Free to try</strong> · No card to start · 1-tap signup',
+  emailDefault: 'signup',
+  foot: 'The full running form report — every detected issue with coaching cues, bell-curve placement vs elite reference data, and the PDF — unlocks with a one-time 90-day pass. No subscription.'
+    + '<div style="border-top:none;padding-top:8px;margin-top:10px"><strong style="color:var(--warn)">&#9888; Not medical advice.</strong> esFormLab is provided for educational and informational purposes only. Consult a qualified healthcare professional before changing your training based on these results.</div>'
+});
 
 // -- Video elements & file management --
 var videoEls = {side: null, front: null, back: null};
@@ -731,7 +679,9 @@ let expandKey=null, epCurrentT=0, epAnalyzing=false, epDuration=30;
 var epAutoT = 0, epAutoKps = null, epAutoMetrics = null;
 // Video time at which ph.kps was last computed -- used to detect stale poses when saving labels.
 var epPoseFreshAt = 0;
-var auth2 = null;
+// Auth/user state -- populated by esLabs.onAuthChange in auth-paywall.js.
+// The rest of this file reads these globals; treat them as read-only.
+var auth2 = esLabs.auth;
 var currentUser = null;
 var lastIssues = null;
 var isViewingSaved = false;
@@ -740,19 +690,7 @@ const epDbt={};
 // Phase-label tracking (admin-only "is this frame correct?" feedback).
 var SESSION_ID = (function(){ try { return (crypto.randomUUID && crypto.randomUUID()) || String(Date.now())+'-'+Math.random().toString(36).slice(2,10); } catch(e){ return String(Date.now())+'-'+Math.random().toString(36).slice(2,10); } })();
 var phaseLabels = {}; // key -> {status:'correct'|'corrected'|'no_good', trueT?, docId?}
-function isAdmin(){ return !!(currentUser && currentUser.uid === '2z9Z3K5ZwShvadUuqZmwMv0s1Od2'); }
-
-function upgradeEsMetLabNav(user) {
-  var el = document.getElementById('nav-esmetlab');
-  if (!el) return;
-  if (user && user.uid === '2z9Z3K5ZwShvadUuqZmwMv0s1Od2') {
-    var a = document.createElement('a');
-    a.href = '/esmetaboliclab/';
-    a.className = 'nav-link';
-    a.innerHTML = 'Metabolic Testing <span class="soon" style="background:rgba(139,124,248,.18);color:#8b7cf8">Preview</span>';
-    el.parentNode.replaceChild(a, el);
-  }
-}
+function isAdmin(){ return esLabs.isAdmin(); }
 
 function getVideoElForPhase(key) {
   var def = PHASE_DEFS.find(function(d){return d.key===key;});
@@ -1073,8 +1011,7 @@ function completeAnalysis(){
 }
 
 async function initModel(){
-  initFirebase();
-  initAuth();
+  loadLiveRanges();
   try{
     await tf.ready();
     // Mobile only: explicitly try to lock the WebGL backend. TF.js's auto-pick on
@@ -2096,8 +2033,7 @@ async function analyzePoseAtT(t, phaseKey){
 }
 
 async function writePhaseLabelDoc(phaseKey, frameData, isCorrect){
-  if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
-  var db = firebase.firestore();
+  var db = esLabs.db;
   var vidEl = getVideoElForPhase(phaseKey);
   var payload = {
     sessionId: SESSION_ID,
@@ -2981,7 +2917,7 @@ function resetApp(){
 // ══════════════════════════════════════════════════════════
 //  FEEDBACK / BUG REPORT
 // ══════════════════════════════════════════════════════════
-var ADMIN_UID = '2z9Z3K5ZwShvadUuqZmwMv0s1Od2';
+var ADMIN_UID = esLabs.ADMIN_UID;
 var feedbackType = 'contact';
 
 function openFeedbackModal(type) {
@@ -3015,8 +2951,7 @@ async function submitFeedback() {
   btn.textContent = 'Sending…';
 
   try {
-    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
-    var fbDb = firebase.firestore();
+    var fbDb = esLabs.db;
     var senderName = currentUser ? (currentUser.displayName || currentUser.email) : 'Anonymous';
     var senderUid = currentUser ? currentUser.uid : 'anonymous';
 
