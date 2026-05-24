@@ -582,6 +582,7 @@ function resultsBlockHTML() {
       <h2 style="font-family:var(--display);font-size:24px;font-weight:700;margin:30px 0 14px">Active profile</h2>
       ${paceTogglePillHtml}
       <div class="metric-grid">${metricsHtml}</div>
+      ${precisionExpandableHtml()}
       ${warnHtml}
       <div class="chart-block">
         <div class="chart-title">Lactate production vs elimination</div>
@@ -607,6 +608,21 @@ function resultsBlockHTML() {
       </details>
     </div>
   `;
+}
+
+function precisionExpandableHtml() {
+  return '' +
+    '<details class="edu" style="margin-top:18px"><summary>How precise are these numbers?</summary>' +
+    '<div class="body">' +
+    '<p>These are <strong>point estimates</strong>, not exact measurements. Each headline value has real-world uncertainty:</p>' +
+    '<ul style="margin:0 0 10px 18px;padding:0">' +
+      '<li><strong>MLSS</strong> is conceptually a single pace — the highest intensity where lactate stays at steady state — but in practice expect about <strong>±2–3% day-to-day variance</strong> from hydration, glycogen, sleep, temperature, and acute fatigue. That\'s roughly ±5–10 s/mile or ±5–15 W for trained athletes.</li>' +
+      '<li>Your <strong>half-marathon pace</strong> and <strong>1-hour TT pace</strong> usually land within a few seconds of MLSS in either direction — sometimes slightly faster (elite athletes can tolerate a small lactate creep), sometimes slightly slower.</li>' +
+      '<li><strong>VO₂max</strong> from a 6-min field test has comparable precision (±3–5%). Repeated tests on different days routinely shift the estimate.</li>' +
+      '<li><strong>VLamax</strong> has the largest test–retest variance of any single number here (literature CV 5–15%). One measurement is a snapshot.</li>' +
+    '</ul>' +
+    '<p>The training-zone bands (Z4 Sub-threshold + Z5 Threshold combined for the "near-MLSS" range) are intentionally wider than the single MLSS point — built that way so you don\'t need lab-pace precision to prescribe a session.</p>' +
+    '</div></details>';
 }
 
 function zoneTableHtml(title, rows, sport, opts) {
