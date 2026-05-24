@@ -494,6 +494,7 @@ function updateAuthUI() {
   var mSignIn = document.getElementById('nav-mobile-signin');
   var mSignOut = document.getElementById('nav-mobile-signout');
   var mMyAnalyses = document.getElementById('nav-mobile-my-analyses');
+  var mAccount = document.getElementById('nav-mobile-account');
 
   function setName(text) {
     if (nameEl) nameEl.textContent = text;
@@ -529,6 +530,7 @@ function updateAuthUI() {
     if (mSignIn) mSignIn.style.display = 'none';
     if (mSignOut) mSignOut.style.display = 'block';
     if (mMyAnalyses) mMyAnalyses.style.display = 'block';
+    if (mAccount) mAccount.style.display = 'block';
     if (signinGate) signinGate.style.display = 'none';
   } else {
     if (indicator) indicator.style.display = 'none';
@@ -540,6 +542,7 @@ function updateAuthUI() {
     if (mSignIn) mSignIn.style.display = 'block';
     if (mSignOut) mSignOut.style.display = 'none';
     if (mMyAnalyses) mMyAnalyses.style.display = 'none';
+    if (mAccount) mAccount.style.display = 'none';
     if (signinGate) signinGate.style.display = 'flex';
   }
 }
