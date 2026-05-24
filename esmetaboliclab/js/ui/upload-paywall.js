@@ -85,8 +85,11 @@ export function wireUploadPaywall(opts) {
     if (next === lastState) return;
     lastState = next;
 
+    // NOTE: must use 'block' (not '') because the host page has a CSS rule
+    // `#app { display: none; }` in its <style> block that overrides an
+    // empty inline declaration. Setting an explicit value beats the CSS.
     if (next === 'app') {
-      app.style.display = '';
+      app.style.display = 'block';
       paywall.style.display = 'none';
     } else if (next === 'paywall') {
       app.style.display = 'none';
