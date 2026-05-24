@@ -28,8 +28,9 @@
 <body>
 
 <div id="esml-gate"></div>
+<div id="esml-paywall"></div>
 
-<div id="app">
+<div id="app" style="display:none">
 <nav class="eslabs-nav" id="esml-nav"></nav>
 
 <div class="page">
@@ -161,22 +162,23 @@
 
   esLabs.mountNav('#esml-nav', { active: 'esmetlab' });
   esLabs.mountAuthGate('#esml-gate', {
-    eyebrow: '◉ Admin only',
+    eyebrow: '◉ Sign in to continue',
     headline: 'Lactate Step Test',
-    sub: 'Private admin preview. Sign in with your admin account to continue.',
-    requireAdmin: true,
-    foot: '<a href="/" style="color:var(--cyan);text-decoration:none">&larr; Back to home</a>'
+    sub: 'Sign in to run a full lactate step test. Upload access required — see pricing.',
+    foot: '<a href="/esmetaboliclab/" style="color:var(--cyan);text-decoration:none">&larr; Back to esMetabolicLab</a>'
   });
 
   esLabs.onAuthChange(function(user) {
-    if (user && user.uid === esLabs.ADMIN_UID) {
+    if (user) {
       window.__esml.user = user;
-      document.getElementById('app').style.display = 'block';
       window.dispatchEvent(new CustomEvent('esml-auth', { detail: { user: user } }));
-    } else {
-      document.getElementById('app').style.display = 'none';
     }
   });
+</script>
+
+<script type="module">
+  import { wireUploadPaywall } from '../js/ui/upload-paywall.js';
+  wireUploadPaywall({ toolName: 'the Lactate Step Test', appEl: '#app', paywallEl: '#esml-paywall' });
 </script>
 
 <script type="module" src="./app.js"></script>

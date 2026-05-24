@@ -16,8 +16,9 @@
 <body>
 
 <div id="esml-gate"></div>
+<div id="esml-paywall"></div>
 
-<div id="app">
+<div id="app" style="display:none">
 <nav class="eslabs-nav" id="esml-nav"></nav>
 
 <div class="page">
@@ -45,7 +46,7 @@
   </div>
 
   <footer class="esml">
-    © <span id="footer-year"></span> Endurance Science Labs · esMetabolicLab admin preview
+    © <span id="footer-year"></span> Endurance Science Labs · esMetabolicLab
     <div class="disclaimer">Not medical advice. Educational use only.</div>
   </footer>
 </div>
@@ -60,24 +61,25 @@
 
   esLabs.mountNav('#esml-nav', { active: 'esmetlab' });
   esLabs.mountAuthGate('#esml-gate', {
-    eyebrow: '◈ Admin only',
-    headline: 'esMetabolicLab',
-    sub: 'Private admin preview. Sign in with your admin account to continue.',
-    requireAdmin: true,
-    foot: '<a href="/" style="color:var(--cyan);text-decoration:none">&larr; Back to home</a>'
+    eyebrow: '◈ Sign in to continue',
+    headline: 'Sprint VLamax Test',
+    sub: 'Sign in to record your sprint VLamax. Upload access required — see pricing.',
+    foot: '<a href="/esmetaboliclab/" style="color:var(--cyan);text-decoration:none">&larr; Back to esMetabolicLab</a>'
   });
 
   esLabs.onAuthChange(function(user) {
-    if (user && user.uid === esLabs.ADMIN_UID) {
+    if (user) {
       window.__esml.user = user;
-      document.getElementById('app').style.display = 'block';
       window.dispatchEvent(new CustomEvent('esml-auth', { detail: { user: user } }));
-    } else {
-      document.getElementById('app').style.display = 'none';
     }
   });
 
   document.getElementById('footer-year').textContent = new Date().getFullYear();
+</script>
+
+<script type="module">
+  import { wireUploadPaywall } from '../js/ui/upload-paywall.js';
+  wireUploadPaywall({ toolName: 'the Sprint VLamax Test', appEl: '#app', paywallEl: '#esml-paywall' });
 </script>
 
 <script type="module" src="./app.js"></script>
