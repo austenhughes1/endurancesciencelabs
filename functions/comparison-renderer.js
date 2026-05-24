@@ -81,7 +81,7 @@ function renderComparisonReport(input) {
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(255, 255, 255);
-  doc.text("ESL", margins.left + 8, y + 10, { align: "center" });
+  doc.text("ESLabs", margins.left + 8, y + 10, { align: "center" });
 
   doc.setTextColor(bodyR, bodyG, bodyB);
   doc.setFontSize(18);
