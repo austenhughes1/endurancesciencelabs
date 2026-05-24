@@ -22,6 +22,7 @@ import { drawLactateChart, drawSubstrateChart } from '../js/ui/charts.js';
 import { minPerKmToPaceString, paceStringToMinPerKm, speedToPaceString } from '../js/lib/mader/sport.js';
 import { distanceInputHTML, wireDistanceInputs, readDistanceMeters, metersToDistanceString, getDefaultDistanceUnit } from '../js/ui/distance-input.js';
 import { getDefaultPaceUnit, setDefaultPaceUnit } from '../js/ui/pace-input.js';
+import { showConfirmModal } from '../js/ui/confirm-modal.js';
 
 const $   = (sel) => document.querySelector(sel);
 const $$  = (sel) => Array.from(document.querySelectorAll(sel));
@@ -501,7 +502,7 @@ function sessionCardHTML(s, isLatest) {
   const derived = s.derived || {};
   return `
     <div class="sess-card ${isLatest ? 'latest' : ''}">
-      <button type="button" class="sess-delete" data-session-delete="${s.id}" title="Delete this session" aria-label="Delete this session">×</button>
+      <button type="button" class="sess-delete" data-session-delete="${s.id}" title="Delete this session" aria-label="Delete this session">Delete</button>
       <div>
         <div class="sess-card-date">${fmtDate(s.measured_at)} ${latestPill}</div>
       </div>
@@ -716,7 +717,14 @@ function render() {
       e.preventDefault();
       e.stopPropagation();
       const id = btn.dataset.sessionDelete;
-      if (!window.confirm('Delete this power profile session? This cannot be undone.')) return;
+      const ok = await showConfirmModal({
+        title: 'Delete this power profile?',
+        body: 'This permanently removes this saved session. The next-most-recent session (if any) will become your active profile. This cannot be undone.',
+        confirmLabel: 'Delete',
+        cancelLabel: 'Keep it',
+        danger: true,
+      });
+      if (!ok) return;
       btn.disabled = true;
       try {
         await deleteSession(id);
