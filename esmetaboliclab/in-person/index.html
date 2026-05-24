@@ -85,7 +85,7 @@
   </div>
 
   <footer class="esml">
-    © <span id="footer-year"></span> Endurance Science Labs · esMetabolicLab admin preview
+    © <span id="footer-year"></span> Endurance Science Labs · esMetabolicLab
     <div class="disclaimer">Not medical advice. Educational use only.</div>
   </footer>
 </div>
@@ -100,15 +100,14 @@
 
   esLabs.mountNav('#esml-nav', { active: 'esmetlab' });
   esLabs.mountAuthGate('#esml-gate', {
-    eyebrow: '▷ Admin only',
-    headline: 'esMetabolicLab',
-    sub: 'Private admin preview. Sign in with your admin account to continue.',
-    requireAdmin: true,
-    foot: '<a href="/" style="color:var(--cyan);text-decoration:none">&larr; Back to home</a>'
+    eyebrow: '▷ Sign in to request',
+    headline: 'Book an in-person test',
+    sub: 'Sign in and we\'ll reach out to schedule your session in the Boulder / Denver area.',
+    foot: '<a href="/esmetaboliclab/" style="color:var(--cyan);text-decoration:none">&larr; Back to esMetabolicLab</a>'
   });
 
   esLabs.onAuthChange(function(user) {
-    if (user && user.uid === esLabs.ADMIN_UID) {
+    if (user) {
       window.__esml.user = user;
       document.getElementById('app').style.display = 'block';
     } else {
