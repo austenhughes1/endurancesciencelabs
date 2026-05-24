@@ -38,6 +38,18 @@ var COACHING_PREMIUM_PRICE_ID = 'price_1TVJJuIFO8pppwnF5uECviT3';
 var COACHING_STANDARD_PRICE_ID = 'price_1TVIadIFO8pppwnFuj3vYy9S';
 var PASS_DURATION_SEC = 90 * 24 * 60 * 60;
 
+// esMetabolicLab price IDs (4 tiers).
+// - Lifetime: one-time $90, unlimited lactate uploads forever.
+// - Yearly:   auto-renewing $60/yr subscription, unlimited uploads while active.
+// - Single:   one-time $30, unlimited uploads for 7 days from purchase.
+// - InPerson: one-time $145, books an in-person test with a coach. Does NOT
+//             grant any upload entitlement on its own.
+var METLAB_LIFETIME_PRICE_ID = 'price_1TahG1IFO8pppwnFG3vtYfXI';
+var METLAB_YEARLY_PRICE_ID   = 'price_1TahFFIFO8pppwnFYFMvh9xP';
+var METLAB_SINGLE_PRICE_ID   = 'price_1TahDbIFO8pppwnFDD8rkJWP';
+var METLAB_INPERSON_PRICE_ID = 'price_1TahCGIFO8pppwnFHqaaKbwW';
+var METLAB_SINGLE_WINDOW_SEC = 7 * 24 * 60 * 60;
+
 if (typeof firebase === 'undefined') {
   console.error('esLabs/site.js: firebase compat SDK must be loaded first');
   return;
@@ -58,6 +70,12 @@ var state = {
   hasPremiumCoach: false,
   hasStandardCoach: false,
   premiumCoachPeriodEnd: null,
+  // esMetabolicLab entitlements (client-derived from payments + subs docs)
+  metlabHasLifetime: false,
+  metlabYearlyActive: false,
+  metlabYearlyPeriodEnd: null,
+  metlabSingleUntil: null,        // unix seconds when the 7-day window expires
+  metlabInPersonLatest: null,     // unix seconds of most recent in-person payment
   emailAuthMode: 'signup'
 };
 var authListeners = [];
@@ -98,6 +116,11 @@ auth.onAuthStateChanged(function (user) {
   state.hasPremiumCoach = false;
   state.hasStandardCoach = false;
   state.premiumCoachPeriodEnd = null;
+  state.metlabHasLifetime = false;
+  state.metlabYearlyActive = false;
+  state.metlabYearlyPeriodEnd = null;
+  state.metlabSingleUntil = null;
+  state.metlabInPersonLatest = null;
   if (user) attachPassWatchers(user.uid);
   notifyAuthListeners();
   refreshMountedNav();
@@ -129,6 +152,17 @@ function passSnapshot() {
   } else if (state.hasPaidPass) {
     unlocked = true; source = 'paid'; until = state.paidPassUntil;
   }
+
+  // esMetabolicLab upload access — any of: lifetime / active yearly / unexpired single.
+  var metlabUpload = false, metlabSource = null, metlabUntil = null;
+  if (state.metlabHasLifetime) {
+    metlabUpload = true; metlabSource = 'lifetime';
+  } else if (state.metlabYearlyActive) {
+    metlabUpload = true; metlabSource = 'yearly'; metlabUntil = state.metlabYearlyPeriodEnd;
+  } else if (state.metlabSingleUntil && state.metlabSingleUntil > now) {
+    metlabUpload = true; metlabSource = 'single'; metlabUntil = state.metlabSingleUntil;
+  }
+
   return {
     unlocked: unlocked,
     source: source,
@@ -139,7 +173,17 @@ function passSnapshot() {
     grantedUntilSec: state.grantedUntilSec,
     hasPremiumCoach: state.hasPremiumCoach,
     hasStandardCoach: state.hasStandardCoach,
-    premiumCoachPeriodEnd: state.premiumCoachPeriodEnd
+    premiumCoachPeriodEnd: state.premiumCoachPeriodEnd,
+    metlab: {
+      uploadAccess: metlabUpload,
+      source: metlabSource,
+      until: metlabUntil,
+      hasLifetime: state.metlabHasLifetime,
+      yearlyActive: state.metlabYearlyActive,
+      yearlyPeriodEnd: state.metlabYearlyPeriodEnd,
+      singleSessionUntil: state.metlabSingleUntil,
+      inPersonLatest: state.metlabInPersonLatest
+    }
   };
 }
 
@@ -155,19 +199,38 @@ function attachPassWatchers(uid) {
     .onSnapshot(function (snap) {
       var now = Math.floor(Date.now() / 1000);
       var active = false; var until = null;
+      // esMetabolicLab one-time purchases:
+      var hasLifetime = false;
+      var latestSingleSec = null;
+      var latestInPersonSec = null;
       snap.docs.forEach(function (d) {
         var p = d.data();
         if (p.status !== 'succeeded') return;
         var sec = toSeconds(p.created);
         if (sec === null) return;
+        // esFormLab 90-day pass
         if (now - sec < PASS_DURATION_SEC) {
           active = true;
           var u = sec + PASS_DURATION_SEC;
           if (until === null || u > until) until = u;
         }
+        // Per-price detection. Look at line_items + price metadata recorded by the extension.
+        var paidPriceIds = paymentPriceIds(p);
+        if (paidPriceIds.indexOf(METLAB_LIFETIME_PRICE_ID) !== -1) {
+          hasLifetime = true;
+        }
+        if (paidPriceIds.indexOf(METLAB_SINGLE_PRICE_ID) !== -1) {
+          if (latestSingleSec === null || sec > latestSingleSec) latestSingleSec = sec;
+        }
+        if (paidPriceIds.indexOf(METLAB_INPERSON_PRICE_ID) !== -1) {
+          if (latestInPersonSec === null || sec > latestInPersonSec) latestInPersonSec = sec;
+        }
       });
       state.hasPaidPass = active;
       state.paidPassUntil = until;
+      state.metlabHasLifetime = hasLifetime;
+      state.metlabSingleUntil = latestSingleSec ? (latestSingleSec + METLAB_SINGLE_WINDOW_SEC) : null;
+      state.metlabInPersonLatest = latestInPersonSec;
       notifyPassListeners();
     }, function (err) { console.warn('payments snapshot:', err.message); });
 
@@ -175,18 +238,43 @@ function attachPassWatchers(uid) {
     .onSnapshot(function (snap) {
       var foundPremium = null;
       var foundStandard = false;
+      var foundMetlabYearly = null;
       snap.docs.forEach(function (d) {
         var sub = d.data();
         if (sub.status !== 'active' && sub.status !== 'trialing') return;
         var ids = collectPriceIds(sub);
         if (ids.indexOf(COACHING_PREMIUM_PRICE_ID) !== -1) { foundPremium = sub; return; }
         if (ids.indexOf(COACHING_STANDARD_PRICE_ID) !== -1) { foundStandard = true; }
+        if (ids.indexOf(METLAB_YEARLY_PRICE_ID) !== -1) { foundMetlabYearly = sub; }
       });
       state.hasPremiumCoach = !!foundPremium;
       state.hasStandardCoach = !!foundStandard;
       state.premiumCoachPeriodEnd = foundPremium ? toSeconds(foundPremium.current_period_end) : null;
+      state.metlabYearlyActive = !!foundMetlabYearly;
+      state.metlabYearlyPeriodEnd = foundMetlabYearly ? toSeconds(foundMetlabYearly.current_period_end) : null;
       notifyPassListeners();
     }, function (err) { console.warn('subs snapshot:', err.message); });
+}
+
+// Extract the price IDs that a Stripe payment doc was for. The extension writes
+// `items[].price.id` for line items but older versions use `prices[]`. Try both.
+function paymentPriceIds(p) {
+  var out = [];
+  if (Array.isArray(p.items)) {
+    p.items.forEach(function (it) {
+      if (it && it.price && typeof it.price.id === 'string') out.push(it.price.id);
+      else if (typeof it.price === 'string') out.push(it.price);
+    });
+  }
+  if (Array.isArray(p.prices)) {
+    p.prices.forEach(function (pp) {
+      if (pp && typeof pp.id === 'string') out.push(pp.id);
+      else if (typeof pp === 'string') out.push(pp);
+    });
+  }
+  // Some checkout-sessions also record amount/price directly on the doc
+  if (typeof p.price === 'string') out.push(p.price);
+  return out;
 }
 
 function detachPassWatchers() {
@@ -253,6 +341,40 @@ function startPassCheckout(opts) {
       mode: 'payment',
       price: STRIPE_PASS_PRICE_ID,
       success_url: opts.successUrl || (window.location.origin + '/esformlab/?paid=1'),
+      cancel_url: opts.cancelUrl || window.location.href,
+      allow_promotion_codes: true
+    }).then(function (ref) {
+      return new Promise(function (resolve, reject) {
+        ref.onSnapshot(function (snap) {
+          var data = snap.data();
+          if (!data) return;
+          if (data.error) { reject(new Error(data.error.message)); return; }
+          if (data.url) { window.location.assign(data.url); resolve(); }
+        });
+      });
+    });
+}
+
+// Generic checkout starter for esMetabolicLab purchases.
+//   tier: 'lifetime' | 'yearly' | 'single' | 'inperson'
+//   opts: { successUrl, cancelUrl }
+// On success the Stripe extension redirects to the success URL with ?paid=1.
+function startMetlabCheckout(tier, opts) {
+  opts = opts || {};
+  if (!state.user) return signInGoogle();
+  var priceId, mode;
+  if (tier === 'lifetime')      { priceId = METLAB_LIFETIME_PRICE_ID; mode = 'payment'; }
+  else if (tier === 'yearly')   { priceId = METLAB_YEARLY_PRICE_ID;   mode = 'subscription'; }
+  else if (tier === 'single')   { priceId = METLAB_SINGLE_PRICE_ID;   mode = 'payment'; }
+  else if (tier === 'inperson') { priceId = METLAB_INPERSON_PRICE_ID; mode = 'payment'; }
+  else return Promise.reject(new Error('Unknown esMetabolicLab tier: ' + tier));
+
+  var defaultSuccess = window.location.origin + window.location.pathname + '?paid=1';
+  return db.collection('customers').doc(state.user.uid)
+    .collection('checkout_sessions').add({
+      mode: mode,
+      price: priceId,
+      success_url: opts.successUrl || defaultSuccess,
       cancel_url: opts.cancelUrl || window.location.href,
       allow_promotion_codes: true
     }).then(function (ref) {
@@ -680,8 +802,14 @@ window.esLabs = {
   mountAuthGate: mountAuthGate,
   openCustomerPortal: openCustomerPortal,
   startPassCheckout: startPassCheckout,
+  startMetlabCheckout: startMetlabCheckout,
   STRIPE_PASS_PRICE_ID: STRIPE_PASS_PRICE_ID,
   COACHING_PREMIUM_PRICE_ID: COACHING_PREMIUM_PRICE_ID,
+  METLAB_LIFETIME_PRICE_ID: METLAB_LIFETIME_PRICE_ID,
+  METLAB_YEARLY_PRICE_ID: METLAB_YEARLY_PRICE_ID,
+  METLAB_SINGLE_PRICE_ID: METLAB_SINGLE_PRICE_ID,
+  METLAB_INPERSON_PRICE_ID: METLAB_INPERSON_PRICE_ID,
+  METLAB_SINGLE_WINDOW_SEC: METLAB_SINGLE_WINDOW_SEC,
   PASS_DURATION_SEC: PASS_DURATION_SEC
 };
 

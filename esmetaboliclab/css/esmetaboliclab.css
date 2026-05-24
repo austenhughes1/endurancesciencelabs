@@ -247,6 +247,37 @@ nav.esml-nav {
 .admin-footer-link a { color: var(--muted); opacity: .7; }
 .admin-footer-link a:hover { color: var(--muted2); opacity: 1; text-decoration: none; }
 
+/* ── Upload-access paywall (sprint + step-test pages) ───── */
+.paywall-card {
+  max-width: 720px; margin: 32px auto 0;
+  padding: 40px 36px;
+  background: linear-gradient(135deg, rgba(139,124,248,.10), rgba(0,229,200,.04));
+  border: 1px solid rgba(139,124,248,.30);
+  border-radius: 18px;
+}
+.paywall-h {
+  font-family: var(--display); font-weight: 700;
+  font-size: clamp(28px, 4vw, 40px); letter-spacing: -.5px;
+  line-height: 1.18; margin-bottom: 16px;
+}
+.paywall-h em { font-style: italic; color: var(--purple); }
+.paywall-card p {
+  color: var(--text); font-size: 15.5px; line-height: 1.7; margin-bottom: 14px;
+}
+.paywall-tiers {
+  display: flex; gap: 10px; flex-wrap: wrap;
+  margin: 20px 0;
+}
+.paywall-tier-chip {
+  background: var(--panel2); border: 1px solid var(--border);
+  padding: 8px 14px; border-radius: 18px;
+  font-size: 13px; line-height: 1.3; color: var(--text);
+}
+.paywall-tier-chip strong { font-family: var(--mono); color: var(--purple); }
+@media (max-width: 560px) {
+  .paywall-card { padding: 28px 22px; }
+}
+
 /* ── Post-results upsell card (free-tier → paid CTA) ─────── */
 .upsell {
   margin: 38px 0 8px;

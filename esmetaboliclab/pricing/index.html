@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pricing — esMetabolicLab</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/site.css">
+<link rel="stylesheet" href="../css/esmetaboliclab.css">
+<style>
+  #app { display: none; }
+
+  .price-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 18px;
+    margin-bottom: 32px;
+  }
+  .price-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 28px 24px;
+    display: flex; flex-direction: column;
+    position: relative;
+    transition: border-color .15s;
+  }
+  .price-card:hover { border-color: var(--border2); }
+  .price-card.featured {
+    border-color: rgba(139,124,248,.45);
+    background: linear-gradient(165deg, rgba(139,124,248,.08), var(--panel) 50%);
+  }
+  .price-card .ribbon {
+    position: absolute; top: -10px; right: 18px;
+    background: var(--purple); color: #0c0a18;
+    font-family: var(--mono); font-size: 10px; font-weight: 700;
+    letter-spacing: .8px; text-transform: uppercase;
+    padding: 4px 10px; border-radius: 4px;
+  }
+  .price-card .active-badge {
+    position: absolute; top: 18px; right: 18px;
+    background: rgba(34,199,138,.15); color: var(--good);
+    font-family: var(--mono); font-size: 10px; font-weight: 700;
+    letter-spacing: .6px; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 4px; border: 1px solid rgba(34,199,138,.36);
+  }
+  .price-card .name {
+    font-family: var(--display);
+    font-size: 22px; font-weight: 700; letter-spacing: -.3px;
+    margin-bottom: 4px;
+  }
+  .price-card .blurb {
+    color: var(--muted2); font-size: 13.5px; line-height: 1.6;
+    min-height: 42px; margin-bottom: 18px;
+  }
+  .price-card .price {
+    font-family: var(--display); font-size: 38px; font-weight: 700;
+    letter-spacing: -1px; color: var(--text); display: flex; align-items: baseline; gap: 6px;
+    margin-bottom: 4px;
+  }
+  .price-card .price .cents { font-size: 18px; color: var(--muted2); font-weight: 500; }
+  .price-card .price-note {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--muted2); letter-spacing: .3px; margin-bottom: 22px;
+  }
+  .price-card ul {
+    list-style: none; padding: 0; margin: 0 0 22px;
+    flex: 1;
+  }
+  .price-card li {
+    font-size: 13.5px; line-height: 1.6;
+    padding-left: 20px; position: relative;
+    margin-bottom: 8px; color: var(--text);
+  }
+  .price-card li:before {
+    content: "✓"; color: var(--cyan); position: absolute;
+    left: 0; top: 1px; font-weight: 700;
+  }
+  .price-card .buy-btn {
+    width: 100%; justify-content: center;
+    padding: 13px 18px; font-size: 14px;
+  }
+  .price-card .buy-btn[disabled] {
+    background: rgba(34,199,138,.10); color: var(--good);
+    border-color: rgba(34,199,138,.36); cursor: default; opacity: 1;
+  }
+  .price-card .footnote {
+    font-family: var(--mono); font-size: 10px;
+    color: var(--muted); letter-spacing: .3px;
+    text-align: center; margin-top: 10px;
+  }
+
+  .price-status {
+    background: rgba(34,199,138,.07); border: 1px solid rgba(34,199,138,.28);
+    border-left: 3px solid var(--good);
+    border-radius: 12px; padding: 14px 18px; margin-bottom: 24px;
+    font-size: 14px; line-height: 1.6;
+  }
+  .price-status .ok-icon { color: var(--good); font-weight: 700; }
+  .price-status a { color: var(--cyan); }
+
+  .compare {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px 26px;
+    margin-top: 28px;
+  }
+  .compare h2 {
+    font-family: var(--display); font-size: 22px; font-weight: 700;
+    margin-bottom: 14px; letter-spacing: -.3px;
+  }
+  .compare-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 22px;
+  }
+  @media (max-width: 700px) { .compare-grid { grid-template-columns: 1fr; } }
+  .compare-grid h3 {
+    font-family: var(--display); font-size: 15px; font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .compare-grid h3.muted { color: var(--muted2); }
+  .compare-grid h3.purple { color: var(--purple); }
+  .compare-grid p { font-size: 13.5px; line-height: 1.7; color: var(--muted2); }
+
+  .checkout-err {
+    background: rgba(255,81,99,.08); border: 1px solid rgba(255,81,99,.30);
+    border-radius: 10px; padding: 12px 14px; margin-bottom: 18px;
+    color: var(--bad); font-size: 13.5px; display: none;
+  }
+  .checkout-err.show { display: block; }
+</style>
+</head>
+<body>
+
+<div id="esml-gate"></div>
+
+<div id="app">
+<nav class="eslabs-nav" id="esml-nav"></nav>
+
+<div class="page">
+  <p style="margin-bottom:12px"><a href="/esmetaboliclab/">← All tools</a></p>
+  <div class="section-label">◆ Pricing</div>
+  <h1 class="page-title">Build your <em>real</em> metabolic profile.</h1>
+  <p class="page-sub">
+    The free power-only profile is a starting point — useful but back-derived from
+    sprint power, with known limits on accuracy. The paid tiers let you upload
+    your own blood-lactate data and get the same model used by INSCYD, Aerotune,
+    and the labs, pinned to your actual physiology.
+  </p>
+
+  <div class="price-status" id="entitlement-status" style="display:none"></div>
+  <div class="checkout-err" id="checkout-err"></div>
+
+  <div class="price-grid">
+
+    <!-- Single -->
+    <div class="price-card" id="card-single">
+      <div class="name">Single session</div>
+      <p class="blurb">One paired upload — sprint VLamax plus your lactate step test, refinable for a week.</p>
+      <div class="price">$30<span class="cents">/test</span></div>
+      <div class="price-note">One-time · 7-day window</div>
+      <ul>
+        <li>Sprint VLamax test analysis</li>
+        <li>Full lactate step-test profile</li>
+        <li>VO₂max, MLSS, LT1, Fatmax, training zones</li>
+        <li>Unlimited refinements for 7 days from purchase</li>
+        <li>Downloadable PDF report</li>
+      </ul>
+      <button class="btn primary buy-btn" data-buy="single">Buy single session — $30</button>
+      <p class="footnote">Best for one-off testing.</p>
+    </div>
+
+    <!-- Yearly -->
+    <div class="price-card featured" id="card-yearly">
+      <div class="ribbon">Most popular</div>
+      <div class="name">Yearly</div>
+      <p class="blurb">Unlimited lactate uploads, all year — track your fitness as it changes.</p>
+      <div class="price">$60<span class="cents">/year</span></div>
+      <div class="price-note">Auto-renews annually · cancel anytime</div>
+      <ul>
+        <li>Everything in single session</li>
+        <li>Unlimited tests for 12 months</li>
+        <li>Compare profiles side-by-side over time</li>
+        <li>Re-test as fitness or season changes</li>
+        <li>Cancel in one click from your Stripe portal</li>
+      </ul>
+      <button class="btn primary buy-btn" data-buy="yearly">Subscribe yearly — $60</button>
+      <p class="footnote">Best for athletes who re-test seasonally.</p>
+    </div>
+
+    <!-- Lifetime -->
+    <div class="price-card" id="card-lifetime">
+      <div class="name">Lifetime</div>
+      <p class="blurb">One payment, unlimited uploads forever. No renewals, no subscriptions.</p>
+      <div class="price">$90<span class="cents">one-time</span></div>
+      <div class="price-note">Pays for itself in year 2</div>
+      <ul>
+        <li>Everything in yearly</li>
+        <li>Unlimited tests · no expiry</li>
+        <li>No recurring charges</li>
+        <li>Access to future esMetabolicLab features</li>
+      </ul>
+      <button class="btn primary buy-btn" data-buy="lifetime">Buy lifetime — $90</button>
+      <p class="footnote">Best value for committed athletes.</p>
+    </div>
+
+    <!-- In-person -->
+    <div class="price-card" id="card-inperson">
+      <div class="name">In-person test</div>
+      <p class="blurb">An Endurance Science Labs coach runs the full protocol with you. We bring the meter.</p>
+      <div class="price">$145<span class="cents">/session</span></div>
+      <div class="price-note">Boulder / Denver area</div>
+      <ul>
+        <li>Coach runs sprint + step-test protocol</li>
+        <li>Lactate meter, strips, supplies provided</li>
+        <li>~90-minute session including walk-through</li>
+        <li>Same model as our home tools, sampled by a pro</li>
+        <li>Plain-language results explained in person</li>
+      </ul>
+      <button class="btn primary buy-btn" data-buy="inperson">Book in-person — $145</button>
+      <p class="footnote">Highest accuracy. Run by a human.</p>
+    </div>
+
+  </div>
+
+  <div class="compare">
+    <h2>What changes when you measure instead of estimate?</h2>
+    <div class="compare-grid">
+      <div>
+        <h3 class="muted">Free — power / pace-only profile</h3>
+        <p>VLamax is <em>back-derived</em> from sprint power via an empirical regression. VO₂max comes from your 6-minute max effort, anchored to Léger's relation. Useful as a directional read on your training zones — but real VLamax varies a lot at any given sprint output, and those errors cascade through to MLSS, Fatmax, and substrate-burning estimates.</p>
+      </div>
+      <div>
+        <h3 class="purple">Paid — lactate-anchored profile</h3>
+        <p>VLamax is <em>measured</em> from blood lactate at peak sprint effort, and the full lactate curve from your step test pins down MLSS, LT1, and Fatmax directly. Same Mader / Heck bioenergetic model — the one INSCYD, Aerotune, and sports-science labs use — anchored to your actual physiology instead of population averages.</p>
+      </div>
+    </div>
+  </div>
+
+  <footer class="esml" style="margin-top:40px">
+    © <span id="footer-year"></span> Endurance Science Labs · esMetabolicLab
+    <div class="disclaimer">Not medical advice. Educational use only.</div>
+  </footer>
+</div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="/shared/site.js"></script>
+<script>
+  esLabs.mountNav('#esml-nav', { active: 'esmetlab' });
+  esLabs.mountAuthGate('#esml-gate', {
+    eyebrow: '◆ Sign in to purchase',
+    headline: 'esMetabolicLab pricing',
+    sub: 'Sign in or create a free account to purchase upload access or book an in-person test.',
+    foot: '<a href="/esmetaboliclab/" style="color:var(--cyan);text-decoration:none">&larr; Back to esMetabolicLab</a>'
+  });
+
+  esLabs.onAuthChange(function(user) {
+    if (user) document.getElementById('app').style.display = 'block';
+    else document.getElementById('app').style.display = 'none';
+  });
+
+  function fmtDate(unixSec) {
+    if (!unixSec) return '';
+    var d = new Date(unixSec * 1000);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  // Reflect the user's current entitlement on each card. Active tiers get a green
+  // pill + the buy button gets swapped for an "already active" disabled state.
+  esLabs.onPassChange(function(pass) {
+    var status = document.getElementById('entitlement-status');
+    var statusHtml = '';
+    var m = pass.metlab || {};
+
+    // Card-level state
+    setCardState('lifetime', m.hasLifetime, 'Lifetime access', null);
+    setCardState('yearly',   m.yearlyActive, 'Active subscription', m.yearlyPeriodEnd);
+    var singleActive = m.singleSessionUntil && m.singleSessionUntil > Math.floor(Date.now()/1000);
+    setCardState('single',   !!singleActive, 'Active', m.singleSessionUntil);
+    setCardState('inperson', false, '', null); // always buyable
+
+    // Banner summary
+    if (m.uploadAccess) {
+      var label = m.source === 'lifetime' ? 'Lifetime access'
+                 : m.source === 'yearly'   ? 'Active yearly subscription'
+                 : m.source === 'single'   ? 'Single-session access (until ' + fmtDate(m.until) + ')'
+                 : 'Active';
+      statusHtml = '<span class="ok-icon">✓</span> '
+                 + '<strong>' + label + '</strong> &middot; you can upload lactate data on the '
+                 + '<a href="/esmetaboliclab/sprint/">Sprint VLamax</a> and '
+                 + '<a href="/esmetaboliclab/profile/">Lactate Step Test</a> pages.';
+    }
+    if (statusHtml) {
+      status.innerHTML = statusHtml;
+      status.style.display = 'block';
+    } else {
+      status.style.display = 'none';
+    }
+  });
+
+  function setCardState(tier, active, label, until) {
+    var card = document.getElementById('card-' + tier);
+    if (!card) return;
+    var btn = card.querySelector('[data-buy="' + tier + '"]');
+    var existingBadge = card.querySelector('.active-badge');
+    if (existingBadge) existingBadge.remove();
+
+    if (active) {
+      var badge = document.createElement('div');
+      badge.className = 'active-badge';
+      badge.textContent = until ? ('Active · expires ' + fmtDate(until)) : ('Active · ' + label);
+      card.appendChild(badge);
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = tier === 'yearly' ? 'Manage subscription' : (label + ' active');
+        if (tier === 'yearly') {
+          btn.disabled = false;
+          btn.onclick = function() { esLabs.openCustomerPortal(); };
+        }
+      }
+    } else if (btn) {
+      btn.disabled = false;
+      btn.onclick = function() { handleBuy(tier); };
+    }
+  }
+
+  function handleBuy(tier) {
+    var err = document.getElementById('checkout-err');
+    err.classList.remove('show');
+    var btn = document.querySelector('[data-buy="' + tier + '"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Loading checkout…'; }
+    var opts = {};
+    if (tier === 'inperson') {
+      opts.successUrl = window.location.origin + '/esmetaboliclab/in-person/?paid=1';
+    } else {
+      opts.successUrl = window.location.origin + '/esmetaboliclab/?paid=1';
+    }
+    esLabs.startMetlabCheckout(tier, opts).catch(function(e) {
+      console.error('Checkout error:', e);
+      err.textContent = 'Couldn’t start checkout: ' + (e.message || e);
+      err.classList.add('show');
+      if (btn) { btn.disabled = false; setCardState(tier, false, '', null); }
+    });
+  }
+
+  // Default click wiring (overwritten by setCardState when entitlement loads)
+  document.querySelectorAll('[data-buy]').forEach(function(btn) {
+    btn.onclick = function() { handleBuy(btn.dataset.buy); };
+  });
+
+  document.getElementById('footer-year').textContent = new Date().getFullYear();
+</script>
+
+</body>
+</html>

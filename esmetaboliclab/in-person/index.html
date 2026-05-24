@@ -29,6 +29,37 @@
   }
   .ip-form-status.ok { display: block; background: rgba(34,199,138,.10); border: 1px solid rgba(34,199,138,.30); color: var(--good); }
   .ip-form-status.err { display: block; background: rgba(255,81,99,.10); border: 1px solid rgba(255,81,99,.30); color: var(--bad); }
+
+  /* Pre-payment "Book — $145" panel */
+  .ip-pay-panel {
+    background: linear-gradient(135deg, rgba(139,124,248,.10), rgba(0,229,200,.05));
+    border: 1px solid rgba(139,124,248,.30);
+    border-radius: 14px;
+    padding: 24px 28px;
+  }
+  .ip-pay-row { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .ip-pay-price { font-family: var(--display); font-size: 40px; font-weight: 700; letter-spacing: -1px; }
+  .ip-pay-note { font-family: var(--mono); font-size: 11px; color: var(--muted2); letter-spacing: .3px; }
+  .ip-pay-blurb { color: var(--text); font-size: 14.5px; line-height: 1.7; margin: 10px 0 16px; }
+  .ip-pay-cta { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+
+  /* Post-payment "We received your payment" banner */
+  .ip-paid-banner {
+    background: rgba(34,199,138,.10);
+    border: 1px solid rgba(34,199,138,.30);
+    border-left: 4px solid var(--good);
+    border-radius: 12px; padding: 16px 18px;
+    margin-bottom: 18px; line-height: 1.65;
+  }
+  .ip-paid-banner strong { color: var(--good); }
+  .ip-paid-banner .small { font-size: 13px; color: var(--muted2); margin-top: 4px; }
+
+  .ip-checkout-err {
+    background: rgba(255,81,99,.08); border: 1px solid rgba(255,81,99,.30);
+    border-radius: 10px; padding: 12px 14px; margin-top: 14px;
+    color: var(--bad); font-size: 13.5px; display: none;
+  }
+  .ip-checkout-err.show { display: block; }
 </style>
 </head>
 <body>
@@ -75,16 +106,45 @@
     </p>
   </div>
 
-  <div class="panel">
-    <div class="panel-h">Request a session</div>
-    <p class="panel-sub">
-      Tell us a few details and we'll reach out by email to schedule. Pricing
-      and exact location are arranged when we follow up.
+  <!-- Pre-payment state: shown by default -->
+  <div class="ip-pay-panel" id="ip-pre-payment">
+    <div class="ip-pay-row">
+      <div class="ip-pay-price">$145</div>
+      <div class="ip-pay-note">One-time · Boulder / Denver area</div>
+    </div>
+    <p class="ip-pay-blurb">
+      Reserve your session by checking out below. We'll then ask for your scheduling
+      preferences — preferred dates, location, cycling vs running — and reach out by
+      email to confirm a time. If we can't find a workable date, we'll refund in full.
     </p>
-    <button class="btn primary" type="button" data-in-person-request>Request a session →</button>
+    <div class="ip-pay-cta">
+      <button class="btn primary" type="button" id="ip-buy-btn">Book in-person test — $145 →</button>
+      <span class="ip-pay-note">Secure checkout via Stripe</span>
+    </div>
+    <div class="ip-checkout-err" id="ip-checkout-err"></div>
   </div>
 
-  <footer class="esml">
+  <!-- Post-payment state: shown when ?paid=1 OR when a recent in-person payment is on file -->
+  <div id="ip-post-payment" style="display:none">
+    <div class="ip-paid-banner">
+      <strong>✓ Payment received.</strong> Thanks — your in-person test is reserved.
+      <div class="small">Now share your scheduling details below and we'll email you to confirm a time.</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-h">Tell us your scheduling details</div>
+      <p class="panel-sub">
+        We need a few specifics to confirm your session — preferred dates, location,
+        cycling vs running, and how to reach you.
+      </p>
+      <button class="btn primary" type="button" data-in-person-request>Share scheduling details →</button>
+      <p style="font-size:12px;color:var(--muted2);line-height:1.6;margin-top:12px">
+        Already shared your details? You can resubmit any time to update them.
+      </p>
+    </div>
+  </div>
+
+  <footer class="esml" style="margin-top:32px">
     © <span id="footer-year"></span> Endurance Science Labs · esMetabolicLab
     <div class="disclaimer">Not medical advice. Educational use only.</div>
   </footer>
@@ -100,9 +160,9 @@
 
   esLabs.mountNav('#esml-nav', { active: 'esmetlab' });
   esLabs.mountAuthGate('#esml-gate', {
-    eyebrow: '▷ Sign in to request',
-    headline: 'Book an in-person test',
-    sub: 'Sign in and we\'ll reach out to schedule your session in the Boulder / Denver area.',
+    eyebrow: '▷ Sign in to book',
+    headline: 'In-person lactate testing',
+    sub: 'Sign in or create a free account to reserve your session.',
     foot: '<a href="/esmetaboliclab/" style="color:var(--cyan);text-decoration:none">&larr; Back to esMetabolicLab</a>'
   });
 
@@ -113,6 +173,47 @@
     } else {
       document.getElementById('app').style.display = 'none';
     }
+  });
+
+  // Toggle pre/post-payment view based on URL flag or recorded in-person payment.
+  var urlPaidFlag = new URLSearchParams(window.location.search).get('paid') === '1';
+  function showPaidView() {
+    document.getElementById('ip-pre-payment').style.display = 'none';
+    document.getElementById('ip-post-payment').style.display = 'block';
+  }
+  function showUnpaidView() {
+    document.getElementById('ip-pre-payment').style.display = '';
+    document.getElementById('ip-post-payment').style.display = 'none';
+  }
+
+  if (urlPaidFlag) showPaidView();
+
+  esLabs.onPassChange(function(pass) {
+    var m = pass.metlab || {};
+    // Within 24 h of an in-person payment: assume they're still scheduling.
+    var DAY_SEC = 24 * 60 * 60;
+    var now = Math.floor(Date.now() / 1000);
+    var recent = m.inPersonLatest && (now - m.inPersonLatest < 30 * DAY_SEC);
+    if (urlPaidFlag || recent) showPaidView();
+    else showUnpaidView();
+  });
+
+  // Book button: kick off Stripe checkout with success_url back to this page with ?paid=1.
+  document.getElementById('ip-buy-btn').addEventListener('click', function() {
+    var btn = this;
+    var err = document.getElementById('ip-checkout-err');
+    err.classList.remove('show');
+    btn.disabled = true;
+    btn.textContent = 'Loading checkout…';
+    esLabs.startMetlabCheckout('inperson', {
+      successUrl: window.location.origin + '/esmetaboliclab/in-person/?paid=1'
+    }).catch(function(e) {
+      console.error('Checkout error:', e);
+      err.textContent = 'Couldn’t start checkout: ' + (e.message || e);
+      err.classList.add('show');
+      btn.disabled = false;
+      btn.textContent = 'Book in-person test — $145 →';
+    });
   });
 
   document.getElementById('footer-year').textContent = new Date().getFullYear();
