@@ -28,9 +28,14 @@ const METERS_PER_MILE = 1609.344;
 
 /**
  * Generate Plotly x-axis config that displays a speed (m/s) axis with
- * pace tick labels (m:ss/mi or /km). Picks whole-minute ticks that fall
- * inside the data range; adds half-minute ticks when the visible range
- * is narrow.
+ * pace tick labels (m:ss/mi or /km).
+ *
+ * Uses a curated candidate list of "interesting" pace values rather than
+ * a uniform interval — at low speeds (slow walking), each minute of pace
+ * difference compresses into a tiny speed gap and uniform ticks pile up.
+ * Sparse markers for walking pace, whole-minute ticks through the
+ * recreational / training band, and whole-minute (with half-minute at
+ * the fast end for /km) through the racing band.
  */
 function paceAxisConfig(intensities, unit) {
   const finite = intensities.filter((v) => isFinite(v) && v > 0);
@@ -38,25 +43,22 @@ function paceAxisConfig(intensities, unit) {
   const minV = Math.max(0.5, Math.min(...finite));
   const maxV = Math.max(...finite);
   const M = unit === 'mi' ? METERS_PER_MILE : 1000;
-  // Pace bounds (min per unit) from the speed range. Faster speed = smaller pace.
-  const fastPace = M / maxV / 60;
-  const slowPace = M / minV / 60;
-  const span     = slowPace - fastPace;
-  // For narrow ranges (<= 4 min span), include half-minute ticks
-  const step = span <= 4 ? 0.5 : 1;
-  const startPace = Math.max(2, Math.floor(fastPace * 2) / 2);   // round down to .5
-  const endPace   = Math.min(30, Math.ceil(slowPace * 2) / 2);
+
+  // Curated tick candidates from slowest (walking) to fastest (sprinting).
+  // Sparse at the slow end, denser in the training/racing zone.
+  const candidates = unit === 'mi'
+    ? [20, 15, 10, 9, 8, 7, 6, 5, 4.5, 4, 3.5, 3]
+    : [12, 10,  7, 6, 5, 4.5, 4, 3.5, 3, 2.5, 2];
 
   const tickvals = [];
   const ticktext = [];
-  for (let p = startPace; p <= endPace + 1e-9; p += step) {
+  for (const p of candidates) {
     const v = M / (p * 60);
     if (v >= minV * 0.98 && v <= maxV * 1.02) {
       tickvals.push(v);
       const min = Math.floor(p);
       const sec = Math.round((p - min) * 60);
-      const label = min + ':' + (sec < 10 ? '0' : '') + sec;
-      ticktext.push(label);
+      ticktext.push(min + ':' + (sec < 10 ? '0' : '') + sec);
     }
   }
   return { tickmode: 'array', tickvals, ticktext };
