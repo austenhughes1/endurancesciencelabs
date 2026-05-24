@@ -247,6 +247,38 @@ nav.esml-nav {
 .admin-footer-link a { color: var(--muted); opacity: .7; }
 .admin-footer-link a:hover { color: var(--muted2); opacity: 1; text-decoration: none; }
 
+/* ── Post-results upsell card (free-tier → paid CTA) ─────── */
+.upsell {
+  margin: 38px 0 8px;
+  padding: 32px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(139,124,248,.10), rgba(0,229,200,.05));
+  border: 1px solid rgba(139,124,248,.30);
+}
+.upsell-eyebrow {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--purple); font-family: var(--mono);
+  background: rgba(139,124,248,.16); border: 1px solid rgba(139,124,248,.30);
+  border-radius: 16px; padding: 4px 12px; margin-bottom: 16px;
+}
+.upsell h3 {
+  font-family: var(--display); font-weight: 700;
+  font-size: clamp(24px, 3.2vw, 32px); line-height: 1.18; letter-spacing: -.5px;
+  margin-bottom: 14px;
+}
+.upsell h3 em { font-style: italic; color: var(--purple); }
+.upsell p {
+  color: var(--text); font-size: 15.5px; line-height: 1.7; margin-bottom: 12px;
+}
+.upsell p:last-of-type { margin-bottom: 0; }
+.upsell .row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 22px; }
+.upsell .btn { padding: 13px 24px; font-size: 14px; }
+@media (max-width: 560px) {
+  .upsell { padding: 24px 20px; }
+  .upsell .row .btn { width: 100%; justify-content: center; }
+}
+
 /* ── Tile cards (mode selection) ─────────────────────────── */
 .tile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
 .tile {

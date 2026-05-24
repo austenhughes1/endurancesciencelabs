@@ -617,6 +617,7 @@ function resultsBlockHTML() {
         <div id="chart-substrate" class="plt"></div>
         ${substrateChartExplainerHtml()}
       </div>
+      ${upsellCardHtml()}
       <details class="edu" style="margin-top:18px">
         <summary>How are these numbers derived?</summary>
         <div class="body">
@@ -660,6 +661,20 @@ function substrateChartExplainerHtml() {
       '</ul>' +
       '<p>Why this matters: <strong>fat is essentially unlimited fuel</strong> (most people carry tens of thousands of calories as body fat). Carbohydrate is limited — you store maybe 1,500–2,000 calories as muscle glycogen, and once you burn through that you crash. The fitter you are aerobically, the higher your Fatmax intensity — meaning you can burn fat at faster paces and save carb stores for surges and finishing kicks.</p>' +
     '</div></details>';
+}
+
+function upsellCardHtml() {
+  return '' +
+    '<div class="upsell">' +
+      '<div class="upsell-eyebrow">◆ Want the real numbers?</div>' +
+      '<h3>This is an <em>estimate</em>. The lactate test is the measurement.</h3>' +
+      '<p>The profile above is back-derived from your power and pace alone. It\'s a useful starting point — but VLamax in particular can be off by 5–15% at any given sprint power, which cascades into MLSS, Fatmax, and your zones. A blood-lactate test pins down the curve directly. Same Mader / Heck model, real data underneath it.</p>' +
+      '<p>If you\'re in the Boulder or Denver area, an Endurance Science Labs coach can run the full sprint + step-test protocol with you in person. We bring the meter, the strips, and the experience to make sure the numbers are clean — and we walk you through your results.</p>' +
+      '<div class="row">' +
+        '<a href="/esmetaboliclab/in-person/" class="btn primary">Book an in-person test — $145 →</a>' +
+        '<a href="/esmetaboliclab/" class="btn">Or upload your own lactate data →</a>' +
+      '</div>' +
+    '</div>';
 }
 
 function precisionExpandableHtml() {

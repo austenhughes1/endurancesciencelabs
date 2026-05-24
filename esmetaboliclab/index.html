@@ -10,46 +10,19 @@
 <link rel="stylesheet" href="/shared/site.css">
 <link rel="stylesheet" href="css/esmetaboliclab.css">
 <style>
-  /* Coming-soon splash (default — shown until auth resolves as admin) */
-  #soon {
-    max-width: 640px; margin: 120px auto; padding: 48px 32px; text-align: center;
-  }
-  #soon .label {
-    display: inline-flex; align-items: center; gap: 7px;
-    font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
-    color: var(--purple); font-family: var(--mono);
-    background: rgba(139,124,248,.08); border: 1px solid rgba(139,124,248,.20);
-    border-radius: 16px; padding: 5px 14px; margin-bottom: 28px;
-  }
-  #soon h1 {
-    font-family: var(--display); font-weight: 700;
-    font-size: clamp(40px, 6vw, 64px); letter-spacing: -1.5px; line-height: 1.05;
-    margin-bottom: 18px;
-  }
-  #soon h1 em { font-style: italic; color: var(--purple); }
-  #soon .lede { color: var(--muted2); font-size: 18px; line-height: 1.7; margin-bottom: 28px; }
-  #soon .micro { font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: .4px; }
-
-  /* Admin app (shown only to admin UID) */
   #app { display: none; }
+  [data-admin-only] { display: none; }
 </style>
 </head>
 <body>
 
-<!-- Soon-splash visible to everyone until we confirm an admin session -->
-<div id="soon">
-  <div class="label">⬡ esMetabolicLab</div>
-  <h1>Metabolic testing.<br>Coming <em>soon.</em></h1>
-  <p class="lede">VO₂max, lactate threshold, and fat oxidation — derived from your own lactate step test, fully in your browser. We're building it now.</p>
-  <p class="micro"><a href="/">← Back to Endurance Science Labs</a></p>
-</div>
+<div id="esml-gate"></div>
 
-<!-- Admin app -->
 <div id="app">
   <nav class="eslabs-nav" id="esml-nav"></nav>
 
   <div class="page">
-    <div class="section-label">⬡ esMetabolicLab — admin preview</div>
+    <div class="section-label">⬡ esMetabolicLab</div>
     <h1 class="page-title">Your <em>metabolic</em> profile,<br>without a lab.</h1>
     <p class="page-sub">
       What's the right pace for your easy days? Where does the line sit
@@ -135,7 +108,7 @@
       </a>
     </section>
 
-    <p class="admin-footer-link">
+    <p class="admin-footer-link" data-admin-only>
       <a href="tests/">Engine validation (admin) →</a>
     </p>
 
@@ -159,7 +132,7 @@
   </div>
 
   <footer class="esml">
-    © <span id="footer-year"></span> Endurance Science Labs · esMetabolicLab is a private admin preview
+    © <span id="footer-year"></span> Endurance Science Labs · esMetabolicLab
     <div class="disclaimer">
       Not medical advice. Information here is for educational purposes only and does not constitute a medical diagnosis or replace consultation with a qualified healthcare professional.
     </div>
@@ -171,17 +144,27 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="/shared/site.js"></script>
 <script>
-  // No sign-in gate on this page -- the public "Coming soon" splash is the
-  // unauthenticated experience. Admin sees the full app instead.
   esLabs.mountNav('#esml-nav', { active: 'esmetlab' });
+  esLabs.mountAuthGate('#esml-gate', {
+    eyebrow: '⬡ Sign in',
+    headline: 'esMetabolicLab',
+    sub: 'Build your personal metabolic profile — VO₂max, lactate threshold, training zones, and fat-burning sweet spot.',
+    bullets: [
+      { strong: 'Free power-only profile', span: '— estimate from four max efforts, no needles, runs in your browser.' },
+      { strong: 'Lactate-anchored upgrade', span: '— upload your own step-test data, or book an in-person test with an Endurance Science Labs coach.' }
+    ],
+    foot: '<a href="/" style="color:var(--cyan);text-decoration:none">&larr; Back to home</a>'
+  });
 
   esLabs.onAuthChange(function(user) {
-    if (user && user.uid === esLabs.ADMIN_UID) {
-      document.getElementById('soon').style.display = 'none';
-      document.getElementById('app').style.display  = 'block';
+    if (user) {
+      document.getElementById('app').style.display = 'block';
+      const isAdmin = user.uid === esLabs.ADMIN_UID;
+      document.querySelectorAll('[data-admin-only]').forEach(function (el) {
+        el.style.display = isAdmin ? '' : 'none';
+      });
     } else {
-      document.getElementById('soon').style.display = 'block';
-      document.getElementById('app').style.display  = 'none';
+      document.getElementById('app').style.display = 'none';
     }
   });
 
