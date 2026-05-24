@@ -7,32 +7,18 @@
 <meta name="robots" content="noindex,nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/site.css">
 <link rel="stylesheet" href="../css/esmetaboliclab.css">
 <style>
-  #gate { max-width: 560px; margin: 120px auto; padding: 32px; background: var(--panel); border: 1px solid var(--border); border-radius: 16px; text-align: center; }
-  #gate h1 { font-family: var(--display); font-size: 28px; margin-bottom: 12px; }
-  #gate p  { color: var(--muted2); font-size: 15px; }
   #app { display: none; }
 </style>
 </head>
 <body>
 
-<div id="gate">
-  <h1>Admin only</h1>
-  <p>esMetabolicLab is in private admin preview. Sign in with your admin account to continue.</p>
-  <p style="margin-top:16px"><a href="/" style="color:var(--cyan)">← Back to home</a></p>
-</div>
+<div id="esml-gate"></div>
 
 <div id="app">
-<nav class="esml-nav">
-  <a href="/" class="nav-logo"><img src="/images/generic_logo_white_clean.png" alt="Endurance Science Labs" class="nav-logo-img"></a>
-  <div class="nav-links">
-    <a href="/"           class="nav-link">Home</a>
-    <a href="/esformlab/" class="nav-link">Form analysis</a>
-    <a href="/coaching/"  class="nav-link">Coaching</a>
-    <a href="/esmetaboliclab/"  class="nav-link active">Metabolic Testing <span class="nav-pill" style="background:rgba(139,124,248,.18);color:var(--purple)">Preview</span></a>
-  </div>
-</nav>
+<nav class="eslabs-nav" id="esml-nav"></nav>
 
 <div class="page">
   <p style="margin-bottom:12px"><a href="/esmetaboliclab/">← All tools</a></p>
@@ -68,25 +54,29 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="/shared/site.js"></script>
 <script>
-  firebase.initializeApp({
-    apiKey: 'AIzaSyDh4LorLQx1DPovQIA4HM3127fAYpyuaY8',
-    authDomain: 'es-form-labs.firebaseapp.com',
-    projectId: 'es-form-labs',
-  });
-  const ADMIN_UID = '2z9Z3K5ZwShvadUuqZmwMv0s1Od2';
   window.__esml = { user: null };
-  firebase.auth().onAuthStateChanged(function(user) {
-    if (user && user.uid === ADMIN_UID) {
+
+  esLabs.mountNav('#esml-nav', { active: 'esmetlab' });
+  esLabs.mountAuthGate('#esml-gate', {
+    eyebrow: '◈ Admin only',
+    headline: 'esMetabolicLab',
+    sub: 'Private admin preview. Sign in with your admin account to continue.',
+    requireAdmin: true,
+    foot: '<a href="/" style="color:var(--cyan);text-decoration:none">&larr; Back to home</a>'
+  });
+
+  esLabs.onAuthChange(function(user) {
+    if (user && user.uid === esLabs.ADMIN_UID) {
       window.__esml.user = user;
-      document.getElementById('gate').style.display = 'none';
-      document.getElementById('app').style.display  = 'block';
+      document.getElementById('app').style.display = 'block';
       window.dispatchEvent(new CustomEvent('esml-auth', { detail: { user: user } }));
     } else {
-      document.getElementById('gate').style.display = 'block';
-      document.getElementById('app').style.display  = 'none';
+      document.getElementById('app').style.display = 'none';
     }
   });
+
   document.getElementById('footer-year').textContent = new Date().getFullYear();
 </script>
 
