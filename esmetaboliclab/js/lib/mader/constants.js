@@ -44,9 +44,19 @@ export const MADER = {
   // Cycling: gross mechanical efficiency
   cycling_GE_default: 0.225,        // fraction (22.5%)
 
-  // Running: energy cost of horizontal running (di Prampero 1986)
-  // Range 3.5 (elite) – 4.2 (untrained) J/kg/m. Default mid-range.
-  Cr_default_J_per_kg_per_m: 3.86,
+  // Running: energy cost of horizontal running.
+  //
+  // di Prampero 1986 reports Cr ≈ 3.86 J/kg/m at sustained moderate paces.
+  // The Léger 1980/84 MAS→VO2max regression (used in the power-profile
+  // forward VO2max derivation) has an implicit Cr ≈ 4.39 — higher because
+  // at max effort, anaerobic + neuromuscular overhead inflates the
+  // effective per-metre cost (12.6 × v_m/s × 20.9 / 60 = 4.39).
+  //
+  // 4.20 is the population-average default used for engine speed ↔ VO2
+  // conversions. Splits the gap between submaximal (3.86) and max-effort
+  // (4.39) Cr values. Per-athlete Cr varies 3.6 (elite-efficient) to 4.6
+  // (recreational); any single global value is unavoidably a compromise.
+  Cr_default_J_per_kg_per_m: 4.20,
 
   // Baseline (resting) blood lactate, used as floor for the simulated curve
   La_baseline_mmol_per_L: 1.0,
