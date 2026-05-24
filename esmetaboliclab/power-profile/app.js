@@ -537,16 +537,27 @@ function resultsBlockHTML() {
   const sport = state.sport;
 
   const metrics = [
-    { label: 'VO₂max', value: fmt.V(p.VO2max), note: 'estimated from 6-min max effort' },
-    { label: 'VLamax', value: p.VLamax.toFixed(3) + ' mmol/L/s', note: 'estimated from 15-s sprint' },
-    { label: 'MLSS',   value: fmtIntensity(sport, p.mlss.intensity), note: fmt.pct(p.mlss.x) + ' of VO₂max · ' + fmt.La(p.mlss.lactate) },
-    { label: 'LT1',    value: fmtIntensity(sport, p.lt1.intensity),  note: fmt.pct(p.lt1.x) + ' of VO₂max' },
-    { label: 'Fatmax', value: fmtIntensity(sport, p.fatmax.intensity), note: fmt.G(p.fatmax.fat_g_per_min) + ' at ' + fmt.pct(p.fatmax.x) },
+    { label: 'VO₂max', value: fmt.V(p.VO2max),
+      meaning: 'Your aerobic ceiling — the most oxygen your body can use per minute.',
+      detail:  'estimated from your 6-min max effort' },
+    { label: 'VLamax', value: p.VLamax.toFixed(3) + ' mmol/L/s',
+      meaning: 'How fast your body produces lactate at all-out sprint effort.',
+      detail:  'estimated from your 15-s sprint' },
+    { label: 'MLSS',   value: fmtIntensity(sport, p.mlss.intensity),
+      meaning: 'Maximum sustainable hard effort — about half-marathon / 1-hour race pace.',
+      detail:  fmt.pct(p.mlss.x) + ' of VO₂max · ' + fmt.La(p.mlss.lactate) },
+    { label: 'LT1',    value: fmtIntensity(sport, p.lt1.intensity),
+      meaning: 'Top of your easy zone — above this, lactate starts to rise above baseline.',
+      detail:  fmt.pct(p.lt1.x) + ' of VO₂max' },
+    { label: 'Fatmax', value: fmtIntensity(sport, p.fatmax.intensity),
+      meaning: 'Where you burn the most fat in g/min — long-run / aerobic-base territory.',
+      detail:  fmt.G(p.fatmax.fat_g_per_min) + ' at ' + fmt.pct(p.fatmax.x) },
   ];
   const metricsHtml = metrics.map((m) =>
     '<div class="metric"><div class="metric-label">' + m.label + '</div>' +
     '<div class="metric-value">' + m.value + '</div>' +
-    '<div class="metric-note">' + m.note + '</div>' +
+    (m.meaning ? '<div class="metric-meaning">' + m.meaning + '</div>' : '') +
+    (m.detail  ? '<div class="metric-note">'    + m.detail  + '</div>' : '') +
     '</div>').join('');
 
   const warnHtml = (p.diagnostics.warnings || []).map((w) => '<div class="warn">⚠ ' + w + '</div>').join('');

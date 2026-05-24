@@ -18,47 +18,57 @@
  */
 
 import { MADER } from './constants.js';
-import { vLass, vO2ss } from './kinetics.js';
+import { vLass } from './kinetics.js';
 import { intensityToADP } from './solver.js';
 
 /**
- * Fat oxidation rate at relative intensity x.
+ * Fat / CHO oxidation rates at relative intensity x.
  *
- * The fraction of aerobic VO2 fueled by fat ramps from ~0.4 at rest (fat-
- * dominant) down toward 0 as intensity rises and glycolysis crowds the
- * pyruvate pool. We model this with a smooth crossover anchored to the
- * Brooks-Mercier crossover concept:
+ * Why we don't use vO2ss(ADP) for the aerobic VO2 here:
  *
- *   fat_fraction(x) = max(0, 1 − (vLass / vLass_max_oxidation_rate))
+ *   The Mader oxidative Hill curve has K1 = 0.035 mmol/kg, which saturates
+ *   very quickly — at intensityToADP(x = 0.15) the ADP is already ~7 K1
+ *   and vO2ss reads ~80% of VO2max. That's fine for MLSS root-finding
+ *   (where the relevant ADP range is well past saturation) but it's wrong
+ *   for substrate accounting at low intensities, where actual VO2 should
+ *   scale ~linearly with relative intensity x.
  *
- * where the denominator is the rate at which glycolytic pyruvate fully
- * saturates the mitochondrial pyruvate-import capacity. With Hill K2=1.2,
- * n2=3 in ADP space, this gives the canonical crossover pattern (CHO takes
- * over above ~Fatmax which lies around 55–65% VO2max for trained athletes).
+ *   So here we model aerobic VO2 as x × VO2max directly. The substrate
+ *   curve and Fatmax then come out in physiologically sensible places
+ *   (peak fat oxidation at ~60% VO2max for trained athletes, matching
+ *   Achten & Jeukendrup 2003).
+ *
+ * Fat fraction model: fat_frac(x) = 0.70 × (1 − x)^0.7 × glycolytic_suppression.
+ *   The (1 − x)^0.7 shape gives x_Fatmax ≈ 1 / (1 + 0.7) = 0.588 — i.e.
+ *   peak fat oxidation in g/min lands around 59% VO2max, in the
+ *   literature-typical band of 55–65% for trained athletes.
+ *
+ * Stoichiometry (Péronnet & Massicotte 1991):
+ *   1 g fat ↔ 2.02 L O2
+ *   1 g CHO ↔ 0.83 L O2
  *
  * @returns {{ fat_g_per_min: number, cho_g_per_min: number, fat_pct: number }}
  */
 export function substrateOxidation(x, VO2max, VLamax, ctx) {
   const bodyMass = (ctx && ctx.bodyMass) || 70;
-  const ADP = intensityToADP(x);
 
-  const aerobic_VO2_mL_per_min = vO2ss(ADP, VO2max) * bodyMass;       // mL O2/min total
-  const aerobic_VO2_L_per_min  = aerobic_VO2_mL_per_min / 1000;
-
-  // Glycolytic pyruvate "competition" — at high intensity the mitochondria
-  // are filled by pyruvate, leaving no room for fat-derived acetyl-CoA.
-  // We anchor the crossover so that at vLass / VLamax ≈ 0.5 the fat fraction
-  // has dropped to ~0.25; tunable.
-  const glyc_flux = vLass(ADP, VLamax);                               // mmol/L/s
-  const glyc_ratio = VLamax > 0 ? glyc_flux / VLamax : 0;             // ∈ [0,1]
-
-  // Smooth crossover curve. Rest (x → 0) gives fat_fraction ≈ 0.55.
-  // High glycolytic engagement collapses fat oxidation toward zero.
+  // Aerobic VO2 scales linearly with relative intensity, capped at VO2max.
   const x_eff = Math.max(0, Math.min(1.0, x));
+  const aerobic_VO2_mL_per_min_per_kg = x_eff * VO2max;
+  const aerobic_VO2_L_per_min = aerobic_VO2_mL_per_min_per_kg * bodyMass / 1000;
+
+  // Glycolytic suppression: at high intensity, accumulated pyruvate crowds
+  // the mitochondrial import and CHO dominates.
+  const ADP = intensityToADP(x);
+  const glyc_flux = vLass(ADP, VLamax);
+  const glyc_ratio = VLamax > 0 ? Math.min(1, glyc_flux / VLamax) : 0;
+
+  // Fat fraction: starts high at low intensity, declines as x rises,
+  // collapses faster when glycolysis ramps up.
   const fat_fraction = Math.max(
     0,
-    0.55 * (1 - x_eff)            // intensity-driven downshift
-        * (1 - 0.85 * glyc_ratio) // glycolytic-suppression term
+    0.70 * Math.pow(1 - x_eff, 0.7)
+         * (1 - 0.6 * glyc_ratio)
   );
 
   const fat_VO2_L_per_min = aerobic_VO2_L_per_min * fat_fraction;
