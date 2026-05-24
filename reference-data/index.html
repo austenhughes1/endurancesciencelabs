@@ -6,6 +6,7 @@
 <title>esFormLab — Reference Data Collection</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/site.css">
 <style>
 :root{
   --bg:#06080d;--panel:#0d1020;--panel2:#131828;
@@ -376,20 +377,8 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 </head>
 <body>
 
-<!-- Auth overlay -->
-<div id="auth-overlay">
-  <div class="auth-card">
-    <img src="/images/logo_icon_only_white_clean.png" alt="Endurance Science Labs" class="auth-logo">
-    <div class="auth-title">esFormLab</div>
-    <p class="auth-sub">Private reference data collection.<br>Sign in with your admin account to continue.</p>
-    <input type="email"    class="auth-field" id="auth-email"    placeholder="Email" autocomplete="email">
-    <input type="password" class="auth-field" id="auth-password" placeholder="Password"
-      onkeydown="if(event.key==='Enter') signIn()">
-    <button class="auth-btn" id="auth-btn" onclick="signIn()">Sign in</button>
-    <div class="auth-error" id="auth-error"></div>
-    <p class="auth-note">Restricted to authorized accounts only.</p>
-  </div>
-</div>
+<!-- Auth gate (rendered by /shared/site.js with reference-data-specific copy) -->
+<div id="refdata-gate"></div>
 
 <!-- Loader -->
 <div id="loader">
@@ -690,6 +679,7 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="/shared/site.js"></script>
 <!-- TF.js + MoveNet -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
@@ -697,60 +687,36 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 <script>
 'use strict';
 
-// ══════════════════════════════════════════════════════════
-//  FIREBASE CONFIG — paste your values here
-// ══════════════════════════════════════════════════════════
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyDh4LorLQx1DPovQIA4HM3127fAYpyuaY8",
-  authDomain: "es-form-labs.firebaseapp.com",
-  projectId: "es-form-labs",
-  storageBucket: "es-form-labs.firebasestorage.app",
-  messagingSenderId: "215373817428",
-  appId: "1:215373817428:web:9a80d81815f6843ce2afc1",
-  measurementId: "G-P2RRN15M8K"
-};
 const MIN_N = 5; // minimum sessions before a metric range is reliable
 
-// ── Firebase init ─────────────────────────────────────────
-let auth, db;
-try {
-  firebase.initializeApp(FIREBASE_CONFIG);
-  auth = firebase.auth();
-  db   = firebase.firestore();
-} catch(e) {
-  console.error('Firebase init failed:', e.message);
-}
+// Firebase + auth come from /shared/site.js (esLabs). Aliases for the
+// rest of this script that still reads `auth` and `db`.
+const auth = esLabs.auth;
+const db   = esLabs.db;
 
-// ── Auth ──────────────────────────────────────────────────
-if (auth) {
-  auth.onAuthStateChanged(user => {
-    if (user) {
-      document.getElementById('auth-overlay').style.display = 'none';
-      document.getElementById('loader').style.display = 'flex';
-      initModel();
-      loadDatasetStats();
-      renderThresholds();
-    }
-  });
-}
+// Render the shared sign-in gate (admin-only -- the reference-data
+// page is restricted to authorized accounts).
+esLabs.mountAuthGate('#refdata-gate', {
+  logo: '/images/logo_icon_only_white_clean.png',
+  eyebrow: '◉ Private',
+  headline: 'Reference data collection',
+  sub: 'Private reference data collection for esFormLab. Sign in with your admin account to continue.',
+  requireAdmin: true,
+  emailDefault: 'signin',
+  foot: 'Restricted to authorized accounts only.'
+});
 
-async function signIn() {
-  const errEl = document.getElementById('auth-error');
-  const btn   = document.getElementById('auth-btn');
-  if (!auth) { errEl.textContent='Firebase failed to load. Check your network connection and reload.'; return; }
-  const email = document.getElementById('auth-email').value.trim();
-  const pw    = document.getElementById('auth-password').value;
-  errEl.textContent = '';
-  if (!email||!pw){errEl.textContent='Enter email and password.';return;}
-  btn.disabled=true;btn.textContent='Signing in…';
-  try {
-    await auth.signInWithEmailAndPassword(email, pw);
-  } catch(e) {
-    errEl.textContent = e.code==='auth/invalid-credential' ? 'Invalid email or password.' : e.message;
-    btn.disabled=false;btn.textContent='Sign in';
+esLabs.onAuthChange(user => {
+  if (user && user.uid === esLabs.ADMIN_UID) {
+    const loader = document.getElementById('loader');
+    if (loader) loader.style.display = 'flex';
+    initModel();
+    loadDatasetStats();
+    renderThresholds();
   }
-}
-async function signOut(){ await auth.signOut(); resetApp(); }
+});
+
+async function signOut(){ await esLabs.signOut(); resetApp(); }
 
 // ── Dataset stats ─────────────────────────────────────────
 async function loadDatasetStats() {
