@@ -74,6 +74,61 @@ export const MADER = {
   VO2max_fit_max: 95,
 };
 
+/**
+ * Altitude performance decrement, anchored to literature:
+ *   - VO₂max drops ~6–7% per 1,000 m above 1,500 m (Faulkner 1968, Wagner 2000)
+ *   - Performance-time loss scales with effort intensity
+ *     (Daniels & Gilbert 1979 altitude conversion tables):
+ *       Mile / VO₂max effort  → 4–5% loss at 1,500–2,000 m
+ *       Marathon-pace effort  → 2–3% loss at 1,500–2,000 m
+ *       Easy / recovery       → ~1% loss
+ *
+ * We model the loss as separable: a linear-in-altitude component above an
+ * 800 m threshold (where effects begin), scaled by an intensity factor
+ * keyed to relative intensity x = (effort intensity) / (MLSS or VO₂max-
+ * equivalent).
+ */
+export const ALTITUDE = {
+  threshold_m: 800,            // altitude below which there's no penalty
+  base_per_100m: 0.006,        // 0.6% per 100 m above threshold at hard effort
+                               // (matches Faulkner 1968 + Daniels 1979 VO₂max tables)
+  // Intensity factor scales quadratically with effort: floor at 0.10 (recovery),
+  // hits 1.0 at x = 1.15 (Z7 floor). The quadratic shape was tuned against
+  // Daniels' altitude conversion tables and field data at 1650 m:
+  //   x=0.78 (recovery)         → ~1.0%
+  //   x=0.95 (marathon pace)    → ~2.1%
+  //   x=1.00 (MLSS)             → ~2.6%
+  //   x=1.15 (VO₂max / Z7 floor) → ~5.1%
+  intensity_min: 0.10,
+  intensity_x_floor: 0.55,
+  intensity_x_ceil:  1.15,
+};
+
+/**
+ * Altitude factor for a given testing altitude and relative effort intensity.
+ * Returns a number in (0, 1] — multiply sea-level speed by this to get
+ * altitude-equivalent speed, or divide altitude speed by this to recover
+ * sea-level speed.
+ *
+ * @param {number} alt_m   Altitude above sea level in meters
+ * @param {number} x_rel   Relative effort intensity (1.0 ≈ MLSS, ~0.78 = recovery)
+ */
+export function altitudeFactor(alt_m, x_rel) {
+  if (!isFinite(alt_m) || alt_m <= ALTITUDE.threshold_m) return 1.0;
+  const altBase = ALTITUDE.base_per_100m * (alt_m - ALTITUDE.threshold_m) / 100;
+  // Quadratic intensity factor — floor at intensity_min, 1.0 at intensity_x_ceil
+  let intFactor;
+  if (x_rel <= ALTITUDE.intensity_x_floor)       intFactor = ALTITUDE.intensity_min;
+  else if (x_rel >= ALTITUDE.intensity_x_ceil)   intFactor = 1.0;
+  else {
+    const span = ALTITUDE.intensity_x_ceil - ALTITUDE.intensity_x_floor;
+    const t = (x_rel - ALTITUDE.intensity_x_floor) / span;
+    intFactor = ALTITUDE.intensity_min + (1.0 - ALTITUDE.intensity_min) * t * t;
+  }
+  const penalty = altBase * intFactor;
+  return Math.max(0.7, 1 - penalty);
+}
+
 // Population-sanity ranges (warnings only — not validation failures).
 // Outside these, surface a "check inputs" warning in the report.
 export const SANITY_RANGES = {
