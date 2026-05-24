@@ -16,6 +16,7 @@
 
 import { getMetabolicProfile } from '../js/lib/mader/index.js';
 import { derivePowerProfile }  from '../js/lib/mader/power-profile.js';
+import { altitudeFactor }      from '../js/lib/mader/constants.js';
 import { generateZones }       from '../js/ui/zones.js';
 import { drawLactateChart, drawSubstrateChart } from '../js/ui/charts.js';
 import { minPerKmToPaceString, paceStringToMinPerKm, speedToPaceString } from '../js/lib/mader/sport.js';
@@ -41,6 +42,7 @@ const state = {
   sport: 'running',
   sex: 'M',
   bodyMass: 70,
+  altitude_m: 0,
   efforts: { sprint15s: '', peak3min: '', peak6min: '', peak12min: '' },
   sessions: [],
   newFormOpen: false,
@@ -129,12 +131,13 @@ function hydrateActiveFromSession(s) {
     state.sport = s.inputs.sport;
     state.sex   = s.inputs.sex;
     state.bodyMass = s.inputs.bodyMass;
+    state.altitude_m = s.inputs.altitude_m || 0;
   } catch (e) {
     console.warn('Replay failed:', e);
   }
 }
 
-async function saveSession(derived, sportInputs, efforts) {
+async function saveSession(derived, sportInputs) {
   const user = window.__esml && window.__esml.user;
   if (!user) throw new Error('Sign in required.');
 
@@ -142,10 +145,11 @@ async function saveSession(derived, sportInputs, efforts) {
     id: generateId(),
     measured_at: firebase.firestore.Timestamp.now(),
     inputs: {
-      sport:    sportInputs.sport,
-      sex:      sportInputs.sex,
-      bodyMass: sportInputs.bodyMass,
-      efforts:  efforts,
+      sport:       sportInputs.sport,
+      sex:         sportInputs.sex,
+      bodyMass:    sportInputs.bodyMass,
+      altitude_m:  sportInputs.altitude_m || 0,
+      efforts:     sportInputs.efforts,
     },
     derived: {
       VLamax: derived.VLamax,
@@ -176,11 +180,13 @@ function newFormHTML() {
     ? {
         sport: last.inputs.sport, sex: last.inputs.sex,
         bodyMass: last.inputs.bodyMass,
+        altitude_m: last.inputs.altitude_m != null ? last.inputs.altitude_m : 0,
         efforts: last.inputs.efforts || state.efforts,
       }
     : {
         sport: state.sport, sex: state.sex,
         bodyMass: state.bodyMass,
+        altitude_m: state.altitude_m || 0,
         efforts: state.efforts,
       };
 
@@ -250,10 +256,17 @@ function newFormHTML() {
         </div>
       </div>
 
-      <label class="field" style="max-width:280px">
-        <span class="lab">Body mass (kg)</span>
-        <input type="number" id="ps-mass" step="0.1" min="30" max="160" value="${prefill.bodyMass}">
-      </label>
+      <div class="grid-2">
+        <label class="field">
+          <span class="lab">Body mass (kg)</span>
+          <input type="number" id="ps-mass" step="0.1" min="30" max="160" value="${prefill.bodyMass}">
+        </label>
+        <label class="field">
+          <span class="lab">Testing altitude (m above sea level)</span>
+          <input type="number" id="ps-alt" step="50" min="0" max="5000" value="${prefill.altitude_m}" placeholder="0">
+          <span class="hint">Performance loss begins ~800 m. Boulder ≈ 1650 m, Denver ≈ 1600 m. Zones reported as sea-level equivalents.</span>
+        </label>
+      </div>
 
       <div style="margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--muted2);letter-spacing:.5px;text-transform:uppercase">${effortHeader}</div>
       <div class="grid-2" style="margin-top:6px">
@@ -298,7 +311,7 @@ function wireNewForm() {
     render();
   }));
 
-  ['ps-mass', 'ps-sprint', 'ps-3min', 'ps-6min', 'ps-12min'].forEach((id) => {
+  ['ps-mass', 'ps-alt', 'ps-sprint', 'ps-3min', 'ps-6min', 'ps-12min'].forEach((id) => {
     const el = $('#' + id);
     if (el) el.addEventListener('input', recalcPreview);
   });
@@ -322,6 +335,8 @@ function readForm() {
   const sport = (document.querySelector('input[name="ps-sport"]:checked') || {}).value || 'running';
   const sex   = (document.querySelector('input[name="ps-sex"]:checked')   || {}).value || 'M';
   const bodyMass = parseFloat($('#ps-mass').value);
+  const altRaw  = parseFloat($('#ps-alt').value);
+  const altitude_m = (isFinite(altRaw) && altRaw > 0) ? altRaw : 0;
 
   // Running: the form holds distances; convert to m/s via the known duration.
   // Cycling: the form holds watts directly.
@@ -341,7 +356,28 @@ function readForm() {
     peak6min:  readOne('6min',    'peak6min'),
     peak12min: readOne('12min',   'peak12min'),
   };
-  return { sport, sex, bodyMass, efforts };
+  return { sport, sex, bodyMass, altitude_m, efforts };
+}
+
+/**
+ * Convert altitude-measured efforts into sea-level equivalents.
+ * The 15-second sprint is alactic and altitude-neutral, so it passes through.
+ * The 3/6/12-min efforts are mostly aerobic, so we divide by the altitude
+ * factor at near-MLSS intensity (x=1.0) to recover sea-level performance.
+ */
+function effortsToSeaLevel(efforts, sport, altitude_m) {
+  if (sport !== 'running' || !(altitude_m > 0)) return efforts;
+  // 3/6/12-min max efforts sit at or near VO₂max-equivalent intensity
+  // (x_rel ≈ 1.15+ relative to MLSS), so use the ceiling-intensity factor.
+  // 15-second sprint is alactic and passes through unchanged.
+  const f = altitudeFactor(altitude_m, 1.15);
+  if (f >= 1) return efforts;
+  return {
+    sprint15s: efforts.sprint15s,
+    peak3min:  efforts.peak3min  / f,
+    peak6min:  efforts.peak6min  / f,
+    peak12min: efforts.peak12min / f,
+  };
 }
 
 function effortsComplete(efforts) {
@@ -356,12 +392,17 @@ function recalcPreview() {
     return;
   }
 
+  // Altitude correction: convert altitude-measured efforts into sea-level
+  // equivalents before the engine sees them, so VO2max / zones come out
+  // as sea-level fitness.
+  const seaEfforts = effortsToSeaLevel(inputs.efforts, inputs.sport, inputs.altitude_m);
+
   let derived;
   try {
     derived = derivePowerProfile({
       sport: inputs.sport, sex: inputs.sex,
       bodyMass: inputs.bodyMass,
-      efforts: inputs.efforts,
+      efforts: seaEfforts,
     });
   } catch (e) {
     $('#ps-result').innerHTML = '<div class="warn">⚠ ' + e.message + '</div>';
@@ -397,7 +438,12 @@ async function onSave() {
   }
   let derived;
   try {
-    derived = derivePowerProfile(inputs);
+    const seaEfforts = effortsToSeaLevel(inputs.efforts, inputs.sport, inputs.altitude_m);
+    derived = derivePowerProfile({
+      sport: inputs.sport, sex: inputs.sex,
+      bodyMass: inputs.bodyMass,
+      efforts: seaEfforts,
+    });
   } catch (e) {
     alert(e.message);
     return;
@@ -405,7 +451,7 @@ async function onSave() {
   const btn = $('#ps-save');
   btn.disabled = true; btn.textContent = 'Saving…';
   try {
-    await saveSession(derived, inputs, inputs.efforts);
+    await saveSession(derived, inputs);
   } catch (e) {
     console.error(e);
     alert('Save failed: ' + e.message);
@@ -506,10 +552,11 @@ function resultsBlockHTML() {
   const warnHtml = (p.diagnostics.warnings || []).map((w) => '<div class="warn">⚠ ' + w + '</div>').join('');
 
   const zones = generateZones(sport, { MLSS_intensity: p.mlss.intensity, LT1_intensity: p.lt1.intensity });
+  const zoneOpts = { altitude_m: state.altitude_m || 0, mlss_speed: p.mlss.intensity };
   let zonesHtml = '';
-  if (zones.coggan) zonesHtml += zoneTableHtml('Coggan 7-zone (cycling)', zones.coggan, sport);
-  if (zones.friel)  zonesHtml += zoneTableHtml('Friel 7-zone (running)',  zones.friel, sport);
-  if (zones.seiler) zonesHtml += zoneTableHtml('Seiler 3-zone',           zones.seiler, sport);
+  if (zones.coggan) zonesHtml += zoneTableHtml('Coggan 7-zone (cycling)', zones.coggan, sport, zoneOpts);
+  if (zones.friel)  zonesHtml += zoneTableHtml('Friel 7-zone (running)',  zones.friel,  sport, zoneOpts);
+  if (zones.seiler) zonesHtml += zoneTableHtml('Seiler 3-zone',           zones.seiler, sport, zoneOpts);
 
   const u = getDefaultPaceUnit();
   const paceTogglePillHtml = sport === 'running'
@@ -542,7 +589,7 @@ function resultsBlockHTML() {
           <p><strong>VLamax</strong> comes from your 15-second sprint effort, via an empirical linear regression calibrated to typical population ranges (cycling: relative sprint power in W/kg; running: average sprint speed in m/s). This is the least-reliable part of the estimate — VLamax varies substantially at any given sprint output, and individual phenotype matters a lot.</p>
           <p><strong>VO₂max — running.</strong> We use Léger's 1980 / 1984 empirical relation: <code>VO₂max (mL/min/kg) ≈ 12.6 × v</code>, where <em>v</em> is your 6-minute max speed in m/s. The 6-min max is treated as your "MAS" (Maximal Aerobic Speed — the velocity at which VO₂max is reached). Léger's regression is validated across hundreds of athletes and bakes in the population-typical mix of running economy plus the small anaerobic contribution at 6-min duration.</p>
           <p><strong>VO₂max — cycling.</strong> We compute the oxygen demand of your 6-minute power directly: <code>VO₂max ≈ P × 60 / (GE × 20.9) / bodyMass</code>, assuming a gross efficiency of 22.5%. Cyclists can sustain near-VO₂max for ~6 minutes, so no additional scale factor is applied.</p>
-          <p><strong>Altitude caveat.</strong> If you tested at altitude (Boulder/Denver etc. are around 1,500 m), your 6-min max is roughly 5–10% slower than your sea-level equivalent. The VO₂max estimate from that data will be correspondingly low for your sea-level fitness. For an apples-to-apples lab-style number, repeat the field test at sea level.</p>
+          <p><strong>Altitude correction.</strong> Enter your testing altitude in the form and the tool normalises automatically. Performance loss begins around 800 m and grows linearly with altitude; at 6-min duration it's roughly 0.5% per 100 m above 800 m (Faulkner 1968, Wagner 2000). We invert that to recover your sea-level VO₂max via Léger, then derive zones at sea level. The 15-second sprint is alactic and altitude-neutral, so VLamax passes through unchanged. The zones table also shows altitude-equivalent paces in a second column when you've entered a testing altitude — each zone bound gets an intensity-scaled penalty (Daniels & Gilbert 1979 conversion tables: ~1% slower at recovery effort, ~2–3% at marathon-pace effort, ~5% at VO₂max effort) so easy runs at altitude don't get over-corrected the way hard intervals do.</p>
           <p><strong>One internal compromise.</strong> Léger's regression for the forward VO₂max step has an implicit running cost of <code>Cr ≈ 4.39 J·kg⁻¹·m⁻¹</code>. The engine's inverse (VO₂ → speed for MLSS, LT1, Fatmax, zones) uses <code>Cr = 4.20 J·kg⁻¹·m⁻¹</code> — a population-average that splits the difference between submaximal Cr (3.86, di Prampero) and max-effort Cr (4.39, Léger). The mismatch comes from the fact that one regression is keyed to max-effort tests and the other to lab calorimetry. Highly efficient runners (Cr ≈ 3.6–3.9) will see their MLSS and zone paces slightly under-estimated; less efficient runners (Cr ≈ 4.3–4.6), slightly over-estimated. A per-athlete Cr would fix this; a single global value can't.</p>
           <p>Once VO₂max and VLamax are settled, the Mader/Heck engine runs exactly as it would on lactate-anchored values — MLSS, LT1, Fatmax, and substrate curves come from the same equations. References: Léger &amp; Lambert 1980; Léger &amp; Mercier 1984; di Prampero 1986; Mader &amp; Heck 1986.</p>
         </div>
@@ -551,7 +598,12 @@ function resultsBlockHTML() {
   `;
 }
 
-function zoneTableHtml(title, rows, sport) {
+function zoneTableHtml(title, rows, sport, opts) {
+  opts = opts || {};
+  const altitude_m = opts.altitude_m || 0;
+  const mlss_speed = opts.mlss_speed || 0;
+  const showAlt = sport === 'running' && altitude_m > 800 && mlss_speed > 0;
+
   const fmtRange = (lo, hi) => {
     if (sport === 'cycling') {
       const a = (lo === 0 || !isFinite(lo)) ? '0' : Math.round(lo) + ' W';
@@ -562,9 +614,31 @@ function zoneTableHtml(title, rows, sport) {
     const b = isFinite(hi) ? fmt.pace(hi) : '—';
     return a + ' – ' + b;
   };
+
+  // Altitude-adjusted speed for a given sea-level boundary speed.
+  // Uses intensity factor at x = speed/MLSS_speed so each zone bound gets
+  // its own duration-appropriate penalty.
+  const altSpeed = (v) => {
+    if (!isFinite(v) || v <= 0) return v;
+    const xRel = v / mlss_speed;
+    return v * altitudeFactor(altitude_m, xRel);
+  };
+  const fmtAltRange = (lo, hi) => {
+    const aS = altSpeed(lo);
+    const bS = altSpeed(hi);
+    const a = (lo === 0 || !isFinite(lo)) ? '—' : fmt.pace(aS);
+    const b = isFinite(hi) ? fmt.pace(bS) : '—';
+    return a + ' – ' + b;
+  };
+
+  const altHeaderCell = showAlt ? '<th>At ' + Math.round(altitude_m) + ' m</th>' : '';
+  const altDataCell = (r) => showAlt
+    ? '<td class="num" style="color:var(--muted2)">' + fmtAltRange(r.lo, r.hi) + '</td>'
+    : '';
+
   return '<h3 style="font-family:var(--display);font-size:16px;font-weight:600;margin:14px 0 8px">' + title + '</h3>' +
-         '<table class="zones"><tr><th>Zone</th><th>Label</th><th>Range</th></tr>' +
-         rows.map((r) => '<tr><td>Z' + r.zone + '</td><td>' + r.label + '</td><td class="num">' + fmtRange(r.lo, r.hi) + '</td></tr>').join('') +
+         '<table class="zones"><tr><th>Zone</th><th>Label</th><th>' + (showAlt ? 'Sea level' : 'Range') + '</th>' + altHeaderCell + '</tr>' +
+         rows.map((r) => '<tr><td>Z' + r.zone + '</td><td>' + r.label + '</td><td class="num">' + fmtRange(r.lo, r.hi) + '</td>' + altDataCell(r) + '</tr>').join('') +
          '</table>';
 }
 
