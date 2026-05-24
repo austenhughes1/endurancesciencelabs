@@ -17,6 +17,7 @@ import { paceInputHTML, wirePaceInputs, readPaceMps, getDefaultPaceUnit, setDefa
 import { wireHowToMeasureTriggers } from '../js/ui/how-to-measure.js';
 import { wireStepTestTriggers }    from '../js/ui/how-to-step-test.js';
 import { drawLactateChart, drawSubstrateChart } from '../js/ui/charts.js';
+import { downloadStepTestReport } from '../js/ui/pdf-report.js';
 
 // Wire the page-level protocol buttons.
 wireHowToMeasureTriggers();
@@ -570,59 +571,23 @@ $('#export-pdf').addEventListener('click', async () => {
     alert('PDF library not loaded yet — try again in a moment.');
     return;
   }
-  const p = state.profile;
-  const doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'letter' });
-  const W = doc.internal.pageSize.getWidth();
-  let y = 18;
-
-  doc.setFontSize(18);
-  doc.text('esMetabolicLab — Metabolic Profile', 14, y); y += 8;
-  doc.setFontSize(11); doc.setTextColor(100);
-  doc.text('Generated ' + new Date().toISOString().slice(0, 10) + ' · admin preview', 14, y); y += 10;
-
-  doc.setTextColor(0); doc.setFontSize(12);
-  doc.text('Athlete', 14, y); y += 6;
-  doc.setFontSize(10); doc.setTextColor(60);
-  doc.text('Sport: ' + state.sport + '   Sex: ' + state.sex + '   Mass: ' + state.bodyMass + ' kg', 14, y); y += 8;
-
-  doc.setTextColor(0); doc.setFontSize(12); doc.text('Results', 14, y); y += 6;
-  const lines = [
-    ['VO₂max',  fmt.V(p.VO2max) + (p.inputs.VO2max_supplied ? ' (supplied)' : ' (fitted)')],
-    ['VLamax',  p.VLamax.toFixed(3) + ' mmol/L/s'],
-    ['MLSS',    (state.sport === 'cycling' ? fmt.W(p.mlss.intensity) : fmt.pace(p.mlss.intensity)) + '   ' + fmt.pct(p.mlss.x) + ' VO₂max   La=' + fmt.La(p.mlss.lactate)],
-    ['LT1',     (state.sport === 'cycling' ? fmt.W(p.lt1.intensity)  : fmt.pace(p.lt1.intensity))  + '   ' + fmt.pct(p.lt1.x)  + ' VO₂max'],
-    ['Fatmax',  (state.sport === 'cycling' ? fmt.W(p.fatmax.intensity) : fmt.pace(p.fatmax.intensity)) + '   ' + fmt.G(p.fatmax.fat_g_per_min) + ' @ ' + fmt.pct(p.fatmax.x)],
-  ];
-  doc.setFontSize(10);
-  for (const [k, v] of lines) {
-    doc.setTextColor(80); doc.text(k, 16, y);
-    doc.setTextColor(0);  doc.text(v, 50, y);
-    y += 5;
+  const btn = $('#export-pdf');
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Building PDF…';
+  try {
+    await downloadStepTestReport({
+      profile:  state.profile,
+      sport:    state.sport,
+      stages:   state.stages,
+      bodyMass: state.bodyMass,
+      sex:      state.sex,
+    });
+  } catch (e) {
+    console.error('PDF export failed:', e);
+    alert('Couldn’t build the PDF: ' + (e.message || e));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = orig;
   }
-  y += 4;
-
-  if (p.diagnostics.sensitivity) {
-    const s = p.diagnostics.sensitivity;
-    doc.setFontSize(11); doc.setTextColor(0); doc.text('Sensitivity', 14, y); y += 5;
-    doc.setFontSize(9); doc.setTextColor(70);
-    doc.text('±0.5 mmol/L lactate perturbation shifts VO₂max by ≤ ' + s.max_VO2max_shift.toFixed(2)
-           + ' mL/min/kg (' + (s.max_VO2max_shift/s.base_VO2max*100).toFixed(2) + '%). Fit RMSE = '
-           + p.diagnostics.rmse.toFixed(2) + ' mmol/L.', 14, y, { maxWidth: W - 28 });
-    y += 12;
-  }
-
-  for (const id of ['chart-lactate', 'chart-substrate']) {
-    try {
-      const img = await Plotly.toImage(id, { format: 'png', width: 760, height: 380 });
-      if (y > 240) { doc.addPage(); y = 16; }
-      doc.addImage(img, 'PNG', 14, y, W - 28, 80);
-      y += 86;
-    } catch (e) { /* keep going */ }
-  }
-
-  if (y > 260) { doc.addPage(); y = 16; }
-  doc.setFontSize(8); doc.setTextColor(120);
-  doc.text('Not medical advice. esMetabolicLab is provided for educational purposes only and does not constitute a medical diagnosis. Consult a qualified healthcare professional before changing your training based on these results.', 14, y, { maxWidth: W - 28 });
-
-  doc.save('esmetaboliclab-profile-' + new Date().toISOString().slice(0, 10) + '.pdf');
 });

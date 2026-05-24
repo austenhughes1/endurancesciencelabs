@@ -19,6 +19,7 @@ import { derivePowerProfile }  from '../js/lib/mader/power-profile.js';
 import { altitudeFactor }      from '../js/lib/mader/constants.js';
 import { generateZones }       from '../js/ui/zones.js';
 import { drawLactateChart, drawSubstrateChart } from '../js/ui/charts.js';
+import { downloadPowerProfileReport } from '../js/ui/pdf-report.js';
 import { minPerKmToPaceString, paceStringToMinPerKm, speedToPaceString } from '../js/lib/mader/sport.js';
 import { distanceInputHTML, wireDistanceInputs, readDistanceMeters, metersToDistanceString, getDefaultDistanceUnit } from '../js/ui/distance-input.js';
 import { getDefaultPaceUnit, setDefaultPaceUnit } from '../js/ui/pace-input.js';
@@ -599,7 +600,10 @@ function resultsBlockHTML() {
 
   return `
     <div id="results-block">
-      <h2 style="font-family:var(--display);font-size:24px;font-weight:700;margin:30px 0 14px">Active profile</h2>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin:30px 0 14px">
+        <h2 style="font-family:var(--display);font-size:24px;font-weight:700;margin:0">Active profile</h2>
+        <button id="export-power-pdf" class="btn cyan" type="button" style="padding:9px 16px;font-size:13px">Download PDF →</button>
+      </div>
       ${paceTogglePillHtml}
       <div class="metric-grid">${metricsHtml}</div>
       ${precisionExpandableHtml()}
@@ -791,6 +795,36 @@ function render() {
         setDefaultPaceUnit(b.dataset.paceUnit);
         render();
       });
+    });
+  }
+
+  // Wire the PDF export button on the results block
+  const pdfBtn = $('#export-power-pdf');
+  if (pdfBtn) {
+    pdfBtn.addEventListener('click', async () => {
+      if (!state.profile) return;
+      if (!window.jspdf || !window.jspdf.jsPDF) {
+        alert('PDF library not loaded yet — try again in a moment.');
+        return;
+      }
+      const orig = pdfBtn.textContent;
+      pdfBtn.disabled = true;
+      pdfBtn.textContent = 'Building PDF…';
+      try {
+        await downloadPowerProfileReport({
+          profile:    state.profile,
+          sport:      state.sport,
+          bodyMass:   state.bodyMass,
+          sex:        state.sex,
+          altitude_m: state.altitude_m || 0,
+        });
+      } catch (e) {
+        console.error('PDF export failed:', e);
+        alert('Couldn’t build the PDF: ' + (e.message || e));
+      } finally {
+        pdfBtn.disabled = false;
+        pdfBtn.textContent = orig;
+      }
     });
   }
 
