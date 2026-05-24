@@ -441,6 +441,13 @@ function renderResults() {
   $('#results-root').innerHTML =
     paceTogglePillHtml +
     '<div class="metric-grid">' + metricsHtml + '</div>' +
+    '<div class="report-actions">' +
+      '<button class="btn-download-report" id="export-pdf-big" type="button">' +
+        '<span class="bdr-icon">⬇</span>' +
+        '<span>Download full report as PDF</span>' +
+        '<span class="bdr-sub">save · share · print</span>' +
+      '</button>' +
+    '</div>' +
     precisionExpandableHtml() +
     sensHtml + warnHtml +
     '<div class="panel"><div class="panel-h">Training zones</div>' + zonesHtml + '</div>' +
@@ -466,6 +473,10 @@ function renderResults() {
       });
     });
   }
+
+  // Wire the prominent in-results PDF button (re-created each render)
+  const bigBtn = $('#export-pdf-big');
+  if (bigBtn) bigBtn.addEventListener('click', () => triggerPdfExport(bigBtn));
 
   drawCharts(p);
 }
@@ -565,16 +576,21 @@ function drawCharts(p) {
 
 /* ───────── PDF export ───────── */
 
-$('#export-pdf').addEventListener('click', async () => {
+async function triggerPdfExport(btn) {
   if (!state.profile) return;
   if (!window.jspdf || !window.jspdf.jsPDF) {
     alert('PDF library not loaded yet — try again in a moment.');
     return;
   }
-  const btn = $('#export-pdf');
-  const orig = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = 'Building PDF…';
+  // Swap the inner label of the big button; for the small nav-actions button
+  // just swap textContent.
+  const label = btn ? btn.querySelector('span:nth-child(2)') : null;
+  const origText = btn ? (label ? label.textContent : btn.textContent) : null;
+  if (btn) {
+    btn.disabled = true;
+    if (label) label.textContent = 'Building PDF…';
+    else btn.textContent = 'Building PDF…';
+  }
   try {
     await downloadStepTestReport({
       profile:  state.profile,
@@ -587,7 +603,12 @@ $('#export-pdf').addEventListener('click', async () => {
     console.error('PDF export failed:', e);
     alert('Couldn’t build the PDF: ' + (e.message || e));
   } finally {
-    btn.disabled = false;
-    btn.textContent = orig;
+    if (btn) {
+      btn.disabled = false;
+      if (label) label.textContent = origText;
+      else btn.textContent = origText;
+    }
   }
-});
+}
+
+$('#export-pdf').addEventListener('click', () => triggerPdfExport($('#export-pdf')));
