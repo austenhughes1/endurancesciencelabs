@@ -668,11 +668,11 @@ function upsellCardHtml() {
     '<div class="upsell">' +
       '<div class="upsell-eyebrow">◆ Want the real numbers?</div>' +
       '<h3>This is an <em>estimate</em>. The lactate test is the measurement.</h3>' +
-      '<p>The profile above is back-derived from your power and pace alone. It\'s a useful starting point — but VLamax in particular can be off by 5–15% at any given sprint power, which cascades into MLSS, Fatmax, and your zones. A blood-lactate test pins down the curve directly. Same Mader / Heck model, real data underneath it.</p>' +
-      '<p>If you\'re in the Boulder or Denver area, an Endurance Science Labs coach can run the full sprint + step-test protocol with you in person. We bring the meter, the strips, and the experience to make sure the numbers are clean — and we walk you through your results.</p>' +
+      '<p>The profile above is back-derived from your power and pace alone. It\'s a useful starting point — but VLamax in particular can be off by 5–15% at any given sprint power, which cascades into MLSS, Fatmax, and your zones. A blood-lactate test pins down the curve directly: same Mader / Heck model used by INSCYD and the sports-science labs, anchored to your actual physiology.</p>' +
+      '<p>Two paths from here: have an Endurance Science Labs coach run the full sprint + step-test protocol with you in person (we bring the meter), or grab upload access and run the test yourself at home for a fraction of what a commercial lab session costs.</p>' +
       '<div class="row">' +
         '<a href="/esmetaboliclab/in-person/" class="btn primary">Book an in-person test — $145 →</a>' +
-        '<a href="/esmetaboliclab/" class="btn">Or upload your own lactate data →</a>' +
+        '<a href="/esmetaboliclab/pricing/" class="btn">Upload your own lactate data →</a>' +
       '</div>' +
     '</div>';
 }

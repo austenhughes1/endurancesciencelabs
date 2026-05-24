@@ -130,6 +130,31 @@
     color: var(--bad); font-size: 13.5px; display: none;
   }
   .checkout-err.show { display: block; }
+
+  /* Outcomes grid — "What your profile tells you" */
+  .outcomes { margin: 0 0 36px; }
+  .outcomes-h {
+    font-family: var(--display); font-size: 22px; font-weight: 700;
+    letter-spacing: -.3px; margin-bottom: 18px;
+  }
+  .outcomes-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 14px;
+  }
+  .outcome {
+    background: var(--panel2); border: 1px solid var(--border);
+    border-radius: 14px; padding: 18px 20px;
+  }
+  .outcome-icon {
+    font-size: 22px; line-height: 1; margin-bottom: 8px;
+  }
+  .outcome-title {
+    font-family: var(--display); font-size: 15px; font-weight: 600;
+    line-height: 1.3; margin-bottom: 6px;
+  }
+  .outcome p {
+    color: var(--muted2); font-size: 13px; line-height: 1.6;
+  }
 </style>
 </head>
 <body>
@@ -142,13 +167,50 @@
 <div class="page">
   <p style="margin-bottom:12px"><a href="/esmetaboliclab/">← All tools</a></p>
   <div class="section-label">◆ Pricing</div>
-  <h1 class="page-title">Build your <em>real</em> metabolic profile.</h1>
+  <h1 class="page-title">Lab-level metabolic profiling — <em>without the lab</em>.</h1>
   <p class="page-sub">
-    The free power-only profile is a starting point — useful but back-derived from
-    sprint power, with known limits on accuracy. The paid tiers let you upload
-    your own blood-lactate data and get the same model used by INSCYD, Aerotune,
-    and the labs, pinned to your actual physiology.
+    The full metabolic picture from a single home test. Same Mader / Heck
+    bioenergetic model used by INSCYD, Aerotune, and the sports-science labs —
+    pinned to your own physiology with a blood-lactate step test you run at
+    home (or with a coach). Stop guessing what to train, what to eat, and
+    where to race.
   </p>
+
+  <div class="outcomes">
+    <h2 class="outcomes-h">What your metabolic profile tells you</h2>
+    <div class="outcomes-grid">
+      <div class="outcome">
+        <div class="outcome-icon" style="color:var(--purple)">◆</div>
+        <div class="outcome-title">Your aerobic + anaerobic ceilings</div>
+        <p>VO₂max (how much oxygen you can use) and VLamax (how fast you produce lactate at peak effort) — the two engines that shape every metric below.</p>
+      </div>
+      <div class="outcome">
+        <div class="outcome-icon" style="color:var(--good)">◉</div>
+        <div class="outcome-title">Your real thresholds</div>
+        <p>MLSS (the line between sustainable and unsustainable effort), LT1 (the top of your easy zone), and where your race-day fitness actually sits.</p>
+      </div>
+      <div class="outcome">
+        <div class="outcome-icon" style="color:var(--gold)">▶</div>
+        <div class="outcome-title">Where you burn fat fastest</div>
+        <p>Fatmax — the intensity that maxes out fat oxidation in g/min. The pace you can hold forever, the foundation of every aerobic-base block.</p>
+      </div>
+      <div class="outcome">
+        <div class="outcome-icon" style="color:var(--cyan)">◈</div>
+        <div class="outcome-title">Training zones built for you</div>
+        <p>Coggan 7-zone (cycling), Friel 7-zone (running), Seiler 3-zone — all anchored to your MLSS and LT1, not population averages. Paste them straight into your training app.</p>
+      </div>
+      <div class="outcome">
+        <div class="outcome-icon" style="color:var(--coral)">▷</div>
+        <div class="outcome-title">A fueling strategy that fits</div>
+        <p>Grams of carbohydrate per minute at every intensity — so you know how much to eat on long runs, race day, and intervals before you bonk.</p>
+      </div>
+      <div class="outcome">
+        <div class="outcome-icon" style="color:var(--purple)">⬡</div>
+        <div class="outcome-title">A pacing target for your event</div>
+        <p>Half-marathon pace, 1-hour TT power, ultra pace — all derivable from the lactate curve. The number you can hold, not the number you hope you can.</p>
+      </div>
+    </div>
+  </div>
 
   <div class="price-status" id="entitlement-status" style="display:none"></div>
   <div class="checkout-err" id="checkout-err"></div>

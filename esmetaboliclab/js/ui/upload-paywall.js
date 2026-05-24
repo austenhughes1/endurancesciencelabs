@@ -24,18 +24,20 @@ const PAYWALL_HTML = `
   <p style="margin-bottom:12px"><a href="/esmetaboliclab/">← All tools</a></p>
   <div class="paywall-card">
     <div class="section-label" style="margin-bottom:18px">◆ Upload access required</div>
-    <h1 class="paywall-h">Get upload access to use <em>{{TOOL}}</em>.</h1>
-    <p>This tool runs your blood-lactate data through the same Mader / Heck
-       bioenergetic model that INSCYD, Aerotune, and sports-science labs use —
-       pinned to your actual physiology instead of population averages.
-       Upload access is a paid feature.</p>
+    <h1 class="paywall-h">Lab-level metabolic profiling — <em>without the lab</em>.</h1>
+    <p>Upload your own blood-lactate data and get the full picture: VO₂max,
+       VLamax, MLSS, LT1, Fatmax, training zones, and a fueling strategy in
+       g/min — same Mader / Heck model used by INSCYD and the sports-science
+       labs, pinned to your actual physiology. Upload access powers
+       <em>{{TOOL}}</em> and is a paid feature.</p>
     <div class="paywall-tiers">
       <span class="paywall-tier-chip"><strong>$30</strong> single session · 7-day window</span>
       <span class="paywall-tier-chip"><strong>$60/yr</strong> unlimited uploads · auto-renew</span>
       <span class="paywall-tier-chip"><strong>$90</strong> lifetime · pays for itself in year 2</span>
     </div>
     <p>Pick a tier on the pricing page — or, if you'd rather a coach run the
-       full protocol with you in person, book the $145 in-person session.</p>
+       full protocol with you in person (we bring the meter), book the $145
+       in-person session.</p>
     <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:22px">
       <a class="btn primary" href="/esmetaboliclab/pricing/">See pricing →</a>
       <a class="btn" href="/esmetaboliclab/power-profile/">Try the free power-only profile instead →</a>
