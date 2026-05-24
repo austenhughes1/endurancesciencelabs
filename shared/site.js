@@ -338,14 +338,17 @@ function renderNavHtml(opts) {
     mobileAuthHtml = '<button class="nav-mobile-action primary" data-eslabs-signin>Sign in</button>';
   }
 
+  var extrasHtml = opts.extrasHtml || '';
+  var mobileExtrasHtml = opts.mobileExtrasHtml || '';
+
   return ''
     + '<a href="/" class="nav-logo" aria-label="Endurance Science Labs home">'
     + '  <img src="/images/generic_logo_white_clean.png" alt="Endurance Science Labs" class="nav-logo-img">'
     + '</a>'
     + '<div class="nav-links">' + linksHtml
-    + '  <div class="nav-mobile-section">' + mobileAuthHtml + '</div>'
+    + '  <div class="nav-mobile-section">' + mobileAuthHtml + mobileExtrasHtml + '</div>'
     + '</div>'
-    + '<div class="nav-right">' + rightHtml + '</div>'
+    + '<div class="nav-right">' + extrasHtml + rightHtml + '</div>'
     + '<button class="nav-toggle" aria-label="Toggle menu" aria-expanded="false" data-eslabs-nav-toggle>'
     + '  <span></span><span></span><span></span>'
     + '</button>';
@@ -374,6 +377,10 @@ function wireNav(host, opts) {
   host.querySelectorAll('[data-eslabs-signout]').forEach(function (btn) {
     btn.addEventListener('click', function () { signOut(); });
   });
+  // Page-supplied post-render hook (for extras buttons etc.)
+  if (typeof opts.onRender === 'function') {
+    try { opts.onRender(host, state.user); } catch (e) { console.error(e); }
+  }
 }
 
 // ── Auth gate mounting ───────────────────────────────────────────
