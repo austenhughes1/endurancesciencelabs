@@ -72,11 +72,12 @@
 
     <!-- Mobile-only auth section (rendered inside the hamburger menu on phones) -->
     <div class="nav-mobile-section">
-      <div id="nav-mobile-user-row" class="nav-mobile-user" style="display:none">
+      <a href="/account/" id="nav-mobile-user-row" class="nav-mobile-user" style="display:none;text-decoration:none">
         <img id="nav-mobile-avatar" class="nav-mobile-avatar" src="">
         <span id="nav-mobile-name" class="nav-mobile-name">Loading…</span>
-      </div>
+      </a>
       <button id="nav-mobile-signin" class="nav-mobile-action signin" onclick="signInWithGoogle()">Continue with Google</button>
+      <a id="nav-mobile-account" class="nav-mobile-action" href="/account/" style="display:none;text-decoration:none">My account</a>
       <button id="nav-mobile-my-analyses" class="nav-mobile-action" onclick="openMyAnalyses()" style="display:none">My Sessions</button>
       <button id="nav-mobile-signout" class="nav-mobile-action signout" onclick="signOutUser()" style="display:none">Sign out</button>
     </div>
@@ -84,10 +85,10 @@
   <span id="hdr-file"></span>
   <div class="hdr-right">
     <button class="btn-ghost" id="btn-my-analyses" onclick="openMyAnalyses()" style="display:none">My Sessions</button>
-    <span id="auth-indicator" class="auth-indicator" style="display:none">
+    <a href="/account/" id="auth-indicator" class="auth-indicator" style="display:none;text-decoration:none" title="My account">
       <img id="auth-avatar" class="auth-avatar" src="">
       <span id="auth-name" class="auth-name"></span>
-    </span>
+    </a>
     <button class="btn-ghost" id="btn-sign-out" onclick="signOutUser()" style="display:none">Sign out</button>
     <button class="btn-ghost" id="btn-rescan" onclick="rescan()" style="display:none">&#10227; Re-scan</button>
     <button class="btn-ghost" onclick="startNewSession()">&#8617; New video</button>
