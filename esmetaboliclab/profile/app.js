@@ -384,16 +384,27 @@ function renderResults() {
   const fmtIntensity = sport === 'cycling' ? fmt.W : fmt.pace;
 
   const metrics = [
-    { label: 'VO₂max',  value: fmt.V(p.VO2max), note: p.inputs.VO2max_supplied ? 'as supplied' : 'fitted from your curve' },
-    { label: 'VLamax',  value: p.VLamax.toFixed(3) + ' mmol/L/s', note: 'from sprint test on ' + fmtDate(state.VLamax_measured_at) },
-    { label: 'MLSS',    value: fmtIntensity(p.mlss.intensity), note: fmt.pct(p.mlss.x) + ' of VO₂max · ' + fmt.La(p.mlss.lactate) },
-    { label: 'LT1',     value: fmtIntensity(p.lt1.intensity),  note: fmt.pct(p.lt1.x) + ' of VO₂max · ' + fmt.La(p.lt1.lactate) },
-    { label: 'Fatmax',  value: fmtIntensity(p.fatmax.intensity), note: fmt.G(p.fatmax.fat_g_per_min) + ' at ' + fmt.pct(p.fatmax.x) + ' of VO₂max' },
+    { label: 'VO₂max', value: fmt.V(p.VO2max),
+      meaning: 'Your aerobic ceiling — the most oxygen your body can use per minute.',
+      detail:  p.inputs.VO2max_supplied ? 'as supplied' : 'fitted from your curve' },
+    { label: 'VLamax', value: p.VLamax.toFixed(3) + ' mmol/L/s',
+      meaning: 'How fast your body produces lactate at all-out sprint effort.',
+      detail:  'from sprint test on ' + fmtDate(state.VLamax_measured_at) },
+    { label: 'MLSS', value: fmtIntensity(p.mlss.intensity),
+      meaning: 'Maximum sustainable hard effort — about half-marathon / 1-hour race pace.',
+      detail:  fmt.pct(p.mlss.x) + ' of VO₂max · ' + fmt.La(p.mlss.lactate) },
+    { label: 'LT1', value: fmtIntensity(p.lt1.intensity),
+      meaning: 'Top of your easy zone — above this, lactate starts to rise above baseline.',
+      detail:  fmt.pct(p.lt1.x) + ' of VO₂max · ' + fmt.La(p.lt1.lactate) },
+    { label: 'Fatmax', value: fmtIntensity(p.fatmax.intensity),
+      meaning: 'Where you burn the most fat in g/min — long-run / aerobic-base territory.',
+      detail:  fmt.G(p.fatmax.fat_g_per_min) + ' at ' + fmt.pct(p.fatmax.x) + ' of VO₂max' },
   ];
   const metricsHtml = metrics.map(m =>
     '<div class="metric"><div class="metric-label">' + m.label + '</div>' +
     '<div class="metric-value">' + m.value + '</div>' +
-    (m.note ? '<div class="metric-note">' + m.note + '</div>' : '') +
+    (m.meaning ? '<div class="metric-meaning">' + m.meaning + '</div>' : '') +
+    (m.detail  ? '<div class="metric-note">'    + m.detail  + '</div>' : '') +
     '</div>').join('');
 
   let sensHtml = '';
