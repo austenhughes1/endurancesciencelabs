@@ -6,6 +6,7 @@
 <title>Endurance Science Labs — Coaching</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/site.css">
 <style>
 :root{
   --bg:#06080d;--panel:#0d1020;--panel2:#131828;
@@ -683,77 +684,13 @@ header{display:none}
 </head>
 <body>
 
-<!-- ── Auth overlay ─────────────────────────────────── -->
-<div id="auth-overlay">
-  <div class="auth-card">
-    <img src="/images/coaching_logo_abbrev_white_clean.png" alt="Endurance Science Coaching" class="auth-logo">
-    <div class="auth-eyebrow" id="auth-eyebrow">◉ Free account</div>
-    <div class="auth-title" id="auth-title">Create your free account</div>
-    <p class="auth-sub" id="auth-sub">One tap to create your account — no card to start.</p>
-    <div class="auth-bullets" id="auth-bullets">
-      <div class="auth-bullet"><span class="auth-bullet-check">✓</span><div><strong>Try esFormLab</strong> <span>— upload and scan your videos at no cost</span></div></div>
-      <div class="auth-bullet"><span class="auth-bullet-check">✓</span><div><strong>Save your sessions</strong> <span>— track progress over time</span></div></div>
-      <div class="auth-bullet"><span class="auth-bullet-check">✓</span><div><strong>Coaching, when you're ready</strong> <span>— explore plans, no obligation</span></div></div>
-    </div>
-    <button class="auth-btn-google" onclick="authGoogle()" aria-label="Continue with Google">
-      <svg viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
-      <span id="auth-google-label">Continue with Google</span>
-    </button>
-    <div class="auth-microcopy" id="auth-microcopy"><strong>Free account</strong> · No card to start · 1-tap signup</div>
-    <div class="auth-email-toggle" id="auth-email-toggle" onclick="toggleEmailBlock()">Or use email and password</div>
-    <div class="auth-email-block" id="auth-email-block">
-      <div class="auth-divider"><span>email</span></div>
-      <div id="auth-name-row">
-        <input type="text" class="auth-field" id="auth-name" placeholder="Full name" autocomplete="name">
-      </div>
-      <input type="email" class="auth-field" id="auth-email" placeholder="Email" autocomplete="email">
-      <input type="password" class="auth-field" id="auth-password" placeholder="Password (6+ characters)"
-        onkeydown="if(event.key==='Enter') authAction()">
-      <button class="auth-btn" id="auth-btn" onclick="authAction()">Create free account</button>
-    </div>
-    <div class="auth-error" id="auth-error"></div>
-    <div class="auth-toggle" id="auth-toggle" onclick="toggleAuthMode()">Already have an account? Sign in →</div>
-    <p class="auth-note" id="auth-note">Athletes: if your coach set you up, sign in with the credentials they provided.</p>
-  </div>
-</div>
+<!-- Sign-in gate (rendered by /shared/site.js with coaching-specific copy) -->
+<div id="coaching-gate"></div>
 
-<!-- ── App ──────────────────────────────────────────── -->
-<div id="app">
-<!-- Site nav -->
-<nav class="site-nav">
-  <a href="/" class="nav-logo" aria-label="Endurance Science Labs home">
-    <img src="/images/coaching_logo_white_clean.png" alt="Endurance Science Coaching" class="nav-logo-img">
-  </a>
-  <div class="nav-links">
-    <a href="/" class="nav-link">Home</a>
-    <a href="/esformlab/" class="nav-link">Form analysis</a>
-    <a href="/coaching/" class="nav-link active">Coaching</a>
-    <span id="nav-esmetlab" class="nav-link" style="cursor:default">Metabolic Testing <span class="nav-pill">Soon</span></span>
-  </div>
-  <span class="role-badge" id="role-badge"></span>
-  <div class="hdr-right">
-    <div class="notif-wrap" id="notif-wrap">
-      <button class="notif-btn" onclick="toggleNotifPanel()" title="Notifications">
-        &#128276;
-        <span class="notif-badge" id="notif-badge" style="display:none">0</span>
-      </button>
-      <div class="notif-panel" id="notif-panel">
-        <div class="notif-header">
-          <span class="notif-title">Notifications</span>
-          <span class="notif-clear" onclick="clearAllNotifications()">Mark all read</span>
-        </div>
-        <div class="notif-list" id="notif-list">
-          <div class="notif-empty">No notifications</div>
-        </div>
-      </div>
-    </div>
-    <span id="hdr-user" style="font-size:12px;color:var(--muted2);font-family:var(--mono)"></span>
-    <button class="btn-ghost btn-signout" onclick="doSignOut()">Sign out</button>
-  </div>
-  <button class="menu-toggle" aria-label="Toggle menu" aria-expanded="false" onclick="(function(b){var n=b.closest('nav');var o=n.classList.toggle('menu-open');b.setAttribute('aria-expanded',o?'true':'false');})(this)">
-    <span></span><span></span><span></span>
-  </button>
-</nav>
+<!-- ── App (hidden until /shared/site.js signals signed-in state) ── -->
+<div id="app" style="display:none">
+<!-- Site nav (rendered by /shared/site.js) -->
+<nav class="eslabs-nav" id="coaching-nav"></nav>
 
 <!-- Coach layout -->
 <div class="layout" id="coach-layout" style="display:none">
@@ -953,6 +890,7 @@ header{display:none}
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
+<script src="/shared/site.js"></script>
 
 <script>
 'use strict';
@@ -960,30 +898,19 @@ header{display:none}
 // ══════════════════════════════════════════════════════════
 //  CONFIG
 // ══════════════════════════════════════════════════════════
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyDh4LorLQx1DPovQIA4HM3127fAYpyuaY8",
-  authDomain: "es-form-labs.firebaseapp.com",
-  projectId: "es-form-labs",
-  storageBucket: "es-form-labs.firebasestorage.app",
-  messagingSenderId: "215373817428",
-  appId: "1:215373817428:web:9a80d81815f6843ce2afc1",
-  measurementId: "G-P2RRN15M8K"
-};
+// Firebase is initialized by /shared/site.js. We keep FIREBASE_CONFIG
+// as an alias to firebase.app().options so the secondary-app code path
+// (used to create athlete users without signing the coach out) still
+// works.
+const FIREBASE_CONFIG = firebase.app().options;
 
 const DAY_NAMES_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const WEEKS_VISIBLE_COACH = 8;
 
-// ── Firebase init ─────────────────────────────────────
-let auth, db;
-try {
-  firebase.initializeApp(FIREBASE_CONFIG);
-  auth = firebase.auth();
-  db   = firebase.firestore();
-} catch(e) {
-  console.error('Firebase init failed:', e.message);
-}
+const auth = esLabs.auth;
+const db   = esLabs.db;
 
 // ══════════════════════════════════════════════════════════
 //  STATE
@@ -1006,13 +933,12 @@ let weekOffset = 0;
 let workoutsCache = {};
 let stravaCache = {};
 let savingWeeks = {};
-let authMode = 'signup';
 let currentTab = 'training'; // 'training' or 'lifting'
 let viewMode = 'week'; // 'week' (single-week editor) or 'overview' (16-week table)
 let liftingCache = {}; // weekStart -> lifting data
 let expandedCategories = {}; // categoryName -> bool
 
-const ADMIN_UID = '2z9Z3K5ZwShvadUuqZmwMv0s1Od2';
+const ADMIN_UID = esLabs.ADMIN_UID;
 const FEATURE_LIST = ['coaching', 'lifting', 'esFormLab'];
 const FEATURE_LABELS = { coaching: 'Coaching', lifting: 'Lifting', esFormLab: 'esFormLab' };
 
@@ -1123,151 +1049,74 @@ const LIFTING_DATA = {
 };
 
 // ══════════════════════════════════════════════════════════
-//  AUTH
+//  AUTH (sign-in UI + flow handled by /shared/site.js)
 // ══════════════════════════════════════════════════════════
-function toggleAuthMode() {
-  authMode = authMode === 'signin' ? 'signup' : 'signin';
-  const btn = document.getElementById('auth-btn');
-  const eyebrow = document.getElementById('auth-eyebrow');
-  const bullets = document.getElementById('auth-bullets');
-  const microcopy = document.getElementById('auth-microcopy');
-  const googleLabel = document.getElementById('auth-google-label');
-  const emailToggle = document.getElementById('auth-email-toggle');
-  const emailBlock = document.getElementById('auth-email-block');
-  const note = document.getElementById('auth-note');
+// Render the shared sign-in gate with coaching-specific copy.
+esLabs.mountAuthGate('#coaching-gate', {
+  logo: '/images/coaching_logo_abbrev_white_clean.png',
+  eyebrow: '◉ Free account',
+  headline: 'Create your free account',
+  sub: 'One tap to create your account — no card to start.',
+  bullets: [
+    { strong: 'Try esFormLab', span: '— upload and scan your videos at no cost' },
+    { strong: 'Save your sessions', span: '— track progress over time' },
+    { strong: "Coaching, when you're ready", span: '— explore plans, no obligation' }
+  ],
+  microcopy: '<strong>Free account</strong> · No card to start · 1-tap signup',
+  emailDefault: 'signup',
+  foot: 'Athletes: if your coach set you up, sign in with the credentials they provided.'
+});
 
-  if (authMode === 'signup') {
-    if (eyebrow) eyebrow.textContent = '◉ Free account';
-    document.getElementById('auth-title').textContent = 'Create your free account';
-    document.getElementById('auth-sub').textContent = 'One tap to create your account — no card to start.';
-    if (bullets) bullets.style.display = 'flex';
-    if (microcopy) microcopy.innerHTML = '<strong>Free account</strong> · No card to start · 1-tap signup';
-    if (googleLabel) googleLabel.textContent = 'Continue with Google';
-    if (emailToggle) emailToggle.textContent = 'Or use email and password';
-    btn.textContent = 'Create free account';
-    document.getElementById('auth-toggle').textContent = 'Already have an account? Sign in →';
-    document.getElementById('auth-name-row').style.display = 'block';
-    // Re-expose the email-collapse toggle in signup mode
-    if (emailToggle) {
-      emailToggle.style.display = '';
-      emailToggle.textContent = (emailBlock && emailBlock.classList.contains('open'))
-        ? 'Hide email option' : 'Or use email and password';
-    }
-    if (note) note.textContent = "Athletes: if your coach set you up, sign in with the credentials they provided.";
-  } else {
-    if (eyebrow) eyebrow.textContent = '◉ Welcome back';
-    document.getElementById('auth-title').textContent = 'Sign in';
-    document.getElementById('auth-sub').textContent = 'Access your training dashboard.';
-    if (bullets) bullets.style.display = 'none';
-    if (microcopy) microcopy.innerHTML = '<strong>Welcome back</strong> · Sign in with Google or email';
-    if (googleLabel) googleLabel.textContent = 'Sign in with Google';
-    if (emailToggle) emailToggle.textContent = 'Or use email and password';
-    btn.textContent = 'Sign in';
-    document.getElementById('auth-toggle').textContent = 'New here? Create your free account →';
-    document.getElementById('auth-name-row').style.display = 'none';
-    // Auto-open the email block when toggling to sign-in (email/pw is the differentiator from Google)
-    if (emailBlock) emailBlock.classList.add('open');
-    if (emailToggle) emailToggle.style.display = 'none';
-    if (note) note.textContent = "Athletes: use the credentials your coach provided.";
-  }
-  btn.disabled = false;
-  document.getElementById('auth-error').textContent = '';
-}
-
-function toggleEmailBlock() {
-  const block = document.getElementById('auth-email-block');
-  const toggle = document.getElementById('auth-email-toggle');
-  if (!block) return;
-  const isOpen = block.classList.toggle('open');
-  if (toggle) toggle.textContent = isOpen ? 'Hide email option' : 'Or use email and password';
-}
-
-async function authAction() {
-  const errEl = document.getElementById('auth-error');
-  const btn = document.getElementById('auth-btn');
-  if (!auth) { errEl.textContent = 'Firebase failed to load.'; return; }
-  const email = document.getElementById('auth-email').value.trim();
-  const pw = document.getElementById('auth-password').value;
-  errEl.textContent = '';
-  if (!email || !pw) { errEl.textContent = 'Enter email and password.'; return; }
-
-  btn.disabled = true;
-  btn.textContent = authMode === 'signin' ? 'Signing in…' : 'Creating account…';
-
-  try {
-    if (authMode === 'signup') {
-      const name = document.getElementById('auth-name').value.trim();
-      if (!name) { errEl.textContent = 'Enter your name.'; btn.disabled = false; btn.textContent = 'Create free account'; return; }
-      const cred = await auth.createUserWithEmailAndPassword(email, pw);
-      await db.collection('users').doc(cred.user.uid).set({
-        email, displayName: name, role: 'athlete', coachUid: null,
-        gender: null, dob: null, stravaAthleteId: null, stravaConnected: false,
-        raceDate: null, raceName: null,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-    } else {
-      await auth.signInWithEmailAndPassword(email, pw);
-    }
-  } catch(e) {
-    const msg = e.code === 'auth/invalid-credential' ? 'Invalid email or password.'
-      : e.code === 'auth/email-already-in-use' ? 'Email already in use.'
-      : e.code === 'auth/weak-password' ? 'Password must be at least 6 characters.'
-      : e.message;
-    errEl.textContent = msg;
-    btn.disabled = false;
-    btn.textContent = authMode === 'signin' ? 'Sign in' : 'Create free account';
-  }
-}
-
-async function authGoogle() {
-  const errEl = document.getElementById('auth-error');
-  errEl.textContent = '';
-  try {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    await auth.signInWithPopup(provider);
-    // onAuthStateChanged will pick up the session and route -- if the
-    // user doc doesn't exist yet (first-time Google sign-in), loadUserDoc
-    // creates it with default athlete fields.
-  } catch (e) {
-    errEl.textContent = e.message || 'Google sign-in failed.';
-  }
-}
-
-async function doSignOut() {
-  stopNotificationListener();
-  await auth.signOut();
-  currentUser = null; userDoc = null;
-  selectedAthleteUid = null; selectedAthletePlan = null;
-  workoutsCache = {}; stravaCache = {}; liftingCache = {};
-  currentTab = 'training'; expandedCategories = {};
-  document.getElementById('app').style.display = 'none';
-  document.getElementById('auth-overlay').style.display = 'flex';
-  document.getElementById('coach-layout').style.display = 'none';
-  document.getElementById('athlete-layout').style.display = 'none';
-}
-
-if (auth) {
-  auth.onAuthStateChanged(async user => {
-    if (user) {
-      currentUser = user;
-      document.getElementById('auth-overlay').style.display = 'none';
-      document.getElementById('app').style.display = 'block';
-      // Admin: swap the "Metabolic Testing — Soon" placeholder for a live link.
-      if (user.uid === ADMIN_UID) {
-        const slot = document.getElementById('nav-esmetlab');
-        if (slot) {
-          const a = document.createElement('a');
-          a.href = '/esmetaboliclab/';
-          a.className = 'nav-link';
-          a.innerHTML = 'Metabolic Testing <span class="nav-pill" style="background:rgba(139,124,248,.18);color:#8b7cf8">Preview</span>';
-          slot.parentNode.replaceChild(a, slot);
-        }
+// Render the shared nav with coaching-specific extras (notifications,
+// role badge, sign-out shortcut).
+esLabs.mountNav('#coaching-nav', {
+  active: 'coaching',
+  extrasHtml: ''
+    + '<div class="notif-wrap" id="notif-wrap">'
+    + '  <button class="notif-btn" onclick="toggleNotifPanel()" title="Notifications">&#128276;'
+    + '    <span class="notif-badge" id="notif-badge" style="display:none">0</span>'
+    + '  </button>'
+    + '  <div class="notif-panel" id="notif-panel">'
+    + '    <div class="notif-header"><span class="notif-title">Notifications</span>'
+    + '      <span class="notif-clear" onclick="clearAllNotifications()">Mark all read</span></div>'
+    + '    <div class="notif-list" id="notif-list"><div class="notif-empty">No notifications</div></div>'
+    + '  </div>'
+    + '</div>'
+    + '<span class="role-badge" id="role-badge"></span>',
+  onRender: function (nav, user) {
+    // After the nav re-renders (e.g. on sign-in), restore the role badge.
+    if (user && typeof userDoc !== 'undefined' && userDoc) {
+      const badge = nav.querySelector('#role-badge');
+      if (badge) {
+        const role = userDoc.role === 'coach' ? 'Coach' : 'Athlete';
+        badge.textContent = role;
+        badge.className = 'role-badge ' + (userDoc.role === 'coach' ? 'coach' : 'athlete');
       }
-      await loadUserDoc(user);
-      startNotificationListener();
     }
-  });
-}
+  }
+});
+
+esLabs.onAuthChange(async user => {
+  if (user) {
+    currentUser = user;
+    document.getElementById('app').style.display = 'block';
+    await loadUserDoc(user);
+    startNotificationListener();
+  } else {
+    // Sign-out path (triggered by the shared nav's mobile menu or /account/).
+    stopNotificationListener();
+    currentUser = null; userDoc = null;
+    selectedAthleteUid = null; selectedAthletePlan = null;
+    workoutsCache = {}; stravaCache = {}; liftingCache = {};
+    currentTab = 'training'; expandedCategories = {};
+    const app = document.getElementById('app');
+    if (app) app.style.display = 'none';
+    const coachLayout = document.getElementById('coach-layout');
+    if (coachLayout) coachLayout.style.display = 'none';
+    const athleteLayout = document.getElementById('athlete-layout');
+    if (athleteLayout) athleteLayout.style.display = 'none';
+  }
+});
 
 // ══════════════════════════════════════════════════════════
 //  USER DOC & ROLE ROUTING
@@ -1288,11 +1137,14 @@ async function loadUserDoc(user) {
 
   isCoach = userDoc.role === 'coach';
   if (isCoach) loadCoachSupportingPresets();
-  document.getElementById('hdr-user').textContent = userDoc.displayName || user.displayName || user.email;
 
+  // hdr-user was replaced by the shared nav's auth pill (avatar + name).
+  // The role badge lives in the nav extras and is populated here.
   const badge = document.getElementById('role-badge');
-  badge.textContent = isCoach ? 'Coach' : 'Athlete';
-  badge.className = 'role-badge ' + (isCoach ? 'coach' : 'athlete');
+  if (badge) {
+    badge.textContent = isCoach ? 'Coach' : 'Athlete';
+    badge.className = 'role-badge ' + (isCoach ? 'coach' : 'athlete');
+  }
 
   weekOffset = 0;
 
