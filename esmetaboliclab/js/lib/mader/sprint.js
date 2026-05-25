@@ -60,17 +60,17 @@ export function computeVLamax(input) {
   const delta_La = La_peak_post - La_pre;
   const VLamax = delta_La / glycolytic_time_s;
 
-  // Hard error: physically implausible. Top human sprinters land around
-  // 1.0–1.5 mmol/L/s; anything above ~2.5 implies a measurement error
-  // (wrong unit, sampled too late, contaminated strip).
-  if (isFinite(VLamax) && (VLamax > 2.5 || (VLamax > 0 && VLamax < 0.05))) {
+  // Hard error: physically implausible. Real human VLamax peaks around
+  // 1.5–2.0 in elite track sprinters; anything above ~3.0 implies a
+  // measurement error (wrong unit, sampled too late, contaminated strip).
+  if (isFinite(VLamax) && (VLamax > 3.0 || (VLamax > 0 && VLamax < 0.05))) {
     errors.push(
       'Computed VLamax (' + VLamax.toFixed(2) + ' mmol/L/s) is physically implausible — '
-      + 'typical values fall between 0.15 and 1.5. Double-check your pre and peak lactate readings '
+      + 'real values fall roughly between 0.10 and 2.0. Double-check your pre and peak lactate readings '
       + '(meter in mmol/L, not mg/dL) and your sprint duration.'
     );
-  } else if (isFinite(VLamax) && (VLamax < 0.15 || VLamax > 1.5)) {
-    warnings.push('VLamax outside the typical 0.15–1.5 mmol/L/s range — common in elite sprinters or pure endurance specialists, but worth a sanity check.');
+  } else if (isFinite(VLamax) && (VLamax < 0.10 || VLamax > 2.0)) {
+    warnings.push('VLamax outside the typical 0.10–2.0 mmol/L/s range — at the very edge of elite sprinter or pure endurance phenotype. Worth a sanity check.');
   }
 
   return { VLamax, glycolytic_time_s, delta_La, warnings, errors };

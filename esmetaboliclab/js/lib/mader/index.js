@@ -117,7 +117,7 @@ export function getMetabolicProfile(inputs) {
     warnings.push('Fitted VO₂max (' + VO2max.toFixed(1) + ') is outside the typical 25–95 mL/min/kg range — re-check inputs.');
   }
   if (inputs.VLamax < SANITY_RANGES.VLamax.lo || inputs.VLamax > SANITY_RANGES.VLamax.hi) {
-    warnings.push('VLamax (' + inputs.VLamax.toFixed(2) + ') outside the typical 0.15–1.5 mmol/L/s range — common at the elite or pure-endurance extremes, but worth a sanity check.');
+    warnings.push('VLamax (' + inputs.VLamax.toFixed(2) + ') outside the typical 0.10–2.0 mmol/L/s range — at the elite-sprinter or pure-endurance edge. Worth a sanity check.');
   }
   const mlssRatio = mlss_x;
   if (mlssRatio < SANITY_RANGES.MLSS_pct_VO2max.lo || mlssRatio > SANITY_RANGES.MLSS_pct_VO2max.hi) {
