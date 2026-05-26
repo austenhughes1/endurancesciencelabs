@@ -247,6 +247,150 @@ nav.esml-nav {
 .admin-footer-link a { color: var(--muted); opacity: .7; }
 .admin-footer-link a:hover { color: var(--muted2); opacity: 1; text-decoration: none; }
 
+/* ────────────────────────────────────────────────────────────
+   Landing page — three-section layout (free / paid / in-person)
+   ──────────────────────────────────────────────────────────── */
+
+/* Free hero card — visually dominant, the front door */
+.free-card {
+  position: relative;
+  background: linear-gradient(135deg, rgba(0,229,200,.10), rgba(139,124,248,.05) 60%, rgba(8,9,15,0) 100%);
+  border: 1px solid rgba(0,229,200,.32);
+  border-radius: 22px;
+  padding: 44px 40px 40px;
+  margin-bottom: 44px;
+  overflow: hidden;
+}
+.free-card::before {
+  /* soft cyan glow in the top-right corner */
+  content: '';
+  position: absolute;
+  top: -80px; right: -80px;
+  width: 320px; height: 320px;
+  background: radial-gradient(circle at center, rgba(0,229,200,.22), transparent 65%);
+  pointer-events: none;
+  filter: blur(8px);
+}
+.free-card > * { position: relative; }
+.free-card-eyebrow {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--cyan); font-family: var(--mono);
+  background: rgba(0,229,200,.12); border: 1px solid rgba(0,229,200,.32);
+  border-radius: 16px; padding: 5px 12px; margin-bottom: 18px;
+}
+.free-card-title {
+  font-family: var(--display); font-weight: 700;
+  font-size: clamp(30px, 4.6vw, 46px); letter-spacing: -.5px;
+  line-height: 1.1; margin-bottom: 16px;
+}
+.free-card-title em { font-style: italic; color: var(--cyan); }
+.free-card-sub {
+  color: var(--text); font-size: 16.5px; line-height: 1.7;
+  max-width: 680px; margin-bottom: 26px;
+}
+.free-card-list {
+  list-style: none; padding: 0; margin: 0 0 30px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px 22px;
+}
+.free-card-list li {
+  font-size: 14px; line-height: 1.55; padding-left: 22px;
+  position: relative; color: var(--text);
+}
+.free-card-list li::before {
+  content: '✓';
+  position: absolute; left: 0; top: 0;
+  color: var(--cyan); font-weight: 700;
+}
+.free-card .free-card-cta {
+  font-size: 16px; padding: 15px 32px;
+}
+.free-card-foot {
+  margin-top: 16px;
+  font-family: var(--mono); font-size: 11px;
+  color: var(--muted2); letter-spacing: .3px;
+}
+@media (max-width: 560px) {
+  .free-card { padding: 32px 22px; }
+}
+
+/* "Go Deeper" section — paid lactate tools */
+.deeper { margin-bottom: 44px; }
+.deeper-title {
+  font-family: var(--display); font-weight: 700;
+  font-size: clamp(26px, 3.4vw, 34px); letter-spacing: -.3px;
+  line-height: 1.18; margin: 8px 0 12px;
+}
+.deeper-title em { font-style: italic; color: var(--purple); }
+.deeper-sub {
+  color: var(--muted2); font-size: 15px; line-height: 1.7;
+  max-width: 720px;
+}
+.deeper-sub a { color: var(--cyan); }
+
+/* Tile badge variants for the "Go Deeper" tiles */
+.tile-badges {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-bottom: 14px;
+}
+.tile-badges .tile-badge { margin-bottom: 0; }
+.tile-badge.paid {
+  background: rgba(139,124,248,.14);
+  color: var(--purple);
+  border: 1px solid rgba(139,124,248,.32);
+}
+
+/* In-Person band — distinct white-glove option */
+.inperson-band {
+  background: linear-gradient(135deg, rgba(139,124,248,.10), rgba(139,124,248,.02));
+  border: 1px solid rgba(139,124,248,.30);
+  border-radius: 18px;
+  padding: 32px 36px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 32px;
+  align-items: center;
+  margin-bottom: 40px;
+}
+.inperson-band-left .section-label {
+  margin-bottom: 14px;
+}
+.inperson-band-title {
+  font-family: var(--display); font-weight: 700;
+  font-size: clamp(22px, 2.8vw, 30px); letter-spacing: -.3px;
+  line-height: 1.18; margin: 0 0 10px;
+}
+.inperson-band-title em { font-style: italic; color: var(--purple); }
+.inperson-band-sub {
+  color: var(--muted2); font-size: 14.5px; line-height: 1.7;
+  max-width: 540px;
+}
+.inperson-band-right {
+  text-align: center;
+  min-width: 200px;
+  padding: 6px 8px;
+}
+.inperson-band-price {
+  font-family: var(--display);
+  font-size: 52px; font-weight: 700; letter-spacing: -1.5px;
+  color: var(--text); line-height: 1;
+}
+.inperson-band-pricenote {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--muted2); letter-spacing: .3px;
+  margin: 8px 0 18px;
+}
+@media (max-width: 720px) {
+  .inperson-band {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    padding: 28px 22px;
+  }
+  .inperson-band-right { text-align: left; }
+  .inperson-band-price { font-size: 44px; }
+}
+
 /* ── Big "Download PDF" CTA (matches esFormLab pattern) ───── */
 .report-actions {
   display: flex; justify-content: center; gap: 10px;
