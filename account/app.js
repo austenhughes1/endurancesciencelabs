@@ -121,6 +121,7 @@ function renderApp() {
   if (!pageState.shellRendered) {
     root.innerHTML = ''
       + '<div id="banner-mount"></div>'
+      + '<div id="esml-vo2-mount"></div>'
       + profileCardHtml(doc, user.email)
       + trainingCardHtml(doc)
       + prsCardHtml(doc)
@@ -143,11 +144,132 @@ function renderApp() {
 
   applyRequiredMarkers(coachingClient);
 
+  var vo2Mount = document.getElementById('esml-vo2-mount');
+  if (vo2Mount) vo2Mount.innerHTML = esmlVo2CardHtml(doc);
+
   var featMount = document.getElementById('features-card-mount');
   if (featMount) {
     featMount.innerHTML = featuresCardHtml(pass);
     wireFeaturesCard();
   }
+}
+
+// ──────────────────────────────────────────────────────────────
+//  "My ESLabs metabolic profile" card
+// ──────────────────────────────────────────────────────────────
+// Reads the user's saved esMetabolicLab data and routes them to
+// the tool that holds their current profile. Never duplicates
+// rendering of the underlying data — this is a discovery card,
+// not a copy of the full results view.
+//
+// Priority:
+//   1. Saved Sprint VLamax → lactate-anchored route
+//   2. Power Profile session → free / estimated route
+//   3. Nothing → empty-state CTA into the free funnel
+function esmlVo2CardHtml(doc) {
+  var ml = (doc && doc.esmetlab) || {};
+  var hasVlamax = !!(ml.vlamax && typeof ml.vlamax.value === 'number');
+  var powerProfiles = Array.isArray(ml.powerProfiles) ? ml.powerProfiles : [];
+  var latestPP = powerProfiles.length ? powerProfiles[powerProfiles.length - 1] : null;
+
+  // State 1: lactate-anchored (Sprint VLamax exists).
+  if (hasVlamax) {
+    var vlamax = ml.vlamax.value;
+    var measuredSec = tsToSec(ml.vlamax.measured_at);
+    var dateStr = measuredSec ? formatDate(measuredSec) : '';
+    var altCta = latestPP
+      ? '<a class="vo2-alt" href="/esmetaboliclab/power-profile/">Power Profile →</a>'
+      : '';
+    return ''
+      + '<section class="acct-card vo2-card vo2-card-lactate">'
+      + '  <div class="vo2-card-head">'
+      + '    <h2><span class="vo2-card-glyph">⬡</span> My ESLabs metabolic profile</h2>'
+      + '    <span class="vo2-card-tag tag-lactate">Lactate-anchored</span>'
+      + '  </div>'
+      + '  <div class="vo2-card-stats">'
+      + '    <div class="vo2-stat">'
+      + '      <div class="vo2-stat-label">VLamax</div>'
+      + '      <div class="vo2-stat-value">' + vlamax.toFixed(3) + ' <span class="vo2-stat-unit">mmol/L/s</span></div>'
+      + '      <div class="vo2-stat-note">Measured from your Sprint VLamax Test</div>'
+      + '    </div>'
+      + '  </div>'
+      + '  <div class="vo2-meta">'
+      + (dateStr ? '<span>Saved ' + esc(dateStr) + '</span>' : '')
+      + '    <span>·</span>'
+      + '    <span>Source: <strong>Sprint VLamax Test</strong></span>'
+      + '  </div>'
+      + '  <p class="vo2-card-msg">'
+      + '    Run the full Lactate Step Test to anchor your VO₂max, MLSS, LT1, Fatmax, and training zones to your real lactate curve.'
+      + '  </p>'
+      + '  <div class="vo2-card-cta">'
+      + '    <a class="btn-primary" href="/esmetaboliclab/profile/">Open Lactate Step Test →</a>'
+      +      altCta
+      + '  </div>'
+      + '</section>';
+  }
+
+  // State 2: power-only profile (estimate).
+  if (latestPP && latestPP.derived && typeof latestPP.derived.VO2max === 'number') {
+    var d = latestPP.derived;
+    var ppSec = tsToSec(latestPP.measured_at);
+    var ppDate = ppSec ? formatDate(ppSec) : '';
+    var sport = (latestPP.inputs && latestPP.inputs.sport) || '';
+    var sportLabel = sport === 'cycling' ? 'Cycling' : (sport === 'running' ? 'Running' : '');
+    return ''
+      + '<section class="acct-card vo2-card vo2-card-power">'
+      + '  <div class="vo2-card-head">'
+      + '    <h2><span class="vo2-card-glyph">⬡</span> My ESLabs metabolic profile</h2>'
+      + '    <span class="vo2-card-tag tag-estimate">Estimate</span>'
+      + '  </div>'
+      + '  <div class="vo2-card-stats">'
+      + '    <div class="vo2-stat">'
+      + '      <div class="vo2-stat-label">VO₂max</div>'
+      + '      <div class="vo2-stat-value">' + d.VO2max.toFixed(1) + ' <span class="vo2-stat-unit">mL/min/kg</span></div>'
+      + '    </div>'
+      + '    <div class="vo2-stat">'
+      + '      <div class="vo2-stat-label">VLamax</div>'
+      + '      <div class="vo2-stat-value">' + d.VLamax.toFixed(3) + ' <span class="vo2-stat-unit">mmol/L/s</span></div>'
+      + '      <div class="vo2-stat-note">Back-derived from sprint power</div>'
+      + '    </div>'
+      + '  </div>'
+      + '  <div class="vo2-meta">'
+      + (ppDate ? '<span>Saved ' + esc(ppDate) + '</span><span>·</span>' : '')
+      + '    <span>Source: <strong>Power Profile</strong>' + (sportLabel ? ' · ' + esc(sportLabel) : '') + '</span>'
+      + '  </div>'
+      + '  <p class="vo2-card-msg">'
+      + '    This is an estimate. For lactate-anchored precision, run the Sprint VLamax Test — or upgrade with <a href="/coaching/">Premium Coaching</a>.'
+      + '  </p>'
+      + '  <div class="vo2-card-cta">'
+      + '    <a class="btn-primary" href="/esmetaboliclab/power-profile/">View full profile →</a>'
+      + '    <a class="vo2-alt" href="/esmetaboliclab/pricing/">See pricing →</a>'
+      + '  </div>'
+      + '</section>';
+  }
+
+  // State 3: nothing saved yet.
+  return ''
+    + '<section class="acct-card vo2-card vo2-card-empty">'
+    + '  <div class="vo2-card-head">'
+    + '    <h2><span class="vo2-card-glyph">⬡</span> My ESLabs metabolic profile</h2>'
+    + '  </div>'
+    + '  <p class="vo2-card-msg">'
+    + '    Build your VO₂max, lactate threshold, training zones, and fueling profile — free in your browser, no equipment, in about 30 minutes.'
+    + '  </p>'
+    + '  <div class="vo2-card-cta">'
+    + '    <a class="btn-primary" href="/esmetaboliclab/power-profile/">Build your free profile →</a>'
+    + '  </div>'
+    + '</section>';
+}
+
+// Coerce a Firestore Timestamp / number / seconds-object to unix seconds.
+function tsToSec(t) {
+  if (t == null) return null;
+  if (typeof t === 'number') return t;
+  if (typeof t.seconds === 'number') return t.seconds;
+  if (typeof t.toDate === 'function') {
+    try { return Math.floor(t.toDate().getTime() / 1000); } catch (e) { return null; }
+  }
+  return null;
 }
 
 // ──────────────────────────────────────────────────────────────

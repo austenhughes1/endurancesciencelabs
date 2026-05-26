@@ -25,87 +25,90 @@
     <div class="section-label">⬡ esMetabolicLab</div>
     <h1 class="page-title">Your <em>metabolic</em> profile,<br>without a lab.</h1>
     <p class="page-sub">
-      What's the right pace for your easy days? Where does the line sit
-      between effort you can hold and effort that catches up with you?
-      Two short lactate tests build your personal training map — easy,
-      tempo, threshold, and the intensity where you burn fat fastest.
+      VO₂max, lactate threshold, training zones, and fueling — same
+      Mader / Heck bioenergetic model the sports-science labs use,
+      pinned to your own physiology. Start free in your browser; upgrade
+      to lactate-anchored precision when you're ready.
     </p>
 
-    <!-- ── Step 1: pick a path ─────────────────────────────────── -->
-    <section class="fork" id="fork">
-      <h2 class="fork-q">First — do you have a lactate meter?</h2>
-      <p class="fork-sub">Or are you willing to buy one (about $300)? The
-        lactate-based route is way more accurate. If a meter isn't on the
-        table for you, no worries — we've got two ways to estimate without one.</p>
-      <div class="fork-cards">
-        <button type="button" class="fork-card fork-have" data-fork="have">
-          <div class="fork-icon">◆</div>
-          <div class="fork-title">Yes — or I'll get one</div>
-          <div class="fork-desc">I have a meter, or I'm willing to buy one. Take me through the proper protocol.</div>
-          <div class="fork-cta">Show me the lactate route →</div>
-        </button>
-        <button type="button" class="fork-card fork-skip" data-fork="skip">
-          <div class="fork-icon">▷</div>
-          <div class="fork-title">No — and I don't want one</div>
-          <div class="fork-desc">No needles for me. Show me the alternatives.</div>
-          <div class="fork-cta">Show me the no-needle options →</div>
-        </button>
+    <!-- ── Free funnel: Power Profile ───────────────────────────── -->
+    <section class="free-card">
+      <div class="free-card-eyebrow">▶ Start free</div>
+      <h2 class="free-card-title">Build your <em>profile</em> in 30 minutes — free.</h2>
+      <p class="free-card-sub">
+        Four max efforts (15 s, 3 min, 6 min, 12 min) and your full
+        metabolic profile is built in your browser. No needles, no
+        equipment, no payment. The same model the labs use, estimated
+        from your own power and pace.
+      </p>
+      <ul class="free-card-list">
+        <li>VO₂max + VLamax estimate</li>
+        <li>MLSS, LT1, Fatmax</li>
+        <li>Custom training zones (Coggan / Friel / Seiler)</li>
+        <li>Fueling targets in g/min</li>
+        <li>Branded PDF report you can keep</li>
+        <li>Saved to your account, re-runnable any time</li>
+      </ul>
+      <a href="power-profile/" class="btn primary free-card-cta">Build your free profile →</a>
+      <p class="free-card-foot">Free forever · sign-in required · estimate, not measurement</p>
+    </section>
+
+    <!-- ── Go Deeper: paid lactate-anchored tools ───────────────── -->
+    <section class="deeper">
+      <div class="section-label">◉ Go deeper</div>
+      <h2 class="deeper-title">For the real numbers — <em>measure</em> lactate.</h2>
+      <p class="deeper-sub">
+        The power-only profile is back-derived from sprint power and
+        max effort — useful but rough at the edges. The two tools below
+        anchor VLamax and the full lactate curve to your actual blood
+        sample, sharpening every downstream number (MLSS, Fatmax,
+        zones). Same engine, real physiology underneath.
+      </p>
+      <p class="deeper-sub" style="margin-top:8px">
+        <a href="pricing/">See pricing →</a>
+        &nbsp;·&nbsp;
+        <a href="/coaching/">Premium Coaching includes all upload tools</a>
+      </p>
+
+      <div class="tile-grid" style="margin-top:22px">
+        <a href="sprint/" class="tile">
+          <div class="tile-icon cyan">◈</div>
+          <div class="tile-badges">
+            <span class="tile-badge">30 min</span>
+            <span class="tile-badge paid">From $30 · or Premium Coaching</span>
+          </div>
+          <div class="tile-title">Sprint VLamax Test</div>
+          <p class="tile-desc">A 15-second all-out sprint with pre- and post-sprint blood lactate gives us your maximum glycolytic rate directly. Save it once — the Lactate Step Test uses it as a known input from then on.</p>
+        </a>
+        <a href="profile/" class="tile">
+          <div class="tile-icon">◉</div>
+          <div class="tile-badges">
+            <span class="tile-badge">45–60 min</span>
+            <span class="tile-badge paid">From $30 · or Premium Coaching</span>
+          </div>
+          <div class="tile-title">Lactate Step Test</div>
+          <p class="tile-desc">5–9 incremental stages with post-stage blood lactate. The shape of the curve gives us your VO₂max, MLSS, LT1, Fatmax, fat-burning sweet spot, and personalized training zones — all anchored to real data.</p>
+        </a>
       </div>
     </section>
 
-    <!-- ── Step 2a: the lactate route (revealed if "have") ─────── -->
-    <section class="path path-have" id="path-have" style="display:none">
-      <div class="path-back"><button type="button" class="link-button" data-fork="reset">← change my answer</button></div>
-      <div class="path-header">
-        <div class="path-eyebrow">◆ The lactate route</div>
-        <h2 class="path-title">Test yourself in two steps.</h2>
-        <p class="path-sub">Two short blood-lactate tests at home build a complete metabolic profile. The most accurate route — the same protocol a sports-science lab would use.</p>
+    <!-- ── In-Person: white-glove, always paid ──────────────────── -->
+    <section class="inperson-band">
+      <div class="inperson-band-left">
+        <div class="section-label">▷ In person</div>
+        <h2 class="inperson-band-title">Or have a coach <em>run it</em> for you.</h2>
+        <p class="inperson-band-sub">
+          An Endurance Science Labs coach brings the meter, the strips,
+          and the experience. We run the full sprint + step-test
+          protocol with you and walk through your results face-to-face.
+          Boulder area; Denver-area travel by arrangement.
+        </p>
       </div>
-
-      <button type="button" class="howto-trigger" data-howto-measure>
-        <span class="icon">◆</span> How to measure blood lactate
-      </button>
-
-      <div class="path-step-num">1</div>
-      <a href="sprint/" class="tile">
-        <div class="tile-icon cyan">◈</div>
-        <div class="tile-badge">30 min</div>
-        <div class="tile-title">Sprint VLamax Test</div>
-        <p class="tile-desc">A 15-second all-out sprint with pre- and post-sprint blood lactate gives us your maximum glycolytic rate. Save it once — the step test uses it from then on.</p>
-      </a>
-      <div class="path-step-num">2</div>
-      <a href="profile/" class="tile">
-        <div class="tile-icon">◉</div>
-        <div class="tile-badge">45–60 min</div>
-        <div class="tile-title">Lactate Step Test</div>
-        <p class="tile-desc">5–9 incremental stages with post-stage blood lactate. The shape of the curve tells us your VO₂max, MLSS, LT1, Fatmax, fat-burning sweet spot, and personalized training zones.</p>
-      </a>
-    </section>
-
-    <!-- ── Step 2b: the no-needle route (revealed if "skip") ───── -->
-    <section class="path path-skip" id="path-skip" style="display:none">
-      <div class="path-back"><button type="button" class="link-button" data-fork="reset">← change my answer</button></div>
-      <div class="path-header">
-        <div class="path-eyebrow">▷ The no-needle route</div>
-        <h2 class="path-title">Two ways to get a profile if you don't have a lactate meter.</h2>
-        <p class="path-sub">Either skip equipment entirely with the in-browser estimate, or have an Endurance Science Labs coach run the real protocol with you in person.</p>
+      <div class="inperson-band-right">
+        <div class="inperson-band-price">$145</div>
+        <div class="inperson-band-pricenote">90-minute session · one-time</div>
+        <a href="in-person/" class="btn primary">Book a session →</a>
       </div>
-      <a href="power-profile/" class="tile">
-        <div class="tile-icon gold">▶</div>
-        <div class="tile-badge">Estimate</div>
-        <div class="tile-title">Power / Pace-only Profile</div>
-        <p class="tile-desc">Estimate your VO₂max and VLamax from max efforts at four durations (15s, 3 min, 6 min, 12 min). No blood samples needed — runs entirely in your browser.</p>
-        <div class="tile-caveat">
-          ⚠ <strong>Notably less accurate</strong> than the lactate-anchored route.
-          VLamax is back-derived from sprint power via empirical regression rather than directly measured. Useful as a starting point, but the lactate version is the one to trust.
-        </div>
-      </a>
-      <a href="in-person/" class="tile">
-        <div class="tile-icon purple">▷</div>
-        <div class="tile-badge">Boulder / Denver</div>
-        <div class="tile-title">In-person test with an ESLabs coach</div>
-        <p class="tile-desc">We bring the meter and the experience, run the full sprint + step-test protocol with you, and walk through your results in person. Sessions are typically held in the Boulder area; Denver-area travel by arrangement.</p>
-      </a>
     </section>
 
     <p class="admin-footer-link" data-admin-only>
@@ -169,52 +172,6 @@
   });
 
   document.getElementById('footer-year').textContent = new Date().getFullYear();
-</script>
-
-<script type="module">
-  import { wireHowToMeasureTriggers } from './js/ui/how-to-measure.js';
-  wireHowToMeasureTriggers();
-</script>
-
-<script>
-  // Fork choice: pick the lactate route ('have') or the no-needle route ('skip').
-  // Persists in localStorage so returning visitors land directly on their path.
-  (function() {
-    const KEY = 'esml-path-choice';
-    const fork  = document.getElementById('fork');
-    const have  = document.getElementById('path-have');
-    const skip  = document.getElementById('path-skip');
-    function apply(choice) {
-      if (choice === 'have') {
-        fork.style.display = 'none';
-        have.style.display = 'block';
-        skip.style.display = 'none';
-      } else if (choice === 'skip') {
-        fork.style.display = 'none';
-        have.style.display = 'none';
-        skip.style.display = 'block';
-      } else {
-        fork.style.display = 'block';
-        have.style.display = 'none';
-        skip.style.display = 'none';
-      }
-    }
-    document.querySelectorAll('[data-fork]').forEach((el) => {
-      el.addEventListener('click', () => {
-        const v = el.dataset.fork;
-        if (v === 'reset') {
-          localStorage.removeItem(KEY);
-          apply(null);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        } else {
-          localStorage.setItem(KEY, v);
-          apply(v);
-        }
-      });
-    });
-    // Initial state from saved choice
-    try { apply(localStorage.getItem(KEY)); } catch (e) { apply(null); }
-  })();
 </script>
 
 </body>
