@@ -2,87 +2,22 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sprint VLamax Test — esMetabolicLab</title>
+<title>Redirecting — Endurance Science Labs</title>
 <meta name="robots" content="noindex,nofollow">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/shared/site.css">
-<link rel="stylesheet" href="../css/esmetaboliclab.css">
+<meta http-equiv="refresh" content="0; url=/esmetaboliclab/profile/">
+<link rel="canonical" href="/esmetaboliclab/profile/">
+<script>window.location.replace('/esmetaboliclab/profile/');</script>
 <style>
-  #app { display: none; }
+  body { font-family: system-ui, sans-serif; background: #08090f; color: #e8ecf8;
+         display: flex; align-items: center; justify-content: center;
+         min-height: 100vh; margin: 0; padding: 20px; text-align: center; }
+  a { color: #00e5c8; }
 </style>
 </head>
 <body>
-
-<div id="esml-gate"></div>
-<div id="esml-paywall"></div>
-
-<div id="app" style="display:none">
-<nav class="eslabs-nav" id="esml-nav"></nav>
-
-<div class="page">
-  <p style="margin-bottom:12px"><a href="/esmetaboliclab/">← esMetabolicLab</a></p>
-  <div class="section-label">◈ Sprint VLamax Test</div>
-  <h1 class="page-title">Find your <em>glycolytic</em> ceiling.</h1>
-  <p class="page-sub">
-    A 15-second all-out sprint, with a blood-lactate sample before and a few
-    minutes after, tells us how fast your muscles can produce lactate at maximum
-    effort — your VLamax. This is the first input the Lactate Step Test needs to
-    build your full metabolic profile.
-  </p>
-
-  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px">
-    <button type="button" class="howto-trigger" style="margin-bottom:0" data-howto-sprint-protocol>
-      <span class="icon">◈</span> How to run the sprint test
-    </button>
-    <button type="button" class="howto-trigger" style="margin-bottom:0" data-howto-measure>
-      <span class="icon">◆</span> How to measure blood lactate
-    </button>
+  <div>
+    <p>Sprint VLamax is now part of the unified <a href="/esmetaboliclab/profile/">lactate-anchored metabolic profile</a>.</p>
+    <p>Redirecting you there now&hellip;</p>
   </div>
-
-  <div id="sprint-root">
-    <!-- populated by app.js: sessions list + inline new-session form -->
-  </div>
-
-  <footer class="esml">
-    © <span id="footer-year"></span> Endurance Science Labs · esMetabolicLab
-    <div class="disclaimer">Not medical advice. Educational use only.</div>
-  </footer>
-</div>
-</div>
-
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="/shared/site.js"></script>
-<script>
-  window.__esml = { user: null };
-
-  esLabs.mountNav('#esml-nav', { active: 'esmetlab' });
-  esLabs.mountAuthGate('#esml-gate', {
-    eyebrow: '◈ Sign in to continue',
-    headline: 'Sprint VLamax Test',
-    sub: 'Sign in to record your sprint VLamax. Upload access required — see pricing.',
-    foot: '<a href="/esmetaboliclab/" style="color:var(--cyan);text-decoration:none">&larr; Back to esMetabolicLab</a>'
-  });
-
-  esLabs.onAuthChange(function(user) {
-    if (user) {
-      window.__esml.user = user;
-      window.dispatchEvent(new CustomEvent('esml-auth', { detail: { user: user } }));
-    }
-  });
-
-  document.getElementById('footer-year').textContent = new Date().getFullYear();
-</script>
-
-<script type="module">
-  import { wireUploadPaywall } from '../js/ui/upload-paywall.js';
-  wireUploadPaywall({ toolName: 'the Sprint VLamax Test', appEl: '#app', paywallEl: '#esml-paywall' });
-</script>
-
-<script type="module" src="./app.js"></script>
-
 </body>
 </html>

@@ -35,15 +35,19 @@
 
 <div class="page">
   <p style="margin-bottom:12px"><a href="/esmetaboliclab/">← esMetabolicLab</a></p>
-  <div class="section-label">◉ Lactate Step Test</div>
-  <h1 class="page-title">Lactate <em>step test</em> → full metabolic profile</h1>
+  <div class="section-label">◉ Lactate-anchored metabolic profile</div>
+  <h1 class="page-title">Lactate <em>test</em> → full metabolic profile</h1>
   <p class="page-sub">
-    Walk through your athlete inputs, VLamax, and step-test stages.
-    We'll fit VO₂max from the curve and return MLSS, LT1, Fatmax,
-    substrate oxidation, training zones — and an honest sensitivity readout.
+    One unified wizard: athlete inputs, a 15-second sprint VLamax,
+    and the 5–9 stage step test. We fit VO₂max from the curve and
+    return MLSS, LT1, Fatmax, substrate oxidation, training zones — and
+    an honest sensitivity readout.
   </p>
 
   <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px">
+    <button type="button" class="howto-trigger" style="margin-bottom:0" data-howto-sprint-protocol>
+      <span class="icon">◈</span> How to run the sprint VLamax test
+    </button>
     <button type="button" class="howto-trigger" style="margin-bottom:0" data-howto-step-test>
       <span class="icon">◉</span> How to run a lactate step test
     </button>
@@ -52,26 +56,16 @@
     </button>
   </div>
 
-  <!-- Prerequisite gate (hidden when a saved VLamax is found) -->
-  <div id="prereq" style="display:none">
-    <div class="panel" style="border-left:4px solid var(--purple)">
-      <div class="panel-h">First, run a sprint VLamax test</div>
-      <p class="panel-sub">The full metabolic profile needs your maximum glycolytic rate (VLamax) as a known input. Run the sprint VLamax test first, save it to your profile, and this wizard will pick it up automatically.</p>
-      <a class="btn primary" href="/esmetaboliclab/sprint/">Run the Sprint VLamax Test →</a>
-    </div>
-  </div>
-
-  <!-- Active wizard (revealed only when VLamax is on file) -->
-  <div id="wizard" style="display:none">
-
-  <div id="vlamax-card" class="vlamax-card">
-    <!-- populated by app.js: saved VLamax summary + inline recalculate form -->
-  </div>
+  <!-- Unified wizard: Athlete → Sprint VLamax → Step test → Results.
+       Sprint VLamax is collected inline so the user never has to leave
+       this page to run a separate test first. -->
+  <div id="wizard">
 
   <div class="stepper">
     <div class="s active" id="step-bar-1"></div>
     <div class="s"        id="step-bar-2"></div>
     <div class="s"        id="step-bar-3"></div>
+    <div class="s"        id="step-bar-4"></div>
   </div>
 
   <!-- ───────── Step 1: Athlete ───────── -->
@@ -103,14 +97,32 @@
     </div>
     <div class="nav-actions">
       <span></span>
-      <button class="btn primary" data-go="2">Next: Step test →</button>
+      <button class="btn primary" data-go="2">Next: Sprint VLamax →</button>
     </div>
   </section>
 
-  <!-- ───────── Step 2: Step Test Stages ───────── -->
+  <!-- ───────── Step 2: Sprint VLamax ───────── -->
   <section class="step-section" data-step="2">
     <div class="panel">
-      <div class="panel-h">2. Step test stages</div>
+      <div class="panel-h">2. Sprint VLamax</div>
+      <p class="panel-sub">
+        A 15-second all-out sprint with pre- and post-sprint blood lactate gives us your maximum glycolytic rate (VLamax) — the input that anchors the rest of your metabolic profile.
+      </p>
+      <div id="vlamax-step-body">
+        <!-- populated by app.js: saved-VLamax summary if any, plus the
+             sprint inputs form for first-time entry or re-measurement -->
+      </div>
+    </div>
+    <div class="nav-actions">
+      <button class="btn ghost"   data-go="1">← Back</button>
+      <button class="btn primary" id="vlamax-next">Save &amp; continue: Step test →</button>
+    </div>
+  </section>
+
+  <!-- ───────── Step 3: Step Test Stages ───────── -->
+  <section class="step-section" data-step="3">
+    <div class="panel">
+      <div class="panel-h">3. Step test stages</div>
       <p class="panel-sub">
         Add 5–9 stages. Each stage is 5 minutes at a fixed effort, with a 1-minute standing rest to sample lactate. Final stage should land in the 7–10 mmol/L range to anchor the upper curve.
       </p>
@@ -133,16 +145,16 @@
       <div id="stage-warnings"></div>
     </div>
     <div class="nav-actions">
-      <button class="btn ghost"   data-go="1">← Back</button>
+      <button class="btn ghost"   data-go="2">← Back</button>
       <button class="btn primary" id="run">Run profile →</button>
     </div>
   </section>
 
-  <!-- ───────── Step 3: Results ───────── -->
-  <section class="step-section" data-step="3">
+  <!-- ───────── Step 4: Results ───────── -->
+  <section class="step-section" data-step="4">
     <div id="results-root"></div>
     <div class="nav-actions">
-      <button class="btn ghost" data-go="2">← Edit inputs</button>
+      <button class="btn ghost" data-go="3">← Edit inputs</button>
       <button class="btn cyan"  id="export-pdf">Download PDF →</button>
     </div>
   </section>

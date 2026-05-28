@@ -1,10 +1,10 @@
 /*
  * Profile controller: stitches the wizard UI to the Mader engine.
  *
- *   - VLamax is a prerequisite, loaded from users/{uid}.esmetlab.vlamax.
- *     If absent, the wizard is hidden and a "go run the sprint test first" prompt
- *     is shown instead.
- *   - 3-step wizard: Athlete → Step test → Results.
+ *   - 4-step wizard: Athlete → Sprint VLamax → Step test → Results.
+ *     Sprint VLamax is collected inline (was a separate page). Saved values
+ *     load from users/{uid}.esmetlab.vlamax as defaults; the user can keep
+ *     them or re-measure.
  *   - on "Run profile", calls getMetabolicProfile(...) and renders results.
  *   - Plotly for charts, jsPDF for export.
  */
@@ -16,12 +16,14 @@ import { minPerKmToPaceString, paceStringToMinPerKm, speedToPaceString } from '.
 import { paceInputHTML, wirePaceInputs, readPaceMps, getDefaultPaceUnit, setDefaultPaceUnit } from '../js/ui/pace-input.js';
 import { wireHowToMeasureTriggers } from '../js/ui/how-to-measure.js';
 import { wireStepTestTriggers }    from '../js/ui/how-to-step-test.js';
+import { wireSprintProtocolTriggers } from '../js/ui/how-to-sprint-test.js';
 import { drawLactateChart, drawSubstrateChart } from '../js/ui/charts.js';
 import { downloadStepTestReport } from '../js/ui/pdf-report.js';
 
 // Wire the page-level protocol buttons.
 wireHowToMeasureTriggers();
 wireStepTestTriggers();
+wireSprintProtocolTriggers();
 
 const $   = (sel) => document.querySelector(sel);
 const $$  = (sel) => Array.from(document.querySelectorAll(sel));
@@ -56,7 +58,7 @@ const state = {
   profile: null,
 };
 
-/* ───────── Auth + VLamax prerequisite load ───────── */
+/* ───────── Helpers ───────── */
 
 function fmtDate(ts) {
   if (!ts) return '—';
@@ -66,72 +68,52 @@ function fmtDate(ts) {
   return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-function showPrereq() {
-  $('#prereq').style.display = 'block';
-  $('#wizard').style.display = 'none';
-}
+/* ───────── Step 2: sprint VLamax (inline, replaces the old separate page) ───────── */
 
-function renderVLamaxCard() {
-  // Default to the saved values if available, else sane defaults so the
-  // recalc form can compute even on a profile that's not fully populated yet.
-  const inp = state.VLamax_inputs || { La_pre: 1.4, La_peak_post: 11.0, duration_s: 15, t_PCr_s: 3.5 };
-  const card = $('#vlamax-card');
-  card.innerHTML =
-    '<div class="vlc-summary">' +
-      '<div class="vlc-meta">' +
-        '<div class="vlc-pill">◈ Saved Sprint VLamax</div>' +
-        '<div class="vlc-val">' + state.VLamax.toFixed(3) +
-          ' <span class="vlc-unit">mmol·L⁻¹·s⁻¹</span></div>' +
-        '<div class="vlc-date">Saved ' + fmtDate(state.VLamax_measured_at) +
-          ' from your Sprint VLamax Test</div>' +
-      '</div>' +
-      '<div class="vlc-actions">' +
-        '<button type="button" class="btn ghost" id="vlc-toggle">Recalculate VLamax</button>' +
-      '</div>' +
+// Default sprint inputs if the user has never run one. Sane mid-range starting values.
+const DEFAULT_VL_INPUTS = { La_pre: 1.4, La_peak_post: 11.0, duration_s: 15, t_PCr_s: 3.5 };
+
+function renderVLamaxStep() {
+  const body = $('#vlamax-step-body');
+  if (!body) return;
+  const inp = state.VLamax_inputs || DEFAULT_VL_INPUTS;
+  const hasSaved = typeof state.VLamax === 'number';
+
+  const savedSummary = hasSaved
+    ? '<div class="vlc-summary" style="margin-bottom:18px">' +
+        '<div class="vlc-meta">' +
+          '<div class="vlc-pill">◈ Saved VLamax on file</div>' +
+          '<div class="vlc-val">' + state.VLamax.toFixed(3) +
+            ' <span class="vlc-unit">mmol·L⁻¹·s⁻¹</span></div>' +
+          '<div class="vlc-date">Saved ' + fmtDate(state.VLamax_measured_at) +
+            ' — edit the sprint values below to update it, or keep the inputs as-is and continue.</div>' +
+        '</div>' +
+      '</div>'
+    : '';
+
+  body.innerHTML =
+    savedSummary +
+    '<div class="grid-3">' +
+      '<label class="field"><span class="lab">Pre-sprint La (mmol/L)</span>' +
+        '<input type="number" id="vlc-la-pre" step="0.1" min="0" max="5" value="' + inp.La_pre + '"></label>' +
+      '<label class="field"><span class="lab">Peak post-sprint La (mmol/L)</span>' +
+        '<input type="number" id="vlc-la-post" step="0.1" min="2" max="30" value="' + inp.La_peak_post + '"></label>' +
+      '<label class="field"><span class="lab">Sprint duration (s)</span>' +
+        '<input type="number" id="vlc-dur" step="1" min="10" max="30" value="' + inp.duration_s + '"></label>' +
     '</div>' +
-    '<div class="vlc-form" id="vlc-form" hidden>' +
-      '<div class="vlc-divider"></div>' +
-      '<div class="vlc-form-h">Recalculate from new sprint data</div>' +
-      '<p class="vlc-form-sub">Enter your latest 15-second sprint values. The new VLamax updates live below; click Save to overwrite the value on your profile.</p>' +
-      '<div class="grid-3">' +
-        '<label class="field"><span class="lab">Pre-sprint La (mmol/L)</span>' +
-          '<input type="number" id="vlc-la-pre" step="0.1" min="0" max="5" value="' + inp.La_pre + '"></label>' +
-        '<label class="field"><span class="lab">Peak post-sprint La (mmol/L)</span>' +
-          '<input type="number" id="vlc-la-post" step="0.1" min="2" max="30" value="' + inp.La_peak_post + '"></label>' +
-        '<label class="field"><span class="lab">Sprint duration (s)</span>' +
-          '<input type="number" id="vlc-dur" step="1" min="10" max="30" value="' + inp.duration_s + '"></label>' +
-      '</div>' +
-      '<details style="margin-top:8px"><summary style="cursor:pointer;color:var(--muted2);font-size:13px;font-family:var(--mono)">Advanced — phosphagen time</summary>' +
-        '<label class="field" style="max-width:280px;margin-top:10px"><span class="lab">Alactic time t_PCr (s)</span>' +
-        '<input type="number" id="vlc-tpcr" step="0.1" min="2" max="6" value="' + inp.t_PCr_s + '"></label>' +
-      '</details>' +
-      '<div class="vlc-result" id="vlc-result"></div>' +
-      '<div class="vlc-form-actions">' +
-        '<button type="button" class="btn primary" id="vlc-save">Save updated VLamax</button>' +
-        '<button type="button" class="btn ghost"   id="vlc-cancel">Cancel</button>' +
-      '</div>' +
-    '</div>';
-  wireRecalcCard();
-}
+    '<details style="margin-top:8px"><summary style="cursor:pointer;color:var(--muted2);font-size:13px;font-family:var(--mono)">Advanced — phosphagen time</summary>' +
+      '<label class="field" style="max-width:280px;margin-top:10px"><span class="lab">Alactic time t_PCr (s)</span>' +
+      '<input type="number" id="vlc-tpcr" step="0.1" min="2" max="6" value="' + inp.t_PCr_s + '"></label>' +
+    '</details>' +
+    '<div class="vlc-result" id="vlc-result"></div>';
 
-function wireRecalcCard() {
-  const toggle = $('#vlc-toggle');
-  const form   = $('#vlc-form');
-  toggle.addEventListener('click', () => {
-    const open = !form.hasAttribute('hidden');
-    if (open) { form.setAttribute('hidden', ''); toggle.textContent = 'Recalculate VLamax'; }
-    else      { form.removeAttribute('hidden'); toggle.textContent = 'Hide recalculate'; recalcLive(); $('#vlc-la-pre').focus(); }
-  });
-  $('#vlc-cancel').addEventListener('click', () => {
-    form.setAttribute('hidden', ''); toggle.textContent = 'Recalculate VLamax';
-  });
   ['vlc-la-pre','vlc-la-post','vlc-dur','vlc-tpcr'].forEach(id =>
     $('#' + id).addEventListener('input', recalcLive)
   );
-  $('#vlc-save').addEventListener('click', saveRecalc);
+  recalcLive();
 }
 
-function readRecalcInputs() {
+function readVLamaxInputs() {
   return {
     La_pre:        +$('#vlc-la-pre').value,
     La_peak_post:  +$('#vlc-la-post').value,
@@ -141,12 +123,10 @@ function readRecalcInputs() {
 }
 
 function recalcLive() {
-  const inputs = readRecalcInputs();
+  const inputs = readVLamaxInputs();
   const r = computeVLamax(inputs);
-  const saveBtn = $('#vlc-save');
   if (!isFinite(r.VLamax) || r.glycolytic_time_s <= 0) {
     $('#vlc-result').innerHTML = '<div class="vlc-result-empty">Enter all three sprint values to compute.</div>';
-    if (saveBtn) saveBtn.disabled = true;
     return;
   }
   const errHtml = r.errors && r.errors.length
@@ -157,19 +137,21 @@ function recalcLive() {
     : '';
   $('#vlc-result').innerHTML =
     '<div class="vlc-result-box">' +
-      '<div class="vlc-result-label">NEW VLAMAX</div>' +
+      '<div class="vlc-result-label">YOUR VLAMAX</div>' +
       '<div class="vlc-result-val">' + r.VLamax.toFixed(3) +
         ' <span class="vlc-unit">mmol·L⁻¹·s⁻¹</span></div>' +
       errHtml +
       warnHtml +
     '</div>';
-  if (saveBtn) saveBtn.disabled = !!(r.errors && r.errors.length);
 }
 
-async function saveRecalc() {
+// "Save & continue" advances the wizard. If the sprint inputs match the
+// already-saved values exactly, skip the Firestore write — otherwise persist
+// the new VLamax and proceed to the step-test stage.
+async function saveAndContinueVLamax() {
   const user = window.__esml && window.__esml.user;
   if (!user) { alert('Sign in required.'); return; }
-  const inputs = readRecalcInputs();
+  const inputs = readVLamaxInputs();
   const r = computeVLamax(inputs);
   if (!isFinite(r.VLamax) || r.glycolytic_time_s <= 0) {
     alert('Sprint values are not valid — recheck the inputs.');
@@ -179,33 +161,38 @@ async function saveRecalc() {
     alert(r.errors.join('\n\n'));
     return;
   }
-  const btn = $('#vlc-save');
+
+  const sameAsSaved = state.VLamax_inputs
+    && state.VLamax_inputs.La_pre       === inputs.La_pre
+    && state.VLamax_inputs.La_peak_post === inputs.La_peak_post
+    && state.VLamax_inputs.duration_s   === inputs.duration_s
+    && state.VLamax_inputs.t_PCr_s      === inputs.t_PCr_s;
+
+  const btn = $('#vlamax-next');
+  const origLabel = btn.textContent;
   btn.disabled = true; btn.textContent = 'Saving…';
   try {
-    const db = firebase.firestore();
-    await db.collection('users').doc(user.uid).set(
-      { esmetlab: { vlamax: {
-        value: r.VLamax,
-        measured_at: firebase.firestore.FieldValue.serverTimestamp(),
-        inputs: inputs,
-      } } },
-      { merge: true }
-    );
+    if (!sameAsSaved) {
+      const db = firebase.firestore();
+      await db.collection('users').doc(user.uid).set(
+        { esmetlab: { vlamax: {
+          value: r.VLamax,
+          measured_at: firebase.firestore.FieldValue.serverTimestamp(),
+          inputs: inputs,
+        } } },
+        { merge: true }
+      );
+      state.VLamax_measured_at = new Date();
+      state.VLamax_inputs = inputs;
+    }
     state.VLamax = r.VLamax;
-    state.VLamax_measured_at = new Date();
-    state.VLamax_inputs = inputs;
-    renderVLamaxCard();   // re-render — form collapsed, new saved value shown
+    gotoStep(3);
   } catch (e) {
-    console.error('Save failed:', e);
+    console.error('VLamax save failed:', e);
     alert('Save failed: ' + e.message);
-    btn.disabled = false; btn.textContent = 'Save updated VLamax';
+  } finally {
+    btn.disabled = false; btn.textContent = origLabel;
   }
-}
-
-function showWizard() {
-  $('#prereq').style.display = 'none';
-  $('#wizard').style.display = 'block';
-  renderVLamaxCard();
 }
 
 async function loadVLamax(user) {
@@ -218,25 +205,28 @@ async function loadVLamax(user) {
       state.VLamax = v.value;
       state.VLamax_measured_at = v.measured_at || null;
       state.VLamax_inputs = v.inputs || null;
-      showWizard();
-    } else {
-      showPrereq();
     }
   } catch (e) {
-    console.error('Failed to load VLamax:', e);
-    showPrereq();
+    console.error('Failed to load saved VLamax:', e);
   }
+  renderVLamaxStep();
 }
 
 window.addEventListener('esml-auth', (ev) => loadVLamax(ev.detail.user));
 if (window.__esml && window.__esml.user) loadVLamax(window.__esml.user);
+// Render the Step 2 form immediately with defaults so it's wired before
+// auth resolves; loadVLamax will re-render with any saved values.
+renderVLamaxStep();
+
+const vlamaxNextBtn = $('#vlamax-next');
+if (vlamaxNextBtn) vlamaxNextBtn.addEventListener('click', saveAndContinueVLamax);
 
 /* ───────── Step navigation ───────── */
 
 function gotoStep(n) {
   state.step = n;
   $$('.step-section').forEach(el => el.classList.toggle('active', +el.dataset.step === n));
-  for (let i = 1; i <= 3; i++) {
+  for (let i = 1; i <= 4; i++) {
     const bar = document.getElementById('step-bar-' + i);
     if (!bar) continue;
     bar.classList.toggle('active', i === n);
@@ -365,7 +355,8 @@ renderStages();
 
 $('#run').addEventListener('click', () => {
   if (!state.VLamax) {
-    alert('VLamax not loaded — please run a sprint test first.');
+    alert('VLamax not set — go back to step 2 and save your sprint inputs.');
+    gotoStep(2);
     return;
   }
   try {
@@ -381,7 +372,7 @@ $('#run').addEventListener('click', () => {
       })),
     });
     renderResults();
-    gotoStep(3);
+    gotoStep(4);
   } catch (e) {
     alert('Profile run failed: ' + e.message);
     console.error(e);
