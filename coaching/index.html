@@ -346,6 +346,25 @@ header{display:none}
 .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
 .modal-error{font-size:11px;color:var(--bad);font-family:var(--mono);margin-top:8px;min-height:16px}
 
+/* ── Scheduler modal (Google Appointment Schedule embed) ─ */
+.scheduler-modal{background:var(--panel);border:1px solid var(--border2);border-radius:16px;width:100%;max-width:900px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.scheduler-head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--border)}
+.scheduler-head .modal-title{margin-bottom:0}
+.scheduler-close{background:transparent;border:none;color:var(--muted2);font-size:22px;cursor:pointer;line-height:1;padding:4px 8px;border-radius:6px;transition:color .15s,background .15s}
+.scheduler-close:hover{color:var(--text);background:rgba(255,255,255,.05)}
+.scheduler-body{flex:1;overflow:hidden;background:#fff}
+.scheduler-body iframe{display:block;width:100%;height:680px;border:0}
+@media(max-width:720px){
+  .scheduler-body iframe{height:560px}
+}
+
+/* "Book a free intro call" CTA shown above pricing cards */
+.book-call-cta{display:flex;align-items:center;justify-content:center;gap:14px;margin:0 auto 32px;padding:14px 22px;background:rgba(0,229,200,.06);border:1px solid rgba(0,229,200,.22);border-radius:12px;max-width:560px;flex-wrap:wrap;text-align:center}
+.book-call-cta .bcc-text{font-size:13px;color:var(--text);line-height:1.5}
+.book-call-cta .bcc-text strong{color:var(--cyan);font-weight:700}
+.book-call-cta .bcc-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;font-size:12.5px;font-weight:700;font-family:var(--ui);border-radius:8px;border:1px solid var(--cyan);background:var(--cyan);color:#000;cursor:pointer;transition:opacity .15s,transform .1s;flex-shrink:0}
+.book-call-cta .bcc-btn:hover{opacity:.88;transform:translateY(-1px)}
+
 /* ── Tab bar ────────────────────────────────────────── */
 .tab-bar{display:flex;gap:4px;background:var(--panel2);border:1px solid var(--border2);border-radius:10px;padding:3px;width:fit-content}
 .tab-btn{padding:7px 18px;font-size:11px;font-weight:700;font-family:var(--mono);letter-spacing:.3px;text-transform:uppercase;border:none;border-radius:7px;background:transparent;color:var(--muted2);cursor:pointer;transition:all .15s}
@@ -747,6 +766,10 @@ header{display:none}
       <h1 class="paywall-title">Pick the plan that fits you</h1>
       <p class="paywall-sub">Our athletes range from sub-4 minute milers to beginners looking to complete their first marathon — we customize the plan to your goals, experience and schedule. Cancel anytime.</p>
     </div>
+    <div class="book-call-cta">
+      <div class="bcc-text">Not sure which plan fits? <strong>Book a free 15-min intro call</strong> with your coach.</div>
+      <button class="bcc-btn" onclick="openScheduler()">Book a call →</button>
+    </div>
     <div class="pricing-cards">
       <div class="pricing-card">
         <div class="pc-name">Standard Coaching</div>
@@ -801,6 +824,27 @@ header{display:none}
     <p class="awaiting-text-sub"><a href="#" onclick="openCustomerPortal();return false;">Manage subscription &middot; cancel</a></p>
   </div>
 </div>
+</div>
+
+<!-- ── Scheduler modal (Google Appointment Schedule embed) ───
+     TODO: paste your Google Appointment Schedule embed URL into the iframe src below.
+     From Google Calendar → your appointment schedule → "Share" → "Embed".
+     The src will look like: https://calendar.google.com/calendar/appointments/schedules/AcZssZ.../appointment?gv=true -->
+<div class="modal-overlay" id="scheduler-modal">
+  <div class="scheduler-modal" role="dialog" aria-labelledby="scheduler-title" aria-modal="true">
+    <div class="scheduler-head">
+      <div class="modal-title" id="scheduler-title">Book a free intro call</div>
+      <button class="scheduler-close" onclick="closeScheduler()" aria-label="Close">&times;</button>
+    </div>
+    <div class="scheduler-body">
+      <iframe id="scheduler-iframe"
+              src=""
+              data-booking-url="REPLACE_WITH_GOOGLE_APPOINTMENT_SCHEDULE_URL"
+              title="Book an appointment"
+              loading="lazy"
+              referrerpolicy="no-referrer-when-downgrade"></iframe>
+    </div>
+  </div>
 </div>
 
 <!-- ── Add athlete modal ───────────────────────────── -->
@@ -2901,6 +2945,36 @@ async function saveAthleteNotes(weekKey) {
     console.error('Save athlete notes failed:', e);
   }
 }
+
+// ══════════════════════════════════════════════════════════
+//  SCHEDULER (Google Appointment Schedule embed)
+// ══════════════════════════════════════════════════════════
+function openScheduler() {
+  const iframe = document.getElementById('scheduler-iframe');
+  const url = iframe.getAttribute('data-booking-url') || '';
+  if (!url || url.startsWith('REPLACE_WITH_')) {
+    window.open('mailto:austen.hughes@finalforms.com?subject=Intro%20call%20-%20ESL%20coaching', '_blank');
+    return;
+  }
+  if (!iframe.src) iframe.src = url;
+  document.getElementById('scheduler-modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeScheduler() {
+  document.getElementById('scheduler-modal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && document.getElementById('scheduler-modal')?.classList.contains('open')) {
+    closeScheduler();
+  }
+});
+
+document.getElementById('scheduler-modal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'scheduler-modal') closeScheduler();
+});
 
 // ══════════════════════════════════════════════════════════
 //  ADD ATHLETE (COACH)
