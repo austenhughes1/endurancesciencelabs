@@ -153,6 +153,7 @@ nav {
   text-decoration: none; transition: opacity .15s; letter-spacing: -.1px;
 }
 .btn-primary:hover { opacity: .85; }
+.btn-primary.purple { background: var(--purple); color: #fff; }
 .btn-secondary {
   display: inline-flex; align-items: center; gap: 8px;
   padding: 15px 32px; color: var(--muted2); font-size: 16px;
@@ -562,16 +563,16 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
 <div class="hero">
   <div class="hero-label">◉ Endurance Science Labs</div>
   <h1 class="hero-title">
-    Lab-grade analysis.<br>No <em>lab</em> required.<br>Custom <em>coaching</em>. Built for you.
+    Lab-grade analysis.<br>No <em>lab</em> required.
   </h1>
   <p class="hero-sub">
-    Evidence-based coaching and running form analysis for athletes who want to know what their body is actually doing — not just follow a generic plan.
+    Two free tools to understand your body — a 9-phase running form scan and a 30-minute metabolic power profile. One free account unlocks both.
   </p>
   <div class="hero-actions">
-    <a href="/esformlab/" class="btn-primary">Try the form analyzer for free →</a>
-    <a href="/coaching/" class="btn-secondary gold">Explore coaching</a>
+    <a href="/esformlab/" class="btn-primary">Free form scan →</a>
+    <a href="/esmetaboliclab/power-profile/" class="btn-primary purple">Free power profile →</a>
   </div>
-  <div class="hero-microcopy"><strong>Free account</strong> · Upload &amp; scan your video at no cost</div>
+  <div class="hero-microcopy"><strong>Free account</strong> · 1-tap signup with Google · No card required</div>
   <div class="hero-stats">
     <div>
       <div class="hero-stat-val">9</div>
@@ -579,13 +580,13 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
     </div>
     <div class="stat-divider"></div>
     <div>
-      <div class="hero-stat-val">100<em>%</em></div>
-      <div class="hero-stat-label">Private · Runs in your browser</div>
+      <div class="hero-stat-val">4</div>
+      <div class="hero-stat-label">Max efforts → full profile</div>
     </div>
     <div class="stat-divider"></div>
     <div>
-      <div class="hero-stat-val"><em>$</em>0</div>
-      <div class="hero-stat-label">Free to try</div>
+      <div class="hero-stat-val">100<em>%</em></div>
+      <div class="hero-stat-label">Private · Runs in your browser</div>
     </div>
   </div>
 </div>
@@ -605,10 +606,17 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
   <div class="services-grid">
     <a href="/esformlab/" class="service-card live">
       <div class="sc-icon cyan">◉</div>
-      <div class="sc-badge live">● Live now</div>
+      <div class="sc-badge live">● Free to try</div>
       <div class="sc-title">esFormLab</div>
       <p class="sc-desc">Upload your running videos and run the gait-phase scan — at no cost, right in your browser. Unlock the running form report with a one-time pass — less than a pair of running shoes or a single visit to a physical therapist, and the insights don't wear out.</p>
       <span class="sc-action">Open esFormLab →</span>
+    </a>
+    <a href="/esmetaboliclab/" class="service-card live" id="tile-esmetlab" style="text-decoration:none;color:inherit">
+      <div class="sc-icon purple">⬡</div>
+      <div class="sc-badge live" style="background:rgba(139,124,248,.18);color:var(--purple)">● Free to try</div>
+      <div class="sc-title">esMetabolicLab</div>
+      <p class="sc-desc">Build your free metabolic profile from four max efforts — VO₂max, lactate threshold, training zones, and your fat-burning sweet spot. Optional lactate-anchored upgrade for the real numbers.</p>
+      <span class="sc-action">Open esMetabolicLab →</span>
     </a>
     <a href="/coaching/" class="service-card" style="text-decoration:none;color:inherit">
       <div class="sc-icon gold">◈</div>
@@ -617,13 +625,6 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
       <p class="sc-desc">Our athletes range from sub-4 minute milers to beginners looking to complete their first marathon — we customize the plan to your goals, experience and schedule. Weekly check-ins, adaptive planning, and direct access to your coach — not a chatbot.</p>
       <span class="sc-action">Open coaching dashboard →</span>
     </a>
-    <div class="service-card soon" id="tile-esmetlab">
-      <div class="sc-icon purple">⬡</div>
-      <div class="sc-badge soon">Coming soon</div>
-      <div class="sc-title">Metabolic Testing</div>
-      <p class="sc-desc">VO₂ max, lactate threshold, and fat oxidation testing to pinpoint your exact training zones — the foundation of intelligent, data-driven endurance training.</p>
-      <span class="sc-action disabled">In development →</span>
-    </div>
   </div>
 </section>
 
@@ -712,18 +713,19 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
 
 <!-- CTA band -->
 <div class="cta-band">
-  <h2 class="cta-band-title">Ready to understand your running?</h2>
-  <p class="cta-band-sub">Create your free account in one tap. Upload your videos and run the gait-phase scan at no cost — the full running form report and PDF unlock with a one-time pass.</p>
+  <h2 class="cta-band-title">One free account. Two free tools.</h2>
+  <p class="cta-band-sub">Create your free account in one tap — get your running form scan and your metabolic power profile, both free to try. No card required.</p>
   <div class="cta-band-actions">
     <button class="cta-band-google" onclick="landingGoogleSignIn()" aria-label="Continue with Google">
       <svg viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
       Continue with Google
     </button>
-    <a href="/esformlab/" class="btn-secondary">Or jump straight to the analyzer →</a>
+    <a href="/esformlab/" class="btn-secondary">Free form scan →</a>
+    <a href="/esmetaboliclab/power-profile/" class="btn-secondary">Free power profile →</a>
   </div>
-  <div class="cta-band-microcopy"><strong>Free account</strong> · Upload &amp; scan at no cost · Save your sessions across devices</div>
+  <div class="cta-band-microcopy"><strong>Free account</strong> · 1-tap signup · Save your sessions across devices</div>
   <div class="cta-band-microcopy" style="max-width:640px;margin-left:auto;margin-right:auto;line-height:1.7;letter-spacing:0;font-family:inherit;text-transform:none">
-    <strong>Not medical advice.</strong> Running form analysis is for educational purposes only — not a medical diagnosis. Use does not create a doctor–patient relationship. Consult a qualified healthcare professional before changing your training based on these results.
+    <strong>Not medical advice.</strong> Endurance Science Labs tools are for educational purposes only — not a medical diagnosis. Use does not create a doctor–patient relationship. Consult a qualified healthcare professional before changing your training based on these results.
   </div>
 </div>
 
@@ -733,9 +735,10 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
     <img src="/images/generic_logo_white_clean.png" alt="Endurance Science Labs" class="footer-logo-img">
   </div>
   <div class="footer-links">
-    <a href="/"          class="footer-link">Home</a>
-    <a href="/esformlab/"  class="footer-link">esFormLab</a>
-    <a href="/coaching/"       class="footer-link">Coaching</a>
+    <a href="/"                 class="footer-link">Home</a>
+    <a href="/esformlab/"       class="footer-link">esFormLab</a>
+    <a href="/esmetaboliclab/"  class="footer-link">esMetabolicLab</a>
+    <a href="/coaching/"        class="footer-link">Coaching</a>
   </div>
   <div class="footer-copy">© <span id="footer-year"></span> Endurance Science Labs</div>
   <div class="footer-disclaimer" style="flex-basis:100%;font-size:11px;color:var(--muted);line-height:1.7;font-family:var(--mono);max-width:none;margin-top:6px;border-top:1px solid var(--border);padding-top:16px">
@@ -771,42 +774,14 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
 <script src="/shared/site.js"></script>
 <script>
 (function() {
-  // Render the shared nav. Active key: 'home'. Admin gets the
-  // "Metabolic Testing — Preview" link automatically.
   esLabs.mountNav('#home-nav', { active: 'home' });
 
-  // Page-specific: upgrade the home-page "Metabolic Testing" service
-  // card tile to a clickable link when the admin signs in. This is the
-  // tile in the services section -- the nav upgrade is handled by the
-  // shared nav.
-  function upgradeHomeTile(user) {
-    var tile = document.getElementById('tile-esmetlab');
-    if (!tile) return;
-    if (user && user.uid === esLabs.ADMIN_UID && tile.tagName === 'DIV') {
-      var a = document.createElement('a');
-      a.href = '/esmetaboliclab/';
-      a.className = 'service-card live';
-      a.id = 'tile-esmetlab';
-      a.style.textDecoration = 'none';
-      a.style.color = 'inherit';
-      a.innerHTML =
-        '<div class="sc-icon purple">⬡</div>' +
-        '<div class="sc-badge live" style="background:rgba(139,124,248,.18);color:var(--purple)">● Preview · admin</div>' +
-        '<div class="sc-title">Metabolic Testing</div>' +
-        '<p class="sc-desc">VO₂ max, lactate threshold, and fat oxidation derived from your own lactate step test — Mader/Heck bioenergetic model, fully in your browser.</p>' +
-        '<span class="sc-action">Open esMetabolicLab →</span>';
-      tile.parentNode.replaceChild(a, tile);
-    }
-  }
-
-  esLabs.onAuthChange(function(user) { upgradeHomeTile(user); });
-
-  // Inline onclick="landingGoogleSignIn()" still lives on the CTA-band
-  // button; keep a thin shim that delegates to esLabs and bounces to
-  // /coaching/ on success.
+  // Inline onclick="landingGoogleSignIn()" on the CTA-band button.
+  // After sign-in, bounce to /account/ so the user lands on their
+  // hub with both free tools unlocked and visible.
   window.landingGoogleSignIn = function () {
     esLabs.signInGoogle().then(function () {
-      window.location.href = '/coaching/';
+      window.location.href = '/account/';
     }).catch(function (e) {
       console.error('Sign-in failed:', e && e.message);
     });
