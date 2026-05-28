@@ -372,9 +372,8 @@
                  : m.source === 'admin-grant'  ? 'Admin grant — lifetime access'
                  : 'Active';
       statusHtml = '<span class="ok-icon">✓</span> '
-                 + '<strong>' + label + '</strong> &middot; you can upload lactate data on the '
-                 + '<a href="/esmetaboliclab/sprint/">Sprint VLamax</a> and '
-                 + '<a href="/esmetaboliclab/profile/">Lactate Step Test</a> pages.';
+                 + '<strong>' + label + '</strong> &middot; you can run the '
+                 + '<a href="/esmetaboliclab/profile/">lactate-anchored metabolic profile</a>.';
     }
     if (statusHtml) {
       status.innerHTML = statusHtml;
