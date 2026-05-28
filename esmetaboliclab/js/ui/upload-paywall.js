@@ -21,7 +21,7 @@
 const PAYWALL_HTML = `
 <nav class="eslabs-nav" data-paywall-nav></nav>
 <div class="page">
-  <p style="margin-bottom:12px"><a href="/esmetaboliclab/">← All tools</a></p>
+  <p style="margin-bottom:12px"><a href="/esmetaboliclab/">← esMetabolicLab</a></p>
   <div class="paywall-card">
     <div class="section-label" style="margin-bottom:18px">◆ Upload access required</div>
     <h1 class="paywall-h">Lab-level metabolic profiling — <em>without the lab</em>.</h1>
