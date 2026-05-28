@@ -167,27 +167,39 @@ function drawMetricsTable(doc, y, rows) {
 
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i];
-    var noteLines = r.note
-      ? dsplit(doc, r.note, noteW)  // measure BEFORE drawing — affects row height
-      : [];
-    var noteHeight = noteLines.length * lineH;
+
+    // Measure note wrapping in the SAME font we'll draw it in. (Forgetting
+    // this means dsplit measures at whatever font size leaked in from the
+    // previous block — e.g. the 15pt section title — and wraps the note
+    // way too aggressively.)
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'normal');
+    var noteLines = r.note ? dsplit(doc, r.note, noteW) : [];
+    var noteHeight = Math.max(lineH, noteLines.length * lineH);
     var rowHeight = Math.max(9, noteHeight + pad);
     y = ensure(doc, y, rowHeight + 2);
 
-    // Optional colored dot accent
+    // Vertical centering: when the note wraps to N lines, push label + value
+    // down by half the extra height so they sit centered against the note
+    // block instead of pinned to the top.
+    var centerOffset = noteLines.length > 1
+      ? ((noteLines.length - 1) * lineH) / 2
+      : 0;
+
+    // Optional colored dot accent — also follows the centered baseline.
     if (r.accent) {
       setFill(doc, r.accent);
-      doc.circle(labelX - 2, y - 1.5, 1.3, 'F');
+      doc.circle(labelX - 2, y - 1.5 + centerOffset, 1.3, 'F');
     }
     setText(doc, MUTED);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
-    dtext(doc, sanitize(r.label).toUpperCase(), labelX + 1, y);
+    dtext(doc, sanitize(r.label).toUpperCase(), labelX + 1, y + centerOffset);
 
     setText(doc, BODY);
     doc.setFontSize(13);
     doc.setFont('helvetica', 'bold');
-    dtext(doc, String(r.value), valueX, y);
+    dtext(doc, String(r.value), valueX, y + centerOffset);
 
     if (noteLines.length) {
       setText(doc, MUTED);
@@ -315,19 +327,19 @@ function formatRange(sport, lo, hi) {
   var loDef = !(lo === 0 || !isFinite(lo));
   var hiDef = isFinite(hi);
   if (sport === 'cycling') {
-    if (!loDef && hiDef)  return 'up to ' + Math.round(hi) + ' W';
-    if (loDef && !hiDef)  return Math.round(lo) + ' W and above';
+    if (!loDef && hiDef)  return 'less than ' + Math.round(hi) + ' W';
+    if (loDef && !hiDef)  return 'more than ' + Math.round(lo) + ' W';
     return Math.round(lo) + ' – ' + Math.round(hi) + ' W';
   }
-  if (!loDef && hiDef)    return 'up to ' + fmtPace(hi);
-  if (loDef && !hiDef)    return fmtPace(lo) + ' and faster';
+  if (!loDef && hiDef)    return 'slower than ' + fmtPace(hi);
+  if (loDef && !hiDef)    return 'faster than ' + fmtPace(lo);
   return fmtPace(lo) + ' – ' + fmtPace(hi);
 }
 function formatAltRange(lo, hi, alt_m, mlss_speed) {
   var loDef = !(lo === 0 || !isFinite(lo));
   var hiDef = isFinite(hi);
-  if (!loDef && hiDef)    return 'up to ' + fmtAltSpeed(hi, alt_m, mlss_speed);
-  if (loDef && !hiDef)    return fmtAltSpeed(lo, alt_m, mlss_speed) + ' and faster';
+  if (!loDef && hiDef)    return 'slower than ' + fmtAltSpeed(hi, alt_m, mlss_speed);
+  if (loDef && !hiDef)    return 'faster than ' + fmtAltSpeed(lo, alt_m, mlss_speed);
   return fmtAltSpeed(lo, alt_m, mlss_speed) + ' – ' + fmtAltSpeed(hi, alt_m, mlss_speed);
 }
 
