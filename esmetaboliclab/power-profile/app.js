@@ -147,15 +147,20 @@ async function loadSessions(user) {
     const esml = (data && data.esmetlab) || {};
     state.sessions = Array.isArray(esml.powerProfiles) ? esml.powerProfiles.slice() : [];
 
-    // Auto-load the latest session's profile so results show on landing
+    // Auto-load the latest session's profile so results show on landing.
+    // First-time visitors (no saved profiles) get the new-profile form
+    // expanded by default so they can start entering efforts immediately.
     if (state.sessions.length > 0) {
       const latest = state.sessions[state.sessions.length - 1];
       hydrateActiveFromSession(latest);
+    } else {
+      state.newFormOpen = true;
     }
     render();
   } catch (e) {
     console.error('Power profiles load failed:', e);
     state.sessions = [];
+    state.newFormOpen = true;
     render();
   }
 }
@@ -224,8 +229,10 @@ async function deleteSession(id) {
     // Re-hydrate the new latest session as the active profile
     hydrateActiveFromSession(newSessions[newSessions.length - 1]);
   } else {
-    // No sessions left — clear the active profile so the results pane goes empty
+    // No sessions left — clear the active profile and re-open the new-
+    // profile form so the user can start over without an extra click.
     state.profile = null;
+    state.newFormOpen = true;
   }
   render();
 }
@@ -861,7 +868,13 @@ function render() {
   const root = $('#root');
   let html = '';
   if (state.newFormOpen) html += newFormHTML();
-  html += sessionsPanelHTML();
+  // Skip the empty sessions panel when the new-profile form is already
+  // open and the user has no saved sessions — the panel would just say
+  // "you haven't saved a profile yet" with a button to do what they're
+  // already doing.
+  if (!(state.sessions.length === 0 && state.newFormOpen)) {
+    html += sessionsPanelHTML();
+  }
   html += resultsBlockHTML();
   root.innerHTML = html;
 
