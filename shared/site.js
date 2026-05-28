@@ -399,13 +399,12 @@ function startMetlabCheckout(tier, opts) {
 
 // ── Nav mounting ─────────────────────────────────────────────────
 // The nav links live in the shared module. Pages pass `active` to
-// highlight one. The Metabolic Testing entry is non-clickable
-// "Coming soon" for the public; admin sees a clickable "Preview" link.
+// highlight one.
 var NAV_LINKS = [
-  { key: 'home',        label: 'Home',           href: '/' },
-  { key: 'esformlab',   label: 'Form analysis',  href: '/esformlab/' },
-  { key: 'coaching',    label: 'Coaching',       href: '/coaching/', pill: { text: 'Live', kind: 'live' } },
-  { key: 'esmetlab',    label: 'Metabolic Testing', href: '/esmetaboliclab/', adminOnly: true, publicPill: { text: 'Soon', kind: '' }, adminPill: { text: 'Preview', kind: 'preview' } }
+  { key: 'home',        label: 'Home',              href: '/' },
+  { key: 'esformlab',   label: 'Form analysis',     href: '/esformlab/' },
+  { key: 'coaching',    label: 'Coaching',          href: '/coaching/' },
+  { key: 'esmetlab',    label: 'Metabolic Testing', href: '/esmetaboliclab/' }
 ];
 
 var mountedNavs = [];   // [{ el, opts }]
@@ -431,23 +430,10 @@ function refreshMountedNav() {
 function renderNavHtml(opts) {
   var active = opts.active || '';
   var user = state.user;
-  var isAdmin = !!(user && user.uid === ADMIN_UID);
 
   var linksHtml = NAV_LINKS.map(function (link) {
     var classes = 'nav-link' + (link.key === active ? ' active' : '');
-    var pillHtml = '';
-    if (link.adminOnly) {
-      // Admin-only links: render as clickable preview pill for admin, non-clickable Soon for everyone else.
-      if (isAdmin) {
-        pillHtml = link.adminPill ? ' <span class="pill ' + (link.adminPill.kind || '') + '">' + escapeHtml(link.adminPill.text) + '</span>' : '';
-        return '<a class="' + classes + '" href="' + link.href + '">' + escapeHtml(link.label) + pillHtml + '</a>';
-      } else {
-        pillHtml = link.publicPill ? ' <span class="pill ' + (link.publicPill.kind || '') + '">' + escapeHtml(link.publicPill.text) + '</span>' : '';
-        return '<span class="' + classes + '" style="cursor:default">' + escapeHtml(link.label) + pillHtml + '</span>';
-      }
-    }
-    if (link.pill) pillHtml = ' <span class="pill ' + (link.pill.kind || '') + '">' + escapeHtml(link.pill.text) + '</span>';
-    return '<a class="' + classes + '" href="' + link.href + '">' + escapeHtml(link.label) + pillHtml + '</a>';
+    return '<a class="' + classes + '" href="' + link.href + '">' + escapeHtml(link.label) + '</a>';
   }).join('');
 
   var rightHtml, mobileAuthHtml;
