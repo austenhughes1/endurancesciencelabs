@@ -27,6 +27,48 @@ import { showConfirmModal } from '../js/ui/confirm-modal.js';
 
 const $   = (sel) => document.querySelector(sel);
 const $$  = (sel) => Array.from(document.querySelectorAll(sel));
+
+/* Mass + altitude unit handling.
+   Canonical storage is always kg / metres; display unit is per-user, kept in
+   localStorage so the preference persists across visits. Conversions live
+   here so the rest of the controller only ever sees canonical values. */
+const LB_PER_KG = 2.2046226218;
+const FT_PER_M  = 3.2808398950;
+function getMassUnit() {
+  try { return localStorage.getItem('esml-mass-unit') === 'lb' ? 'lb' : 'kg'; }
+  catch (e) { return 'kg'; }
+}
+function setMassUnit(u) {
+  try { if (u === 'lb' || u === 'kg') localStorage.setItem('esml-mass-unit', u); }
+  catch (e) { /* private mode etc — fine */ }
+}
+function getAltUnit() {
+  try { return localStorage.getItem('esml-alt-unit') === 'ft' ? 'ft' : 'm'; }
+  catch (e) { return 'm'; }
+}
+function setAltUnit(u) {
+  try { if (u === 'ft' || u === 'm') localStorage.setItem('esml-alt-unit', u); }
+  catch (e) { /* private mode etc — fine */ }
+}
+function kgToDisplay(kg, unit) {
+  if (!isFinite(kg)) return '';
+  return unit === 'lb' ? Math.round(kg * LB_PER_KG * 10) / 10 : Math.round(kg * 10) / 10;
+}
+function displayToKg(val, unit) {
+  const v = parseFloat(val);
+  if (!isFinite(v)) return NaN;
+  return unit === 'lb' ? v / LB_PER_KG : v;
+}
+function mToDisplay(m, unit) {
+  if (!isFinite(m)) return 0;
+  return unit === 'ft' ? Math.round(m * FT_PER_M) : Math.round(m);
+}
+function displayToM(val, unit) {
+  const v = parseFloat(val);
+  if (!isFinite(v)) return 0;
+  return unit === 'ft' ? v / FT_PER_M : v;
+}
+
 const fmt = {
   W:   (v) => v.toFixed(0) + ' W',
   V:   (v) => v.toFixed(1) + ' mL/min/kg',
@@ -211,6 +253,8 @@ function newFormHTML() {
       };
 
   const isRunning = prefill.sport === 'running';
+  const massUnit = getMassUnit();
+  const altUnit  = getAltUnit();
 
   // For running, convert the stored m/s into meters so the form displays
   // the distance the user actually ran. Cycling stays in raw watts.
@@ -278,13 +322,32 @@ function newFormHTML() {
 
       <div class="grid-2">
         <label class="field">
-          <span class="lab">Body mass (kg)</span>
-          <input type="number" id="ps-mass" step="0.1" min="30" max="160" value="${prefill.bodyMass}">
+          <span class="lab">Body mass</span>
+          <div class="pace-input">
+            <input type="number" class="pace-text" id="ps-mass" step="0.1"
+                   min="${massUnit === 'lb' ? Math.round(30 * LB_PER_KG) : 30}"
+                   max="${massUnit === 'lb' ? Math.round(160 * LB_PER_KG) : 160}"
+                   value="${kgToDisplay(prefill.bodyMass, massUnit)}">
+            <div class="unit-toggle-inline" data-mass-toggle role="tablist" aria-label="Mass unit">
+              <button type="button" data-mass-unit="lb"${massUnit === 'lb' ? ' class="active"' : ''}>lb</button>
+              <button type="button" data-mass-unit="kg"${massUnit === 'kg' ? ' class="active"' : ''}>kg</button>
+            </div>
+          </div>
         </label>
         <label class="field">
-          <span class="lab">Testing altitude (m above sea level)</span>
-          <input type="number" id="ps-alt" step="50" min="0" max="5000" value="${prefill.altitude_m}" placeholder="0">
-          <span class="hint">Performance loss begins ~800 m. Boulder ≈ 1650 m, Denver ≈ 1600 m. Zones reported as sea-level equivalents.</span>
+          <span class="lab">Testing altitude</span>
+          <div class="pace-input">
+            <input type="number" class="pace-text" id="ps-alt"
+                   step="${altUnit === 'ft' ? 100 : 50}"
+                   min="0"
+                   max="${altUnit === 'ft' ? Math.round(5000 * FT_PER_M) : 5000}"
+                   value="${mToDisplay(prefill.altitude_m, altUnit)}" placeholder="0">
+            <div class="unit-toggle-inline" data-alt-toggle role="tablist" aria-label="Altitude unit">
+              <button type="button" data-alt-unit="ft"${altUnit === 'ft' ? ' class="active"' : ''}>ft</button>
+              <button type="button" data-alt-unit="m"${altUnit === 'm' ? ' class="active"' : ''}>m</button>
+            </div>
+          </div>
+          <span class="hint">Performance loss begins ~800 m / 2,600 ft. Boulder ≈ 1650 m, Denver ≈ 1600 m. Zones reported as sea-level equivalents.</span>
         </label>
       </div>
 
@@ -336,6 +399,50 @@ function wireNewForm() {
     if (el) el.addEventListener('input', recalcPreview);
   });
 
+  // Mass unit toggle (lb | kg) — convert the current input value to the new
+  // unit in place, update min/max, and persist the choice. Don't re-render
+  // the whole form so the user keeps caret position on other fields.
+  document.querySelectorAll('[data-mass-toggle] button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const newUnit = btn.dataset.massUnit;
+      const oldUnit = getMassUnit();
+      if (newUnit === oldUnit) return;
+      const input = $('#ps-mass');
+      if (input) {
+        const kg = displayToKg(input.value, oldUnit);
+        if (isFinite(kg)) input.value = String(kgToDisplay(kg, newUnit));
+        input.min = newUnit === 'lb' ? Math.round(30 * LB_PER_KG) : 30;
+        input.max = newUnit === 'lb' ? Math.round(160 * LB_PER_KG) : 160;
+      }
+      setMassUnit(newUnit);
+      btn.parentElement.querySelectorAll('button').forEach((b) => {
+        b.classList.toggle('active', b === btn);
+      });
+      recalcPreview();
+    });
+  });
+
+  // Altitude unit toggle (ft | m) — same pattern.
+  document.querySelectorAll('[data-alt-toggle] button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const newUnit = btn.dataset.altUnit;
+      const oldUnit = getAltUnit();
+      if (newUnit === oldUnit) return;
+      const input = $('#ps-alt');
+      if (input) {
+        const m = displayToM(input.value, oldUnit);
+        input.value = m > 0 ? String(mToDisplay(m, newUnit)) : '';
+        input.step = newUnit === 'ft' ? 100 : 50;
+        input.max = newUnit === 'ft' ? Math.round(5000 * FT_PER_M) : 5000;
+      }
+      setAltUnit(newUnit);
+      btn.parentElement.querySelectorAll('button').forEach((b) => {
+        b.classList.toggle('active', b === btn);
+      });
+      recalcPreview();
+    });
+  });
+
   $('#ps-cancel').addEventListener('click', () => {
     state.newFormOpen = false;
     render();
@@ -354,9 +461,11 @@ function wireNewForm() {
 function readForm() {
   const sport = (document.querySelector('input[name="ps-sport"]:checked') || {}).value || 'running';
   const sex   = (document.querySelector('input[name="ps-sex"]:checked')   || {}).value || 'M';
-  const bodyMass = parseFloat($('#ps-mass').value);
-  const altRaw  = parseFloat($('#ps-alt').value);
-  const altitude_m = (isFinite(altRaw) && altRaw > 0) ? altRaw : 0;
+  // Read mass + altitude in their current display unit and normalize
+  // to canonical (kg, metres) before they leave the form.
+  const bodyMass   = displayToKg($('#ps-mass').value, getMassUnit());
+  const altRawM    = displayToM($('#ps-alt').value, getAltUnit());
+  const altitude_m = (isFinite(altRawM) && altRawM > 0) ? altRawM : 0;
 
   // Running: the form holds distances; convert to m/s via the known duration.
   // Cycling: the form holds watts directly.
