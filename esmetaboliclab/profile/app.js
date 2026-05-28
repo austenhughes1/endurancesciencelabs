@@ -494,14 +494,16 @@ function renderResults() {
 
 function zoneTableHtml(title, rows, sport) {
   const fmtRange = (lo, hi) => {
+    const loDef = !(lo === 0 || !isFinite(lo));
+    const hiDef = isFinite(hi);
     if (sport === 'cycling') {
-      const a = (lo === 0 || !isFinite(lo)) ? '0'      : Math.round(lo) + ' W';
-      const b = isFinite(hi) ? Math.round(hi) + ' W'   : '∞';
-      return a + ' – ' + b;
+      if (!loDef && hiDef) return 'less than ' + Math.round(hi) + ' W';
+      if (loDef && !hiDef) return 'more than ' + Math.round(lo) + ' W';
+      return Math.round(lo) + ' – ' + Math.round(hi) + ' W';
     } else {
-      const a = (lo === 0 || !isFinite(lo)) ? '—'        : fmt.pace(lo);
-      const b = isFinite(hi) ? fmt.pace(hi) : '—';
-      return a + ' – ' + b;
+      if (!loDef && hiDef) return 'slower than ' + fmt.pace(hi);
+      if (loDef && !hiDef) return 'faster than ' + fmt.pace(lo);
+      return fmt.pace(lo) + ' – ' + fmt.pace(hi);
     }
   };
   return '<h3 style="font-family:var(--display);font-size:16px;font-weight:600;margin:14px 0 8px">' + title + '</h3>' +
