@@ -30,6 +30,76 @@
   }
   .accuracy-banner p + p { margin-top: 8px; }
   .accuracy-banner a { color: var(--cyan); }
+
+  /* Protocol card — how to run the four time trials */
+  .protocol-card {
+    background: linear-gradient(135deg, rgba(139,124,248,.08), rgba(0,229,200,.03));
+    border: 1px solid rgba(139,124,248,.30);
+    border-left: 4px solid var(--purple);
+    border-radius: 14px;
+    padding: 24px 28px;
+    margin-bottom: 18px;
+  }
+  .protocol-card-eyebrow {
+    display: inline-block;
+    font-family: var(--mono); font-size: 11px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase;
+    color: var(--purple);
+    background: rgba(139,124,248,.12);
+    border: 1px solid rgba(139,124,248,.30);
+    border-radius: 14px;
+    padding: 4px 11px;
+    margin-bottom: 14px;
+  }
+  .protocol-card-title {
+    font-family: var(--display); font-weight: 700;
+    font-size: clamp(20px, 2.4vw, 24px); letter-spacing: -.3px;
+    line-height: 1.2; margin-bottom: 8px;
+  }
+  .protocol-card-title em { font-style: italic; color: var(--purple); }
+  .protocol-card-sub {
+    color: var(--muted2); font-size: 14px; line-height: 1.65;
+    margin-bottom: 20px; max-width: 640px;
+  }
+  .protocol-steps {
+    list-style: none;
+    margin: 0; padding: 0;
+    counter-reset: step;
+  }
+  .protocol-steps li {
+    position: relative;
+    padding-left: 40px;
+    margin-bottom: 16px;
+    counter-increment: step;
+  }
+  .protocol-steps li:last-child { margin-bottom: 0; }
+  .protocol-steps li::before {
+    content: counter(step);
+    position: absolute; left: 0; top: 0;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: rgba(139,124,248,.16);
+    border: 1px solid rgba(139,124,248,.36);
+    color: var(--purple);
+    font-family: var(--mono); font-weight: 700; font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+    line-height: 1;
+  }
+  .protocol-step-h {
+    font-family: var(--display); font-weight: 600;
+    font-size: 15.5px; color: var(--text);
+    margin-bottom: 4px;
+    line-height: 1.35;
+  }
+  .protocol-steps li p {
+    color: var(--muted2); font-size: 13.5px; line-height: 1.65;
+    margin: 0;
+  }
+  @media (max-width: 560px) {
+    .protocol-card { padding: 20px 18px; }
+    .protocol-steps li { padding-left: 36px; }
+  }
+
   .plt { width: 100%; min-height: 380px; }
 </style>
 </head>
@@ -49,6 +119,41 @@
     6-minute, and 12-minute all-outs — and we'll estimate your VLamax,
     VO₂max, and the full metabolic profile that follows from them.
   </p>
+
+  <div class="protocol-card">
+    <div class="protocol-card-eyebrow">◆ Before you start</div>
+    <h3 class="protocol-card-title">How to run your <em>time trials</em></h3>
+    <p class="protocol-card-sub">
+      Four maximum-effort time trials — one each at 15 s, 3 min, 6 min,
+      and 12 min. Get these right and the profile follows.
+    </p>
+    <ol class="protocol-steps">
+      <li>
+        <div class="protocol-step-h">Warm up — 10 to 15 minutes minimum</div>
+        <p>Easy spinning or jogging until you feel the system fully open up. A cold start blunts power and skews every downstream number.</p>
+      </li>
+      <li>
+        <div class="protocol-step-h">Maximum effort — race it</div>
+        <p>Each interval is an all-out time trial. Hold nothing back for "the next one." If you have anything left at the line, you didn't go hard enough.</p>
+      </li>
+      <li>
+        <div class="protocol-step-h">Spread the four across separate days</div>
+        <p>Doing all four back-to-back compromises every one of them. One effort per session — same week is fine; same day is not.</p>
+      </li>
+      <li>
+        <div class="protocol-step-h">Test fresh, not stale</div>
+        <p>Each test on a rested day — not directly after a hard workout, long run, or heavy lift. Good sleep plus 24+ hours of easy / off training before each one.</p>
+      </li>
+      <li>
+        <div class="protocol-step-h">No ergogenic stacks</div>
+        <p>Skip the bicarb, beta-alanine loading, race-day caffeine megadoses, etc. Use only what you'd take on any normal workout day — otherwise the resulting profile reflects an enhanced state you can't replicate in training.</p>
+      </li>
+      <li>
+        <div class="protocol-step-h">Enter your four efforts below</div>
+        <p>Once all four are in, the calculator returns your VO₂max, VLamax, MLSS, training zones, and the full metabolic profile.</p>
+      </li>
+    </ol>
+  </div>
 
   <div class="accuracy-banner">
     <h3>⚠ This is an estimate, not a measurement.</h3>

@@ -707,14 +707,16 @@ function zoneTableHtml(title, rows, sport, opts) {
   const showAlt = sport === 'running' && altitude_m > 800 && mlss_speed > 0;
 
   const fmtRange = (lo, hi) => {
+    const loDef = !(lo === 0 || !isFinite(lo));
+    const hiDef = isFinite(hi);
     if (sport === 'cycling') {
-      const a = (lo === 0 || !isFinite(lo)) ? '0' : Math.round(lo) + ' W';
-      const b = isFinite(hi) ? Math.round(hi) + ' W' : '∞';
-      return a + ' – ' + b;
+      if (!loDef && hiDef) return 'less than ' + Math.round(hi) + ' W';
+      if (loDef && !hiDef) return 'more than ' + Math.round(lo) + ' W';
+      return Math.round(lo) + ' – ' + Math.round(hi) + ' W';
     }
-    const a = (lo === 0 || !isFinite(lo)) ? '—' : fmt.pace(lo);
-    const b = isFinite(hi) ? fmt.pace(hi) : '—';
-    return a + ' – ' + b;
+    if (!loDef && hiDef) return 'slower than ' + fmt.pace(hi);
+    if (loDef && !hiDef) return 'faster than ' + fmt.pace(lo);
+    return fmt.pace(lo) + ' – ' + fmt.pace(hi);
   };
 
   // Altitude-adjusted speed for a given sea-level boundary speed.
@@ -726,11 +728,11 @@ function zoneTableHtml(title, rows, sport, opts) {
     return v * altitudeFactor(altitude_m, xRel);
   };
   const fmtAltRange = (lo, hi) => {
-    const aS = altSpeed(lo);
-    const bS = altSpeed(hi);
-    const a = (lo === 0 || !isFinite(lo)) ? '—' : fmt.pace(aS);
-    const b = isFinite(hi) ? fmt.pace(bS) : '—';
-    return a + ' – ' + b;
+    const loDef = !(lo === 0 || !isFinite(lo));
+    const hiDef = isFinite(hi);
+    if (!loDef && hiDef) return 'slower than ' + fmt.pace(altSpeed(hi));
+    if (loDef && !hiDef) return 'faster than ' + fmt.pace(altSpeed(lo));
+    return fmt.pace(altSpeed(lo)) + ' – ' + fmt.pace(altSpeed(hi));
   };
 
   const altHeaderCell = showAlt ? '<th>At ' + Math.round(altitude_m) + ' m</th>' : '';
