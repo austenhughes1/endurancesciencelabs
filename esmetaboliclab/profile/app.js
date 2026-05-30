@@ -11,6 +11,7 @@
 
 import { getMetabolicProfile } from '../js/lib/mader/index.js';
 import { computeVLamax } from '../js/lib/mader/sprint.js';
+import { altitudeFactor } from '../js/lib/mader/constants.js';
 import { generateZones } from '../js/ui/zones.js';
 import { minPerKmToPaceString, paceStringToMinPerKm, speedToPaceString } from '../js/lib/mader/sport.js';
 import { paceInputHTML, wirePaceInputs, readPaceMps, getDefaultPaceUnit, setDefaultPaceUnit } from '../js/ui/pace-input.js';
@@ -45,6 +46,7 @@ const state = {
   sex: 'M',
   sport: 'running',
   bodyMass: 70,
+  altitude_m: 0,          // testing altitude; running paces corrected to sea level above 800 m
   VLamax: null,           // set after Firestore load
   VLamax_measured_at: null,
   VLamax_inputs: null,    // {La_pre, La_peak_post, duration_s, t_PCr_s}
@@ -239,15 +241,30 @@ document.querySelectorAll('input[name=sex]').forEach(r => r.addEventListener('ch
 document.querySelectorAll('input[name=sport]').forEach(r => r.addEventListener('change', e => {
   state.sport = e.target.value;
   renderIntensityHeader();
+  toggleAltitudeField();
   renderStages();
 }));
 $('#bodyMass').addEventListener('input', e => state.bodyMass = +e.target.value);
+
+const altInput = document.getElementById('altitude');
+if (altInput) altInput.addEventListener('input', (e) => {
+  const v = parseFloat(e.target.value);
+  state.altitude_m = isFinite(v) && v > 0 ? v : 0;
+});
 
 function renderIntensityHeader() {
   const h = document.getElementById('intensity-header');
   if (h) h.textContent = state.sport === 'cycling' ? 'Power (W)' : 'Pace';
 }
 renderIntensityHeader();
+
+// Altitude correction only applies to running paces (cycling power is
+// altitude-neutral), so hide the field for cycling.
+function toggleAltitudeField() {
+  const f = document.getElementById('altitude-field');
+  if (f) f.style.display = state.sport === 'running' ? '' : 'none';
+}
+toggleAltitudeField();
 
 /* ───────── Step 2: stages table ───────── */
 
@@ -350,6 +367,44 @@ renderStages();
 
 /* ───────── Run profile ───────── */
 
+const buildSteps = (stages) => stages.map((s) => ({
+  intensity: s.intensity, durationMin: s.durationMin, lactate: s.lactate,
+}));
+
+const runProfile = (stages) => getMetabolicProfile({
+  sport: state.sport, sex: state.sex, bodyMass: state.bodyMass,
+  VLamax: state.VLamax, steps: buildSteps(stages),
+});
+
+/*
+ * Convert altitude-measured running paces into their sea-level equivalents
+ * (same lactate, faster pace) before the curve is fit, so VO₂max / MLSS /
+ * zones come out as sea-level numbers — consistent with the power-profile
+ * tool, which does the same via effortsToSeaLevel().
+ *
+ * Uses the shared, literature-anchored altitudeFactor model (Faulkner 1968 /
+ * Wagner 2000 VO₂max decrement; Daniels & Gilbert 1979 intensity scaling).
+ * Unlike the power profile — whose three efforts all sit near VO₂max effort,
+ * so it applies a flat x=1.15 factor — a step test spans easy→max, so each
+ * stage gets an intensity-scaled factor keyed to its own relative intensity
+ * (pace / MLSS): easy stages are corrected less than threshold stages, exactly
+ * as the Daniels conversion tables prescribe.
+ *
+ * Cycling power and the alactic sprint (VLamax) are altitude-neutral and pass
+ * through unchanged.
+ */
+function stagesToSeaLevel(stages) {
+  if (state.sport !== 'running' || !(state.altitude_m > 800)) return stages;  // 800 m = ALTITUDE.threshold_m
+  // First pass at the measured paces just locates MLSS, which sets the
+  // relative-intensity each stage's correction is keyed to.
+  const mlss = runProfile(stages).mlss.intensity;
+  if (!(mlss > 0)) return stages;
+  return stages.map((s) => {
+    const f = altitudeFactor(state.altitude_m, s.intensity / mlss);  // ≤ 1
+    return f < 1 ? Object.assign({}, s, { intensity: s.intensity / f }) : s;
+  });
+}
+
 $('#run').addEventListener('click', () => {
   if (!state.VLamax) {
     alert('VLamax not set — go back to step 2 and save your sprint inputs.');
@@ -357,17 +412,10 @@ $('#run').addEventListener('click', () => {
     return;
   }
   try {
-    state.profile = getMetabolicProfile({
-      sport: state.sport,
-      sex: state.sex,
-      bodyMass: state.bodyMass,
-      VLamax: state.VLamax,
-      steps: state.stages.map(s => ({
-        intensity: s.intensity,
-        durationMin: s.durationMin,
-        lactate: s.lactate,
-      })),
-    });
+    const fitStages = stagesToSeaLevel(state.stages);
+    state.fitStages = fitStages;
+    state.altitudeCorrected = fitStages !== state.stages;
+    state.profile = runProfile(fitStages);
     renderResults();
     gotoStep(4);
   } catch (e) {
@@ -422,6 +470,17 @@ function renderResults() {
     warnHtml = p.diagnostics.warnings.map(w => '<div class="warn">⚠ ' + w + '</div>').join('');
   }
 
+  let altHtml = '';
+  if (state.altitudeCorrected) {
+    altHtml = '<div class="info">Altitude correction: your step-test paces were measured at '
+            + '<strong>' + Math.round(state.altitude_m) + ' m</strong> and converted to sea-level equivalents '
+            + '(same lactate, faster pace) before fitting — so VO₂max, MLSS, and zones above are sea-level '
+            + 'values, comparable to a sea-level test and to the power-profile tool. The correction is '
+            + 'intensity-scaled (smaller for easy stages, larger near threshold) per the Daniels &amp; Gilbert '
+            + '1979 conversion tables and Faulkner 1968 / Wagner 2000 VO₂max decrement. The 15-second sprint '
+            + 'that sets VLamax is alactic and altitude-neutral, so it passes through unchanged.</div>';
+  }
+
   const zones = generateZones(sport, { MLSS_intensity: p.mlss.intensity, LT1_intensity: p.lt1.intensity });
   let zonesHtml = '';
   if (zones.coggan) zonesHtml += zoneTableHtml('Coggan 7-zone (cycling)', zones.coggan, sport);
@@ -441,6 +500,7 @@ function renderResults() {
     profileGuideHtml(sport) +
     paceTogglePillHtml +
     '<div class="metric-grid">' + metricsHtml + '</div>' +
+    altHtml +
     '<div class="report-actions">' +
       '<button class="btn-download-report" id="export-pdf-big" type="button">' +
         '<span class="bdr-icon">⬇</span>' +
@@ -572,7 +632,9 @@ function educationHtml() {
 
 function drawCharts(p) {
   const opts = { paceUnit: getDefaultPaceUnit() };
-  drawLactateChart('chart-lactate', p, state.sport, state.stages, opts);
+  // Overlay the stages that were actually fit (sea-level equivalents when an
+  // altitude correction was applied) so the dots sit on the fitted curve.
+  drawLactateChart('chart-lactate', p, state.sport, state.fitStages || state.stages, opts);
   drawSubstrateChart('chart-substrate', p, state.sport, opts);
 }
 
@@ -595,11 +657,12 @@ async function triggerPdfExport(btn) {
   }
   try {
     await downloadStepTestReport({
-      profile:  state.profile,
-      sport:    state.sport,
-      stages:   state.stages,
-      bodyMass: state.bodyMass,
-      sex:      state.sex,
+      profile:     state.profile,
+      sport:       state.sport,
+      stages:      state.fitStages || state.stages,
+      bodyMass:    state.bodyMass,
+      sex:         state.sex,
+      altitude_m:  state.altitude_m || 0,
     });
   } catch (e) {
     console.error('PDF export failed:', e);
