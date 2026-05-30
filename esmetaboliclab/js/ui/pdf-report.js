@@ -164,6 +164,10 @@ function drawMetricsTable(doc, y, rows) {
   var noteW  = PAGE_W - MARGINS.right - noteX;
   var lineH  = 4;
   var pad    = 5;  // top + bottom padding per row
+  var LABEL_FS = 9, VALUE_FS = 13, NOTE_FS = 8.5;
+  // Cap height in mm for a pt font size (helvetica cap ≈ 0.7 em; 1pt = 0.3528mm).
+  // Used to center each element on a shared row baseline regardless of its size.
+  function capMm(fs) { return fs * 0.7 * 0.352778; }
 
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i];
@@ -172,50 +176,52 @@ function drawMetricsTable(doc, y, rows) {
     // this means dsplit measures at whatever font size leaked in from the
     // previous block — e.g. the 15pt section title — and wraps the note
     // way too aggressively.)
-    doc.setFontSize(8.5);
+    doc.setFontSize(NOTE_FS);
     doc.setFont('helvetica', 'normal');
     var noteLines = r.note ? dsplit(doc, r.note, noteW) : [];
-    var noteHeight = Math.max(lineH, noteLines.length * lineH);
-    var rowHeight = Math.max(9, noteHeight + pad);
+    var nN = noteLines.length;
+
+    // Row height fits the taller of the value glyph or the (possibly wrapped)
+    // note block, plus padding. The whole row is then a band we vertically
+    // center every element within.
+    var noteBlockH = nN > 0 ? ((nN - 1) * lineH + capMm(NOTE_FS)) : 0;
+    var contentH = Math.max(capMm(VALUE_FS), noteBlockH);
+    var rowHeight = Math.max(9, contentH + pad);
     y = ensure(doc, y, rowHeight + 2);
 
-    // Vertical centering: when the note wraps to N lines, push label + value
-    // down by half the extra height so they sit centered against the note
-    // block instead of pinned to the top.
-    var centerOffset = noteLines.length > 1
-      ? ((noteLines.length - 1) * lineH) / 2
-      : 0;
+    var top = y;
+    var centerY = top + rowHeight / 2;   // shared vertical center for the row
 
-    // Optional colored dot accent — also follows the centered baseline.
+    // Each text element's baseline is offset below the row center by half its
+    // own cap height, so label, value, and note sit on a common center line
+    // instead of a shared baseline (which made the small label/note read low).
     if (r.accent) {
       setFill(doc, r.accent);
-      doc.circle(labelX - 2, y - 1.5 + centerOffset, 1.3, 'F');
+      doc.circle(labelX - 2, centerY, 1.3, 'F');
     }
     setText(doc, MUTED);
-    doc.setFontSize(9);
+    doc.setFontSize(LABEL_FS);
     doc.setFont('helvetica', 'bold');
-    dtext(doc, sanitize(r.label).toUpperCase(), labelX + 1, y + centerOffset);
+    dtext(doc, sanitize(r.label).toUpperCase(), labelX + 1, centerY + capMm(LABEL_FS) / 2);
 
     setText(doc, BODY);
-    doc.setFontSize(13);
+    doc.setFontSize(VALUE_FS);
     doc.setFont('helvetica', 'bold');
-    dtext(doc, String(r.value), valueX, y + centerOffset);
+    dtext(doc, String(r.value), valueX, centerY + capMm(VALUE_FS) / 2);
 
-    if (noteLines.length) {
+    if (nN) {
       setText(doc, MUTED);
-      doc.setFontSize(8.5);
+      doc.setFontSize(NOTE_FS);
       doc.setFont('helvetica', 'normal');
-      var ny = y;
-      for (var j = 0; j < noteLines.length; j++) {
+      // Center the whole note block on centerY, then step line by line.
+      var ny = centerY + capMm(NOTE_FS) / 2 - ((nN - 1) * lineH) / 2;
+      for (var j = 0; j < nN; j++) {
         doc.text(noteLines[j], noteX, ny);  // already sanitized via dsplit
         ny += lineH;
       }
     }
 
-    y += rowHeight;
-    setDraw(doc, SUBTLE);
-    doc.setLineWidth(0.2);
-    doc.line(labelX, y - 3, PAGE_W - MARGINS.right, y - 3);
+    y = top + rowHeight;
   }
   return y + 4;
 }
