@@ -429,6 +429,67 @@ function drawCtaBox(doc, y, title, body) {
   return y + boxH + 4;
 }
 
+// Plain-English guide to the five headline metrics — mirrors the on-screen
+// "Your numbers, in plain English" card. Each entry: everyday name + small
+// lab term, what the number is, and how to actually train with it. Accent
+// dots tie each row back to the metrics table above.
+function drawPlainGuide(doc, y, sport) {
+  var longEffort = sport === 'cycling' ? 'long-ride' : 'long-run';
+  var rows = [
+    { name: 'Aerobic engine', tech: 'VO2max', accent: ACCENT,
+      what: 'The size of your endurance engine — the most oxygen your body can use.',
+      use:  'Your fitness ceiling. Watch this climb as your training pays off.' },
+    { name: 'Sprint power', tech: 'VLamax', accent: [255, 107, 53],
+      what: 'How fast you fire up your sprint gears (the ones that burn sugar, not fat).',
+      use:  'A big one means a strong kick — but it drains fuel fast. Endurance work tames it.' },
+    { name: 'Race redline', tech: 'MLSS / threshold', accent: GOOD,
+      what: 'The hardest pace you can hold for about an hour without blowing up.',
+      use:  'Your long-race pace. Tempo and threshold workouts belong right here.' },
+    { name: 'Easy-day limit', tech: 'LT1', accent: ACCENT,
+      what: 'The fastest your easy days should ever feel.',
+      use:  'Keep most of your week below this — easy days truly easy is what makes you faster.' },
+    { name: 'Fat-burning sweet spot', tech: 'Fatmax', accent: GOLD,
+      what: 'The effort where you burn the most fat for fuel.',
+      use:  'Your ' + longEffort + ' / base pace — builds endurance and saves limited carbs for race day.' },
+  ];
+  var indent = MARGINS.left + 5;
+  var textW  = CONTENT_W - 5;
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+
+    // Measure both wrapped blocks in the font they'll be drawn in.
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    var whatLines = dsplit(doc, r.what, textW);
+    var useLines  = dsplit(doc, 'How to use it: ' + r.use, textW);
+    var blockH = 5 + whatLines.length * 4 + useLines.length * 4 + 4;
+    y = ensure(doc, y, blockH + 2);
+
+    // Accent dot + everyday name (lab term in parentheses).
+    setFill(doc, r.accent);
+    doc.circle(MARGINS.left, y - 1.4, 1.3, 'F');
+    setText(doc, BODY);
+    doc.setFontSize(10.5);
+    doc.setFont('helvetica', 'bold');
+    dtext(doc, r.name + '  (' + r.tech + ')', indent, y);
+    y += 5;
+
+    // What it is.
+    setText(doc, [80, 80, 100]);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    for (var a = 0; a < whatLines.length; a++) { doc.text(whatLines[a], indent, y); y += 4; }
+
+    // How to use it.
+    setText(doc, ACCENT_ALT);
+    doc.setFont('helvetica', 'italic');
+    for (var b = 0; b < useLines.length; b++) { doc.text(useLines[b], indent, y); y += 4; }
+
+    y += 4;
+  }
+  return y + 2;
+}
+
 // ── Public API ───────────────────────────────────────────────────
 
 export async function downloadStepTestReport(params) {
@@ -582,6 +643,9 @@ export async function downloadPowerProfileReport(params) {
     { label: 'Fatmax', value: fmtIntensity(sport, p.fatmax.intensity), accent: GOLD,
       note: 'Where fat-burning peaks · ' + fmtG(p.fatmax.fat_g_per_min) + ' at ' + fmtPct(p.fatmax.x) },
   ]);
+
+  y = drawSectionTitle(doc, y, 'What your numbers mean — and how to train with them');
+  y = drawPlainGuide(doc, y, sport);
 
   y = await drawSectionWithChart(doc, y,
     'Lactate response across intensities',
