@@ -769,6 +769,41 @@ table.stages td input { padding: 6px 10px; font-size: 14px; }
 }
 .metric-note  { font-size: 11px; color: var(--muted2); margin-top: 6px; line-height: 1.4; font-family: var(--mono); letter-spacing: .2px; }
 
+/* ── Plain-English profile guide — prominent card atop Active profile ── */
+.profile-guide {
+  margin: 0 0 24px;
+  padding: 26px 28px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(0,229,200,.11), rgba(139,124,248,.05));
+  border: 1px solid rgba(0,229,200,.32);
+  box-shadow: 0 0 0 1px rgba(0,229,200,.04), 0 8px 30px rgba(0,0,0,.25);
+}
+.profile-guide-eyebrow {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--cyan); font-family: var(--mono);
+  background: rgba(0,229,200,.14); border: 1px solid rgba(0,229,200,.30);
+  border-radius: 16px; padding: 4px 12px; margin-bottom: 14px;
+}
+.profile-guide h3 {
+  font-family: var(--display); font-weight: 700;
+  font-size: clamp(20px, 2.6vw, 26px); line-height: 1.2; letter-spacing: -.4px;
+  margin-bottom: 20px; color: var(--text);
+}
+.pg-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
+.pg-list li {
+  display: grid; gap: 3px;
+  padding-left: 14px; border-left: 2px solid rgba(0,229,200,.40);
+}
+.pg-name { font-family: var(--body); font-size: 15px; font-weight: 700; color: var(--text); }
+.pg-name em {
+  font-style: normal; font-family: var(--mono); font-size: 11px; font-weight: 600;
+  color: var(--muted2); letter-spacing: .3px;
+}
+.pg-what { font-size: 14px; color: var(--muted2); line-height: 1.55; }
+.pg-use  { font-size: 13.5px; color: var(--cyan); line-height: 1.5; }
+@media (max-width: 560px) { .profile-guide { padding: 22px 18px; } }
+
 .chart-block { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 18px; }
 .chart-title { font-family: var(--display); font-size: 18px; font-weight: 600; margin-bottom: 4px; }
 .chart-sub   { color: var(--muted2); font-size: 13px; margin-bottom: 14px; }
