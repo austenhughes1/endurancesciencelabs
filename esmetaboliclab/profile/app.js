@@ -21,6 +21,7 @@ import { wireSprintProtocolTriggers } from '../js/ui/how-to-sprint-test.js';
 import { drawLactateChart, drawSubstrateChart } from '../js/ui/charts.js';
 import { downloadStepTestReport } from '../js/ui/pdf-report.js';
 import { profileGuideHtml } from '../js/ui/profile-guide.js';
+import { showConfirmModal } from '../js/ui/confirm-modal.js';
 
 // Wire the page-level protocol buttons.
 wireHowToMeasureTriggers();
@@ -59,7 +60,12 @@ const state = {
     { intensity: 4.47, durationMin: 5, lactate: 7.5, hr: '' },
   ],
   profile: null,
+  sessions: [],            // saved lactate tests, newest-last
+  activeSessionId: null,   // test currently being viewed/edited; re-running updates it
 };
+
+// Pristine copy of the default stages, used to reset for a brand-new test.
+const DEFAULT_STAGES = state.stages.map((s) => Object.assign({}, s));
 
 /* ───────── Helpers ───────── */
 
@@ -85,11 +91,11 @@ function renderVLamaxStep() {
   const savedSummary = hasSaved
     ? '<div class="vlc-summary" style="margin-bottom:18px">' +
         '<div class="vlc-meta">' +
-          '<div class="vlc-pill">◈ Saved VLamax on file</div>' +
+          '<div class="vlc-pill">◈ Current VLamax</div>' +
           '<div class="vlc-val">' + state.VLamax.toFixed(3) +
             ' <span class="vlc-unit">mmol·L⁻¹·s⁻¹</span></div>' +
-          '<div class="vlc-date">Saved ' + fmtDate(state.VLamax_measured_at) +
-            ' — edit the sprint values below to update it, or keep the inputs as-is and continue.</div>' +
+          '<div class="vlc-date">From your most recent test · measured ' + fmtDate(state.VLamax_measured_at) +
+            ' — keep it for this test, or enter a new sprint below. It saves with the step test as one session.</div>' +
         '</div>' +
       '</div>'
     : '';
@@ -144,12 +150,12 @@ function recalcLive() {
     '</div>';
 }
 
-// "Save & continue" advances the wizard. If the sprint inputs match the
-// already-saved values exactly, skip the Firestore write — otherwise persist
-// the new VLamax and proceed to the step-test stage.
-async function saveAndContinueVLamax() {
-  const user = window.__esml && window.__esml.user;
-  if (!user) { alert('Sign in required.'); return; }
+// Advance from the sprint step. VLamax is part of the session and is persisted
+// together with the step test on "Run" (autoSaveSession) — so this just
+// validates the sprint, captures it into state, and moves on. No standalone
+// write. If the sprint inputs changed from what was loaded, stamp a fresh
+// measurement date for this test.
+function continueFromVLamax() {
   const inputs = readVLamaxInputs();
   const r = computeVLamax(inputs);
   if (!isFinite(r.VLamax) || r.glycolytic_time_s <= 0) {
@@ -161,37 +167,17 @@ async function saveAndContinueVLamax() {
     return;
   }
 
-  const sameAsSaved = state.VLamax_inputs
+  const sameAsBefore = state.VLamax_inputs
     && state.VLamax_inputs.La_pre       === inputs.La_pre
     && state.VLamax_inputs.La_peak_post === inputs.La_peak_post
     && state.VLamax_inputs.duration_s   === inputs.duration_s
     && state.VLamax_inputs.t_PCr_s      === inputs.t_PCr_s;
-
-  const btn = $('#vlamax-next');
-  const origLabel = btn.textContent;
-  btn.disabled = true; btn.textContent = 'Saving…';
-  try {
-    if (!sameAsSaved) {
-      const db = firebase.firestore();
-      await db.collection('users').doc(user.uid).set(
-        { esmetlab: { vlamax: {
-          value: r.VLamax,
-          measured_at: firebase.firestore.FieldValue.serverTimestamp(),
-          inputs: inputs,
-        } } },
-        { merge: true }
-      );
-      state.VLamax_measured_at = new Date();
-      state.VLamax_inputs = inputs;
-    }
-    state.VLamax = r.VLamax;
-    gotoStep(3);
-  } catch (e) {
-    console.error('VLamax save failed:', e);
-    alert('Save failed: ' + e.message);
-  } finally {
-    btn.disabled = false; btn.textContent = origLabel;
+  if (!sameAsBefore) {
+    state.VLamax_inputs = inputs;
+    state.VLamax_measured_at = new Date();   // freshly measured for this test
   }
+  state.VLamax = r.VLamax;
+  gotoStep(3);
 }
 
 async function loadVLamax(user) {
@@ -199,16 +185,21 @@ async function loadVLamax(user) {
     const db = firebase.firestore();
     const doc = await db.collection('users').doc(user.uid).get();
     const data = doc.exists ? doc.data() : null;
-    const v = data && data.esmetlab && data.esmetlab.vlamax;
-    if (v && typeof v.value === 'number') {
-      state.VLamax = v.value;
-      state.VLamax_measured_at = v.measured_at || null;
-      state.VLamax_inputs = v.inputs || null;
+    const esml = (data && data.esmetlab) || {};
+    state.sessions = Array.isArray(esml.lactateSessions) ? esml.lactateSessions.slice() : [];
+    // VLamax default for a NEW test: carry over the most recent saved session's
+    // sprint (VLamax + step test are one session). Fall back to a legacy
+    // standalone VLamax doc for accounts created before sessions existed.
+    if (!applyLatestSessionVLamax() && esml.vlamax && typeof esml.vlamax.value === 'number') {
+      state.VLamax = esml.vlamax.value;
+      state.VLamax_inputs = esml.vlamax.inputs || null;
+      state.VLamax_measured_at = esml.vlamax.measured_at || null;
     }
   } catch (e) {
-    console.error('Failed to load saved VLamax:', e);
+    console.error('Failed to load saved tests:', e);
   }
   renderVLamaxStep();
+  renderSavedTests();
 }
 
 window.addEventListener('esml-auth', (ev) => loadVLamax(ev.detail.user));
@@ -218,7 +209,7 @@ if (window.__esml && window.__esml.user) loadVLamax(window.__esml.user);
 renderVLamaxStep();
 
 const vlamaxNextBtn = $('#vlamax-next');
-if (vlamaxNextBtn) vlamaxNextBtn.addEventListener('click', saveAndContinueVLamax);
+if (vlamaxNextBtn) vlamaxNextBtn.addEventListener('click', continueFromVLamax);
 
 /* ───────── Step navigation ───────── */
 
@@ -405,7 +396,7 @@ function stagesToSeaLevel(stages) {
   });
 }
 
-$('#run').addEventListener('click', () => {
+$('#run').addEventListener('click', async () => {
   if (!state.VLamax) {
     alert('VLamax not set — go back to step 2 and save your sprint inputs.');
     gotoStep(2);
@@ -418,11 +409,217 @@ $('#run').addEventListener('click', () => {
     state.profile = runProfile(fitStages);
     renderResults();
     gotoStep(4);
+    await autoSaveSession(state.profile);   // persist (new) or update the active test
   } catch (e) {
     alert('Profile run failed: ' + e.message);
     console.error(e);
   }
 });
+
+/* ───────── Saved tests (Firestore sessions) ─────────
+ *
+ * Stored at users/{uid}.esmetlab.lactateSessions[] — newest-last, kept
+ * separate from .vlamax and the power-profile .powerProfiles[]. Tests
+ * auto-save on every run: a fresh run creates a new record, and re-running
+ * while a saved test is loaded UPDATES that same record (so the athlete can
+ * tweak data without spawning duplicates). Stages are stored as measured
+ * (altitude paces); the sea-level correction is re-applied on replay.
+ */
+
+function generateId() {
+  return 'l_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+}
+
+// Set the default VLamax (for a new test) from the most recent saved session.
+// Returns true if a session VLamax was applied.
+function applyLatestSessionVLamax() {
+  const latest = state.sessions[state.sessions.length - 1];
+  if (!latest || !latest.inputs || typeof latest.inputs.VLamax !== 'number') return false;
+  state.VLamax = latest.inputs.VLamax;
+  state.VLamax_inputs = latest.inputs.VLamax_inputs || null;
+  state.VLamax_measured_at = latest.inputs.VLamax_measured_at || latest.measured_at || null;
+  return true;
+}
+
+function toTimestamp(v) {
+  if (!v) return null;
+  if (v.toDate) return v;                                  // already a Firestore Timestamp
+  try { return firebase.firestore.Timestamp.fromDate(new Date(v)); }
+  catch (e) { return null; }
+}
+
+function buildSessionRecord(profile) {
+  return {
+    inputs: {
+      sport: state.sport, sex: state.sex, bodyMass: state.bodyMass,
+      altitude_m: state.altitude_m || 0,
+      // VLamax sprint and step test are saved together as one session.
+      VLamax: state.VLamax,
+      VLamax_inputs: state.VLamax_inputs || null,
+      VLamax_measured_at: toTimestamp(state.VLamax_measured_at),
+      stages: state.stages.map((s) => ({
+        intensity: s.intensity, durationMin: s.durationMin,
+        lactate: s.lactate, hr: s.hr || '',
+      })),
+    },
+    derived: { VO2max: profile.VO2max, VLamax: profile.VLamax },
+  };
+}
+
+async function persistSessions() {
+  const user = window.__esml && window.__esml.user;
+  if (!user) throw new Error('Sign in required.');
+  await firebase.firestore().collection('users').doc(user.uid).set(
+    { esmetlab: { lactateSessions: state.sessions } }, { merge: true });
+}
+
+// Auto-save after a run: update the active test in place, or create a new one.
+async function autoSaveSession(profile) {
+  const user = window.__esml && window.__esml.user;
+  if (!user) return;                       // app is auth-gated, but fail safe
+  const now = firebase.firestore.Timestamp.now();
+  const record = buildSessionRecord(profile);
+  const idx = state.activeSessionId
+    ? state.sessions.findIndex((s) => s.id === state.activeSessionId) : -1;
+  if (idx >= 0) {
+    const prev = state.sessions[idx];
+    state.sessions[idx] = Object.assign({}, prev, record,
+      { id: prev.id, measured_at: prev.measured_at || now, updated_at: now });
+  } else {
+    const id = generateId();
+    state.activeSessionId = id;
+    state.sessions.push(Object.assign({ id, measured_at: now }, record));
+  }
+  try { await persistSessions(); }
+  catch (e) { console.error('Test save failed:', e); }
+  renderSavedTests();
+  updateSaveStatus();
+}
+
+async function deleteSession(id) {
+  const ok = await showConfirmModal({
+    title: 'Delete this test?',
+    body: 'This permanently removes the saved lactate test. This cannot be undone.',
+    confirmLabel: 'Delete', cancelLabel: 'Keep it', danger: true,
+  });
+  if (!ok) return;
+  state.sessions = state.sessions.filter((s) => s.id !== id);
+  if (state.activeSessionId === id) state.activeSessionId = null;
+  try { await persistSessions(); }
+  catch (e) { console.error(e); alert('Delete failed: ' + e.message); }
+  renderSavedTests();
+}
+
+// Load a saved test into the wizard, replay it, and show the results.
+function loadSession(id) {
+  const s = state.sessions.find((x) => x.id === id);
+  if (!s || !s.inputs) return;
+  const inp = s.inputs;
+  state.sport = inp.sport || 'running';
+  state.sex = inp.sex || 'M';
+  state.bodyMass = inp.bodyMass || 70;
+  state.altitude_m = inp.altitude_m || 0;
+  state.VLamax = inp.VLamax;
+  if (inp.VLamax_inputs) state.VLamax_inputs = inp.VLamax_inputs;
+  if (inp.VLamax_measured_at) state.VLamax_measured_at = inp.VLamax_measured_at;
+  state.stages = (inp.stages || []).map((st) => ({
+    intensity: st.intensity, durationMin: st.durationMin,
+    lactate: st.lactate, hr: st.hr || '',
+  }));
+  state.activeSessionId = id;
+  syncInputsToUI();
+  try {
+    const fitStages = stagesToSeaLevel(state.stages);
+    state.fitStages = fitStages;
+    state.altitudeCorrected = fitStages !== state.stages;
+    state.profile = runProfile(fitStages);
+    renderResults();
+    gotoStep(4);
+  } catch (e) {
+    alert('Could not load that test: ' + e.message);
+    console.error(e);
+  }
+}
+
+// Start a fresh test: clear the active record and reset the test-specific
+// inputs (stages, altitude). Athlete details and VLamax carry over.
+function newTest() {
+  state.activeSessionId = null;
+  state.stages = DEFAULT_STAGES.map((s) => Object.assign({}, s));
+  state.altitude_m = 0;
+  state.profile = null;
+  state.fitStages = null;
+  applyLatestSessionVLamax();   // default VLamax = most recent test's sprint
+  syncInputsToUI();
+  gotoStep(1);
+}
+
+// Push current state back into the Step 1/3 form controls.
+function syncInputsToUI() {
+  document.querySelectorAll('input[name=sex]').forEach((r) => { r.checked = (r.value === state.sex); });
+  document.querySelectorAll('input[name=sport]').forEach((r) => { r.checked = (r.value === state.sport); });
+  const bm = $('#bodyMass'); if (bm) bm.value = state.bodyMass;
+  const alt = document.getElementById('altitude'); if (alt) alt.value = state.altitude_m || 0;
+  renderIntensityHeader();
+  toggleAltitudeField();
+  renderStages();
+  renderVLamaxStep();
+}
+
+function sessionCardHTML(s) {
+  const d = s.derived || {};
+  const inp = s.inputs || {};
+  const isActive = s.id === state.activeSessionId;
+  const activePill = isActive ? '<span class="latest-pill">Viewing</span>' : '';
+  const sport = inp.sport || 'running';
+  const nStages = (inp.stages || []).length;
+  const meta = (sport === 'cycling' ? 'Cycling' : 'Running') + ' · ' + nStages + ' stages'
+    + (inp.altitude_m > 0 ? ' · ' + Math.round(inp.altitude_m) + ' m' : '');
+  return '<div class="sess-card ' + (isActive ? 'latest' : '') + '" data-session-load="' + s.id + '" style="cursor:pointer">' +
+    '<button type="button" class="sess-delete" data-session-delete="' + s.id + '" title="Delete this test" aria-label="Delete this test">Delete</button>' +
+    '<div><div class="sess-card-date">' + fmtDate(s.measured_at) + ' ' + activePill + '</div></div>' +
+    '<div style="text-align:right">' +
+      '<div style="font-family:var(--display);font-size:18px;font-weight:700;color:var(--text);line-height:1.1">VO₂max ' +
+        (d.VO2max ?? 0).toFixed(1) + ' <span style="font-family:var(--mono);font-size:10px;color:var(--muted2);font-weight:400">mL/min/kg</span></div>' +
+      '<div style="font-family:var(--display);font-size:14px;font-weight:600;color:var(--muted2);margin-top:2px">VLamax ' +
+        (d.VLamax ?? 0).toFixed(3) + '</div>' +
+    '</div>' +
+    '<div class="sess-card-meta">' + meta + '</div>' +
+  '</div>';
+}
+
+function renderSavedTests() {
+  const root = document.getElementById('saved-tests-root');
+  if (!root) return;
+  if (!state.sessions.length) { root.innerHTML = ''; return; }
+  const reversed = [...state.sessions].reverse();
+  root.innerHTML =
+    '<div class="panel" style="margin-bottom:18px">' +
+      '<div class="sess-panel-h">' +
+        '<div class="panel-h">Your saved tests</div>' +
+        '<button type="button" class="btn primary" id="new-test-btn" style="padding:9px 18px;font-size:13px">+ New test</button>' +
+      '</div>' +
+      '<div class="sess-list">' + reversed.map(sessionCardHTML).join('') + '</div>' +
+      '<div class="sess-foot">Click a test to view it. Editing the inputs and re-running updates that same test; use “+ New test” to start a fresh one.</div>' +
+    '</div>';
+  root.querySelectorAll('[data-session-load]').forEach((el) =>
+    el.addEventListener('click', () => loadSession(el.dataset.sessionLoad)));
+  root.querySelectorAll('[data-session-delete]').forEach((btn) =>
+    btn.addEventListener('click', (e) => { e.stopPropagation(); deleteSession(btn.dataset.sessionDelete); }));
+  const nb = document.getElementById('new-test-btn');
+  if (nb) nb.addEventListener('click', newTest);
+}
+
+function updateSaveStatus() {
+  const el = document.getElementById('save-status');
+  if (!el) return;
+  const s = state.activeSessionId && state.sessions.find((x) => x.id === state.activeSessionId);
+  if (!s) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  el.innerHTML = '✓ Saved to <strong>Your saved tests</strong>'
+    + (s.updated_at ? ' (updated)' : '')
+    + '. It’s listed on the Athlete step — edit any input and re-run to update this same test.';
+}
 
 /* ───────── Results renderer ───────── */
 
@@ -501,6 +698,7 @@ function renderResults() {
     paceTogglePillHtml +
     '<div class="metric-grid">' + metricsHtml + '</div>' +
     altHtml +
+    '<div id="save-status" class="info" style="display:none"></div>' +
     '<div class="report-actions">' +
       '<button class="btn-download-report" id="export-pdf-big" type="button">' +
         '<span class="bdr-icon">⬇</span>' +
@@ -538,6 +736,7 @@ function renderResults() {
   const bigBtn = $('#export-pdf-big');
   if (bigBtn) bigBtn.addEventListener('click', () => triggerPdfExport(bigBtn));
 
+  updateSaveStatus();
   drawCharts(p);
 }
 
