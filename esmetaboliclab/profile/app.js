@@ -19,6 +19,7 @@ import { wireStepTestTriggers }    from '../js/ui/how-to-step-test.js';
 import { wireSprintProtocolTriggers } from '../js/ui/how-to-sprint-test.js';
 import { drawLactateChart, drawSubstrateChart } from '../js/ui/charts.js';
 import { downloadStepTestReport } from '../js/ui/pdf-report.js';
+import { profileGuideHtml } from '../js/ui/profile-guide.js';
 
 // Wire the page-level protocol buttons.
 wireHowToMeasureTriggers();
@@ -437,6 +438,7 @@ function renderResults() {
     : '';
 
   $('#results-root').innerHTML =
+    profileGuideHtml(sport) +
     paceTogglePillHtml +
     '<div class="metric-grid">' + metricsHtml + '</div>' +
     '<div class="report-actions">' +
