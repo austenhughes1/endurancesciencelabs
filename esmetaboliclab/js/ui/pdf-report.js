@@ -531,6 +531,9 @@ export async function downloadStepTestReport(params) {
       note: 'Where fat-burning peaks · ' + fmtG(p.fatmax.fat_g_per_min) + ' at ' + fmtPct(p.fatmax.x) },
   ]);
 
+  y = drawSectionTitle(doc, y, 'What your numbers mean — and how to train with them');
+  y = drawPlainGuide(doc, y, sport);
+
   if (p.diagnostics && p.diagnostics.rmse !== undefined) {
     y = ensure(doc, y, 12);
     setText(doc, MUTED);
