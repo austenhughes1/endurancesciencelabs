@@ -859,7 +859,7 @@ function zoneTableHtml(title, rows, sport, opts) {
     return fmt.pace(altSpeed(lo)) + ' – ' + fmt.pace(altSpeed(hi));
   };
 
-  const altHeaderCell = showAlt ? '<th>At ' + Math.round(altitude_m) + ' m</th>' : '';
+  const altHeaderCell = showAlt ? '<th>At altitude</th>' : '';
   const altDataCell = (r) => showAlt
     ? '<td class="num" style="color:var(--muted2)">' + fmtAltRange(r.lo, r.hi) + '</td>'
     : '';
