@@ -101,13 +101,9 @@ function renderVLamaxStep() {
       '<label class="field"><span class="lab">Sprint duration (s)</span>' +
         '<input type="number" id="vlc-dur" step="1" min="10" max="30" value="' + inp.duration_s + '"></label>' +
     '</div>' +
-    '<details style="margin-top:8px"><summary style="cursor:pointer;color:var(--muted2);font-size:13px;font-family:var(--mono)">Advanced — phosphagen time</summary>' +
-      '<label class="field" style="max-width:280px;margin-top:10px"><span class="lab">Alactic time t_PCr (s)</span>' +
-      '<input type="number" id="vlc-tpcr" step="0.1" min="2" max="6" value="' + inp.t_PCr_s + '"></label>' +
-    '</details>' +
     '<div class="vlc-result" id="vlc-result"></div>';
 
-  ['vlc-la-pre','vlc-la-post','vlc-dur','vlc-tpcr'].forEach(id =>
+  ['vlc-la-pre','vlc-la-post','vlc-dur'].forEach(id =>
     $('#' + id).addEventListener('input', recalcLive)
   );
   recalcLive();
@@ -118,7 +114,7 @@ function readVLamaxInputs() {
     La_pre:        +$('#vlc-la-pre').value,
     La_peak_post:  +$('#vlc-la-post').value,
     duration_s:    +$('#vlc-dur').value,
-    t_PCr_s:       +$('#vlc-tpcr').value,
+    t_PCr_s:       DEFAULT_VL_INPUTS.t_PCr_s,   // fixed alactic time (3.5 s); not user-adjustable
   };
 }
 
