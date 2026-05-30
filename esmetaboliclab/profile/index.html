@@ -130,9 +130,15 @@
       </p>
 
       <label class="field" id="altitude-field" style="max-width:340px;margin-bottom:18px">
-        <span class="lab">Testing altitude (m) <span style="font-weight:400;text-transform:none">— optional</span></span>
-        <input type="number" id="altitude" step="50" min="0" max="5000" value="0" placeholder="0 (sea level)">
-        <span style="display:block;margin-top:6px;font-size:12px;color:var(--muted2);line-height:1.5">Above ~800&nbsp;m, paces are converted to sea-level equivalents before fitting, so VO₂max and zones match a sea-level test (Faulkner&nbsp;1968 / Daniels&nbsp;1979). Leave at 0 for sea level.</span>
+        <span class="lab">Testing altitude <span style="font-weight:400;text-transform:none">— optional</span></span>
+        <div class="pace-input">
+          <input type="number" class="pace-text" id="altitude" step="50" min="0" max="5000" placeholder="0">
+          <div class="unit-toggle-inline" data-alt-toggle role="tablist" aria-label="Altitude unit">
+            <button type="button" data-alt-unit="ft">ft</button>
+            <button type="button" data-alt-unit="m">m</button>
+          </div>
+        </div>
+        <span class="hint">Above ~800&nbsp;m / 2,600&nbsp;ft, paces are converted to sea-level equivalents before fitting, so VO₂max and zones match a sea-level test (Faulkner&nbsp;1968 / Daniels&nbsp;1979); the zone table also shows altitude-equivalent paces. Boulder ≈ 1650&nbsp;m, Denver ≈ 1600&nbsp;m.</span>
       </label>
 
       <table class="stages" id="stages">

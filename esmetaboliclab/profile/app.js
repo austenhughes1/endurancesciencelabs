@@ -40,6 +40,27 @@ const fmt = {
   pace:(v) => speedToPaceString(v, getDefaultPaceUnit()),
 };
 
+/* Altitude unit handling — canonical storage is metres; display unit (m | ft)
+   is per-user in localStorage, shared with the power-profile tool. */
+const FT_PER_M = 3.2808398950;
+function getAltUnit() {
+  try { return localStorage.getItem('esml-alt-unit') === 'ft' ? 'ft' : 'm'; }
+  catch (e) { return 'm'; }
+}
+function setAltUnit(u) {
+  try { if (u === 'ft' || u === 'm') localStorage.setItem('esml-alt-unit', u); }
+  catch (e) { /* private mode — fine */ }
+}
+function mToDisplay(m, unit) {
+  if (!isFinite(m)) return 0;
+  return unit === 'ft' ? Math.round(m * FT_PER_M) : Math.round(m);
+}
+function displayToM(val, unit) {
+  const v = parseFloat(val);
+  if (!isFinite(v)) return 0;
+  return unit === 'ft' ? v / FT_PER_M : v;
+}
+
 /* ───────── State ───────── */
 
 const state = {
@@ -238,10 +259,40 @@ document.querySelectorAll('input[name=sport]').forEach(r => r.addEventListener('
 $('#bodyMass').addEventListener('input', e => state.bodyMass = +e.target.value);
 
 const altInput = document.getElementById('altitude');
-if (altInput) altInput.addEventListener('input', (e) => {
-  const v = parseFloat(e.target.value);
-  state.altitude_m = isFinite(v) && v > 0 ? v : 0;
+if (altInput) altInput.addEventListener('input', () => {
+  const m = displayToM(altInput.value, getAltUnit());
+  state.altitude_m = (isFinite(m) && m > 0) ? m : 0;
 });
+
+// Altitude unit toggle (ft | m) — same pattern as the power profile.
+document.querySelectorAll('[data-alt-toggle] button').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const newUnit = btn.dataset.altUnit;
+    const oldUnit = getAltUnit();
+    if (newUnit === oldUnit) return;
+    if (altInput) {
+      const m = displayToM(altInput.value, oldUnit);   // state.altitude_m unchanged
+      altInput.value = m > 0 ? String(mToDisplay(m, newUnit)) : '';
+      altInput.step = newUnit === 'ft' ? 100 : 50;
+      altInput.max  = newUnit === 'ft' ? Math.round(5000 * FT_PER_M) : 5000;
+    }
+    setAltUnit(newUnit);
+    btn.parentElement.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b === btn));
+  });
+});
+
+// Reflect the current altitude (canonical metres) + unit into the input/pills.
+function syncAltitudeUnitUI() {
+  const unit = getAltUnit();
+  if (altInput) {
+    altInput.step = unit === 'ft' ? 100 : 50;
+    altInput.max  = unit === 'ft' ? Math.round(5000 * FT_PER_M) : 5000;
+    altInput.value = state.altitude_m > 0 ? String(mToDisplay(state.altitude_m, unit)) : '';
+  }
+  document.querySelectorAll('[data-alt-toggle] button').forEach((b) =>
+    b.classList.toggle('active', b.dataset.altUnit === unit));
+}
+syncAltitudeUnitUI();
 
 function renderIntensityHeader() {
   const h = document.getElementById('intensity-header');
@@ -559,7 +610,7 @@ function syncInputsToUI() {
   document.querySelectorAll('input[name=sex]').forEach((r) => { r.checked = (r.value === state.sex); });
   document.querySelectorAll('input[name=sport]').forEach((r) => { r.checked = (r.value === state.sport); });
   const bm = $('#bodyMass'); if (bm) bm.value = state.bodyMass;
-  const alt = document.getElementById('altitude'); if (alt) alt.value = state.altitude_m || 0;
+  syncAltitudeUnitUI();
   renderIntensityHeader();
   toggleAltitudeField();
   renderStages();
@@ -679,10 +730,11 @@ function renderResults() {
   }
 
   const zones = generateZones(sport, { MLSS_intensity: p.mlss.intensity, LT1_intensity: p.lt1.intensity });
+  const zoneOpts = { altitude_m: state.altitude_m || 0, mlss_speed: p.mlss.intensity };
   let zonesHtml = '';
-  if (zones.coggan) zonesHtml += zoneTableHtml('Coggan 7-zone (cycling)', zones.coggan, sport);
-  if (zones.friel)  zonesHtml += zoneTableHtml('Friel 7-zone (running)',  zones.friel, sport);
-  if (zones.seiler) zonesHtml += zoneTableHtml('Seiler 3-zone',           zones.seiler, sport);
+  if (zones.coggan) zonesHtml += zoneTableHtml('Coggan 7-zone (cycling)', zones.coggan, sport, zoneOpts);
+  if (zones.friel)  zonesHtml += zoneTableHtml('Friel 7-zone (running)',  zones.friel, sport, zoneOpts);
+  if (zones.seiler) zonesHtml += zoneTableHtml('Seiler 3-zone',           zones.seiler, sport, zoneOpts);
 
   // Running pages show all paces in one unit at a time; cycling has no toggle.
   const u = getDefaultPaceUnit();
@@ -740,7 +792,15 @@ function renderResults() {
   drawCharts(p);
 }
 
-function zoneTableHtml(title, rows, sport) {
+function zoneTableHtml(title, rows, sport, opts) {
+  opts = opts || {};
+  const altitude_m = opts.altitude_m || 0;
+  const mlss_speed = opts.mlss_speed || 0;
+  // Zone bounds are sea-level (the curve was fit at sea level); when a test
+  // altitude is set we add a column showing the equivalent paces to actually
+  // run at altitude. Same model/treatment as the power-profile tool.
+  const showAlt = sport === 'running' && altitude_m > 800 && mlss_speed > 0;
+
   const fmtRange = (lo, hi) => {
     const loDef = !(lo === 0 || !isFinite(lo));
     const hiDef = isFinite(hi);
@@ -748,15 +808,34 @@ function zoneTableHtml(title, rows, sport) {
       if (!loDef && hiDef) return 'less than ' + Math.round(hi) + ' W';
       if (loDef && !hiDef) return 'more than ' + Math.round(lo) + ' W';
       return Math.round(lo) + ' – ' + Math.round(hi) + ' W';
-    } else {
-      if (!loDef && hiDef) return 'slower than ' + fmt.pace(hi);
-      if (loDef && !hiDef) return 'faster than ' + fmt.pace(lo);
-      return fmt.pace(lo) + ' – ' + fmt.pace(hi);
     }
+    if (!loDef && hiDef) return 'slower than ' + fmt.pace(hi);
+    if (loDef && !hiDef) return 'faster than ' + fmt.pace(lo);
+    return fmt.pace(lo) + ' – ' + fmt.pace(hi);
   };
+
+  // Altitude-adjusted speed for a sea-level boundary: each bound gets its own
+  // intensity-scaled penalty at x = speed/MLSS (Daniels & Gilbert 1979).
+  const altSpeed = (v) => {
+    if (!isFinite(v) || v <= 0) return v;
+    return v * altitudeFactor(altitude_m, v / mlss_speed);
+  };
+  const fmtAltRange = (lo, hi) => {
+    const loDef = !(lo === 0 || !isFinite(lo));
+    const hiDef = isFinite(hi);
+    if (!loDef && hiDef) return 'slower than ' + fmt.pace(altSpeed(hi));
+    if (loDef && !hiDef) return 'faster than ' + fmt.pace(altSpeed(lo));
+    return fmt.pace(altSpeed(lo)) + ' – ' + fmt.pace(altSpeed(hi));
+  };
+
+  const altHeaderCell = showAlt ? '<th>At ' + Math.round(altitude_m) + ' m</th>' : '';
+  const altDataCell = (r) => showAlt
+    ? '<td class="num" style="color:var(--muted2)">' + fmtAltRange(r.lo, r.hi) + '</td>'
+    : '';
+
   return '<h3 style="font-family:var(--display);font-size:16px;font-weight:600;margin:14px 0 8px">' + title + '</h3>' +
-         '<table class="zones"><tr><th>Zone</th><th>Label</th><th>Range</th></tr>' +
-         rows.map(r => '<tr><td>Z' + r.zone + '</td><td>' + r.label + '</td><td class="num">' + fmtRange(r.lo, r.hi) + '</td></tr>').join('') +
+         '<table class="zones"><tr><th>Zone</th><th>Label</th><th>' + (showAlt ? 'Sea level' : 'Range') + '</th>' + altHeaderCell + '</tr>' +
+         rows.map(r => '<tr><td>Z' + r.zone + '</td><td>' + r.label + '</td><td class="num">' + fmtRange(r.lo, r.hi) + '</td>' + altDataCell(r) + '</tr>').join('') +
          '</table>';
 }
 
