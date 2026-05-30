@@ -282,8 +282,14 @@ function newFormHTML() {
         placeholders: RUNNING_DIST_PLACEHOLDERS[key],
       });
     }
-    return '<input type="text" id="ps-' + idSuffix + '" placeholder="' + cyclingPlaceholder(key)
-         + '" value="' + (prefill.efforts && prefill.efforts[key] || '') + '">';
+    // Cycling: power is always watts, so show a fixed "W" unit chip on the
+    // right edge — same slot the running fields use for their m | mi toggle.
+    return `
+      <div class="pace-input">
+        <input type="text" class="pace-text" id="ps-${idSuffix}" inputmode="decimal" autocomplete="off"
+               placeholder="${cyclingPlaceholder(key)}" value="${prefill.efforts && prefill.efforts[key] || ''}">
+        <div class="unit-static">W</div>
+      </div>`;
   };
 
   const subCopy = isRunning
