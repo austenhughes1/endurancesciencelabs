@@ -762,3 +762,75 @@ exports.generateComparisonReport = onCall({ cors: true, memory: "512MiB" }, asyn
     filename: "esformlab-comparison-" + new Date().toISOString().slice(0, 10) + ".pdf",
   };
 });
+
+// ═══════════════════════════════════════════════════════════
+//  listAllUsers — admin-only directory for the Manage Users
+//  page. The client SDK cannot enumerate Firebase Auth, and
+//  not every Auth account has a users/{uid} Firestore doc
+//  (docs are created lazily). This merges every Auth account
+//  with its Firestore doc (if any) so the admin sees everyone.
+// ═══════════════════════════════════════════════════════════
+exports.listAllUsers = onCall({ cors: true }, async (request) => {
+  const callerUid = request.auth?.uid;
+  if (!callerUid) {
+    throw new HttpsError("unauthenticated", "Must be signed in.");
+  }
+  if (callerUid !== ADMIN_UID) {
+    throw new HttpsError("permission-denied", "Admin access required.");
+  }
+
+  // 1. Every Firestore users/{uid} doc, keyed by uid.
+  const docsByUid = {};
+  const usersSnap = await db.collection("users").get();
+  usersSnap.forEach((doc) => { docsByUid[doc.id] = doc.data() || {}; });
+
+  // 2. Every Firebase Auth account (paginated, 1000 per page).
+  const authByUid = {};
+  let pageToken;
+  do {
+    const page = await admin.auth().listUsers(1000, pageToken);
+    page.users.forEach((u) => { authByUid[u.uid] = u; });
+    pageToken = page.pageToken;
+  } while (pageToken);
+
+  const toSec = (t) => {
+    if (!t) return null;
+    if (typeof t === "number") return t;
+    if (typeof t.seconds === "number") return t.seconds;
+    if (typeof t.toDate === "function") {
+      try { return Math.floor(t.toDate().getTime() / 1000); } catch (e) { return null; }
+    }
+    if (typeof t === "string") {
+      const ms = Date.parse(t);
+      return isNaN(ms) ? null : Math.floor(ms / 1000);
+    }
+    return null;
+  };
+
+  // 3. Merge — union of both keyspaces so orphan docs and
+  //    profile-less Auth accounts both show up.
+  const allUids = new Set([...Object.keys(authByUid), ...Object.keys(docsByUid)]);
+  const users = [];
+  allUids.forEach((uid) => {
+    const a = authByUid[uid] || null;
+    const d = docsByUid[uid] || null;
+    const authCreated = a && a.metadata ? toSec(a.metadata.creationTime) : null;
+    const authLastSignIn = a && a.metadata ? toSec(a.metadata.lastSignInTime) : null;
+    users.push({
+      uid,
+      email: (d && d.email) || (a && a.email) || "",
+      displayName: (d && d.displayName) || (a && a.displayName) || "",
+      photoURL: (a && a.photoURL) || "",
+      role: d && d.role === "coach" ? "coach" : "athlete",
+      coachUid: (d && d.coachUid) || null,
+      features: (d && d.features) || {},
+      hasDoc: !!d,
+      hasAuth: !!a,
+      disabled: a ? !!a.disabled : false,
+      createdAt: toSec(d && d.createdAt) || authCreated || null,
+      lastSignInAt: authLastSignIn,
+    });
+  });
+
+  return { users };
+});

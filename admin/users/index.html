@@ -57,6 +57,9 @@
   .mu-user-name { font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis }
   .mu-user-email { font-size:11px;color:var(--muted2);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis }
   .mu-you-tag { font-size:8.5px;font-weight:700;letter-spacing:.4px;color:var(--cyan);background:rgba(0,229,200,.12);border:1px solid rgba(0,229,200,.3);border-radius:4px;padding:1px 5px;margin-left:6px;font-family:var(--mono);vertical-align:1px }
+  .mu-flag-tag { font-size:8.5px;font-weight:700;letter-spacing:.4px;border-radius:4px;padding:1px 5px;margin-left:6px;font-family:var(--mono);vertical-align:1px;white-space:nowrap }
+  .mu-flag-tag.noprofile { color:var(--warn);background:rgba(245,166,35,.12);border:1px solid rgba(245,166,35,.3) }
+  .mu-flag-tag.disabled { color:var(--bad);background:rgba(245,80,80,.12);border:1px solid rgba(245,80,80,.3) }
 
   /* Role pill */
   .mu-role-pill { display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:7px;font-size:10px;font-weight:700;font-family:var(--mono);letter-spacing:.5px;cursor:pointer;transition:all .15s;user-select:none;text-transform:uppercase;white-space:nowrap }
@@ -162,6 +165,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <script src="/shared/site.js"></script>
 <script src="./app.js"></script>
 
