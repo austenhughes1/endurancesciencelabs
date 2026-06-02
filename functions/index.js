@@ -824,6 +824,8 @@ exports.listAllUsers = onCall({ cors: true }, async (request) => {
       role: d && d.role === "coach" ? "coach" : "athlete",
       coachUid: (d && d.coachUid) || null,
       features: (d && d.features) || {},
+      raceName: (d && d.raceName) || "",
+      stravaConnected: !!(d && d.stravaConnected),
       hasDoc: !!d,
       hasAuth: !!a,
       disabled: a ? !!a.disabled : false,

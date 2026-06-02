@@ -1337,19 +1337,49 @@ async function loadAthleteList() {
   if (scopeRow) scopeRow.classList.toggle('show', currentUser && currentUser.uid === ADMIN_UID);
 
   const adminAllScope = sidebarScope === 'all' && currentUser && currentUser.uid === ADMIN_UID;
-  const query = adminAllScope
-    ? db.collection('users')
-    : db.collection('users').where('coachUid', '==', currentUser.uid);
-  const snap = await query.get();
 
   // Build a lookup map so we can resolve coachUid -> displayName for the
   // coach badge, and so we can populate the coach filter dropdown options.
   const userMap = {};
   const allUsers = [];
-  snap.forEach(doc => {
-    userMap[doc.id] = doc.data();
-    allUsers.push({ id: doc.id, data: doc.data() });
-  });
+
+  if (adminAllScope) {
+    // "All athletes" must match the Manage Users page exactly: every Auth
+    // account merged with its Firestore doc (a plain users-collection query
+    // misses anyone who signed up but has no profile doc yet). Fall back to
+    // the direct query if the admin function isn't deployed.
+    let merged = null;
+    try {
+      const fns = firebase.app().functions('us-central1');
+      const res = await fns.httpsCallable('listAllUsers')();
+      merged = (res && res.data && res.data.users) || [];
+    } catch (e) {
+      console.warn('listAllUsers unavailable in sidebar, using direct query:', e && e.message);
+    }
+    if (merged) {
+      merged.forEach(u => {
+        const data = {
+          displayName: u.displayName, email: u.email, role: u.role,
+          coachUid: u.coachUid || null, raceName: u.raceName,
+          stravaConnected: u.stravaConnected, hasDoc: u.hasDoc
+        };
+        userMap[u.uid] = data;
+        allUsers.push({ id: u.uid, data });
+      });
+    } else {
+      const snap = await db.collection('users').get();
+      snap.forEach(doc => {
+        userMap[doc.id] = doc.data();
+        allUsers.push({ id: doc.id, data: doc.data() });
+      });
+    }
+  } else {
+    const snap = await db.collection('users').where('coachUid', '==', currentUser.uid).get();
+    snap.forEach(doc => {
+      userMap[doc.id] = doc.data();
+      allUsers.push({ id: doc.id, data: doc.data() });
+    });
+  }
 
   // Coach filter UI: only meaningful in admin "All athletes" scope.
   const filterRow = document.getElementById('sidebar-coach-filter');
