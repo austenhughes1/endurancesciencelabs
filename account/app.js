@@ -57,10 +57,13 @@ var pageState = {
 esLabs.onAuthChange(function (user) {
   var app = document.getElementById('acct-app');
   if (!app) return;
+  var adminTools = document.getElementById('admin-tools');
   if (user) {
     app.classList.add('show');
+    if (adminTools) adminTools.style.display = (user.uid === esLabs.ADMIN_UID) ? 'block' : 'none';
   } else {
     app.classList.remove('show');
+    if (adminTools) adminTools.style.display = 'none';
     pageState.shellRendered = false;
     pageState.userDoc = null;
     var content = document.getElementById('acct-content');

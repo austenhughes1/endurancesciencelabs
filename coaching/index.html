@@ -471,22 +471,7 @@ header{display:none}
 .lift-comp-btn.undo:hover{border-color:var(--bad);color:var(--bad)}
 .lift-comp-saved{font-size:10px;color:var(--good);font-family:var(--mono)}
 
-/* ── Feature admin modal ───────────────────────────── */
-.feat-user-list{max-height:400px;overflow-y:auto;margin-top:12px}
-.feat-user-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
-.feat-user-row:last-child{border-bottom:none}
-.feat-user-name{font-size:13px;font-weight:600;flex:1;min-width:0}
-.feat-user-email{font-size:10px;color:var(--muted2);font-family:var(--mono)}
-.feat-toggles{display:flex;gap:6px;flex-wrap:wrap}
-.feat-toggle{display:flex;align-items:center;gap:4px;padding:4px 8px;border-radius:6px;border:1px solid var(--border2);font-size:10px;font-weight:600;font-family:var(--mono);cursor:pointer;transition:all .15s;user-select:none}
-.feat-toggle.on{background:rgba(0,229,200,.12);border-color:rgba(0,229,200,.3);color:var(--cyan)}
-.feat-toggle.off{background:transparent;color:var(--muted2)}
-.feat-toggle:hover{border-color:var(--cyan)}
-.feat-toggle-dot{width:8px;height:8px;border-radius:50%;transition:background .15s}
-.feat-toggle.on .feat-toggle-dot{background:var(--cyan)}
-.feat-toggle.off .feat-toggle-dot{background:var(--muted)}
-.feat-scope-toggle{display:none;margin-top:12px;border-radius:8px;background:var(--panel2);border:1px solid var(--border2);padding:3px;width:fit-content}
-.feat-scope-toggle.show{display:inline-flex}
+/* ── Admin sidebar scope + coach filter ─────────────── */
 .feat-scope-btn{padding:5px 12px;font-size:11px;font-weight:600;font-family:var(--mono);background:transparent;border:none;color:var(--muted2);cursor:pointer;border-radius:6px;transition:all .15s}
 .feat-scope-btn.active{background:rgba(0,229,200,.12);color:var(--cyan)}
 .sidebar-scope{display:none;padding:8px 10px;border-bottom:1px solid var(--border);background:var(--panel2);gap:4px;justify-content:center}
@@ -496,12 +481,6 @@ header{display:none}
 .sidebar-coach-filter label{font-size:10px;color:var(--muted2);font-family:var(--mono);font-weight:700;letter-spacing:.5px}
 .sidebar-coach-filter select{flex:1;padding:4px 8px;background:var(--panel);border:1px solid var(--border2);border-radius:6px;font-size:11px;color:var(--text);font-family:var(--mono);cursor:pointer;outline:none}
 .athlete-coach-tag{display:inline-block;font-size:9px;color:var(--muted);font-family:var(--mono);font-weight:700;letter-spacing:.3px;margin-left:4px}
-.feat-paid-badge{display:inline-flex;align-items:center;padding:3px 7px;border-radius:5px;background:rgba(0,229,200,.12);border:1px solid rgba(0,229,200,.3);color:var(--cyan);font-size:9px;font-weight:700;font-family:var(--mono);letter-spacing:.4px;margin-right:6px;white-space:nowrap}
-.feat-role-pill{display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:6px;font-size:10px;font-weight:700;font-family:var(--mono);letter-spacing:.4px;cursor:pointer;transition:all .15s;user-select:none;white-space:nowrap;text-transform:uppercase}
-.feat-role-pill.coach{background:rgba(139,124,248,.18);border:1px solid rgba(139,124,248,.35);color:var(--purple)}
-.feat-role-pill.athlete{background:rgba(0,229,200,.12);border:1px solid rgba(0,229,200,.3);color:var(--cyan)}
-.feat-role-pill:hover{filter:brightness(1.15)}
-.feat-role-pill[disabled]{opacity:.5;cursor:wait}
 
 /* ── Feedback footer ────────────────────────────────── */
 .feedback-footer{display:flex;justify-content:center;gap:12px;padding:32px 20px 24px;flex-wrap:wrap}
@@ -702,7 +681,7 @@ header{display:none}
   <div class="sidebar">
     <div class="sidebar-header">
       <span class="sidebar-title">Athletes</span>
-      <button class="btn-ghost" onclick="openFeatureAdmin()" style="padding:4px 10px;font-size:10px">⚙ Features</button>
+      <a class="btn-ghost" id="manage-users-link" href="/admin/users/" style="display:none;padding:4px 10px;font-size:10px;text-decoration:none" title="Admin: manage users, coaches & feature access">⚙ Manage Users</a>
       <button class="btn-ghost" onclick="openAddAthlete()" style="padding:4px 10px;font-size:10px">+ Add</button>
     </div>
     <div class="sidebar-scope" id="sidebar-scope">
@@ -893,24 +872,6 @@ header{display:none}
   </div>
 </div>
 
-<!-- ── Feature admin modal ─────────────────────────── -->
-<div class="modal-overlay" id="feature-modal">
-  <div class="modal" style="max-width:560px">
-    <div class="modal-title">Manage Feature Access</div>
-    <div class="modal-sub">Toggle which features each user can access.</div>
-    <div class="feat-scope-toggle" id="feat-scope-toggle">
-      <button class="feat-scope-btn active" id="feat-scope-mine" onclick="setFeatureAdminScope('mine')">My athletes</button>
-      <button class="feat-scope-btn" id="feat-scope-all" onclick="setFeatureAdminScope('all')">All athletes</button>
-    </div>
-    <div class="feat-user-list" id="feat-user-list">
-      <div style="text-align:center;padding:20px;color:var(--muted2);font-family:var(--mono);font-size:11px">Loading users…</div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn-ghost" onclick="closeFeatureAdmin()">Close</button>
-    </div>
-  </div>
-</div>
-
 <!-- ── Firebase SDKs ───────────────────────────────── -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -965,8 +926,6 @@ let liftingCache = {}; // weekStart -> lifting data
 let expandedCategories = {}; // categoryName -> bool
 
 const ADMIN_UID = esLabs.ADMIN_UID;
-const FEATURE_LIST = ['coaching', 'lifting', 'esFormLab', 'esMetabolicLab'];
-const FEATURE_LABELS = { coaching: 'Coaching', lifting: 'Lifting', esFormLab: 'esFormLab', esMetabolicLab: 'esMetabolicLab' };
 
 // Official Strava mountain logo (per Strava brand guidelines).
 // Used wherever Strava data is displayed; color inherits from the parent via fill="currentColor".
@@ -1164,6 +1123,12 @@ async function loadUserDoc(user) {
   isCoach = userDoc.role === 'coach';
   if (isCoach) loadCoachSupportingPresets();
 
+  // Admin-only "Manage Users" entry point in the coach sidebar header.
+  const manageUsersLink = document.getElementById('manage-users-link');
+  if (manageUsersLink) {
+    manageUsersLink.style.display = (currentUser && currentUser.uid === ADMIN_UID) ? 'inline-flex' : 'none';
+  }
+
   // hdr-user was replaced by the shared nav's auth pill (avatar + name).
   // The role badge lives in the nav extras and is populated here.
   const badge = document.getElementById('role-badge');
@@ -1344,7 +1309,7 @@ async function startCoachingCheckout(tier) {
 // ══════════════════════════════════════════════════════════
 //  COACH: ATHLETE LIST
 // ══════════════════════════════════════════════════════════
-// Sidebar scope works the same as the Features modal scope but is
+// Sidebar scope works the same as the Manage Users page scope but is
 // independently selectable so the admin can mix views.
 let sidebarScope = 'mine';
 // Admin-only secondary filter when sidebarScope is 'all'.
@@ -1454,7 +1419,7 @@ async function loadAthleteList() {
     item.className = 'athlete-item' + (selectedAthleteUid === u.id ? ' active' : '') + (isForeign ? ' foreign' : '');
     item.dataset.uid = u.id;
     if (isForeign) {
-      item.onclick = () => alert('This user belongs to another coach (or no coach). Use the Features modal to manage their access; selecting here would create a duplicate training plan.');
+      item.onclick = () => alert('This user belongs to another coach (or no coach). Use the Manage Users admin page to assign them or change their access; selecting here would create a duplicate training plan.');
     } else {
       item.onclick = () => selectAthlete(u.id, d, item);
     }
@@ -3161,169 +3126,6 @@ async function saveRaceInfo() {
 }
 
 // ══════════════════════════════════════════════════════════
-//  FEATURE ACCESS MANAGEMENT
-// ══════════════════════════════════════════════════════════
-function hasFeature(featureName) {
-  if (!userDoc) return false;
-  if (currentUser && currentUser.uid === ADMIN_UID) return true;
-  return userDoc.features && userDoc.features[featureName] === true;
-}
-
-// 'mine' = users assigned to this coach (default)
-// 'all'  = every user in the project (admin-only escape hatch)
-let featAdminScope = 'mine';
-
-function openFeatureAdmin() {
-  document.getElementById('feature-modal').classList.add('open');
-  const scopeToggle = document.getElementById('feat-scope-toggle');
-  if (scopeToggle) scopeToggle.classList.toggle('show', currentUser && currentUser.uid === ADMIN_UID);
-  loadFeatureAdminData();
-}
-
-function closeFeatureAdmin() {
-  document.getElementById('feature-modal').classList.remove('open');
-}
-
-function setFeatureAdminScope(scope) {
-  if (scope !== 'mine' && scope !== 'all') return;
-  if (scope === 'all' && (!currentUser || currentUser.uid !== ADMIN_UID)) return;
-  featAdminScope = scope;
-  document.getElementById('feat-scope-mine').classList.toggle('active', scope === 'mine');
-  document.getElementById('feat-scope-all').classList.toggle('active', scope === 'all');
-  loadFeatureAdminData();
-}
-
-async function fetchPaidPassExpiry(uid) {
-  try {
-    const snap = await db.collection('customers').doc(uid).collection('payments').get();
-    let latest = 0;
-    snap.forEach(doc => {
-      const p = doc.data();
-      if (p.status !== 'succeeded') return;
-      let createdSec = null;
-      if (typeof p.created === 'number') createdSec = p.created;
-      else if (p.created && typeof p.created.seconds === 'number') createdSec = p.created.seconds;
-      if (createdSec !== null && createdSec > latest) latest = createdSec;
-    });
-    if (!latest) return null;
-    const expirySec = latest + (90 * 24 * 60 * 60);
-    if (expirySec * 1000 < Date.now()) return null;
-    return new Date(expirySec * 1000);
-  } catch (e) {
-    return null;
-  }
-}
-
-async function loadFeatureAdminData() {
-  const list = document.getElementById('feat-user-list');
-  list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted2);font-family:var(--mono);font-size:11px">Loading users…</div>';
-
-  try {
-    const adminAllScope = featAdminScope === 'all' && currentUser && currentUser.uid === ADMIN_UID;
-    const query = adminAllScope
-      ? db.collection('users')
-      : db.collection('users').where('coachUid', '==', currentUser.uid);
-    const snap = await query.get();
-    if (snap.empty) {
-      list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted2);font-family:var(--mono);font-size:11px">' + (adminAllScope ? 'No users found.' : 'No athletes yet.') + '</div>';
-      return;
-    }
-
-    const users = [];
-    snap.forEach(doc => users.push({ id: doc.id, data: doc.data() }));
-    const expiries = await Promise.all(users.map(u => fetchPaidPassExpiry(u.id)));
-
-    const isAdminUser = currentUser && currentUser.uid === ADMIN_UID;
-
-    let html = '';
-    users.forEach((u, i) => {
-      const d = u.data;
-      const uid = u.id;
-      const features = d.features || {};
-      const role = d.role === 'coach' ? 'coach' : 'athlete';
-      const expiry = expiries[i];
-      const expiryStr = expiry
-        ? expiry.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-        : null;
-      const rolePill = isAdminUser
-        ? `<span class="feat-role-pill ${role}" data-uid="${esc(uid)}" onclick="toggleUserRole(this)" title="Click to switch role">${role}</span>`
-        : '';
-      html += `<div class="feat-user-row">
-        <div style="min-width:0;flex:1">
-          <div class="feat-user-name">${esc(d.displayName || d.email)}</div>
-          <div class="feat-user-email">${esc(d.email)}</div>
-        </div>
-        ${rolePill}
-        <div class="feat-toggles">
-          ${FEATURE_LIST.map(f => {
-            const on = features[f] === true;
-            const wrap = (f === 'esFormLab' && expiryStr)
-              ? `<div style="display:inline-flex;align-items:center;gap:4px">
-                  <span class="feat-paid-badge" title="Active Stripe pass -- access continues even if toggle is off">PAID THRU ${expiryStr.toUpperCase()}</span>
-                  <div class="feat-toggle ${on ? 'on' : 'off'}" onclick="toggleUserFeature('${uid}','${f}',${!on},this)">
-                    <span class="feat-toggle-dot"></span>${FEATURE_LABELS[f]}
-                  </div>
-                </div>`
-              : `<div class="feat-toggle ${on ? 'on' : 'off'}" onclick="toggleUserFeature('${uid}','${f}',${!on},this)">
-                  <span class="feat-toggle-dot"></span>${FEATURE_LABELS[f]}
-                </div>`;
-            return wrap;
-          }).join('')}
-        </div>
-      </div>`;
-    });
-    list.innerHTML = html;
-  } catch(e) {
-    list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--bad);font-family:var(--mono);font-size:11px">Failed to load users.</div>';
-    console.error('Feature admin load failed:', e);
-  }
-}
-
-async function toggleUserFeature(uid, feature, enabled, el) {
-  try {
-    await db.collection('users').doc(uid).update({
-      [`features.${feature}`]: enabled
-    });
-    // Update toggle UI
-    el.className = `feat-toggle ${enabled ? 'on' : 'off'}`;
-    el.onclick = () => toggleUserFeature(uid, feature, !enabled, el);
-  } catch(e) {
-    console.error('Toggle feature failed:', e);
-  }
-}
-
-async function toggleUserRole(el) {
-  if (!currentUser || currentUser.uid !== ADMIN_UID) return;
-  const uid = el.dataset.uid;
-  if (!uid) return;
-  const current = el.classList.contains('coach') ? 'coach' : 'athlete';
-  const next = current === 'coach' ? 'athlete' : 'coach';
-  const row = el.closest('.feat-user-row');
-  const name = row?.querySelector('.feat-user-name')?.textContent || 'this user';
-  const verb = next === 'coach' ? 'Promote' : 'Demote';
-  const msg = next === 'coach'
-    ? `${verb} ${name} to Coach? They will be able to manage athletes assigned to them. Their own coach assignment (if any) will be cleared.`
-    : `${verb} ${name} to Athlete?`;
-  if (!confirm(msg)) return;
-
-  el.setAttribute('disabled', 'true');
-  try {
-    const update = { role: next };
-    // A coach shouldn't have a coach assigned — clear it on promotion.
-    if (next === 'coach') update.coachUid = null;
-    await db.collection('users').doc(uid).update(update);
-    el.classList.remove('coach', 'athlete');
-    el.classList.add(next);
-    el.textContent = next;
-  } catch(e) {
-    console.error('Toggle role failed:', e);
-    alert('Failed to change role: ' + (e.message || e));
-  } finally {
-    el.removeAttribute('disabled');
-  }
-}
-
-// ══════════════════════════════════════════════════════════
 //  TAB SWITCHING
 // ══════════════════════════════════════════════════════════
 function switchTab(tab) {
@@ -3879,7 +3681,6 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     closeAddAthlete();
     closeEditRace();
-    closeFeatureAdmin();
     closeFeedbackModal();
   }
 });
