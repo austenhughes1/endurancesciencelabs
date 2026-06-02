@@ -63,20 +63,54 @@ esLabs.onAuthChange(function (user) {
 });
 
 // ── Load ─────────────────────────────────────────────────────────
+// Preferred path: the admin-only `listAllUsers` Cloud Function, which
+// merges every Firebase Auth account with its Firestore users/{uid} doc
+// (if any). The client SDK can't enumerate Auth, and docs are created
+// lazily, so a plain users-collection query misses anyone who only ever
+// used the public tools. Fall back to that query if the function isn't
+// deployed yet.
 function loadUsers() {
   var body = document.getElementById('mu-body');
   body.innerHTML = '<tr><td colspan="5"><div class="mu-loading">Loading users…</div></td></tr>';
-  db.collection('users').get().then(function (snap) {
-    allUsers = [];
-    snap.forEach(function (doc) { allUsers.push({ id: doc.id, data: doc.data() || {} }); });
-    loaded = true;
-    rebuildCoachMap();
-    populateCoachFilter();
-    render();
+
+  var fns = esLabs.firebase.app().functions('us-central1');
+  fns.httpsCallable('listAllUsers')().then(function (res) {
+    var list = (res && res.data && res.data.users) || [];
+    allUsers = list.map(function (u) {
+      return {
+        id: u.uid,
+        data: {
+          email: u.email, displayName: u.displayName, photoURL: u.photoURL,
+          role: u.role, coachUid: u.coachUid, features: u.features || {},
+          createdAt: u.createdAt, lastSignInAt: u.lastSignInAt,
+          hasDoc: u.hasDoc, hasAuth: u.hasAuth, disabled: u.disabled
+        }
+      };
+    });
+    finishLoad();
   }).catch(function (e) {
-    console.error('Manage Users load failed:', e);
-    body.innerHTML = '<tr><td colspan="5"><div class="mu-empty" style="color:var(--bad)">Failed to load users. ' + esc(e.message || '') + '</div></td></tr>';
+    console.warn('listAllUsers unavailable, falling back to direct query:', e && e.message);
+    db.collection('users').get().then(function (snap) {
+      allUsers = [];
+      snap.forEach(function (doc) {
+        var d = doc.data() || {};
+        d.hasDoc = true;
+        allUsers.push({ id: doc.id, data: d });
+      });
+      finishLoad();
+      toast('Showing Firestore profiles only — deploy listAllUsers to include sign-ups without a profile.', 'error');
+    }).catch(function (e2) {
+      console.error('Manage Users load failed:', e2);
+      body.innerHTML = '<tr><td colspan="5"><div class="mu-empty" style="color:var(--bad)">Failed to load users. ' + esc(e2.message || '') + '</div></td></tr>';
+    });
   });
+}
+
+function finishLoad() {
+  loaded = true;
+  rebuildCoachMap();
+  populateCoachFilter();
+  render();
 }
 
 function rebuildCoachMap() {
@@ -232,11 +266,14 @@ function renderBody() {
     var initials = (d.displayName || d.email || '?').split(/\s+/).map(function (w) { return w[0]; }).join('').toUpperCase().slice(0, 2);
 
     // User cell
+    var tags = '';
+    if (isSelf) tags += '<span class="mu-you-tag">YOU</span>';
+    if (d.hasDoc === false) tags += '<span class="mu-flag-tag noprofile" title="Signed in but has no profile doc yet — created on first change">NO PROFILE</span>';
+    if (d.disabled) tags += '<span class="mu-flag-tag disabled" title="Account disabled in Firebase Auth">DISABLED</span>';
     var userCell = '<div class="mu-user">'
       + '<div class="mu-avatar">' + esc(initials) + '</div>'
       + '<div style="min-width:0">'
-      + '<div class="mu-user-name">' + esc(d.displayName || d.email || '(no name)')
-      + (isSelf ? '<span class="mu-you-tag">YOU</span>' : '') + '</div>'
+      + '<div class="mu-user-name">' + esc(d.displayName || d.email || '(no name)') + tags + '</div>'
       + '<div class="mu-user-email">' + esc(d.email || '') + '</div>'
       + '</div></div>';
 
@@ -287,20 +324,34 @@ function localUser(uid) {
   return null;
 }
 
+// Create-or-merge a write. Users who only ever used the public tools
+// have no users/{uid} doc yet, so .update() would reject — we set with
+// merge instead, seeding identity fields the first time so the new doc
+// isn't blank.
+function persist(uid, u, payload) {
+  if (!u.data.hasDoc) {
+    if (u.data.email) payload.email = u.data.email;
+    if (u.data.displayName) payload.displayName = u.data.displayName;
+    payload.createdAt = esLabs.firebase.firestore.FieldValue.serverTimestamp();
+  }
+  return db.collection('users').doc(uid).set(payload, { merge: true }).then(function () {
+    u.data.hasDoc = true;
+  });
+}
+
 function muToggleFeature(el) {
   var uid = el.dataset.uid, feat = el.dataset.feat;
   var u = localUser(uid);
   if (!u) return;
   var enabled = !(u.data.features && u.data.features[feat] === true);
   el.setAttribute('disabled', 'true');
-  var update = {};
-  update['features.' + feat] = enabled;
-  db.collection('users').doc(uid).update(update).then(function () {
+  var featObj = {}; featObj[feat] = enabled;
+  persist(uid, u, { features: featObj }).then(function () {
     if (!u.data.features) u.data.features = {};
     u.data.features[feat] = enabled;
     el.className = 'mu-feat ' + (enabled ? 'on' : 'off');
     el.removeAttribute('disabled');
-    toast((d_name(u) ) + ': ' + FEATURE_LABELS[feat] + (enabled ? ' enabled' : ' disabled'), 'success');
+    toast(d_name(u) + ': ' + FEATURE_LABELS[feat] + (enabled ? ' enabled' : ' disabled'), 'success');
   }).catch(function (e) {
     console.error('Toggle feature failed:', e);
     el.removeAttribute('disabled');
@@ -315,7 +366,7 @@ function muAssignCoach(sel) {
   if (!u) return;
   var newCoach = sel.value || null;
   sel.disabled = true;
-  db.collection('users').doc(uid).update({ coachUid: newCoach }).then(function () {
+  persist(uid, u, { coachUid: newCoach }).then(function () {
     u.data.coachUid = newCoach;
     sel.disabled = false;
     sel.classList.toggle('unassigned', !newCoach);
@@ -344,10 +395,10 @@ function muToggleRole(el) {
   if (!confirm(msg)) return;
 
   el.setAttribute('disabled', 'true');
-  var update = { role: next };
+  var payload = { role: next };
   // A coach shouldn't have a coach assigned — clear it on promotion.
-  if (next === 'coach') update.coachUid = null;
-  db.collection('users').doc(uid).update(update).then(function () {
+  if (next === 'coach') payload.coachUid = null;
+  persist(uid, u, payload).then(function () {
     u.data.role = next;
     if (next === 'coach') u.data.coachUid = null;
     rebuildCoachMap();
