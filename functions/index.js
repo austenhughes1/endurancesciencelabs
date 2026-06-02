@@ -807,6 +807,22 @@ exports.listAllUsers = onCall({ cors: true }, async (request) => {
     return null;
   };
 
+  // Recursively convert Firestore Timestamps to unix seconds so the whole
+  // doc is JSON-serializable over the callable transport.
+  const sanitize = (v) => {
+    if (v === null || v === undefined) return v;
+    if (typeof v === "object" && typeof v.toMillis === "function" && typeof v.seconds === "number") {
+      return Math.floor(v.toMillis() / 1000);
+    }
+    if (Array.isArray(v)) return v.map(sanitize);
+    if (typeof v === "object") {
+      const out = {};
+      Object.keys(v).forEach((k) => { out[k] = sanitize(v[k]); });
+      return out;
+    }
+    return v;
+  };
+
   // 3. Merge — union of both keyspaces so orphan docs and
   //    profile-less Auth accounts both show up.
   const allUids = new Set([...Object.keys(authByUid), ...Object.keys(docsByUid)]);
@@ -816,22 +832,25 @@ exports.listAllUsers = onCall({ cors: true }, async (request) => {
     const d = docsByUid[uid] || null;
     const authCreated = a && a.metadata ? toSec(a.metadata.creationTime) : null;
     const authLastSignIn = a && a.metadata ? toSec(a.metadata.lastSignInTime) : null;
-    users.push({
+    // Start from the full Firestore doc so no field (stravaConnected,
+    // raceName, raceDate, etc.) is silently dropped, then overlay the
+    // normalized identity/auth fields and a serializable createdAt.
+    const merged = d ? sanitize(d) : {};
+    Object.assign(merged, {
       uid,
       email: (d && d.email) || (a && a.email) || "",
       displayName: (d && d.displayName) || (a && a.displayName) || "",
-      photoURL: (a && a.photoURL) || "",
+      photoURL: (a && a.photoURL) || (d && d.photoURL) || "",
       role: d && d.role === "coach" ? "coach" : "athlete",
       coachUid: (d && d.coachUid) || null,
       features: (d && d.features) || {},
-      raceName: (d && d.raceName) || "",
-      stravaConnected: !!(d && d.stravaConnected),
       hasDoc: !!d,
       hasAuth: !!a,
       disabled: a ? !!a.disabled : false,
       createdAt: toSec(d && d.createdAt) || authCreated || null,
       lastSignInAt: authLastSignIn,
     });
+    users.push(merged);
   });
 
   return { users };
