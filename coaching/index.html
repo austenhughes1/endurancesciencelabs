@@ -1336,18 +1336,21 @@ async function loadAthleteList() {
   const scopeRow = document.getElementById('sidebar-scope');
   if (scopeRow) scopeRow.classList.toggle('show', currentUser && currentUser.uid === ADMIN_UID);
 
-  const adminAllScope = sidebarScope === 'all' && currentUser && currentUser.uid === ADMIN_UID;
+  const isAdminUser = currentUser && currentUser.uid === ADMIN_UID;
+  const adminAllScope = sidebarScope === 'all' && isAdminUser;
 
   // Build a lookup map so we can resolve coachUid -> displayName for the
   // coach badge, and so we can populate the coach filter dropdown options.
   const userMap = {};
   const allUsers = [];
 
-  if (adminAllScope) {
-    // "All athletes" must match the Manage Users page exactly: every Auth
-    // account merged with its Firestore doc (a plain users-collection query
-    // misses anyone who signed up but has no profile doc yet). Fall back to
-    // the direct query if the admin function isn't deployed.
+  if (isAdminUser) {
+    // Admin: load the full merged directory (every Auth account + its
+    // Firestore doc) for BOTH scopes, then filter locally. This keeps the
+    // sidebar in lockstep with the Manage Users page — "My athletes" is just
+    // this same set filtered to coachUid === me, so the two never diverge
+    // (a plain users-collection query misses sign-ups with no profile doc).
+    // Fall back to the direct query if the admin function isn't deployed.
     let merged = null;
     try {
       const fns = firebase.app().functions('us-central1');
@@ -1367,7 +1370,11 @@ async function loadAthleteList() {
         allUsers.push({ id: u.uid, data });
       });
     } else {
-      const snap = await db.collection('users').get();
+      // Fallback for "My athletes" stays scoped; "All athletes" reads all.
+      const fbQuery = adminAllScope
+        ? db.collection('users')
+        : db.collection('users').where('coachUid', '==', currentUser.uid);
+      const snap = await fbQuery.get();
       snap.forEach(doc => {
         userMap[doc.id] = doc.data();
         allUsers.push({ id: doc.id, data: doc.data() });
@@ -1411,9 +1418,11 @@ async function loadAthleteList() {
     filterSelect.value = coachFilter;
   }
 
-  // Apply the coach filter.
+  // Apply scope + coach filter.
   const visible = allUsers.filter(u => {
-    if (!adminAllScope) return true;
+    // Admin "My athletes": the full directory filtered to athletes I coach.
+    if (isAdminUser && sidebarScope === 'mine') return u.data.coachUid === currentUser.uid;
+    if (!adminAllScope) return true;            // non-admin coach: query already scoped
     if (coachFilter === 'all') return true;
     if (coachFilter === 'unassigned') return !u.data.coachUid;
     return u.data.coachUid === coachFilter;
