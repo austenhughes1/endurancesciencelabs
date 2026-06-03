@@ -2159,6 +2159,7 @@ function renderDashboard(containerId, role) {
               : 'This athlete has not connected their Strava account yet. Once they do, their training data will appear here.'}
           </div>
           ${isAthlete ? `<button class="strava-connect-btn" onclick="connectStrava()">${STRAVA_LOGO_SVG} Connect with Strava</button>` : ''}
+          ${isAthlete ? `<div style="font-size:10px;color:var(--card-muted2);font-family:var(--mono);margin-top:6px">Linked the wrong account? <a href="#" onclick="connectStrava({switchAccount:true});return false;" style="color:var(--accent);text-decoration:underline">Sign in with a different Strava account</a></div>` : ''}
           ${isAthlete ? `<div style="font-size:10px;color:var(--card-muted2);font-family:var(--mono);margin-top:4px">Your data stays private. Only your coach can see it.</div>` : ''}
         </div>
       </div>
@@ -2388,7 +2389,7 @@ async function navWeekToday() {
 const STRAVA_CLIENT_ID = '219336'; // ← Set your Strava Client ID here
 const STRAVA_REDIRECT_URI = 'https://us-central1-es-form-labs.cloudfunctions.net/stravaCallback';
 
-async function connectStrava() {
+async function connectStrava(opts = {}) {
   if (!STRAVA_CLIENT_ID) {
     alert('Strava Client ID not configured.');
     return;
@@ -2403,6 +2404,24 @@ async function connectStrava() {
     + `&scope=activity:read_all`
     + `&approval_prompt=force`
     + `&state=${encodeURIComponent(state)}`;
+
+  // Strava keeps the athlete signed in via a session cookie on strava.com.
+  // approval_prompt=force only re-shows the authorization screen — it does NOT
+  // force a re-login — and our deauthorize call revokes the token but can't clear
+  // that cookie (a 3rd-party site can't sign a user out of strava.com). So a plain
+  // reconnect silently re-links whatever account is still signed in. To switch
+  // accounts the athlete must log out of Strava first: we open Strava's logout in a
+  // popup, then gate on a blocking alert so they finish logging out before we send
+  // them into the authorize flow, where Strava will now prompt for credentials.
+  if (opts.switchAccount) {
+    window.open('https://www.strava.com/logout', 'stravaLogout', 'width=480,height=640');
+    alert(
+      'A Strava logout window has opened.\n\n' +
+      '1. In that window, confirm you are logged out of Strava.\n' +
+      '2. Then come back here and click OK.\n\n' +
+      'You\'ll be taken to Strava to sign in with the account you want to link.'
+    );
+  }
 
   window.location.href = url;
 }
@@ -2472,8 +2491,15 @@ async function syncStravaFor(role) {
 }
 
 function reconnectStrava() {
-  // Same as connect — approval_prompt=force will make Strava ask for login again
-  connectStrava();
+  // OK → sign in with a DIFFERENT account (log out of Strava first so credentials
+  // can be re-entered). Cancel → refresh the SAME account's token (no logout needed).
+  const switchAccount = confirm(
+    'Reconnect Strava\n\n' +
+    'Click OK to sign in with a DIFFERENT Strava account.\n' +
+    '(You\'ll be logged out of Strava first so you can enter new credentials.)\n\n' +
+    'Click Cancel to reconnect the SAME account.'
+  );
+  connectStrava({ switchAccount });
 }
 
 async function unlinkStrava() {
