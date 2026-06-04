@@ -312,6 +312,38 @@ header{display:none}
 .chart-toggle-btn.active{background:#0891b2;color:#fff}
 .chart-toggle-btn:hover:not(.active){color:var(--card-text)}
 
+/* ── PMC (Fitness / Fatigue / Form) ───────────────── */
+.pmc-section{margin-bottom:28px}
+.pmc-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.pmc-card{background:#fff;border:1px solid var(--card-border);border-radius:10px;padding:12px 14px;position:relative;overflow:hidden}
+.pmc-card-accent{position:absolute;left:0;top:0;bottom:0;width:4px}
+.pmc-card-label{font-size:9px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--card-muted2);font-family:var(--mono)}
+.pmc-card-val{font-size:26px;font-weight:800;color:var(--card-text);line-height:1.1;margin-top:4px;font-variant-numeric:tabular-nums}
+.pmc-card-sub{font-size:10px;font-family:var(--mono);margin-top:3px;font-weight:700}
+.pmc-svg-wrap{position:relative;background:#fff;border:1px solid var(--card-border);border-radius:10px;padding:12px 14px 8px}
+.pmc-svg{display:block;width:100%;height:auto}
+.pmc-legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;padding-left:2px}
+.pmc-legend-item{display:flex;align-items:center;gap:6px;font-size:10px;font-family:var(--mono);color:var(--card-muted);font-weight:700}
+.pmc-legend-swatch{width:14px;height:3px;border-radius:2px}
+.pmc-caption{font-size:9.5px;color:var(--card-muted2);font-family:var(--mono);line-height:1.5;margin-top:10px}
+/* Form gauge */
+.form-gauge{margin-top:14px;background:#fff;border:1px solid var(--card-border);border-radius:10px;padding:12px 14px}
+.form-gauge-title{font-size:9px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--card-muted2);font-family:var(--mono);margin-bottom:10px}
+.form-gauge-track{position:relative;height:14px;border-radius:7px;display:flex;overflow:hidden}
+.form-gauge-zone{height:100%}
+.form-gauge-marker{position:absolute;top:-4px;width:3px;height:22px;background:var(--card-text);border-radius:2px;transform:translateX(-50%);box-shadow:0 0 0 2px #fff}
+.form-gauge-scale{display:flex;justify-content:space-between;font-size:8px;font-family:var(--mono);color:var(--card-muted2);margin-top:5px}
+
+/* ── Training load callouts (ramp rate / ACWR) ────── */
+.load-callouts{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+.load-chip{background:#fff;border:1px solid var(--card-border);border-radius:10px;padding:11px 14px;display:flex;align-items:center;gap:12px}
+.load-chip-badge{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;min-width:54px;text-align:center;padding:6px 4px;border-radius:8px;line-height:1}
+.load-chip-body{min-width:0}
+.load-chip-label{font-size:9px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--card-muted2);font-family:var(--mono)}
+.load-chip-status{font-size:11px;font-weight:700;margin-top:2px}
+.load-chip-sub{font-size:9.5px;color:var(--card-muted);font-family:var(--mono);margin-top:1px;line-height:1.4}
+@media(max-width:560px){.pmc-cards{grid-template-columns:1fr}.load-callouts{grid-template-columns:1fr}}
+
 /* Sub-stats under main value */
 .dash-stat-sub{font-size:10px;color:var(--card-muted);font-family:var(--mono);margin-top:4px;line-height:1.5}
 
@@ -851,6 +883,8 @@ header{display:none}
     </select>
     <input class="modal-field" id="pm-dob" type="date" autocomplete="off" style="color:var(--muted)" onfocus="this.style.color='var(--text)'" onchange="this.style.color=this.value?'var(--text)':'var(--muted)'">
     <label for="pm-dob" style="font-size:10px;color:var(--muted2);font-family:var(--mono);margin-top:-6px;margin-bottom:10px;display:block">Date of birth</label>
+    <input class="modal-field" id="pm-maxhr" type="number" min="120" max="230" inputmode="numeric" placeholder="Max heart rate (optional)" autocomplete="off">
+    <label for="pm-maxhr" style="font-size:10px;color:var(--muted2);font-family:var(--mono);margin-top:-6px;margin-bottom:10px;display:block">Max HR in bpm — improves training-load accuracy. Leave blank to estimate from age.</label>
     <div class="modal-error" id="pm-error"></div>
     <div class="modal-actions">
       <button class="btn-primary" id="pm-btn" onclick="saveProfile()">Save</button>
@@ -2135,6 +2169,261 @@ function renderSingleWeek(weekContainerId, dashContainerId, role) {
   }
 }
 
+// ══════════════════════════════════════════════════════════
+//  TRAINING LOAD — hrTSS + Performance Management Chart
+//  (Fitness/CTL, Fatigue/ATL, Form/TSB) and ramp rate / ACWR.
+//  All computed client-side from the activities already in
+//  stravaCache, so it works on historical data with no re-sync.
+// ══════════════════════════════════════════════════════════
+
+// Resolve the athlete's HR parameters from their profile.
+//   maxHr: explicit profile value → Tanaka age estimate → 186 default.
+//   restHr: not collected, assume 60. lthr ≈ 90% of maxHr.
+function getAthleteHRParams(profile) {
+  let hrMax = null, source = 'default';
+  if (profile && profile.maxHr && profile.maxHr >= 120 && profile.maxHr <= 230) {
+    hrMax = profile.maxHr; source = 'profile';
+  } else if (profile && profile.dob) {
+    const ageMs = Date.now() - new Date(profile.dob + 'T00:00:00').getTime();
+    const age = ageMs / (365.25 * 24 * 3600 * 1000);
+    if (age > 5 && age < 100) { hrMax = Math.round(208 - 0.7 * age); source = 'age'; }
+  }
+  if (!hrMax) hrMax = 186;
+  const restHr = 60;
+  const lthr = Math.round(0.90 * hrMax);
+  return { hrMax, restHr, lthr, source };
+}
+
+// Training Stress for a single activity, on the TrainingPeaks scale
+// where ~100 = one hour at threshold. HR-based when avg HR is present;
+// otherwise a moderate-aerobic estimate from duration alone.
+function computeActivityLoad(a, p) {
+  const hours = (a.movingTime || 0) / 3600;
+  if (hours <= 0) return 0;
+  if (a.averageHeartrate && p.hrMax > p.restHr) {
+    const hrr = (a.averageHeartrate - p.restHr) / (p.hrMax - p.restHr);
+    const thr = (p.lthr - p.restHr) / (p.hrMax - p.restHr);
+    let IF = thr > 0 ? hrr / thr : 0.70;
+    IF = Math.max(0, Math.min(IF, 1.15));
+    return hours * IF * IF * 100;
+  }
+  // No HR → assume an easy/moderate aerobic effort (IF ≈ 0.70).
+  return hours * 0.49 * 100;
+}
+
+// Walk day-by-day from startMon..endDate, summing activity load per day,
+// then roll the CTL (42d) / ATL (7d) exponential averages forward.
+// Seeds both with the mean daily load of the first 14 days so the curve
+// doesn't start from a misleading zero.
+function buildPMCSeries(startMon, endDate, p) {
+  const days = [];
+  const cur = new Date(startMon);
+  while (cur <= endDate) {
+    const ds = dateToStr(cur);
+    let load = 0;
+    (stravaCache[ds] || []).forEach(a => { load += computeActivityLoad(a, p); });
+    days.push({ ds, date: new Date(cur), load });
+    cur.setDate(cur.getDate() + 1);
+  }
+  const seedDays = days.slice(0, 14);
+  const seed = seedDays.length ? seedDays.reduce((s, d) => s + d.load, 0) / seedDays.length : 0;
+  let ctl = seed, atl = seed;
+  days.forEach(d => {
+    ctl = ctl + (d.load - ctl) / 42;
+    atl = atl + (d.load - atl) / 7;
+    d.ctl = ctl; d.atl = atl; d.tsb = ctl - atl;
+  });
+  return days;
+}
+
+// TrainingPeaks-style Form (TSB) zone for a given value.
+function formZone(tsb) {
+  if (tsb > 25)  return { label: 'Very fresh / detraining', color: '#3b82f6' };
+  if (tsb > 5)   return { label: 'Fresh — race ready',       color: '#22c55e' };
+  if (tsb >= -10) return { label: 'Neutral',                  color: '#64748b' };
+  if (tsb >= -30) return { label: 'Productive — building',    color: '#f59e0b' };
+  return { label: 'High fatigue — back off', color: '#ef4444' };
+}
+
+// Build the SVG line chart: Fitness (CTL) filled area + Fatigue (ATL) line.
+function renderPMCChart(days) {
+  if (!days.length) return '';
+  const W = 720, H = 190, padL = 34, padR = 10, padT = 10, padB = 22;
+  const innerW = W - padL - padR, innerH = H - padT - padB;
+  const n = days.length;
+  const maxV = Math.max(10, ...days.map(d => Math.max(d.ctl, d.atl)));
+  const yMax = Math.ceil(maxV / 10) * 10;
+  const x = i => padL + (n === 1 ? innerW / 2 : (i / (n - 1)) * innerW);
+  const y = v => padT + innerH - (v / yMax) * innerH;
+
+  const ctlPts = days.map((d, i) => `${x(i).toFixed(1)},${y(d.ctl).toFixed(1)}`);
+  const atlPts = days.map((d, i) => `${x(i).toFixed(1)},${y(d.atl).toFixed(1)}`);
+  const areaPath = `M${x(0).toFixed(1)},${(padT + innerH).toFixed(1)} L${ctlPts.join(' L')} L${x(n - 1).toFixed(1)},${(padT + innerH).toFixed(1)} Z`;
+
+  // y-axis gridlines/labels at 0,.25,.5,.75,1
+  let grid = '';
+  for (let g = 0; g <= 4; g++) {
+    const val = yMax * g / 4;
+    const yy = y(val).toFixed(1);
+    grid += `<line x1="${padL}" y1="${yy}" x2="${W - padR}" y2="${yy}" stroke="#eef1f4" stroke-width="1"/>`;
+    grid += `<text x="${padL - 6}" y="${(parseFloat(yy) + 3).toFixed(1)}" text-anchor="end" font-size="9" font-family="ui-monospace,monospace" fill="#9aa5b1">${Math.round(val)}</text>`;
+  }
+  // x-axis month labels (~every 4 weeks)
+  let xlab = '';
+  const step = Math.max(1, Math.floor(n / 5));
+  for (let i = 0; i < n; i += step) {
+    const d = days[i].date;
+    xlab += `<text x="${x(i).toFixed(1)}" y="${H - 6}" text-anchor="middle" font-size="8.5" font-family="ui-monospace,monospace" fill="#9aa5b1">${MONTHS[d.getMonth()]} ${d.getDate()}</text>`;
+  }
+
+  return `<svg class="pmc-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Fitness and fatigue trend">
+    ${grid}
+    <path d="${areaPath}" fill="#0891b2" fill-opacity="0.12"/>
+    <polyline points="${atlPts.join(' ')}" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linejoin="round"/>
+    <polyline points="${ctlPts.join(' ')}" fill="none" stroke="#0891b2" stroke-width="2.5" stroke-linejoin="round"/>
+    ${xlab}
+  </svg>`;
+}
+
+// Feature 1 — Fitness / Fatigue / Form panel.
+function renderPMC(days, hrParams) {
+  if (!days.length) return '';
+  const last = days[days.length - 1];
+  const ctl = last.ctl, atl = last.atl, tsb = last.tsb;
+  const zone = formZone(tsb);
+  const tsbStr = (tsb >= 0 ? '+' : '') + Math.round(tsb);
+
+  // Form gauge: map TSB onto a -40..+30 track.
+  const gMin = -40, gMax = 30;
+  const markerPct = Math.max(0, Math.min(100, ((tsb - gMin) / (gMax - gMin)) * 100));
+  const srcNote = hrParams.source === 'profile' ? `max HR ${hrParams.hrMax} (from profile)`
+    : hrParams.source === 'age' ? `max HR ~${hrParams.hrMax} (estimated from age)`
+    : `max HR ${hrParams.hrMax} (default — set it in your profile for accuracy)`;
+
+  return `
+  <div class="pmc-section">
+    <div class="chart-title">Fitness &amp; Form</div>
+    <div class="pmc-cards">
+      <div class="pmc-card">
+        <div class="pmc-card-accent" style="background:#0891b2"></div>
+        <div class="pmc-card-label">Fitness (CTL)</div>
+        <div class="pmc-card-val">${Math.round(ctl)}</div>
+        <div class="pmc-card-sub" style="color:#0891b2">42-day load avg</div>
+      </div>
+      <div class="pmc-card">
+        <div class="pmc-card-accent" style="background:#f59e0b"></div>
+        <div class="pmc-card-label">Fatigue (ATL)</div>
+        <div class="pmc-card-val">${Math.round(atl)}</div>
+        <div class="pmc-card-sub" style="color:#f59e0b">7-day load avg</div>
+      </div>
+      <div class="pmc-card">
+        <div class="pmc-card-accent" style="background:${zone.color}"></div>
+        <div class="pmc-card-label">Form (TSB)</div>
+        <div class="pmc-card-val" style="color:${zone.color}">${tsbStr}</div>
+        <div class="pmc-card-sub" style="color:${zone.color}">${zone.label}</div>
+      </div>
+    </div>
+    <div class="pmc-svg-wrap">
+      ${renderPMCChart(days)}
+      <div class="pmc-legend">
+        <div class="pmc-legend-item"><span class="pmc-legend-swatch" style="background:#0891b2"></span>Fitness (CTL)</div>
+        <div class="pmc-legend-item"><span class="pmc-legend-swatch" style="background:#f59e0b"></span>Fatigue (ATL)</div>
+      </div>
+    </div>
+    <div class="form-gauge">
+      <div class="form-gauge-title">Form — where the athlete sits today</div>
+      <div class="form-gauge-track">
+        <div class="form-gauge-zone" style="flex:10;background:#ef4444"></div>
+        <div class="form-gauge-zone" style="flex:20;background:#f59e0b"></div>
+        <div class="form-gauge-zone" style="flex:15;background:#64748b"></div>
+        <div class="form-gauge-zone" style="flex:20;background:#22c55e"></div>
+        <div class="form-gauge-zone" style="flex:5;background:#3b82f6"></div>
+        <div class="form-gauge-marker" style="left:${markerPct.toFixed(1)}%"></div>
+      </div>
+      <div class="form-gauge-scale"><span>-40 buried</span><span>-10</span><span>+5</span><span>+30 fresh</span></div>
+    </div>
+    <div class="pmc-caption">Fitness (CTL) = 42-day average of daily training load · Fatigue (ATL) = 7-day average · Form = Fitness − Fatigue. Load is estimated from heart rate (${esc(srcNote)}); resting HR assumed 60. Needs ~6 weeks of history to settle.</div>
+  </div>`;
+}
+
+// Feature 2 — Weekly training load + ramp rate + ACWR.
+function renderTrainingLoad(days, chartWeeks, hrParams) {
+  if (!days.length) return '';
+  // Weekly TSS totals aligned to the same 16 Mondays as the mileage chart.
+  const loadByDay = {};
+  days.forEach(d => { loadByDay[d.ds] = d.load; });
+  const weekLoads = chartWeeks.map(w => {
+    let total = 0;
+    for (let i = 0; i < 7; i++) total += (loadByDay[dateToStr(addDays(w.monday, i))] || 0);
+    return { label: w.label, load: total };
+  });
+  const maxLoad = Math.max(50, ...weekLoads.map(w => w.load));
+  const yMax = Math.ceil(maxLoad / 50) * 50;
+
+  const bars = weekLoads.map(w => {
+    const pct = yMax > 0 ? (w.load / yMax) * 100 : 0;
+    return `<div class="chart-bar-col">
+      <div class="chart-tooltip">${Math.round(w.load)} TSS</div>
+      <div class="chart-bar" style="height:${Math.max(pct, 1)}%;background:linear-gradient(180deg,#7c3aed 0%,#a855f7 100%)"></div>
+      <div class="chart-bar-label">${w.label}</div>
+    </div>`;
+  }).join('');
+
+  // Ramp rate: change in Fitness (CTL) over the last 7 days.
+  const last = days[days.length - 1];
+  const prevIdx = Math.max(0, days.length - 8);
+  const ramp = last.ctl - days[prevIdx].ctl;
+  let rampColor = '#22c55e', rampStatus = 'Sustainable build';
+  if (ramp > 8) { rampColor = '#ef4444'; rampStatus = 'Aggressive — injury risk'; }
+  else if (ramp > 5) { rampColor = '#f59e0b'; rampStatus = 'Hard build — watch recovery'; }
+  else if (ramp < -3) { rampColor = '#3b82f6'; rampStatus = 'Detraining / taper'; }
+
+  // ACWR: acute (7-day load) ÷ chronic (28-day load on a 7-day scale).
+  let acute = 0, chronic28 = 0;
+  for (let i = Math.max(0, days.length - 7); i < days.length; i++) acute += days[i].load;
+  for (let i = Math.max(0, days.length - 28); i < days.length; i++) chronic28 += days[i].load;
+  const chronic = chronic28 / 4;
+  const acwr = chronic > 0 ? acute / chronic : 0;
+  let acwrColor = '#22c55e', acwrStatus = 'Sweet spot';
+  if (acwr === 0) { acwrColor = '#64748b'; acwrStatus = 'No recent load'; }
+  else if (acwr > 1.5) { acwrColor = '#ef4444'; acwrStatus = 'Spike — high injury risk'; }
+  else if (acwr > 1.3) { acwrColor = '#f59e0b'; acwrStatus = 'Ramping fast — caution'; }
+  else if (acwr < 0.8) { acwrColor = '#3b82f6'; acwrStatus = 'Undertraining / recovering'; }
+
+  return `
+  <div class="chart-section">
+    <div class="chart-title">Training load — last 16 weeks</div>
+    <div class="load-callouts">
+      <div class="load-chip">
+        <div class="load-chip-badge" style="background:${rampColor}1a;color:${rampColor}">${ramp >= 0 ? '+' : ''}${ramp.toFixed(1)}</div>
+        <div class="load-chip-body">
+          <div class="load-chip-label">Ramp rate / week</div>
+          <div class="load-chip-status" style="color:${rampColor}">${rampStatus}</div>
+          <div class="load-chip-sub">Change in Fitness (CTL) over 7 days</div>
+        </div>
+      </div>
+      <div class="load-chip">
+        <div class="load-chip-badge" style="background:${acwrColor}1a;color:${acwrColor}">${acwr.toFixed(2)}</div>
+        <div class="load-chip-body">
+          <div class="load-chip-label">Acute : Chronic ratio</div>
+          <div class="load-chip-status" style="color:${acwrColor}">${acwrStatus}</div>
+          <div class="load-chip-sub">7-day load vs 28-day average · sweet spot 0.8–1.3</div>
+        </div>
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-y-labels">
+        <div class="chart-y-label">${yMax}</div>
+        <div class="chart-y-label">${Math.round(yMax * 0.75)}</div>
+        <div class="chart-y-label">${Math.round(yMax * 0.5)}</div>
+        <div class="chart-y-label">${Math.round(yMax * 0.25)}</div>
+        <div class="chart-y-label">0</div>
+      </div>
+      <div class="chart-bars">${bars}</div>
+    </div>
+  </div>`;
+}
+
 function renderDashboard(containerId, role) {
   const container = document.getElementById(containerId);
   container.style.display = 'block';
@@ -2210,6 +2499,14 @@ function renderDashboard(containerId, role) {
     chartWeeks.push({ monday: mon, monStr, runMiles: runMi, otherMiles: otherMi, target, label: `${MONTHS[mon.getMonth()]} ${mon.getDate()}` });
   }
 
+  // Training load — Fitness/Fatigue/Form + weekly load (Features 1 & 2).
+  // Start one week before the chart window so CTL/ATL have seed runway.
+  const athleteProfile = role === 'coach' ? selectedAthleteData : userDoc;
+  const hrParams = getAthleteHRParams(athleteProfile);
+  const pmcDays = buildPMCSeries(getWeekMonday(-16), today, hrParams);
+  const pmcHtml = renderPMC(pmcDays, hrParams);
+  const loadHtml = renderTrainingLoad(pmcDays, chartWeeks, hrParams);
+
   // Recent activities (last 7 days, runs only for the table)
   const weekAgo = addDays(today, -6);
   const recentRuns = getStravaActivities(weekAgo, today).filter(isRunActivity);
@@ -2250,6 +2547,12 @@ function renderDashboard(containerId, role) {
           <div class="dash-stat-sub">Last wk: ${formatDuration(nonRunLast)}<br>4-wk total: ${formatDuration(nonRun4wk)}</div>
         </div>
       </div>
+
+      <!-- Fitness / Fatigue / Form (PMC) -->
+      ${pmcHtml}
+
+      <!-- Training load: weekly TSS + ramp rate + ACWR -->
+      ${loadHtml}
 
       <!-- Mileage chart -->
       <div class="chart-section">
@@ -3051,7 +3354,7 @@ async function addAthlete() {
 
       await db.collection('users').doc(athleteUid).set({
         email, displayName: name, role: 'athlete', coachUid: currentUser.uid,
-        gender: null, dob: null, profileComplete: false,
+        gender: null, dob: null, maxHr: null, profileComplete: false,
         stravaAthleteId: null, stravaConnected: false,
         raceDate: null, raceName: null,
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -3095,19 +3398,30 @@ async function saveProfile() {
   const btn = document.getElementById('pm-btn');
   const gender = document.getElementById('pm-gender').value;
   const dob = document.getElementById('pm-dob').value;
+  const maxHrRaw = document.getElementById('pm-maxhr').value;
 
   if (!gender) { errEl.textContent = 'Please select a gender.'; return; }
   if (!dob) { errEl.textContent = 'Please enter your date of birth.'; return; }
+
+  let maxHr = null;
+  if (maxHrRaw) {
+    maxHr = parseInt(maxHrRaw, 10);
+    if (isNaN(maxHr) || maxHr < 120 || maxHr > 230) {
+      errEl.textContent = 'Max HR should be between 120 and 230 bpm (or leave it blank).';
+      return;
+    }
+  }
 
   btn.disabled = true;
   btn.textContent = 'Saving…';
 
   try {
     await db.collection('users').doc(currentUser.uid).update({
-      gender, dob, profileComplete: true
+      gender, dob, maxHr, profileComplete: true
     });
     userDoc.gender = gender;
     userDoc.dob = dob;
+    userDoc.maxHr = maxHr;
     userDoc.profileComplete = true;
     document.getElementById('profile-modal').classList.remove('open');
   } catch(e) {
