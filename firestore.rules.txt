@@ -72,9 +72,11 @@ service cloud.firestore {
     match /trainingPlans/{planId} {
       // Coach who owns the plan can read/write.
       // Athlete the plan belongs to can read.
+      // Admin can read any plan (view-only across all athletes).
       allow read: if request.auth != null
                   && (resource.data.coachUid == request.auth.uid
-                      || resource.data.athleteUid == request.auth.uid);
+                      || resource.data.athleteUid == request.auth.uid
+                      || request.auth.uid == "2z9Z3K5ZwShvadUuqZmwMv0s1Od2");
       allow create: if request.auth != null;
       allow update: if request.auth != null
                     && resource.data.coachUid == request.auth.uid;
@@ -83,7 +85,8 @@ service cloud.firestore {
       match /workouts/{workoutId} {
         allow read: if request.auth != null
                     && (get(/databases/$(database)/documents/trainingPlans/$(planId)).data.coachUid == request.auth.uid
-                        || get(/databases/$(database)/documents/trainingPlans/$(planId)).data.athleteUid == request.auth.uid);
+                        || get(/databases/$(database)/documents/trainingPlans/$(planId)).data.athleteUid == request.auth.uid
+                        || request.auth.uid == "2z9Z3K5ZwShvadUuqZmwMv0s1Od2");
         // Coach can fully write; athlete can write (to add their notes)
         allow write: if request.auth != null
                      && (get(/databases/$(database)/documents/trainingPlans/$(planId)).data.coachUid == request.auth.uid
@@ -94,7 +97,8 @@ service cloud.firestore {
       match /stravaActivities/{activityId} {
         allow read: if request.auth != null
                     && (get(/databases/$(database)/documents/trainingPlans/$(planId)).data.coachUid == request.auth.uid
-                        || get(/databases/$(database)/documents/trainingPlans/$(planId)).data.athleteUid == request.auth.uid);
+                        || get(/databases/$(database)/documents/trainingPlans/$(planId)).data.athleteUid == request.auth.uid
+                        || request.auth.uid == "2z9Z3K5ZwShvadUuqZmwMv0s1Od2");
         // Athlete can write their own Strava data (or a Cloud Function)
         allow write: if request.auth != null
                      && get(/databases/$(database)/documents/trainingPlans/$(planId)).data.athleteUid == request.auth.uid;
@@ -104,7 +108,8 @@ service cloud.firestore {
       match /liftingWeeks/{weekId} {
         allow read: if request.auth != null
                     && (get(/databases/$(database)/documents/trainingPlans/$(planId)).data.coachUid == request.auth.uid
-                        || get(/databases/$(database)/documents/trainingPlans/$(planId)).data.athleteUid == request.auth.uid);
+                        || get(/databases/$(database)/documents/trainingPlans/$(planId)).data.athleteUid == request.auth.uid
+                        || request.auth.uid == "2z9Z3K5ZwShvadUuqZmwMv0s1Od2");
         // Both coach and athlete can write lifting data
         allow write: if request.auth != null
                      && (get(/databases/$(database)/documents/trainingPlans/$(planId)).data.coachUid == request.auth.uid
