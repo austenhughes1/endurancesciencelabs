@@ -306,11 +306,10 @@ header{display:none}
 .chart-tooltip{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--card-text);color:#fff;padding:4px 8px;border-radius:6px;font-size:10px;font-family:var(--mono);font-weight:700;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;z-index:10;margin-bottom:4px}
 .chart-bar-col:hover .chart-tooltip{opacity:1}
 
-/* Chart toggle */
-.chart-toggle{display:inline-flex;background:var(--card-bg2);border:1px solid var(--card-border);border-radius:7px;overflow:hidden;margin-left:12px;vertical-align:middle}
-.chart-toggle-btn{padding:4px 10px;font-size:9px;font-weight:700;font-family:var(--mono);border:none;background:transparent;color:var(--card-muted2);cursor:pointer;transition:all .15s;text-transform:uppercase;letter-spacing:.3px}
-.chart-toggle-btn.active{background:#0891b2;color:#fff}
-.chart-toggle-btn:hover:not(.active){color:var(--card-text)}
+/* Chart view selector (Weekly Training) */
+.chart-select{margin-left:12px;vertical-align:middle;font-family:var(--mono);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:var(--card-text);background:var(--card-bg2);border:1px solid var(--card-border);border-radius:7px;padding:4px 26px 4px 10px;cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path d='M2 3.5L5 6.5L8 3.5' stroke='%23667' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");background-repeat:no-repeat;background-position:right 9px center}
+.chart-select:hover{border-color:#0891b2}
+.chart-select:focus{outline:none;border-color:#0891b2}
 
 /* ── PMC (Fitness / Fatigue / Form) ───────────────── */
 .pmc-section{margin-bottom:28px}
@@ -1720,6 +1719,13 @@ function isRunActivity(a) {
   return a && (a.type === 'Run' || a.type === 'TrailRun' || a.type === 'VirtualRun');
 }
 
+// Strava cycling types — indoor/trainer (VirtualRide), road (Ride) and the
+// off-road / e-bike variants. Pooled together as "bike" miles.
+function isBikeActivity(a) {
+  return a && (a.type === 'Ride' || a.type === 'VirtualRide' || a.type === 'EBikeRide'
+    || a.type === 'MountainBikeRide' || a.type === 'GravelRide' || a.type === 'Handcycle');
+}
+
 // Get strava miles for a given week (Monday date)
 function getWeekStravaMiles(monday, type) {
   // type: 'Run', 'other', or undefined (all)
@@ -2300,6 +2306,26 @@ function renderPMC(days, hrParams) {
     : hrParams.source === 'age' ? `max HR ~${hrParams.hrMax} (estimated from age)`
     : `max HR ${hrParams.hrMax} (default — set it in your profile for accuracy)`;
 
+  // Ramp rate: change in Fitness (CTL) over the last 7 days.
+  const prevIdx = Math.max(0, days.length - 8);
+  const ramp = last.ctl - days[prevIdx].ctl;
+  let rampColor = '#22c55e', rampStatus = 'Sustainable build';
+  if (ramp > 8) { rampColor = '#ef4444'; rampStatus = 'Aggressive — injury risk'; }
+  else if (ramp > 5) { rampColor = '#f59e0b'; rampStatus = 'Hard build — watch recovery'; }
+  else if (ramp < -3) { rampColor = '#3b82f6'; rampStatus = 'Detraining / taper'; }
+
+  // ACWR: acute (7-day load) ÷ chronic (28-day load on a 7-day scale).
+  let acute = 0, chronic28 = 0;
+  for (let i = Math.max(0, days.length - 7); i < days.length; i++) acute += days[i].load;
+  for (let i = Math.max(0, days.length - 28); i < days.length; i++) chronic28 += days[i].load;
+  const chronic = chronic28 / 4;
+  const acwr = chronic > 0 ? acute / chronic : 0;
+  let acwrColor = '#22c55e', acwrStatus = 'Sweet spot';
+  if (acwr === 0) { acwrColor = '#64748b'; acwrStatus = 'No recent load'; }
+  else if (acwr > 1.5) { acwrColor = '#ef4444'; acwrStatus = 'Spike — high injury risk'; }
+  else if (acwr > 1.3) { acwrColor = '#f59e0b'; acwrStatus = 'Ramping fast — caution'; }
+  else if (acwr < 0.8) { acwrColor = '#3b82f6'; acwrStatus = 'Undertraining / recovering'; }
+
   return `
   <div class="pmc-section">
     <div class="chart-title">Fitness &amp; Form</div>
@@ -2342,57 +2368,6 @@ function renderPMC(days, hrParams) {
       </div>
       <div class="form-gauge-scale"><span>-40 buried</span><span>-10</span><span>+5</span><span>+30 fresh</span></div>
     </div>
-    <div class="pmc-caption">Fitness (CTL) = 42-day average of daily training load · Fatigue (ATL) = 7-day average · Form = Fitness − Fatigue. Load is estimated from heart rate (${esc(srcNote)}); resting HR assumed 60. Needs ~6 weeks of history to settle.</div>
-  </div>`;
-}
-
-// Feature 2 — Weekly training load + ramp rate + ACWR.
-function renderTrainingLoad(days, chartWeeks, hrParams) {
-  if (!days.length) return '';
-  // Weekly TSS totals aligned to the same 16 Mondays as the mileage chart.
-  const loadByDay = {};
-  days.forEach(d => { loadByDay[d.ds] = d.load; });
-  const weekLoads = chartWeeks.map(w => {
-    let total = 0;
-    for (let i = 0; i < 7; i++) total += (loadByDay[dateToStr(addDays(w.monday, i))] || 0);
-    return { label: w.label, load: total };
-  });
-  const maxLoad = Math.max(50, ...weekLoads.map(w => w.load));
-  const yMax = Math.ceil(maxLoad / 50) * 50;
-
-  const bars = weekLoads.map(w => {
-    const pct = yMax > 0 ? (w.load / yMax) * 100 : 0;
-    return `<div class="chart-bar-col">
-      <div class="chart-tooltip">${Math.round(w.load)} TSS</div>
-      <div class="chart-bar" style="height:${Math.max(pct, 1)}%;background:linear-gradient(180deg,#7c3aed 0%,#a855f7 100%)"></div>
-      <div class="chart-bar-label">${w.label}</div>
-    </div>`;
-  }).join('');
-
-  // Ramp rate: change in Fitness (CTL) over the last 7 days.
-  const last = days[days.length - 1];
-  const prevIdx = Math.max(0, days.length - 8);
-  const ramp = last.ctl - days[prevIdx].ctl;
-  let rampColor = '#22c55e', rampStatus = 'Sustainable build';
-  if (ramp > 8) { rampColor = '#ef4444'; rampStatus = 'Aggressive — injury risk'; }
-  else if (ramp > 5) { rampColor = '#f59e0b'; rampStatus = 'Hard build — watch recovery'; }
-  else if (ramp < -3) { rampColor = '#3b82f6'; rampStatus = 'Detraining / taper'; }
-
-  // ACWR: acute (7-day load) ÷ chronic (28-day load on a 7-day scale).
-  let acute = 0, chronic28 = 0;
-  for (let i = Math.max(0, days.length - 7); i < days.length; i++) acute += days[i].load;
-  for (let i = Math.max(0, days.length - 28); i < days.length; i++) chronic28 += days[i].load;
-  const chronic = chronic28 / 4;
-  const acwr = chronic > 0 ? acute / chronic : 0;
-  let acwrColor = '#22c55e', acwrStatus = 'Sweet spot';
-  if (acwr === 0) { acwrColor = '#64748b'; acwrStatus = 'No recent load'; }
-  else if (acwr > 1.5) { acwrColor = '#ef4444'; acwrStatus = 'Spike — high injury risk'; }
-  else if (acwr > 1.3) { acwrColor = '#f59e0b'; acwrStatus = 'Ramping fast — caution'; }
-  else if (acwr < 0.8) { acwrColor = '#3b82f6'; acwrStatus = 'Undertraining / recovering'; }
-
-  return `
-  <div class="chart-section">
-    <div class="chart-title">Training load — last 16 weeks</div>
     <div class="load-callouts">
       <div class="load-chip">
         <div class="load-chip-badge" style="background:${rampColor}1a;color:${rampColor}">${ramp >= 0 ? '+' : ''}${ramp.toFixed(1)}</div>
@@ -2411,16 +2386,7 @@ function renderTrainingLoad(days, chartWeeks, hrParams) {
         </div>
       </div>
     </div>
-    <div class="chart-wrap">
-      <div class="chart-y-labels">
-        <div class="chart-y-label">${yMax}</div>
-        <div class="chart-y-label">${Math.round(yMax * 0.75)}</div>
-        <div class="chart-y-label">${Math.round(yMax * 0.5)}</div>
-        <div class="chart-y-label">${Math.round(yMax * 0.25)}</div>
-        <div class="chart-y-label">0</div>
-      </div>
-      <div class="chart-bars">${bars}</div>
-    </div>
+    <div class="pmc-caption">Fitness (CTL) = 42-day average of daily training load · Fatigue (ATL) = 7-day average · Form = Fitness − Fatigue. Load is estimated from heart rate (${esc(srcNote)}); resting HR assumed 60. Needs ~6 weeks of history to settle.</div>
   </div>`;
 }
 
@@ -2481,13 +2447,30 @@ function renderDashboard(containerId, role) {
     nonRun4wk += getWeekNonRunTime(addDays(thisMonday, i * 7));
   }
 
-  // Chart data (last 16 weeks) — build for both run and other
+  // Training-load series (Fitness/Fatigue/Form). Computed first so weekly
+  // TSS can be folded into the chart-week data below. Start one week before
+  // the chart window so CTL/ATL have seed runway.
+  const athleteProfile = role === 'coach' ? selectedAthleteData : userDoc;
+  const hrParams = getAthleteHRParams(athleteProfile);
+  const pmcDays = buildPMCSeries(getWeekMonday(-16), today, hrParams);
+  const loadByDay = {};
+  pmcDays.forEach(d => { loadByDay[d.ds] = d.load; });
+
+  // Chart data (last 16 weeks): run/bike mileage, other-activity time, load.
   const chartWeeks = [];
   for (let i = -15; i <= 0; i++) {
     const mon = getWeekMonday(i);
     const monStr = dateToStr(mon);
-    const runMi = getWeekStravaMiles(mon, 'Run');
-    const otherMi = getWeekStravaMiles(mon, 'other');
+    let runMi = 0, bikeMi = 0, otherTime = 0, load = 0;
+    for (let d = 0; d < 7; d++) {
+      const dayStr = dateToStr(addDays(mon, d));
+      (stravaCache[dayStr] || []).forEach(a => {
+        if (isRunActivity(a)) runMi += (a.distance || 0) / 1609.34;
+        else if (isBikeActivity(a)) bikeMi += (a.distance || 0) / 1609.34;
+        else otherTime += (a.movingTime || 0);
+      });
+      load += (loadByDay[dayStr] || 0);
+    }
     const workout = workoutsCache[monStr];
     const targetStr = workout?.milesPerWeek;
     let target = null;
@@ -2496,16 +2479,10 @@ function renderDashboard(containerId, role) {
       if (parts && parts.length >= 2) target = (parseFloat(parts[0]) + parseFloat(parts[1])) / 2;
       else if (parts && parts.length === 1) target = parseFloat(parts[0]);
     }
-    chartWeeks.push({ monday: mon, monStr, runMiles: runMi, otherMiles: otherMi, target, label: `${MONTHS[mon.getMonth()]} ${mon.getDate()}` });
+    chartWeeks.push({ monday: mon, monStr, runMiles: runMi, bikeMiles: bikeMi, otherTime, load, target, label: `${MONTHS[mon.getMonth()]} ${mon.getDate()}` });
   }
 
-  // Training load — Fitness/Fatigue/Form + weekly load (Features 1 & 2).
-  // Start one week before the chart window so CTL/ATL have seed runway.
-  const athleteProfile = role === 'coach' ? selectedAthleteData : userDoc;
-  const hrParams = getAthleteHRParams(athleteProfile);
-  const pmcDays = buildPMCSeries(getWeekMonday(-16), today, hrParams);
   const pmcHtml = renderPMC(pmcDays, hrParams);
-  const loadHtml = renderTrainingLoad(pmcDays, chartWeeks, hrParams);
 
   // Recent activities (last 7 days, runs only for the table)
   const weekAgo = addDays(today, -6);
@@ -2548,21 +2525,14 @@ function renderDashboard(containerId, role) {
         </div>
       </div>
 
-      <!-- Fitness / Fatigue / Form (PMC) -->
-      ${pmcHtml}
-
-      <!-- Training load: weekly TSS + ramp rate + ACWR -->
-      ${loadHtml}
-
-      <!-- Mileage chart -->
+      <!-- Weekly training chart -->
       <div class="chart-section">
-        <div class="chart-title">Weekly mileage — last 16 weeks
-          <div class="chart-toggle" id="chart-toggle">
-            <button class="chart-toggle-btn active" onclick="setChartMode('run')">Running</button>
-            <button class="chart-toggle-btn" onclick="setChartMode('other')">Other</button>
-          </div>
+        <div class="chart-title">Weekly Training
+          <select class="chart-select" id="chart-mode-select" onchange="setChartMode(this.value)">
+            ${CHART_MODES.map(m => `<option value="${m.key}" ${m.key === currentChartMode ? 'selected' : ''}>${m.label}</option>`).join('')}
+          </select>
         </div>
-        <div id="chart-container">${renderChart(chartWeeks, 'run')}</div>
+        <div id="chart-container">${renderChart(chartWeeks, currentChartMode)}</div>
       </div>
 
       <!-- Recent runs -->
@@ -2606,6 +2576,9 @@ function renderDashboard(containerId, role) {
         ` : '<div class="act-no-data">No runs in the last 7 days</div>'}
       </div>
 
+      <!-- Fitness / Fatigue / Form (PMC) -->
+      ${pmcHtml}
+
     </div>
     <div class="dash-powered-by">${STRAVA_LOGO_SVG} Powered by Strava</div>
   </div>`;
@@ -2615,31 +2588,55 @@ function renderDashboard(containerId, role) {
   window._dashChartWeeks = chartWeeks;
 }
 
-// Chart rendering (extracted for toggle)
+// Weekly-training chart — selectable views (run/bike miles, other time, load)
 let currentChartMode = 'run';
+const CHART_MODES = [
+  { key: 'run',   label: 'Run (Mileage)' },
+  { key: 'bike',  label: 'Bike (Mileage)' },
+  { key: 'other', label: 'Other (Time)' },
+  { key: 'load',  label: 'Training Load (TSS)' },
+];
 
 function renderChart(chartWeeks, mode) {
-  const miles = chartWeeks.map(w => mode === 'run' ? w.runMiles : w.otherMiles);
-  const maxMiles = Math.max(10, ...miles, ...chartWeeks.map(w => w.target || 0));
-  const yMax = Math.ceil(maxMiles / 10) * 10;
+  // Per-mode value extraction, axis step, tooltip formatting and bar color.
+  let vals, step, fmt, gradient = null, useTarget = false;
+  if (mode === 'bike') {
+    vals = chartWeeks.map(w => w.bikeMiles); step = 10;
+    fmt = v => v.toFixed(1) + ' mi';
+  } else if (mode === 'other') {
+    vals = chartWeeks.map(w => (w.otherTime || 0) / 3600); step = 1;
+    fmt = v => formatDuration(v * 3600);
+  } else if (mode === 'load') {
+    vals = chartWeeks.map(w => w.load); step = 50;
+    fmt = v => Math.round(v) + ' TSS';
+    gradient = 'linear-gradient(180deg,#7c3aed 0%,#a855f7 100%)';
+  } else { // run
+    vals = chartWeeks.map(w => w.runMiles); step = 10;
+    fmt = v => v.toFixed(1) + ' mi';
+    useTarget = true;
+  }
+  const maxV = Math.max(step, ...vals, ...(useTarget ? chartWeeks.map(w => w.target || 0) : []));
+  const yMax = Math.ceil(maxV / step) * step;
+  const ylab = v => mode === 'other' ? (Math.round(v * 10) / 10) : Math.round(v);
 
   return `<div class="chart-wrap">
     <div class="chart-y-labels">
-      <div class="chart-y-label">${yMax}</div>
-      <div class="chart-y-label">${Math.round(yMax * 0.75)}</div>
-      <div class="chart-y-label">${Math.round(yMax * 0.5)}</div>
-      <div class="chart-y-label">${Math.round(yMax * 0.25)}</div>
+      <div class="chart-y-label">${ylab(yMax)}</div>
+      <div class="chart-y-label">${ylab(yMax * 0.75)}</div>
+      <div class="chart-y-label">${ylab(yMax * 0.5)}</div>
+      <div class="chart-y-label">${ylab(yMax * 0.25)}</div>
       <div class="chart-y-label">0</div>
     </div>
     <div class="chart-bars">
       ${chartWeeks.map((w, i) => {
-        const mi = mode === 'run' ? w.runMiles : w.otherMiles;
-        const pct = yMax > 0 ? (mi / yMax) * 100 : 0;
-        const hasTarget = mode === 'run' && w.target !== null;
-        const targetTip = hasTarget ? ' / ' + w.target + ' target' : '';
+        const v = vals[i];
+        const pct = yMax > 0 ? (v / yMax) * 100 : 0;
+        const hasTarget = useTarget && w.target !== null && w.target !== undefined;
+        const targetTip = hasTarget ? ' / ' + w.target + ' mi target' : '';
+        const barStyle = `height:${Math.max(pct, 1)}%${gradient ? `;background:${gradient}` : ''}`;
         return `<div class="chart-bar-col">
-          <div class="chart-tooltip">${mi.toFixed(1)} mi${targetTip}</div>
-          <div class="chart-bar${hasTarget ? ' has-target' : ''}" style="height:${Math.max(pct, 1)}%"></div>
+          <div class="chart-tooltip">${fmt(v)}${targetTip}</div>
+          <div class="chart-bar${hasTarget ? ' has-target' : ''}" style="${barStyle}"></div>
           <div class="chart-bar-label">${w.label}</div>
         </div>`;
       }).join('')}
@@ -2653,10 +2650,6 @@ function setChartMode(mode) {
   if (container && window._dashChartWeeks) {
     container.innerHTML = renderChart(window._dashChartWeeks, mode);
   }
-  // Update toggle buttons
-  document.querySelectorAll('.chart-toggle-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.textContent.toLowerCase() === mode || (mode === 'run' && btn.textContent === 'Running') || (mode === 'other' && btn.textContent === 'Other'));
-  });
 }
 
 // ══════════════════════════════════════════════════════════
