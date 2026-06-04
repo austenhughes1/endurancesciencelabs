@@ -1752,6 +1752,11 @@ function isBikeActivity(a) {
     || a.type === 'MountainBikeRide' || a.type === 'GravelRide' || a.type === 'Handcycle');
 }
 
+// Swimming — pool and open water both report as "Swim" (distance in meters).
+function isSwimActivity(a) {
+  return a && a.type === 'Swim';
+}
+
 // Get strava miles for a given week (Monday date)
 function getWeekStravaMiles(monday, type) {
   // type: 'Run', 'other', or undefined (all)
@@ -2487,12 +2492,13 @@ function renderDashboard(containerId, role) {
   for (let i = -15; i <= 0; i++) {
     const mon = getWeekMonday(i);
     const monStr = dateToStr(mon);
-    let runMi = 0, bikeMi = 0, otherTime = 0, load = 0;
+    let runMi = 0, bikeMi = 0, swimM = 0, otherTime = 0, load = 0;
     for (let d = 0; d < 7; d++) {
       const dayStr = dateToStr(addDays(mon, d));
       (stravaCache[dayStr] || []).forEach(a => {
         if (isRunActivity(a)) runMi += (a.distance || 0) / 1609.34;
         else if (isBikeActivity(a)) bikeMi += (a.distance || 0) / 1609.34;
+        else if (isSwimActivity(a)) swimM += (a.distance || 0);
         else otherTime += (a.movingTime || 0);
       });
       load += (loadByDay[dayStr] || 0);
@@ -2505,7 +2511,7 @@ function renderDashboard(containerId, role) {
       if (parts && parts.length >= 2) target = (parseFloat(parts[0]) + parseFloat(parts[1])) / 2;
       else if (parts && parts.length === 1) target = parseFloat(parts[0]);
     }
-    chartWeeks.push({ monday: mon, monStr, runMiles: runMi, bikeMiles: bikeMi, otherTime, load, target, label: `${MONTHS[mon.getMonth()]} ${mon.getDate()}` });
+    chartWeeks.push({ monday: mon, monStr, runMiles: runMi, bikeMiles: bikeMi, swimMeters: swimM, otherTime, load, target, label: `${MONTHS[mon.getMonth()]} ${mon.getDate()}` });
   }
 
   const pmcHtml = renderPMC(pmcDays, hrParams);
@@ -2619,6 +2625,7 @@ let currentChartMode = 'run';
 const CHART_MODES = [
   { key: 'run',   label: 'Run (Mileage)' },
   { key: 'bike',  label: 'Bike (Mileage)' },
+  { key: 'swim',  label: 'Swim (Distance)' },
   { key: 'other', label: 'Other (Time)' },
   { key: 'load',  label: 'Training Load (TSS)' },
 ];
@@ -2629,6 +2636,10 @@ function renderChart(chartWeeks, mode) {
   if (mode === 'bike') {
     vals = chartWeeks.map(w => w.bikeMiles); step = 10;
     fmt = v => v.toFixed(1) + ' mi';
+  } else if (mode === 'swim') {
+    vals = chartWeeks.map(w => w.swimMeters || 0); step = 500;
+    fmt = v => Math.round(v).toLocaleString() + ' m';
+    gradient = 'linear-gradient(180deg,#0369a1 0%,#0ea5e9 100%)';
   } else if (mode === 'other') {
     vals = chartWeeks.map(w => (w.otherTime || 0) / 3600); step = 1;
     fmt = v => formatDuration(v * 3600);
