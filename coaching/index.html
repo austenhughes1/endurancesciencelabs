@@ -1489,9 +1489,11 @@ async function loadAthleteList() {
       }
     }
     const item = document.createElement('div');
-    item.className = 'athlete-item' + (selectedAthleteUid === u.id ? ' active' : '') + (isForeign ? ' foreign' : '');
+    // Admin can view any athlete regardless of coach assignment (read-only of their existing plan).
+    const blocked = isForeign && !isAdminUser;
+    item.className = 'athlete-item' + (selectedAthleteUid === u.id ? ' active' : '') + (blocked ? ' foreign' : '');
     item.dataset.uid = u.id;
-    if (isForeign) {
+    if (blocked) {
       item.onclick = () => alert('This user belongs to another coach (or no coach). Use the Manage Users admin page to assign them or change their access; selecting here would create a duplicate training plan.');
     } else {
       item.onclick = () => selectAthlete(u.id, d, item);
@@ -1521,20 +1523,43 @@ async function selectAthlete(uid, data, el) {
   document.querySelectorAll('.athlete-item').forEach(e => e.classList.remove('active'));
   el.classList.add('active');
 
-  const planSnap = await db.collection('trainingPlans')
-    .where('athleteUid', '==', uid)
-    .where('coachUid', '==', currentUser.uid)
-    .limit(1)
-    .get();
+  // Admin viewing an athlete coached by someone else: load that athlete's existing
+  // plan (whatever coach owns it) rather than creating a duplicate under the admin.
+  const isAdmin = currentUser.uid === ADMIN_UID;
+  const isForeign = data.coachUid !== currentUser.uid;
+  const viewingForeignAsAdmin = isAdmin && isForeign;
+
+  let planSnap;
+  if (viewingForeignAsAdmin) {
+    planSnap = await db.collection('trainingPlans')
+      .where('athleteUid', '==', uid)
+      .limit(1)
+      .get();
+  } else {
+    planSnap = await db.collection('trainingPlans')
+      .where('athleteUid', '==', uid)
+      .where('coachUid', '==', currentUser.uid)
+      .limit(1)
+      .get();
+  }
 
   if (planSnap.empty) {
-    const planRef = await db.collection('trainingPlans').add({
-      athleteUid: uid, coachUid: currentUser.uid,
-      raceName: data.raceName || '', raceDate: data.raceDate || '',
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    selectedAthletePlan = { id: planRef.id, raceName: data.raceName || '', raceDate: data.raceDate || '' };
+    if (viewingForeignAsAdmin) {
+      // No existing plan to view; don't create one on the athlete's behalf.
+      selectedAthleteUid = null;
+      selectedAthletePlan = null;
+      el.classList.remove('active');
+      alert('This athlete does not have a training plan yet, so there is nothing to view.');
+      return;
+    } else {
+      const planRef = await db.collection('trainingPlans').add({
+        athleteUid: uid, coachUid: currentUser.uid,
+        raceName: data.raceName || '', raceDate: data.raceDate || '',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      selectedAthletePlan = { id: planRef.id, raceName: data.raceName || '', raceDate: data.raceDate || '' };
+    }
   } else {
     const planDoc = planSnap.docs[0];
     selectedAthletePlan = { id: planDoc.id, ...planDoc.data() };
