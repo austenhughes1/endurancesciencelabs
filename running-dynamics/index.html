@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Running Dynamics — Endurance Science Labs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/site.css">
+<style>
+:root{
+  --bg:#06080d;--panel:#0d1020;--panel2:#131828;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+  --cyan:#00e5c8;--gold:#f5c842;--coral:#ff6b35;--purple:#8b7cf8;
+  --text:#dde1ef;--muted:#3e4460;--muted2:#6e7a9a;
+  --good:#22c78a;--warn:#f5a623;--bad:#f55050;
+  --ui:'Inter',system-ui,sans-serif;--mono:'Space Mono',monospace;--body:'DM Sans',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+body{font-family:var(--ui);background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;font-size:15px;line-height:1.5}
+a{color:var(--cyan)}
+.wrap{max-width:1180px;margin:0 auto;padding:30px 26px 80px}
+
+/* Header */
+.head{margin-bottom:24px}
+.eyebrow{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--cyan);font-family:var(--mono);background:rgba(0,229,200,.08);border:1px solid rgba(0,229,200,.2);border-radius:20px;padding:4px 12px;margin-bottom:12px}
+h1{font-size:26px;font-weight:800;letter-spacing:-.4px;margin-bottom:6px}
+.sub{font-size:13.5px;color:var(--muted2);max-width:780px;line-height:1.6}
+.sub code{font-family:var(--mono);font-size:12px;background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:1px 6px;color:var(--text)}
+
+/* Import bar */
+.importbar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-top:20px;padding:14px 16px;background:var(--panel);border:1px solid var(--border);border-radius:13px}
+.drop{flex:1;min-width:280px;border:1.5px dashed var(--border2);border-radius:11px;padding:14px 18px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
+.drop:hover,.drop.over{border-color:var(--cyan);background:rgba(0,229,200,.04)}
+.drop b{font-size:13.5px;font-weight:700}
+.drop span{font-size:11.5px;color:var(--muted2);display:block;margin-top:2px}
+.import-status{font-size:12px;color:var(--muted2);font-family:var(--mono);line-height:1.6;min-width:200px;flex:1}
+.import-status .ok{color:var(--good)}
+.import-status .err{color:var(--bad)}
+.spin{display:inline-block;width:13px;height:13px;border:2px solid var(--border2);border-top-color:var(--cyan);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Controls */
+.controls{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;margin:22px 0 8px;padding:16px 18px;background:var(--panel);border:1px solid var(--border);border-radius:13px}
+.ctl{display:flex;flex-direction:column;gap:6px}
+.ctl label{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono)}
+.types{display:flex;flex-wrap:wrap;gap:7px}
+.chip{font-size:12px;font-weight:600;padding:6px 12px;border-radius:20px;border:1px solid var(--border2);background:var(--panel2);color:var(--muted2);cursor:pointer;user-select:none;transition:all .12s}
+.chip.on{background:rgba(0,229,200,.1);border-color:rgba(0,229,200,.35);color:var(--cyan)}
+.ctl input[type=date]{background:var(--panel2);border:1px solid var(--border2);border-radius:8px;padding:8px 11px;color:var(--text);font-family:var(--mono);font-size:12.5px;color-scheme:dark}
+.btn{padding:9px 16px;background:var(--cyan);color:#000;font-weight:700;font-size:12.5px;border:none;border-radius:8px;cursor:pointer;transition:opacity .15s}
+.btn:hover{opacity:.85}
+.btn.ghost{background:transparent;border:1px solid var(--border2);color:var(--muted2)}
+.btn.ghost:hover{border-color:var(--cyan);color:var(--cyan)}
+.filenote{font-size:11px;color:var(--muted2);font-family:var(--mono);margin-left:auto}
+
+/* Sections */
+.section{display:none;margin-top:26px}
+.section.show{display:block;animation:fade .3s}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.section h2{font-size:13px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono);margin-bottom:13px;display:flex;align-items:center;gap:10px}
+.section h2 .note{font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)}
+.section h2::after{content:"";flex:1;height:1px;background:var(--border)}
+
+/* Summary cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:15px 16px}
+.card .win{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--cyan);font-family:var(--mono);margin-bottom:10px}
+.card .row{display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;color:var(--muted2)}
+.card .row b{color:var(--text);font-weight:700;font-family:var(--mono)}
+
+/* Metric table */
+.tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:10px 14px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--border)}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--panel)}
+thead th{font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono);background:var(--panel2)}
+thead th:first-child{background:var(--panel2)}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:rgba(255,255,255,.018)}
+tbody tr:hover td:first-child{background:#10131f}
+.mname{font-weight:600;color:var(--text)}
+.munit{font-size:10px;color:var(--muted);font-family:var(--mono);margin-left:5px}
+.mdesc{font-size:10.5px;color:var(--muted2);font-weight:400;margin-top:2px}
+.val{font-family:var(--mono);font-weight:700;color:var(--text)}
+.val.na{color:var(--muted);font-weight:400}
+.delta{font-family:var(--mono);font-size:10.5px;margin-left:7px}
+.delta.up{color:var(--good)}.delta.down{color:var(--bad)}.delta.flat{color:var(--muted)}
+
+/* Custom range */
+.rangebar{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;margin-bottom:14px;padding:16px 18px;background:var(--panel);border:1px solid var(--border);border-radius:12px}
+.hint{font-size:11.5px;color:var(--muted2);line-height:1.6;margin-top:10px;font-family:var(--mono)}
+.empty{padding:40px;text-align:center;color:var(--muted2);font-size:13px}
+.foot{margin-top:40px;font-size:11px;color:var(--muted);font-family:var(--mono);line-height:1.7;border-top:1px solid var(--border);padding-top:18px}
+.foot code{font-family:var(--mono);color:var(--muted2)}
+</style>
+</head>
+<body>
+
+<div id="nav-mount"></div>
+<div id="gate-mount"></div>
+
+<div class="wrap" id="tool" style="display:none">
+  <div class="head">
+    <span class="eyebrow">Running Dynamics</span>
+    <h1>Garmin Run Dynamics</h1>
+    <p class="sub">Import a Garmin Connect activities export (<code>Activities.csv</code>) to backfill your run history. New activities are saved to your account and de-duplicated by start time, so you only ever import what's new. Stats below are computed from your full stored history — ground contact time, vertical oscillation, cadence, stride length and derived efficiency metrics — over default windows and any custom date range.</p>
+  </div>
+
+  <div class="importbar">
+    <div class="drop" id="drop">
+      <b>Import Garmin Activities.csv</b>
+      <span>Drag &amp; drop, or click to choose. Garmin Connect → Activities → ⚙ → Export CSV.</span>
+      <input type="file" id="file" accept=".csv,text/csv" hidden>
+    </div>
+    <div class="import-status" id="importStatus"></div>
+  </div>
+
+  <div class="controls" id="controls" style="display:none">
+    <div class="ctl">
+      <label>Activity types</label>
+      <div class="types" id="types"></div>
+    </div>
+    <div class="ctl">
+      <label>Anchor (window end)</label>
+      <input type="date" id="anchor">
+    </div>
+    <span class="filenote" id="filenote"></span>
+  </div>
+
+  <div class="empty section" id="sec-empty">No running activities stored yet. Import your Garmin <code>Activities.csv</code> above to get started.</div>
+
+  <div class="section" id="sec-summary">
+    <h2>Volume by window</h2>
+    <div class="cards" id="cards"></div>
+  </div>
+
+  <div class="section" id="sec-metrics">
+    <h2>Form metrics by window · mean per run <span class="note">(Δ vs prior equal period)</span></h2>
+    <div class="tablewrap"><table id="mtable"></table></div>
+    <p class="hint">Δ shows change vs the immediately preceding window of equal length. Green = improvement for that metric's better direction; arrows are directional only.</p>
+  </div>
+
+  <div class="section" id="sec-range">
+    <h2>Custom date range</h2>
+    <div class="rangebar">
+      <div class="ctl"><label>From</label><input type="date" id="from"></div>
+      <div class="ctl"><label>To</label><input type="date" id="to"></div>
+      <div class="ctl"><label>Compare to</label>
+        <div class="types"><span class="chip" id="cmpToggle">+ second range</span></div>
+      </div>
+      <div class="ctl" id="cmpFromWrap" style="display:none"><label>Compare from</label><input type="date" id="cmpFrom"></div>
+      <div class="ctl" id="cmpToWrap" style="display:none"><label>Compare to</label><input type="date" id="cmpTo"></div>
+      <button class="btn" id="runRange">Run</button>
+    </div>
+    <div class="cards" id="rangeCards" style="margin-bottom:14px"></div>
+    <div class="tablewrap"><table id="rtable"></table></div>
+  </div>
+
+  <div class="foot" id="foot"></div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="/shared/site.js"></script>
+<script>
+'use strict';
+
+/* ============================================================
+   METRIC DEFINITIONS — dial these in.
+   Each metric is computed PER RUN from the parsed fields, then
+   averaged across the runs in a window.
+     key/label/unit/dec : display
+     better : 'lower' | 'higher' | null  (drives Δ coloring)
+     pace   : true => value is seconds/mi, format as m:ss
+     desc   : short explanation
+     calc(r): returns a Number or null for a single run `r`
+   Per-run fields (null when the watch didn't record):
+     r.cadence(spm) r.gct(ms) r.vo(cm) r.vratio(%) r.stride(m)
+     r.gctBalL(% left) r.paceSec(s/mi) r.gapSec(s/mi)
+     r.avgHr r.maxHr r.distMi r.durSec r.aerobicTE
+   ============================================================ */
+var METRICS = [
+  { key:'load',   label:'Load Factor',         unit:'',    dec:1, better:'lower',
+    desc:'cadence × GCT ÷ 1000 — cumulative ground-contact loading proxy',
+    calc:function(r){ return (r.cadence!=null&&r.gct!=null)? r.cadence*r.gct/1000 : null; } },
+  { key:'duty',   label:'Duty Factor',         unit:'%',   dec:1, better:'lower',
+    desc:'share of the stride spent on the ground = GCT × cadence ÷ 1200',
+    calc:function(r){ return (r.cadence!=null&&r.gct!=null)? r.gct*r.cadence/1200 : null; } },
+  { key:'gct',    label:'Ground Contact Time', unit:'ms',  dec:0, better:'lower',
+    desc:'time the foot is on the ground each step',
+    calc:function(r){ return r.gct; } },
+  { key:'vo',     label:'Vertical Oscillation',unit:'cm',  dec:1, better:'lower',
+    desc:'how much the torso bounces vertically each step',
+    calc:function(r){ return r.vo; } },
+  { key:'vratio', label:'Vertical Ratio',      unit:'%',   dec:1, better:'lower',
+    desc:'bounce ÷ stride length — overall efficiency (lower is better)',
+    calc:function(r){ return r.vratio; } },
+  { key:'cad',    label:'Cadence',             unit:'spm', dec:0, better:'higher',
+    desc:'steps per minute',
+    calc:function(r){ return r.cadence; } },
+  { key:'stride', label:'Stride Length',       unit:'m',   dec:2, better:null,
+    desc:'distance covered per step',
+    calc:function(r){ return r.stride; } },
+  { key:'asym',   label:'GCT Balance Asym.',   unit:'%',   dec:1, better:'lower',
+    desc:'L/R contact-time imbalance = |left% − 50|',
+    calc:function(r){ return r.gctBalL!=null? Math.abs(r.gctBalL-50) : null; } },
+  { key:'eff',    label:'Form Efficiency',     unit:'m/cm',dec:2, better:'higher',
+    desc:'stride length ÷ vertical oscillation — distance per unit of bounce',
+    calc:function(r){ return (r.stride!=null&&r.vo)? r.stride/r.vo : null; } },
+  { key:'pace',   label:'Avg Pace',            unit:'/mi', dec:0, better:null, pace:true,
+    desc:'average pace',
+    calc:function(r){ return r.paceSec; } },
+  { key:'hr',     label:'Avg HR',              unit:'bpm', dec:0, better:'lower',
+    desc:'average heart rate',
+    calc:function(r){ return r.avgHr; } },
+];
+
+var RUN_WINDOWS = [
+  {key:'7',  days:7,   label:'7 days'},
+  {key:'30', days:30,  label:'30 days'},
+  {key:'90', days:90,  label:'90 days'},
+  {key:'365',days:365, label:'365 days'},
+  {key:'all',days:null,label:'All time'},
+];
+
+/* ---------- state ---------- */
+var RAW = [];                  // all stored running activities {…fields, date:Date}
+var ACTIVE_TYPES = new Set();
+var ANCHOR = null;
+var UID = null;
+var DAY = 864e5;
+
+function actCol(){ return esLabs.db.collection('users').doc(UID).collection('garminActivities'); }
+
+/* ---------- CSV parsing ---------- */
+function parseCSV(text){
+  text = text.replace(/^﻿/,'');
+  var rows=[], row=[], cur='', q=false;
+  for(var i=0;i<text.length;i++){
+    var c=text[i];
+    if(q){
+      if(c==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else q=false; }
+      else cur+=c;
+    } else {
+      if(c==='"') q=true;
+      else if(c===','){ row.push(cur); cur=''; }
+      else if(c==='\n'){ row.push(cur); rows.push(row); row=[]; cur=''; }
+      else if(c==='\r'){ /* skip */ }
+      else cur+=c;
+    }
+  }
+  if(cur.length||row.length){ row.push(cur); rows.push(row); }
+  return rows.filter(function(r){return r.length>1;});
+}
+function norm(s){ return (s||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+function buildColMap(header){
+  var m={}; header.forEach(function(h,i){ var n=norm(h); if(!(n in m)) m[n]=i; }); return m;
+}
+function num(v){
+  if(v==null) return null;
+  v=String(v).replace(/[",]/g,'').trim();
+  if(v===''||v==='--') return null;
+  var f=parseFloat(v); return isNaN(f)?null:f;
+}
+function hmsToSec(v){
+  if(v==null) return null;
+  v=String(v).replace(/"/g,'').trim();
+  if(v===''||v.indexOf('--')===0) return null;
+  var p=v.split(':').map(parseFloat);
+  if(p.some(isNaN)) return null;
+  if(p.length===3) return p[0]*3600+p[1]*60+p[2];
+  if(p.length===2) return p[0]*60+p[1];
+  return p[0];
+}
+function gctBalLeft(v){
+  if(v==null) return null;
+  var mm=String(v).match(/([\d.]+)\s*%?\s*L/i);
+  return mm?parseFloat(mm[1]):null;
+}
+function parseDate(v){
+  if(!v) return null;
+  var d=new Date(String(v).trim().replace(' ','T'));
+  return isNaN(d)?null:d;
+}
+
+/* Parse a Garmin export into candidate run docs keyed by a stable id. */
+function parseExport(text){
+  var rows=parseCSV(text);
+  if(rows.length<2) throw new Error('No data rows found.');
+  var col=buildColMap(rows[0]);
+  ['activitytype','date','avggroundcontacttime'].forEach(function(k){
+    if(!(k in col)) throw new Error('Not a Garmin activities export (missing "'+k+'").');
+  });
+  var get=function(r,k){ return col[k]!=null ? r[col[k]] : null; };
+  var byId={};
+  for(var i=1;i<rows.length;i++){
+    var r=rows[i];
+    var rawDate=get(r,'date');
+    var date=parseDate(rawDate);
+    if(!date) continue;
+    var type=String(get(r,'activitytype')||'').trim();
+    if(!/run/i.test(type)) continue;                 // run-focused tool
+    var isTrack=/track/i.test(type);
+    var distRaw=num(get(r,'distance'));
+    var digits=String(rawDate).replace(/\D/g,'');     // stable id from start datetime
+    var id=digits+'_'+norm(type);
+    byId[id]={                                        // dedupe within the file too
+      id:id, type:type, title:String(get(r,'title')||'').trim(),
+      ts:date.getTime(), dateISO:date.toISOString(),
+      distMi: distRaw==null?null:(isTrack?distRaw/1609.34:distRaw),
+      durSec: hmsToSec(get(r,'time')),
+      avgHr:num(get(r,'avghr')), maxHr:num(get(r,'maxhr')), aerobicTE:num(get(r,'aerobicte')),
+      cadence:num(get(r,'avgruncadence')), stride:num(get(r,'avgstridelength')),
+      vratio:num(get(r,'avgverticalratio')), vo:num(get(r,'avgverticaloscillation')),
+      gct:num(get(r,'avggroundcontacttime')), gctBalL:gctBalLeft(get(r,'avggctbalance')),
+      paceSec:hmsToSec(get(r,'avgpace')), gapSec:hmsToSec(get(r,'avggap')),
+    };
+  }
+  return Object.keys(byId).map(function(k){return byId[k];});
+}
+
+/* ---------- Firestore: load + backfill ---------- */
+function docToRun(d){ var o=Object.assign({},d); o.date=new Date(d.ts); return o; }
+
+function loadFromFirestore(){
+  return actCol().get().then(function(snap){
+    RAW=[]; snap.forEach(function(doc){ RAW.push(docToRun(doc.data())); });
+    RAW.sort(function(a,b){ return a.ts-b.ts; });
+  });
+}
+
+/* Returns {added, duplicate, total} */
+function backfill(candidates){
+  return actCol().get().then(function(snap){
+    var existing=new Set(); snap.forEach(function(d){ existing.add(d.id); });
+    var fresh=candidates.filter(function(c){ return !existing.has(c.id); });
+    var chunks=[]; for(var i=0;i<fresh.length;i+=450) chunks.push(fresh.slice(i,i+450));
+    var p=Promise.resolve();
+    chunks.forEach(function(chunk){
+      p=p.then(function(){
+        var batch=esLabs.db.batch();
+        chunk.forEach(function(c){ batch.set(actCol().doc(c.id), c); });
+        return batch.commit();
+      });
+    });
+    return p.then(function(){ return {added:fresh.length, duplicate:candidates.length-fresh.length, total:candidates.length}; });
+  });
+}
+
+/* ---------- aggregation ---------- */
+function runsIn(start,end){
+  return RAW.filter(function(r){ return ACTIVE_TYPES.has(r.type) && r.date>start && r.date<=end; });
+}
+function metricMean(runs,m){
+  var vals=runs.map(m.calc).filter(function(v){ return v!=null && !isNaN(v); });
+  if(!vals.length) return null;
+  return vals.reduce(function(a,b){return a+b;},0)/vals.length;
+}
+function summarize(runs){
+  var dist=runs.reduce(function(a,r){return a+(r.distMi||0);},0);
+  var dur=runs.reduce(function(a,r){return a+(r.durSec||0);},0);
+  var pv=runs.map(function(r){return r.paceSec;}).filter(function(v){return v!=null;});
+  var pace=pv.length?pv.reduce(function(a,b){return a+b;},0)/pv.length:null;
+  return {n:runs.length,dist:dist,dur:dur,pace:pace};
+}
+
+/* ---------- formatting ---------- */
+function fmtVal(v,m){
+  if(v==null) return '<span class="val na">–</span>';
+  if(m.pace) return '<span class="val">'+fmtPace(v)+'</span>';
+  return '<span class="val">'+v.toFixed(m.dec)+'</span>';
+}
+function fmtPace(s){ if(s==null) return '–'; var mm=Math.floor(s/60), ss=Math.round(s%60); return mm+':'+String(ss).padStart(2,'0'); }
+function fmtDur(s){ var h=Math.floor(s/3600), mm=Math.round((s%3600)/60); return h>0?h+'h '+mm+'m':mm+'m'; }
+function deltaHTML(cur,prev,m){
+  if(cur==null||prev==null) return '';
+  var diff=cur-prev;
+  if(Math.abs(diff)<1e-9) return '<span class="delta flat">→ 0</span>';
+  var dir=diff>0?'▲':'▼', cls='flat';
+  if(m.better==='lower') cls=diff<0?'up':'down';
+  else if(m.better==='higher') cls=diff>0?'up':'down';
+  var txt=m.pace?((diff>0?'+':'−')+fmtPace(Math.abs(diff))):((diff>0?'+':'−')+Math.abs(diff).toFixed(m.dec));
+  return '<span class="delta '+cls+'">'+dir+' '+txt+'</span>';
+}
+function ymd(d){ return d.toISOString().slice(0,10); }
+
+/* ---------- rendering ---------- */
+function summaryCard(label,s){
+  return '<div class="card"><div class="win">'+label+'</div>'+
+    '<div class="row">Runs <b>'+s.n+'</b></div>'+
+    '<div class="row">Distance <b>'+s.dist.toFixed(1)+' mi</b></div>'+
+    '<div class="row">Time <b>'+(s.dur?fmtDur(s.dur):'–')+'</b></div>'+
+    '<div class="row">Avg pace <b>'+fmtPace(s.pace)+'</b></div></div>';
+}
+function renderAll(){
+  var cards=document.getElementById('cards'); cards.innerHTML='';
+  var cur={}, prior={};
+  RUN_WINDOWS.forEach(function(w){
+    var end=ANCHOR;
+    if(w.days==null){ cur[w.key]=runsIn(new Date(0),end); prior[w.key]=null; }
+    else{
+      var start=new Date(end.getTime()-w.days*DAY);
+      cur[w.key]=runsIn(start,end);
+      prior[w.key]=runsIn(new Date(end.getTime()-2*w.days*DAY),start);
+    }
+    cards.innerHTML+=summaryCard(w.label,summarize(cur[w.key]));
+  });
+
+  var head='<thead><tr><th>Metric</th>'+RUN_WINDOWS.map(function(w){return '<th>'+w.label+'</th>';}).join('')+'</tr></thead>';
+  var body='<tbody>';
+  METRICS.forEach(function(m){
+    body+='<tr><td><span class="mname">'+m.label+'</span>'+(m.unit?'<span class="munit">'+m.unit+'</span>':'')+'<div class="mdesc">'+m.desc+'</div></td>';
+    RUN_WINDOWS.forEach(function(w){
+      var v=metricMean(cur[w.key],m);
+      var pv=prior[w.key]?metricMean(prior[w.key],m):null;
+      body+='<td>'+fmtVal(v,m)+deltaHTML(v,pv,m)+'</td>';
+    });
+    body+='</tr>';
+  });
+  document.getElementById('mtable').innerHTML=head+body+'</tbody>';
+}
+function renderRange(){
+  var from=parseDate(document.getElementById('from').value);
+  var to=parseDate(document.getElementById('to').value);
+  if(!from||!to) return;
+  var ranges=[{label:'Selected', from:new Date(from.getTime()-DAY), to:to}];
+  if(document.getElementById('cmpToggle').classList.contains('on')){
+    var cf=parseDate(document.getElementById('cmpFrom').value), ct=parseDate(document.getElementById('cmpTo').value);
+    if(cf&&ct) ranges.push({label:'Compare', from:new Date(cf.getTime()-DAY), to:ct});
+  }
+  var runs=ranges.map(function(r){return runsIn(r.from,r.to);});
+
+  var rc=document.getElementById('rangeCards'); rc.innerHTML='';
+  runs.forEach(function(rs,i){ rc.innerHTML+=summaryCard(ranges[i].label,summarize(rs)); });
+
+  var head='<thead><tr><th>Metric</th>'+ranges.map(function(r){return '<th>'+r.label+'</th>';}).join('')+(ranges.length>1?'<th>Δ</th>':'')+'</tr></thead>';
+  var body='<tbody>';
+  METRICS.forEach(function(m){
+    var vals=runs.map(function(rs){return metricMean(rs,m);});
+    body+='<tr><td><span class="mname">'+m.label+'</span>'+(m.unit?'<span class="munit">'+m.unit+'</span>':'')+'<div class="mdesc">'+m.desc+'</div></td>';
+    vals.forEach(function(v){ body+='<td>'+fmtVal(v,m)+'</td>'; });
+    if(ranges.length>1) body+='<td>'+deltaHTML(vals[0],vals[1],m)+'</td>';
+    body+='</tr>';
+  });
+  document.getElementById('rtable').innerHTML=head+body+'</tbody>';
+}
+
+/* ---------- type filter ---------- */
+function buildTypeChips(){
+  var counts={};
+  RAW.forEach(function(r){ counts[r.type]=(counts[r.type]||0)+1; });
+  var types=Object.keys(counts).sort(function(a,b){return counts[b]-counts[a];});
+  ACTIVE_TYPES=new Set(types);
+  var wrap=document.getElementById('types'); wrap.innerHTML='';
+  types.forEach(function(tp){
+    var c=document.createElement('span');
+    c.className='chip on'; c.textContent=tp+' ('+counts[tp]+')';
+    c.onclick=function(){
+      if(ACTIVE_TYPES.has(tp)){ACTIVE_TYPES.delete(tp);c.classList.remove('on');}
+      else{ACTIVE_TYPES.add(tp);c.classList.add('on');}
+      refresh();
+    };
+    wrap.appendChild(c);
+  });
+}
+
+/* ---------- orchestration ---------- */
+function refresh(){ if(RAW.length){ renderAll(); renderRange(); } }
+
+function showSections(hasData){
+  document.getElementById('controls').style.display=hasData?'flex':'none';
+  document.getElementById('sec-empty').classList.toggle('show',!hasData);
+  ['sec-summary','sec-metrics','sec-range'].forEach(function(id){
+    document.getElementById(id).classList.toggle('show',hasData);
+  });
+}
+
+function renderLoaded(){
+  if(!RAW.length){ showSections(false); return; }
+  var dates=RAW.map(function(r){return r.date;}).sort(function(a,b){return a-b;});
+  var min=dates[0], max=dates[dates.length-1];
+  ANCHOR=new Date(max);
+  buildTypeChips();
+  showSections(true);
+  document.getElementById('filenote').textContent=RAW.length+' runs stored · '+ymd(min)+' → '+ymd(max);
+  document.getElementById('anchor').value=ymd(max);
+  document.getElementById('to').value=ymd(max);
+  document.getElementById('from').value=ymd(new Date(max.getTime()-30*DAY));
+  document.getElementById('cmpTo').value=ymd(new Date(max.getTime()-30*DAY));
+  document.getElementById('cmpFrom').value=ymd(new Date(max.getTime()-60*DAY));
+  document.getElementById('foot').innerHTML=
+    'Reading '+RAW.length+' stored runs from your account. Track-running distances are converted from meters to miles. '+
+    'Metric definitions live in the <code>METRICS</code> array at the top of this file — edit there to add or tune stats.';
+  refresh();
+}
+
+/* ---------- import ---------- */
+function readFile(f){
+  var st=document.getElementById('importStatus');
+  st.innerHTML='<span class="spin"></span>Reading '+f.name+'…';
+  var rd=new FileReader();
+  rd.onerror=function(){ st.innerHTML='<span class="err">Could not read file.</span>'; };
+  rd.onload=function(){
+    var candidates;
+    try{ candidates=parseExport(rd.result); }
+    catch(e){ st.innerHTML='<span class="err">'+e.message+'</span>'; return; }
+    if(!candidates.length){ st.innerHTML='<span class="err">No running activities found in this file.</span>'; return; }
+    st.innerHTML='<span class="spin"></span>Saving '+candidates.length+' runs…';
+    backfill(candidates).then(function(res){
+      return loadFromFirestore().then(function(){
+        renderLoaded();
+        st.innerHTML='<span class="ok">✓ '+res.added+' new run'+(res.added===1?'':'s')+' saved</span>'+
+          (res.duplicate?(' · '+res.duplicate+' already stored'):'')+' · '+RAW.length+' total';
+      });
+    }).catch(function(e){
+      console.error(e);
+      st.innerHTML='<span class="err">Save failed: '+(e&&e.message||e)+'</span>';
+    });
+  };
+  rd.readAsText(f);
+}
+
+/* ---------- wiring ---------- */
+var drop=document.getElementById('drop'), fileInput=document.getElementById('file');
+drop.onclick=function(){ fileInput.click(); };
+drop.ondragover=function(e){ e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave=function(){ drop.classList.remove('over'); };
+drop.ondrop=function(e){ e.preventDefault(); drop.classList.remove('over'); var f=e.dataTransfer.files[0]; if(f) readFile(f); };
+fileInput.onchange=function(e){ var f=e.target.files[0]; if(f) readFile(f); fileInput.value=''; };
+document.getElementById('anchor').onchange=function(e){ var d=parseDate(e.target.value); if(d){ANCHOR=d;refresh();} };
+document.getElementById('runRange').onclick=renderRange;
+document.getElementById('cmpToggle').onclick=function(){
+  this.classList.toggle('on');
+  var on=this.classList.contains('on');
+  document.getElementById('cmpFromWrap').style.display=on?'flex':'none';
+  document.getElementById('cmpToWrap').style.display=on?'flex':'none';
+  renderRange();
+};
+
+/* ---------- nav + auth gate ---------- */
+esLabs.mountNav('#nav-mount', { active:'' });
+esLabs.mountAuthGate('#gate-mount', {
+  eyebrow:'◉ Coach tool',
+  headline:'Run Dynamics',
+  sub:'Sign in to import your Garmin run history and track ground contact time, vertical oscillation, cadence and efficiency over time.',
+  bullets:[
+    {strong:'Bulk backfill', span:'— import your full Garmin export once; we de-dupe by activity so re-imports only add what is new'},
+    {strong:'Form metrics over time', span:'— GCT, vertical oscillation, cadence, stride and derived load/efficiency by window or custom range'},
+    {strong:'Private to your account', span:'— stored under your profile only'}
+  ],
+  emailDefault:'signup'
+});
+
+esLabs.onAuthChange(function(user){
+  var tool=document.getElementById('tool');
+  if(user){
+    UID=user.uid;
+    tool.style.display='block';
+    document.getElementById('importStatus').innerHTML='<span class="spin"></span>Loading your stored runs…';
+    loadFromFirestore().then(function(){
+      renderLoaded();
+      document.getElementById('importStatus').innerHTML = RAW.length
+        ? '<span class="ok">✓ '+RAW.length+' runs loaded</span> · import a newer export to add more'
+        : 'No runs stored yet — import your Garmin export to begin.';
+    }).catch(function(e){
+      console.error(e);
+      document.getElementById('importStatus').innerHTML='<span class="err">Could not load stored runs: '+(e&&e.message||e)+'</span>';
+    });
+  } else {
+    UID=null; RAW=[]; tool.style.display='none';
+  }
+});
+</script>
+</body>
+</html>
