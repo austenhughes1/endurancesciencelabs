@@ -190,6 +190,7 @@ tbody tr:hover td:first-child{background:#10131f}
       <div class="ctl"><label>Metric 2</label><select id="m2"></select></div>
       <div class="ctl"><label>From</label><input type="date" id="tFrom"></div>
       <div class="ctl"><label>To</label><input type="date" id="tTo"></div>
+      <div class="ctl"><label>Display</label><div class="types"><span class="chip on" id="hideOutliers">Hide outliers</span><span class="chip" id="smooth">Smooth</span></div></div>
     </div>
     <div class="chartwrap"><div class="legend" id="trendLegend"></div><div id="trendChart"></div></div>
   </div>
@@ -513,6 +514,11 @@ function showSections(hasData){
 
 var MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function tickFmt(m,v){ if(m.pace)return fmtPace(v); if(Math.abs(v)>=100)return Math.round(v); return v.toFixed(m.dec===0?0:(m.dec>=2?2:1)); }
+function quantile(sorted,q){ var pos=(sorted.length-1)*q, base=Math.floor(pos), rest=pos-base; return sorted[base+1]!==undefined ? sorted[base]+rest*(sorted[base+1]-sorted[base]) : sorted[base]; }
+// Drop points outside Q1−1.5·IQR … Q3+1.5·IQR (Tukey fences). No-op for tiny samples.
+function removeOutliers(pts){ if(pts.length<5) return pts; var vals=pts.map(function(p){return p.v;}).slice().sort(function(a,b){return a-b;}); var q1=quantile(vals,0.25), q3=quantile(vals,0.75), iqr=q3-q1; if(iqr<=0) return pts; var lo=q1-1.5*iqr, hi=q3+1.5*iqr; return pts.filter(function(p){return p.v>=lo&&p.v<=hi;}); }
+// Centered moving average; window scales with sample size, shrinks at the edges.
+function smoothPts(pts){ var w=Math.max(3,Math.min(21,Math.round(pts.length/8))), half=Math.floor(w/2); return pts.map(function(p,i){ var s=0,c=0; for(var j=Math.max(0,i-half);j<=Math.min(pts.length-1,i+half);j++){ s+=pts[j].v; c++; } return {ts:p.ts,v:s/c}; }); }
 function renderTrend(){
   var chart=document.getElementById('trendChart'), legend=document.getElementById('trendLegend');
   if(!chart) return;
@@ -524,9 +530,12 @@ function renderTrend(){
   legend.innerHTML=series.map(function(s){return '<span class="legend-item"><span class="legend-sw" style="background:'+s.color+'"></span>'+s.m.label+(s.m.unit?' ('+s.m.unit+')':'')+'</span>';}).join('');
   if(!series.length){ chart.innerHTML='<div class="chart-empty">Select a metric to plot.</div>'; return; }
   if(!from||!to||to.getTime()<=from.getTime()){ chart.innerHTML='<div class="chart-empty">Pick a valid date range.</div>'; return; }
+  var hideOut=document.getElementById('hideOutliers').classList.contains('on');
+  var smooth=document.getElementById('smooth').classList.contains('on');
   var runs=runsInF(new Date(from.getTime()-DAY),to);
   series.forEach(function(s){
     s.pts=runs.map(function(r){return {ts:r.ts,v:s.m.calc(r),date:r.date};}).filter(function(p){return p.v!=null&&!isNaN(p.v);}).sort(function(a,b){return a.ts-b.ts;});
+    if(hideOut) s.pts=removeOutliers(s.pts);
     if(s.pts.length){ var lo=Math.min.apply(null,s.pts.map(function(p){return p.v;})), hi=Math.max.apply(null,s.pts.map(function(p){return p.v;})); if(lo===hi){lo-=1;hi+=1;} var pad=(hi-lo)*0.08; s.lo=lo-pad; s.hi=hi+pad; }
   });
   var have=series.filter(function(s){return s.pts.length;});
@@ -546,9 +555,10 @@ function renderTrend(){
   for(var k=0;k<=4;k++){ var ts=t0+(t1-t0)*k/4, d=new Date(ts); xlab+='<text x="'+xOf(ts).toFixed(1)+'" y="'+(H-7)+'" text-anchor="middle" font-size="8.5" font-family="ui-monospace,monospace" fill="#6e7a9a">'+MONTHS[d.getMonth()]+' '+d.getDate()+'</text>'; }
   var lines='';
   have.forEach(function(s){
-    var pts=s.pts.map(function(p){return xOf(p.ts).toFixed(1)+','+yOf(p.v,s).toFixed(1);});
-    lines+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+s.color+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
-    lines+=s.pts.map(function(p){return '<circle cx="'+xOf(p.ts).toFixed(1)+'" cy="'+yOf(p.v,s).toFixed(1)+'" r="2.4" fill="'+s.color+'"><title>'+p.date.toISOString().slice(0,10)+' · '+s.m.label+': '+tickFmt(s.m,p.v)+(s.m.unit?' '+s.m.unit:'')+'</title></circle>';}).join('');
+    var lineSrc=smooth?smoothPts(s.pts):s.pts;
+    var pts=lineSrc.map(function(p){return xOf(p.ts).toFixed(1)+','+yOf(p.v,s).toFixed(1);});
+    lines+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+s.color+'" stroke-width="'+(smooth?2.6:2)+'" stroke-linejoin="round" stroke-linecap="round"/>';
+    lines+=s.pts.map(function(p){return '<circle cx="'+xOf(p.ts).toFixed(1)+'" cy="'+yOf(p.v,s).toFixed(1)+'" r="2.4" fill="'+s.color+'" fill-opacity="'+(smooth?'0.35':'1')+'"><title>'+p.date.toISOString().slice(0,10)+' · '+s.m.label+': '+tickFmt(s.m,p.v)+(s.m.unit?' '+s.m.unit:'')+'</title></circle>';}).join('');
   });
   chart.innerHTML='<svg class="chart-svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Run metric trend">'+grid+xlab+lines+'</svg>';
 }
@@ -617,6 +627,7 @@ document.getElementById('anchor').onchange=function(e){ var d=parseDate(e.target
 document.getElementById('intensity').onchange=refresh;
 document.getElementById('cutoff').onchange=refresh;
 ['m1','m2','tFrom','tTo'].forEach(function(id){ document.getElementById(id).onchange=renderTrend; });
+['hideOutliers','smooth'].forEach(function(id){ document.getElementById(id).onclick=function(){ this.classList.toggle('on'); renderTrend(); }; });
 ['faFrom','faTo','fbFrom','fbTo'].forEach(function(id){ document.getElementById(id).onchange=renderForm; });
 document.getElementById('formCompare').onclick=function(){
   this.classList.toggle('on');
