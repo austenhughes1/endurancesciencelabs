@@ -420,6 +420,8 @@ header{display:none}
 .rd-chip{font-size:11px;font-weight:600;padding:5px 11px;border-radius:20px;border:1px solid var(--border2);background:var(--panel2);color:var(--muted2);cursor:pointer;user-select:none;transition:all .12s}
 .rd-chip.on{background:rgba(0,229,200,.1);border-color:rgba(0,229,200,.35);color:var(--cyan)}
 .rd-ctl input[type=date]{background:var(--panel2);border:1px solid var(--border2);border-radius:8px;padding:7px 10px;color:var(--text);font-family:var(--mono);font-size:12px;color-scheme:dark}
+.rd-ctl select,.rd-ctl input[type=text]{background:var(--panel2);border:1px solid var(--border2);border-radius:8px;padding:7px 10px;color:var(--text);font-family:var(--mono);font-size:12px;cursor:pointer;outline:none}
+.rd-ctl input[type=text]{cursor:text}
 .rd-btn{padding:8px 15px;background:var(--cyan);color:#000;font-weight:700;font-size:12px;border:none;border-radius:8px;cursor:pointer;transition:opacity .15s}
 .rd-btn:hover{opacity:.85}
 .rd-filenote{font-size:11px;color:var(--muted2);font-family:var(--mono);margin-left:auto}
@@ -3784,6 +3786,13 @@ function rdRefresh(){
   if(tbl) tbl.innerHTML=head+body+'</tbody>';
   rdRenderRange();
 }
+// Split by avg pace: workouts run faster than the cutoff, easy runs slower.
+// Runs without a recorded pace are excluded when a specific intensity is chosen.
+function rdFilterIntensity(runs, mode, cutoffSec){
+  if(mode==='workout') return runs.filter(r=>r.paceSec!=null && r.paceSec < cutoffSec);
+  if(mode==='easy') return runs.filter(r=>r.paceSec!=null && r.paceSec >= cutoffSec);
+  return runs;
+}
 function rdRenderRange(){
   const from=rdDate(document.getElementById('rd-from').value), to=rdDate(document.getElementById('rd-to').value);
   if(!from||!to) return;
@@ -3792,7 +3801,9 @@ function rdRenderRange(){
     const cf=rdDate(document.getElementById('rd-cmp-from').value), ct=rdDate(document.getElementById('rd-cmp-to').value);
     if(cf&&ct) ranges.push({label:'Compare',from:new Date(cf.getTime()-RD_DAY),to:ct});
   }
-  const runs=ranges.map(r=>rdRunsIn(r.from,r.to));
+  const mode=document.getElementById('rd-intensity').value;
+  const cutoff=rdHms(document.getElementById('rd-cutoff').value) || 400;
+  const runs=ranges.map(r=>rdFilterIntensity(rdRunsIn(r.from,r.to), mode, cutoff));
   document.getElementById('rd-range-cards').innerHTML=runs.map((rs,i)=>rdCard(ranges[i].label,rdSummarize(rs))).join('');
   let head='<thead><tr><th>Metric</th>'+ranges.map(r=>'<th>'+r.label+'</th>').join('')+(ranges.length>1?'<th>Δ</th>':'')+'</tr></thead>';
   let body='<tbody>';
@@ -3836,6 +3847,8 @@ function rdRenderData(){
       '<div class="rd-rangebar">'+
         '<div class="rd-ctl"><label>From</label><input type="date" id="rd-from" value="'+to30+'"></div>'+
         '<div class="rd-ctl"><label>To</label><input type="date" id="rd-to" value="'+rdYmd(max)+'"></div>'+
+        '<div class="rd-ctl"><label>Runs</label><select id="rd-intensity"><option value="all">All runs</option><option value="workout">Workouts only</option><option value="easy">Easy only</option></select></div>'+
+        '<div class="rd-ctl"><label>Workout cutoff /mi</label><input type="text" id="rd-cutoff" value="6:40" style="width:62px"></div>'+
         '<div class="rd-ctl"><label>Compare to</label><div class="rd-types"><span class="rd-chip" id="rd-cmp-toggle">+ second range</span></div></div>'+
         '<div class="rd-ctl" id="rd-cmp-from-wrap" style="display:none"><label>Compare from</label><input type="date" id="rd-cmp-from" value="'+rdYmd(new Date(max.getTime()-60*RD_DAY))+'"></div>'+
         '<div class="rd-ctl" id="rd-cmp-to-wrap" style="display:none"><label>Compare to</label><input type="date" id="rd-cmp-to" value="'+to30+'"></div>'+
@@ -3851,6 +3864,8 @@ function rdRenderData(){
     tw.appendChild(c); });
   document.getElementById('rd-anchor').onchange=e=>{ const d=rdDate(e.target.value); if(d){rdState.anchor=d;rdRefresh();} };
   document.getElementById('rd-run-range').onclick=rdRenderRange;
+  document.getElementById('rd-intensity').onchange=rdRenderRange;
+  document.getElementById('rd-cutoff').onchange=rdRenderRange;
   document.getElementById('rd-cmp-toggle').onclick=function(){ this.classList.toggle('on'); const on=this.classList.contains('on');
     document.getElementById('rd-cmp-from-wrap').style.display=on?'flex':'none';
     document.getElementById('rd-cmp-to-wrap').style.display=on?'flex':'none'; rdRenderRange(); };
