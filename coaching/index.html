@@ -452,6 +452,12 @@ header{display:none}
 .rd-rangebar{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;margin-bottom:14px;padding:14px 16px;background:var(--panel);border:1px solid var(--border);border-radius:12px}
 .rd-hint{font-size:11px;color:var(--muted2);line-height:1.6;margin-top:9px;font-family:var(--mono)}
 .rd-empty{padding:36px;text-align:center;color:var(--muted2);font-size:13px;background:var(--panel);border:1px solid var(--border);border-radius:12px}
+.rd-chartwrap{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 14px 8px}
+.rd-chart-svg{display:block;width:100%;height:auto}
+.rd-chart-empty{padding:34px;text-align:center;color:var(--muted2);font-size:12px;font-family:var(--mono)}
+.rd-legend{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px;padding-left:2px}
+.rd-legend-item{display:flex;align-items:center;gap:6px;font-size:10px;font-family:var(--mono);color:var(--muted2);font-weight:700}
+.rd-legend-sw{width:14px;height:3px;border-radius:2px}
 
 /* ── Lifting plan ──────────────────────────────────── */
 .lift-instructions{background:linear-gradient(135deg,rgba(0,229,200,.08) 0%,rgba(139,124,248,.08) 100%);border:1px solid rgba(0,229,200,.25);border-radius:12px;padding:18px 22px;font-size:13px;color:var(--text);line-height:1.7;margin-bottom:18px;font-family:var(--body)}
@@ -3817,6 +3823,47 @@ function rdRenderRange(){
   document.getElementById('rd-range-table').innerHTML=head+body+'</tbody>';
 }
 
+// Time-series chart of 1–2 metrics over a date range (dual y-axis).
+function rdTickFmt(m,v){ if(m.pace) return rdPace(v); if(Math.abs(v)>=100) return Math.round(v); return v.toFixed(m.dec===0?0:(m.dec>=2?2:1)); }
+function rdRenderTrend(){
+  const chart=document.getElementById('rd-trend-chart'), legend=document.getElementById('rd-trend-legend');
+  if(!chart) return;
+  const i1=document.getElementById('rd-m1').value, i2=document.getElementById('rd-m2').value;
+  const from=rdDate(document.getElementById('rd-t-from').value), to=rdDate(document.getElementById('rd-t-to').value);
+  const series=[];
+  if(i1!=='') series.push({m:RD_METRICS[+i1], color:'#00e5c8'});
+  if(i2!=='' && i2!==i1) series.push({m:RD_METRICS[+i2], color:'#f5c842'});
+  legend.innerHTML=series.map(s=>'<span class="rd-legend-item"><span class="rd-legend-sw" style="background:'+s.color+'"></span>'+s.m.label+(s.m.unit?' ('+s.m.unit+')':'')+'</span>').join('');
+  if(!series.length){ chart.innerHTML='<div class="rd-chart-empty">Select a metric to plot.</div>'; return; }
+  if(!from||!to||to.getTime()<=from.getTime()){ chart.innerHTML='<div class="rd-chart-empty">Pick a valid date range.</div>'; return; }
+  const runs=rdRunsIn(new Date(from.getTime()-RD_DAY),to);
+  // points per series
+  series.forEach(s=>{ s.pts=runs.map(r=>({ts:r.ts,v:s.m.calc(r),date:r.date})).filter(p=>p.v!=null&&!isNaN(p.v)).sort((a,b)=>a.ts-b.ts);
+    if(s.pts.length){ let lo=Math.min(...s.pts.map(p=>p.v)), hi=Math.max(...s.pts.map(p=>p.v)); if(lo===hi){lo-=1;hi+=1;} const pad=(hi-lo)*0.08; s.lo=lo-pad; s.hi=hi+pad; } });
+  const have=series.filter(s=>s.pts.length);
+  if(!have.length){ chart.innerHTML='<div class="rd-chart-empty">No runs with this metric in range.</div>'; return; }
+  const W=720,H=240,padL=42,padR=series.length>1?46:12,padT=12,padB=26,innerW=W-padL-padR,innerH=H-padT-padB;
+  const t0=from.getTime(),t1=to.getTime();
+  const xOf=ts=>padL+((ts-t0)/(t1-t0))*innerW;
+  const yOf=(v,s)=>padT+innerH-((v-s.lo)/(s.hi-s.lo))*innerH;
+  let grid='';
+  for(let g=0;g<=4;g++){
+    const f=g/4, yy=(padT+innerH-f*innerH).toFixed(1);
+    grid+='<line x1="'+padL+'" y1="'+yy+'" x2="'+(W-padR)+'" y2="'+yy+'" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>';
+    grid+='<text x="'+(padL-6)+'" y="'+(parseFloat(yy)+3).toFixed(1)+'" text-anchor="end" font-size="9" font-family="ui-monospace,monospace" fill="#6e7a9a">'+rdTickFmt(have[0].m,have[0].lo+(have[0].hi-have[0].lo)*f)+'</text>';
+    if(series.length>1&&series[1].pts.length) grid+='<text x="'+(W-padR+6)+'" y="'+(parseFloat(yy)+3).toFixed(1)+'" text-anchor="start" font-size="9" font-family="ui-monospace,monospace" fill="#f5c842">'+rdTickFmt(series[1].m,series[1].lo+(series[1].hi-series[1].lo)*f)+'</text>';
+  }
+  let xlab='';
+  for(let k=0;k<=4;k++){ const ts=t0+(t1-t0)*k/4, d=new Date(ts); xlab+='<text x="'+xOf(ts).toFixed(1)+'" y="'+(H-7)+'" text-anchor="middle" font-size="8.5" font-family="ui-monospace,monospace" fill="#6e7a9a">'+MONTHS[d.getMonth()]+' '+d.getDate()+'</text>'; }
+  let lines='';
+  have.forEach(s=>{
+    const pts=s.pts.map(p=>xOf(p.ts).toFixed(1)+','+yOf(p.v,s).toFixed(1));
+    lines+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+s.color+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+    lines+=s.pts.map(p=>'<circle cx="'+xOf(p.ts).toFixed(1)+'" cy="'+yOf(p.v,s).toFixed(1)+'" r="2.4" fill="'+s.color+'"><title>'+p.date.toISOString().slice(0,10)+' · '+s.m.label+': '+rdTickFmt(s.m,p.v)+(s.m.unit?' '+s.m.unit:'')+'</title></circle>').join('');
+  });
+  chart.innerHTML='<svg class="rd-chart-svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Run metric trend">'+grid+xlab+lines+'</svg>';
+}
+
 // Render the data-dependent UI (controls + sections) once runs are loaded.
 function rdRenderData(){
   const host=document.getElementById('rd-data');
@@ -3855,7 +3902,15 @@ function rdRenderData(){
         '<button class="rd-btn" id="rd-run-range">Run</button>'+
       '</div>'+
       '<div class="rd-cards" id="rd-range-cards" style="margin-bottom:14px"></div>'+
-      '<div class="rd-tablewrap"><table class="rd-table" id="rd-range-table"></table></div></div>';
+      '<div class="rd-tablewrap"><table class="rd-table" id="rd-range-table"></table></div></div>'+
+    '<div class="rd-section"><h3>Trend</h3>'+
+      '<div class="rd-rangebar">'+
+        '<div class="rd-ctl"><label>Metric 1</label><select id="rd-m1">'+RD_METRICS.map((m,i)=>'<option value="'+i+'"'+(i===0?' selected':'')+'>'+m.label+'</option>').join('')+'</select></div>'+
+        '<div class="rd-ctl"><label>Metric 2</label><select id="rd-m2"><option value="">None</option>'+RD_METRICS.map((m,i)=>'<option value="'+i+'">'+m.label+'</option>').join('')+'</select></div>'+
+        '<div class="rd-ctl"><label>From</label><input type="date" id="rd-t-from" value="'+rdYmd(new Date(max.getTime()-91*RD_DAY))+'"></div>'+
+        '<div class="rd-ctl"><label>To</label><input type="date" id="rd-t-to" value="'+rdYmd(max)+'"></div>'+
+      '</div>'+
+      '<div class="rd-chartwrap"><div class="rd-legend" id="rd-trend-legend"></div><div id="rd-trend-chart"></div></div></div>';
 
   // type chips
   const tw=document.getElementById('rd-types');
@@ -3869,7 +3924,9 @@ function rdRenderData(){
   document.getElementById('rd-cmp-toggle').onclick=function(){ this.classList.toggle('on'); const on=this.classList.contains('on');
     document.getElementById('rd-cmp-from-wrap').style.display=on?'flex':'none';
     document.getElementById('rd-cmp-to-wrap').style.display=on?'flex':'none'; rdRenderRange(); };
+  ['rd-m1','rd-m2','rd-t-from','rd-t-to'].forEach(id=>{ document.getElementById(id).onchange=rdRenderTrend; });
   rdRefresh();
+  rdRenderTrend();
 }
 
 // Build the shell (instructions + import bar) and load the athlete's data.

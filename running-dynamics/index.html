@@ -104,6 +104,12 @@ tbody tr:hover td:first-child{background:#10131f}
 .rangebar{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;margin-bottom:14px;padding:16px 18px;background:var(--panel);border:1px solid var(--border);border-radius:12px}
 .hint{font-size:11.5px;color:var(--muted2);line-height:1.6;margin-top:10px;font-family:var(--mono)}
 .empty{padding:40px;text-align:center;color:var(--muted2);font-size:13px}
+.chartwrap{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 14px 8px}
+.chart-svg{display:block;width:100%;height:auto}
+.chart-empty{padding:34px;text-align:center;color:var(--muted2);font-size:12px;font-family:var(--mono)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px;padding-left:2px}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:10px;font-family:var(--mono);color:var(--muted2);font-weight:700}
+.legend-sw{width:14px;height:3px;border-radius:2px}
 .foot{margin-top:40px;font-size:11px;color:var(--muted);font-family:var(--mono);line-height:1.7;border-top:1px solid var(--border);padding-top:18px}
 .foot code{font-family:var(--mono);color:var(--muted2)}
 </style>
@@ -184,6 +190,17 @@ tbody tr:hover td:first-child{background:#10131f}
     </div>
     <div class="cards" id="rangeCards" style="margin-bottom:14px"></div>
     <div class="tablewrap"><table id="rtable"></table></div>
+  </div>
+
+  <div class="section" id="sec-trend">
+    <h2>Trend</h2>
+    <div class="rangebar">
+      <div class="ctl"><label>Metric 1</label><select id="m1"></select></div>
+      <div class="ctl"><label>Metric 2</label><select id="m2"></select></div>
+      <div class="ctl"><label>From</label><input type="date" id="tFrom"></div>
+      <div class="ctl"><label>To</label><input type="date" id="tTo"></div>
+    </div>
+    <div class="chartwrap"><div class="legend" id="trendLegend"></div><div id="trendChart"></div></div>
   </div>
 
   <div class="foot" id="foot"></div>
@@ -505,14 +522,56 @@ function buildTypeChips(){
 }
 
 /* ---------- orchestration ---------- */
-function refresh(){ if(RAW.length){ renderAll(); renderRange(); } }
+function refresh(){ if(RAW.length){ renderAll(); renderRange(); renderTrend(); } }
 
 function showSections(hasData){
   document.getElementById('controls').style.display=hasData?'flex':'none';
   document.getElementById('sec-empty').classList.toggle('show',!hasData);
-  ['sec-summary','sec-metrics','sec-range'].forEach(function(id){
+  ['sec-summary','sec-metrics','sec-range','sec-trend'].forEach(function(id){
     document.getElementById(id).classList.toggle('show',hasData);
   });
+}
+
+var MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function tickFmt(m,v){ if(m.pace)return fmtPace(v); if(Math.abs(v)>=100)return Math.round(v); return v.toFixed(m.dec===0?0:(m.dec>=2?2:1)); }
+function renderTrend(){
+  var chart=document.getElementById('trendChart'), legend=document.getElementById('trendLegend');
+  if(!chart) return;
+  var i1=document.getElementById('m1').value, i2=document.getElementById('m2').value;
+  var from=parseDate(document.getElementById('tFrom').value), to=parseDate(document.getElementById('tTo').value);
+  var series=[];
+  if(i1!=='') series.push({m:METRICS[+i1],color:'#00e5c8'});
+  if(i2!==''&&i2!==i1) series.push({m:METRICS[+i2],color:'#f5c842'});
+  legend.innerHTML=series.map(function(s){return '<span class="legend-item"><span class="legend-sw" style="background:'+s.color+'"></span>'+s.m.label+(s.m.unit?' ('+s.m.unit+')':'')+'</span>';}).join('');
+  if(!series.length){ chart.innerHTML='<div class="chart-empty">Select a metric to plot.</div>'; return; }
+  if(!from||!to||to.getTime()<=from.getTime()){ chart.innerHTML='<div class="chart-empty">Pick a valid date range.</div>'; return; }
+  var runs=runsIn(new Date(from.getTime()-DAY),to);
+  series.forEach(function(s){
+    s.pts=runs.map(function(r){return {ts:r.ts,v:s.m.calc(r),date:r.date};}).filter(function(p){return p.v!=null&&!isNaN(p.v);}).sort(function(a,b){return a.ts-b.ts;});
+    if(s.pts.length){ var lo=Math.min.apply(null,s.pts.map(function(p){return p.v;})), hi=Math.max.apply(null,s.pts.map(function(p){return p.v;})); if(lo===hi){lo-=1;hi+=1;} var pad=(hi-lo)*0.08; s.lo=lo-pad; s.hi=hi+pad; }
+  });
+  var have=series.filter(function(s){return s.pts.length;});
+  if(!have.length){ chart.innerHTML='<div class="chart-empty">No runs with this metric in range.</div>'; return; }
+  var W=720,H=240,padL=42,padR=series.length>1?46:12,padT=12,padB=26,innerW=W-padL-padR,innerH=H-padT-padB;
+  var t0=from.getTime(),t1=to.getTime();
+  var xOf=function(ts){return padL+((ts-t0)/(t1-t0))*innerW;};
+  var yOf=function(v,s){return padT+innerH-((v-s.lo)/(s.hi-s.lo))*innerH;};
+  var grid='';
+  for(var g=0;g<=4;g++){
+    var f=g/4, yy=(padT+innerH-f*innerH).toFixed(1);
+    grid+='<line x1="'+padL+'" y1="'+yy+'" x2="'+(W-padR)+'" y2="'+yy+'" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>';
+    grid+='<text x="'+(padL-6)+'" y="'+(parseFloat(yy)+3).toFixed(1)+'" text-anchor="end" font-size="9" font-family="ui-monospace,monospace" fill="#6e7a9a">'+tickFmt(have[0].m,have[0].lo+(have[0].hi-have[0].lo)*f)+'</text>';
+    if(series.length>1&&series[1].pts.length) grid+='<text x="'+(W-padR+6)+'" y="'+(parseFloat(yy)+3).toFixed(1)+'" text-anchor="start" font-size="9" font-family="ui-monospace,monospace" fill="#f5c842">'+tickFmt(series[1].m,series[1].lo+(series[1].hi-series[1].lo)*f)+'</text>';
+  }
+  var xlab='';
+  for(var k=0;k<=4;k++){ var ts=t0+(t1-t0)*k/4, d=new Date(ts); xlab+='<text x="'+xOf(ts).toFixed(1)+'" y="'+(H-7)+'" text-anchor="middle" font-size="8.5" font-family="ui-monospace,monospace" fill="#6e7a9a">'+MONTHS[d.getMonth()]+' '+d.getDate()+'</text>'; }
+  var lines='';
+  have.forEach(function(s){
+    var pts=s.pts.map(function(p){return xOf(p.ts).toFixed(1)+','+yOf(p.v,s).toFixed(1);});
+    lines+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+s.color+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+    lines+=s.pts.map(function(p){return '<circle cx="'+xOf(p.ts).toFixed(1)+'" cy="'+yOf(p.v,s).toFixed(1)+'" r="2.4" fill="'+s.color+'"><title>'+p.date.toISOString().slice(0,10)+' · '+s.m.label+': '+tickFmt(s.m,p.v)+(s.m.unit?' '+s.m.unit:'')+'</title></circle>';}).join('');
+  });
+  chart.innerHTML='<svg class="chart-svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Run metric trend">'+grid+xlab+lines+'</svg>';
 }
 
 function renderLoaded(){
@@ -528,6 +587,12 @@ function renderLoaded(){
   document.getElementById('from').value=ymd(new Date(max.getTime()-30*DAY));
   document.getElementById('cmpTo').value=ymd(new Date(max.getTime()-30*DAY));
   document.getElementById('cmpFrom').value=ymd(new Date(max.getTime()-60*DAY));
+  // Trend section: populate metric selects + default to last 3 months, Load Factor.
+  var m1=document.getElementById('m1'), m2=document.getElementById('m2');
+  m1.innerHTML=METRICS.map(function(m,i){return '<option value="'+i+'"'+(i===0?' selected':'')+'>'+m.label+'</option>';}).join('');
+  m2.innerHTML='<option value="">None</option>'+METRICS.map(function(m,i){return '<option value="'+i+'">'+m.label+'</option>';}).join('');
+  document.getElementById('tTo').value=ymd(max);
+  document.getElementById('tFrom').value=ymd(new Date(max.getTime()-91*DAY));
   document.getElementById('foot').innerHTML=
     'Reading '+RAW.length+' stored runs from your account. Track-running distances are converted from meters to miles. '+
     'Metric definitions live in the <code>METRICS</code> array at the top of this file — edit there to add or tune stats.';
@@ -571,6 +636,7 @@ document.getElementById('anchor').onchange=function(e){ var d=parseDate(e.target
 document.getElementById('runRange').onclick=renderRange;
 document.getElementById('intensity').onchange=renderRange;
 document.getElementById('cutoff').onchange=renderRange;
+['m1','m2','tFrom','tTo'].forEach(function(id){ document.getElementById(id).onchange=renderTrend; });
 document.getElementById('cmpToggle').onclick=function(){
   this.classList.toggle('on');
   var on=this.classList.contains('on');
