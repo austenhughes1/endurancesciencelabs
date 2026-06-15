@@ -154,6 +154,8 @@ tbody tr:hover td:first-child{background:#10131f}
       <label>Activity types</label>
       <div class="types" id="types"></div>
     </div>
+    <div class="ctl"><label>Runs</label><select id="intensity"><option value="all">All runs</option><option value="workout">Workouts only</option><option value="easy">Easy only</option></select></div>
+    <div class="ctl"><label>Workout cutoff /mi</label><input type="text" id="cutoff" value="6:40" style="width:66px"></div>
     <div class="ctl">
       <label>Anchor (window end)</label>
       <input type="date" id="anchor">
@@ -168,28 +170,17 @@ tbody tr:hover td:first-child{background:#10131f}
     <div class="cards" id="cards"></div>
   </div>
 
-  <div class="section" id="sec-metrics">
-    <h2>Form metrics by window · mean per run <span class="note">(Δ vs prior equal period)</span></h2>
-    <div class="tablewrap"><table id="mtable"></table></div>
-    <p class="hint">Δ shows change vs the immediately preceding window of equal length. Green = improvement for that metric's better direction; arrows are directional only.</p>
-  </div>
-
-  <div class="section" id="sec-range">
-    <h2>Custom date range</h2>
+  <div class="section" id="sec-form">
+    <h2>Form metrics <span class="note">· mean per run</span></h2>
     <div class="rangebar">
-      <div class="ctl"><label>From</label><input type="date" id="from"></div>
-      <div class="ctl"><label>To</label><input type="date" id="to"></div>
-      <div class="ctl"><label>Runs</label><select id="intensity"><option value="all">All runs</option><option value="workout">Workouts only</option><option value="easy">Easy only</option></select></div>
-      <div class="ctl"><label>Workout cutoff /mi</label><input type="text" id="cutoff" value="6:40" style="width:66px"></div>
-      <div class="ctl"><label>Compare to</label>
-        <div class="types"><span class="chip" id="cmpToggle">+ second range</span></div>
-      </div>
-      <div class="ctl" id="cmpFromWrap" style="display:none"><label>Compare from</label><input type="date" id="cmpFrom"></div>
-      <div class="ctl" id="cmpToWrap" style="display:none"><label>Compare to</label><input type="date" id="cmpTo"></div>
-      <button class="btn" id="runRange">Run</button>
+      <span class="chip" id="formCompare">⇄ compare two ranges</span>
+      <div class="ctl form-range" id="faFromWrap" style="display:none"><label>Range A — from</label><input type="date" id="faFrom"></div>
+      <div class="ctl form-range" id="faToWrap" style="display:none"><label>to</label><input type="date" id="faTo"></div>
+      <div class="ctl form-range" id="fbFromWrap" style="display:none"><label>Range B — from</label><input type="date" id="fbFrom"></div>
+      <div class="ctl form-range" id="fbToWrap" style="display:none"><label>to</label><input type="date" id="fbTo"></div>
     </div>
-    <div class="cards" id="rangeCards" style="margin-bottom:14px"></div>
-    <div class="tablewrap"><table id="rtable"></table></div>
+    <div class="tablewrap"><table id="ftable"></table></div>
+    <p class="hint" id="formHint">Showing all-time averages. Toggle “compare two ranges” to compare periods (Δ = Range A − Range B).</p>
   </div>
 
   <div class="section" id="sec-trend">
@@ -440,33 +431,6 @@ function summaryCard(label,s){
     '<div class="row">Time <b>'+(s.dur?fmtDur(s.dur):'–')+'</b></div>'+
     '<div class="row">Avg pace <b>'+fmtPace(s.pace)+'</b></div></div>';
 }
-function renderAll(){
-  var cards=document.getElementById('cards'); cards.innerHTML='';
-  var cur={}, prior={};
-  RUN_WINDOWS.forEach(function(w){
-    var end=ANCHOR;
-    if(w.days==null){ cur[w.key]=runsIn(new Date(0),end); prior[w.key]=null; }
-    else{
-      var start=new Date(end.getTime()-w.days*DAY);
-      cur[w.key]=runsIn(start,end);
-      prior[w.key]=runsIn(new Date(end.getTime()-2*w.days*DAY),start);
-    }
-    cards.innerHTML+=summaryCard(w.label,summarize(cur[w.key]));
-  });
-
-  var head='<thead><tr><th>Metric</th>'+RUN_WINDOWS.map(function(w){return '<th>'+w.label+'</th>';}).join('')+'</tr></thead>';
-  var body='<tbody>';
-  METRICS.forEach(function(m){
-    body+='<tr><td><span class="mname">'+m.label+'</span>'+(m.unit?'<span class="munit">'+m.unit+'</span>':'')+'<div class="mdesc">'+m.desc+'</div></td>';
-    RUN_WINDOWS.forEach(function(w){
-      var v=metricMean(cur[w.key],m);
-      var pv=prior[w.key]?metricMean(prior[w.key],m):null;
-      body+='<td>'+fmtVal(v,m)+deltaHTML(v,pv,m)+'</td>';
-    });
-    body+='</tr>';
-  });
-  document.getElementById('mtable').innerHTML=head+body+'</tbody>';
-}
 // Split by avg pace: workouts run faster than the cutoff, easy runs slower.
 // Runs without a recorded pace are excluded when a specific intensity is chosen.
 function filterIntensity(runs,mode,cutoffSec){
@@ -474,32 +438,47 @@ function filterIntensity(runs,mode,cutoffSec){
   if(mode==='easy') return runs.filter(function(r){return r.paceSec!=null && r.paceSec>=cutoffSec;});
   return runs;
 }
-function renderRange(){
-  var from=parseDate(document.getElementById('from').value);
-  var to=parseDate(document.getElementById('to').value);
-  if(!from||!to) return;
-  var ranges=[{label:'Selected', from:new Date(from.getTime()-DAY), to:to}];
-  if(document.getElementById('cmpToggle').classList.contains('on')){
-    var cf=parseDate(document.getElementById('cmpFrom').value), ct=parseDate(document.getElementById('cmpTo').value);
-    if(cf&&ct) ranges.push({label:'Compare', from:new Date(cf.getTime()-DAY), to:ct});
+// Global intensity filter (one input, drives every section).
+function intensityState(){
+  var sel=document.getElementById('intensity'), cut=document.getElementById('cutoff');
+  return { mode: sel?sel.value:'all', cutoff: (cut?hmsToSec(cut.value):null)||400 };
+}
+function runsInF(s,e){ var it=intensityState(); return filterIntensity(runsIn(s,e),it.mode,it.cutoff); }
+
+// Volume by window (cards), intensity-filtered.
+function renderAll(){
+  var cards=document.getElementById('cards');
+  cards.innerHTML=RUN_WINDOWS.map(function(w){
+    var end=ANCHOR, start = w.days==null ? new Date(0) : new Date(end.getTime()-w.days*DAY);
+    return summaryCard(w.label, summarize(runsInF(start,end)));
+  }).join('');
+}
+
+// Single Form-metrics table: all-time by default; compare two custom ranges when toggled.
+function renderForm(){
+  var tbl=document.getElementById('ftable'); if(!tbl) return;
+  var it=intensityState();
+  var compare=document.getElementById('formCompare').classList.contains('on');
+  var cols;
+  if(compare){
+    var af=parseDate(document.getElementById('faFrom').value), at=parseDate(document.getElementById('faTo').value);
+    var bf=parseDate(document.getElementById('fbFrom').value), bt=parseDate(document.getElementById('fbTo').value);
+    var A=(af&&at)?filterIntensity(runsIn(new Date(af.getTime()-DAY),at),it.mode,it.cutoff):[];
+    var B=(bf&&bt)?filterIntensity(runsIn(new Date(bf.getTime()-DAY),bt),it.mode,it.cutoff):[];
+    cols=[{label:'Range A',runs:A},{label:'Range B',runs:B}];
+  } else {
+    cols=[{label:'All time', runs:filterIntensity(runsIn(new Date(0), new Date(8.64e15)),it.mode,it.cutoff)}];
   }
-  var mode=document.getElementById('intensity').value;
-  var cutoff=hmsToSec(document.getElementById('cutoff').value)||400;
-  var runs=ranges.map(function(r){return filterIntensity(runsIn(r.from,r.to),mode,cutoff);});
-
-  var rc=document.getElementById('rangeCards'); rc.innerHTML='';
-  runs.forEach(function(rs,i){ rc.innerHTML+=summaryCard(ranges[i].label,summarize(rs)); });
-
-  var head='<thead><tr><th>Metric</th>'+ranges.map(function(r){return '<th>'+r.label+'</th>';}).join('')+(ranges.length>1?'<th>Δ</th>':'')+'</tr></thead>';
+  var head='<thead><tr><th>Metric</th>'+cols.map(function(c){return '<th>'+c.label+' <span class="munit">n='+c.runs.length+'</span></th>';}).join('')+(compare?'<th>Δ</th>':'')+'</tr></thead>';
   var body='<tbody>';
   METRICS.forEach(function(m){
-    var vals=runs.map(function(rs){return metricMean(rs,m);});
+    var vals=cols.map(function(c){return metricMean(c.runs,m);});
     body+='<tr><td><span class="mname">'+m.label+'</span>'+(m.unit?'<span class="munit">'+m.unit+'</span>':'')+'<div class="mdesc">'+m.desc+'</div></td>';
     vals.forEach(function(v){ body+='<td>'+fmtVal(v,m)+'</td>'; });
-    if(ranges.length>1) body+='<td>'+deltaHTML(vals[0],vals[1],m)+'</td>';
+    if(compare) body+='<td>'+deltaHTML(vals[0],vals[1],m)+'</td>';
     body+='</tr>';
   });
-  document.getElementById('rtable').innerHTML=head+body+'</tbody>';
+  tbl.innerHTML=head+body+'</tbody>';
 }
 
 /* ---------- type filter ---------- */
@@ -522,12 +501,12 @@ function buildTypeChips(){
 }
 
 /* ---------- orchestration ---------- */
-function refresh(){ if(RAW.length){ renderAll(); renderRange(); renderTrend(); } }
+function refresh(){ if(RAW.length){ renderAll(); renderForm(); renderTrend(); } }
 
 function showSections(hasData){
   document.getElementById('controls').style.display=hasData?'flex':'none';
   document.getElementById('sec-empty').classList.toggle('show',!hasData);
-  ['sec-summary','sec-metrics','sec-range','sec-trend'].forEach(function(id){
+  ['sec-summary','sec-form','sec-trend'].forEach(function(id){
     document.getElementById(id).classList.toggle('show',hasData);
   });
 }
@@ -545,7 +524,7 @@ function renderTrend(){
   legend.innerHTML=series.map(function(s){return '<span class="legend-item"><span class="legend-sw" style="background:'+s.color+'"></span>'+s.m.label+(s.m.unit?' ('+s.m.unit+')':'')+'</span>';}).join('');
   if(!series.length){ chart.innerHTML='<div class="chart-empty">Select a metric to plot.</div>'; return; }
   if(!from||!to||to.getTime()<=from.getTime()){ chart.innerHTML='<div class="chart-empty">Pick a valid date range.</div>'; return; }
-  var runs=runsIn(new Date(from.getTime()-DAY),to);
+  var runs=runsInF(new Date(from.getTime()-DAY),to);
   series.forEach(function(s){
     s.pts=runs.map(function(r){return {ts:r.ts,v:s.m.calc(r),date:r.date};}).filter(function(p){return p.v!=null&&!isNaN(p.v);}).sort(function(a,b){return a.ts-b.ts;});
     if(s.pts.length){ var lo=Math.min.apply(null,s.pts.map(function(p){return p.v;})), hi=Math.max.apply(null,s.pts.map(function(p){return p.v;})); if(lo===hi){lo-=1;hi+=1;} var pad=(hi-lo)*0.08; s.lo=lo-pad; s.hi=hi+pad; }
@@ -583,10 +562,11 @@ function renderLoaded(){
   showSections(true);
   document.getElementById('filenote').textContent=RAW.length+' runs stored · '+ymd(min)+' → '+ymd(max);
   document.getElementById('anchor').value=ymd(max);
-  document.getElementById('to').value=ymd(max);
-  document.getElementById('from').value=ymd(new Date(max.getTime()-30*DAY));
-  document.getElementById('cmpTo').value=ymd(new Date(max.getTime()-30*DAY));
-  document.getElementById('cmpFrom').value=ymd(new Date(max.getTime()-60*DAY));
+  // Form metrics compare ranges: default last 90 vs prior 90 (hidden until compare).
+  document.getElementById('faFrom').value=ymd(new Date(max.getTime()-90*DAY));
+  document.getElementById('faTo').value=ymd(max);
+  document.getElementById('fbFrom').value=ymd(new Date(max.getTime()-180*DAY));
+  document.getElementById('fbTo').value=ymd(new Date(max.getTime()-90*DAY));
   // Trend section: populate metric selects + default to last 3 months, Load Factor.
   var m1=document.getElementById('m1'), m2=document.getElementById('m2');
   m1.innerHTML=METRICS.map(function(m,i){return '<option value="'+i+'"'+(i===0?' selected':'')+'>'+m.label+'</option>';}).join('');
@@ -633,16 +613,19 @@ drop.ondragleave=function(){ drop.classList.remove('over'); };
 drop.ondrop=function(e){ e.preventDefault(); drop.classList.remove('over'); var f=e.dataTransfer.files[0]; if(f) readFile(f); };
 fileInput.onchange=function(e){ var f=e.target.files[0]; if(f) readFile(f); fileInput.value=''; };
 document.getElementById('anchor').onchange=function(e){ var d=parseDate(e.target.value); if(d){ANCHOR=d;refresh();} };
-document.getElementById('runRange').onclick=renderRange;
-document.getElementById('intensity').onchange=renderRange;
-document.getElementById('cutoff').onchange=renderRange;
+// Global intensity filter — drives volume, form metrics, and the trend chart.
+document.getElementById('intensity').onchange=refresh;
+document.getElementById('cutoff').onchange=refresh;
 ['m1','m2','tFrom','tTo'].forEach(function(id){ document.getElementById(id).onchange=renderTrend; });
-document.getElementById('cmpToggle').onclick=function(){
+['faFrom','faTo','fbFrom','fbTo'].forEach(function(id){ document.getElementById(id).onchange=renderForm; });
+document.getElementById('formCompare').onclick=function(){
   this.classList.toggle('on');
   var on=this.classList.contains('on');
-  document.getElementById('cmpFromWrap').style.display=on?'flex':'none';
-  document.getElementById('cmpToWrap').style.display=on?'flex':'none';
-  renderRange();
+  ['faFromWrap','faToWrap','fbFromWrap','fbToWrap'].forEach(function(id){ document.getElementById(id).style.display=on?'flex':'none'; });
+  document.getElementById('formHint').textContent = on
+    ? 'Comparing two date ranges (Δ = Range A − Range B). n = runs in each range after filters.'
+    : 'Showing all-time averages. Toggle “compare two ranges” to compare periods (Δ = Range A − Range B).';
+  renderForm();
 };
 
 /* ---------- nav + auth gate ---------- */

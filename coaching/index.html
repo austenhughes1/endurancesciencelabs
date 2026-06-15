@@ -3771,27 +3771,6 @@ function rdCard(label,s){ return '<div class="rd-card"><div class="rd-win">'+lab
   '<div class="rd-row">Avg pace <b>'+rdPace(s.pace)+'</b></div></div>'; }
 
 // ---- rendering ----
-function rdRefresh(){
-  if(!rdState.runs.length) return;
-  const end=rdState.anchor, cards=document.getElementById('rd-summary-cards'), tbl=document.getElementById('rd-metric-table');
-  const cur={}, prior={};
-  let cardsHtml='';
-  RD_WINDOWS.forEach((w,i)=>{
-    if(w.days==null){ cur[i]=rdRunsIn(new Date(0),end); prior[i]=null; }
-    else{ const start=new Date(end.getTime()-w.days*RD_DAY); cur[i]=rdRunsIn(start,end); prior[i]=rdRunsIn(new Date(end.getTime()-2*w.days*RD_DAY),start); }
-    cardsHtml+=rdCard(w.label,rdSummarize(cur[i]));
-  });
-  if(cards) cards.innerHTML=cardsHtml;
-  let head='<thead><tr><th>Metric</th>'+RD_WINDOWS.map(w=>'<th>'+w.label+'</th>').join('')+'</tr></thead>';
-  let body='<tbody>';
-  RD_METRICS.forEach(m=>{
-    body+='<tr><td><span class="rd-mname">'+m.label+'</span>'+(m.unit?'<span class="rd-munit">'+m.unit+'</span>':'')+'<div class="rd-mdesc">'+m.desc+'</div></td>';
-    RD_WINDOWS.forEach((w,i)=>{ const v=rdMean(cur[i],m), pv=prior[i]?rdMean(prior[i],m):null; body+='<td>'+rdFmtVal(v,m)+rdDelta(v,pv,m)+'</td>'; });
-    body+='</tr>';
-  });
-  if(tbl) tbl.innerHTML=head+body+'</tbody>';
-  rdRenderRange();
-}
 // Split by avg pace: workouts run faster than the cutoff, easy runs slower.
 // Runs without a recorded pace are excluded when a specific intensity is chosen.
 function rdFilterIntensity(runs, mode, cutoffSec){
@@ -3799,28 +3778,51 @@ function rdFilterIntensity(runs, mode, cutoffSec){
   if(mode==='easy') return runs.filter(r=>r.paceSec!=null && r.paceSec >= cutoffSec);
   return runs;
 }
-function rdRenderRange(){
-  const from=rdDate(document.getElementById('rd-from').value), to=rdDate(document.getElementById('rd-to').value);
-  if(!from||!to) return;
-  const ranges=[{label:'Selected',from:new Date(from.getTime()-RD_DAY),to}];
-  if(document.getElementById('rd-cmp-toggle').classList.contains('on')){
-    const cf=rdDate(document.getElementById('rd-cmp-from').value), ct=rdDate(document.getElementById('rd-cmp-to').value);
-    if(cf&&ct) ranges.push({label:'Compare',from:new Date(cf.getTime()-RD_DAY),to:ct});
+// Global intensity filter (one input, drives every section).
+function rdIntensity(){
+  const sel=document.getElementById('rd-intensity'), cut=document.getElementById('rd-cutoff');
+  return { mode: sel?sel.value:'all', cutoff: (cut?rdHms(cut.value):null) || 400 };
+}
+function rdRunsInF(s,e){ const it=rdIntensity(); return rdFilterIntensity(rdRunsIn(s,e), it.mode, it.cutoff); }
+
+function rdRefresh(){
+  if(!rdState.runs.length) return;
+  const end=rdState.anchor, cards=document.getElementById('rd-summary-cards');
+  if(cards){
+    cards.innerHTML=RD_WINDOWS.map(w=>{
+      const start = w.days==null ? new Date(0) : new Date(end.getTime()-w.days*RD_DAY);
+      return rdCard(w.label, rdSummarize(rdRunsInF(start,end)));
+    }).join('');
   }
-  const mode=document.getElementById('rd-intensity').value;
-  const cutoff=rdHms(document.getElementById('rd-cutoff').value) || 400;
-  const runs=ranges.map(r=>rdFilterIntensity(rdRunsIn(r.from,r.to), mode, cutoff));
-  document.getElementById('rd-range-cards').innerHTML=runs.map((rs,i)=>rdCard(ranges[i].label,rdSummarize(rs))).join('');
-  let head='<thead><tr><th>Metric</th>'+ranges.map(r=>'<th>'+r.label+'</th>').join('')+(ranges.length>1?'<th>Δ</th>':'')+'</tr></thead>';
+  rdRenderForm();
+  rdRenderTrend();
+}
+
+// Single Form-metrics table: all-time by default; compare two custom ranges when toggled.
+function rdRenderForm(){
+  const tbl=document.getElementById('rd-form-table'); if(!tbl) return;
+  const it=rdIntensity();
+  const compare=document.getElementById('rd-form-compare').classList.contains('on');
+  let cols;
+  if(compare){
+    const af=rdDate(document.getElementById('rd-fa-from').value), at=rdDate(document.getElementById('rd-fa-to').value);
+    const bf=rdDate(document.getElementById('rd-fb-from').value), bt=rdDate(document.getElementById('rd-fb-to').value);
+    const A=(af&&at)?rdFilterIntensity(rdRunsIn(new Date(af.getTime()-RD_DAY),at),it.mode,it.cutoff):[];
+    const B=(bf&&bt)?rdFilterIntensity(rdRunsIn(new Date(bf.getTime()-RD_DAY),bt),it.mode,it.cutoff):[];
+    cols=[{label:'Range A',runs:A},{label:'Range B',runs:B}];
+  } else {
+    cols=[{label:'All time', runs:rdFilterIntensity(rdRunsIn(new Date(0), new Date(8.64e15)),it.mode,it.cutoff)}];
+  }
+  let head='<thead><tr><th>Metric</th>'+cols.map(c=>'<th>'+c.label+' <span class="rd-munit">n='+c.runs.length+'</span></th>').join('')+(compare?'<th>Δ</th>':'')+'</tr></thead>';
   let body='<tbody>';
   RD_METRICS.forEach(m=>{
-    const vals=runs.map(rs=>rdMean(rs,m));
+    const vals=cols.map(c=>rdMean(c.runs,m));
     body+='<tr><td><span class="rd-mname">'+m.label+'</span>'+(m.unit?'<span class="rd-munit">'+m.unit+'</span>':'')+'<div class="rd-mdesc">'+m.desc+'</div></td>';
     vals.forEach(v=>{ body+='<td>'+rdFmtVal(v,m)+'</td>'; });
-    if(ranges.length>1) body+='<td>'+rdDelta(vals[0],vals[1],m)+'</td>';
+    if(compare) body+='<td>'+rdDelta(vals[0],vals[1],m)+'</td>';
     body+='</tr>';
   });
-  document.getElementById('rd-range-table').innerHTML=head+body+'</tbody>';
+  tbl.innerHTML=head+body+'</tbody>';
 }
 
 // Time-series chart of 1–2 metrics over a date range (dual y-axis).
@@ -3836,8 +3838,8 @@ function rdRenderTrend(){
   legend.innerHTML=series.map(s=>'<span class="rd-legend-item"><span class="rd-legend-sw" style="background:'+s.color+'"></span>'+s.m.label+(s.m.unit?' ('+s.m.unit+')':'')+'</span>').join('');
   if(!series.length){ chart.innerHTML='<div class="rd-chart-empty">Select a metric to plot.</div>'; return; }
   if(!from||!to||to.getTime()<=from.getTime()){ chart.innerHTML='<div class="rd-chart-empty">Pick a valid date range.</div>'; return; }
-  const runs=rdRunsIn(new Date(from.getTime()-RD_DAY),to);
-  // points per series
+  const runs=rdRunsInF(new Date(from.getTime()-RD_DAY),to);
+  // points per series (respects the global activity-type + intensity filters)
   series.forEach(s=>{ s.pts=runs.map(r=>({ts:r.ts,v:s.m.calc(r),date:r.date})).filter(p=>p.v!=null&&!isNaN(p.v)).sort((a,b)=>a.ts-b.ts);
     if(s.pts.length){ let lo=Math.min(...s.pts.map(p=>p.v)), hi=Math.max(...s.pts.map(p=>p.v)); if(lo===hi){lo-=1;hi+=1;} const pad=(hi-lo)*0.08; s.lo=lo-pad; s.hi=hi+pad; } });
   const have=series.filter(s=>s.pts.length);
@@ -3878,31 +3880,26 @@ function rdRenderData(){
   const counts={}; rdState.runs.forEach(r=>{ counts[r.type]=(counts[r.type]||0)+1; });
   const types=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
   rdState.activeTypes=new Set(types);
-  const to30=rdYmd(new Date(max.getTime()-30*RD_DAY));
 
   host.innerHTML=
     '<div class="rd-controls">'+
       '<div class="rd-ctl"><label>Activity types</label><div class="rd-types" id="rd-types"></div></div>'+
+      '<div class="rd-ctl"><label>Runs</label><select id="rd-intensity"><option value="all">All runs</option><option value="workout">Workouts only</option><option value="easy">Easy only</option></select></div>'+
+      '<div class="rd-ctl"><label>Workout cutoff /mi</label><input type="text" id="rd-cutoff" value="6:40" style="width:62px"></div>'+
       '<div class="rd-ctl"><label>Anchor (window end)</label><input type="date" id="rd-anchor" value="'+rdYmd(max)+'"></div>'+
       '<span class="rd-filenote">'+rdState.runs.length+' runs stored · '+rdYmd(min)+' → '+rdYmd(max)+'</span>'+
     '</div>'+
     '<div class="rd-section"><h3>Volume by window</h3><div class="rd-cards" id="rd-summary-cards"></div></div>'+
-    '<div class="rd-section"><h3>Form metrics by window · mean per run <span class="rd-note">(Δ vs prior equal period)</span></h3>'+
-      '<div class="rd-tablewrap"><table class="rd-table" id="rd-metric-table"></table></div>'+
-      '<p class="rd-hint">Δ vs the immediately preceding window of equal length. Green = improvement for that metric\'s better direction.</p></div>'+
-    '<div class="rd-section"><h3>Custom date range</h3>'+
+    '<div class="rd-section"><h3>Form metrics <span class="rd-note">· mean per run</span></h3>'+
       '<div class="rd-rangebar">'+
-        '<div class="rd-ctl"><label>From</label><input type="date" id="rd-from" value="'+to30+'"></div>'+
-        '<div class="rd-ctl"><label>To</label><input type="date" id="rd-to" value="'+rdYmd(max)+'"></div>'+
-        '<div class="rd-ctl"><label>Runs</label><select id="rd-intensity"><option value="all">All runs</option><option value="workout">Workouts only</option><option value="easy">Easy only</option></select></div>'+
-        '<div class="rd-ctl"><label>Workout cutoff /mi</label><input type="text" id="rd-cutoff" value="6:40" style="width:62px"></div>'+
-        '<div class="rd-ctl"><label>Compare to</label><div class="rd-types"><span class="rd-chip" id="rd-cmp-toggle">+ second range</span></div></div>'+
-        '<div class="rd-ctl" id="rd-cmp-from-wrap" style="display:none"><label>Compare from</label><input type="date" id="rd-cmp-from" value="'+rdYmd(new Date(max.getTime()-60*RD_DAY))+'"></div>'+
-        '<div class="rd-ctl" id="rd-cmp-to-wrap" style="display:none"><label>Compare to</label><input type="date" id="rd-cmp-to" value="'+to30+'"></div>'+
-        '<button class="rd-btn" id="rd-run-range">Run</button>'+
+        '<span class="rd-chip" id="rd-form-compare">⇄ compare two ranges</span>'+
+        '<div class="rd-ctl rd-form-range" id="rd-fa-from-wrap" style="display:none"><label>Range A — from</label><input type="date" id="rd-fa-from" value="'+rdYmd(new Date(max.getTime()-90*RD_DAY))+'"></div>'+
+        '<div class="rd-ctl rd-form-range" id="rd-fa-to-wrap" style="display:none"><label>to</label><input type="date" id="rd-fa-to" value="'+rdYmd(max)+'"></div>'+
+        '<div class="rd-ctl rd-form-range" id="rd-fb-from-wrap" style="display:none"><label>Range B — from</label><input type="date" id="rd-fb-from" value="'+rdYmd(new Date(max.getTime()-180*RD_DAY))+'"></div>'+
+        '<div class="rd-ctl rd-form-range" id="rd-fb-to-wrap" style="display:none"><label>to</label><input type="date" id="rd-fb-to" value="'+rdYmd(new Date(max.getTime()-90*RD_DAY))+'"></div>'+
       '</div>'+
-      '<div class="rd-cards" id="rd-range-cards" style="margin-bottom:14px"></div>'+
-      '<div class="rd-tablewrap"><table class="rd-table" id="rd-range-table"></table></div></div>'+
+      '<div class="rd-tablewrap"><table class="rd-table" id="rd-form-table"></table></div>'+
+      '<p class="rd-hint" id="rd-form-hint">Showing all-time averages. Toggle “compare two ranges” to compare periods (Δ = Range A − Range B).</p></div>'+
     '<div class="rd-section"><h3>Trend</h3>'+
       '<div class="rd-rangebar">'+
         '<div class="rd-ctl"><label>Metric 1</label><select id="rd-m1">'+RD_METRICS.map((m,i)=>'<option value="'+i+'"'+(i===0?' selected':'')+'>'+m.label+'</option>').join('')+'</select></div>'+
@@ -3918,15 +3915,21 @@ function rdRenderData(){
     c.onclick=()=>{ if(rdState.activeTypes.has(tp)){rdState.activeTypes.delete(tp);c.classList.remove('on');} else {rdState.activeTypes.add(tp);c.classList.add('on');} rdRefresh(); };
     tw.appendChild(c); });
   document.getElementById('rd-anchor').onchange=e=>{ const d=rdDate(e.target.value); if(d){rdState.anchor=d;rdRefresh();} };
-  document.getElementById('rd-run-range').onclick=rdRenderRange;
-  document.getElementById('rd-intensity').onchange=rdRenderRange;
-  document.getElementById('rd-cutoff').onchange=rdRenderRange;
-  document.getElementById('rd-cmp-toggle').onclick=function(){ this.classList.toggle('on'); const on=this.classList.contains('on');
-    document.getElementById('rd-cmp-from-wrap').style.display=on?'flex':'none';
-    document.getElementById('rd-cmp-to-wrap').style.display=on?'flex':'none'; rdRenderRange(); };
+  // Global intensity filter — drives volume, form metrics, and the trend chart.
+  document.getElementById('rd-intensity').onchange=rdRefresh;
+  document.getElementById('rd-cutoff').onchange=rdRefresh;
+  // Form metrics compare toggle
+  document.getElementById('rd-form-compare').onclick=function(){
+    this.classList.toggle('on'); const on=this.classList.contains('on');
+    ['rd-fa-from-wrap','rd-fa-to-wrap','rd-fb-from-wrap','rd-fb-to-wrap'].forEach(id=>{ document.getElementById(id).style.display=on?'flex':'none'; });
+    document.getElementById('rd-form-hint').textContent = on
+      ? 'Comparing two date ranges (Δ = Range A − Range B). n = runs in each range after filters.'
+      : 'Showing all-time averages. Toggle “compare two ranges” to compare periods (Δ = Range A − Range B).';
+    rdRenderForm();
+  };
+  ['rd-fa-from','rd-fa-to','rd-fb-from','rd-fb-to'].forEach(id=>{ document.getElementById(id).onchange=rdRenderForm; });
   ['rd-m1','rd-m2','rd-t-from','rd-t-to'].forEach(id=>{ document.getElementById(id).onchange=rdRenderTrend; });
   rdRefresh();
-  rdRenderTrend();
 }
 
 // Build the shell (instructions + import bar) and load the athlete's data.
