@@ -390,6 +390,67 @@ header{display:none}
 .tab-btn:hover:not(.active){color:var(--text)}
 .tab-btn:disabled{opacity:.3;cursor:not-allowed}
 
+/* ── Run Dynamics tab ──────────────────────────────── */
+.rd-root{animation:fadeIn .3s ease}
+.rd-importbar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-bottom:14px;padding:14px 16px;background:var(--panel);border:1px solid var(--border);border-radius:13px}
+.rd-drop{flex:1;min-width:260px;border:1.5px dashed var(--border2);border-radius:11px;padding:13px 18px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
+.rd-drop:hover,.rd-drop.over{border-color:var(--cyan);background:rgba(0,229,200,.04)}
+.rd-drop b{font-size:13px;font-weight:700;color:var(--text)}
+.rd-drop span{font-size:11px;color:var(--muted2);display:block;margin-top:2px}
+.rd-status{font-size:12px;color:var(--muted2);font-family:var(--mono);line-height:1.6;min-width:180px;flex:1}
+.rd-status .ok{color:var(--good)}.rd-status .err{color:var(--bad)}
+.rd-spin{display:inline-block;width:13px;height:13px;border:2px solid var(--border2);border-top-color:var(--cyan);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.rd-help{margin-bottom:18px;background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.rd-help summary{cursor:pointer;list-style:none;padding:12px 16px;font-size:12px;font-weight:700;font-family:var(--mono);letter-spacing:.3px;text-transform:uppercase;color:var(--cyan);display:flex;align-items:center;gap:8px}
+.rd-help summary::-webkit-details-marker{display:none}
+.rd-help summary::before{content:"▸";transition:transform .15s}
+.rd-help[open] summary::before{transform:rotate(90deg)}
+.rd-help-body{padding:4px 18px 16px;font-size:12.5px;color:var(--muted2);line-height:1.7}
+.rd-help-body ol{margin:6px 0 0 18px;padding:0}
+.rd-help-body li{margin-bottom:7px}
+.rd-help-body code{font-family:var(--mono);font-size:11.5px;background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:1px 6px;color:var(--text)}
+.rd-help-body b{color:var(--text)}
+.rd-help-body a{color:var(--cyan)}
+.rd-help-note{margin-top:10px;padding:9px 12px;background:rgba(245,166,35,.07);border:1px solid rgba(245,166,35,.22);border-radius:8px;color:var(--warn);font-size:11.5px;line-height:1.6}
+.rd-controls{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;margin-bottom:14px;padding:14px 16px;background:var(--panel);border:1px solid var(--border);border-radius:12px}
+.rd-ctl{display:flex;flex-direction:column;gap:6px}
+.rd-ctl label{font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono)}
+.rd-types{display:flex;flex-wrap:wrap;gap:7px}
+.rd-chip{font-size:11px;font-weight:600;padding:5px 11px;border-radius:20px;border:1px solid var(--border2);background:var(--panel2);color:var(--muted2);cursor:pointer;user-select:none;transition:all .12s}
+.rd-chip.on{background:rgba(0,229,200,.1);border-color:rgba(0,229,200,.35);color:var(--cyan)}
+.rd-ctl input[type=date]{background:var(--panel2);border:1px solid var(--border2);border-radius:8px;padding:7px 10px;color:var(--text);font-family:var(--mono);font-size:12px;color-scheme:dark}
+.rd-btn{padding:8px 15px;background:var(--cyan);color:#000;font-weight:700;font-size:12px;border:none;border-radius:8px;cursor:pointer;transition:opacity .15s}
+.rd-btn:hover{opacity:.85}
+.rd-filenote{font-size:11px;color:var(--muted2);font-family:var(--mono);margin-left:auto}
+.rd-section{margin-top:22px}
+.rd-section h3{font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono);margin-bottom:12px;display:flex;align-items:center;gap:10px}
+.rd-section h3 .rd-note{font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)}
+.rd-section h3::after{content:"";flex:1;height:1px;background:var(--border)}
+.rd-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.rd-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.rd-card .rd-win{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--cyan);font-family:var(--mono);margin-bottom:9px}
+.rd-card .rd-row{display:flex;justify-content:space-between;font-size:12px;padding:2px 0;color:var(--muted2)}
+.rd-card .rd-row b{color:var(--text);font-weight:700;font-family:var(--mono)}
+.rd-tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--panel)}
+.rd-table{border-collapse:collapse;width:100%;font-size:12.5px}
+.rd-table th,.rd-table td{padding:9px 13px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--border)}
+.rd-table th:first-child,.rd-table td:first-child{text-align:left;position:sticky;left:0;background:var(--panel)}
+.rd-table thead th{font-size:9px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono);background:var(--panel2)}
+.rd-table thead th:first-child{background:var(--panel2)}
+.rd-table tbody tr:last-child td{border-bottom:none}
+.rd-table tbody tr:hover td{background:rgba(255,255,255,.018)}
+.rd-mname{font-weight:600;color:var(--text)}
+.rd-munit{font-size:9px;color:var(--muted);font-family:var(--mono);margin-left:5px}
+.rd-mdesc{font-size:10px;color:var(--muted2);font-weight:400;margin-top:2px}
+.rd-val{font-family:var(--mono);font-weight:700;color:var(--text)}
+.rd-val.na{color:var(--muted);font-weight:400}
+.rd-delta{font-family:var(--mono);font-size:10px;margin-left:6px}
+.rd-delta.up{color:var(--good)}.rd-delta.down{color:var(--bad)}.rd-delta.flat{color:var(--muted)}
+.rd-rangebar{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;margin-bottom:14px;padding:14px 16px;background:var(--panel);border:1px solid var(--border);border-radius:12px}
+.rd-hint{font-size:11px;color:var(--muted2);line-height:1.6;margin-top:9px;font-family:var(--mono)}
+.rd-empty{padding:36px;text-align:center;color:var(--muted2);font-size:13px;background:var(--panel);border:1px solid var(--border);border-radius:12px}
+
 /* ── Lifting plan ──────────────────────────────────── */
 .lift-instructions{background:linear-gradient(135deg,rgba(0,229,200,.08) 0%,rgba(139,124,248,.08) 100%);border:1px solid rgba(0,229,200,.25);border-radius:12px;padding:18px 22px;font-size:13px;color:var(--text);line-height:1.7;margin-bottom:18px;font-family:var(--body)}
 .lift-instructions strong{color:var(--cyan);font-weight:700}
@@ -2131,10 +2192,17 @@ function renderSingleWeek(weekContainerId, dashContainerId, role) {
   const hasFeatureConfig = Object.keys(athleteFeatures).length > 0;
   const showCoaching = role === 'coach' || currentUser.uid === ADMIN_UID || !hasFeatureConfig || athleteFeatures.coaching === true;
   const showLifting = role === 'coach' || currentUser.uid === ADMIN_UID || athleteFeatures.lifting === true;
+  // Run Dynamics is available to coaches/admin always, and to athletes
+  // unless explicitly turned off via features.runDynamics === false.
+  const showRunDynamics = role === 'coach' || currentUser.uid === ADMIN_UID || athleteFeatures.runDynamics !== false;
 
-  // If current tab is not available, switch to first available
-  if (currentTab === 'lifting' && !showLifting) currentTab = 'training';
-  if (currentTab === 'training' && !showCoaching && showLifting) currentTab = 'lifting';
+  // Build the list of available tabs; fall back to the first available
+  // if the active tab isn't available for this athlete.
+  const availTabs = [];
+  if (showCoaching) availTabs.push({ key: 'training', label: 'Training Plan' });
+  if (showLifting) availTabs.push({ key: 'lifting', label: 'Lifting Plan' });
+  if (showRunDynamics) availTabs.push({ key: 'rundynamics', label: 'Run Dynamics' });
+  if (!availTabs.some(t => t.key === currentTab)) currentTab = availTabs.length ? availTabs[0].key : 'training';
 
   const raceHtml = upcomingRaces.length
     ? `<div class="plan-race">${upcomingRaces.map(r => `<span class="plan-race-name">${esc(r.name || 'Race')}</span> · ${r.date}`).join('&nbsp;&nbsp;|&nbsp;&nbsp;')}</div>`
@@ -2147,21 +2215,20 @@ function renderSingleWeek(weekContainerId, dashContainerId, role) {
       ${role === 'coach' ? `<div class="plan-actions"><button class="btn-ghost" onclick="openEditRace()">✎ Races</button></div>` : ''}
     </div>`;
 
-  // Tab bar (only show if more than one tab available)
-  if (showCoaching && showLifting) {
-    html += `<div class="tab-bar">
-      <button class="tab-btn${currentTab === 'training' ? ' active' : ''}" onclick="switchTab('training')">Training Plan</button>
-      <button class="tab-btn${currentTab === 'lifting' ? ' active' : ''}" onclick="switchTab('lifting')">Lifting Plan</button>
-    </div>`;
-  } else if (showLifting && !showCoaching) {
-    html += `<div class="tab-bar"><button class="tab-btn active">Lifting Plan</button></div>`;
+  // Tab bar (show if more than one tab available, or a single non-training tab)
+  if (availTabs.length > 1 || (availTabs.length === 1 && availTabs[0].key !== 'training')) {
+    html += `<div class="tab-bar">${availTabs.map(t =>
+      `<button class="tab-btn${currentTab === t.key ? ' active' : ''}" onclick="switchTab('${t.key}')">${t.label}</button>`
+    ).join('')}</div>`;
   }
 
   // The 16-week overview toggle is only meaningful on the training tab with coaching feature
   const overviewActive = viewMode === 'overview' && currentTab === 'training' && showCoaching;
   const showViewToggle = currentTab === 'training' && showCoaching;
 
-  // Week navigation (shared) — when overview is active, hide week-specific controls
+  // Week navigation (shared) — when overview is active, hide week-specific controls.
+  // Run Dynamics is not week-based, so it skips the week nav entirely.
+  if (currentTab !== 'rundynamics') {
   html += `<div class="week-nav">`;
   if (overviewActive) {
     html += `<div class="week-nav-label" style="min-width:auto">Last 16 weeks</div>`;
@@ -2180,9 +2247,12 @@ function renderSingleWeek(weekContainerId, dashContainerId, role) {
     </div>`;
   }
   html += `</div>`;
+  }
 
   // Tab content
-  if (currentTab === 'training' && showCoaching) {
+  if (currentTab === 'rundynamics' && showRunDynamics) {
+    html += `<div id="rd-root" class="rd-root"></div>`;
+  } else if (currentTab === 'training' && showCoaching) {
     if (viewMode === 'overview') {
       html += renderPlanOverview(role);
     } else {
@@ -2195,6 +2265,12 @@ function renderSingleWeek(weekContainerId, dashContainerId, role) {
   }
 
   container.innerHTML = html;
+
+  // Run Dynamics mounts its own UI into #rd-root, scoped to the viewed athlete.
+  if (currentTab === 'rundynamics' && showRunDynamics) {
+    const rdUid = role === 'coach' ? selectedAthleteUid : currentUser.uid;
+    mountRunDynamics(rdUid, role);
+  }
 
   // Also render dashboard below (only for training tab in single-week mode)
   const dashContainer = document.getElementById(dashContainerId);
@@ -3544,6 +3620,308 @@ function switchTab(tab) {
   const weekId = isCoach ? 'coach-week-container' : 'athlete-week-container';
   const dashId = isCoach ? 'coach-dashboard' : 'athlete-dashboard';
   renderSingleWeek(weekId, dashId, role);
+}
+
+// ══════════════════════════════════════════════════════════
+//  RUN DYNAMICS TAB
+//  Backfills a Garmin Connect CSV export into
+//  users/{athleteUid}/garminActivities (de-duped by activity
+//  start time) and reports run-form metrics over windows and
+//  custom date ranges. Scoped to the viewed athlete so a coach
+//  sees the same interface on an athlete's profile.
+// ══════════════════════════════════════════════════════════
+
+// Metric definitions — each computed PER RUN, then averaged across a window.
+//   better: 'lower'|'higher'|null drives Δ coloring; pace:true formats m:ss.
+const RD_METRICS = [
+  { label:'Load Factor', unit:'', dec:1, better:'lower',
+    desc:'cadence × GCT ÷ 1000 — cumulative ground-contact loading proxy',
+    calc:r => (r.cadence!=null&&r.gct!=null) ? r.cadence*r.gct/1000 : null },
+  { label:'Duty Factor', unit:'%', dec:1, better:'lower',
+    desc:'share of the stride spent on the ground = GCT × cadence ÷ 1200',
+    calc:r => (r.cadence!=null&&r.gct!=null) ? r.gct*r.cadence/1200 : null },
+  { label:'Ground Contact Time', unit:'ms', dec:0, better:'lower',
+    desc:'time the foot is on the ground each step', calc:r => r.gct },
+  { label:'Vertical Oscillation', unit:'cm', dec:1, better:'lower',
+    desc:'how much the torso bounces vertically each step', calc:r => r.vo },
+  { label:'Vertical Ratio', unit:'%', dec:1, better:'lower',
+    desc:'bounce ÷ stride length — overall efficiency (lower is better)', calc:r => r.vratio },
+  { label:'Cadence', unit:'spm', dec:0, better:'higher',
+    desc:'steps per minute', calc:r => r.cadence },
+  { label:'Stride Length', unit:'m', dec:2, better:null,
+    desc:'distance covered per step', calc:r => r.stride },
+  { label:'GCT Balance Asym.', unit:'%', dec:1, better:'lower',
+    desc:'L/R contact-time imbalance = |left% − 50|',
+    calc:r => r.gctBalL!=null ? Math.abs(r.gctBalL-50) : null },
+  { label:'Form Efficiency', unit:'m/cm', dec:2, better:'higher',
+    desc:'stride length ÷ vertical oscillation — distance per unit of bounce',
+    calc:r => (r.stride!=null&&r.vo) ? r.stride/r.vo : null },
+  { label:'Avg Pace', unit:'/mi', dec:0, better:null, pace:true,
+    desc:'average pace', calc:r => r.paceSec },
+  { label:'Avg HR', unit:'bpm', dec:0, better:'lower',
+    desc:'average heart rate', calc:r => r.avgHr },
+];
+const RD_WINDOWS = [
+  {days:7,label:'7 days'},{days:30,label:'30 days'},{days:90,label:'90 days'},
+  {days:365,label:'365 days'},{days:null,label:'All time'},
+];
+const RD_DAY = 864e5;
+let rdState = { uid:null, role:'athlete', runs:[], loaded:false, anchor:null, activeTypes:new Set() };
+
+function rdCol(uid){ return db.collection('users').doc(uid).collection('garminActivities'); }
+
+// ---- CSV parsing ----
+function rdParseCSV(text){
+  text=text.replace(/^﻿/,''); const rows=[]; let row=[],cur='',q=false;
+  for(let i=0;i<text.length;i++){const c=text[i];
+    if(q){ if(c==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=c; }
+    else{ if(c==='"')q=true; else if(c===','){row.push(cur);cur='';}
+      else if(c==='\n'){row.push(cur);rows.push(row);row=[];cur='';}
+      else if(c==='\r'){} else cur+=c; } }
+  if(cur.length||row.length){row.push(cur);rows.push(row);}
+  return rows.filter(r=>r.length>1);
+}
+function rdNorm(s){ return (s||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+function rdNum(v){ if(v==null)return null; v=String(v).replace(/[",]/g,'').trim();
+  if(v===''||v==='--')return null; const f=parseFloat(v); return isNaN(f)?null:f; }
+function rdHms(v){ if(v==null)return null; v=String(v).replace(/"/g,'').trim();
+  if(v===''||v.indexOf('--')===0)return null; const p=v.split(':').map(parseFloat);
+  if(p.some(isNaN))return null; if(p.length===3)return p[0]*3600+p[1]*60+p[2];
+  if(p.length===2)return p[0]*60+p[1]; return p[0]; }
+function rdGctL(v){ if(v==null)return null; const m=String(v).match(/([\d.]+)\s*%?\s*L/i); return m?parseFloat(m[1]):null; }
+function rdDate(v){ if(!v)return null; const d=new Date(String(v).trim().replace(' ','T')); return isNaN(d)?null:d; }
+
+function rdParseExport(text){
+  const rows=rdParseCSV(text);
+  if(rows.length<2) throw new Error('No data rows found.');
+  const col={}; rows[0].forEach((h,i)=>{ const n=rdNorm(h); if(!(n in col))col[n]=i; });
+  ['activitytype','date','avggroundcontacttime'].forEach(k=>{ if(!(k in col)) throw new Error('Not a Garmin activities export (missing "'+k+'").'); });
+  const get=(r,k)=> col[k]!=null ? r[col[k]] : null;
+  const byId={};
+  for(let i=1;i<rows.length;i++){
+    const r=rows[i], rawDate=get(r,'date'), date=rdDate(rawDate);
+    if(!date) continue;
+    const type=String(get(r,'activitytype')||'').trim();
+    if(!/run/i.test(type)) continue;
+    const isTrack=/track/i.test(type), distRaw=rdNum(get(r,'distance'));
+    const id=String(rawDate).replace(/\D/g,'')+'_'+rdNorm(type);
+    byId[id]={ id, type, title:String(get(r,'title')||'').trim(),
+      ts:date.getTime(), dateISO:date.toISOString(),
+      distMi: distRaw==null?null:(isTrack?distRaw/1609.34:distRaw),
+      durSec:rdHms(get(r,'time')), avgHr:rdNum(get(r,'avghr')), maxHr:rdNum(get(r,'maxhr')),
+      aerobicTE:rdNum(get(r,'aerobicte')), cadence:rdNum(get(r,'avgruncadence')),
+      stride:rdNum(get(r,'avgstridelength')), vratio:rdNum(get(r,'avgverticalratio')),
+      vo:rdNum(get(r,'avgverticaloscillation')), gct:rdNum(get(r,'avggroundcontacttime')),
+      gctBalL:rdGctL(get(r,'avggctbalance')), paceSec:rdHms(get(r,'avgpace')), gapSec:rdHms(get(r,'avggap')) };
+  }
+  return Object.keys(byId).map(k=>byId[k]);
+}
+
+// ---- Firestore ----
+function rdLoad(uid){
+  return rdCol(uid).get().then(snap=>{
+    const runs=[]; snap.forEach(d=>{ const o=Object.assign({},d.data()); o.date=new Date(o.ts); runs.push(o); });
+    runs.sort((a,b)=>a.ts-b.ts);
+    rdState.uid=uid; rdState.runs=runs; rdState.loaded=true;
+  });
+}
+function rdBackfill(uid, candidates){
+  return rdCol(uid).get().then(snap=>{
+    const existing=new Set(); snap.forEach(d=>existing.add(d.id));
+    const fresh=candidates.filter(c=>!existing.has(c.id));
+    let p=Promise.resolve();
+    for(let i=0;i<fresh.length;i+=450){
+      const chunk=fresh.slice(i,i+450);
+      p=p.then(()=>{ const batch=db.batch(); chunk.forEach(c=>batch.set(rdCol(uid).doc(c.id),c)); return batch.commit(); });
+    }
+    return p.then(()=>({added:fresh.length, duplicate:candidates.length-fresh.length}));
+  });
+}
+
+// ---- aggregation + formatting ----
+function rdRunsIn(s,e){ return rdState.runs.filter(r=>rdState.activeTypes.has(r.type)&&r.date>s&&r.date<=e); }
+function rdMean(runs,m){ const v=runs.map(m.calc).filter(x=>x!=null&&!isNaN(x)); return v.length?v.reduce((a,b)=>a+b,0)/v.length:null; }
+function rdSummarize(runs){
+  const dist=runs.reduce((a,r)=>a+(r.distMi||0),0), dur=runs.reduce((a,r)=>a+(r.durSec||0),0);
+  const pv=runs.map(r=>r.paceSec).filter(x=>x!=null), pace=pv.length?pv.reduce((a,b)=>a+b,0)/pv.length:null;
+  return {n:runs.length,dist,dur,pace};
+}
+function rdPace(s){ if(s==null)return '–'; const m=Math.floor(s/60),x=Math.round(s%60); return m+':'+String(x).padStart(2,'0'); }
+function rdDur(s){ const h=Math.floor(s/3600),m=Math.round((s%3600)/60); return h>0?h+'h '+m+'m':m+'m'; }
+function rdFmtVal(v,m){ if(v==null)return '<span class="rd-val na">–</span>'; if(m.pace)return '<span class="rd-val">'+rdPace(v)+'</span>'; return '<span class="rd-val">'+v.toFixed(m.dec)+'</span>'; }
+function rdDelta(cur,prev,m){ if(cur==null||prev==null)return ''; const d=cur-prev;
+  if(Math.abs(d)<1e-9)return '<span class="rd-delta flat">→ 0</span>';
+  const dir=d>0?'▲':'▼'; let cls='flat';
+  if(m.better==='lower')cls=d<0?'up':'down'; else if(m.better==='higher')cls=d>0?'up':'down';
+  const txt=m.pace?((d>0?'+':'−')+rdPace(Math.abs(d))):((d>0?'+':'−')+Math.abs(d).toFixed(m.dec));
+  return '<span class="rd-delta '+cls+'">'+dir+' '+txt+'</span>'; }
+function rdYmd(d){ return d.toISOString().slice(0,10); }
+function rdCard(label,s){ return '<div class="rd-card"><div class="rd-win">'+label+'</div>'+
+  '<div class="rd-row">Runs <b>'+s.n+'</b></div>'+
+  '<div class="rd-row">Distance <b>'+s.dist.toFixed(1)+' mi</b></div>'+
+  '<div class="rd-row">Time <b>'+(s.dur?rdDur(s.dur):'–')+'</b></div>'+
+  '<div class="rd-row">Avg pace <b>'+rdPace(s.pace)+'</b></div></div>'; }
+
+// ---- rendering ----
+function rdRefresh(){
+  if(!rdState.runs.length) return;
+  const end=rdState.anchor, cards=document.getElementById('rd-summary-cards'), tbl=document.getElementById('rd-metric-table');
+  const cur={}, prior={};
+  let cardsHtml='';
+  RD_WINDOWS.forEach((w,i)=>{
+    if(w.days==null){ cur[i]=rdRunsIn(new Date(0),end); prior[i]=null; }
+    else{ const start=new Date(end.getTime()-w.days*RD_DAY); cur[i]=rdRunsIn(start,end); prior[i]=rdRunsIn(new Date(end.getTime()-2*w.days*RD_DAY),start); }
+    cardsHtml+=rdCard(w.label,rdSummarize(cur[i]));
+  });
+  if(cards) cards.innerHTML=cardsHtml;
+  let head='<thead><tr><th>Metric</th>'+RD_WINDOWS.map(w=>'<th>'+w.label+'</th>').join('')+'</tr></thead>';
+  let body='<tbody>';
+  RD_METRICS.forEach(m=>{
+    body+='<tr><td><span class="rd-mname">'+m.label+'</span>'+(m.unit?'<span class="rd-munit">'+m.unit+'</span>':'')+'<div class="rd-mdesc">'+m.desc+'</div></td>';
+    RD_WINDOWS.forEach((w,i)=>{ const v=rdMean(cur[i],m), pv=prior[i]?rdMean(prior[i],m):null; body+='<td>'+rdFmtVal(v,m)+rdDelta(v,pv,m)+'</td>'; });
+    body+='</tr>';
+  });
+  if(tbl) tbl.innerHTML=head+body+'</tbody>';
+  rdRenderRange();
+}
+function rdRenderRange(){
+  const from=rdDate(document.getElementById('rd-from').value), to=rdDate(document.getElementById('rd-to').value);
+  if(!from||!to) return;
+  const ranges=[{label:'Selected',from:new Date(from.getTime()-RD_DAY),to}];
+  if(document.getElementById('rd-cmp-toggle').classList.contains('on')){
+    const cf=rdDate(document.getElementById('rd-cmp-from').value), ct=rdDate(document.getElementById('rd-cmp-to').value);
+    if(cf&&ct) ranges.push({label:'Compare',from:new Date(cf.getTime()-RD_DAY),to:ct});
+  }
+  const runs=ranges.map(r=>rdRunsIn(r.from,r.to));
+  document.getElementById('rd-range-cards').innerHTML=runs.map((rs,i)=>rdCard(ranges[i].label,rdSummarize(rs))).join('');
+  let head='<thead><tr><th>Metric</th>'+ranges.map(r=>'<th>'+r.label+'</th>').join('')+(ranges.length>1?'<th>Δ</th>':'')+'</tr></thead>';
+  let body='<tbody>';
+  RD_METRICS.forEach(m=>{
+    const vals=runs.map(rs=>rdMean(rs,m));
+    body+='<tr><td><span class="rd-mname">'+m.label+'</span>'+(m.unit?'<span class="rd-munit">'+m.unit+'</span>':'')+'<div class="rd-mdesc">'+m.desc+'</div></td>';
+    vals.forEach(v=>{ body+='<td>'+rdFmtVal(v,m)+'</td>'; });
+    if(ranges.length>1) body+='<td>'+rdDelta(vals[0],vals[1],m)+'</td>';
+    body+='</tr>';
+  });
+  document.getElementById('rd-range-table').innerHTML=head+body+'</tbody>';
+}
+
+// Render the data-dependent UI (controls + sections) once runs are loaded.
+function rdRenderData(){
+  const host=document.getElementById('rd-data');
+  if(!host) return;
+  if(!rdState.runs.length){
+    host.innerHTML='<div class="rd-empty">No running activities stored for this athlete yet. Import a Garmin <code>Activities.csv</code> above to backfill their history.</div>';
+    return;
+  }
+  const dates=rdState.runs.map(r=>r.date).sort((a,b)=>a-b);
+  const min=dates[0], max=dates[dates.length-1];
+  rdState.anchor=new Date(max);
+  const counts={}; rdState.runs.forEach(r=>{ counts[r.type]=(counts[r.type]||0)+1; });
+  const types=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
+  rdState.activeTypes=new Set(types);
+  const to30=rdYmd(new Date(max.getTime()-30*RD_DAY));
+
+  host.innerHTML=
+    '<div class="rd-controls">'+
+      '<div class="rd-ctl"><label>Activity types</label><div class="rd-types" id="rd-types"></div></div>'+
+      '<div class="rd-ctl"><label>Anchor (window end)</label><input type="date" id="rd-anchor" value="'+rdYmd(max)+'"></div>'+
+      '<span class="rd-filenote">'+rdState.runs.length+' runs stored · '+rdYmd(min)+' → '+rdYmd(max)+'</span>'+
+    '</div>'+
+    '<div class="rd-section"><h3>Volume by window</h3><div class="rd-cards" id="rd-summary-cards"></div></div>'+
+    '<div class="rd-section"><h3>Form metrics by window · mean per run <span class="rd-note">(Δ vs prior equal period)</span></h3>'+
+      '<div class="rd-tablewrap"><table class="rd-table" id="rd-metric-table"></table></div>'+
+      '<p class="rd-hint">Δ vs the immediately preceding window of equal length. Green = improvement for that metric\'s better direction.</p></div>'+
+    '<div class="rd-section"><h3>Custom date range</h3>'+
+      '<div class="rd-rangebar">'+
+        '<div class="rd-ctl"><label>From</label><input type="date" id="rd-from" value="'+to30+'"></div>'+
+        '<div class="rd-ctl"><label>To</label><input type="date" id="rd-to" value="'+rdYmd(max)+'"></div>'+
+        '<div class="rd-ctl"><label>Compare to</label><div class="rd-types"><span class="rd-chip" id="rd-cmp-toggle">+ second range</span></div></div>'+
+        '<div class="rd-ctl" id="rd-cmp-from-wrap" style="display:none"><label>Compare from</label><input type="date" id="rd-cmp-from" value="'+rdYmd(new Date(max.getTime()-60*RD_DAY))+'"></div>'+
+        '<div class="rd-ctl" id="rd-cmp-to-wrap" style="display:none"><label>Compare to</label><input type="date" id="rd-cmp-to" value="'+to30+'"></div>'+
+        '<button class="rd-btn" id="rd-run-range">Run</button>'+
+      '</div>'+
+      '<div class="rd-cards" id="rd-range-cards" style="margin-bottom:14px"></div>'+
+      '<div class="rd-tablewrap"><table class="rd-table" id="rd-range-table"></table></div></div>';
+
+  // type chips
+  const tw=document.getElementById('rd-types');
+  types.forEach(tp=>{ const c=document.createElement('span'); c.className='rd-chip on'; c.textContent=tp+' ('+counts[tp]+')';
+    c.onclick=()=>{ if(rdState.activeTypes.has(tp)){rdState.activeTypes.delete(tp);c.classList.remove('on');} else {rdState.activeTypes.add(tp);c.classList.add('on');} rdRefresh(); };
+    tw.appendChild(c); });
+  document.getElementById('rd-anchor').onchange=e=>{ const d=rdDate(e.target.value); if(d){rdState.anchor=d;rdRefresh();} };
+  document.getElementById('rd-run-range').onclick=rdRenderRange;
+  document.getElementById('rd-cmp-toggle').onclick=function(){ this.classList.toggle('on'); const on=this.classList.contains('on');
+    document.getElementById('rd-cmp-from-wrap').style.display=on?'flex':'none';
+    document.getElementById('rd-cmp-to-wrap').style.display=on?'flex':'none'; rdRenderRange(); };
+  rdRefresh();
+}
+
+// Build the shell (instructions + import bar) and load the athlete's data.
+function mountRunDynamics(uid, role){
+  const root=document.getElementById('rd-root');
+  if(!root) return;
+  rdState.role=role;
+  if(!uid){
+    root.innerHTML='<div class="rd-empty">Select an athlete from the sidebar to view their run dynamics.</div>';
+    return;
+  }
+  const who = role==='coach' ? 'this athlete\'s' : 'your';
+  root.innerHTML=
+    '<details class="rd-help"><summary>How to export your activities from Garmin Connect</summary>'+
+      '<div class="rd-help-body">'+
+        '<ol>'+
+          '<li>On a computer, open <a href="https://connect.garmin.com/modern/activities" target="_blank" rel="noopener">Garmin Connect → Activities → All Activities</a> and sign in.</li>'+
+          '<li>Click the <b>filter</b> controls at the top and set <b>Activity Type → Running</b> (optional), then set the <b>date range</b> you want — e.g. a full season, or just since your last upload.</li>'+
+          '<li><b>Scroll to the bottom</b> of the list so every activity in that range loads on screen. The export only includes what is currently loaded.</li>'+
+          '<li>Click <b>Export CSV</b> (top-right of the activities list) to download <code>Activities.csv</code>.</li>'+
+          '<li>Drag that file into the box below. Runs are de-duplicated by start time, so re-uploads only add what is new.</li>'+
+        '</ol>'+
+        '<div class="rd-help-note">Garmin\'s CSV export is capped at ~1,000 activities and exports only the rows loaded on screen. For long histories, export in chunks by date range — each chunk merges in automatically.</div>'+
+      '</div></details>'+
+    '<div class="rd-importbar">'+
+      '<div class="rd-drop" id="rd-drop"><b>Import Garmin Activities.csv</b>'+
+        '<span>Drag &amp; drop, or click to choose — backfills '+who+' run history.</span>'+
+        '<input type="file" id="rd-file" accept=".csv,text/csv" hidden></div>'+
+      '<div class="rd-status" id="rd-status"></div>'+
+    '</div>'+
+    '<div id="rd-data"></div>';
+
+  const drop=document.getElementById('rd-drop'), fileInput=document.getElementById('rd-file'), status=document.getElementById('rd-status');
+  const read=f=>{
+    status.innerHTML='<span class="rd-spin"></span>Reading '+f.name+'…';
+    const rd=new FileReader();
+    rd.onerror=()=>{ status.innerHTML='<span class="err">Could not read file.</span>'; };
+    rd.onload=()=>{
+      let candidates; try{ candidates=rdParseExport(rd.result); }catch(e){ status.innerHTML='<span class="err">'+e.message+'</span>'; return; }
+      if(!candidates.length){ status.innerHTML='<span class="err">No running activities found in this file.</span>'; return; }
+      status.innerHTML='<span class="rd-spin"></span>Saving '+candidates.length+' runs…';
+      rdBackfill(uid,candidates).then(res=>rdLoad(uid).then(()=>{
+        rdRenderData();
+        status.innerHTML='<span class="ok">✓ '+res.added+' new run'+(res.added===1?'':'s')+' saved</span>'+(res.duplicate?(' · '+res.duplicate+' already stored'):'')+' · '+rdState.runs.length+' total';
+      })).catch(e=>{ console.error(e); status.innerHTML='<span class="err">Save failed: '+(e&&e.message||e)+'</span>'; });
+    };
+    rd.readAsText(f);
+  };
+  drop.onclick=()=>fileInput.click();
+  drop.ondragover=e=>{ e.preventDefault(); drop.classList.add('over'); };
+  drop.ondragleave=()=>drop.classList.remove('over');
+  drop.ondrop=e=>{ e.preventDefault(); drop.classList.remove('over'); const f=e.dataTransfer.files[0]; if(f) read(f); };
+  fileInput.onchange=e=>{ const f=e.target.files[0]; if(f) read(f); fileInput.value=''; };
+
+  if(rdState.uid===uid && rdState.loaded){
+    rdRenderData();
+    status.innerHTML='<span class="ok">✓ '+rdState.runs.length+' runs loaded</span> · import a newer export to add more';
+  } else {
+    rdState.uid=uid; rdState.loaded=false; rdState.runs=[];
+    status.innerHTML='<span class="rd-spin"></span>Loading stored runs…';
+    rdLoad(uid).then(()=>{
+      rdRenderData();
+      status.innerHTML=rdState.runs.length
+        ? '<span class="ok">✓ '+rdState.runs.length+' runs loaded</span> · import a newer export to add more'
+        : 'No runs stored yet — import a Garmin export to begin.';
+    }).catch(e=>{ console.error(e); status.innerHTML='<span class="err">Could not load runs: '+(e&&e.message||e)+'</span>'; });
+  }
 }
 
 // ══════════════════════════════════════════════════════════

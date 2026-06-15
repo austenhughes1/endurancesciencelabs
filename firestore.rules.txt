@@ -63,13 +63,14 @@ service cloud.firestore {
 
       // ── Garmin activities subcollection ─────────────────────
       // Backfilled from a Garmin Connect CSV export by the Run
-      // Dynamics tool. Owner reads/writes their own; coach (admin)
-      // can read.
+      // Dynamics tool. The athlete, their assigned coach, and the
+      // admin can all read and write (coach may backfill on behalf
+      // of the athlete from the coaching dashboard).
       match /garminActivities/{activityId} {
         allow read, write: if request.auth != null
-                           && request.auth.uid == userId;
-        allow read: if request.auth != null
-                    && request.auth.uid == "2z9Z3K5ZwShvadUuqZmwMv0s1Od2";
+                           && (request.auth.uid == userId
+                               || request.auth.uid == "2z9Z3K5ZwShvadUuqZmwMv0s1Od2"
+                               || get(/databases/$(database)/documents/users/$(userId)).data.coachUid == request.auth.uid);
       }
 
       // ── Private data (Strava tokens etc) ────────────────────
