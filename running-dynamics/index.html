@@ -59,6 +59,8 @@ h1{font-size:26px;font-weight:800;letter-spacing:-.4px;margin-bottom:6px}
 .chip{font-size:12px;font-weight:600;padding:6px 12px;border-radius:20px;border:1px solid var(--border2);background:var(--panel2);color:var(--muted2);cursor:pointer;user-select:none;transition:all .12s}
 .chip.on{background:rgba(0,229,200,.1);border-color:rgba(0,229,200,.35);color:var(--cyan)}
 .ctl input[type=date]{background:var(--panel2);border:1px solid var(--border2);border-radius:8px;padding:8px 11px;color:var(--text);font-family:var(--mono);font-size:12.5px;color-scheme:dark}
+.ctl select,.ctl input[type=text]{background:var(--panel2);border:1px solid var(--border2);border-radius:8px;padding:8px 11px;color:var(--text);font-family:var(--mono);font-size:12.5px;cursor:pointer;outline:none}
+.ctl input[type=text]{cursor:text}
 .btn{padding:9px 16px;background:var(--cyan);color:#000;font-weight:700;font-size:12.5px;border:none;border-radius:8px;cursor:pointer;transition:opacity .15s}
 .btn:hover{opacity:.85}
 .btn.ghost{background:transparent;border:1px solid var(--border2);color:var(--muted2)}
@@ -171,6 +173,8 @@ tbody tr:hover td:first-child{background:#10131f}
     <div class="rangebar">
       <div class="ctl"><label>From</label><input type="date" id="from"></div>
       <div class="ctl"><label>To</label><input type="date" id="to"></div>
+      <div class="ctl"><label>Runs</label><select id="intensity"><option value="all">All runs</option><option value="workout">Workouts only</option><option value="easy">Easy only</option></select></div>
+      <div class="ctl"><label>Workout cutoff /mi</label><input type="text" id="cutoff" value="6:40" style="width:66px"></div>
       <div class="ctl"><label>Compare to</label>
         <div class="types"><span class="chip" id="cmpToggle">+ second range</span></div>
       </div>
@@ -446,6 +450,13 @@ function renderAll(){
   });
   document.getElementById('mtable').innerHTML=head+body+'</tbody>';
 }
+// Split by avg pace: workouts run faster than the cutoff, easy runs slower.
+// Runs without a recorded pace are excluded when a specific intensity is chosen.
+function filterIntensity(runs,mode,cutoffSec){
+  if(mode==='workout') return runs.filter(function(r){return r.paceSec!=null && r.paceSec<cutoffSec;});
+  if(mode==='easy') return runs.filter(function(r){return r.paceSec!=null && r.paceSec>=cutoffSec;});
+  return runs;
+}
 function renderRange(){
   var from=parseDate(document.getElementById('from').value);
   var to=parseDate(document.getElementById('to').value);
@@ -455,7 +466,9 @@ function renderRange(){
     var cf=parseDate(document.getElementById('cmpFrom').value), ct=parseDate(document.getElementById('cmpTo').value);
     if(cf&&ct) ranges.push({label:'Compare', from:new Date(cf.getTime()-DAY), to:ct});
   }
-  var runs=ranges.map(function(r){return runsIn(r.from,r.to);});
+  var mode=document.getElementById('intensity').value;
+  var cutoff=hmsToSec(document.getElementById('cutoff').value)||400;
+  var runs=ranges.map(function(r){return filterIntensity(runsIn(r.from,r.to),mode,cutoff);});
 
   var rc=document.getElementById('rangeCards'); rc.innerHTML='';
   runs.forEach(function(rs,i){ rc.innerHTML+=summaryCard(ranges[i].label,summarize(rs)); });
@@ -556,6 +569,8 @@ drop.ondrop=function(e){ e.preventDefault(); drop.classList.remove('over'); var 
 fileInput.onchange=function(e){ var f=e.target.files[0]; if(f) readFile(f); fileInput.value=''; };
 document.getElementById('anchor').onchange=function(e){ var d=parseDate(e.target.value); if(d){ANCHOR=d;refresh();} };
 document.getElementById('runRange').onclick=renderRange;
+document.getElementById('intensity').onchange=renderRange;
+document.getElementById('cutoff').onchange=renderRange;
 document.getElementById('cmpToggle').onclick=function(){
   this.classList.toggle('on');
   var on=this.classList.contains('on');
