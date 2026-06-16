@@ -3915,7 +3915,7 @@ function rdRenderData(){
         '<div class="rd-ctl"><label>Metric 2</label><select id="rd-m2"><option value="">None</option>'+RD_METRICS.map((m,i)=>'<option value="'+i+'">'+m.label+'</option>').join('')+'</select></div>'+
         '<div class="rd-ctl"><label>From</label><input type="date" id="rd-t-from" value="'+rdYmd(new Date(max.getTime()-91*RD_DAY))+'"></div>'+
         '<div class="rd-ctl"><label>To</label><input type="date" id="rd-t-to" value="'+rdYmd(max)+'"></div>'+
-        '<div class="rd-ctl"><label>Display</label><div class="rd-types"><span class="rd-chip on" id="rd-hide-outliers">Hide outliers</span><span class="rd-chip" id="rd-smooth">Smooth</span></div></div>'+
+        '<div class="rd-ctl"><label>Display</label><div class="rd-types"><span class="rd-chip on" id="rd-hide-outliers">Hide outliers</span><span class="rd-chip on" id="rd-smooth">Smooth</span></div></div>'+
       '</div>'+
       '<div class="rd-chartwrap"><div class="rd-legend" id="rd-trend-legend"></div><div id="rd-trend-chart"></div></div></div>';
 
