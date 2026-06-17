@@ -2747,6 +2747,38 @@ function renderExpandMetricsFrontBack(fbm) {
 // Tone shifts: red if any notable, orange if only mild, green if none. Visibility
 // is later set by applyPaywallState() -- the banner only shows while locked.
 
+// Captures each detected phase's analyzed frame WITH its pose/angle overlays as
+// a compact JPEG data URL. The frame pixels only exist while the source video is
+// loaded, so this must run live (at download time); the images ride in the report
+// request payload and are never persisted server-side. Returns { phaseKey: dataURL }.
+async function capturePhaseImages() {
+  var TARGET_W = 640;   // downscaled width -- keeps each JPEG roughly 50-80KB
+  var JPEG_Q   = 0.62;
+  var out = {};
+  var keys = Object.keys(phases || {});
+  for (var i = 0; i < keys.length; i++) {
+    var key = keys[i];
+    var ph  = phases[key];
+    if (!ph || !ph.detected || !ph.kps) continue;       // all DETECTED phases
+    var vidEl = getVideoElForPhase(key);
+    if (!vidEl || !vidEl.videoWidth) continue;
+    try {
+      await seekTo(ph.t, vidEl);
+      var vw = vidEl.videoWidth, vh = vidEl.videoHeight;
+      var scale = Math.min(1, TARGET_W / vw);
+      var cv = document.createElement('canvas');
+      cv.width  = Math.round(vw * scale);
+      cv.height = Math.round(vh * scale);
+      var cx = cv.getContext('2d');
+      cx.scale(scale, scale);                            // draw in native coords, downscale via transform
+      cx.drawImage(vidEl, 0, 0, vw, vh);
+      drawPose(cx, ph.kps, vw, vh);                      // skeleton + angle overlays (side view)
+      out[key] = cv.toDataURL('image/jpeg', JPEG_Q);
+    } catch (e) { /* skip this phase's image on any capture/seek error */ }
+  }
+  return out;
+}
+
 // Calls the generateFormReport Cloud Function, which enforces the pass-status
 // check server-side and renders the PDF in Node. Removing the in-browser
 // renderer is what closes the DevTools-bypass: there is no client-side path
@@ -2785,13 +2817,19 @@ async function downloadReport() {
   btnEls.forEach(function(b) { b.disabled = true; b.innerHTML = 'Generating PDF…'; });
 
   try {
+    // Capture the analyzed frames (with overlays) while the videos are still
+    // loaded. Done inside the disabled-button window so the user sees feedback.
+    var phaseImages = {};
+    try { phaseImages = await capturePhaseImages(); } catch (e) { phaseImages = {}; }
+
     var fns = firebase.app().functions('us-central1');
     var call = fns.httpsCallable('generateFormReport');
     var res = await call({
       athleteName: athleteName,
       selectedSex: selectedSex,
       phases: phasePayload,
-      lastIssues: lastIssues
+      lastIssues: lastIssues,
+      images: phaseImages
     });
 
     var data = res && res.data ? res.data : {};

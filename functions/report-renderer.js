@@ -409,7 +409,8 @@ function pdfDrawBadge(doc, severity, x, y) {
  * @returns {Buffer} PDF bytes
  */
 function renderReport(input) {
-  const { athleteName, selectedSex, phases, lastIssues, liveRanges } = input;
+  const { athleteName, selectedSex, phases, lastIssues, liveRanges, images } = input;
+  const imgs = images && typeof images === "object" ? images : {};
   const { getRange, getRangeStats, positionLabel } = makeHelpers(liveRanges || {}, selectedSex);
 
   const doc = new jsPDF({ unit: "mm", format: "letter" });
@@ -974,6 +975,94 @@ function renderReport(input) {
   }
 
   pdfDrawAngleTable("Side view measurements", SUMMARY_COL_ORDER);
+
+  // ====== CAPTURED FRAME SCREENSHOTS ======
+  // The exact frame analyzed for each detected phase, with the pose/angle
+  // overlays baked in client-side, followed by a footer of the angles used for
+  // that phase. Images arrive in the request payload (never persisted); a phase
+  // with no image is simply skipped (graceful fallback for older sessions).
+  const shotKeys = PHASE_DEFS.map((d) => d.key).filter((k) => typeof imgs[k] === "string");
+  if (shotKeys.length) {
+    doc.addPage();
+    pdfDrawFooter(doc, margins);
+    y = margins.top;
+
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(accentR, accentG, accentB);
+    doc.text("Captured Frames", margins.left, y);
+    y += 7;
+
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(mutedR, mutedG, mutedB);
+    const shotNote = doc.splitTextToSize(
+      "The exact frame analyzed for each phase, with the pose and angle overlays drawn at capture time. Angles beneath each frame are the measurements used for that phase.",
+      contentW
+    );
+    doc.text(shotNote, margins.left, y);
+    y += shotNote.length * 3.5 + 4;
+
+    const imgW = 150; // mm (content width is ~175.9mm)
+
+    for (let si = 0; si < shotKeys.length; si++) {
+      const pk = shotKeys[si];
+      const dataUrl = imgs[pk];
+      const def = PHASE_DEFS.find((d) => d.key === pk);
+      const title = def ? def.label : pk;
+
+      let props = null;
+      try { props = doc.getImageProperties(dataUrl); } catch (e) { props = null; }
+      const aspect = (props && props.width && props.height) ? props.height / props.width : 9 / 16;
+      const imgH = imgW * aspect;
+
+      // Footer angle lines, built from this phase's metrics via the same row
+      // definitions the angle table uses (side-view phases yield angles;
+      // front/back phases have no side metrics, so just the heading shows).
+      const pm = phases[pk] && phases[pk].metrics ? phases[pk].metrics : null;
+      const footerParts = [];
+      if (pm) {
+        for (let mi = 0; mi < METRIC_ROWS.length; mi++) {
+          const mr = METRIC_ROWS[mi];
+          if (!isRelevant(pk, mr.key) || pm[mr.key] == null) continue;
+          footerParts.push(mr.label + " " + mr.fmt(pm[mr.key]) + metricSideLabel(mr.key, pm));
+        }
+      }
+      const footerText = footerParts.join("    •    ");
+      const footerLines = footerText ? doc.splitTextToSize(footerText, contentW) : [];
+
+      // Keep heading + image + footer together on one page.
+      const blockH = 4 + imgH + 4 + footerLines.length * 4.5 + 6;
+      y = pdfCheckPage(doc, y, blockH, margins);
+
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(bodyR, bodyG, bodyB);
+      doc.text(title, margins.left, y);
+      y += 4;
+
+      try {
+        doc.addImage(dataUrl, "JPEG", margins.left, y, imgW, imgH);
+      } catch (e) {
+        // Unreadable image -- skip the picture but keep heading + angles.
+      }
+      doc.setDrawColor(204, 204, 204);
+      doc.setLineWidth(0.2);
+      doc.rect(margins.left, y, imgW, imgH);
+      y += imgH + 4;
+
+      if (footerLines.length) {
+        doc.setFontSize(8);
+        doc.setFont("courier", "normal");
+        doc.setTextColor(bodyR, bodyG, bodyB);
+        for (let fl = 0; fl < footerLines.length; fl++) {
+          doc.text(footerLines[fl], margins.left, y);
+          y += 4.5;
+        }
+      }
+      y += 6;
+    }
+  }
 
   // ====== BELL CURVE DETAIL PAGES ======
   doc.addPage();

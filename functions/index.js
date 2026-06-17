@@ -658,6 +658,26 @@ exports.generateFormReport = onCall({ cors: true, memory: "512MiB" }, async (req
   const selectedSex = data.selectedSex === "male" || data.selectedSex === "female" ? data.selectedSex : null;
   const athleteName = typeof data.athleteName === "string" ? data.athleteName : "";
 
+  // Optional per-phase captured-frame screenshots (JPEG data URLs), passed in the
+  // request payload rather than persisted. Validate shape/size so a malformed or
+  // oversized payload can't bloat memory: only base64 image data URLs, capped in
+  // count and per-image length.
+  const rawImages = data.images && typeof data.images === "object" ? data.images : {};
+  const images = {};
+  const MAX_IMAGES = 12;
+  const MAX_IMG_LEN = 400000; // ~300KB decoded per image
+  let imgCount = 0;
+  for (const k of Object.keys(rawImages)) {
+    if (imgCount >= MAX_IMAGES) break;
+    const v = rawImages[k];
+    if (typeof v === "string" &&
+        /^data:image\/(jpeg|png);base64,/.test(v) &&
+        v.length <= MAX_IMG_LEN) {
+      images[k] = v;
+      imgCount++;
+    }
+  }
+
   // Pull the same computed_ranges docs the browser uses, via admin SDK.
   // Anyone can read these (rules allow read:true), but we fetch server-side
   // so the renderer is fully self-contained.
@@ -679,7 +699,7 @@ exports.generateFormReport = onCall({ cors: true, memory: "512MiB" }, async (req
 
   let buf;
   try {
-    buf = renderReport({ athleteName, selectedSex, phases, lastIssues, liveRanges });
+    buf = renderReport({ athleteName, selectedSex, phases, lastIssues, liveRanges, images });
   } catch (e) {
     console.error("renderReport failed:", e);
     throw new HttpsError("internal", "Failed to generate report PDF.");
