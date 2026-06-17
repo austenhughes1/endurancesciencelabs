@@ -978,9 +978,11 @@ function renderReport(input) {
 
   // ====== CAPTURED FRAME SCREENSHOTS ======
   // The exact frame analyzed for each detected phase, with the pose/angle
-  // overlays baked in client-side, followed by a footer of the angles used for
-  // that phase. Images arrive in the request payload (never persisted); a phase
-  // with no image is simply skipped (graceful fallback for older sessions).
+  // overlays baked in client-side. Laid out as a compact two-column grid (small
+  // frame + its angles beside it) so the whole set fits on one or two pages
+  // regardless of portrait/landscape source video. Images arrive in the request
+  // payload (never persisted); a phase with no image is skipped (graceful
+  // fallback for older sessions).
   const shotKeys = PHASE_DEFS.map((d) => d.key).filter((k) => typeof imgs[k] === "string");
   if (shotKeys.length) {
     doc.addPage();
@@ -997,70 +999,76 @@ function renderReport(input) {
     doc.setFont("helvetica", "normal");
     doc.setTextColor(mutedR, mutedG, mutedB);
     const shotNote = doc.splitTextToSize(
-      "The exact frame analyzed for each phase, with the pose and angle overlays drawn at capture time. Angles beneath each frame are the measurements used for that phase.",
+      "The exact frame analyzed for each phase, with the pose and angle overlays drawn at capture time. The angles used for that phase are listed beside each frame.",
       contentW
     );
     doc.text(shotNote, margins.left, y);
     y += shotNote.length * 3.5 + 4;
 
-    const imgW = 150; // mm (content width is ~175.9mm)
+    const cols = 2;
+    const gap = 8;
+    const cellW = (contentW - gap * (cols - 1)) / cols;
+    const maxImgH = 60;   // cap height so tall portrait clips stay compact
+    const maxImgW = cellW * 0.5; // leave room for the angle list beside the frame
+    const labelH = 5;
+    const rowGap = 7;
+    const rowH = labelH + maxImgH + rowGap;
 
+    let rowTop = y;
     for (let si = 0; si < shotKeys.length; si++) {
+      const col = si % cols;
+      if (col === 0) rowTop = pdfCheckPage(doc, rowTop, rowH, margins);
+
       const pk = shotKeys[si];
       const dataUrl = imgs[pk];
       const def = PHASE_DEFS.find((d) => d.key === pk);
       const title = def ? def.label : pk;
+      const cellX = margins.left + col * (cellW + gap);
 
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(bodyR, bodyG, bodyB);
+      doc.text(title, cellX, rowTop + 3.5);
+
+      // Fit the frame within maxImgW x maxImgH, preserving aspect.
       let props = null;
       try { props = doc.getImageProperties(dataUrl); } catch (e) { props = null; }
       const aspect = (props && props.width && props.height) ? props.height / props.width : 9 / 16;
-      const imgH = imgW * aspect;
+      let dispW = maxImgW, dispH = maxImgW * aspect;
+      if (dispH > maxImgH) { dispH = maxImgH; dispW = maxImgH / aspect; }
+      const imgY = rowTop + labelH;
+      try {
+        doc.addImage(dataUrl, "JPEG", cellX, imgY, dispW, dispH);
+      } catch (e) {
+        // Unreadable image -- skip the picture but keep the label + angles.
+      }
+      doc.setDrawColor(204, 204, 204);
+      doc.setLineWidth(0.2);
+      doc.rect(cellX, imgY, dispW, dispH);
 
-      // Footer angle lines, built from this phase's metrics via the same row
+      // Angle list beside the frame, from this phase's metrics via the same row
       // definitions the angle table uses (side-view phases yield angles;
-      // front/back phases have no side metrics, so just the heading shows).
+      // front/back phases have no side metrics, so just the frame shows).
       const pm = phases[pk] && phases[pk].metrics ? phases[pk].metrics : null;
-      const footerParts = [];
+      const lines = [];
       if (pm) {
         for (let mi = 0; mi < METRIC_ROWS.length; mi++) {
           const mr = METRIC_ROWS[mi];
           if (!isRelevant(pk, mr.key) || pm[mr.key] == null) continue;
-          footerParts.push(mr.label + " " + mr.fmt(pm[mr.key]) + metricSideLabel(mr.key, pm));
+          lines.push(mr.label + " " + mr.fmt(pm[mr.key]) + metricSideLabel(mr.key, pm));
         }
       }
-      const footerText = footerParts.join("    •    ");
-      const footerLines = footerText ? doc.splitTextToSize(footerText, contentW) : [];
-
-      // Keep heading + image + footer together on one page.
-      const blockH = 4 + imgH + 4 + footerLines.length * 4.5 + 6;
-      y = pdfCheckPage(doc, y, blockH, margins);
-
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.setFont("courier", "normal");
       doc.setTextColor(bodyR, bodyG, bodyB);
-      doc.text(title, margins.left, y);
-      y += 4;
-
-      try {
-        doc.addImage(dataUrl, "JPEG", margins.left, y, imgW, imgH);
-      } catch (e) {
-        // Unreadable image -- skip the picture but keep heading + angles.
+      const tx = cellX + dispW + 4;
+      let ty = imgY + 3;
+      for (let li = 0; li < lines.length; li++) {
+        doc.text(lines[li], tx, ty);
+        ty += 4;
       }
-      doc.setDrawColor(204, 204, 204);
-      doc.setLineWidth(0.2);
-      doc.rect(margins.left, y, imgW, imgH);
-      y += imgH + 4;
 
-      if (footerLines.length) {
-        doc.setFontSize(8);
-        doc.setFont("courier", "normal");
-        doc.setTextColor(bodyR, bodyG, bodyB);
-        for (let fl = 0; fl < footerLines.length; fl++) {
-          doc.text(footerLines[fl], margins.left, y);
-          y += 4.5;
-        }
-      }
-      y += 6;
+      if (col === cols - 1) rowTop += rowH;
     }
   }
 
