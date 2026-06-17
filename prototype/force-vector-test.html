@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Force-Vector Prototype (internal)</title>
+<style>
+  :root { --bg:#0a0d14; --panel:#121724; --line:#243044; --txt:#e6ecf5; --muted:#8aa0c0;
+          --gold:#f5c451; --brake:#ff5d5d; --propel:#2bd4a6; --vert:#8b7cf8; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt);
+         font:14px/1.5 "Space Mono","Courier New",monospace; }
+  header { padding:14px 18px; border-bottom:1px solid var(--line); }
+  header h1 { margin:0; font-size:16px; }
+  header .sub { color:var(--muted); font-size:12px; margin-top:3px; }
+  .wrap { display:flex; gap:18px; padding:18px; flex-wrap:wrap; }
+  .col { flex:1 1 480px; min-width:340px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; }
+  canvas { width:100%; background:#000; border-radius:8px; display:block; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px; }
+  button, select, label.file { background:#1b2334; color:var(--txt); border:1px solid var(--line);
+           border-radius:6px; padding:7px 11px; cursor:pointer; font:inherit; }
+  button:hover { border-color:var(--gold); }
+  button.primary { background:var(--gold); color:#1a1400; border-color:var(--gold); font-weight:700; }
+  input[type=file] { display:none; }
+  .stat { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed var(--line); }
+  .stat b { color:var(--gold); }
+  .big { font-size:26px; font-weight:700; }
+  .pill { display:inline-block; padding:3px 9px; border-radius:20px; font-size:12px; font-weight:700; }
+  .muted { color:var(--muted); font-size:12px; }
+  .legend span { display:inline-flex; align-items:center; gap:5px; margin-right:14px; font-size:12px; }
+  .swatch { width:14px; height:4px; border-radius:2px; display:inline-block; }
+  .note { color:var(--muted); font-size:11px; margin-top:8px; }
+  #status { color:var(--gold); font-size:12px; min-height:16px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Force-Vector Prototype <span class="muted">— internal sanity check, not on the live site</span></h1>
+  <div class="sub">Drop a <b>side-view</b> running clip. Pick a gait phase, step to the right frame, Analyze. Estimates GRF <b>direction</b> only (no magnitude).</div>
+</header>
+
+<div class="wrap">
+  <div class="col">
+    <div class="panel">
+      <canvas id="cv" width="640" height="360"></canvas>
+      <div class="row">
+        <label class="file">Load video<input type="file" id="file" accept="video/*"></label>
+        <button onclick="step(-5)">&minus;5f</button>
+        <button onclick="step(-1)">&minus;1f</button>
+        <button onclick="step(1)">+1f</button>
+        <button onclick="step(5)">+5f</button>
+        <button class="primary" onclick="analyze()">&#8635; Analyze frame</button>
+      </div>
+      <div class="row">
+        <label>Phase:
+          <select id="phase">
+            <option value="l_foot">L foot strike</option>
+            <option value="r_foot">R foot strike</option>
+            <option value="mid" selected>Mid-stance</option>
+            <option value="l_toe">L toe-off</option>
+            <option value="r_toe">R toe-off</option>
+          </select>
+        </label>
+        <label>COM:
+          <select id="com">
+            <option value="segmental" selected>Segmental (Winter)</option>
+            <option value="hip">Hip midpoint</option>
+          </select>
+        </label>
+        <span class="muted" id="time">—</span>
+      </div>
+      <div id="status">Loading MoveNet Thunder…</div>
+      <div class="legend row">
+        <span><i class="swatch" style="background:var(--gold)"></i> force line (contact→COM)</span>
+        <span><i class="swatch" style="background:var(--vert)"></i> vertical ref</span>
+        <span><i class="swatch" style="background:#5db0ff"></i> leg axis (hip→ankle)</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="panel">
+      <div class="row" style="justify-content:space-between">
+        <div><div class="muted">Force angle from vertical</div><div class="big" id="theta">—</div></div>
+        <div style="text-align:right"><div class="muted">Alignment score</div><div class="big" id="score">—</div></div>
+      </div>
+      <div style="margin:8px 0"><span class="pill" id="cls" style="background:#1b2334">—</span></div>
+      <div class="stat"><span>Phase ideal (target θ)</span><b id="ideal">—</b></div>
+      <div class="stat"><span>Sign convention</span><span class="muted">+ forward / propulsive · − backward / braking</span></div>
+      <div class="stat"><span>Leg-axis angle (hip→ankle)</span><b id="leg">—</b></div>
+      <div class="stat"><span>COM ↔ leg-axis divergence</span><b id="div">—</b></div>
+      <div class="stat"><span>Travel direction</span><b id="dir">—</b></div>
+      <div class="stat"><span>COM method</span><b id="commeth">—</b></div>
+      <div class="note" id="reason"></div>
+      <div class="note">
+        <b>Reading it:</b> at <b>foot strike</b> a negative θ is braking (contact ahead of COM = overstriding).
+        At <b>mid-stance</b> θ should sit near 0 (vertical support). At <b>toe-off</b> a positive θ is good — that's
+        propulsion. Large COM↔leg divergence means the body isn't stacked over the stance leg.
+        Targets are first-pass and meant to be calibrated against the elite reference data.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+<script>
+// ── Inlined force-vector module (self-contained drop-in; no external JS) ──
+(function (global) {
+  'use strict';
+  var MIN_CONF = 0.25; // mirror gait-data.js
+  // Winter segment mass fractions: frac + endpoint keypoints + COM fraction A→B.
+  var SEGMENTS = [
+    { frac: 0.497, a: 'shMid', b: 'hipMid', r: 0.50 },
+    { frac: 0.081, a: 'nose',  b: 'shMid',  r: 0.00 },
+    { frac: 0.028, a: 5,  b: 7,  r: 0.436 }, { frac: 0.028, a: 6,  b: 8,  r: 0.436 },
+    { frac: 0.022, a: 7,  b: 9,  r: 0.50 },  { frac: 0.022, a: 8,  b: 10, r: 0.50 },
+    { frac: 0.100, a: 11, b: 13, r: 0.433 }, { frac: 0.100, a: 12, b: 14, r: 0.433 },
+    { frac: 0.061, a: 13, b: 15, r: 0.50 },  { frac: 0.061, a: 14, b: 16, r: 0.50 }
+  ];
+  function kp(kps, i) { return (kps[i] && kps[i].score >= MIN_CONF) ? kps[i] : null; }
+  function mid(a, b) { return (a && b) ? { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } : null; }
+  function computeCOM(kps, method) {
+    var hipMid = mid(kp(kps, 11), kp(kps, 12));
+    var shMid  = mid(kp(kps, 5),  kp(kps, 6));
+    if (method !== 'segmental' || !hipMid || !shMid) return hipMid;
+    var named = { shMid: shMid, hipMid: hipMid, nose: kp(kps, 0) || shMid };
+    var sx = 0, sy = 0, sw = 0;
+    for (var i = 0; i < SEGMENTS.length; i++) {
+      var s = SEGMENTS[i];
+      var pa = (typeof s.a === 'string') ? named[s.a] : kp(kps, s.a);
+      var pb = (typeof s.b === 'string') ? named[s.b] : kp(kps, s.b);
+      if (!pa || !pb) continue;
+      sx += (pa.x + (pb.x - pa.x) * s.r) * s.frac;
+      sy += (pa.y + (pb.y - pa.y) * s.r) * s.frac;
+      sw += s.frac;
+    }
+    return (sw < 0.4) ? hipMid : { x: sx / sw, y: sy / sw };
+  }
+  function stanceAnkle(kps, phaseKey, side) {
+    var lAn = kp(kps, 15), rAn = kp(kps, 16);
+    var s = side || (/^l_/.test(phaseKey || '') ? 'left' : /^r_/.test(phaseKey || '') ? 'right' : null);
+    if (s === 'left')  return lAn;
+    if (s === 'right') return rAn;
+    if (lAn && rAn)    return (lAn.y >= rAn.y) ? lAn : rAn;
+    return lAn || rAn;
+  }
+  function stanceHip(kps, ankle) { return (ankle && ankle === kp(kps, 15)) ? kp(kps, 11) : kp(kps, 12); }
+  var PHASE_IDEALS = {
+    l_foot: { ideal: 0,  sigma: 8,  bias: 'brake',  label: 'Foot strike' },
+    r_foot: { ideal: 0,  sigma: 8,  bias: 'brake',  label: 'Foot strike' },
+    mid:    { ideal: 0,  sigma: 6,  bias: 'either', label: 'Mid-stance' },
+    l_toe:  { ideal: 18, sigma: 10, bias: 'propel', label: 'Toe-off' },
+    r_toe:  { ideal: 18, sigma: 10, bias: 'propel', label: 'Toe-off' }
+  };
+  function classify(theta, phaseKey) {
+    var ph = PHASE_IDEALS[phaseKey] || PHASE_IDEALS.mid;
+    if (ph.bias === 'propel') {
+      if (theta < 5)  return 'Under-propulsive (force too vertical at push-off)';
+      if (theta > 32) return 'Over-reaching (force tilted excessively forward)';
+      return 'Propulsive (force well-oriented for forward drive)';
+    }
+    if (ph.bias === 'brake') {
+      if (theta < -12) return 'Strong braking (contact well ahead of COM — overstriding)';
+      if (theta < -4)  return 'Mild braking (contact slightly ahead of COM)';
+      if (theta > 6)   return 'Already propelling at contact (unusual — check frame)';
+      return 'Vertically aligned (minimal braking at contact)';
+    }
+    if (theta < -6) return 'COM behind base (drifting back / sitting)';
+    if (theta > 6)  return 'COM ahead of base (falling forward)';
+    return 'Balanced over base (force near vertical)';
+  }
+  function alignmentScore(theta, phaseKey) {
+    var ph = PHASE_IDEALS[phaseKey] || PHASE_IDEALS.mid;
+    var z = (theta - ph.ideal) / ph.sigma;
+    return Math.round(100 * Math.exp(-0.5 * z * z));
+  }
+  function angleFromVertical(fwd, up) { return Math.atan2(fwd, up) * 180 / Math.PI; }
+  function estimate(kps, opts) {
+    opts = opts || {};
+    var phaseKey = opts.phaseKey || 'mid', comMethod = opts.comMethod || 'segmental';
+    var nose = kp(kps, 0), hipMid = mid(kp(kps, 11), kp(kps, 12));
+    if (!hipMid) return { ok: false, reason: 'Hips not detected — cannot locate COM.' };
+    var com = computeCOM(kps, comMethod);
+    var contact = stanceAnkle(kps, phaseKey, opts.side);
+    if (!com || !contact) return { ok: false, reason: 'Missing COM or stance ankle.' };
+    var dir = (nose && nose.x > hipMid.x) ? 1 : -1;
+    var theta = angleFromVertical((com.x - contact.x) * dir, (contact.y - com.y));
+    var hip = stanceHip(kps, contact), legAxisTheta = null, comDivergence = null;
+    if (hip) {
+      legAxisTheta = angleFromVertical((hip.x - contact.x) * dir, (contact.y - hip.y));
+      comDivergence = Math.abs(theta - legAxisTheta);
+    }
+    return {
+      ok: true, phaseKey: phaseKey, theta: theta, classification: classify(theta, phaseKey),
+      score: alignmentScore(theta, phaseKey), ideal: (PHASE_IDEALS[phaseKey] || PHASE_IDEALS.mid).ideal,
+      dir: dir, com: com, contact: contact, hip: hip || null,
+      legAxisTheta: legAxisTheta, comDivergence: comDivergence, comMethod: comMethod,
+      notes: 'Direction only; force magnitude is not estimated from monocular video.'
+    };
+  }
+  global.ForceVector = {
+    MIN_CONF: MIN_CONF, PHASE_IDEALS: PHASE_IDEALS, computeCOM: computeCOM,
+    estimate: estimate, classify: classify, alignmentScore: alignmentScore
+  };
+})(window);
+</script>
+<script>
+var FPS = 25; // assumed clip framerate for the step buttons
+var cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+var vid = document.createElement('video');
+vid.muted = true; vid.playsInline = true;
+var detector = null, lastKps = null;
+
+(async function () {
+  await tf.ready();
+  detector = await poseDetection.createDetector(
+    poseDetection.SupportedModels.MoveNet,
+    { modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER });
+  setStatus('Ready. Load a side-view clip.');
+})();
+
+function setStatus(s) { document.getElementById('status').textContent = s; }
+
+document.getElementById('file').addEventListener('change', function (e) {
+  var f = e.target.files[0]; if (!f) return;
+  vid.src = URL.createObjectURL(f);
+  vid.onloadeddata = function () {
+    cv.width = vid.videoWidth; cv.height = vid.videoHeight;
+    seek(Math.min(0.5, (vid.duration || 2) / 2));
+  };
+});
+
+function seek(t) {
+  vid.currentTime = Math.max(0, Math.min(t, (vid.duration || 0) - 0.001));
+  vid.onseeked = function () { drawFrame(); document.getElementById('time').textContent = vid.currentTime.toFixed(2) + 's'; };
+}
+function step(frames) { if (vid.src) seek(vid.currentTime + frames / FPS); }
+
+function drawFrame() {
+  ctx.drawImage(vid, 0, 0, cv.width, cv.height);
+}
+
+async function analyze() {
+  if (!detector || !vid.src) { setStatus('Load a clip first.'); return; }
+  drawFrame();
+  var poses = null;
+  try { poses = await detector.estimatePoses(cv); } catch (err) { setStatus('Pose error: ' + err); return; }
+  if (!poses || !poses.length) { setStatus('No pose detected in this frame.'); return; }
+  lastKps = poses[0].keypoints;
+  drawSkeleton(lastKps);
+
+  var res = ForceVector.estimate(lastKps, {
+    phaseKey: document.getElementById('phase').value,
+    comMethod: document.getElementById('com').value
+  });
+  render(res);
+}
+
+function drawSkeleton(kps) {
+  var SK = [[5,7],[7,9],[6,8],[8,10],[5,6],[11,12],[5,11],[6,12],[11,13],[13,15],[12,14],[14,16],[0,5],[0,6]];
+  ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(120,200,255,.55)';
+  SK.forEach(function (p) {
+    var a = kps[p[0]], b = kps[p[1]];
+    if (!a || !b || a.score < ForceVector.MIN_CONF || b.score < ForceVector.MIN_CONF) return;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  });
+  kps.forEach(function (k) {
+    if (!k || k.score < ForceVector.MIN_CONF) return;
+    ctx.beginPath(); ctx.arc(k.x, k.y, 3, 0, 6.28); ctx.fillStyle = '#fff'; ctx.fill();
+  });
+}
+
+function arrow(from, to, color, w) {
+  ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = w || 3;
+  ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y); ctx.stroke();
+  var a = Math.atan2(to.y - from.y, to.x - from.x), h = 11;
+  ctx.beginPath(); ctx.moveTo(to.x, to.y);
+  ctx.lineTo(to.x - h * Math.cos(a - 0.4), to.y - h * Math.sin(a - 0.4));
+  ctx.lineTo(to.x - h * Math.cos(a + 0.4), to.y - h * Math.sin(a + 0.4));
+  ctx.closePath(); ctx.fill();
+}
+
+function render(res) {
+  var $ = function (id) { return document.getElementById(id); };
+  if (!res.ok) {
+    setStatus(res.reason);
+    $('reason').textContent = res.reason;
+    ['theta','score','leg','div','dir','ideal','commeth'].forEach(function(i){$(i).textContent='—';});
+    $('cls').textContent = '—';
+    return;
+  }
+  setStatus('Analyzed.');
+  $('reason').textContent = res.notes;
+
+  // Draw vectors from the contact point.
+  var len = cv.height * 0.45;
+  var c = res.contact, com = res.com;
+  // extend the contact→COM line for visibility
+  var vx = com.x - c.x, vy = com.y - c.y, vm = Math.hypot(vx, vy) || 1;
+  arrow(c, { x: c.x + vx / vm * len, y: c.y + vy / vm * len }, getCss('--gold'), 4);
+  // vertical reference (straight up)
+  arrow(c, { x: c.x, y: c.y - len }, getCss('--vert'), 2);
+  // leg axis hip→ankle
+  if (res.hip) {
+    var lx = res.hip.x - c.x, ly = res.hip.y - c.y, lm = Math.hypot(lx, ly) || 1;
+    arrow(c, { x: c.x + lx / lm * len, y: c.y + ly / lm * len }, '#5db0ff', 2);
+  }
+  // COM + contact markers
+  dot(com, getCss('--gold')); dot(c, '#fff');
+
+  var theta = res.theta;
+  $('theta').textContent = (theta > 0 ? '+' : '') + theta.toFixed(1) + '°';
+  $('theta').style.color = theta < -4 ? getCss('--brake') : theta > 4 ? getCss('--propel') : getCss('--vert');
+  $('score').textContent = res.score;
+  $('ideal').textContent = (res.ideal > 0 ? '+' : '') + res.ideal + '°';
+  $('leg').textContent = res.legAxisTheta == null ? '—' : (res.legAxisTheta > 0 ? '+' : '') + res.legAxisTheta.toFixed(1) + '°';
+  $('div').textContent = res.comDivergence == null ? '—' : res.comDivergence.toFixed(1) + '°';
+  $('dir').textContent = res.dir > 0 ? 'rightward →' : '← leftward';
+  $('commeth').textContent = res.comMethod;
+
+  var cls = $('cls');
+  cls.textContent = res.classification;
+  cls.style.background = /braking|over-reaching|behind|falling/i.test(res.classification) ? getCss('--brake')
+    : /propulsive|aligned|balanced/i.test(res.classification) ? getCss('--propel') : '#5a6b85';
+  cls.style.color = '#08110d';
+}
+
+function dot(p, color) { ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, 6.28); ctx.fillStyle = color; ctx.fill();
+  ctx.lineWidth = 2; ctx.strokeStyle = '#000'; ctx.stroke(); }
+function getCss(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+</script>
+</body>
+</html>
