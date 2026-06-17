@@ -72,7 +72,7 @@
           <div class="dz-check">&#10003;</div>
           <div class="dz-title">Side view</div>
           <p class="dz-sub">Film from directly beside the runner</p>
-          <div class="dz-tip"><strong>Best:</strong> Someone moving alongside you at the same pace.<br><strong>Good:</strong> Someone panning the camera to follow you.<br><strong>OK:</strong> Stationary camera, you run past it.<br>Wear clothes that contrast with the background.<br><br><strong style="color:var(--warn)">&#9888; Important during review:</strong> Side-view phases must be analyzed on a frame where the runner is <strong>dead-on perpendicular to the camera</strong>, not approaching or leaving it at an angle. Stationary-camera clips will only have a few good frames in the middle of the pass — scrub to those.</div>
+          <div class="dz-tip"><strong>Best:</strong> Someone moving alongside you at the same pace.<br><strong>Good:</strong> Someone panning the camera to follow you.<br><strong>OK:</strong> Stationary camera, you run past it.<br>Wear clothes that contrast with the background.<br><br><strong style="color:var(--warn)">&#9888; Important during review:</strong> Side-view phases must be analyzed on a frame where the runner is <strong>dead-on perpendicular to the camera</strong>, not approaching or leaving it at an angle. Stationary-camera clips will only have a few good frames in the middle of the pass - make sure to use to those.</div>
           <div class="dz-required">REQUIRED</div>
           <div class="dz-loaded-status">Video loaded</div>
           <div class="dz-loaded-info" id="dz-info-side"></div>
@@ -256,7 +256,7 @@
         <input type="text" class="save-input" id="save-name" placeholder="Session name (e.g. first session, post-cue check)">
         <input type="date" class="save-date-input" id="save-date">
         <button class="btn-save-analysis" id="btn-save" onclick="saveAnalysis()">Save analysis</button>
-        <button class="btn-ghost" id="btn-sign-in-save" onclick="signInWithGoogle()" style="display:none">Save your session — free account</button>
+        <button class="btn-ghost" id="btn-sign-in-save" onclick="signInWithGoogle()" style="display:none">Save your session - free account</button>
       </div>
       <div class="save-status" id="save-status"></div>
     </div>
@@ -451,7 +451,7 @@
             <button class="step-btn-big" onclick="epStep(5)" title="Forward 5 frames">+5f</button>
             <button class="step-btn-big" onclick="epStep(25)" title="Forward ~1 second (25 frames)">+1s</button>
           </div>
-          <div class="scrub-hint">Step through the clip with these buttons — <strong>&#8722;1f</strong> / <strong>+1f</strong> nudge one frame at a time, <strong>&#8722;5f</strong> / <strong>+5f</strong> skip ~0.2s, <strong>&#8722;1s</strong> / <strong>+1s</strong> jump a full second. After landing on the right frame, click <strong>&#8635; Analyze</strong> below to re-measure.</div>
+          <div class="scrub-hint">Step through the clip with these buttons - <strong>&#8722;1f</strong> / <strong>+1f</strong> nudge one frame at a time, <strong>&#8722;5f</strong> / <strong>+5f</strong> skip ~0.2s, <strong>&#8722;1s</strong> / <strong>+1s</strong> jump a full second. After landing on the right frame, click <strong>&#8635; Analyze</strong> below to re-measure.</div>
           <div class="scrub-actions-row">
             <button class="re-btn" id="ep-re-btn" onclick="epReanalyze()">&#8635; Analyze this frame</button>
             <button class="swap-btn" id="ep-swap-btn" onclick="swapLegs()" title="Swap left/right leg assignments">&#8644; Swap L/R</button>
@@ -633,6 +633,9 @@
 <script src="auth-paywall.js"></script>
 <script src="gait-data.js"></script>
 <script src="gait-engine.js"></script>
+<!-- Admin-only force-vector prototype (gated by isAdmin(); no effect for users) -->
+<script src="force-vector.js"></script>
+<script src="force-vector-admin.js"></script>
 
 <script>
 'use strict';
@@ -1002,6 +1005,8 @@ function completeAnalysis(){
   var summaryEl = document.getElementById('summary-section');
   if(reportEl) reportEl.style.display='block';
   if(summaryEl) summaryEl.style.display='block';
+  // Admin-only force-vector report (no-op for regular users).
+  if(isAdmin() && typeof renderForceVectorReport==='function'){ try{ renderForceVectorReport(); }catch(e){ console.error('force-vector report:',e); } }
   var ccaSH = document.getElementById('coaching-cta-section');
   if(ccaSH) ccaSH.style.display='block';
   var rfnSH = document.getElementById('report-footnotes');
@@ -1902,6 +1907,7 @@ async function analyzeCard(key){
   if (lastIssues !== null) {
     lastIssues = detectIssues();
     renderReport(lastIssues);
+    if(isAdmin() && typeof renderForceVectorReport==='function'){ try{ renderForceVectorReport(); }catch(e){ console.error('force-vector report:',e); } }
   }
   checkAllAnalyzed();
 }
@@ -2166,7 +2172,7 @@ var EXAMPLE_SETS = {
   foot: {
     title: 'Foot strike: correct vs. wrong frames',
     angleWarn: true,
-    instruction: 'Scrub to the <strong>first</strong> frame where the foot touches the ground. If you scrub back one frame, that foot should still be in the air. Don’t pick a frame where the foot has already rolled onto mid-foot or where the runner is fully loaded into stance.',
+    instruction: 'Scrub to the <strong>first</strong> frame where the foot touches the ground. If you go back one frame, that foot should still be in the air. Don’t pick a frame where the foot has already rolled onto mid-foot or where the runner is fully loaded into stance.',
     good: [{src:'foostrike_correct.png', cap:'Foot just touching down'}],
     bad:  [{src:'footstrike_wrong.png',  cap:'Already past initial contact'},
            {src:'footstrike_wrong_2.png',cap:'Loaded into stance – too late'}].concat(SIDE_WRONG_ANGLE_EXAMPLES)
