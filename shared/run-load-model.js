@@ -85,6 +85,30 @@ function dailyLoads(runs, p) {
   return out;
 }
 
+// ── Estimated ground-reaction force (Morin "sine" method) ──────────
+// Peak vertical GRF from contact time + flight time. In body-weights it
+// needs only cadence + GCT (mass cancels); Newtons needs body mass.
+//   Fmax = (π/2) · mg · (step_time / contact_time)
+// Validated field method (Morin et al. 2005); best for steady level
+// running. Returns null when the inputs aren't present.
+var GRAVITY = 9.80665;
+function flightContact(run) {
+  if (run.cadence == null || run.gct == null || run.cadence <= 0) return null;
+  var step = 60 / run.cadence;     // seconds between consecutive footfalls
+  var tc = run.gct / 1000;         // contact time (s)
+  if (tc <= 0 || tc >= step) return null;
+  return { step: step, tc: tc, tf: step - tc };
+}
+function vgrfBW(run) {              // peak vertical GRF in body-weights (no mass needed)
+  var fc = flightContact(run);
+  return fc ? (Math.PI / 2) * (fc.step / fc.tc) : null;
+}
+function vgrfN(run, weightKg) {     // peak vertical GRF in Newtons (needs body mass)
+  if (!weightKg) return null;
+  var bw = vgrfBW(run);
+  return bw == null ? null : bw * weightKg * GRAVITY;
+}
+
 function ewma(series, N) {
   var lam = 2 / (N + 1), prev = series.length ? series[0].load : 0;
   return series.map(function (d) { prev = d.load * lam + prev * (1 - lam); return prev; });
@@ -106,9 +130,12 @@ function loadTimeline(runs, params) {
 
 window.RunLoad = {
   DEFAULTS: DEFAULTS,
+  GRAVITY: GRAVITY,
   median: median,
   calibrateBaseline: calibrateBaseline,
   impactLoad: impactLoad,
+  vgrfBW: vgrfBW,
+  vgrfN: vgrfN,
   dailyLoads: dailyLoads,
   ewma: ewma,
   loadTimeline: loadTimeline
