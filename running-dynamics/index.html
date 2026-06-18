@@ -163,6 +163,7 @@ tbody tr:hover td:first-child{background:#10131f}
     <div class="ctl"><label>Device</label><select id="device"></select></div>
     <div class="ctl"><label>Strap / pod</label><div class="types"><span class="chip" id="accessory">chest strap / pod</span></div></div>
     <div class="ctl"><label>Body weight (lb)</label><input type="text" id="weight" placeholder="lb" style="width:62px"></div>
+    <span class="filenote" id="savedNote" style="color:var(--good);opacity:0;transition:opacity .2s"></span>
     <span class="filenote" id="filenote"></span>
   </div>
 
@@ -397,8 +398,9 @@ function loadFromFirestore(){
 function backfill(candidates){
   return actCol().get().then(function(snap){
     var existing=new Set(); snap.forEach(function(d){ existing.add(d.id); });
-    var fresh=candidates.filter(function(c){ return !existing.has(c.id); });
-    var chunks=[]; for(var i=0;i<fresh.length;i+=450) chunks.push(fresh.slice(i,i+450));
+    var added=0; candidates.forEach(function(c){ if(!existing.has(c.id)) added++; });
+    // Write ALL candidates (overwrite) so re-imports refresh fields like elevation on existing runs.
+    var chunks=[]; for(var i=0;i<candidates.length;i+=450) chunks.push(candidates.slice(i,i+450));
     var p=Promise.resolve();
     chunks.forEach(function(chunk){
       p=p.then(function(){
@@ -407,7 +409,7 @@ function backfill(candidates){
         return batch.commit();
       });
     });
-    return p.then(function(){ return {added:fresh.length, duplicate:candidates.length-fresh.length, total:candidates.length}; });
+    return p.then(function(){ return {added:added, updated:candidates.length-added}; });
   });
 }
 
@@ -478,7 +480,13 @@ function weightKg(){ var lb=STD_PROFILE.weightLb; return lb ? lb*0.453592 : null
 function deviceId(){ return STD_PROFILE.runDevice||''; }
 function hasAccessory(){ return !!STD_PROFILE.runHasAccessory; }
 function metricVisible(m){ return RunDevices.status(m.needs, deviceId(), hasAccessory())==='native'; }
-function saveProfile(patch){ Object.assign(STD_PROFILE, patch); if(UID) esLabs.db.collection('users').doc(UID).set(patch,{merge:true}).catch(function(e){console.error('profile save',e);}); }
+function saveProfile(patch){
+  Object.assign(STD_PROFILE, patch);
+  var el=document.getElementById('savedNote');
+  if(UID) esLabs.db.collection('users').doc(UID).set(patch,{merge:true})
+    .then(function(){ if(el){ el.textContent='✓ saved'; el.style.opacity='1'; setTimeout(function(){ el.style.opacity='0'; },1500); } })
+    .catch(function(e){ console.error('profile save',e); if(el){ el.textContent='⚠ save failed'; el.style.opacity='1'; } });
+}
 function loadProfile(){ if(!UID) return Promise.resolve(); return esLabs.db.collection('users').doc(UID).get().then(function(d){ var x=d.exists?d.data():{}; STD_PROFILE={ weightLb:x.weightLb, runDevice:x.runDevice, runHasAccessory:x.runHasAccessory }; }).catch(function(){ STD_PROFILE={}; }); }
 function populateMetricSelects(){
   var m1=document.getElementById('m1'), m2=document.getElementById('m2'); if(!m1) return;
@@ -707,8 +715,7 @@ function readFile(f){
     backfill(candidates).then(function(res){
       return loadFromFirestore().then(function(){
         renderLoaded();
-        st.innerHTML='<span class="ok">✓ '+res.added+' new run'+(res.added===1?'':'s')+' saved</span>'+
-          (res.duplicate?(' · '+res.duplicate+' already stored'):'')+' · '+RAW.length+' total';
+        st.innerHTML='<span class="ok">✓ '+res.added+' new'+(res.updated?(', '+res.updated+' updated'):'')+'</span> · '+RAW.length+' total';
       });
     }).catch(function(e){
       console.error(e);

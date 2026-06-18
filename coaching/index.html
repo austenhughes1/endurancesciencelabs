@@ -3686,7 +3686,7 @@ const RD_WINDOWS = [
   {days:365,label:'365 days'},{days:null,label:'All time'},
 ];
 const RD_DAY = 864e5;
-let rdState = { uid:null, role:'athlete', runs:[], loaded:false, anchor:null, activeTypes:new Set(), loadParams:null };
+let rdState = { uid:null, role:'athlete', runs:[], loaded:false, anchor:null, activeTypes:new Set(), loadParams:null, profile:null };
 
 function rdCol(uid){ return db.collection('users').doc(uid).collection('garminActivities'); }
 
@@ -3749,13 +3749,14 @@ function rdLoad(uid){
 function rdBackfill(uid, candidates){
   return rdCol(uid).get().then(snap=>{
     const existing=new Set(); snap.forEach(d=>existing.add(d.id));
-    const fresh=candidates.filter(c=>!existing.has(c.id));
+    let added=0; candidates.forEach(c=>{ if(!existing.has(c.id)) added++; });
+    // Write ALL candidates (overwrite) so re-imports refresh fields like elevation on existing runs.
     let p=Promise.resolve();
-    for(let i=0;i<fresh.length;i+=450){
-      const chunk=fresh.slice(i,i+450);
+    for(let i=0;i<candidates.length;i+=450){
+      const chunk=candidates.slice(i,i+450);
       p=p.then(()=>{ const batch=db.batch(); chunk.forEach(c=>batch.set(rdCol(uid).doc(c.id),c)); return batch.commit(); });
     }
-    return p.then(()=>({added:fresh.length, duplicate:candidates.length-fresh.length}));
+    return p.then(()=>({added, updated:candidates.length-added}));
   });
 }
 
@@ -3807,15 +3808,25 @@ function rdComputeLoadParams(){
 
 // ── Athlete profile (weight + device) ──────────────────────────
 // The viewed athlete's user doc: selectedAthleteData for a coach, else the signed-in user.
+// We mirror the three fields onto rdState.profile so recalculation never depends on
+// whether the live profile object is populated.
 function rdProfile(){ return rdState.role==='coach' ? selectedAthleteData : userDoc; }
-function rdWeightKg(){ const p=rdProfile(); const lb=p&&p.weightLb; return lb ? lb*0.453592 : null; }
-function rdDeviceId(){ const p=rdProfile(); return (p&&p.runDevice)||''; }
-function rdHasAccessory(){ const p=rdProfile(); return !!(p&&p.runHasAccessory); }
+function rdLoadProfileMirror(){ const p=rdProfile()||{}; rdState.profile={ weightLb:p.weightLb||null, runDevice:p.runDevice||'', runHasAccessory:!!p.runHasAccessory }; }
+function rdWeightKg(){ const lb=rdState.profile&&rdState.profile.weightLb; return lb ? lb*0.453592 : null; }
+function rdDeviceId(){ return (rdState.profile&&rdState.profile.runDevice)||''; }
+function rdHasAccessory(){ return !!(rdState.profile&&rdState.profile.runHasAccessory); }
 function rdMetricVisible(m){ return RunDevices.status(m.needs, rdDeviceId(), rdHasAccessory())==='native'; }
-// Persist a profile field to the athlete's user doc (coach/admin/self allowed by rules).
+// Persist a profile field: update the local mirror + live object immediately, write to Firestore,
+// and flash a saved indicator. set/merge so it can't fail on a missing doc.
 function rdSaveProfile(patch){
-  const p=rdProfile(); if(p) Object.assign(p, patch);           // update local copy immediately
-  if(rdState.uid) db.collection('users').doc(rdState.uid).update(patch).catch(e=>console.error('profile save',e));
+  if(rdState.profile) Object.assign(rdState.profile, patch);
+  const p=rdProfile(); if(p) Object.assign(p, patch);
+  const el=document.getElementById('rd-saved');
+  if(rdState.uid){
+    db.collection('users').doc(rdState.uid).set(patch,{merge:true})
+      .then(()=>{ if(el){ el.textContent='✓ saved'; el.style.opacity='1'; setTimeout(()=>{ el.style.opacity='0'; }, 1500); } })
+      .catch(e=>{ console.error('profile save',e); if(el){ el.textContent='⚠ save failed'; el.style.opacity='1'; } });
+  }
 }
 // (Re)build the trend metric selectors from currently-visible metrics, preserving selection.
 function rdPopulateMetricSelects(){
@@ -4000,11 +4011,12 @@ function rdRenderData(){
   const counts={}; rdState.runs.forEach(r=>{ counts[r.type]=(counts[r.type]||0)+1; });
   const types=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
   rdState.activeTypes=new Set(types);
+  rdLoadProfileMirror();   // sync weight/device/accessory from the athlete's profile
 
   // Device selector options, grouped by brand
   const devBrands={}; RunDevices.LIST.forEach(d=>{ (devBrands[d.brand]=devBrands[d.brand]||[]).push(d); });
   const devOpts='<option value="">Device: all metrics</option>'+Object.keys(devBrands).map(b=>'<optgroup label="'+b+'">'+devBrands[b].map(d=>'<option value="'+d.id+'"'+(d.id===rdDeviceId()?' selected':'')+'>'+d.label+'</option>').join('')+'</optgroup>').join('');
-  const wLb=(rdProfile()&&rdProfile().weightLb)||'';
+  const wLb=rdWeightKg()!=null ? (rdState.profile.weightLb) : '';
 
   host.innerHTML=
     '<div class="rd-controls">'+
@@ -4015,6 +4027,7 @@ function rdRenderData(){
       '<div class="rd-ctl"><label>Device</label><select id="rd-device">'+devOpts+'</select></div>'+
       '<div class="rd-ctl"><label>Strap / pod</label><div class="rd-types"><span class="rd-chip'+(rdHasAccessory()?' on':'')+'" id="rd-accessory">chest strap / pod</span></div></div>'+
       '<div class="rd-ctl"><label>Body weight (lb)</label><input type="text" id="rd-weight" value="'+wLb+'" placeholder="lb" style="width:62px"></div>'+
+      '<span class="rd-filenote" id="rd-saved" style="color:var(--good);opacity:0;transition:opacity .2s"></span>'+
       '<span class="rd-filenote">'+rdState.runs.length+' runs stored · '+rdYmd(min)+' → '+rdYmd(max)+'</span>'+
     '</div>'+
     '<div class="rd-section"><h3>Volume by window</h3><div class="rd-cards" id="rd-summary-cards"></div></div>'+
@@ -4109,7 +4122,7 @@ function mountRunDynamics(uid, role){
       status.innerHTML='<span class="rd-spin"></span>Saving '+candidates.length+' runs…';
       rdBackfill(uid,candidates).then(res=>rdLoad(uid).then(()=>{
         rdRenderData();
-        status.innerHTML='<span class="ok">✓ '+res.added+' new run'+(res.added===1?'':'s')+' saved</span>'+(res.duplicate?(' · '+res.duplicate+' already stored'):'')+' · '+rdState.runs.length+' total';
+        status.innerHTML='<span class="ok">✓ '+res.added+' new'+(res.updated?(', '+res.updated+' updated'):'')+'</span> · '+rdState.runs.length+' total';
       })).catch(e=>{ console.error(e); status.innerHTML='<span class="err">Save failed: '+(e&&e.message||e)+'</span>'; });
     };
     rd.readAsText(f);
