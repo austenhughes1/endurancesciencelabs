@@ -70,18 +70,26 @@ function impactLoad(run, p) {
 }
 
 // Collapse runs into a dense per-day Impact Load series (0 on rest days).
+// Iterates by CALENDAR day (setDate), not a fixed 86,400,000 ms step — otherwise
+// daylight-saving transitions drift the cursor off local-midnight day keys and
+// inject spurious zero-load days for ~half of every year.
 function dailyLoads(runs, p) {
-  var byDay = {};
+  var byDay = {}, stamps = [];
   runs.forEach(function (r) {
     var il = impactLoad(r, p); if (il == null) return;
     var d = new Date(r.ts); d.setHours(0, 0, 0, 0);
     var k = d.getTime();
     byDay[k] = (byDay[k] || 0) + il;
+    stamps.push(k);
   });
-  var keys = Object.keys(byDay).map(Number);
-  if (!keys.length) return [];
-  var start = Math.min.apply(null, keys), end = Math.max.apply(null, keys), DAY = 86400000, out = [];
-  for (var t = start; t <= end; t += DAY) out.push({ ts: t, load: byDay[t] || 0 });
+  if (!stamps.length) return [];
+  var cur = new Date(Math.min.apply(null, stamps)); cur.setHours(0, 0, 0, 0);
+  var end = Math.max.apply(null, stamps), out = [];
+  while (cur.getTime() <= end) {
+    out.push({ ts: cur.getTime(), load: byDay[cur.getTime()] || 0 });
+    cur.setDate(cur.getDate() + 1);   // advance one calendar day (DST-safe)
+    cur.setHours(0, 0, 0, 0);         // re-normalize to local midnight across DST flips
+  }
   return out;
 }
 
