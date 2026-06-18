@@ -170,6 +170,13 @@ tbody tr:hover td:first-child{background:#10131f}
     <div class="cards" id="cards"></div>
   </div>
 
+  <div class="section" id="sec-load">
+    <h2>Load management <span class="note">· mechanical impact load (equivalent easy miles)</span></h2>
+    <div class="cards" id="loadCards" style="margin-bottom:14px"></div>
+    <div class="chartwrap"><div id="loadChart"></div></div>
+    <p class="hint">Modeled estimate, individual-relative — not a measured force. Baseline auto-calibrated from your easy runs. Acute:chronic ratio above ~1.5 flags a load spike; 0.8–1.3 is the commonly cited safe band.</p>
+  </div>
+
   <div class="section" id="sec-form">
     <h2>Form metrics <span class="note">· mean per run</span></h2>
     <div class="rangebar">
@@ -202,6 +209,7 @@ tbody tr:hover td:first-child{background:#10131f}
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="/shared/site.js"></script>
+<script src="/shared/run-load-model.js"></script>
 <script>
 'use strict';
 
@@ -253,7 +261,11 @@ var METRICS = [
   { key:'hr',     label:'Avg HR',              unit:'bpm', dec:0, better:'lower',
     desc:'average heart rate',
     calc:function(r){ return r.avgHr; } },
+  { key:'impact', label:'Impact Load',         unit:'eq mi',dec:1, better:null,
+    desc:'modeled mechanical load in equivalent easy miles (distance × pace × bounce)',
+    calc:function(r){ return window.RunLoad ? RunLoad.impactLoad(r, LOAD_PARAMS) : null; } },
 ];
+var LOAD_PARAMS = null;  // per-athlete load-model params (set in refresh)
 
 var RUN_WINDOWS = [
   {key:'7',  days:7,   label:'7 days'},
@@ -445,6 +457,43 @@ function intensityState(){
   return { mode: sel?sel.value:'all', cutoff: (cut?hmsToSec(cut.value):null)||400 };
 }
 function runsInF(s,e){ var it=intensityState(); return filterIntensity(runsIn(s,e),it.mode,it.cutoff); }
+// Type-filtered runs (intensity NOT applied — total mechanical load counts every run).
+function typeRuns(){ return RAW.filter(function(r){return ACTIVE_TYPES.has(r.type);}); }
+function computeLoadParams(){ var it=intensityState(); return Object.assign({}, RunLoad.DEFAULTS, RunLoad.calibrateBaseline(typeRuns(), it.cutoff)); }
+
+/* ---------- load management ---------- */
+function acwrColor(a){ if(a==null)return 'var(--muted2)'; if(a>1.5)return 'var(--bad)'; if(a>1.3)return 'var(--gold)'; if(a<0.8)return 'var(--warn)'; return 'var(--good)'; }
+function acwrLabel(a){ if(a==null)return 'building baseline'; if(a>1.5)return 'spike · injury-risk zone'; if(a>1.3)return 'approaching ceiling'; if(a<0.8)return 'detraining / taper'; return 'in the safe band'; }
+function renderLoad(){
+  var cardsEl=document.getElementById('loadCards'), chartEl=document.getElementById('loadChart');
+  if(!cardsEl||!chartEl) return;
+  var tl=RunLoad.loadTimeline(typeRuns(), LOAD_PARAMS);
+  if(tl.length<2){ cardsEl.innerHTML=''; chartEl.innerHTML='<div class="chart-empty">Not enough history to model load yet.</div>'; return; }
+  var last=tl[tl.length-1], acwr=last.acwr, col=acwrColor(acwr);
+  cardsEl.innerHTML=
+    '<div class="card"><div class="win">Acute load · 7d</div><div class="row">eq miles/day <b>'+last.acute.toFixed(1)+'</b></div></div>'+
+    '<div class="card"><div class="win">Chronic load · 28d</div><div class="row">eq miles/day <b>'+last.chronic.toFixed(1)+'</b></div></div>'+
+    '<div class="card"><div class="win" style="color:'+col+'">Acute : Chronic</div><div class="row">ratio <b style="color:'+col+'">'+(acwr!=null?acwr.toFixed(2):'–')+'</b></div><div class="row" style="color:'+col+'">'+acwrLabel(acwr)+'</div></div>'+
+    '<div class="card"><div class="win">Tolerance ceiling</div><div class="row">eq miles/day <b>'+(last.chronic*1.3).toFixed(1)+'</b></div></div>';
+  var W=720,H=210,padL=40,padR=12,padT=12,padB=24,innerW=W-padL-padR,innerH=H-padT-padB;
+  var t0=tl[0].ts,t1=last.ts,span=Math.max(1,t1-t0);
+  var ymax=Math.max.apply(null,tl.map(function(d){return Math.max(d.acute,d.chronic*1.3);}))*1.05||1;
+  var xOf=function(ts){return padL+((ts-t0)/span)*innerW;};
+  var yOf=function(v){return padT+innerH-(v/ymax)*innerH;};
+  var bandTop=tl.map(function(d){return xOf(d.ts).toFixed(1)+','+yOf(d.chronic*1.3).toFixed(1);});
+  var bandBot=tl.map(function(d){return xOf(d.ts).toFixed(1)+','+yOf(d.chronic*0.8).toFixed(1);}).reverse();
+  var band='<polygon points="'+bandTop.concat(bandBot).join(' ')+'" fill="rgba(34,199,138,0.12)"/>';
+  var chronicLn='<polyline points="'+tl.map(function(d){return xOf(d.ts).toFixed(1)+','+yOf(d.chronic).toFixed(1);}).join(' ')+'" fill="none" stroke="#6e7a9a" stroke-width="1.6"/>';
+  var acuteLn='<polyline points="'+tl.map(function(d){return xOf(d.ts).toFixed(1)+','+yOf(d.acute).toFixed(1);}).join(' ')+'" fill="none" stroke="#00e5c8" stroke-width="2.2"/>';
+  var grid='';
+  for(var g=0;g<=3;g++){ var f=g/3, yy=(padT+innerH-f*innerH).toFixed(1);
+    grid+='<line x1="'+padL+'" y1="'+yy+'" x2="'+(W-padR)+'" y2="'+yy+'" stroke="rgba(255,255,255,0.06)"/>';
+    grid+='<text x="'+(padL-6)+'" y="'+(parseFloat(yy)+3).toFixed(1)+'" text-anchor="end" font-size="9" font-family="ui-monospace,monospace" fill="#6e7a9a">'+(ymax*f).toFixed(0)+'</text>'; }
+  var xlab='';
+  for(var k=0;k<=4;k++){ var ts=t0+span*k/4, d=new Date(ts); xlab+='<text x="'+xOf(ts).toFixed(1)+'" y="'+(H-7)+'" text-anchor="middle" font-size="8.5" font-family="ui-monospace,monospace" fill="#6e7a9a">'+MONTHS[d.getMonth()]+' '+d.getDate()+'</text>'; }
+  chartEl.innerHTML='<div class="legend"><span class="legend-item"><span class="legend-sw" style="background:#00e5c8"></span>Acute (7d)</span><span class="legend-item"><span class="legend-sw" style="background:#6e7a9a"></span>Chronic (28d)</span><span class="legend-item"><span class="legend-sw" style="background:rgba(34,199,138,0.45)"></span>Safe band (0.8–1.3×)</span></div>'+
+    '<svg class="chart-svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Mechanical load timeline">'+grid+band+chronicLn+acuteLn+xlab+'</svg>';
+}
 
 // Volume by window (cards), intensity-filtered.
 function renderAll(){
@@ -502,12 +551,12 @@ function buildTypeChips(){
 }
 
 /* ---------- orchestration ---------- */
-function refresh(){ if(RAW.length){ renderAll(); renderForm(); renderTrend(); } }
+function refresh(){ if(RAW.length){ LOAD_PARAMS=computeLoadParams(); renderAll(); renderLoad(); renderForm(); renderTrend(); } }
 
 function showSections(hasData){
   document.getElementById('controls').style.display=hasData?'flex':'none';
   document.getElementById('sec-empty').classList.toggle('show',!hasData);
-  ['sec-summary','sec-form','sec-trend'].forEach(function(id){
+  ['sec-summary','sec-load','sec-form','sec-trend'].forEach(function(id){
     document.getElementById(id).classList.toggle('show',hasData);
   });
 }
