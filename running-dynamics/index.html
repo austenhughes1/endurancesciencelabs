@@ -160,6 +160,9 @@ tbody tr:hover td:first-child{background:#10131f}
       <label>Anchor (window end)</label>
       <input type="date" id="anchor">
     </div>
+    <div class="ctl"><label>Device</label><select id="device"></select></div>
+    <div class="ctl"><label>Strap / pod</label><div class="types"><span class="chip" id="accessory">chest strap / pod</span></div></div>
+    <div class="ctl"><label>Body weight (lb)</label><input type="text" id="weight" placeholder="lb" style="width:62px"></div>
     <span class="filenote" id="filenote"></span>
   </div>
 
@@ -210,6 +213,7 @@ tbody tr:hover td:first-child{background:#10131f}
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="/shared/site.js"></script>
 <script src="/shared/run-load-model.js"></script>
+<script src="/shared/device-matrix.js"></script>
 <script>
 'use strict';
 
@@ -228,44 +232,51 @@ tbody tr:hover td:first-child{background:#10131f}
      r.avgHr r.maxHr r.distMi r.durSec r.aerobicTE
    ============================================================ */
 var METRICS = [
-  { key:'load',   label:'Load Factor',         unit:'',    dec:1, better:'lower',
+  { key:'load',   label:'Load Factor',         unit:'',    dec:1, better:'lower', needs:'gct',
     desc:'cadence × GCT ÷ 1000 — cumulative ground-contact loading proxy',
     calc:function(r){ return (r.cadence!=null&&r.gct!=null)? r.cadence*r.gct/1000 : null; } },
-  { key:'duty',   label:'Duty Factor',         unit:'%',   dec:1, better:'lower',
+  { key:'duty',   label:'Duty Factor',         unit:'%',   dec:1, better:'lower', needs:'gct',
     desc:'share of the stride spent on the ground = GCT × cadence ÷ 1200',
     calc:function(r){ return (r.cadence!=null&&r.gct!=null)? r.gct*r.cadence/1200 : null; } },
-  { key:'gct',    label:'Ground Contact Time', unit:'ms',  dec:0, better:'lower',
+  { key:'vgrf',   label:'Peak vGRF',           unit:'BW',  dec:2, better:'lower', needs:'gct',
+    desc:'estimated peak vertical impact force in body-weights (Morin method, from contact + flight time)',
+    calc:function(r){ return RunLoad.vgrfBW(r); } },
+  { key:'force',  label:'Peak Force',          unit:'N',   dec:0, better:'lower', needs:'gct', needsWeight:true,
+    desc:'estimated peak vertical impact force in Newtons — needs body weight',
+    calc:function(r){ return RunLoad.vgrfN(r, weightKg()); } },
+  { key:'gct',    label:'Ground Contact Time', unit:'ms',  dec:0, better:'lower', needs:'gct',
     desc:'time the foot is on the ground each step',
     calc:function(r){ return r.gct; } },
-  { key:'vo',     label:'Vertical Oscillation',unit:'cm',  dec:1, better:'lower',
+  { key:'vo',     label:'Vertical Oscillation',unit:'cm',  dec:1, better:'lower', needs:'vo',
     desc:'how much the torso bounces vertically each step',
     calc:function(r){ return r.vo; } },
-  { key:'vratio', label:'Vertical Ratio',      unit:'%',   dec:1, better:'lower',
+  { key:'vratio', label:'Vertical Ratio',      unit:'%',   dec:1, better:'lower', needs:'vratio',
     desc:'bounce ÷ stride length — overall efficiency (lower is better)',
     calc:function(r){ return r.vratio; } },
-  { key:'cad',    label:'Cadence',             unit:'spm', dec:0, better:'higher',
+  { key:'cad',    label:'Cadence',             unit:'spm', dec:0, better:'higher', needs:null,
     desc:'steps per minute',
     calc:function(r){ return r.cadence; } },
-  { key:'stride', label:'Stride Length',       unit:'m',   dec:2, better:null,
+  { key:'stride', label:'Stride Length',       unit:'m',   dec:2, better:null, needs:'stride',
     desc:'distance covered per step',
     calc:function(r){ return r.stride; } },
-  { key:'asym',   label:'GCT Balance Asym.',   unit:'%',   dec:1, better:'lower',
+  { key:'asym',   label:'GCT Balance Asym.',   unit:'%',   dec:1, better:'lower', needs:'gctBalance',
     desc:'L/R contact-time imbalance = |left% − 50|',
     calc:function(r){ return r.gctBalL!=null? Math.abs(r.gctBalL-50) : null; } },
-  { key:'eff',    label:'Form Efficiency',     unit:'m/cm',dec:2, better:'higher',
+  { key:'eff',    label:'Form Efficiency',     unit:'m/cm',dec:2, better:'higher', needs:'vo',
     desc:'stride length ÷ vertical oscillation — distance per unit of bounce',
     calc:function(r){ return (r.stride!=null&&r.vo)? r.stride/r.vo : null; } },
-  { key:'pace',   label:'Avg Pace',            unit:'/mi', dec:0, better:null, pace:true,
+  { key:'pace',   label:'Avg Pace',            unit:'/mi', dec:0, better:null, pace:true, needs:null,
     desc:'average pace',
     calc:function(r){ return r.paceSec; } },
-  { key:'hr',     label:'Avg HR',              unit:'bpm', dec:0, better:'lower',
+  { key:'hr',     label:'Avg HR',              unit:'bpm', dec:0, better:'lower', needs:null,
     desc:'average heart rate',
     calc:function(r){ return r.avgHr; } },
-  { key:'impact', label:'Impact Load',         unit:'eq mi',dec:1, better:null,
-    desc:'modeled mechanical load in equivalent easy miles (distance × pace × bounce)',
+  { key:'impact', label:'Impact Load',         unit:'eq mi',dec:1, better:null, needs:null,
+    desc:'modeled mechanical load in equivalent easy miles (distance × pace × bounce + grade)',
     calc:function(r){ return window.RunLoad ? RunLoad.impactLoad(r, LOAD_PARAMS) : null; } },
 ];
-var LOAD_PARAMS = null;  // per-athlete load-model params (set in refresh)
+var LOAD_PARAMS = null;       // per-athlete load-model params (set in refresh)
+var STD_PROFILE = {};         // { weightLb, runDevice, runHasAccessory } — fetched from the user doc
 
 var RUN_WINDOWS = [
   {key:'7',  days:7,   label:'7 days'},
@@ -366,6 +377,7 @@ function parseExport(text){
       vratio:num(get(r,'avgverticalratio')), vo:num(get(r,'avgverticaloscillation')),
       gct:num(get(r,'avggroundcontacttime')), gctBalL:gctBalLeft(get(r,'avggctbalance')),
       paceSec:hmsToSec(get(r,'avgpace')), gapSec:hmsToSec(get(r,'avggap')),
+      ascentM:num(get(r,'totalascent')), descentM:num(get(r,'totaldescent')), steps:num(get(r,'steps')),
     };
   }
   return Object.keys(byId).map(function(k){return byId[k];});
@@ -459,7 +471,24 @@ function intensityState(){
 function runsInF(s,e){ var it=intensityState(); return filterIntensity(runsIn(s,e),it.mode,it.cutoff); }
 // Type-filtered runs (intensity NOT applied — total mechanical load counts every run).
 function typeRuns(){ return RAW.filter(function(r){return ACTIVE_TYPES.has(r.type);}); }
-function computeLoadParams(){ var it=intensityState(); return Object.assign({}, RunLoad.DEFAULTS, RunLoad.calibrateBaseline(typeRuns(), it.cutoff)); }
+function computeLoadParams(){ var it=intensityState(); return Object.assign({}, RunLoad.DEFAULTS, RunLoad.calibrateBaseline(typeRuns(), it.cutoff), { useGrade:true }); }
+
+// ---- profile (weight + device), stored on the user doc ----
+function weightKg(){ var lb=STD_PROFILE.weightLb; return lb ? lb*0.453592 : null; }
+function deviceId(){ return STD_PROFILE.runDevice||''; }
+function hasAccessory(){ return !!STD_PROFILE.runHasAccessory; }
+function metricVisible(m){ return RunDevices.status(m.needs, deviceId(), hasAccessory())==='native'; }
+function saveProfile(patch){ Object.assign(STD_PROFILE, patch); if(UID) esLabs.db.collection('users').doc(UID).set(patch,{merge:true}).catch(function(e){console.error('profile save',e);}); }
+function loadProfile(){ if(!UID) return Promise.resolve(); return esLabs.db.collection('users').doc(UID).get().then(function(d){ var x=d.exists?d.data():{}; STD_PROFILE={ weightLb:x.weightLb, runDevice:x.runDevice, runHasAccessory:x.runHasAccessory }; }).catch(function(){ STD_PROFILE={}; }); }
+function populateMetricSelects(){
+  var m1=document.getElementById('m1'), m2=document.getElementById('m2'); if(!m1) return;
+  var prev1=m1.value, prev2=m2.value;
+  var opts=METRICS.map(function(m,i){return metricVisible(m)?'<option value="'+i+'">'+m.label+'</option>':'';}).join('');
+  m1.innerHTML=opts; m2.innerHTML='<option value="">None</option>'+opts;
+  var has=function(sel,v){return Array.prototype.some.call(sel.options,function(o){return o.value===v;});};
+  m1.value=has(m1,prev1)?prev1:(metricVisible(METRICS[0])?'0':(m1.options[0]?m1.options[0].value:''));
+  m2.value=has(m2,prev2)?prev2:'';
+}
 
 /* ---------- load management ---------- */
 function acwrColor(a){ if(a==null)return 'var(--muted2)'; if(a>1.5)return 'var(--bad)'; if(a>1.3)return 'var(--gold)'; if(a<0.8)return 'var(--warn)'; return 'var(--good)'; }
@@ -470,11 +499,24 @@ function renderLoad(){
   var tl=RunLoad.loadTimeline(typeRuns(), LOAD_PARAMS);
   if(tl.length<2){ cardsEl.innerHTML=''; chartEl.innerHTML='<div class="chart-empty">Not enough history to model load yet.</div>'; return; }
   var last=tl[tl.length-1], acwr=last.acwr, col=acwrColor(acwr);
-  cardsEl.innerHTML=
+  var cardsHtml=
     '<div class="card"><div class="win">Acute load · 7d</div><div class="row">eq miles/day <b>'+last.acute.toFixed(1)+'</b></div></div>'+
     '<div class="card"><div class="win">Chronic load · 28d</div><div class="row">eq miles/day <b>'+last.chronic.toFixed(1)+'</b></div></div>'+
     '<div class="card"><div class="win" style="color:'+col+'">Acute : Chronic</div><div class="row">ratio <b style="color:'+col+'">'+(acwr!=null?acwr.toFixed(2):'–')+'</b></div><div class="row" style="color:'+col+'">'+acwrLabel(acwr)+'</div></div>'+
     '<div class="card"><div class="win">Tolerance ceiling</div><div class="row">eq miles/day <b>'+(last.chronic*1.3).toFixed(1)+'</b></div></div>';
+  // Asymmetry early-warning (needs GCT-balance capability + data). asym% = |L−R| = 2·|L−50|.
+  if(RunDevices.status('gctBalance', deviceId(), hasAccessory())==='native'){
+    var end=last.ts;
+    var asymOf=function(s,e){ var v=RAW.filter(function(r){return ACTIVE_TYPES.has(r.type)&&r.gctBalL!=null&&r.ts>s&&r.ts<=e;}).map(function(r){return Math.abs(r.gctBalL-50)*2;}); return v.length?v.reduce(function(a,b){return a+b;},0)/v.length:null; };
+    var recent=asymOf(end-30*DAY,end), prior=asymOf(end-60*DAY,end-30*DAY);
+    if(recent!=null){
+      var aCol=recent>4?'var(--bad)':recent>2?'var(--gold)':'var(--good)';
+      var rising=(prior!=null&&recent>prior+0.5);
+      var albl=recent>4?'notable imbalance':recent>2?'mild imbalance':'symmetric';
+      cardsHtml+='<div class="card"><div class="win" style="color:'+aCol+'">L/R asymmetry · 30d</div><div class="row">avg <b style="color:'+aCol+'">'+recent.toFixed(1)+'%</b></div><div class="row" style="color:'+aCol+'">'+albl+(rising?' · rising':'')+'</div></div>';
+    }
+  }
+  cardsEl.innerHTML=cardsHtml;
   var W=720,H=210,padL=40,padR=12,padT=12,padB=24,innerW=W-padL-padR,innerH=H-padT-padB;
   var t0=tl[0].ts,t1=last.ts,span=Math.max(1,t1-t0);
   var ymax=Math.max.apply(null,tl.map(function(d){return Math.max(d.acute,d.chronic*1.3);}))*1.05||1;
@@ -519,9 +561,10 @@ function renderForm(){
   } else {
     cols=[{label:'All time', runs:filterIntensity(runsIn(new Date(0), new Date(8.64e15)),it.mode,it.cutoff)}];
   }
+  var visible=METRICS.filter(metricVisible);
   var head='<thead><tr><th>Metric</th>'+cols.map(function(c){return '<th>'+c.label+' <span class="munit">n='+c.runs.length+'</span></th>';}).join('')+(compare?'<th>Δ</th>':'')+'</tr></thead>';
   var body='<tbody>';
-  METRICS.forEach(function(m){
+  visible.forEach(function(m){
     var vals=cols.map(function(c){return metricMean(c.runs,m);});
     body+='<tr><td><span class="mname">'+m.label+'</span>'+(m.unit?'<span class="munit">'+m.unit+'</span>':'')+'<div class="mdesc">'+m.desc+'</div></td>';
     vals.forEach(function(v){ body+='<td>'+fmtVal(v,m)+'</td>'; });
@@ -529,6 +572,14 @@ function renderForm(){
     body+='</tr>';
   });
   tbl.innerHTML=head+body+'</tbody>';
+
+  var hidden=METRICS.filter(function(m){return !metricVisible(m);});
+  var note=compare
+    ? 'Comparing two date ranges (Δ = Range A − Range B). n = runs in each range after filters.'
+    : 'Showing all-time averages. Toggle “compare two ranges” to compare periods (Δ = Range A − Range B).';
+  if(hidden.length){ var dev=RunDevices.byId(deviceId()); note+=' · Hidden for '+(dev?dev.label:'this device')+': '+hidden.map(function(m){return m.label;}).join(', ')+' (needs a chest strap/pod or not captured).'; }
+  if(visible.some(function(m){return m.needsWeight;}) && weightKg()==null){ note+=' · Enter body weight above to show Peak Force in Newtons.'; }
+  var hintEl=document.getElementById('formHint'); if(hintEl) hintEl.textContent=note;
 }
 
 /* ---------- type filter ---------- */
@@ -626,10 +677,13 @@ function renderLoaded(){
   document.getElementById('faTo').value=ymd(max);
   document.getElementById('fbFrom').value=ymd(new Date(max.getTime()-180*DAY));
   document.getElementById('fbTo').value=ymd(new Date(max.getTime()-90*DAY));
-  // Trend section: populate metric selects + default to last 3 months, Load Factor.
-  var m1=document.getElementById('m1'), m2=document.getElementById('m2');
-  m1.innerHTML=METRICS.map(function(m,i){return '<option value="'+i+'"'+(i===0?' selected':'')+'>'+m.label+'</option>';}).join('');
-  m2.innerHTML='<option value="">None</option>'+METRICS.map(function(m,i){return '<option value="'+i+'">'+m.label+'</option>';}).join('');
+  // Device selector (grouped by brand) + weight + accessory from profile.
+  var byBrand={}; RunDevices.LIST.forEach(function(d){ (byBrand[d.brand]=byBrand[d.brand]||[]).push(d); });
+  document.getElementById('device').innerHTML='<option value="">Device: all metrics</option>'+Object.keys(byBrand).map(function(b){return '<optgroup label="'+b+'">'+byBrand[b].map(function(d){return '<option value="'+d.id+'"'+(d.id===deviceId()?' selected':'')+'>'+d.label+'</option>';}).join('')+'</optgroup>';}).join('');
+  document.getElementById('weight').value=STD_PROFILE.weightLb||'';
+  document.getElementById('accessory').classList.toggle('on', hasAccessory());
+  // Trend section: populate metric selects (device-gated) + default range last 3 months.
+  populateMetricSelects();
   document.getElementById('tTo').value=ymd(max);
   document.getElementById('tFrom').value=ymd(new Date(max.getTime()-91*DAY));
   document.getElementById('foot').innerHTML=
@@ -682,11 +736,12 @@ document.getElementById('formCompare').onclick=function(){
   this.classList.toggle('on');
   var on=this.classList.contains('on');
   ['faFromWrap','faToWrap','fbFromWrap','fbToWrap'].forEach(function(id){ document.getElementById(id).style.display=on?'flex':'none'; });
-  document.getElementById('formHint').textContent = on
-    ? 'Comparing two date ranges (Δ = Range A − Range B). n = runs in each range after filters.'
-    : 'Showing all-time averages. Toggle “compare two ranges” to compare periods (Δ = Range A − Range B).';
   renderForm();
 };
+// Device / accessory / weight → persist to profile and re-gate metrics.
+document.getElementById('device').onchange=function(e){ saveProfile({ runDevice:e.target.value }); populateMetricSelects(); refresh(); };
+document.getElementById('accessory').onclick=function(){ this.classList.toggle('on'); saveProfile({ runHasAccessory:this.classList.contains('on') }); populateMetricSelects(); refresh(); };
+document.getElementById('weight').onchange=function(e){ var lb=parseFloat(String(e.target.value).replace(/[^0-9.]/g,'')); saveProfile({ weightLb:(lb&&lb>0)?lb:null }); refresh(); };
 
 /* ---------- nav + auth gate ---------- */
 esLabs.mountNav('#nav-mount', { active:'' });
@@ -708,7 +763,7 @@ esLabs.onAuthChange(function(user){
     UID=user.uid;
     tool.style.display='block';
     document.getElementById('importStatus').innerHTML='<span class="spin"></span>Loading your stored runs…';
-    loadFromFirestore().then(function(){
+    Promise.all([loadProfile(), loadFromFirestore()]).then(function(){
       renderLoaded();
       document.getElementById('importStatus').innerHTML = RAW.length
         ? '<span class="ok">✓ '+RAW.length+' runs loaded</span> · import a newer export to add more'

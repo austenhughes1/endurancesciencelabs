@@ -982,6 +982,7 @@ header{display:none}
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <script src="/shared/site.js"></script>
 <script src="/shared/run-load-model.js"></script>
+<script src="/shared/device-matrix.js"></script>
 
 <script>
 'use strict';
@@ -3642,35 +3643,42 @@ function switchTab(tab) {
 
 // Metric definitions — each computed PER RUN, then averaged across a window.
 //   better: 'lower'|'higher'|null drives Δ coloring; pace:true formats m:ss.
+//   needs: capability key for device gating (gct/vo/vratio/stride/gctBalance) or null = always.
 const RD_METRICS = [
-  { label:'Load Factor', unit:'', dec:1, better:'lower',
+  { label:'Load Factor', unit:'', dec:1, better:'lower', needs:'gct',
     desc:'cadence × GCT ÷ 1000 — cumulative ground-contact loading proxy',
     calc:r => (r.cadence!=null&&r.gct!=null) ? r.cadence*r.gct/1000 : null },
-  { label:'Duty Factor', unit:'%', dec:1, better:'lower',
+  { label:'Duty Factor', unit:'%', dec:1, better:'lower', needs:'gct',
     desc:'share of the stride spent on the ground = GCT × cadence ÷ 1200',
     calc:r => (r.cadence!=null&&r.gct!=null) ? r.gct*r.cadence/1200 : null },
-  { label:'Ground Contact Time', unit:'ms', dec:0, better:'lower',
+  { label:'Peak vGRF', unit:'BW', dec:2, better:'lower', needs:'gct',
+    desc:'estimated peak vertical impact force in body-weights (Morin method, from contact + flight time)',
+    calc:r => RunLoad.vgrfBW(r) },
+  { label:'Peak Force', unit:'N', dec:0, better:'lower', needs:'gct', needsWeight:true,
+    desc:'estimated peak vertical impact force in Newtons — needs body weight',
+    calc:r => RunLoad.vgrfN(r, rdWeightKg()) },
+  { label:'Ground Contact Time', unit:'ms', dec:0, better:'lower', needs:'gct',
     desc:'time the foot is on the ground each step', calc:r => r.gct },
-  { label:'Vertical Oscillation', unit:'cm', dec:1, better:'lower',
+  { label:'Vertical Oscillation', unit:'cm', dec:1, better:'lower', needs:'vo',
     desc:'how much the torso bounces vertically each step', calc:r => r.vo },
-  { label:'Vertical Ratio', unit:'%', dec:1, better:'lower',
+  { label:'Vertical Ratio', unit:'%', dec:1, better:'lower', needs:'vratio',
     desc:'bounce ÷ stride length — overall efficiency (lower is better)', calc:r => r.vratio },
-  { label:'Cadence', unit:'spm', dec:0, better:'higher',
+  { label:'Cadence', unit:'spm', dec:0, better:'higher', needs:null,
     desc:'steps per minute', calc:r => r.cadence },
-  { label:'Stride Length', unit:'m', dec:2, better:null,
+  { label:'Stride Length', unit:'m', dec:2, better:null, needs:'stride',
     desc:'distance covered per step', calc:r => r.stride },
-  { label:'GCT Balance Asym.', unit:'%', dec:1, better:'lower',
+  { label:'GCT Balance Asym.', unit:'%', dec:1, better:'lower', needs:'gctBalance',
     desc:'L/R contact-time imbalance = |left% − 50|',
     calc:r => r.gctBalL!=null ? Math.abs(r.gctBalL-50) : null },
-  { label:'Form Efficiency', unit:'m/cm', dec:2, better:'higher',
+  { label:'Form Efficiency', unit:'m/cm', dec:2, better:'higher', needs:'vo',
     desc:'stride length ÷ vertical oscillation — distance per unit of bounce',
     calc:r => (r.stride!=null&&r.vo) ? r.stride/r.vo : null },
-  { label:'Avg Pace', unit:'/mi', dec:0, better:null, pace:true,
+  { label:'Avg Pace', unit:'/mi', dec:0, better:null, pace:true, needs:null,
     desc:'average pace', calc:r => r.paceSec },
-  { label:'Avg HR', unit:'bpm', dec:0, better:'lower',
+  { label:'Avg HR', unit:'bpm', dec:0, better:'lower', needs:null,
     desc:'average heart rate', calc:r => r.avgHr },
-  { label:'Impact Load', unit:'eq mi', dec:1, better:null,
-    desc:'modeled mechanical load in equivalent easy miles (distance × pace × bounce)',
+  { label:'Impact Load', unit:'eq mi', dec:1, better:null, needs:null,
+    desc:'modeled mechanical load in equivalent easy miles (distance × pace × bounce + grade)',
     calc:r => RunLoad.impactLoad(r, rdState.loadParams) },
 ];
 const RD_WINDOWS = [
@@ -3724,7 +3732,8 @@ function rdParseExport(text){
       aerobicTE:rdNum(get(r,'aerobicte')), cadence:rdNum(get(r,'avgruncadence')),
       stride:rdNum(get(r,'avgstridelength')), vratio:rdNum(get(r,'avgverticalratio')),
       vo:rdNum(get(r,'avgverticaloscillation')), gct:rdNum(get(r,'avggroundcontacttime')),
-      gctBalL:rdGctL(get(r,'avggctbalance')), paceSec:rdHms(get(r,'avgpace')), gapSec:rdHms(get(r,'avggap')) };
+      gctBalL:rdGctL(get(r,'avggctbalance')), paceSec:rdHms(get(r,'avgpace')), gapSec:rdHms(get(r,'avggap')),
+      ascentM:rdNum(get(r,'totalascent')), descentM:rdNum(get(r,'totaldescent')), steps:rdNum(get(r,'steps')) };
   }
   return Object.keys(byId).map(k=>byId[k]);
 }
@@ -3793,7 +3802,30 @@ function rdTypeRuns(){ return rdState.runs.filter(r=>rdState.activeTypes.has(r.t
 // Recompute the per-athlete load-model params (baseline auto-calibrated from easy runs).
 function rdComputeLoadParams(){
   const it=rdIntensity();
-  return Object.assign({}, RunLoad.DEFAULTS, RunLoad.calibrateBaseline(rdTypeRuns(), it.cutoff));
+  return Object.assign({}, RunLoad.DEFAULTS, RunLoad.calibrateBaseline(rdTypeRuns(), it.cutoff), { useGrade:true });
+}
+
+// ── Athlete profile (weight + device) ──────────────────────────
+// The viewed athlete's user doc: selectedAthleteData for a coach, else the signed-in user.
+function rdProfile(){ return rdState.role==='coach' ? selectedAthleteData : userDoc; }
+function rdWeightKg(){ const p=rdProfile(); const lb=p&&p.weightLb; return lb ? lb*0.453592 : null; }
+function rdDeviceId(){ const p=rdProfile(); return (p&&p.runDevice)||''; }
+function rdHasAccessory(){ const p=rdProfile(); return !!(p&&p.runHasAccessory); }
+function rdMetricVisible(m){ return RunDevices.status(m.needs, rdDeviceId(), rdHasAccessory())==='native'; }
+// Persist a profile field to the athlete's user doc (coach/admin/self allowed by rules).
+function rdSaveProfile(patch){
+  const p=rdProfile(); if(p) Object.assign(p, patch);           // update local copy immediately
+  if(rdState.uid) db.collection('users').doc(rdState.uid).update(patch).catch(e=>console.error('profile save',e));
+}
+// (Re)build the trend metric selectors from currently-visible metrics, preserving selection.
+function rdPopulateMetricSelects(){
+  const m1=document.getElementById('rd-m1'), m2=document.getElementById('rd-m2'); if(!m1) return;
+  const prev1=m1.value, prev2=m2.value;
+  const opts=RD_METRICS.map((m,i)=>rdMetricVisible(m)?'<option value="'+i+'">'+m.label+'</option>':'').join('');
+  m1.innerHTML=opts; m2.innerHTML='<option value="">None</option>'+opts;
+  const has=(sel,v)=>Array.prototype.some.call(sel.options,o=>o.value===v);
+  m1.value = has(m1,prev1)?prev1 : (rdMetricVisible(RD_METRICS[0])?'0':(m1.options[0]?m1.options[0].value:''));
+  m2.value = has(m2,prev2)?prev2 : '';
 }
 
 function rdRefresh(){
@@ -3821,11 +3853,25 @@ function rdRenderLoad(){
   if(tl.length<2){ cardsEl.innerHTML=''; chartEl.innerHTML='<div class="rd-chart-empty">Not enough history to model load yet.</div>'; return; }
   const last=tl[tl.length-1];
   const acwr=last.acwr, col=rdAcwrColor(acwr);
-  cardsEl.innerHTML=
+  let cardsHtml=
     '<div class="rd-card"><div class="rd-win">Acute load · 7d</div><div class="rd-row">eq miles/day <b>'+last.acute.toFixed(1)+'</b></div><div class="rd-row">recent fatigue <b>&nbsp;</b></div></div>'+
     '<div class="rd-card"><div class="rd-win">Chronic load · 28d</div><div class="rd-row">eq miles/day <b>'+last.chronic.toFixed(1)+'</b></div><div class="rd-row">established fitness <b>&nbsp;</b></div></div>'+
     '<div class="rd-card"><div class="rd-win" style="color:'+col+'">Acute : Chronic</div><div class="rd-row">ratio <b style="color:'+col+'">'+(acwr!=null?acwr.toFixed(2):'–')+'</b></div><div class="rd-row" style="color:'+col+'">'+rdAcwrLabel(acwr)+'</div></div>'+
     '<div class="rd-card"><div class="rd-win">Tolerance ceiling</div><div class="rd-row">eq miles/day <b>'+(last.chronic*1.3).toFixed(1)+'</b></div><div class="rd-row">acute stays below this <b>&nbsp;</b></div></div>';
+
+  // Asymmetry early-warning (needs GCT-balance capability + data). asym% = |L−R| = 2·|L−50|.
+  if(RunDevices.status('gctBalance', rdDeviceId(), rdHasAccessory())==='native'){
+    const end=last.ts, DAY=RD_DAY;
+    const asymOf=(s,e)=>{ const vals=rdState.runs.filter(r=>rdState.activeTypes.has(r.type)&&r.gctBalL!=null&&r.ts>s&&r.ts<=e).map(r=>Math.abs(r.gctBalL-50)*2); return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null; };
+    const recent=asymOf(end-30*DAY,end), prior=asymOf(end-60*DAY,end-30*DAY);
+    if(recent!=null){
+      const aCol = recent>4 ? 'var(--bad)' : recent>2 ? 'var(--gold)' : 'var(--good)';
+      const rising = (prior!=null && recent>prior+0.5);
+      const lbl = recent>4 ? 'notable imbalance' : recent>2 ? 'mild imbalance' : 'symmetric';
+      cardsHtml+='<div class="rd-card"><div class="rd-win" style="color:'+aCol+'">L/R asymmetry · 30d</div><div class="rd-row">avg <b style="color:'+aCol+'">'+recent.toFixed(1)+'%</b></div><div class="rd-row" style="color:'+aCol+'">'+lbl+(rising?' · rising':'')+'</div></div>';
+    }
+  }
+  cardsEl.innerHTML=cardsHtml;
 
   // Chart: shaded tolerance band (chronic×0.8 … chronic×1.3) with acute & chronic lines.
   const W=720,H=210,padL=40,padR=12,padT=12,padB=24,innerW=W-padL-padR,innerH=H-padT-padB;
@@ -3863,9 +3909,10 @@ function rdRenderForm(){
   } else {
     cols=[{label:'All time', runs:rdFilterIntensity(rdRunsIn(new Date(0), new Date(8.64e15)),it.mode,it.cutoff)}];
   }
+  const visible=RD_METRICS.filter(rdMetricVisible);
   let head='<thead><tr><th>Metric</th>'+cols.map(c=>'<th>'+c.label+' <span class="rd-munit">n='+c.runs.length+'</span></th>').join('')+(compare?'<th>Δ</th>':'')+'</tr></thead>';
   let body='<tbody>';
-  RD_METRICS.forEach(m=>{
+  visible.forEach(m=>{
     const vals=cols.map(c=>rdMean(c.runs,m));
     body+='<tr><td><span class="rd-mname">'+m.label+'</span>'+(m.unit?'<span class="rd-munit">'+m.unit+'</span>':'')+'<div class="rd-mdesc">'+m.desc+'</div></td>';
     vals.forEach(v=>{ body+='<td>'+rdFmtVal(v,m)+'</td>'; });
@@ -3873,6 +3920,20 @@ function rdRenderForm(){
     body+='</tr>';
   });
   tbl.innerHTML=head+body+'</tbody>';
+
+  // Hint = mode + device-hidden note + weight prompt.
+  const hidden=RD_METRICS.filter(m=>!rdMetricVisible(m));
+  let note = compare
+    ? 'Comparing two date ranges (Δ = Range A − Range B). n = runs in each range after filters.'
+    : 'Showing all-time averages. Toggle “compare two ranges” to compare periods (Δ = Range A − Range B).';
+  if(hidden.length){
+    const dev=RunDevices.byId(rdDeviceId());
+    note += ' · Hidden for '+(dev?dev.label:'this device')+': '+hidden.map(m=>m.label).join(', ')+' (needs a chest strap/pod or not captured).';
+  }
+  if(visible.some(m=>m.needsWeight) && rdWeightKg()==null){
+    note += ' · Enter body weight above to show Peak Force in Newtons.';
+  }
+  const hintEl=document.getElementById('rd-form-hint'); if(hintEl) hintEl.textContent=note;
 }
 
 // Time-series chart of 1–2 metrics over a date range (dual y-axis).
@@ -3940,12 +4001,20 @@ function rdRenderData(){
   const types=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
   rdState.activeTypes=new Set(types);
 
+  // Device selector options, grouped by brand
+  const devBrands={}; RunDevices.LIST.forEach(d=>{ (devBrands[d.brand]=devBrands[d.brand]||[]).push(d); });
+  const devOpts='<option value="">Device: all metrics</option>'+Object.keys(devBrands).map(b=>'<optgroup label="'+b+'">'+devBrands[b].map(d=>'<option value="'+d.id+'"'+(d.id===rdDeviceId()?' selected':'')+'>'+d.label+'</option>').join('')+'</optgroup>').join('');
+  const wLb=(rdProfile()&&rdProfile().weightLb)||'';
+
   host.innerHTML=
     '<div class="rd-controls">'+
       '<div class="rd-ctl"><label>Activity types</label><div class="rd-types" id="rd-types"></div></div>'+
       '<div class="rd-ctl"><label>Runs</label><select id="rd-intensity"><option value="all">All runs</option><option value="workout">Workouts only</option><option value="easy">Easy only</option></select></div>'+
       '<div class="rd-ctl"><label>Workout cutoff /mi</label><input type="text" id="rd-cutoff" value="6:40" style="width:62px"></div>'+
       '<div class="rd-ctl"><label>Anchor (window end)</label><input type="date" id="rd-anchor" value="'+rdYmd(max)+'"></div>'+
+      '<div class="rd-ctl"><label>Device</label><select id="rd-device">'+devOpts+'</select></div>'+
+      '<div class="rd-ctl"><label>Strap / pod</label><div class="rd-types"><span class="rd-chip'+(rdHasAccessory()?' on':'')+'" id="rd-accessory">chest strap / pod</span></div></div>'+
+      '<div class="rd-ctl"><label>Body weight (lb)</label><input type="text" id="rd-weight" value="'+wLb+'" placeholder="lb" style="width:62px"></div>'+
       '<span class="rd-filenote">'+rdState.runs.length+' runs stored · '+rdYmd(min)+' → '+rdYmd(max)+'</span>'+
     '</div>'+
     '<div class="rd-section"><h3>Volume by window</h3><div class="rd-cards" id="rd-summary-cards"></div></div>'+
@@ -3965,8 +4034,8 @@ function rdRenderData(){
       '<p class="rd-hint" id="rd-form-hint">Showing all-time averages. Toggle “compare two ranges” to compare periods (Δ = Range A − Range B).</p></div>'+
     '<div class="rd-section"><h3>Trend</h3>'+
       '<div class="rd-rangebar">'+
-        '<div class="rd-ctl"><label>Metric 1</label><select id="rd-m1">'+RD_METRICS.map((m,i)=>'<option value="'+i+'"'+(i===0?' selected':'')+'>'+m.label+'</option>').join('')+'</select></div>'+
-        '<div class="rd-ctl"><label>Metric 2</label><select id="rd-m2"><option value="">None</option>'+RD_METRICS.map((m,i)=>'<option value="'+i+'">'+m.label+'</option>').join('')+'</select></div>'+
+        '<div class="rd-ctl"><label>Metric 1</label><select id="rd-m1"></select></div>'+
+        '<div class="rd-ctl"><label>Metric 2</label><select id="rd-m2"></select></div>'+
         '<div class="rd-ctl"><label>From</label><input type="date" id="rd-t-from" value="'+rdYmd(new Date(max.getTime()-91*RD_DAY))+'"></div>'+
         '<div class="rd-ctl"><label>To</label><input type="date" id="rd-t-to" value="'+rdYmd(max)+'"></div>'+
         '<div class="rd-ctl"><label>Display</label><div class="rd-types"><span class="rd-chip on" id="rd-hide-outliers">Hide outliers</span><span class="rd-chip on" id="rd-smooth">Smooth</span></div></div>'+
@@ -3986,14 +4055,16 @@ function rdRenderData(){
   document.getElementById('rd-form-compare').onclick=function(){
     this.classList.toggle('on'); const on=this.classList.contains('on');
     ['rd-fa-from-wrap','rd-fa-to-wrap','rd-fb-from-wrap','rd-fb-to-wrap'].forEach(id=>{ document.getElementById(id).style.display=on?'flex':'none'; });
-    document.getElementById('rd-form-hint').textContent = on
-      ? 'Comparing two date ranges (Δ = Range A − Range B). n = runs in each range after filters.'
-      : 'Showing all-time averages. Toggle “compare two ranges” to compare periods (Δ = Range A − Range B).';
     rdRenderForm();
   };
   ['rd-fa-from','rd-fa-to','rd-fb-from','rd-fb-to'].forEach(id=>{ document.getElementById(id).onchange=rdRenderForm; });
   ['rd-m1','rd-m2','rd-t-from','rd-t-to'].forEach(id=>{ document.getElementById(id).onchange=rdRenderTrend; });
   ['rd-hide-outliers','rd-smooth'].forEach(id=>{ document.getElementById(id).onclick=function(){ this.classList.toggle('on'); rdRenderTrend(); }; });
+  // Device / accessory / weight → persist to profile and re-gate metrics.
+  document.getElementById('rd-device').onchange=e=>{ rdSaveProfile({ runDevice:e.target.value }); rdPopulateMetricSelects(); rdRefresh(); };
+  document.getElementById('rd-accessory').onclick=function(){ this.classList.toggle('on'); rdSaveProfile({ runHasAccessory:this.classList.contains('on') }); rdPopulateMetricSelects(); rdRefresh(); };
+  document.getElementById('rd-weight').onchange=e=>{ const lb=parseFloat(String(e.target.value).replace(/[^0-9.]/g,'')); rdSaveProfile({ weightLb: (lb&&lb>0)?lb:null }); rdRefresh(); };
+  rdPopulateMetricSelects();
   rdRefresh();
 }
 
