@@ -3812,6 +3812,14 @@ function rdComputeLoadParams(){
 // whether the live profile object is populated.
 function rdProfile(){ return rdState.role==='coach' ? selectedAthleteData : userDoc; }
 function rdLoadProfileMirror(){ const p=rdProfile()||{}; rdState.profile={ weightLb:p.weightLb||null, runDevice:p.runDevice||'', runHasAccessory:!!p.runHasAccessory }; }
+// Read the profile fields straight from the athlete's user doc (same path we write to), so a
+// reload reflects what was saved regardless of how the coaching app cached the user object.
+function rdLoadProfile(uid){
+  return db.collection('users').doc(uid).get().then(d=>{
+    const x=d.exists?d.data():{};
+    rdState.profile={ weightLb:x.weightLb||null, runDevice:x.runDevice||'', runHasAccessory:!!x.runHasAccessory };
+  }).catch(()=>{ rdLoadProfileMirror(); });
+}
 function rdWeightKg(){ const lb=rdState.profile&&rdState.profile.weightLb; return lb ? lb*0.453592 : null; }
 function rdDeviceId(){ return (rdState.profile&&rdState.profile.runDevice)||''; }
 function rdHasAccessory(){ return !!(rdState.profile&&rdState.profile.runHasAccessory); }
@@ -4015,7 +4023,7 @@ function rdRenderData(){
   const counts={}; rdState.runs.forEach(r=>{ counts[r.type]=(counts[r.type]||0)+1; });
   const types=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
   rdState.activeTypes=new Set(types);
-  rdLoadProfileMirror();   // sync weight/device/accessory from the athlete's profile
+  if(!rdState.profile) rdLoadProfileMirror();   // fallback only; mountRunDynamics loads it fresh from the doc
 
   // Device selector options, grouped by brand
   const devBrands={}; RunDevices.LIST.forEach(d=>{ (devBrands[d.brand]=devBrands[d.brand]||[]).push(d); });
@@ -4143,19 +4151,22 @@ function mountRunDynamics(uid, role){
   drop.ondrop=e=>{ e.preventDefault(); drop.classList.remove('over'); const f=e.dataTransfer.files[0]; if(f) read(f); };
   fileInput.onchange=e=>{ const f=e.target.files[0]; if(f) read(f); fileInput.value=''; };
 
-  if(rdState.uid===uid && rdState.loaded){
-    rdRenderData();
-    status.innerHTML='<span class="ok">✓ '+rdState.runs.length+' runs loaded</span> · import a newer export to add more';
-  } else {
-    rdState.uid=uid; rdState.loaded=false; rdState.runs=[];
-    status.innerHTML='<span class="rd-spin"></span>Loading stored runs…';
-    rdLoad(uid).then(()=>{
+  rdState.profile=null;   // force a fresh profile read for this athlete
+  rdLoadProfile(uid).then(()=>{
+    if(rdState.uid===uid && rdState.loaded){
       rdRenderData();
-      status.innerHTML=rdState.runs.length
-        ? '<span class="ok">✓ '+rdState.runs.length+' runs loaded</span> · import a newer export to add more'
-        : 'No runs stored yet — import a Garmin export to begin.';
-    }).catch(e=>{ console.error(e); status.innerHTML='<span class="err">Could not load runs: '+(e&&e.message||e)+'</span>'; });
-  }
+      status.innerHTML='<span class="ok">✓ '+rdState.runs.length+' runs loaded</span> · import a newer export to add more';
+    } else {
+      rdState.uid=uid; rdState.loaded=false; rdState.runs=[];
+      status.innerHTML='<span class="rd-spin"></span>Loading stored runs…';
+      rdLoad(uid).then(()=>{
+        rdRenderData();
+        status.innerHTML=rdState.runs.length
+          ? '<span class="ok">✓ '+rdState.runs.length+' runs loaded</span> · import a newer export to add more'
+          : 'No runs stored yet — import a Garmin export to begin.';
+      }).catch(e=>{ console.error(e); status.innerHTML='<span class="err">Could not load runs: '+(e&&e.message||e)+'</span>'; });
+    }
+  });
 }
 
 // ══════════════════════════════════════════════════════════
