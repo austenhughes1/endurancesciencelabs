@@ -483,9 +483,15 @@ function metricVisible(m){ return RunDevices.status(m.needs, deviceId(), hasAcce
 function saveProfile(patch){
   Object.assign(STD_PROFILE, patch);
   var el=document.getElementById('savedNote');
-  if(UID) esLabs.db.collection('users').doc(UID).set(patch,{merge:true})
-    .then(function(){ if(el){ el.textContent='✓ saved'; el.style.opacity='1'; setTimeout(function(){ el.style.opacity='0'; },1500); } })
-    .catch(function(e){ console.error('profile save',e); if(el){ el.textContent='⚠ save failed'; el.style.opacity='1'; } });
+  var show=function(txt,ok){ if(!el)return; el.style.color=ok?'var(--good)':'var(--bad)'; el.textContent=txt; el.style.opacity='1'; if(ok) setTimeout(function(){ el.style.opacity='0'; },1500); };
+  if(!UID){ show('⚠ not signed in',false); return; }
+  var ref=esLabs.db.collection('users').doc(UID), key=Object.keys(patch)[0];
+  ref.set(patch,{merge:true})
+    .then(function(){ return ref.get(); })                 // read-back: confirm it actually landed server-side
+    .then(function(d){ var data=d.data()||{}; var ok=JSON.stringify(data[key])===JSON.stringify(patch[key]);
+      show(ok?'✓ saved':'⚠ wrote but not stored',ok);
+      if(!ok) console.warn('RunDynamics: profile did not persist',{uid:UID,key:key,got:data[key],sent:patch[key]}); })
+    .catch(function(e){ console.error('profile save',e); show('⚠ '+(e&&e.code||'save failed'),false); });
 }
 function loadProfile(){ if(!UID) return Promise.resolve(); return esLabs.db.collection('users').doc(UID).get().then(function(d){ var x=d.exists?d.data():{}; STD_PROFILE={ weightLb:x.weightLb, runDevice:x.runDevice, runHasAccessory:x.runHasAccessory }; }).catch(function(){ STD_PROFILE={}; }); }
 function populateMetricSelects(){
@@ -711,15 +717,21 @@ function readFile(f){
     try{ candidates=parseExport(rd.result); }
     catch(e){ st.innerHTML='<span class="err">'+e.message+'</span>'; return; }
     if(!candidates.length){ st.innerHTML='<span class="err">No running activities found in this file.</span>'; return; }
+    var elev=candidates.filter(function(c){return c.ascentM!=null;}).length;
     st.innerHTML='<span class="spin"></span>Saving '+candidates.length+' runs…';
     backfill(candidates).then(function(res){
       return loadFromFirestore().then(function(){
         renderLoaded();
-        st.innerHTML='<span class="ok">✓ '+res.added+' new'+(res.updated?(', '+res.updated+' updated'):'')+'</span> · '+RAW.length+' total';
+        // Read-back verify: confirm a known run actually carries ascent server-side.
+        var sample=candidates.filter(function(c){return c.ascentM!=null;})[0];
+        var verify=sample?actCol().doc(sample.id).get().then(function(d){return d.exists&&d.data().ascentM!=null;}):Promise.resolve(null);
+        verify.then(function(ok){
+          st.innerHTML='<span class="ok">✓ '+res.added+' new'+(res.updated?(', '+res.updated+' updated'):'')+'</span> · '+RAW.length+' total · '+elev+'/'+candidates.length+' w/ elevation'+(ok===false?' <span class="err">(elevation did NOT persist — check rules)</span>':'');
+        });
       });
     }).catch(function(e){
       console.error(e);
-      st.innerHTML='<span class="err">Save failed: '+(e&&e.message||e)+'</span>';
+      st.innerHTML='<span class="err">Save failed: '+(e&&e.code||e&&e.message||e)+'</span>';
     });
   };
   rd.readAsText(f);
