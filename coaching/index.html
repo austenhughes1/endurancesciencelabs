@@ -981,6 +981,7 @@ header{display:none}
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <script src="/shared/site.js"></script>
+<script src="/shared/run-load-model.js"></script>
 
 <script>
 'use strict';
@@ -3668,13 +3669,16 @@ const RD_METRICS = [
     desc:'average pace', calc:r => r.paceSec },
   { label:'Avg HR', unit:'bpm', dec:0, better:'lower',
     desc:'average heart rate', calc:r => r.avgHr },
+  { label:'Impact Load', unit:'eq mi', dec:1, better:null,
+    desc:'modeled mechanical load in equivalent easy miles (distance × pace × bounce)',
+    calc:r => RunLoad.impactLoad(r, rdState.loadParams) },
 ];
 const RD_WINDOWS = [
   {days:7,label:'7 days'},{days:30,label:'30 days'},{days:90,label:'90 days'},
   {days:365,label:'365 days'},{days:null,label:'All time'},
 ];
 const RD_DAY = 864e5;
-let rdState = { uid:null, role:'athlete', runs:[], loaded:false, anchor:null, activeTypes:new Set() };
+let rdState = { uid:null, role:'athlete', runs:[], loaded:false, anchor:null, activeTypes:new Set(), loadParams:null };
 
 function rdCol(uid){ return db.collection('users').doc(uid).collection('garminActivities'); }
 
@@ -3784,9 +3788,17 @@ function rdIntensity(){
   return { mode: sel?sel.value:'all', cutoff: (cut?rdHms(cut.value):null) || 400 };
 }
 function rdRunsInF(s,e){ const it=rdIntensity(); return rdFilterIntensity(rdRunsIn(s,e), it.mode, it.cutoff); }
+// Type-filtered runs only (intensity is NOT applied — total mechanical load counts every run).
+function rdTypeRuns(){ return rdState.runs.filter(r=>rdState.activeTypes.has(r.type)); }
+// Recompute the per-athlete load-model params (baseline auto-calibrated from easy runs).
+function rdComputeLoadParams(){
+  const it=rdIntensity();
+  return Object.assign({}, RunLoad.DEFAULTS, RunLoad.calibrateBaseline(rdTypeRuns(), it.cutoff));
+}
 
 function rdRefresh(){
   if(!rdState.runs.length) return;
+  rdState.loadParams=rdComputeLoadParams();   // must be set before any Impact-Load metric is computed
   const end=rdState.anchor, cards=document.getElementById('rd-summary-cards');
   if(cards){
     cards.innerHTML=RD_WINDOWS.map(w=>{
@@ -3794,8 +3806,46 @@ function rdRefresh(){
       return rdCard(w.label, rdSummarize(rdRunsInF(start,end)));
     }).join('');
   }
+  rdRenderLoad();
   rdRenderForm();
   rdRenderTrend();
+}
+
+// ── Load management: acute/chronic/ACWR + tolerance band ──
+function rdAcwrColor(a){ if(a==null) return 'var(--muted2)'; if(a>1.5) return 'var(--bad)'; if(a>1.3) return 'var(--gold)'; if(a<0.8) return 'var(--warn)'; return 'var(--good)'; }
+function rdAcwrLabel(a){ if(a==null) return 'building baseline'; if(a>1.5) return 'spike · injury-risk zone'; if(a>1.3) return 'approaching ceiling'; if(a<0.8) return 'detraining / taper'; return 'in the safe band'; }
+function rdRenderLoad(){
+  const cardsEl=document.getElementById('rd-load-cards'), chartEl=document.getElementById('rd-load-chart');
+  if(!cardsEl||!chartEl) return;
+  const tl=RunLoad.loadTimeline(rdTypeRuns(), rdState.loadParams);
+  if(tl.length<2){ cardsEl.innerHTML=''; chartEl.innerHTML='<div class="rd-chart-empty">Not enough history to model load yet.</div>'; return; }
+  const last=tl[tl.length-1];
+  const acwr=last.acwr, col=rdAcwrColor(acwr);
+  cardsEl.innerHTML=
+    '<div class="rd-card"><div class="rd-win">Acute load · 7d</div><div class="rd-row">eq miles/day <b>'+last.acute.toFixed(1)+'</b></div><div class="rd-row">recent fatigue <b>&nbsp;</b></div></div>'+
+    '<div class="rd-card"><div class="rd-win">Chronic load · 28d</div><div class="rd-row">eq miles/day <b>'+last.chronic.toFixed(1)+'</b></div><div class="rd-row">established fitness <b>&nbsp;</b></div></div>'+
+    '<div class="rd-card"><div class="rd-win" style="color:'+col+'">Acute : Chronic</div><div class="rd-row">ratio <b style="color:'+col+'">'+(acwr!=null?acwr.toFixed(2):'–')+'</b></div><div class="rd-row" style="color:'+col+'">'+rdAcwrLabel(acwr)+'</div></div>'+
+    '<div class="rd-card"><div class="rd-win">Tolerance ceiling</div><div class="rd-row">eq miles/day <b>'+(last.chronic*1.3).toFixed(1)+'</b></div><div class="rd-row">acute stays below this <b>&nbsp;</b></div></div>';
+
+  // Chart: shaded tolerance band (chronic×0.8 … chronic×1.3) with acute & chronic lines.
+  const W=720,H=210,padL=40,padR=12,padT=12,padB=24,innerW=W-padL-padR,innerH=H-padT-padB;
+  const t0=tl[0].ts, t1=last.ts, span=Math.max(1,t1-t0);
+  const ymax=Math.max.apply(null,tl.map(d=>Math.max(d.acute,d.chronic*1.3)))*1.05||1;
+  const xOf=ts=>padL+((ts-t0)/span)*innerW;
+  const yOf=v=>padT+innerH-(v/ymax)*innerH;
+  const bandTop=tl.map(d=>xOf(d.ts).toFixed(1)+','+yOf(d.chronic*1.3).toFixed(1));
+  const bandBot=tl.map(d=>xOf(d.ts).toFixed(1)+','+yOf(d.chronic*0.8).toFixed(1)).reverse();
+  const band='<polygon points="'+bandTop.concat(bandBot).join(' ')+'" fill="rgba(34,199,138,0.12)"/>';
+  const chronicLn='<polyline points="'+tl.map(d=>xOf(d.ts).toFixed(1)+','+yOf(d.chronic).toFixed(1)).join(' ')+'" fill="none" stroke="#6e7a9a" stroke-width="1.6"/>';
+  const acuteLn='<polyline points="'+tl.map(d=>xOf(d.ts).toFixed(1)+','+yOf(d.acute).toFixed(1)).join(' ')+'" fill="none" stroke="#00e5c8" stroke-width="2.2"/>';
+  let grid='';
+  for(let g=0;g<=3;g++){ const f=g/3, yy=(padT+innerH-f*innerH).toFixed(1);
+    grid+='<line x1="'+padL+'" y1="'+yy+'" x2="'+(W-padR)+'" y2="'+yy+'" stroke="rgba(255,255,255,0.06)"/>';
+    grid+='<text x="'+(padL-6)+'" y="'+(parseFloat(yy)+3).toFixed(1)+'" text-anchor="end" font-size="9" font-family="ui-monospace,monospace" fill="#6e7a9a">'+(ymax*f).toFixed(0)+'</text>'; }
+  let xlab='';
+  for(let k=0;k<=4;k++){ const ts=t0+span*k/4, d=new Date(ts); xlab+='<text x="'+xOf(ts).toFixed(1)+'" y="'+(H-7)+'" text-anchor="middle" font-size="8.5" font-family="ui-monospace,monospace" fill="#6e7a9a">'+MONTHS[d.getMonth()]+' '+d.getDate()+'</text>'; }
+  chartEl.innerHTML='<div class="rd-legend"><span class="rd-legend-item"><span class="rd-legend-sw" style="background:#00e5c8"></span>Acute (7d)</span><span class="rd-legend-item"><span class="rd-legend-sw" style="background:#6e7a9a"></span>Chronic (28d)</span><span class="rd-legend-item"><span class="rd-legend-sw" style="background:rgba(34,199,138,0.45)"></span>Safe band (0.8–1.3×)</span></div>'+
+    '<svg class="rd-chart-svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Mechanical load timeline">'+grid+band+chronicLn+acuteLn+xlab+'</svg>';
 }
 
 // Single Form-metrics table: all-time by default; compare two custom ranges when toggled.
@@ -3899,6 +3949,10 @@ function rdRenderData(){
       '<span class="rd-filenote">'+rdState.runs.length+' runs stored · '+rdYmd(min)+' → '+rdYmd(max)+'</span>'+
     '</div>'+
     '<div class="rd-section"><h3>Volume by window</h3><div class="rd-cards" id="rd-summary-cards"></div></div>'+
+    '<div class="rd-section"><h3>Load management <span class="rd-note">· mechanical impact load (equivalent easy miles)</span></h3>'+
+      '<div class="rd-cards" id="rd-load-cards" style="margin-bottom:14px"></div>'+
+      '<div class="rd-chartwrap"><div id="rd-load-chart"></div></div>'+
+      '<p class="rd-hint">Modeled estimate, individual-relative — not a measured force. Baseline auto-calibrated from this athlete\'s easy runs. Acute:chronic ratio above ~1.5 flags a load spike; 0.8–1.3 is the commonly cited safe band.</p></div>'+
     '<div class="rd-section"><h3>Form metrics <span class="rd-note">· mean per run</span></h3>'+
       '<div class="rd-rangebar">'+
         '<span class="rd-chip" id="rd-form-compare">⇄ compare two ranges</span>'+
