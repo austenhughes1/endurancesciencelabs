@@ -19,14 +19,14 @@
 // Tunable defaults. basePaceSec / baseVO are normally overridden per
 // athlete by calibrateBaseline() so a baseline easy mile scores ~1.0.
 var DEFAULTS = {
-  kPace:      1.5,   // pace exponent (force rises faster than speed)
-  mVO:        1.0,   // vertical-oscillation exponent
+  kPace:      1.5,   // pace (intensity) exponent
+  kImpact:    1.0,   // per-step impact exponent — peak vGRF ∝ 1/duty factor (Morin 2005; Patoz 2023)
   useGrade:   false, // enable grade surcharge (needs ascent/descent metres)
   acuteN:     7,     // acute EWMA window (days)
   chronicN:   28,    // chronic EWMA window (days)
   refWeight:  1.0,   // reference weight; = athlete weight for clean eq-miles
   basePaceSec: 420,  // easy-run baseline pace (s/mi) — fallback
-  baseVO:     6.9    // easy-run baseline vertical oscillation (cm) — fallback
+  baseDF:     42408  // easy-run baseline duty-factor proxy = cadence(spm) × GCT(ms) — fallback (~186×228)
 };
 
 function median(arr) {
@@ -45,10 +45,10 @@ function calibrateBaseline(runs, cutoffSec) {
   var easy = runs.filter(function (r) { return r.paceSec != null && r.paceSec >= cutoffSec; });
   var pool = easy.length >= 5 ? easy : runs;
   var basePace = median(pool.map(function (r) { return r.paceSec; }).filter(function (v) { return v != null; }));
-  var baseVO   = median(pool.map(function (r) { return r.vo; }).filter(function (v) { return v != null; }));
+  var baseDF   = median(pool.map(function (r) { return (r.cadence != null && r.gct != null) ? r.cadence * r.gct : null; }).filter(function (v) { return v != null; }));
   return {
     basePaceSec: basePace || DEFAULTS.basePaceSec,
-    baseVO:      baseVO   || DEFAULTS.baseVO
+    baseDF:      baseDF   || DEFAULTS.baseDF
   };
 }
 
@@ -58,9 +58,14 @@ function impactLoad(run, p) {
   p = p || DEFAULTS;
   if (run.distMi == null || run.paceSec == null) return null;
   var paceF = Math.pow(p.basePaceSec / run.paceSec, p.kPace);
-  var voF   = run.vo != null ? Math.pow(run.vo / p.baseVO, p.mVO) : 1;
+  // Per-step impact from duty factor (cadence × GCT), normalized to the athlete's easy-run
+  // baseline. Peak vGRF ∝ 1/duty factor (Morin 2005; Patoz 2023), so a lower duty factor —
+  // shorter contact / more flight — loads each step harder ⇒ factor > 1. This is a load term,
+  // NOT an injury predictor. Needs cadence + GCT; defaults to 1 on devices that don't report them.
+  var dfF   = (run.cadence != null && run.gct != null)
+    ? Math.pow(p.baseDF / (run.cadence * run.gct), p.kImpact) : 1;
   var wF    = (run.weight || p.refWeight) / p.refWeight;
-  var il = run.distMi * paceF * voF * wF;
+  var il = run.distMi * paceF * dfF * wF;
   if (p.useGrade && run.distMi) {
     var distM = run.distMi * 1609.34;
     var g = 1 + 1.2 * ((run.descentM || 0) / distM) + 0.6 * ((run.ascentM || 0) / distM);

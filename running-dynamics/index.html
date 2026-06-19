@@ -181,7 +181,7 @@ tbody tr:hover td:first-child{background:#10131f}
     <h2>Load management <span class="note">· mechanical impact load</span></h2>
     <div class="cards" id="loadCards" style="margin-bottom:14px"></div>
     <div class="chartwrap"><div id="loadChart"></div></div>
-    <p class="hint">Load is in <b>equivalent easy miles</b> — the modeled mechanical cost of a run vs one easy flat mile (a hard or hilly run is worth more than its distance). <b>Acute (7-day)</b> and <b>chronic (28-day)</b> are the rolling daily averages of that load, in eq mi/day. Individual-relative estimate, not a measured force; baseline auto-calibrated from your easy runs. Acute:chronic ratio above ~1.5 flags a load spike; 0.8–1.3 is the commonly cited safe band.</p>
+    <p class="hint">Load is in <b>equivalent easy miles</b> — distance weighted by pace and by <b>per-step impact</b> (duty factor = cadence × ground-contact time vs your baseline; shorter contact / more flight loads each step harder). <b>Acute (7-day)</b> and <b>chronic (28-day)</b> are the rolling daily averages, in eq mi/day. This is a <b>load measure, not an injury prediction</b> — mechanics that raise load are only <i>correlated</i> with higher injury risk in the literature. Individual-relative estimate, not a measured force; baseline auto-calibrated from your easy runs. Acute:chronic above ~1.5 flags a load spike; 0.8–1.3 is the commonly cited safe band.</p>
   </div>
 
   <div class="section" id="sec-trend">
@@ -276,7 +276,7 @@ var METRICS = [
     desc:'average heart rate',
     calc:function(r){ return r.avgHr; } },
   { key:'impact', label:'Impact Load',         unit:'mi',  dec:1, better:null, needs:null,
-    desc:'modeled mechanical load in equivalent easy miles (distance × pace × bounce + grade)',
+    desc:'modeled mechanical load in equivalent easy miles (distance × pace × duty-factor impact + grade)',
     calc:function(r){ return window.RunLoad ? RunLoad.impactLoad(r, LOAD_PARAMS) : null; } },
 ];
 var LOAD_PARAMS = null;       // per-athlete load-model params (set in refresh)

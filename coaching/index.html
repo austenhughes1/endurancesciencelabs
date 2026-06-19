@@ -3681,7 +3681,7 @@ const RD_METRICS = [
   { label:'Avg HR', unit:'bpm', dec:0, better:'lower', needs:null,
     desc:'average heart rate', calc:r => r.avgHr },
   { label:'Impact Load', unit:'mi', dec:1, better:null, needs:null,
-    desc:'modeled mechanical load in equivalent easy miles (distance × pace × bounce + grade)',
+    desc:'modeled mechanical load in equivalent easy miles (distance × pace × duty-factor impact + grade)',
     calc:r => RunLoad.impactLoad(r, rdState.loadParams) },
 ];
 const RD_WINDOWS = [
@@ -4083,7 +4083,7 @@ function rdRenderData(){
     '<div class="rd-section"><h3>Load management <span class="rd-note">· mechanical impact load</span></h3>'+
       '<div class="rd-cards" id="rd-load-cards" style="margin-bottom:14px"></div>'+
       '<div class="rd-chartwrap"><div id="rd-load-chart"></div></div>'+
-      '<p class="rd-hint">Load is in <b>equivalent easy miles</b> — the modeled mechanical cost of a run vs one easy flat mile (a hard or hilly run is worth more than its distance). <b>Acute (7-day)</b> and <b>chronic (28-day)</b> are the rolling daily averages of that load, in eq mi/day. Individual-relative estimate, not a measured force; baseline auto-calibrated from this athlete\'s easy runs. Acute:chronic ratio above ~1.5 flags a load spike; 0.8–1.3 is the commonly cited safe band.</p></div>'+
+      '<p class="rd-hint">Load is in <b>equivalent easy miles</b> — distance weighted by pace and by <b>per-step impact</b> (duty factor = cadence × ground-contact time vs this athlete\'s baseline; shorter contact / more flight loads each step harder). <b>Acute (7-day)</b> and <b>chronic (28-day)</b> are the rolling daily averages, in eq mi/day. This is a <b>load measure, not an injury prediction</b> — mechanics that raise load are only <i>correlated</i> with higher injury risk in the literature. Individual-relative estimate, not a measured force; baseline auto-calibrated from easy runs. Acute:chronic above ~1.5 flags a load spike; 0.8–1.3 is the commonly cited safe band.</p></div>'+
     '<div class="rd-section"><h3>Trend</h3>'+
       '<div class="rd-rangebar">'+
         '<div class="rd-ctl"><label>Metric 1</label><select id="rd-m1"></select></div>'+
