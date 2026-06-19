@@ -211,9 +211,29 @@ Acute : Chronic = recent load vs the base you have built</pre>`
 + `</ol>`;
 }
 
+// SVG overlay for performance/injury events on a time-axis chart. Draws a dashed vertical line
+// (red = injury, green = race) with a top marker and a transparent wide hit-line carrying a
+// <title> tooltip. Only events whose ts falls within [t0,t1] are drawn. geom is the plot area.
+function eventOverlaySVG(events, t0, t1, padL, innerW, padT, innerH) {
+  if (!events || !events.length || !(t1 > t0)) return '';
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  var span = t1 - t0, top = padT, bot = padT + innerH, out = '';
+  events.forEach(function (e) {
+    if (e.ts == null || e.ts < t0 || e.ts > t1) return;
+    var x = padL + ((e.ts - t0) / span) * innerW;
+    var col = e.type === 'injury' ? '#f55050' : '#22c78a';
+    var label = (e.type === 'injury' ? '⚠ Injury' : '🏁 Race') + ' · ' + new Date(e.ts).toISOString().slice(0, 10) + (e.note ? ' — ' + e.note : '');
+    out += '<line x1="' + x.toFixed(1) + '" y1="' + top + '" x2="' + x.toFixed(1) + '" y2="' + bot + '" stroke="' + col + '" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.85"/>'
+      + '<polygon points="' + (x - 3.5).toFixed(1) + ',' + top + ' ' + (x + 3.5).toFixed(1) + ',' + top + ' ' + x.toFixed(1) + ',' + (top + 6) + '" fill="' + col + '"/>'
+      + '<line x1="' + x.toFixed(1) + '" y1="' + top + '" x2="' + x.toFixed(1) + '" y2="' + bot + '" stroke="rgba(0,0,0,0)" stroke-width="12"><title>' + esc(label) + '</title></line>';
+  });
+  return out;
+}
+
 window.RunLoad = {
   DEFAULTS: DEFAULTS,
   GRAVITY: GRAVITY,
+  eventOverlaySVG: eventOverlaySVG,
   median: median,
   calibrateBaseline: calibrateBaseline,
   impactLoad: impactLoad,
