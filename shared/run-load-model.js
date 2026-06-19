@@ -26,7 +26,16 @@ var DEFAULTS = {
   chronicN:   28,    // chronic EWMA window (days)
   refWeight:  1.0,   // reference weight; = athlete weight for clean eq-miles
   basePaceSec: 420,  // easy-run baseline pace (s/mi) — fallback
-  baseDF:     42408  // easy-run baseline duty-factor proxy = cadence(spm) × GCT(ms) — fallback (~186×228)
+  baseDF:     42408, // easy-run baseline duty-factor proxy = cadence(spm) × GCT(ms) — fallback (~186×228)
+  // Grade surcharge: convex (quadratic) in MEAN grade, descent weighted ~3× ascent, capped.
+  // Load rises super-linearly with downhill steepness (Gottschall & Kram 2005; descent drives
+  // impact + eccentric damage; uphill is lower-impact but adds muscular/propulsive cost that the
+  // pace term under-counts). Tuned so a 10 mi run with 100→300 ft is ~flat, 500 ft a nudge,
+  // 1000 ft a clear bump. CAVEAT: mean grade from totals is a lower-bound — it cannot see whether
+  // elevation came from one steep descent vs rolling terrain; per-segment grade (FIT) is the fix.
+  kDescent:   330,
+  kAscent:    110,
+  gradeCap:   2.5
 };
 
 function median(arr) {
@@ -68,8 +77,9 @@ function impactLoad(run, p) {
   var il = run.distMi * paceF * dfF * wF;
   if (p.useGrade && run.distMi) {
     var distM = run.distMi * 1609.34;
-    var g = 1 + 1.2 * ((run.descentM || 0) / distM) + 0.6 * ((run.ascentM || 0) / distM);
-    il *= Math.min(g, 2.5);
+    var dg = (run.descentM || 0) / distM;   // mean descent grade (fraction)
+    var ag = (run.ascentM  || 0) / distM;   // mean ascent grade (fraction)
+    il *= Math.min(1 + p.kDescent * dg * dg + p.kAscent * ag * ag, p.gradeCap);
   }
   return il;
 }
