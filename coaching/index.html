@@ -3858,7 +3858,8 @@ function rdRefresh(){
   if(cards){
     cards.innerHTML=RD_WINDOWS.map(w=>{
       const start = w.days==null ? new Date(0) : new Date(end.getTime()-w.days*RD_DAY);
-      return rdCard(w.label, rdSummarize(rdRunsInF(start,end)));
+      const lbl = w.days==null ? ('Stored · '+rdSpanDays()+'d') : w.label;
+      return rdCard(lbl, rdSummarize(rdRunsInF(start,end)));
     }).join('');
   }
   rdRenderLoad();
@@ -3869,6 +3870,31 @@ function rdRefresh(){
 // ── Load management: acute/chronic/ACWR + tolerance band ──
 function rdAcwrColor(a){ if(a==null) return 'var(--muted2)'; if(a>1.5) return 'var(--bad)'; if(a>1.3) return 'var(--gold)'; if(a<0.8) return 'var(--warn)'; return 'var(--good)'; }
 function rdAcwrLabel(a){ if(a==null) return 'building baseline'; if(a>1.5) return 'spike · injury-risk zone'; if(a>1.3) return 'approaching ceiling'; if(a<0.8) return 'detraining / taper'; return 'in the safe band'; }
+// Days spanned by the stored runs (sorted ascending).
+function rdSpanDays(){ return rdState.runs.length ? Math.round((rdState.runs[rdState.runs.length-1].ts - rdState.runs[0].ts)/RD_DAY)+1 : 0; }
+// Calendar-anchored x-axis ticks: the 1st of Jan/Mar/Jun/Sep in range (always with year);
+// falls back to 1st-of-every-month when that's too sparse (short ranges).
+function rdAxisTicks(t0,t1){
+  const build=months=>{ const out=[], y0=new Date(t0).getFullYear(), y1=new Date(t1).getFullYear();
+    for(let y=y0;y<=y1;y++) months.forEach(m=>{ const t=new Date(y,m,1).getTime(); if(t>=t0&&t<=t1) out.push(t); }); return out; };
+  let ticks=build([0,2,5,8]);
+  if(ticks.length<3) ticks=build([0,1,2,3,4,5,6,7,8,9,10,11]);
+  if(ticks.length<2) ticks=[t0,t1];
+  return ticks;
+}
+function rdAxisLabel(ts){ const d=new Date(ts); return MONTHS[d.getMonth()]+" '"+String(d.getFullYear()).slice(2); }
+// Light centered moving average (display smoothing).
+function rdSmoothArr(vals,w){ const half=Math.floor(w/2); return vals.map((_,i)=>{ let s=0,c=0; for(let j=Math.max(0,i-half);j<=Math.min(vals.length-1,i+half);j++){ s+=vals[j]; c++; } return s/c; }); }
+// Polyline colored per-point, grouping consecutive same-color runs into segments.
+function rdColoredPath(xs,ys,cs,width){ let out='',cur=[],cc=null;
+  for(let i=0;i<xs.length;i++){ const p=xs[i].toFixed(1)+','+ys[i].toFixed(1);
+    if(cc===null){cc=cs[i];cur=[p];}
+    else if(cs[i]===cc){cur.push(p);}
+    else { cur.push(p); out+='<polyline points="'+cur.join(' ')+'" fill="none" stroke="'+cc+'" stroke-width="'+width+'" stroke-linejoin="round" stroke-linecap="round"/>'; cur=[p]; cc=cs[i]; } }
+  if(cur.length>1) out+='<polyline points="'+cur.join(' ')+'" fill="none" stroke="'+cc+'" stroke-width="'+width+'" stroke-linejoin="round" stroke-linecap="round"/>';
+  return out;
+}
+function rdAcuteSegColor(acwr){ if(acwr==null) return '#00e5c8'; if(acwr>1.5) return '#f55050'; if(acwr>1.3||acwr<0.8) return '#f5a623'; return '#00e5c8'; }
 function rdRenderLoad(){
   const cardsEl=document.getElementById('rd-load-cards'), chartEl=document.getElementById('rd-load-chart');
   if(!cardsEl||!chartEl) return;
@@ -3877,44 +3903,48 @@ function rdRenderLoad(){
   const last=tl[tl.length-1];
   const acwr=last.acwr, col=rdAcwrColor(acwr);
   let cardsHtml=
-    '<div class="rd-card"><div class="rd-win">Acute load · 7d</div><div class="rd-row">eq miles/day <b>'+last.acute.toFixed(1)+'</b></div><div class="rd-row">recent fatigue <b>&nbsp;</b></div></div>'+
-    '<div class="rd-card"><div class="rd-win">Chronic load · 28d</div><div class="rd-row">eq miles/day <b>'+last.chronic.toFixed(1)+'</b></div><div class="rd-row">established fitness <b>&nbsp;</b></div></div>'+
+    '<div class="rd-card"><div class="rd-win">Acute load · 7d</div><div class="rd-row">eq mi / day <b>'+last.acute.toFixed(1)+'</b></div><div class="rd-row">recent fatigue <b>&nbsp;</b></div></div>'+
+    '<div class="rd-card"><div class="rd-win">Chronic load · 28d</div><div class="rd-row">eq mi / day <b>'+last.chronic.toFixed(1)+'</b></div><div class="rd-row">established fitness <b>&nbsp;</b></div></div>'+
     '<div class="rd-card"><div class="rd-win" style="color:'+col+'">Acute : Chronic</div><div class="rd-row">ratio <b style="color:'+col+'">'+(acwr!=null?acwr.toFixed(2):'–')+'</b></div><div class="rd-row" style="color:'+col+'">'+rdAcwrLabel(acwr)+'</div></div>'+
-    '<div class="rd-card"><div class="rd-win">Tolerance ceiling</div><div class="rd-row">eq miles/day <b>'+(last.chronic*1.3).toFixed(1)+'</b></div><div class="rd-row">acute stays below this <b>&nbsp;</b></div></div>';
+    '<div class="rd-card"><div class="rd-win">Tolerance ceiling</div><div class="rd-row">eq mi / day <b>'+(last.chronic*1.3).toFixed(1)+'</b></div><div class="rd-row">acute stays below this <b>&nbsp;</b></div></div>';
 
-  // Asymmetry early-warning (needs GCT-balance capability + data). asym% = |L−R| = 2·|L−50|.
+  // L/R balance (needs GCT-balance capability + data). gctBalL is the % of contact time on the left;
+  // report the deviation from 50 and which side it leans.
   if(RunDevices.status('gctBalance', rdDeviceId(), rdHasAccessory())==='native'){
     const end=last.ts, DAY=RD_DAY;
-    const asymOf=(s,e)=>{ const vals=rdState.runs.filter(r=>rdState.activeTypes.has(r.type)&&r.gctBalL!=null&&r.ts>s&&r.ts<=e).map(r=>Math.abs(r.gctBalL-50)*2); return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null; };
-    const recent=asymOf(end-30*DAY,end), prior=asymOf(end-60*DAY,end-30*DAY);
-    if(recent!=null){
-      const aCol = recent>4 ? 'var(--bad)' : recent>2 ? 'var(--gold)' : 'var(--good)';
-      const rising = (prior!=null && recent>prior+0.5);
-      const lbl = recent>4 ? 'notable imbalance' : recent>2 ? 'mild imbalance' : 'symmetric';
-      cardsHtml+='<div class="rd-card"><div class="rd-win" style="color:'+aCol+'">L/R asymmetry · 30d</div><div class="rd-row">avg <b style="color:'+aCol+'">'+recent.toFixed(1)+'%</b></div><div class="rd-row" style="color:'+aCol+'">'+lbl+(rising?' · rising':'')+'</div></div>';
+    const meanLOf=(s,e)=>{ const v=rdState.runs.filter(r=>rdState.activeTypes.has(r.type)&&r.gctBalL!=null&&r.ts>s&&r.ts<=e).map(r=>r.gctBalL); return v.length?v.reduce((a,b)=>a+b,0)/v.length:null; };
+    const recentL=meanLOf(end-30*DAY,end), priorL=meanLOf(end-60*DAY,end-30*DAY);
+    if(recentL!=null){
+      const dev=recentL-50, mag=Math.abs(dev), side=dev>=0?'left':'right';
+      const aCol = mag>3 ? 'var(--bad)' : mag>1.5 ? 'var(--gold)' : 'var(--good)';
+      const lbl = mag<1.5 ? 'balanced' : (mag>3?'notable':'mild')+' lean '+side;
+      const rising = (priorL!=null && Math.abs(priorL-50) < mag-0.3);
+      cardsHtml+='<div class="rd-card"><div class="rd-win" style="color:'+aCol+'">L/R balance · 30d</div><div class="rd-row">lean <b style="color:'+aCol+'">'+mag.toFixed(1)+'% '+side+'</b></div><div class="rd-row" style="color:'+aCol+'">'+lbl+(rising?' · rising':'')+'</div></div>';
     }
   }
   cardsEl.innerHTML=cardsHtml;
 
-  // Chart: shaded tolerance band (chronic×0.8 … chronic×1.3) with acute & chronic lines.
+  // Chart: shaded tolerance band (chronic×0.8 … chronic×1.3); chronic line; acute line colored by ACWR.
   const W=720,H=210,padL=40,padR=12,padT=12,padB=24,innerW=W-padL-padR,innerH=H-padT-padB;
   const t0=tl[0].ts, t1=last.ts, span=Math.max(1,t1-t0);
   const ymax=Math.max.apply(null,tl.map(d=>Math.max(d.acute,d.chronic*1.3)))*1.05||1;
   const xOf=ts=>padL+((ts-t0)/span)*innerW;
   const yOf=v=>padT+innerH-(v/ymax)*innerH;
-  const bandTop=tl.map(d=>xOf(d.ts).toFixed(1)+','+yOf(d.chronic*1.3).toFixed(1));
-  const bandBot=tl.map(d=>xOf(d.ts).toFixed(1)+','+yOf(d.chronic*0.8).toFixed(1)).reverse();
-  const band='<polygon points="'+bandTop.concat(bandBot).join(' ')+'" fill="rgba(34,199,138,0.12)"/>';
-  const chronicLn='<polyline points="'+tl.map(d=>xOf(d.ts).toFixed(1)+','+yOf(d.chronic).toFixed(1)).join(' ')+'" fill="none" stroke="#6e7a9a" stroke-width="1.6"/>';
-  const acuteLn='<polyline points="'+tl.map(d=>xOf(d.ts).toFixed(1)+','+yOf(d.acute).toFixed(1)).join(' ')+'" fill="none" stroke="#00e5c8" stroke-width="2.2"/>';
+  // light display smoothing of the two series
+  const acuteS=rdSmoothArr(tl.map(d=>d.acute),5), chronicS=rdSmoothArr(tl.map(d=>d.chronic),5);
+  const xs=tl.map(d=>xOf(d.ts));
+  const bandTop=tl.map((d,i)=>xs[i].toFixed(1)+','+yOf(chronicS[i]*1.3).toFixed(1));
+  const bandBot=tl.map((d,i)=>xs[i].toFixed(1)+','+yOf(chronicS[i]*0.8).toFixed(1)).reverse();
+  const band='<polygon points="'+bandTop.concat(bandBot).join(' ')+'" fill="rgba(34,199,138,0.16)" stroke="rgba(34,199,138,0.3)" stroke-width="0.5"/>';
+  const chronicLn='<polyline points="'+tl.map((d,i)=>xs[i].toFixed(1)+','+yOf(chronicS[i]).toFixed(1)).join(' ')+'" fill="none" stroke="#8b7cf8" stroke-width="2.2" stroke-linejoin="round"/>';
+  const acuteLn=rdColoredPath(xs, acuteS.map(yOf), tl.map(d=>rdAcuteSegColor(d.acwr)), 2.6);
   let grid='';
   for(let g=0;g<=3;g++){ const f=g/3, yy=(padT+innerH-f*innerH).toFixed(1);
     grid+='<line x1="'+padL+'" y1="'+yy+'" x2="'+(W-padR)+'" y2="'+yy+'" stroke="rgba(255,255,255,0.06)"/>';
     grid+='<text x="'+(padL-6)+'" y="'+(parseFloat(yy)+3).toFixed(1)+'" text-anchor="end" font-size="9" font-family="ui-monospace,monospace" fill="#6e7a9a">'+(ymax*f).toFixed(0)+'</text>'; }
   let xlab='';
-  const loadMultiYr=span>400*RD_DAY;
-  for(let k=0;k<=4;k++){ const ts=t0+span*k/4, d=new Date(ts); xlab+='<text x="'+xOf(ts).toFixed(1)+'" y="'+(H-7)+'" text-anchor="middle" font-size="8.5" font-family="ui-monospace,monospace" fill="#6e7a9a">'+MONTHS[d.getMonth()]+(loadMultiYr?" '"+String(d.getFullYear()).slice(2):' '+d.getDate())+'</text>'; }
-  chartEl.innerHTML='<div class="rd-legend"><span class="rd-legend-item"><span class="rd-legend-sw" style="background:#00e5c8"></span>Acute (7d)</span><span class="rd-legend-item"><span class="rd-legend-sw" style="background:#6e7a9a"></span>Chronic (28d)</span><span class="rd-legend-item"><span class="rd-legend-sw" style="background:rgba(34,199,138,0.45)"></span>Safe band (0.8–1.3×)</span></div>'+
+  rdAxisTicks(t0,t1).forEach(ts=>{ xlab+='<text x="'+xOf(ts).toFixed(1)+'" y="'+(H-7)+'" text-anchor="middle" font-size="8.5" font-family="ui-monospace,monospace" fill="#6e7a9a">'+rdAxisLabel(ts)+'</text>'; });
+  chartEl.innerHTML='<div class="rd-legend"><span class="rd-legend-item"><span class="rd-legend-sw" style="background:#00e5c8"></span>Acute (7d)</span><span class="rd-legend-item"><span class="rd-legend-sw" style="background:#8b7cf8"></span>Chronic (28d)</span><span class="rd-legend-item"><span class="rd-legend-sw" style="background:rgba(34,199,138,0.5)"></span>Safe band</span><span class="rd-legend-item" style="color:var(--muted)">acute turns amber/red when outside the band</span></div>'+
     '<svg class="rd-chart-svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Mechanical load timeline">'+grid+band+chronicLn+acuteLn+xlab+'</svg>';
 }
 
@@ -3931,7 +3961,7 @@ function rdRenderForm(){
     const B=(bf&&bt)?rdFilterIntensity(rdRunsIn(new Date(bf.getTime()-RD_DAY),bt),it.mode,it.cutoff):[];
     cols=[{label:'Range A',runs:A},{label:'Range B',runs:B}];
   } else {
-    cols=[{label:'All time', runs:rdFilterIntensity(rdRunsIn(new Date(0), new Date(8.64e15)),it.mode,it.cutoff)}];
+    cols=[{label:'Stored ('+rdSpanDays()+' d)', runs:rdFilterIntensity(rdRunsIn(new Date(0), new Date(8.64e15)),it.mode,it.cutoff)}];
   }
   const visible=RD_METRICS.filter(rdMetricVisible);
   let head='<thead><tr><th>Metric</th>'+cols.map(c=>'<th>'+c.label+' <span class="rd-munit">n='+c.runs.length+'</span></th>').join('')+(compare?'<th>Δ</th>':'')+'</tr></thead>';
@@ -3949,7 +3979,7 @@ function rdRenderForm(){
   const hidden=RD_METRICS.filter(m=>!rdMetricVisible(m));
   let note = compare
     ? 'Comparing two date ranges (Δ = Range A − Range B). n = runs in each range after filters.'
-    : 'Showing all-time averages. Toggle “compare two ranges” to compare periods (Δ = Range A − Range B).';
+    : 'Showing stored-history averages. Toggle “compare two ranges” to compare periods (Δ = Range A − Range B).';
   if(hidden.length){
     const dev=RunDevices.byId(rdDeviceId());
     note += ' · Hidden for '+(dev?dev.label:'this device')+': '+hidden.map(m=>m.label).join(', ')+' (needs a chest strap/pod or not captured).';
@@ -3999,8 +4029,7 @@ function rdRenderTrend(){
     if(series.length>1&&series[1].pts.length) grid+='<text x="'+(W-padR+6)+'" y="'+(parseFloat(yy)+3).toFixed(1)+'" text-anchor="start" font-size="9" font-family="ui-monospace,monospace" fill="#f5c842">'+rdTickFmt(series[1].m,series[1].lo+(series[1].hi-series[1].lo)*f)+'</text>';
   }
   let xlab='';
-  const trendMultiYr=(t1-t0)>400*RD_DAY;
-  for(let k=0;k<=4;k++){ const ts=t0+(t1-t0)*k/4, d=new Date(ts); xlab+='<text x="'+xOf(ts).toFixed(1)+'" y="'+(H-7)+'" text-anchor="middle" font-size="8.5" font-family="ui-monospace,monospace" fill="#6e7a9a">'+MONTHS[d.getMonth()]+(trendMultiYr?" '"+String(d.getFullYear()).slice(2):' '+d.getDate())+'</text>'; }
+  rdAxisTicks(t0,t1).forEach(ts=>{ if(ts<t0||ts>t1) return; xlab+='<text x="'+xOf(ts).toFixed(1)+'" y="'+(H-7)+'" text-anchor="middle" font-size="8.5" font-family="ui-monospace,monospace" fill="#6e7a9a">'+rdAxisLabel(ts)+'</text>'; });
   let lines='';
   have.forEach(s=>{
     const lineSrc=smooth?rdSmooth(s.pts):s.pts;
@@ -4045,10 +4074,19 @@ function rdRenderData(){
       '<span class="rd-filenote">'+rdState.runs.length+' runs stored · '+rdYmd(min)+' → '+rdYmd(max)+'</span>'+
     '</div>'+
     '<div class="rd-section"><h3>Volume by window</h3><div class="rd-cards" id="rd-summary-cards"></div></div>'+
-    '<div class="rd-section"><h3>Load management <span class="rd-note">· mechanical impact load (equivalent easy miles)</span></h3>'+
+    '<div class="rd-section"><h3>Load management <span class="rd-note">· mechanical impact load</span></h3>'+
       '<div class="rd-cards" id="rd-load-cards" style="margin-bottom:14px"></div>'+
       '<div class="rd-chartwrap"><div id="rd-load-chart"></div></div>'+
-      '<p class="rd-hint">Modeled estimate, individual-relative — not a measured force. Baseline auto-calibrated from this athlete\'s easy runs. Acute:chronic ratio above ~1.5 flags a load spike; 0.8–1.3 is the commonly cited safe band.</p></div>'+
+      '<p class="rd-hint">Load is in <b>equivalent easy miles</b> — the modeled mechanical cost of a run vs one easy flat mile (a hard or hilly run is worth more than its distance). <b>Acute (7-day)</b> and <b>chronic (28-day)</b> are the rolling daily averages of that load, in eq mi/day. Individual-relative estimate, not a measured force; baseline auto-calibrated from this athlete\'s easy runs. Acute:chronic ratio above ~1.5 flags a load spike; 0.8–1.3 is the commonly cited safe band.</p></div>'+
+    '<div class="rd-section"><h3>Trend</h3>'+
+      '<div class="rd-rangebar">'+
+        '<div class="rd-ctl"><label>Metric 1</label><select id="rd-m1"></select></div>'+
+        '<div class="rd-ctl"><label>Metric 2</label><select id="rd-m2"></select></div>'+
+        '<div class="rd-ctl"><label>From</label><input type="date" id="rd-t-from" value="'+rdYmd(new Date(max.getTime()-91*RD_DAY))+'"></div>'+
+        '<div class="rd-ctl"><label>To</label><input type="date" id="rd-t-to" value="'+rdYmd(max)+'"></div>'+
+        '<div class="rd-ctl"><label>Display</label><div class="rd-types"><span class="rd-chip on" id="rd-hide-outliers">Hide outliers</span><span class="rd-chip on" id="rd-smooth">Smooth</span></div></div>'+
+      '</div>'+
+      '<div class="rd-chartwrap"><div class="rd-legend" id="rd-trend-legend"></div><div id="rd-trend-chart"></div></div></div>'+
     '<div class="rd-section"><h3>Form metrics <span class="rd-note">· mean per run</span></h3>'+
       '<div class="rd-rangebar">'+
         '<span class="rd-chip" id="rd-form-compare">⇄ compare two ranges</span>'+
@@ -4058,16 +4096,7 @@ function rdRenderData(){
         '<div class="rd-ctl rd-form-range" id="rd-fb-to-wrap" style="display:none"><label>to</label><input type="date" id="rd-fb-to" value="'+rdYmd(new Date(max.getTime()-90*RD_DAY))+'"></div>'+
       '</div>'+
       '<div class="rd-tablewrap"><table class="rd-table" id="rd-form-table"></table></div>'+
-      '<p class="rd-hint" id="rd-form-hint">Showing all-time averages. Toggle “compare two ranges” to compare periods (Δ = Range A − Range B).</p></div>'+
-    '<div class="rd-section"><h3>Trend</h3>'+
-      '<div class="rd-rangebar">'+
-        '<div class="rd-ctl"><label>Metric 1</label><select id="rd-m1"></select></div>'+
-        '<div class="rd-ctl"><label>Metric 2</label><select id="rd-m2"></select></div>'+
-        '<div class="rd-ctl"><label>From</label><input type="date" id="rd-t-from" value="'+rdYmd(new Date(max.getTime()-91*RD_DAY))+'"></div>'+
-        '<div class="rd-ctl"><label>To</label><input type="date" id="rd-t-to" value="'+rdYmd(max)+'"></div>'+
-        '<div class="rd-ctl"><label>Display</label><div class="rd-types"><span class="rd-chip on" id="rd-hide-outliers">Hide outliers</span><span class="rd-chip on" id="rd-smooth">Smooth</span></div></div>'+
-      '</div>'+
-      '<div class="rd-chartwrap"><div class="rd-legend" id="rd-trend-legend"></div><div id="rd-trend-chart"></div></div></div>';
+      '<p class="rd-hint" id="rd-form-hint">Showing stored-history averages. Toggle “compare two ranges” to compare periods (Δ = Range A − Range B).</p></div>';
 
   // type chips
   const tw=document.getElementById('rd-types');
