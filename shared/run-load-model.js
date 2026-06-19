@@ -151,6 +151,54 @@ function loadTimeline(runs, params) {
   });
 }
 
+// Inner HTML for the "How Impact Load is calculated" methodology panel (equation, plain-language
+// equation, per-variable explanation + caveats, and cited literature). Inline-styled with the
+// pages' CSS vars so it renders on both the dashboard tab and the standalone page. Drop inside a
+// <details> on each page.
+function methodologyHTML() {
+  var H='display:block;margin:14px 0 5px;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--muted2)';
+  var EQ='font-family:ui-monospace,monospace;font-size:11.5px;line-height:1.7;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px 12px;white-space:pre-wrap;overflow-x:auto;color:var(--text);margin:0 0 4px';
+  var V='margin:7px 0;line-height:1.55';
+  var K='color:var(--text);font-weight:700;font-family:ui-monospace,monospace';
+  return `<span style="${H}">a · the equation</span>`
++ `<pre style="${EQ}">Impact Load (per run, “equivalent easy miles”):
+
+  IL = D · (P₀ ⁄ P)^1.5 · (DF₀ ⁄ DF)^1.0 · (W ⁄ W₀) · G
+
+       DF = cadence × GCT
+       G  = min( 1 + 330·(desc ⁄ L)² + 110·(asc ⁄ L)² , 2.5 )
+
+Load over time:
+
+  EWMAₜ = Lₜ·λ + EWMAₜ₋₁·(1−λ),   λ = 2 ⁄ (N+1)
+  Acute = EWMA(N = 7 d)    Chronic = EWMA(N = 28 d)
+  ACWR  = Acute ⁄ Chronic</pre>`
++ `<span style="${H}">b · in plain language</span>`
++ `<pre style="${EQ}">Impact Load = distance
+   × (how much faster than your easy pace)^1.5
+   × (how much springier than your easy form)
+   × (body-weight scale)
+   × (hill surcharge)
+
+Acute   = 7-day rolling average of daily load
+Chronic = 28-day rolling average
+Acute : Chronic = recent load vs the base you have built</pre>`
++ `<span style="${H}">c · each variable — meaning, measurement, caveats</span>`
++ `<div style="${V}"><span style="${K}">D</span> — run distance (mi), from GPS or foot-pod / treadmill. Track distances arrive in metres and are converted.</div>`
++ `<div style="${V}"><span style="${K}">P, P₀</span> — average pace and your easy-run baseline pace (s/mi), from GPS. Baseline = median of your easy runs (at or slower than the workout-pace cutoff). The 1.5 power reflects force &amp; metabolic cost rising faster than speed. Caveat: pace under-rates uphill effort (hard but slow) — the hill term offsets this.</div>`
++ `<div style="${V}"><span style="${K}">DF, DF₀</span> — duty factor = cadence × ground-contact time, vs your easy baseline. Cadence from the wrist; GCT from a chest strap, foot/waist pod, or wrist running-dynamics. Lower duty factor (shorter contact, more flight) loads each step harder. Caveats: needs a running-dynamics-capable device; GCT is an estimate; duty factor changes with speed, so we only ever compare you to <i>your own</i> baseline.</div>`
++ `<div style="${V}"><span style="${K}">W, W₀</span> — body weight ÷ a reference weight, from the profile. Equals 1 for a single athlete (drops out); only matters when comparing across athletes.</div>`
++ `<div style="${V}"><span style="${K}">G</span> — hill surcharge from total ascent &amp; descent ÷ distance (mean grade), descent weighted ~3× ascent, capped at 2.5. Caveat: only the totals are recorded, so this is <i>mean</i> grade — it can’t tell one steep descent from rolling terrain with the same total, and under-counts concentrated descents. Per-segment grade (from FIT files) would fix this.</div>`
++ `<div style="${V}"><span style="${K}">Acute / Chronic / ACWR</span> — exponentially-weighted 7- and 28-day averages of daily load; the ratio sits in a 0.8–1.3 “safe band,” and &gt;1.5 flags a spike.</div>`
++ `<span style="${H}">d · why each piece is defensible (sources)</span>`
++ `<div style="${V}"><span style="${K}">Duty factor (impact term)</span> — the strongest spatiotemporal predictor of peak vertical force between runners (R²≈0.59; van Oeveren et al. 2021, <i>Scand J Med Sci Sports</i>; “Duty Factor Dominates Stride Frequency,” <i>MSSE</i> 2025), and peak vGRF ∝ 1/duty factor in the spring-mass model (Morin et al. 2005). Cadence <i>alone</i> does not predict peak force — so the model uses the cadence × GCT product, not cadence.</div>`
++ `<div style="${V}"><span style="${K}">Why VO is excluded</span> — vertical oscillation is only a weak running-economy correlate (r≈0.35; Van Hooren et al. 2024 meta-analysis, <i>Sports Medicine</i>) and its claimed link to lower impact was not supported, so it stays an efficiency descriptor, not a load term.</div>`
++ `<div style="${V}"><span style="${K}">Grade surcharge</span> — downhill running raises impact ~+54% and braking/eccentric force ~+73% at −9° and drives eccentric muscle damage (Gottschall &amp; Kram 2005, <i>J Biomechanics</i>); load rises super-linearly with steepness, hence a convex, descent-weighted term.</div>`
++ `<div style="${V}"><span style="${K}">Acute/chronic &amp; ACWR</span> — exponentially-weighted moving averages of training load (Williams et al. 2017, <i>Br J Sports Med</i>) and the acute:chronic workload ratio with its 0.8–1.3 band (Gabbett 2016, <i>Br J Sports Med</i>) — used as a decision-support flag, not a verdict (ACWR has documented critiques).</div>`
++ `<div style="${V}"><span style="${K}">Modeling choices</span> — the pace exponent (1.5) and grade coefficients (330/110, cap 2.5) are transparent, tunable defaults reflecting super-linear scaling with speed &amp; grade, not values lifted from a single study.</div>`
++ `<div style="${V};color:var(--muted2)"><span style="${K}">Honest limits</span> — a transparent estimate of relative mechanical <b>load</b>, not a measured force and not an injury prediction. Duty factor predicts peak force but <i>not</i> loading rate (van Oeveren 2021), and loading rate is the metric most tied to bone-stress injury — so load increases are only <i>correlated</i> with injury risk.</div>`;
+}
+
 window.RunLoad = {
   DEFAULTS: DEFAULTS,
   GRAVITY: GRAVITY,
@@ -161,7 +209,8 @@ window.RunLoad = {
   vgrfN: vgrfN,
   dailyLoads: dailyLoads,
   ewma: ewma,
-  loadTimeline: loadTimeline
+  loadTimeline: loadTimeline,
+  methodologyHTML: methodologyHTML
 };
 
 })();
