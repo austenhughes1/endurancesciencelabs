@@ -1006,7 +1006,7 @@ header{display:none}
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <script src="/shared/site.js"></script>
-<script src="/shared/run-load-model.js?v=3"></script>
+<script src="/shared/run-load-model.js?v=4"></script>
 <script src="/shared/device-matrix.js"></script>
 
 <script>
@@ -3702,8 +3702,8 @@ const RD_METRICS = [
     desc:'average pace', calc:r => r.paceSec },
   { label:'Avg HR', unit:'bpm', dec:0, better:'lower', needs:null,
     desc:'average heart rate', calc:r => r.avgHr },
-  { label:'Impact Load', unit:'mi', dec:1, better:null, needs:null,
-    desc:'modeled mechanical load in equivalent easy miles (distance × pace × duty-factor impact + grade)',
+  { label:'Impact Load', unit:'impact mi', dec:1, better:null, needs:null,
+    desc:'modeled mechanical load in Impact Miles (distance × pace × duty-factor impact + grade)',
     calc:r => RunLoad.impactLoad(r, rdState.loadParams) },
 ];
 const RD_WINDOWS = [
@@ -3951,13 +3951,13 @@ function rdRenderLoad(){
   if(tl.length<2){ cardsEl.innerHTML=''; chartEl.innerHTML='<div class="rd-chart-empty">Not enough history to model load yet.</div>'; return; }
   const last=tl[tl.length-1];
   const acwr=last.acwr, col=rdAcwrColor(acwr);
-  const TIP='Equivalent easy miles — the modeled mechanical cost of a run vs one easy flat mile (a hard or hilly run scores more than its distance). Acute &amp; chronic are the 7- and 28-day rolling daily averages of that load.';
+  const TIP='Impact Miles — the modeled mechanical cost of a run in units of easy flat miles: one easy flat mile = 1 Impact Mile, and a hard or hilly mile counts as more. Acute &amp; chronic are the 7- and 28-day rolling daily averages, in impact miles per day.';
   const info='<span class="rd-info" data-tip="'+TIP+'">i</span>';
   let cardsHtml=
-    '<div class="rd-card"><div class="rd-win">Acute load · 7d</div><div class="rd-row"><span>load mi / day '+info+'</span><b>'+last.acute.toFixed(1)+'</b></div><div class="rd-row">recent fatigue <b>&nbsp;</b></div></div>'+
-    '<div class="rd-card"><div class="rd-win">Chronic load · 28d</div><div class="rd-row"><span>load mi / day '+info+'</span><b>'+last.chronic.toFixed(1)+'</b></div><div class="rd-row">established fitness <b>&nbsp;</b></div></div>'+
+    '<div class="rd-card"><div class="rd-win">Acute load · 7d</div><div class="rd-row"><span>impact mi / day'+info+'</span><b>'+last.acute.toFixed(1)+'</b></div><div class="rd-row">recent fatigue <b>&nbsp;</b></div></div>'+
+    '<div class="rd-card"><div class="rd-win">Chronic load · 28d</div><div class="rd-row"><span>impact mi / day'+info+'</span><b>'+last.chronic.toFixed(1)+'</b></div><div class="rd-row">established fitness <b>&nbsp;</b></div></div>'+
     '<div class="rd-card"><div class="rd-win" style="color:'+col+'">Acute : Chronic</div><div class="rd-row">ratio <b style="color:'+col+'">'+(acwr!=null?acwr.toFixed(2):'–')+'</b></div><div class="rd-row" style="color:'+col+'">'+rdAcwrLabel(acwr)+'</div></div>'+
-    '<div class="rd-card"><div class="rd-win">Tolerance ceiling</div><div class="rd-row"><span>load mi / day '+info+'</span><b>'+(last.chronic*1.3).toFixed(1)+'</b></div><div class="rd-row">acute stays below this <b>&nbsp;</b></div></div>';
+    '<div class="rd-card"><div class="rd-win">Tolerance ceiling</div><div class="rd-row"><span>impact mi / day'+info+'</span><b>'+(last.chronic*1.3).toFixed(1)+'</b></div><div class="rd-row">acute stays below this <b>&nbsp;</b></div></div>';
 
   // L/R balance (needs GCT-balance capability + data). gctBalL is the % of contact time on the left;
   // report the deviation from 50 and which side it leans.
@@ -4150,7 +4150,7 @@ function rdRenderData(){
     '<div class="rd-section"><h3>Load management <span class="rd-note">· mechanical impact load</span></h3>'+
       '<div class="rd-cards" id="rd-load-cards" style="margin-bottom:14px"></div>'+
       '<div class="rd-chartwrap"><div id="rd-load-chart"></div></div>'+
-      '<p class="rd-hint">Load is in <b>equivalent easy miles</b> — distance weighted by pace and by <b>per-step impact</b> (duty factor = cadence × ground-contact time vs this athlete\'s baseline; shorter contact / more flight loads each step harder). <b>Acute (7-day)</b> and <b>chronic (28-day)</b> are the rolling daily averages, in eq mi/day. This is a <b>load measure, not an injury prediction</b> — mechanics that raise load are only <i>correlated</i> with higher injury risk in the literature. Individual-relative estimate, not a measured force; baseline auto-calibrated from easy runs. Acute:chronic above ~1.5 flags a load spike; 0.8–1.3 is the commonly cited safe band.</p>'+
+      '<p class="rd-hint">Load is measured in <b>Impact Miles</b> — distance weighted by pace and by <b>per-step impact</b> (duty factor = cadence × ground-contact time vs this athlete\'s baseline; shorter contact / more flight loads each step harder). One easy flat mile = 1 Impact Mile; a hard or hilly mile counts as more. <b>Acute (7-day)</b> and <b>chronic (28-day)</b> are the rolling daily averages, in impact mi/day. This is a <b>load measure, not an injury prediction</b> — mechanics that raise load are only <i>correlated</i> with higher injury risk in the literature. Individual-relative estimate, not a measured force; baseline auto-calibrated from easy runs. Acute:chronic above ~1.5 flags a load spike; 0.8–1.3 is the commonly cited safe band.</p>'+
       '<details class="rd-help" style="margin-top:12px"><summary>How Impact Load is calculated — equation, variables &amp; sources</summary><div class="rd-help-body">'+RunLoad.methodologyHTML()+'</div></details></div>'+
     '<div class="rd-section"><h3>Trend</h3>'+
       '<div class="rd-rangebar">'+
