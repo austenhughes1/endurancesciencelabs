@@ -52,7 +52,18 @@ h1{font-size:26px;font-weight:800;letter-spacing:-.4px;margin-bottom:6px}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* Controls */
-.controls{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;margin:22px 0 8px;padding:16px 18px;background:var(--panel);border:1px solid var(--border);border-radius:13px}
+.controls{display:flex;flex-wrap:wrap;gap:12px;align-items:stretch;margin:22px 0 8px}
+.group{display:flex;flex-direction:column;gap:11px;padding:13px 16px;background:var(--panel);border:1px solid var(--border);border-radius:13px}
+.group-grow{flex:1;min-width:300px}
+.group-hd{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);font-family:var(--mono);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.group-sub{font-weight:400;letter-spacing:0;text-transform:none;color:var(--muted2);font-family:inherit;font-size:11.5px}
+.group-body{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+.ctl-grow{flex:1;min-width:120px}
+.controls-meta{display:flex;justify-content:flex-end;align-items:center;gap:14px;margin:0 0 8px;min-height:14px}
+.controls-meta .filenote{margin-left:0}
+.inunit{display:flex;align-items:center;gap:6px}
+.inunit span{font-size:12px;color:var(--muted2);font-family:var(--mono)}
+.btn-sm{padding:8px 14px;align-self:flex-end;line-height:1.2}
 .ctl{display:flex;flex-direction:column;gap:6px}
 .ctl label{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono)}
 .types{display:flex;flex-wrap:wrap;gap:7px}
@@ -60,7 +71,7 @@ h1{font-size:26px;font-weight:800;letter-spacing:-.4px;margin-bottom:6px}
 .chip.on{background:rgba(0,229,200,.1);border-color:rgba(0,229,200,.35);color:var(--cyan)}
 .ev-addbtn{background:rgba(0,229,200,.12);border-color:rgba(0,229,200,.4);color:var(--cyan)}
 .ev-addbtn:hover{background:rgba(0,229,200,.2)}
-.events{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 8px}
+.events{display:flex;flex-wrap:wrap;gap:8px;margin:0}
 .ev-empty{font-size:11px;color:var(--muted2);font-family:var(--mono)}
 .ev-chip{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;padding:5px 9px;border-radius:20px;border:1px solid var(--border2);background:var(--panel2)}
 .ev-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
@@ -164,27 +175,38 @@ tbody tr:hover td:first-child{background:#10131f}
   </div>
 
   <div class="controls" id="controls" style="display:none">
-    <div class="ctl">
-      <label>Activity types</label>
-      <div class="types" id="types"></div>
+    <div class="group">
+      <div class="group-hd">Filters</div>
+      <div class="group-body">
+        <div class="ctl ctl-grow"><label>Activity types</label><div class="types" id="types"></div></div>
+        <div class="ctl"><label>Runs</label><select id="intensity"><option value="all">All runs</option><option value="workout">Workouts only</option><option value="easy">Easy only</option></select></div>
+        <div class="ctl"><label>Workout cutoff /mi</label><input type="text" id="cutoff" value="6:40" style="width:66px"></div>
+        <div class="ctl"><label>Window end</label><input type="date" id="anchor"></div>
+      </div>
     </div>
-    <div class="ctl"><label>Runs</label><select id="intensity"><option value="all">All runs</option><option value="workout">Workouts only</option><option value="easy">Easy only</option></select></div>
-    <div class="ctl"><label>Workout cutoff /mi</label><input type="text" id="cutoff" value="6:40" style="width:66px"></div>
-    <div class="ctl">
-      <label>Anchor (window end)</label>
-      <input type="date" id="anchor">
+    <div class="group">
+      <div class="group-hd">Athlete</div>
+      <div class="group-body">
+        <div class="ctl"><label>Device</label><select id="device"></select></div>
+        <div class="ctl"><label>Strap / pod</label><div class="types"><span class="chip" id="accessory">chest strap / pod</span></div></div>
+        <div class="ctl"><label>Body weight</label><div class="inunit"><input type="text" id="weight" placeholder="—" style="width:54px"><span>lb</span></div></div>
+      </div>
     </div>
-    <div class="ctl"><label>Device</label><select id="device"></select></div>
-    <div class="ctl"><label>Strap / pod</label><div class="types"><span class="chip" id="accessory">chest strap / pod</span></div></div>
-    <div class="ctl"><label>Body weight (lb)</label><input type="text" id="weight" placeholder="lb" style="width:62px"></div>
-    <div class="ctl"><label>History event</label><select id="evType"><option value="race">Race</option><option value="injury">Injury</option></select></div>
-    <div class="ctl"><label>Date</label><input type="date" id="evDate"></div>
-    <div class="ctl"><label>Note</label><input type="text" id="evNote" placeholder="e.g. Boston Marathon / left Achilles" style="width:170px"></div>
-    <div class="ctl"><label>&nbsp;</label><span class="chip ev-addbtn" id="evAdd">+ history</span></div>
+    <div class="group group-grow">
+      <div class="group-hd">Performance &amp; injury history <span class="group-sub">marks races &amp; injuries on the charts</span></div>
+      <div class="group-body">
+        <div class="ctl"><label>Type</label><select id="evType"><option value="race">Race</option><option value="injury">Injury</option></select></div>
+        <div class="ctl"><label>Date</label><input type="date" id="evDate"></div>
+        <div class="ctl ctl-grow"><label>Note</label><input type="text" id="evNote" placeholder="e.g. Boston Marathon / left Achilles" style="width:100%"></div>
+        <button class="btn btn-sm" id="evAdd">+ add</button>
+      </div>
+      <div class="events" id="eventsList" style="display:none"></div>
+    </div>
+  </div>
+  <div class="controls-meta" style="display:none">
     <span class="filenote" id="savedNote" style="color:var(--good);opacity:0;transition:opacity .2s"></span>
     <span class="filenote" id="filenote"></span>
   </div>
-  <div class="events" id="eventsList" style="display:none"></div>
 
   <div class="empty section" id="sec-empty">No running activities stored yet. Import your Garmin <code>Activities.csv</code> above to get started.</div>
 
@@ -690,6 +712,7 @@ function refresh(){ if(RAW.length){ LOAD_PARAMS=computeLoadParams(); renderAll()
 
 function showSections(hasData){
   document.getElementById('controls').style.display=hasData?'flex':'none';
+  var meta=document.querySelector('.controls-meta'); if(meta) meta.style.display=hasData?'flex':'none';
   document.getElementById('sec-empty').classList.toggle('show',!hasData);
   ['sec-summary','sec-load','sec-form','sec-trend'].forEach(function(id){
     document.getElementById(id).classList.toggle('show',hasData);
