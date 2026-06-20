@@ -480,6 +480,7 @@ header{display:none}
 .rd-legend{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px;padding-left:2px}
 .rd-legend-item{display:flex;align-items:center;gap:6px;font-size:10px;font-family:var(--mono);color:var(--muted2);font-weight:700}
 .rd-legend-sw{width:14px;height:3px;border-radius:2px}
+.rd-legend-ring{display:inline-block;width:9px;height:9px;border:1.6px solid #f5c842;border-radius:50%;margin-right:4px;vertical-align:middle}
 .rd-info{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;border:1px solid var(--muted2);color:var(--muted2);font-size:9px;font-weight:700;font-style:normal;cursor:help;margin-left:4px;position:relative;vertical-align:middle}
 .rd-info:hover{color:var(--cyan);border-color:var(--cyan)}
 .rd-info:hover::after{content:attr(data-tip);position:absolute;bottom:150%;left:50%;transform:translateX(-50%);width:230px;background:#0b0e18;border:1px solid var(--border2);border-radius:8px;padding:9px 11px;font-size:11px;font-weight:400;line-height:1.5;color:var(--text);font-family:var(--body);text-transform:none;letter-spacing:0;z-index:60;white-space:normal;box-shadow:0 6px 24px rgba(0,0,0,.55)}
@@ -1006,7 +1007,7 @@ header{display:none}
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <script src="/shared/site.js"></script>
-<script src="/shared/run-load-model.js?v=4"></script>
+<script src="/shared/run-load-model.js?v=5"></script>
 <script src="/shared/device-matrix.js"></script>
 
 <script>
@@ -3786,7 +3787,11 @@ function rdBackfill(uid, candidates){
 }
 
 // ---- aggregation + formatting ----
-function rdRunsIn(s,e){ return rdState.runs.filter(r=>rdState.activeTypes.has(r.type)&&r.date>s&&r.date<=e); }
+// Minimum activity distance (mi) to count — drops sub-threshold artifacts (accidental starts,
+// strides, sprint reps, GPS junk) from every section. Configurable via the Min distance control.
+function rdMinDist(){ const el=document.getElementById('rd-mindist'); const v=el?parseFloat(el.value):NaN; return (v>=0)?v:0.5; }
+function rdAnalyzable(r){ return r.distMi!=null && r.distMi>=rdMinDist(); }
+function rdRunsIn(s,e){ return rdState.runs.filter(r=>rdState.activeTypes.has(r.type)&&rdAnalyzable(r)&&r.date>s&&r.date<=e); }
 function rdMean(runs,m){ const v=runs.map(m.calc).filter(x=>x!=null&&!isNaN(x)); return v.length?v.reduce((a,b)=>a+b,0)/v.length:null; }
 function rdSummarize(runs){
   const dist=runs.reduce((a,r)=>a+(r.distMi||0),0), dur=runs.reduce((a,r)=>a+(r.durSec||0),0);
@@ -3824,7 +3829,7 @@ function rdIntensity(){
 }
 function rdRunsInF(s,e){ const it=rdIntensity(); return rdFilterIntensity(rdRunsIn(s,e), it.mode, it.cutoff); }
 // Type-filtered runs only (intensity is NOT applied — total mechanical load counts every run).
-function rdTypeRuns(){ return rdState.runs.filter(r=>rdState.activeTypes.has(r.type)); }
+function rdTypeRuns(){ return rdState.runs.filter(r=>rdState.activeTypes.has(r.type)&&rdAnalyzable(r)); }
 // Recompute the per-athlete load-model params (baseline auto-calibrated from easy runs).
 function rdComputeLoadParams(){
   const it=rdIntensity();
@@ -4045,9 +4050,6 @@ function rdRenderForm(){
 function rdTickFmt(m,v){ if(m.pace) return rdPace(v); if(Math.abs(v)>=100) return Math.round(v); return v.toFixed(m.dec===0?0:(m.dec>=2?2:1)); }
 function rdQuantile(sorted,q){ const pos=(sorted.length-1)*q, base=Math.floor(pos), rest=pos-base; return sorted[base+1]!==undefined ? sorted[base]+rest*(sorted[base+1]-sorted[base]) : sorted[base]; }
 // Drop points outside Q1−1.5·IQR … Q3+1.5·IQR (Tukey fences). No-op for tiny samples.
-// Drop points outside Tukey fences, but never drop a point on a logged race/injury date
-// (those are intentional extremes — a race shouldn't be filtered out as an outlier).
-function rdRemoveOutliers(pts, keep){ if(pts.length<5) return pts; const vals=pts.map(p=>p.v).slice().sort((a,b)=>a-b); const q1=rdQuantile(vals,0.25), q3=rdQuantile(vals,0.75), iqr=q3-q1; if(iqr<=0) return pts; const lo=q1-1.5*iqr, hi=q3+1.5*iqr; return pts.filter(p=>(p.v>=lo&&p.v<=hi)||(keep&&keep.has(p.date.toISOString().slice(0,10)))); }
 // Centered moving average; window scales with sample size, shrinks at the edges.
 function rdSmooth(pts){ const w=Math.max(3,Math.min(21,Math.round(pts.length/8))), half=Math.floor(w/2); return pts.map((p,i)=>{ let s=0,c=0; for(let j=Math.max(0,i-half);j<=Math.min(pts.length-1,i+half);j++){ s+=pts[j].v; c++; } return {ts:p.ts,v:s/c}; }); }
 function rdRenderTrend(){
@@ -4058,19 +4060,33 @@ function rdRenderTrend(){
   const series=[];
   if(i1!=='') series.push({m:RD_METRICS[+i1], color:'#00e5c8'});
   if(i2!=='' && i2!==i1) series.push({m:RD_METRICS[+i2], color:'#f5c842'});
-  legend.innerHTML=series.map(s=>'<span class="rd-legend-item"><span class="rd-legend-sw" style="background:'+s.color+'"></span>'+s.m.label+(s.m.unit?' ('+s.m.unit+')':'')+'</span>').join('');
+  // Map of logged race/injury dates → type, plus auto-detected max-effort run ids.
+  const evMap=new Map(); rdEvents().forEach(e=>{ evMap.set(new Date(e.ts).toISOString().slice(0,10), e.type==='injury'?'injury':'race'); });
+  const evType=p=>evMap.get(p.date.toISOString().slice(0,10))||null;
+  const evColor=t=>t==='injury'?'#f55050':'#22c78a';
+  const maxIds=RunLoad.maxEffortIds(rdTypeRuns());
+  let legHtml=series.map(s=>'<span class="rd-legend-item"><span class="rd-legend-sw" style="background:'+s.color+'"></span>'+s.m.label+(s.m.unit?' ('+s.m.unit+')':'')+'</span>').join('');
+  if(evMap.size||maxIds.size) legHtml+='<span class="rd-legend-item" style="color:var(--muted)"><span class="rd-legend-sw" style="background:#22c78a"></span>race<span class="rd-legend-sw" style="background:#f55050;margin-left:8px"></span>injury<span class="rd-legend-ring" style="margin-left:8px"></span>max effort</span>';
+  legend.innerHTML=legHtml;
   if(!series.length){ chart.innerHTML='<div class="rd-chart-empty">Select a metric to plot.</div>'; return; }
   if(!from||!to||to.getTime()<=from.getTime()){ chart.innerHTML='<div class="rd-chart-empty">Pick a valid date range.</div>'; return; }
   const hideOut=document.getElementById('rd-hide-outliers').classList.contains('on');
   const smooth=document.getElementById('rd-smooth').classList.contains('on');
   const runs=rdRunsInF(new Date(from.getTime()-RD_DAY),to);
-  // logged race/injury dates are protected from outlier removal (they're intentional extremes)
-  const evKeep=new Set(rdEvents().map(e=>new Date(e.ts).toISOString().slice(0,10)));
   // points per series (respects the global activity-type + intensity filters)
-  series.forEach(s=>{ s.pts=runs.map(r=>({ts:r.ts,v:s.m.calc(r),date:r.date})).filter(p=>p.v!=null&&!isNaN(p.v)).sort((a,b)=>a.ts-b.ts);
-    if(hideOut) s.pts=rdRemoveOutliers(s.pts, evKeep);
-    if(s.pts.length){ let lo=Math.min(...s.pts.map(p=>p.v)), hi=Math.max(...s.pts.map(p=>p.v)); if(lo===hi){lo-=1;hi+=1;} const pad=(hi-lo)*0.08; s.lo=lo-pad; s.hi=hi+pad; } });
-  const have=series.filter(s=>s.pts.length);
+  series.forEach(s=>{
+    const all=runs.map(r=>({ts:r.ts,v:s.m.calc(r),date:r.date,id:r.id})).filter(p=>p.v!=null&&!isNaN(p.v)).sort((a,b)=>a.ts-b.ts);
+    // Tukey fences over the in-range set
+    let flo=-Infinity, fhi=Infinity;
+    if(all.length>=5){ const vals=all.map(p=>p.v).slice().sort((a,b)=>a-b); const q1=rdQuantile(vals,0.25), q3=rdQuantile(vals,0.75), iqr=q3-q1; if(iqr>0){ flo=q1-1.5*iqr; fhi=q3+1.5*iqr; } }
+    const inF=p=>p.v>=flo&&p.v<=fhi;
+    // Trend line ignores ALL extremes (races + glitches) so a max effort can't yank the smoothed line.
+    s.line = hideOut ? all.filter(inF) : all;
+    // Displayed dots: hide glitch outliers, but always keep logged races/injuries & detected max efforts.
+    s.dots = hideOut ? all.filter(p=>inF(p)||evType(p)||maxIds.has(p.id)) : all;
+    const scaleSrc = s.dots.length ? s.dots : all;
+    if(scaleSrc.length){ let mn=Math.min(...scaleSrc.map(p=>p.v)), mx=Math.max(...scaleSrc.map(p=>p.v)); if(mn===mx){mn-=1;mx+=1;} const pad=(mx-mn)*0.08; s.lo=mn-pad; s.hi=mx+pad; } });
+  const have=series.filter(s=>s.dots.length);
   if(!have.length){ chart.innerHTML='<div class="rd-chart-empty">No runs with this metric in range.</div>'; return; }
   const W=720,H=240,padL=42,padR=series.length>1?46:12,padT=12,padB=26,innerW=W-padL-padR,innerH=H-padT-padB;
   const t0=from.getTime(),t1=to.getTime();
@@ -4081,16 +4097,22 @@ function rdRenderTrend(){
     const f=g/4, yy=(padT+innerH-f*innerH).toFixed(1);
     grid+='<line x1="'+padL+'" y1="'+yy+'" x2="'+(W-padR)+'" y2="'+yy+'" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>';
     grid+='<text x="'+(padL-6)+'" y="'+(parseFloat(yy)+3).toFixed(1)+'" text-anchor="end" font-size="9" font-family="ui-monospace,monospace" fill="#6e7a9a">'+rdTickFmt(have[0].m,have[0].lo+(have[0].hi-have[0].lo)*f)+'</text>';
-    if(series.length>1&&series[1].pts.length) grid+='<text x="'+(W-padR+6)+'" y="'+(parseFloat(yy)+3).toFixed(1)+'" text-anchor="start" font-size="9" font-family="ui-monospace,monospace" fill="#f5c842">'+rdTickFmt(series[1].m,series[1].lo+(series[1].hi-series[1].lo)*f)+'</text>';
+    if(series.length>1&&series[1].dots.length) grid+='<text x="'+(W-padR+6)+'" y="'+(parseFloat(yy)+3).toFixed(1)+'" text-anchor="start" font-size="9" font-family="ui-monospace,monospace" fill="#f5c842">'+rdTickFmt(series[1].m,series[1].lo+(series[1].hi-series[1].lo)*f)+'</text>';
   }
   let xlab='';
   rdAxisTicks(t0,t1).forEach((ts,idx)=>{ xlab+='<text x="'+xOf(ts).toFixed(1)+'" y="'+(H-7)+'" text-anchor="middle" font-size="8.5" font-family="ui-monospace,monospace" fill="#6e7a9a">'+rdAxisLabel(ts,idx)+'</text>'; });
   let lines='';
   have.forEach(s=>{
-    const lineSrc=smooth?rdSmooth(s.pts):s.pts;
-    const pts=lineSrc.map(p=>xOf(p.ts).toFixed(1)+','+yOf(p.v,s).toFixed(1));
-    lines+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+s.color+'" stroke-width="'+(smooth?2.6:2)+'" stroke-linejoin="round" stroke-linecap="round"/>';
-    lines+=s.pts.map(p=>'<circle cx="'+xOf(p.ts).toFixed(1)+'" cy="'+yOf(p.v,s).toFixed(1)+'" r="2.4" fill="'+s.color+'" fill-opacity="'+(smooth?'0.35':'1')+'"><title>'+p.date.toISOString().slice(0,10)+' · '+s.m.label+': '+rdTickFmt(s.m,p.v)+(s.m.unit?' '+s.m.unit:'')+'</title></circle>').join('');
+    const lineSrc=smooth?rdSmooth(s.line):s.line;
+    if(lineSrc.length>1){ const pts=lineSrc.map(p=>xOf(p.ts).toFixed(1)+','+yOf(p.v,s).toFixed(1));
+      lines+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+s.color+'" stroke-width="'+(smooth?2.6:2)+'" stroke-linejoin="round" stroke-linecap="round"/>'; }
+    lines+=s.dots.map(p=>{
+      const t=evType(p), isMax=!t&&maxIds.has(p.id), cx=xOf(p.ts).toFixed(1), cy=yOf(p.v,s).toFixed(1);
+      const tip=p.date.toISOString().slice(0,10)+' · '+s.m.label+': '+rdTickFmt(s.m,p.v)+(s.m.unit?' '+s.m.unit:'')+(t?(' · '+t):(isMax?' · max effort':''));
+      if(t) return '<circle cx="'+cx+'" cy="'+cy+'" r="3.8" fill="'+evColor(t)+'" stroke="rgba(255,255,255,0.85)" stroke-width="1.2"><title>'+tip+'</title></circle>';
+      if(isMax) return '<circle cx="'+cx+'" cy="'+cy+'" r="3.8" fill="none" stroke="#f5c842" stroke-width="1.6"><title>'+tip+'</title></circle>';
+      return '<circle cx="'+cx+'" cy="'+cy+'" r="2.4" fill="'+s.color+'" fill-opacity="'+(smooth?'0.35':'1')+'"><title>'+tip+'</title></circle>';
+    }).join('');
   });
   chart.innerHTML='<svg class="rd-chart-svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Run metric trend">'+grid+xlab+lines+RunLoad.eventOverlaySVG(rdEvents(),t0,t1,padL,innerW,padT,innerH)+'</svg>';
 }
@@ -4124,6 +4146,7 @@ function rdRenderData(){
           '<div class="rd-ctl rd-ctl-grow"><label>Activity types</label><div class="rd-types" id="rd-types"></div></div>'+
           '<div class="rd-ctl"><label>Runs</label><select id="rd-intensity"><option value="all">All runs</option><option value="workout">Workouts only</option><option value="easy">Easy only</option></select></div>'+
           '<div class="rd-ctl"><label>Workout cutoff /mi</label><input type="text" id="rd-cutoff" value="6:40" style="width:62px"></div>'+
+          '<div class="rd-ctl"><label>Min distance</label><div class="rd-inunit"><input type="text" id="rd-mindist" value="0.5" style="width:46px"><span>mi</span></div></div>'+
           '<div class="rd-ctl"><label>Window end</label><input type="date" id="rd-anchor" value="'+rdYmd(max)+'"></div>'+
         '</div>'+
       '</div>'+
@@ -4185,6 +4208,7 @@ function rdRenderData(){
   // Global intensity filter — drives volume, form metrics, and the trend chart.
   document.getElementById('rd-intensity').onchange=rdRefresh;
   document.getElementById('rd-cutoff').onchange=rdRefresh;
+  document.getElementById('rd-mindist').onchange=rdRefresh;
   // Form metrics compare toggle
   document.getElementById('rd-form-compare').onclick=function(){
     this.classList.toggle('on'); const on=this.classList.contains('on');

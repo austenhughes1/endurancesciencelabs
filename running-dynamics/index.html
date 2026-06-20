@@ -132,6 +132,7 @@ tbody tr:hover td:first-child{background:#10131f}
 .legend{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px;padding-left:2px}
 .legend-item{display:flex;align-items:center;gap:6px;font-size:10px;font-family:var(--mono);color:var(--muted2);font-weight:700}
 .legend-sw{width:14px;height:3px;border-radius:2px}
+.legend-ring{display:inline-block;width:9px;height:9px;border:1.6px solid #f5c842;border-radius:50%;margin-right:4px;vertical-align:middle}
 .info{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;border:1px solid var(--muted2);color:var(--muted2);font-size:9px;font-weight:700;font-style:normal;cursor:help;margin-left:4px;position:relative;vertical-align:middle}
 .info:hover{color:var(--cyan);border-color:var(--cyan)}
 .info:hover::after{content:attr(data-tip);position:absolute;bottom:150%;left:50%;transform:translateX(-50%);width:230px;background:#0b0e18;border:1px solid var(--border2);border-radius:8px;padding:9px 11px;font-size:11px;font-weight:400;line-height:1.5;color:var(--text);font-family:var(--body);text-transform:none;letter-spacing:0;z-index:60;white-space:normal;box-shadow:0 6px 24px rgba(0,0,0,.55)}
@@ -181,6 +182,7 @@ tbody tr:hover td:first-child{background:#10131f}
         <div class="ctl ctl-grow"><label>Activity types</label><div class="types" id="types"></div></div>
         <div class="ctl"><label>Runs</label><select id="intensity"><option value="all">All runs</option><option value="workout">Workouts only</option><option value="easy">Easy only</option></select></div>
         <div class="ctl"><label>Workout cutoff /mi</label><input type="text" id="cutoff" value="6:40" style="width:66px"></div>
+        <div class="ctl"><label>Min distance</label><div class="inunit"><input type="text" id="mindist" value="0.5" style="width:46px"><span>mi</span></div></div>
         <div class="ctl"><label>Window end</label><input type="date" id="anchor"></div>
       </div>
     </div>
@@ -255,7 +257,7 @@ tbody tr:hover td:first-child{background:#10131f}
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="/shared/site.js"></script>
-<script src="/shared/run-load-model.js?v=4"></script>
+<script src="/shared/run-load-model.js?v=5"></script>
 <script src="/shared/device-matrix.js"></script>
 <script>
 'use strict';
@@ -456,8 +458,12 @@ function backfill(candidates){
 }
 
 /* ---------- aggregation ---------- */
+// Minimum activity distance (mi) to count — drops sub-threshold artifacts (accidental starts,
+// strides, sprint reps, GPS junk) from every section. Configurable via the Min distance control.
+function minDist(){ var el=document.getElementById('mindist'); var v=el?parseFloat(el.value):NaN; return (v>=0)?v:0.5; }
+function analyzable(r){ return r.distMi!=null && r.distMi>=minDist(); }
 function runsIn(start,end){
-  return RAW.filter(function(r){ return ACTIVE_TYPES.has(r.type) && r.date>start && r.date<=end; });
+  return RAW.filter(function(r){ return ACTIVE_TYPES.has(r.type) && analyzable(r) && r.date>start && r.date<=end; });
 }
 function metricMean(runs,m){
   var vals=runs.map(m.calc).filter(function(v){ return v!=null && !isNaN(v); });
@@ -514,7 +520,7 @@ function intensityState(){
 }
 function runsInF(s,e){ var it=intensityState(); return filterIntensity(runsIn(s,e),it.mode,it.cutoff); }
 // Type-filtered runs (intensity NOT applied — total mechanical load counts every run).
-function typeRuns(){ return RAW.filter(function(r){return ACTIVE_TYPES.has(r.type);}); }
+function typeRuns(){ return RAW.filter(function(r){return ACTIVE_TYPES.has(r.type)&&analyzable(r);}); }
 function computeLoadParams(){ var it=intensityState(); return Object.assign({}, RunLoad.DEFAULTS, RunLoad.calibrateBaseline(typeRuns(), it.cutoff), { useGrade:true }); }
 
 // ---- profile (weight + device), stored on the user doc ----
@@ -722,10 +728,6 @@ function showSections(hasData){
 var MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function tickFmt(m,v){ if(m.pace)return fmtPace(v); if(Math.abs(v)>=100)return Math.round(v); return v.toFixed(m.dec===0?0:(m.dec>=2?2:1)); }
 function quantile(sorted,q){ var pos=(sorted.length-1)*q, base=Math.floor(pos), rest=pos-base; return sorted[base+1]!==undefined ? sorted[base]+rest*(sorted[base+1]-sorted[base]) : sorted[base]; }
-// Drop points outside Q1−1.5·IQR … Q3+1.5·IQR (Tukey fences). No-op for tiny samples.
-// Drop points outside Tukey fences, but never drop a point on a logged race/injury date
-// (those are intentional extremes — a race shouldn't be filtered out as an outlier).
-function removeOutliers(pts, keep){ if(pts.length<5) return pts; var vals=pts.map(function(p){return p.v;}).slice().sort(function(a,b){return a-b;}); var q1=quantile(vals,0.25), q3=quantile(vals,0.75), iqr=q3-q1; if(iqr<=0) return pts; var lo=q1-1.5*iqr, hi=q3+1.5*iqr; return pts.filter(function(p){return (p.v>=lo&&p.v<=hi)||(keep&&keep.has(p.date.toISOString().slice(0,10)));}); }
 // Centered moving average; window scales with sample size, shrinks at the edges.
 function smoothPts(pts){ var w=Math.max(3,Math.min(21,Math.round(pts.length/8))), half=Math.floor(w/2); return pts.map(function(p,i){ var s=0,c=0; for(var j=Math.max(0,i-half);j<=Math.min(pts.length-1,i+half);j++){ s+=pts[j].v; c++; } return {ts:p.ts,v:s/c}; }); }
 function renderTrend(){
@@ -736,20 +738,32 @@ function renderTrend(){
   var series=[];
   if(i1!=='') series.push({m:METRICS[+i1],color:'#00e5c8'});
   if(i2!==''&&i2!==i1) series.push({m:METRICS[+i2],color:'#f5c842'});
-  legend.innerHTML=series.map(function(s){return '<span class="legend-item"><span class="legend-sw" style="background:'+s.color+'"></span>'+s.m.label+(s.m.unit?' ('+s.m.unit+')':'')+'</span>';}).join('');
+  // Map of logged race/injury dates → type, plus auto-detected max-effort run ids.
+  var evMap=new Map(); events().forEach(function(e){ evMap.set(new Date(e.ts).toISOString().slice(0,10), e.type==='injury'?'injury':'race'); });
+  var evType=function(p){ return evMap.get(p.date.toISOString().slice(0,10))||null; };
+  var maxIds=RunLoad.maxEffortIds(typeRuns());
+  var legHtml=series.map(function(s){return '<span class="legend-item"><span class="legend-sw" style="background:'+s.color+'"></span>'+s.m.label+(s.m.unit?' ('+s.m.unit+')':'')+'</span>';}).join('');
+  if(evMap.size||maxIds.size) legHtml+='<span class="legend-item" style="color:var(--muted)"><span class="legend-sw" style="background:#22c78a"></span>race<span class="legend-sw" style="background:#f55050;margin-left:8px"></span>injury<span class="legend-ring" style="margin-left:8px"></span>max effort</span>';
+  legend.innerHTML=legHtml;
   if(!series.length){ chart.innerHTML='<div class="chart-empty">Select a metric to plot.</div>'; return; }
   if(!from||!to||to.getTime()<=from.getTime()){ chart.innerHTML='<div class="chart-empty">Pick a valid date range.</div>'; return; }
   var hideOut=document.getElementById('hideOutliers').classList.contains('on');
   var smooth=document.getElementById('smooth').classList.contains('on');
   var runs=runsInF(new Date(from.getTime()-DAY),to);
-  // logged race/injury dates are protected from outlier removal (they're intentional extremes)
-  var evKeep=new Set(events().map(function(e){return new Date(e.ts).toISOString().slice(0,10);}));
+  var evColor=function(t){ return t==='injury'?'#f55050':'#22c78a'; };
   series.forEach(function(s){
-    s.pts=runs.map(function(r){return {ts:r.ts,v:s.m.calc(r),date:r.date};}).filter(function(p){return p.v!=null&&!isNaN(p.v);}).sort(function(a,b){return a.ts-b.ts;});
-    if(hideOut) s.pts=removeOutliers(s.pts, evKeep);
-    if(s.pts.length){ var lo=Math.min.apply(null,s.pts.map(function(p){return p.v;})), hi=Math.max.apply(null,s.pts.map(function(p){return p.v;})); if(lo===hi){lo-=1;hi+=1;} var pad=(hi-lo)*0.08; s.lo=lo-pad; s.hi=hi+pad; }
+    var all=runs.map(function(r){return {ts:r.ts,v:s.m.calc(r),date:r.date,id:r.id};}).filter(function(p){return p.v!=null&&!isNaN(p.v);}).sort(function(a,b){return a.ts-b.ts;});
+    var flo=-Infinity, fhi=Infinity;
+    if(all.length>=5){ var vals=all.map(function(p){return p.v;}).slice().sort(function(a,b){return a-b;}); var q1=quantile(vals,0.25), q3=quantile(vals,0.75), iqr=q3-q1; if(iqr>0){ flo=q1-1.5*iqr; fhi=q3+1.5*iqr; } }
+    var inF=function(p){ return p.v>=flo&&p.v<=fhi; };
+    // Trend line ignores ALL extremes (races + glitches) so a max effort can't yank the smoothed line.
+    s.line = hideOut ? all.filter(inF) : all;
+    // Displayed dots: hide glitch outliers, but always keep logged races/injuries & detected max efforts.
+    s.dots = hideOut ? all.filter(function(p){return inF(p)||evType(p)||maxIds.has(p.id);}) : all;
+    var scaleSrc = s.dots.length ? s.dots : all;
+    if(scaleSrc.length){ var mn=Math.min.apply(null,scaleSrc.map(function(p){return p.v;})), mx=Math.max.apply(null,scaleSrc.map(function(p){return p.v;})); if(mn===mx){mn-=1;mx+=1;} var pad=(mx-mn)*0.08; s.lo=mn-pad; s.hi=mx+pad; }
   });
-  var have=series.filter(function(s){return s.pts.length;});
+  var have=series.filter(function(s){return s.dots.length;});
   if(!have.length){ chart.innerHTML='<div class="chart-empty">No runs with this metric in range.</div>'; return; }
   var W=720,H=240,padL=42,padR=series.length>1?46:12,padT=12,padB=26,innerW=W-padL-padR,innerH=H-padT-padB;
   var t0=from.getTime(),t1=to.getTime();
@@ -760,16 +774,22 @@ function renderTrend(){
     var f=g/4, yy=(padT+innerH-f*innerH).toFixed(1);
     grid+='<line x1="'+padL+'" y1="'+yy+'" x2="'+(W-padR)+'" y2="'+yy+'" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>';
     grid+='<text x="'+(padL-6)+'" y="'+(parseFloat(yy)+3).toFixed(1)+'" text-anchor="end" font-size="9" font-family="ui-monospace,monospace" fill="#6e7a9a">'+tickFmt(have[0].m,have[0].lo+(have[0].hi-have[0].lo)*f)+'</text>';
-    if(series.length>1&&series[1].pts.length) grid+='<text x="'+(W-padR+6)+'" y="'+(parseFloat(yy)+3).toFixed(1)+'" text-anchor="start" font-size="9" font-family="ui-monospace,monospace" fill="#f5c842">'+tickFmt(series[1].m,series[1].lo+(series[1].hi-series[1].lo)*f)+'</text>';
+    if(series.length>1&&series[1].dots.length) grid+='<text x="'+(W-padR+6)+'" y="'+(parseFloat(yy)+3).toFixed(1)+'" text-anchor="start" font-size="9" font-family="ui-monospace,monospace" fill="#f5c842">'+tickFmt(series[1].m,series[1].lo+(series[1].hi-series[1].lo)*f)+'</text>';
   }
   var xlab='';
   axisTicks(t0,t1).forEach(function(ts,idx){ if(ts<t0||ts>t1) return; xlab+='<text x="'+xOf(ts).toFixed(1)+'" y="'+(H-7)+'" text-anchor="middle" font-size="8.5" font-family="ui-monospace,monospace" fill="#6e7a9a">'+axisLabel(ts,idx)+'</text>'; });
   var lines='';
   have.forEach(function(s){
-    var lineSrc=smooth?smoothPts(s.pts):s.pts;
-    var pts=lineSrc.map(function(p){return xOf(p.ts).toFixed(1)+','+yOf(p.v,s).toFixed(1);});
-    lines+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+s.color+'" stroke-width="'+(smooth?2.6:2)+'" stroke-linejoin="round" stroke-linecap="round"/>';
-    lines+=s.pts.map(function(p){return '<circle cx="'+xOf(p.ts).toFixed(1)+'" cy="'+yOf(p.v,s).toFixed(1)+'" r="2.4" fill="'+s.color+'" fill-opacity="'+(smooth?'0.35':'1')+'"><title>'+p.date.toISOString().slice(0,10)+' · '+s.m.label+': '+tickFmt(s.m,p.v)+(s.m.unit?' '+s.m.unit:'')+'</title></circle>';}).join('');
+    var lineSrc=smooth?smoothPts(s.line):s.line;
+    if(lineSrc.length>1){ var pts=lineSrc.map(function(p){return xOf(p.ts).toFixed(1)+','+yOf(p.v,s).toFixed(1);});
+      lines+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+s.color+'" stroke-width="'+(smooth?2.6:2)+'" stroke-linejoin="round" stroke-linecap="round"/>'; }
+    lines+=s.dots.map(function(p){
+      var t=evType(p), isMax=!t&&maxIds.has(p.id), cx=xOf(p.ts).toFixed(1), cy=yOf(p.v,s).toFixed(1);
+      var tip=p.date.toISOString().slice(0,10)+' · '+s.m.label+': '+tickFmt(s.m,p.v)+(s.m.unit?' '+s.m.unit:'')+(t?(' · '+t):(isMax?' · max effort':''));
+      if(t) return '<circle cx="'+cx+'" cy="'+cy+'" r="3.8" fill="'+evColor(t)+'" stroke="rgba(255,255,255,0.85)" stroke-width="1.2"><title>'+tip+'</title></circle>';
+      if(isMax) return '<circle cx="'+cx+'" cy="'+cy+'" r="3.8" fill="none" stroke="#f5c842" stroke-width="1.6"><title>'+tip+'</title></circle>';
+      return '<circle cx="'+cx+'" cy="'+cy+'" r="2.4" fill="'+s.color+'" fill-opacity="'+(smooth?'0.35':'1')+'"><title>'+tip+'</title></circle>';
+    }).join('');
   });
   chart.innerHTML='<svg class="chart-svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Run metric trend">'+grid+xlab+lines+RunLoad.eventOverlaySVG(events(),t0,t1,padL,innerW,padT,innerH)+'</svg>';
 }
@@ -848,6 +868,7 @@ document.getElementById('anchor').onchange=function(e){ var d=parseDate(e.target
 // Global intensity filter — drives volume, form metrics, and the trend chart.
 document.getElementById('intensity').onchange=refresh;
 document.getElementById('cutoff').onchange=refresh;
+document.getElementById('mindist').onchange=refresh;
 ['m1','m2','tFrom','tTo'].forEach(function(id){ document.getElementById(id).onchange=renderTrend; });
 ['hideOutliers','smooth'].forEach(function(id){ document.getElementById(id).onclick=function(){ this.classList.toggle('on'); renderTrend(); }; });
 ['faFrom','faTo','fbFrom','fbTo'].forEach(function(id){ document.getElementById(id).onchange=renderForm; });
