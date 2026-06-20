@@ -723,7 +723,9 @@ var MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','D
 function tickFmt(m,v){ if(m.pace)return fmtPace(v); if(Math.abs(v)>=100)return Math.round(v); return v.toFixed(m.dec===0?0:(m.dec>=2?2:1)); }
 function quantile(sorted,q){ var pos=(sorted.length-1)*q, base=Math.floor(pos), rest=pos-base; return sorted[base+1]!==undefined ? sorted[base]+rest*(sorted[base+1]-sorted[base]) : sorted[base]; }
 // Drop points outside Q1−1.5·IQR … Q3+1.5·IQR (Tukey fences). No-op for tiny samples.
-function removeOutliers(pts){ if(pts.length<5) return pts; var vals=pts.map(function(p){return p.v;}).slice().sort(function(a,b){return a-b;}); var q1=quantile(vals,0.25), q3=quantile(vals,0.75), iqr=q3-q1; if(iqr<=0) return pts; var lo=q1-1.5*iqr, hi=q3+1.5*iqr; return pts.filter(function(p){return p.v>=lo&&p.v<=hi;}); }
+// Drop points outside Tukey fences, but never drop a point on a logged race/injury date
+// (those are intentional extremes — a race shouldn't be filtered out as an outlier).
+function removeOutliers(pts, keep){ if(pts.length<5) return pts; var vals=pts.map(function(p){return p.v;}).slice().sort(function(a,b){return a-b;}); var q1=quantile(vals,0.25), q3=quantile(vals,0.75), iqr=q3-q1; if(iqr<=0) return pts; var lo=q1-1.5*iqr, hi=q3+1.5*iqr; return pts.filter(function(p){return (p.v>=lo&&p.v<=hi)||(keep&&keep.has(p.date.toISOString().slice(0,10)));}); }
 // Centered moving average; window scales with sample size, shrinks at the edges.
 function smoothPts(pts){ var w=Math.max(3,Math.min(21,Math.round(pts.length/8))), half=Math.floor(w/2); return pts.map(function(p,i){ var s=0,c=0; for(var j=Math.max(0,i-half);j<=Math.min(pts.length-1,i+half);j++){ s+=pts[j].v; c++; } return {ts:p.ts,v:s/c}; }); }
 function renderTrend(){
@@ -740,9 +742,11 @@ function renderTrend(){
   var hideOut=document.getElementById('hideOutliers').classList.contains('on');
   var smooth=document.getElementById('smooth').classList.contains('on');
   var runs=runsInF(new Date(from.getTime()-DAY),to);
+  // logged race/injury dates are protected from outlier removal (they're intentional extremes)
+  var evKeep=new Set(events().map(function(e){return new Date(e.ts).toISOString().slice(0,10);}));
   series.forEach(function(s){
     s.pts=runs.map(function(r){return {ts:r.ts,v:s.m.calc(r),date:r.date};}).filter(function(p){return p.v!=null&&!isNaN(p.v);}).sort(function(a,b){return a.ts-b.ts;});
-    if(hideOut) s.pts=removeOutliers(s.pts);
+    if(hideOut) s.pts=removeOutliers(s.pts, evKeep);
     if(s.pts.length){ var lo=Math.min.apply(null,s.pts.map(function(p){return p.v;})), hi=Math.max.apply(null,s.pts.map(function(p){return p.v;})); if(lo===hi){lo-=1;hi+=1;} var pad=(hi-lo)*0.08; s.lo=lo-pad; s.hi=hi+pad; }
   });
   var have=series.filter(function(s){return s.pts.length;});
