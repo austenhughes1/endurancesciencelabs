@@ -4045,7 +4045,9 @@ function rdRenderForm(){
 function rdTickFmt(m,v){ if(m.pace) return rdPace(v); if(Math.abs(v)>=100) return Math.round(v); return v.toFixed(m.dec===0?0:(m.dec>=2?2:1)); }
 function rdQuantile(sorted,q){ const pos=(sorted.length-1)*q, base=Math.floor(pos), rest=pos-base; return sorted[base+1]!==undefined ? sorted[base]+rest*(sorted[base+1]-sorted[base]) : sorted[base]; }
 // Drop points outside Q1−1.5·IQR … Q3+1.5·IQR (Tukey fences). No-op for tiny samples.
-function rdRemoveOutliers(pts){ if(pts.length<5) return pts; const vals=pts.map(p=>p.v).slice().sort((a,b)=>a-b); const q1=rdQuantile(vals,0.25), q3=rdQuantile(vals,0.75), iqr=q3-q1; if(iqr<=0) return pts; const lo=q1-1.5*iqr, hi=q3+1.5*iqr; return pts.filter(p=>p.v>=lo&&p.v<=hi); }
+// Drop points outside Tukey fences, but never drop a point on a logged race/injury date
+// (those are intentional extremes — a race shouldn't be filtered out as an outlier).
+function rdRemoveOutliers(pts, keep){ if(pts.length<5) return pts; const vals=pts.map(p=>p.v).slice().sort((a,b)=>a-b); const q1=rdQuantile(vals,0.25), q3=rdQuantile(vals,0.75), iqr=q3-q1; if(iqr<=0) return pts; const lo=q1-1.5*iqr, hi=q3+1.5*iqr; return pts.filter(p=>(p.v>=lo&&p.v<=hi)||(keep&&keep.has(p.date.toISOString().slice(0,10)))); }
 // Centered moving average; window scales with sample size, shrinks at the edges.
 function rdSmooth(pts){ const w=Math.max(3,Math.min(21,Math.round(pts.length/8))), half=Math.floor(w/2); return pts.map((p,i)=>{ let s=0,c=0; for(let j=Math.max(0,i-half);j<=Math.min(pts.length-1,i+half);j++){ s+=pts[j].v; c++; } return {ts:p.ts,v:s/c}; }); }
 function rdRenderTrend(){
@@ -4062,9 +4064,11 @@ function rdRenderTrend(){
   const hideOut=document.getElementById('rd-hide-outliers').classList.contains('on');
   const smooth=document.getElementById('rd-smooth').classList.contains('on');
   const runs=rdRunsInF(new Date(from.getTime()-RD_DAY),to);
+  // logged race/injury dates are protected from outlier removal (they're intentional extremes)
+  const evKeep=new Set(rdEvents().map(e=>new Date(e.ts).toISOString().slice(0,10)));
   // points per series (respects the global activity-type + intensity filters)
   series.forEach(s=>{ s.pts=runs.map(r=>({ts:r.ts,v:s.m.calc(r),date:r.date})).filter(p=>p.v!=null&&!isNaN(p.v)).sort((a,b)=>a.ts-b.ts);
-    if(hideOut) s.pts=rdRemoveOutliers(s.pts);
+    if(hideOut) s.pts=rdRemoveOutliers(s.pts, evKeep);
     if(s.pts.length){ let lo=Math.min(...s.pts.map(p=>p.v)), hi=Math.max(...s.pts.map(p=>p.v)); if(lo===hi){lo-=1;hi+=1;} const pad=(hi-lo)*0.08; s.lo=lo-pad; s.hi=hi+pad; } });
   const have=series.filter(s=>s.pts.length);
   if(!have.length){ chart.innerHTML='<div class="rd-chart-empty">No runs with this metric in range.</div>'; return; }
