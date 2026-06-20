@@ -232,10 +232,44 @@ function eventOverlaySVG(events, t0, t1, padL, innerW, padT, innerH) {
   return out;
 }
 
+// Detect maximal efforts (races / time trials / all-out PRs) from the run set. Returns a Set of
+// run ids. A run is flagged if ANY of:
+//   • Garmin Aerobic Training Effect ≥ 4.0 (its own "hard/maximal session" score), or
+//   • it sits on the athlete's speed–duration frontier (no other run is both longer-or-equal AND
+//     faster on grade-adjusted pace) — the critical-speed curve, which catches PRs at any distance, or
+//   • avg HR ≥ 92% of the athlete's observed max, sustained ≥ 20 min.
+// All signals are individual-relative and degrade gracefully when a field is missing.
+// Short reps/sprints are excluded (distMi ≥ 1) so strides don't masquerade as race efforts.
+function maxEffortIds(runs, opts) {
+  var ids = new Set();
+  if (!runs || !runs.length) return ids;
+  var minDist = (opts && opts.minDist) || 1, ateThresh = (opts && opts.ate) || 4.0;
+  var hasATE = runs.some(function (r) { return r.aerobicTE != null; });
+  var hrs = runs.map(function (r) { return r.maxHr; }).filter(function (v) { return v != null && v > 0; }).sort(function (a, b) { return a - b; });
+  var estMax = hrs.length ? hrs[Math.floor(0.95 * (hrs.length - 1))] : null;
+  // speed–duration Pareto frontier (lower pace = faster); only sustained efforts (≥ minDist)
+  var cand = runs.filter(function (r) { return r.durSec > 0 && (r.gapSec || r.paceSec) > 0 && r.distMi != null && r.distMi >= minDist; });
+  cand.forEach(function (r) {
+    var rp = r.gapSec || r.paceSec, dominated = false;
+    for (var i = 0; i < cand.length; i++) {
+      var q = cand[i]; if (q === r) continue;
+      if (q.durSec >= r.durSec && (q.gapSec || q.paceSec) < rp) { dominated = true; break; }
+    }
+    if (!dominated) ids.add(r.id);
+  });
+  runs.forEach(function (r) {
+    if (r.distMi == null || r.distMi < minDist) return;
+    if (hasATE && r.aerobicTE != null && r.aerobicTE >= ateThresh) ids.add(r.id);
+    if (estMax && r.avgHr != null && r.avgHr >= 0.92 * estMax && r.durSec >= 1200) ids.add(r.id);
+  });
+  return ids;
+}
+
 window.RunLoad = {
   DEFAULTS: DEFAULTS,
   GRAVITY: GRAVITY,
   eventOverlaySVG: eventOverlaySVG,
+  maxEffortIds: maxEffortIds,
   median: median,
   calibrateBaseline: calibrateBaseline,
   impactLoad: impactLoad,
