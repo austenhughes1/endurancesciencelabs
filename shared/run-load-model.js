@@ -2,7 +2,7 @@
 // shared/run-load-model.js
 //
 // Transparent mechanical-load model for the Run Dynamics tool.
-// Per-run Impact Load (equivalent easy miles) + acute/chronic load
+// Per-run Impact Load, in Impact Miles + acute/chronic load
 // tracking and ACWR, per the ESL Mechanical Load Management spec.
 //
 // Pure functions only — no DOM, no Firebase. Exposed as window.RunLoad
@@ -61,7 +61,7 @@ function calibrateBaseline(runs, cutoffSec) {
   };
 }
 
-// Per-run Impact Load in equivalent easy miles. Null when distance/pace
+// Per-run Impact Load in Impact Miles. Null when distance/pace
 // are missing (can't model). VO and grade degrade gracefully to 1.0.
 function impactLoad(run, p) {
   p = p || DEFAULTS;
@@ -162,7 +162,7 @@ function methodologyHTML() {
   var K='color:var(--text);font-weight:700;font-family:ui-monospace,monospace';
   var A=function(href,txt){ return '<a href="'+href+'" target="_blank" rel="noopener" style="color:var(--cyan);text-decoration:none;border-bottom:1px solid rgba(0,229,200,.35)">'+txt+'</a>'; };
   return `<span style="${H}">a · the equation</span>`
-+ `<pre style="${EQ}">Impact Load (per run, “equivalent easy miles”):
++ `<pre style="${EQ}">Impact Load (per run) — measured in Impact Miles:
 
   IL = D · (P₀ ⁄ P)^1.5 · (DF₀ ⁄ DF)^1.0 · (W ⁄ W₀) · G
 
@@ -175,13 +175,15 @@ Load over time:
   Acute = EWMA(N = 7 d)    Chronic = EWMA(N = 28 d)
   ACWR  = Acute ⁄ Chronic</pre>`
 + `<span style="${H}">b · in plain language</span>`
-+ `<pre style="${EQ}">Impact Load = distance
++ `<pre style="${EQ}">Impact Miles = distance
    × (how much faster than your easy pace)^1.5
    × (how much springier than your easy form)
    × (body-weight scale)
    × (hill surcharge)
 
-Acute   = 7-day rolling average of daily load
+One easy flat mile = 1 Impact Mile; a hard or hilly mile counts as more.
+
+Acute   = 7-day rolling average of daily Impact Miles
 Chronic = 28-day rolling average
 Acute : Chronic = recent load vs the base you have built</pre>`
 + `<span style="${H}">c · each variable — meaning, measurement, caveats</span>`
