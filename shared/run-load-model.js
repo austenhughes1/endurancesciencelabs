@@ -198,7 +198,7 @@ Acute : Chronic = recent load vs the base you have built</pre>`
 + `<div style="${V}"><span style="${K}">P, P₀</span> — average pace and your easy-run baseline pace (s/mi), from GPS. Baseline = median of your easy runs (at or slower than the workout-pace cutoff). The 1.5 power reflects force &amp; metabolic cost rising faster than speed. Caveat: pace under-rates uphill effort (hard but slow) — the hill term offsets this.</div>`
 + `<div style="${V}"><span style="${K}">DF, DF₀</span> — duty factor = cadence × ground-contact time, vs your easy baseline. Cadence from the wrist; GCT from a chest strap, foot/waist pod, or wrist running-dynamics. Lower duty factor (shorter contact, more flight) loads each step harder. Caveats: needs a running-dynamics-capable device; GCT is an estimate; duty factor changes with speed, so we only ever compare you to <i>your own</i> baseline.</div>`
 + `<div style="${V}"><span style="${K}">W, W₀</span> — body weight ÷ a reference weight, from the profile. Equals 1 for a single athlete (drops out); only matters when comparing across athletes.</div>`
-+ `<div style="${V}"><span style="${K}">O</span> — Lever body-weight offload: the fraction of bodyweight the Lever supports on a Lever-assisted run (set in the profile). Body-weight-support running cuts ground reaction force roughly in proportion, so the run's load is multiplied by (1 − O); O = 0 for normal runs. Caveat: this needs to know <i>which</i> runs were on the Lever — currently inferred from the activity title until a dedicated data source is wired up.</div>`
++ `<div style="${V}"><span style="${K}">O</span> — Lever body-weight offload: on a Lever run part of bodyweight is supported, cutting ground reaction force, so the run's load is multiplied by (1 − O); O = 0 for normal runs. Default is <b>85% bodyweight</b> (O = 0.15), set in the profile. Lever runs are detected automatically — a <b>treadmill</b> activity whose <b>HR is lower than expected for its pace</b> (the offload signature) — or by an activity title containing “lever.” Caveat: treadmill pace can be miscalibrated; a dedicated per-run Lever source (tag / device import) can be wired in later for exact offloads.</div>`
 + `<div style="${V}"><span style="${K}">G</span> — hill surcharge from total ascent &amp; descent ÷ distance (mean grade), descent weighted ~3× ascent, capped at 2.5. Caveat: only the totals are recorded, so this is <i>mean</i> grade — it can’t tell one steep descent from rolling terrain with the same total, and under-counts concentrated descents. Per-segment grade (from FIT files) would fix this.</div>`
 + `<div style="${V}"><span style="${K}">Acute / Chronic / ACWR</span> — exponentially-weighted 7- and 28-day averages of daily load; the ratio sits in a 0.8–1.3 “safe band,” and &gt;1.5 flags a spike.</div>`
 + `<span style="${H}">d · why each piece is defensible (sources)</span>`
@@ -273,7 +273,35 @@ function maxEffortIds(runs, opts) {
   return ids;
 }
 
+function isTreadmill(r) { return /treadmill|indoor/i.test(r.type || ''); }
+
+// Heuristic detection of Lever (body-weight-support) runs. A Lever run is on a treadmill AND shows
+// the offload signature: avg HR notably lower than expected for its pace, because supporting part of
+// bodyweight makes a given pace feel easier. We fit an HR~speed baseline from the athlete's OUTDOOR
+// runs, then flag treadmill runs whose avg HR is ≥ margin bpm below the predicted HR. Returns a Set
+// of run ids. Title-based flags (run.leverTitle) are an explicit override handled by the caller.
+// CAVEAT: treadmill pace can be miscalibrated, which skews the HR-for-pace signal — this is a
+// best-effort interim until an explicit per-run Lever source (tag / device import) is available.
+function detectLeverIds(runs, opts) {
+  var ids = new Set();
+  if (!runs || !runs.length) return ids;
+  var margin = (opts && opts.hrMargin) || 6;
+  var ref = runs.filter(function (r) { return r.avgHr > 0 && r.paceSec > 0 && !isTreadmill(r); });
+  if (ref.length < 8) return ids;                       // too little outdoor HR data to model reliably
+  var n = 0, sx = 0, sy = 0, sxy = 0, sxx = 0;
+  ref.forEach(function (r) { var x = 3600 / r.paceSec, y = r.avgHr; n++; sx += x; sy += y; sxy += x * y; sxx += x * x; });
+  var den = n * sxx - sx * sx; if (Math.abs(den) < 1e-9) return ids;
+  var b = (n * sxy - sx * sy) / den, a = (sy - b * sx) / n;   // HR ≈ a + b·speed(mph)
+  runs.forEach(function (r) {
+    if (!isTreadmill(r) || r.avgHr == null || r.paceSec == null) return;
+    var exp = a + b * (3600 / r.paceSec);
+    if (r.avgHr <= exp - margin) ids.add(r.id);
+  });
+  return ids;
+}
+
 window.RunLoad = {
+  detectLeverIds: detectLeverIds,
   DEFAULTS: DEFAULTS,
   GRAVITY: GRAVITY,
   eventOverlaySVG: eventOverlaySVG,
