@@ -477,6 +477,14 @@ header{display:none}
 .rd-chartwrap{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 14px 8px}
 .rd-chart-svg{display:block;width:100%;height:auto}
 .rd-chart-empty{padding:34px;text-align:center;color:var(--muted2);font-size:12px;font-family:var(--mono)}
+#rd-trend-chart{position:relative}
+.rd-hit{cursor:pointer}
+.rd-chart-tip{position:absolute;left:0;top:0;display:none;pointer-events:none;z-index:30;min-width:120px;max-width:250px;padding:8px 10px;background:rgba(13,18,30,.97);border:1px solid var(--border2);border-radius:8px;box-shadow:0 6px 22px rgba(0,0,0,.45);font-size:11.5px;line-height:1.5;color:var(--text)}
+.rd-chart-tip.on{display:block}
+.rd-tip-top{font-family:var(--mono);font-size:11px;color:var(--muted2);margin-bottom:3px;display:flex;align-items:center;gap:6px}
+.rd-tip-chip{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;border:1px solid;border-radius:10px;padding:1px 6px}
+.rd-tip-val b{color:var(--cyan)}
+.rd-tip-ctx{color:var(--muted2);font-size:10.5px;margin-top:3px}
 .rd-legend{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px;padding-left:2px}
 .rd-legend-item{display:flex;align-items:center;gap:6px;font-size:10px;font-family:var(--mono);color:var(--muted2);font-weight:700}
 .rd-legend-sw{width:14px;height:3px;border-radius:2px}
@@ -4075,7 +4083,7 @@ function rdRenderTrend(){
   const runs=rdRunsInF(new Date(from.getTime()-RD_DAY),to);
   // points per series (respects the global activity-type + intensity filters)
   series.forEach(s=>{
-    const all=runs.map(r=>({ts:r.ts,v:s.m.calc(r),date:r.date,id:r.id})).filter(p=>p.v!=null&&!isNaN(p.v)).sort((a,b)=>a.ts-b.ts);
+    const all=runs.map(r=>({ts:r.ts,v:s.m.calc(r),date:r.date,id:r.id,dist:r.distMi,pace:r.paceSec,title:r.title})).filter(p=>p.v!=null&&!isNaN(p.v)).sort((a,b)=>a.ts-b.ts);
     // Tukey fences over the in-range set
     let flo=-Infinity, fhi=Infinity;
     if(all.length>=5){ const vals=all.map(p=>p.v).slice().sort((a,b)=>a-b); const q1=rdQuantile(vals,0.25), q3=rdQuantile(vals,0.75), iqr=q3-q1; if(iqr>0){ flo=q1-1.5*iqr; fhi=q3+1.5*iqr; } }
@@ -4101,20 +4109,45 @@ function rdRenderTrend(){
   }
   let xlab='';
   rdAxisTicks(t0,t1).forEach((ts,idx)=>{ xlab+='<text x="'+xOf(ts).toFixed(1)+'" y="'+(H-7)+'" text-anchor="middle" font-size="8.5" font-family="ui-monospace,monospace" fill="#6e7a9a">'+rdAxisLabel(ts,idx)+'</text>'; });
-  let lines='';
+  const ea=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  let lines='', hits='';
   have.forEach(s=>{
     const lineSrc=smooth?rdSmooth(s.line):s.line;
     if(lineSrc.length>1){ const pts=lineSrc.map(p=>xOf(p.ts).toFixed(1)+','+yOf(p.v,s).toFixed(1));
       lines+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+s.color+'" stroke-width="'+(smooth?2.6:2)+'" stroke-linejoin="round" stroke-linecap="round"/>'; }
     lines+=s.dots.map(p=>{
       const t=evType(p), isMax=!t&&maxIds.has(p.id), cx=xOf(p.ts).toFixed(1), cy=yOf(p.v,s).toFixed(1);
-      const tip=p.date.toISOString().slice(0,10)+' · '+s.m.label+': '+rdTickFmt(s.m,p.v)+(s.m.unit?' '+s.m.unit:'')+(t?(' · '+t):(isMax?' · max effort':''));
-      if(t) return '<circle cx="'+cx+'" cy="'+cy+'" r="3.8" fill="'+evColor(t)+'" stroke="rgba(255,255,255,0.85)" stroke-width="1.2"><title>'+tip+'</title></circle>';
-      if(isMax) return '<circle cx="'+cx+'" cy="'+cy+'" r="3.8" fill="none" stroke="#f5c842" stroke-width="1.6"><title>'+tip+'</title></circle>';
-      return '<circle cx="'+cx+'" cy="'+cy+'" r="2.4" fill="'+s.color+'" fill-opacity="'+(smooth?'0.35':'1')+'"><title>'+tip+'</title></circle>';
+      if(t) return '<circle cx="'+cx+'" cy="'+cy+'" r="3.8" fill="'+evColor(t)+'" stroke="rgba(255,255,255,0.85)" stroke-width="1.2"/>';
+      if(isMax) return '<circle cx="'+cx+'" cy="'+cy+'" r="3.8" fill="none" stroke="#f5c842" stroke-width="1.6"/>';
+      return '<circle cx="'+cx+'" cy="'+cy+'" r="2.4" fill="'+s.color+'" fill-opacity="'+(smooth?'0.35':'1')+'"/>';
+    }).join('');
+    // transparent hit targets (drawn last, on top) carry the data for the hover card
+    hits+=s.dots.map(p=>{
+      const t=evType(p), kind=t||(maxIds.has(p.id)?'max':''), cx=xOf(p.ts).toFixed(1), cy=yOf(p.v,s).toFixed(1);
+      const val=rdTickFmt(s.m,p.v)+(s.m.unit?' '+s.m.unit:'');
+      let ctx=(p.dist!=null?p.dist.toFixed(1)+' mi':''); if(p.pace){ ctx+=(ctx?' · ':'')+rdPace(p.pace)+'/mi'; } if(p.title){ ctx+=(ctx?' · ':'')+p.title; }
+      return '<circle class="rd-hit" cx="'+cx+'" cy="'+cy+'" r="7" fill="rgba(0,0,0,0)" data-date="'+ea(p.date.toISOString().slice(0,10))+'" data-kind="'+kind+'" data-metric="'+ea(s.m.label)+'" data-val="'+ea(val)+'" data-ctx="'+ea(ctx)+'"/>';
     }).join('');
   });
-  chart.innerHTML='<svg class="rd-chart-svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Run metric trend">'+grid+xlab+lines+RunLoad.eventOverlaySVG(rdEvents(),t0,t1,padL,innerW,padT,innerH)+'</svg>';
+  chart.innerHTML='<svg class="rd-chart-svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Run metric trend">'+grid+xlab+lines+RunLoad.eventOverlaySVG(rdEvents(),t0,t1,padL,innerW,padT,innerH)+hits+'</svg>';
+  rdWireChartTip(chart);
+}
+// Build the hover-card HTML for a hit target, and wire pointer tracking on a chart container.
+function rdTipHTML(c){
+  const k=c.dataset.kind, m={race:['Race','#22c78a'],injury:['Injury','#f55050'],max:['Max effort','#f5c842']}[k];
+  return '<div class="rd-tip-top">'+c.dataset.date+(m?' <span class="rd-tip-chip" style="color:'+m[1]+';border-color:'+m[1]+'">'+m[0]+'</span>':'')+'</div>'
+    +'<div class="rd-tip-val">'+c.dataset.metric+' · <b>'+c.dataset.val+'</b></div>'
+    +(c.dataset.ctx?'<div class="rd-tip-ctx">'+c.dataset.ctx+'</div>':'');
+}
+function rdWireChartTip(chart){
+  const tip=document.createElement('div'); tip.className='rd-chart-tip'; chart.appendChild(tip);
+  chart.onmousemove=e=>{ const c=e.target.closest&&e.target.closest('.rd-hit'); if(!c){ tip.classList.remove('on'); return; }
+    tip.innerHTML=rdTipHTML(c); tip.classList.add('on');
+    const r=chart.getBoundingClientRect(); let x=e.clientX-r.left+14, y=e.clientY-r.top+14;
+    if(x+tip.offsetWidth>r.width) x=e.clientX-r.left-tip.offsetWidth-14;
+    if(y+tip.offsetHeight>r.height) y=e.clientY-r.top-tip.offsetHeight-14;
+    tip.style.left=Math.max(0,x)+'px'; tip.style.top=Math.max(0,y)+'px'; };
+  chart.onmouseleave=()=>tip.classList.remove('on');
 }
 
 // Render the data-dependent UI (controls + sections) once runs are loaded.
