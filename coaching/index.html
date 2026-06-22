@@ -1015,7 +1015,7 @@ header{display:none}
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 <script src="/shared/site.js"></script>
-<script src="/shared/run-load-model.js?v=6"></script>
+<script src="/shared/run-load-model.js?v=7"></script>
 <script src="/shared/device-matrix.js"></script>
 
 <script>
@@ -3761,7 +3761,7 @@ function rdParseExport(text){
     const id=String(rawDate).replace(/\D/g,'')+'_'+rdNorm(type);
     const title=String(get(r,'title')||'').trim();
     byId[id]={ id, type, title,
-      lever:/lever/i.test(title),   // interim: flag Lever-assisted runs by title until a better source exists
+      leverTitle:/lever/i.test(title),   // explicit override; auto-detection (treadmill+low-HR) sets run.lever
       ts:date.getTime(), dateISO:date.toISOString(),
       distMi: distRaw==null?null:(isTrack?distRaw/1609.34:distRaw),
       durSec:rdHms(get(r,'time')), avgHr:rdNum(get(r,'avghr')), maxHr:rdNum(get(r,'maxhr')),
@@ -3841,7 +3841,10 @@ function rdRunsInF(s,e){ const it=rdIntensity(); return rdFilterIntensity(rdRuns
 // Type-filtered runs only (intensity is NOT applied — total mechanical load counts every run).
 function rdTypeRuns(){ return rdState.runs.filter(r=>rdState.activeTypes.has(r.type)&&rdAnalyzable(r)); }
 // Recompute the per-athlete load-model params (baseline auto-calibrated from easy runs).
-function rdOffloadFrac(){ const p=rdState.profile&&rdState.profile.runOffloadPct; const v=parseFloat(p); return (v>0&&v<100)?v/100:0; }
+// Lever offload fraction from the profile's "% bodyweight" setting (default 85% BW ⇒ 0.15 offload).
+function rdOffloadFrac(){ const v=parseFloat(rdState.profile&&rdState.profile.runLeverPctBW); const pct=(v>0&&v<100)?v:85; return 1-pct/100; }
+// Flag Lever runs on the working set: explicit title override OR auto-detection (treadmill + low HR for pace).
+function rdAnnotateLever(){ const ids=RunLoad.detectLeverIds(rdState.runs); rdState.runs.forEach(r=>{ r.lever = !!r.leverTitle || ids.has(r.id); }); }
 function rdComputeLoadParams(){
   const it=rdIntensity();
   return Object.assign({}, RunLoad.DEFAULTS, RunLoad.calibrateBaseline(rdTypeRuns(), it.cutoff), { useGrade:true, offload:rdOffloadFrac() });
@@ -3852,13 +3855,13 @@ function rdComputeLoadParams(){
 // We mirror the three fields onto rdState.profile so recalculation never depends on
 // whether the live profile object is populated.
 function rdProfile(){ return rdState.role==='coach' ? selectedAthleteData : userDoc; }
-function rdLoadProfileMirror(){ const p=rdProfile()||{}; rdState.profile={ weightLb:p.weightLb||null, runDevice:p.runDevice||'', runHasAccessory:!!p.runHasAccessory, runOffloadPct:p.runOffloadPct||null, runEvents:Array.isArray(p.runEvents)?p.runEvents:[] }; }
+function rdLoadProfileMirror(){ const p=rdProfile()||{}; rdState.profile={ weightLb:p.weightLb||null, runDevice:p.runDevice||'', runHasAccessory:!!p.runHasAccessory, runLeverPctBW:p.runLeverPctBW||null, runEvents:Array.isArray(p.runEvents)?p.runEvents:[] }; }
 // Read the profile fields straight from the athlete's user doc (same path we write to), so a
 // reload reflects what was saved regardless of how the coaching app cached the user object.
 function rdLoadProfile(uid){
   return db.collection('users').doc(uid).get().then(d=>{
     const x=d.exists?d.data():{};
-    rdState.profile={ weightLb:x.weightLb||null, runDevice:x.runDevice||'', runHasAccessory:!!x.runHasAccessory, runOffloadPct:x.runOffloadPct||null, runEvents:Array.isArray(x.runEvents)?x.runEvents:[] };
+    rdState.profile={ weightLb:x.weightLb||null, runDevice:x.runDevice||'', runHasAccessory:!!x.runHasAccessory, runLeverPctBW:x.runLeverPctBW||null, runEvents:Array.isArray(x.runEvents)?x.runEvents:[] };
   }).catch(()=>{ rdLoadProfileMirror(); });
 }
 function rdWeightKg(){ const lb=rdState.profile&&rdState.profile.weightLb; return lb ? lb*0.453592 : null; }
@@ -3917,6 +3920,7 @@ function rdPopulateMetricSelects(){
 
 function rdRefresh(){
   if(!rdState.runs.length) return;
+  rdAnnotateLever();                          // set run.lever before load params / Impact-Load metrics
   rdState.loadParams=rdComputeLoadParams();   // must be set before any Impact-Load metric is computed
   const end=rdState.anchor, cards=document.getElementById('rd-summary-cards');
   if(cards){
@@ -4192,7 +4196,7 @@ function rdRenderData(){
           '<div class="rd-ctl"><label>Device</label><select id="rd-device">'+devOpts+'</select></div>'+
           '<div class="rd-ctl"><label>Strap / pod</label><div class="rd-types"><span class="rd-chip'+(rdHasAccessory()?' on':'')+'" id="rd-accessory">chest strap / pod</span></div></div>'+
           '<div class="rd-ctl"><label>Body weight</label><div class="rd-inunit"><input type="text" id="rd-weight" value="'+wLb+'" placeholder="—" style="width:54px"><span>lb</span></div></div>'+
-          '<div class="rd-ctl"><label>Lever offload</label><div class="rd-inunit"><input type="text" id="rd-offload" value="'+(rdState.profile.runOffloadPct||'')+'" placeholder="0" style="width:42px"><span>%</span></div></div>'+
+          '<div class="rd-ctl"><label>Lever support</label><div class="rd-inunit"><input type="text" id="rd-offload" value="'+(rdState.profile.runLeverPctBW||'')+'" placeholder="85" style="width:42px"><span>% BW</span></div></div>'+
         '</div>'+
       '</div>'+
       '<div class="rd-group rd-group-grow">'+
@@ -4259,7 +4263,7 @@ function rdRenderData(){
   document.getElementById('rd-device').onchange=e=>{ rdSaveProfile({ runDevice:e.target.value }); rdPopulateMetricSelects(); rdRefresh(); };
   document.getElementById('rd-accessory').onclick=function(){ this.classList.toggle('on'); rdSaveProfile({ runHasAccessory:this.classList.contains('on') }); rdPopulateMetricSelects(); rdRefresh(); };
   document.getElementById('rd-weight').onchange=e=>{ const lb=parseFloat(String(e.target.value).replace(/[^0-9.]/g,'')); rdSaveProfile({ weightLb: (lb&&lb>0)?lb:null }); rdRefresh(); };
-  document.getElementById('rd-offload').onchange=e=>{ const pct=parseFloat(String(e.target.value).replace(/[^0-9.]/g,'')); rdSaveProfile({ runOffloadPct: (pct>0&&pct<100)?pct:null }); rdRefresh(); };
+  document.getElementById('rd-offload').onchange=e=>{ const pct=parseFloat(String(e.target.value).replace(/[^0-9.]/g,'')); rdSaveProfile({ runLeverPctBW: (pct>0&&pct<100)?pct:null }); rdRefresh(); };
   // Performance/injury history: "+ history" adds an event; chips below allow removal.
   document.getElementById('rd-ev-add').onclick=rdEvAdd;
   document.getElementById('rd-ev-note').onkeydown=e=>{ if(e.key==='Enter') rdEvAdd(); };
