@@ -330,7 +330,8 @@ var METRICS = [
     calc:function(r){ return window.RunLoad ? RunLoad.impactLoad(r, LOAD_PARAMS) : null; } },
 ];
 var LOAD_PARAMS = null;       // per-athlete load-model params (set in refresh)
-var STD_PROFILE = {};         // { weightLb, runDevice, runHasAccessory } — fetched from the user doc
+var STD_PROFILE = {};         // { weightLb, runDevice, runHasAccessory, runLeverPctBW, runEvents } — from the user doc
+var STRAVA_LEVER = [];        // Strava "lever"-titled activities {date, distMi} — title-only Lever detection
 
 var RUN_WINDOWS = [
   {key:'7',  days:7,   label:'7 days'},
@@ -534,8 +535,29 @@ function runsInF(s,e){ var it=intensityState(); return filterIntensity(runsIn(s,
 function typeRuns(){ return RAW.filter(function(r){return ACTIVE_TYPES.has(r.type)&&analyzable(r);}); }
 // Lever offload fraction from the profile's "% bodyweight" setting (default 85% BW ⇒ 0.15 offload).
 function offloadFrac(){ var v=parseFloat(STD_PROFILE.runLeverPctBW); var pct=(v>0&&v<100)?v:85; return 1-pct/100; }
-// Flag Lever runs on the working set: explicit title override OR auto-detection (treadmill + low HR for pace).
-function annotateLever(){ var ids=RunLoad.detectLeverIds(RAW); RAW.forEach(function(r){ r.lever = !!r.leverTitle || ids.has(r.id); }); }
+// Strava titles only: athletes rename runs on Strava (never in Garmin), so a Strava activity whose
+// name contains "lever" is a strong manual Lever flag. We pull ONLY the title from Strava and match
+// it to the Garmin run by date (+distance); every metric still comes from Garmin. Strava stores
+// ~120 days, so this covers recent runs; older runs rely on treadmill+HR detection / Garmin title.
+function fetchStravaLever(){
+  if(!UID) return Promise.resolve();
+  return esLabs.db.collection('trainingPlans').where('athleteUid','==',UID).limit(1).get().then(function(ps){
+    if(ps.empty){ STRAVA_LEVER=[]; return; }
+    return esLabs.db.collection('trainingPlans').doc(ps.docs[0].id).collection('stravaActivities').get().then(function(snap){
+      var out=[]; snap.forEach(function(d){ var a=d.data(); if(a&&a.name&&/lever/i.test(a.name)&&a.date) out.push({ date:a.date, distMi:(a.distance||0)/1609.34 }); });
+      STRAVA_LEVER=out;
+    });
+  }).catch(function(){ STRAVA_LEVER=[]; });
+}
+function stravaLever(r){
+  if(!STRAVA_LEVER.length) return false;
+  return STRAVA_LEVER.some(function(s){ var n=Date.parse(s.date+'T12:00:00'); if(isNaN(n)) return false;
+    if(Math.abs(r.ts-n) > 1.2*864e5) return false;
+    if(r.distMi!=null && s.distMi>0 && Math.abs(s.distMi-r.distMi) > Math.max(0.2,0.05*r.distMi)) return false;
+    return true; });
+}
+// Flag Lever runs: explicit Garmin title, Strava "lever" title, OR auto-detection (treadmill + low HR for pace).
+function annotateLever(){ var ids=RunLoad.detectLeverIds(RAW); RAW.forEach(function(r){ r.lever = !!r.leverTitle || stravaLever(r) || ids.has(r.id); }); }
 function computeLoadParams(){ var it=intensityState(); return Object.assign({}, RunLoad.DEFAULTS, RunLoad.calibrateBaseline(typeRuns(), it.cutoff), { useGrade:true, offload:offloadFrac() }); }
 
 // ---- profile (weight + device), stored on the user doc ----
@@ -946,7 +968,7 @@ esLabs.onAuthChange(function(user){
     UID=user.uid;
     tool.style.display='block';
     document.getElementById('importStatus').innerHTML='<span class="spin"></span>Loading your stored runs…';
-    Promise.all([loadProfile(), loadFromFirestore()]).then(function(){
+    Promise.all([loadProfile(), loadFromFirestore(), fetchStravaLever()]).then(function(){
       renderLoaded();
       document.getElementById('importStatus').innerHTML = RAW.length
         ? '<span class="ok">✓ '+RAW.length+' runs loaded</span> · import a newer export to add more'
