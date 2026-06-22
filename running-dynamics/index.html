@@ -344,6 +344,7 @@ var RUN_WINDOWS = [
 /* ---------- state ---------- */
 var RAW = [];                  // all stored running activities {…fields, date:Date}
 var ACTIVE_TYPES = new Set();
+var KNOWN_TYPES = new Set();   // effective types seen so far; new ones default ON, selections preserved
 var ANCHOR = null;
 var UID = null;
 var DAY = 864e5;
@@ -475,7 +476,7 @@ function backfill(candidates){
 function minDist(){ var el=document.getElementById('mindist'); var v=el?parseFloat(el.value):NaN; return (v>=0)?v:0.5; }
 function analyzable(r){ return r.distMi!=null && r.distMi>=minDist(); }
 function runsIn(start,end){
-  return RAW.filter(function(r){ return ACTIVE_TYPES.has(r.type) && analyzable(r) && r.date>start && r.date<=end; });
+  return RAW.filter(function(r){ return ACTIVE_TYPES.has(effType(r)) && analyzable(r) && r.date>start && r.date<=end; });
 }
 function metricMean(runs,m){
   var vals=runs.map(m.calc).filter(function(v){ return v!=null && !isNaN(v); });
@@ -532,7 +533,7 @@ function intensityState(){
 }
 function runsInF(s,e){ var it=intensityState(); return filterIntensity(runsIn(s,e),it.mode,it.cutoff); }
 // Type-filtered runs (intensity NOT applied — total mechanical load counts every run).
-function typeRuns(){ return RAW.filter(function(r){return ACTIVE_TYPES.has(r.type)&&analyzable(r);}); }
+function typeRuns(){ return RAW.filter(function(r){return ACTIVE_TYPES.has(effType(r))&&analyzable(r);}); }
 // Lever offload fraction from the profile's "% bodyweight" setting (default 85% BW ⇒ 0.15 offload).
 function offloadFrac(){ var v=parseFloat(STD_PROFILE.runLeverPctBW); var pct=(v>0&&v<100)?v:85; return 1-pct/100; }
 // Strava titles only: athletes rename runs on Strava (never in Garmin), so a Strava activity whose
@@ -558,6 +559,8 @@ function stravaLever(r){
 }
 // Flag Lever runs: explicit Garmin title, Strava "lever" title, OR auto-detection (treadmill + low HR for pace).
 function annotateLever(){ var ids=RunLoad.detectLeverIds(RAW); RAW.forEach(function(r){ r.lever = !!r.leverTitle || stravaLever(r) || ids.has(r.id); }); }
+// Effective activity type: a Lever run groups under its own "Lever" category, not its raw Garmin type.
+function effType(r){ return r.lever ? 'Lever' : r.type; }
 function computeLoadParams(){ var it=intensityState(); return Object.assign({}, RunLoad.DEFAULTS, RunLoad.calibrateBaseline(typeRuns(), it.cutoff), { useGrade:true, offload:offloadFrac() }); }
 
 // ---- profile (weight + device), stored on the user doc ----
@@ -652,7 +655,7 @@ function renderLoad(){
   // L/R balance: gctBalL is the % of contact time on the left; report deviation from 50 + side.
   if(RunDevices.status('gctBalance', deviceId(), hasAccessory())==='native'){
     var end=last.ts;
-    var meanLOf=function(s,e){ var v=RAW.filter(function(r){return ACTIVE_TYPES.has(r.type)&&r.gctBalL!=null&&r.ts>s&&r.ts<=e;}).map(function(r){return r.gctBalL;}); return v.length?v.reduce(function(a,b){return a+b;},0)/v.length:null; };
+    var meanLOf=function(s,e){ var v=RAW.filter(function(r){return ACTIVE_TYPES.has(effType(r))&&r.gctBalL!=null&&r.ts>s&&r.ts<=e;}).map(function(r){return r.gctBalL;}); return v.length?v.reduce(function(a,b){return a+b;},0)/v.length:null; };
     var recentL=meanLOf(end-30*DAY,end), priorL=meanLOf(end-60*DAY,end-30*DAY);
     if(recentL!=null){
       var dev=recentL-50, mag=Math.abs(dev), side=dev>=0?'left':'right';
@@ -734,13 +737,13 @@ function renderForm(){
 /* ---------- type filter ---------- */
 function buildTypeChips(){
   var counts={};
-  RAW.forEach(function(r){ counts[r.type]=(counts[r.type]||0)+1; });
+  RAW.forEach(function(r){ var t=effType(r); counts[t]=(counts[t]||0)+1; });
   var types=Object.keys(counts).sort(function(a,b){return counts[b]-counts[a];});
-  ACTIVE_TYPES=new Set(types);
+  types.forEach(function(t){ if(!KNOWN_TYPES.has(t)){ KNOWN_TYPES.add(t); ACTIVE_TYPES.add(t); } });
   var wrap=document.getElementById('types'); wrap.innerHTML='';
   types.forEach(function(tp){
     var c=document.createElement('span');
-    c.className='chip on'; c.textContent=tp+' ('+counts[tp]+')';
+    c.className='chip'+(ACTIVE_TYPES.has(tp)?' on':''); c.textContent=tp+' ('+counts[tp]+')';
     c.onclick=function(){
       if(ACTIVE_TYPES.has(tp)){ACTIVE_TYPES.delete(tp);c.classList.remove('on');}
       else{ACTIVE_TYPES.add(tp);c.classList.add('on');}
@@ -860,6 +863,7 @@ function renderLoaded(){
   var dates=RAW.map(function(r){return r.date;}).sort(function(a,b){return a-b;});
   var min=dates[0], max=dates[dates.length-1];
   ANCHOR=new Date(max);
+  annotateLever();      // classify Lever runs before grouping the type chips by effective type
   buildTypeChips();
   showSections(true);
   var lm=document.getElementById('loadMethod'); if(lm && window.RunLoad) lm.innerHTML=RunLoad.methodologyHTML();

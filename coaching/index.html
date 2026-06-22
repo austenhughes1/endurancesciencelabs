@@ -3801,7 +3801,10 @@ function rdBackfill(uid, candidates){
 // strides, sprint reps, GPS junk) from every section. Configurable via the Min distance control.
 function rdMinDist(){ const el=document.getElementById('rd-mindist'); const v=el?parseFloat(el.value):NaN; return (v>=0)?v:0.5; }
 function rdAnalyzable(r){ return r.distMi!=null && r.distMi>=rdMinDist(); }
-function rdRunsIn(s,e){ return rdState.runs.filter(r=>rdState.activeTypes.has(r.type)&&rdAnalyzable(r)&&r.date>s&&r.date<=e); }
+// Effective activity type for grouping/filtering: a Lever run shows under its own "Lever" category
+// rather than its raw Garmin type (usually "Treadmill Running"), so it can be toggled on its own.
+function rdEffType(r){ return r.lever ? 'Lever' : r.type; }
+function rdRunsIn(s,e){ return rdState.runs.filter(r=>rdState.activeTypes.has(rdEffType(r))&&rdAnalyzable(r)&&r.date>s&&r.date<=e); }
 function rdMean(runs,m){ const v=runs.map(m.calc).filter(x=>x!=null&&!isNaN(x)); return v.length?v.reduce((a,b)=>a+b,0)/v.length:null; }
 function rdSummarize(runs){
   const dist=runs.reduce((a,r)=>a+(r.distMi||0),0), dur=runs.reduce((a,r)=>a+(r.durSec||0),0);
@@ -3839,7 +3842,7 @@ function rdIntensity(){
 }
 function rdRunsInF(s,e){ const it=rdIntensity(); return rdFilterIntensity(rdRunsIn(s,e), it.mode, it.cutoff); }
 // Type-filtered runs only (intensity is NOT applied — total mechanical load counts every run).
-function rdTypeRuns(){ return rdState.runs.filter(r=>rdState.activeTypes.has(r.type)&&rdAnalyzable(r)); }
+function rdTypeRuns(){ return rdState.runs.filter(r=>rdState.activeTypes.has(rdEffType(r))&&rdAnalyzable(r)); }
 // Recompute the per-athlete load-model params (baseline auto-calibrated from easy runs).
 // Lever offload fraction from the profile's "% bodyweight" setting (default 85% BW ⇒ 0.15 offload).
 function rdOffloadFrac(){ const v=parseFloat(rdState.profile&&rdState.profile.runLeverPctBW); const pct=(v>0&&v<100)?v:85; return 1-pct/100; }
@@ -3866,6 +3869,21 @@ function rdStravaLever(r){
 }
 // Flag Lever runs: explicit Garmin title, Strava "lever" title, OR auto-detection (treadmill + low HR for pace).
 function rdAnnotateLever(){ const ids=RunLoad.detectLeverIds(rdState.runs); rdState.runs.forEach(r=>{ r.lever = !!r.leverTitle || rdStravaLever(r) || ids.has(r.id); }); }
+// Build the activity-type chips from effective types (Lever is its own category). Newly-appearing
+// types default to ON; existing on/off selections are preserved (so a late Strava fetch that adds
+// the "Lever" category doesn't reset the user's choices).
+function rdBuildTypeChips(){
+  const tw=document.getElementById('rd-types'); if(!tw) return;
+  const counts={}; rdState.runs.forEach(r=>{ const t=rdEffType(r); counts[t]=(counts[t]||0)+1; });
+  const types=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
+  if(!rdState.knownTypes) rdState.knownTypes=new Set();
+  if(!rdState.activeTypes) rdState.activeTypes=new Set();
+  types.forEach(t=>{ if(!rdState.knownTypes.has(t)){ rdState.knownTypes.add(t); rdState.activeTypes.add(t); } });
+  tw.innerHTML='';
+  types.forEach(tp=>{ const c=document.createElement('span'); c.className='rd-chip'+(rdState.activeTypes.has(tp)?' on':''); c.textContent=tp+' ('+counts[tp]+')';
+    c.onclick=()=>{ if(rdState.activeTypes.has(tp)){rdState.activeTypes.delete(tp);c.classList.remove('on');} else {rdState.activeTypes.add(tp);c.classList.add('on');} rdRefresh(); };
+    tw.appendChild(c); });
+}
 function rdComputeLoadParams(){
   const it=rdIntensity();
   return Object.assign({}, RunLoad.DEFAULTS, RunLoad.calibrateBaseline(rdTypeRuns(), it.cutoff), { useGrade:true, offload:rdOffloadFrac() });
@@ -4004,7 +4022,7 @@ function rdRenderLoad(){
   // report the deviation from 50 and which side it leans.
   if(RunDevices.status('gctBalance', rdDeviceId(), rdHasAccessory())==='native'){
     const end=last.ts, DAY=RD_DAY;
-    const meanLOf=(s,e)=>{ const v=rdState.runs.filter(r=>rdState.activeTypes.has(r.type)&&r.gctBalL!=null&&r.ts>s&&r.ts<=e).map(r=>r.gctBalL); return v.length?v.reduce((a,b)=>a+b,0)/v.length:null; };
+    const meanLOf=(s,e)=>{ const v=rdState.runs.filter(r=>rdState.activeTypes.has(rdEffType(r))&&r.gctBalL!=null&&r.ts>s&&r.ts<=e).map(r=>r.gctBalL); return v.length?v.reduce((a,b)=>a+b,0)/v.length:null; };
     const recentL=meanLOf(end-30*DAY,end), priorL=meanLOf(end-60*DAY,end-30*DAY);
     if(recentL!=null){
       const dev=recentL-50, mag=Math.abs(dev), side=dev>=0?'left':'right';
@@ -4189,9 +4207,8 @@ function rdRenderData(){
   const dates=rdState.runs.map(r=>r.date).sort((a,b)=>a-b);
   const min=dates[0], max=dates[dates.length-1];
   rdState.anchor=new Date(max);
-  const counts={}; rdState.runs.forEach(r=>{ counts[r.type]=(counts[r.type]||0)+1; });
-  const types=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
-  rdState.activeTypes=new Set(types);
+  rdAnnotateLever();                            // classify Lever runs before grouping by effective type
+  rdState.activeTypes=new Set(); rdState.knownTypes=new Set();
   if(!rdState.profile) rdLoadProfileMirror();   // fallback only; mountRunDynamics loads it fresh from the doc
 
   // Device selector options, grouped by brand
@@ -4261,11 +4278,7 @@ function rdRenderData(){
       '<div class="rd-tablewrap"><table class="rd-table" id="rd-form-table"></table></div>'+
       '<p class="rd-hint" id="rd-form-hint">Showing stored-history averages. Toggle “compare two ranges” to compare periods (Δ = Range A − Range B).</p></div>';
 
-  // type chips
-  const tw=document.getElementById('rd-types');
-  types.forEach(tp=>{ const c=document.createElement('span'); c.className='rd-chip on'; c.textContent=tp+' ('+counts[tp]+')';
-    c.onclick=()=>{ if(rdState.activeTypes.has(tp)){rdState.activeTypes.delete(tp);c.classList.remove('on');} else {rdState.activeTypes.add(tp);c.classList.add('on');} rdRefresh(); };
-    tw.appendChild(c); });
+  rdBuildTypeChips();
   document.getElementById('rd-anchor').onchange=e=>{ const d=rdDate(e.target.value); if(d){rdState.anchor=d;rdRefresh();} };
   // Global intensity filter — drives volume, form metrics, and the trend chart.
   document.getElementById('rd-intensity').onchange=rdRefresh;
@@ -4353,7 +4366,7 @@ function mountRunDynamics(uid, role){
 
   rdState.profile=null;   // force a fresh profile read for this athlete
   rdState.leverStrava=[];
-  rdFetchStravaLever(uid).then(()=>{ if(rdState.uid===uid && rdState.loaded && rdState.runs.length) rdRefresh(); });
+  rdFetchStravaLever(uid).then(()=>{ if(rdState.uid===uid && document.getElementById('rd-types')){ rdAnnotateLever(); rdBuildTypeChips(); rdRefresh(); } });
   rdLoadProfile(uid).then(()=>{
     if(rdState.uid===uid && rdState.loaded){
       rdRenderData();
