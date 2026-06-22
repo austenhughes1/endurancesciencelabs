@@ -3720,7 +3720,7 @@ const RD_WINDOWS = [
   {days:365,label:'365 days'},{days:null,label:'All time'},
 ];
 const RD_DAY = 864e5;
-let rdState = { uid:null, role:'athlete', runs:[], loaded:false, anchor:null, activeTypes:new Set(), loadParams:null, profile:null };
+let rdState = { uid:null, role:'athlete', runs:[], loaded:false, anchor:null, activeTypes:new Set(), loadParams:null, profile:null, leverStrava:[] };
 
 function rdCol(uid){ return db.collection('users').doc(uid).collection('garminActivities'); }
 
@@ -3843,8 +3843,29 @@ function rdTypeRuns(){ return rdState.runs.filter(r=>rdState.activeTypes.has(r.t
 // Recompute the per-athlete load-model params (baseline auto-calibrated from easy runs).
 // Lever offload fraction from the profile's "% bodyweight" setting (default 85% BW ⇒ 0.15 offload).
 function rdOffloadFrac(){ const v=parseFloat(rdState.profile&&rdState.profile.runLeverPctBW); const pct=(v>0&&v<100)?v:85; return 1-pct/100; }
-// Flag Lever runs on the working set: explicit title override OR auto-detection (treadmill + low HR for pace).
-function rdAnnotateLever(){ const ids=RunLoad.detectLeverIds(rdState.runs); rdState.runs.forEach(r=>{ r.lever = !!r.leverTitle || ids.has(r.id); }); }
+// Strava titles only: athletes rename runs on Strava (never in Garmin), so a Strava activity whose
+// name contains "lever" is a strong manual Lever flag. We pull ONLY the title from Strava and match
+// it to the Garmin run by date (+distance); every metric still comes from Garmin. Strava stores
+// ~120 days, so this covers recent runs; older runs rely on treadmill+HR detection / Garmin title.
+function rdFetchStravaLever(uid){
+  return db.collection('trainingPlans').where('athleteUid','==',uid).limit(1).get().then(ps=>{
+    if(ps.empty){ rdState.leverStrava=[]; return; }
+    return db.collection('trainingPlans').doc(ps.docs[0].id).collection('stravaActivities').get().then(snap=>{
+      const out=[]; snap.forEach(d=>{ const a=d.data(); if(a&&a.name&&/lever/i.test(a.name)&&a.date) out.push({ date:a.date, distMi:(a.distance||0)/1609.34 }); });
+      rdState.leverStrava=out;
+    });
+  }).catch(()=>{ rdState.leverStrava=[]; });
+}
+// Does a run match a Strava "lever"-titled activity? Same calendar day (±1 day for TZ) + close distance.
+function rdStravaLever(r){
+  const L=rdState.leverStrava; if(!L||!L.length) return false;
+  return L.some(s=>{ const n=Date.parse(s.date+'T12:00:00'); if(isNaN(n)) return false;
+    if(Math.abs(r.ts-n) > 1.2*864e5) return false;
+    if(r.distMi!=null && s.distMi>0 && Math.abs(s.distMi-r.distMi) > Math.max(0.2,0.05*r.distMi)) return false;
+    return true; });
+}
+// Flag Lever runs: explicit Garmin title, Strava "lever" title, OR auto-detection (treadmill + low HR for pace).
+function rdAnnotateLever(){ const ids=RunLoad.detectLeverIds(rdState.runs); rdState.runs.forEach(r=>{ r.lever = !!r.leverTitle || rdStravaLever(r) || ids.has(r.id); }); }
 function rdComputeLoadParams(){
   const it=rdIntensity();
   return Object.assign({}, RunLoad.DEFAULTS, RunLoad.calibrateBaseline(rdTypeRuns(), it.cutoff), { useGrade:true, offload:rdOffloadFrac() });
@@ -4331,6 +4352,8 @@ function mountRunDynamics(uid, role){
   fileInput.onchange=e=>{ const f=e.target.files[0]; if(f) read(f); fileInput.value=''; };
 
   rdState.profile=null;   // force a fresh profile read for this athlete
+  rdState.leverStrava=[];
+  rdFetchStravaLever(uid).then(()=>{ if(rdState.uid===uid && rdState.loaded && rdState.runs.length) rdRefresh(); });
   rdLoadProfile(uid).then(()=>{
     if(rdState.uid===uid && rdState.loaded){
       rdRenderData();
