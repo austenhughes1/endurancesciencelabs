@@ -117,6 +117,13 @@ tbody tr:hover td:first-child{background:#10131f}
 .mname{font-weight:600;color:var(--text)}
 .munit{font-size:10px;color:var(--muted);font-family:var(--mono);margin-left:5px}
 .mdesc{font-size:10.5px;color:var(--muted2);font-weight:400;margin-top:2px}
+@media(max-width:560px){
+  .tablewrap table{font-size:12px}
+  .tablewrap th,.tablewrap td{padding:7px 10px}
+  .tablewrap th:first-child,.tablewrap td:first-child{white-space:normal;max-width:42vw}
+  .mname{display:block}
+  .mdesc{display:none}
+}
 .val{font-family:var(--mono);font-weight:700;color:var(--text)}
 .val.na{color:var(--muted);font-weight:400}
 .delta{font-family:var(--mono);font-size:10.5px;margin-left:7px}
@@ -241,7 +248,7 @@ tbody tr:hover td:first-child{background:#10131f}
       <div class="ctl"><label>Metric 2</label><select id="m2"></select></div>
       <div class="ctl"><label>From</label><input type="date" id="tFrom"></div>
       <div class="ctl"><label>To</label><input type="date" id="tTo"></div>
-      <div class="ctl"><label>Display</label><div class="types"><span class="chip on" id="hideOutliers">Hide outliers</span><span class="chip on" id="smooth">Smooth</span></div></div>
+      <div class="ctl"><label>Display</label><div class="types"><span class="chip on" id="hideOutliers">Hide outliers</span><span class="chip on" id="smooth">Smooth</span><span class="chip" id="points">Points</span></div></div>
     </div>
     <div class="chartwrap"><div class="legend" id="trendLegend"></div><div id="trendChart"></div></div>
   </div>
@@ -789,6 +796,7 @@ function renderTrend(){
   if(!from||!to||to.getTime()<=from.getTime()){ chart.innerHTML='<div class="chart-empty">Pick a valid date range.</div>'; return; }
   var hideOut=document.getElementById('hideOutliers').classList.contains('on');
   var smooth=document.getElementById('smooth').classList.contains('on');
+  var showPts=document.getElementById('points').classList.contains('on');
   var runs=runsInF(new Date(from.getTime()-DAY),to);
   var evColor=function(t){ return t==='injury'?'#f55050':'#22c78a'; };
   series.forEach(function(s){
@@ -828,7 +836,7 @@ function renderTrend(){
       var t=evType(p), isMax=!t&&maxIds.has(p.id), cx=xOf(p.ts).toFixed(1), cy=yOf(p.v,s).toFixed(1);
       if(t) return '<circle cx="'+cx+'" cy="'+cy+'" r="3.8" fill="'+evColor(t)+'" stroke="rgba(255,255,255,0.85)" stroke-width="1.2"/>';
       if(isMax) return '<circle cx="'+cx+'" cy="'+cy+'" r="3.8" fill="none" stroke="#f5c842" stroke-width="1.6"/>';
-      return '<circle cx="'+cx+'" cy="'+cy+'" r="2.4" fill="'+s.color+'" fill-opacity="'+(smooth?'0.35':'1')+'"/>';
+      return showPts ? '<circle cx="'+cx+'" cy="'+cy+'" r="2.4" fill="'+s.color+'" fill-opacity="'+(smooth?'0.5':'1')+'"/>' : '';
     }).join('');
     // transparent hit targets (drawn last, on top) carry the data for the hover card
     hits+=s.dots.map(function(p){
@@ -936,7 +944,7 @@ document.getElementById('intensity').onchange=refresh;
 document.getElementById('cutoff').onchange=refresh;
 document.getElementById('mindist').onchange=refresh;
 ['m1','m2','tFrom','tTo'].forEach(function(id){ document.getElementById(id).onchange=renderTrend; });
-['hideOutliers','smooth'].forEach(function(id){ document.getElementById(id).onclick=function(){ this.classList.toggle('on'); renderTrend(); }; });
+['hideOutliers','smooth','points'].forEach(function(id){ document.getElementById(id).onclick=function(){ this.classList.toggle('on'); renderTrend(); }; });
 ['faFrom','faTo','fbFrom','fbTo'].forEach(function(id){ document.getElementById(id).onchange=renderForm; });
 document.getElementById('formCompare').onclick=function(){
   this.classList.toggle('on');
