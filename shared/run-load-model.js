@@ -35,7 +35,8 @@ var DEFAULTS = {
   // elevation came from one steep descent vs rolling terrain; per-segment grade (FIT) is the fix.
   kDescent:   330,
   kAscent:    110,
-  gradeCap:   2.5
+  gradeCap:   2.5,
+  offload:    0      // Lever body-weight-support offload fraction (0–1) applied to Lever runs
 };
 
 function median(arr) {
@@ -74,6 +75,11 @@ function impactLoad(run, p) {
   var dfF   = (run.cadence != null && run.gct != null)
     ? Math.pow(p.baseDF / (run.cadence * run.gct), p.kImpact) : 1;
   var wF    = (run.weight || p.refWeight) / p.refWeight;
+  // Lever body-weight support: a fraction of bodyweight is offloaded on the device, cutting ground
+  // reaction force (and thus impact) for that run. Per-run run.offload wins; otherwise a run flagged
+  // run.lever uses the profile-level p.offload. Clamped to 95% so load can't go to zero.
+  var off   = run.offload != null ? run.offload : (run.lever ? (p.offload || 0) : 0);
+  if (off > 0) wF *= (1 - Math.min(off, 0.95));
   var il = run.distMi * paceF * dfF * wF;
   if (p.useGrade && run.distMi) {
     var distM = run.distMi * 1609.34;
@@ -164,9 +170,10 @@ function methodologyHTML() {
   return `<span style="${H}">a · the equation</span>`
 + `<pre style="${EQ}">Impact Load (per run) — measured in Impact Miles:
 
-  IL = D · (P₀ ⁄ P)^1.5 · (DF₀ ⁄ DF)^1.0 · (W ⁄ W₀) · G
+  IL = D · (P₀ ⁄ P)^1.5 · (DF₀ ⁄ DF)^1.0 · (W ⁄ W₀) · (1 − O) · G
 
        DF = cadence × GCT
+       O  = Lever body-weight offload (0 when not on the Lever)
        G  = min( 1 + 330·(desc ⁄ L)² + 110·(asc ⁄ L)² , 2.5 )
 
 Load over time:
@@ -178,7 +185,7 @@ Load over time:
 + `<pre style="${EQ}">Impact Miles = distance
    × (how much faster than your easy pace)^1.5
    × (how much springier than your easy form)
-   × (body-weight scale)
+   × (body-weight scale, minus any Lever offload)
    × (hill surcharge)
 
 One easy flat mile = 1 Impact Mile; a hard or hilly mile counts as more.
@@ -191,6 +198,7 @@ Acute : Chronic = recent load vs the base you have built</pre>`
 + `<div style="${V}"><span style="${K}">P, P₀</span> — average pace and your easy-run baseline pace (s/mi), from GPS. Baseline = median of your easy runs (at or slower than the workout-pace cutoff). The 1.5 power reflects force &amp; metabolic cost rising faster than speed. Caveat: pace under-rates uphill effort (hard but slow) — the hill term offsets this.</div>`
 + `<div style="${V}"><span style="${K}">DF, DF₀</span> — duty factor = cadence × ground-contact time, vs your easy baseline. Cadence from the wrist; GCT from a chest strap, foot/waist pod, or wrist running-dynamics. Lower duty factor (shorter contact, more flight) loads each step harder. Caveats: needs a running-dynamics-capable device; GCT is an estimate; duty factor changes with speed, so we only ever compare you to <i>your own</i> baseline.</div>`
 + `<div style="${V}"><span style="${K}">W, W₀</span> — body weight ÷ a reference weight, from the profile. Equals 1 for a single athlete (drops out); only matters when comparing across athletes.</div>`
++ `<div style="${V}"><span style="${K}">O</span> — Lever body-weight offload: the fraction of bodyweight the Lever supports on a Lever-assisted run (set in the profile). Body-weight-support running cuts ground reaction force roughly in proportion, so the run's load is multiplied by (1 − O); O = 0 for normal runs. Caveat: this needs to know <i>which</i> runs were on the Lever — currently inferred from the activity title until a dedicated data source is wired up.</div>`
 + `<div style="${V}"><span style="${K}">G</span> — hill surcharge from total ascent &amp; descent ÷ distance (mean grade), descent weighted ~3× ascent, capped at 2.5. Caveat: only the totals are recorded, so this is <i>mean</i> grade — it can’t tell one steep descent from rolling terrain with the same total, and under-counts concentrated descents. Per-segment grade (from FIT files) would fix this.</div>`
 + `<div style="${V}"><span style="${K}">Acute / Chronic / ACWR</span> — exponentially-weighted 7- and 28-day averages of daily load; the ratio sits in a 0.8–1.3 “safe band,” and &gt;1.5 flags a spike.</div>`
 + `<span style="${H}">d · why each piece is defensible (sources)</span>`

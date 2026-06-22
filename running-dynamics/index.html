@@ -200,6 +200,7 @@ tbody tr:hover td:first-child{background:#10131f}
         <div class="ctl"><label>Device</label><select id="device"></select></div>
         <div class="ctl"><label>Strap / pod</label><div class="types"><span class="chip" id="accessory">chest strap / pod</span></div></div>
         <div class="ctl"><label>Body weight</label><div class="inunit"><input type="text" id="weight" placeholder="—" style="width:54px"><span>lb</span></div></div>
+        <div class="ctl"><label>Lever offload</label><div class="inunit"><input type="text" id="offload" placeholder="0" style="width:42px"><span>%</span></div></div>
       </div>
     </div>
     <div class="group group-grow">
@@ -265,7 +266,7 @@ tbody tr:hover td:first-child{background:#10131f}
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="/shared/site.js"></script>
-<script src="/shared/run-load-model.js?v=5"></script>
+<script src="/shared/run-load-model.js?v=6"></script>
 <script src="/shared/device-matrix.js"></script>
 <script>
 'use strict';
@@ -420,8 +421,10 @@ function parseExport(text){
     var distRaw=num(get(r,'distance'));
     var digits=String(rawDate).replace(/\D/g,'');     // stable id from start datetime
     var id=digits+'_'+norm(type);
+    var title=String(get(r,'title')||'').trim();
     byId[id]={                                        // dedupe within the file too
-      id:id, type:type, title:String(get(r,'title')||'').trim(),
+      id:id, type:type, title:title,
+      lever:/lever/i.test(title),   // interim: flag Lever-assisted runs by title until a better source exists
       ts:date.getTime(), dateISO:date.toISOString(),
       distMi: distRaw==null?null:(isTrack?distRaw/1609.34:distRaw),
       durSec: hmsToSec(get(r,'time')),
@@ -529,7 +532,8 @@ function intensityState(){
 function runsInF(s,e){ var it=intensityState(); return filterIntensity(runsIn(s,e),it.mode,it.cutoff); }
 // Type-filtered runs (intensity NOT applied — total mechanical load counts every run).
 function typeRuns(){ return RAW.filter(function(r){return ACTIVE_TYPES.has(r.type)&&analyzable(r);}); }
-function computeLoadParams(){ var it=intensityState(); return Object.assign({}, RunLoad.DEFAULTS, RunLoad.calibrateBaseline(typeRuns(), it.cutoff), { useGrade:true }); }
+function offloadFrac(){ var v=parseFloat(STD_PROFILE.runOffloadPct); return (v>0&&v<100)?v/100:0; }
+function computeLoadParams(){ var it=intensityState(); return Object.assign({}, RunLoad.DEFAULTS, RunLoad.calibrateBaseline(typeRuns(), it.cutoff), { useGrade:true, offload:offloadFrac() }); }
 
 // ---- profile (weight + device), stored on the user doc ----
 function weightKg(){ var lb=STD_PROFILE.weightLb; return lb ? lb*0.453592 : null; }
@@ -549,7 +553,7 @@ function saveProfile(patch){
       if(!ok) console.warn('RunDynamics: profile did not persist',{uid:UID,key:key,got:data[key],sent:patch[key]}); })
     .catch(function(e){ console.error('profile save',e); show('⚠ '+(e&&e.code||'save failed'),false); });
 }
-function loadProfile(){ if(!UID) return Promise.resolve(); return esLabs.db.collection('users').doc(UID).get().then(function(d){ var x=d.exists?d.data():{}; STD_PROFILE={ weightLb:x.weightLb, runDevice:x.runDevice, runHasAccessory:x.runHasAccessory, runEvents:Array.isArray(x.runEvents)?x.runEvents:[] }; }).catch(function(){ STD_PROFILE={}; }); }
+function loadProfile(){ if(!UID) return Promise.resolve(); return esLabs.db.collection('users').doc(UID).get().then(function(d){ var x=d.exists?d.data():{}; STD_PROFILE={ weightLb:x.weightLb, runDevice:x.runDevice, runHasAccessory:x.runHasAccessory, runOffloadPct:x.runOffloadPct, runEvents:Array.isArray(x.runEvents)?x.runEvents:[] }; }).catch(function(){ STD_PROFILE={}; }); }
 // ---- performance/injury history events ({id,type,ts,note}); stored on the user doc ----
 function events(){ return Array.isArray(STD_PROFILE.runEvents)?STD_PROFILE.runEvents:[]; }
 function evAdd(){
@@ -845,6 +849,7 @@ function renderLoaded(){
   var byBrand={}; RunDevices.LIST.forEach(function(d){ (byBrand[d.brand]=byBrand[d.brand]||[]).push(d); });
   document.getElementById('device').innerHTML='<option value="">Device: all metrics</option>'+Object.keys(byBrand).map(function(b){return '<optgroup label="'+b+'">'+byBrand[b].map(function(d){return '<option value="'+d.id+'"'+(d.id===deviceId()?' selected':'')+'>'+d.label+'</option>';}).join('')+'</optgroup>';}).join('');
   document.getElementById('weight').value=STD_PROFILE.weightLb||'';
+  document.getElementById('offload').value=STD_PROFILE.runOffloadPct||'';
   document.getElementById('accessory').classList.toggle('on', hasAccessory());
   document.getElementById('evDate').value=ymd(max);
   renderEventsList();
@@ -914,6 +919,7 @@ document.getElementById('formCompare').onclick=function(){
 document.getElementById('device').onchange=function(e){ saveProfile({ runDevice:e.target.value }); populateMetricSelects(); refresh(); };
 document.getElementById('accessory').onclick=function(){ this.classList.toggle('on'); saveProfile({ runHasAccessory:this.classList.contains('on') }); populateMetricSelects(); refresh(); };
 document.getElementById('weight').onchange=function(e){ var lb=parseFloat(String(e.target.value).replace(/[^0-9.]/g,'')); saveProfile({ weightLb:(lb&&lb>0)?lb:null }); refresh(); };
+document.getElementById('offload').onchange=function(e){ var pct=parseFloat(String(e.target.value).replace(/[^0-9.]/g,'')); saveProfile({ runOffloadPct:(pct>0&&pct<100)?pct:null }); refresh(); };
 document.getElementById('evAdd').onclick=evAdd;
 document.getElementById('evNote').onkeydown=function(e){ if(e.key==='Enter') evAdd(); };
 
