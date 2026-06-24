@@ -4127,7 +4127,7 @@ function rdRenderTrend(){
   const evColor=t=>t==='injury'?'#f55050':'#22c78a';
   const maxIds=RunLoad.maxEffortIds(rdTypeRuns());
   let legHtml=series.map(s=>'<span class="rd-legend-item"><span class="rd-legend-sw" style="background:'+s.color+'"></span>'+s.m.label+(s.m.unit?' ('+s.m.unit+')':'')+'</span>').join('');
-  if(evMap.size||maxIds.size) legHtml+='<span class="rd-legend-item" style="color:var(--muted)"><span class="rd-legend-sw" style="background:#22c78a"></span>race<span class="rd-legend-sw" style="background:#f55050;margin-left:8px"></span>injury<span class="rd-legend-ring" style="margin-left:8px"></span>max effort</span>';
+  if(evMap.size||maxIds.size) legHtml+='<span class="rd-legend-item" style="color:var(--muted)"><span class="rd-legend-sw" style="background:#22c78a"></span>race<span class="rd-legend-sw" style="background:#f55050;margin-left:8px"></span>injury<span class="rd-legend-ring" style="margin-left:8px"></span>hard effort</span>';
   legend.innerHTML=legHtml;
   if(!series.length){ chart.innerHTML='<div class="rd-chart-empty">Select a metric to plot.</div>'; return; }
   if(!from||!to||to.getTime()<=from.getTime()){ chart.innerHTML='<div class="rd-chart-empty">Pick a valid date range.</div>'; return; }
@@ -4172,7 +4172,7 @@ function rdRenderTrend(){
     lines+=s.dots.map(p=>{
       const t=evType(p), isMax=!t&&maxIds.has(p.id), cx=xOf(p.ts).toFixed(1), cy=yOf(p.v,s).toFixed(1);
       if(t) return '<circle cx="'+cx+'" cy="'+cy+'" r="3.8" fill="'+evColor(t)+'" stroke="rgba(255,255,255,0.85)" stroke-width="1.2"/>';
-      if(isMax) return '<circle cx="'+cx+'" cy="'+cy+'" r="3.8" fill="none" stroke="#f5c842" stroke-width="1.6"/>';
+      if(isMax) return showPts ? '<circle cx="'+cx+'" cy="'+cy+'" r="3.8" fill="none" stroke="#f5c842" stroke-width="1.6"/>' : '';
       return showPts ? '<circle cx="'+cx+'" cy="'+cy+'" r="2.4" fill="'+s.color+'" fill-opacity="'+(smooth?'0.5':'1')+'"/>' : '';
     }).join('');
     // transparent hit targets (drawn last, on top) carry the data for the hover card
@@ -4188,7 +4188,7 @@ function rdRenderTrend(){
 }
 // Build the hover-card HTML for a hit target, and wire pointer tracking on a chart container.
 function rdTipHTML(c){
-  const k=c.dataset.kind, m={race:['Race','#22c78a'],injury:['Injury','#f55050'],max:['Max effort','#f5c842']}[k];
+  const k=c.dataset.kind, m={race:['Race','#22c78a'],injury:['Injury','#f55050'],max:['Hard Effort','#f5c842']}[k];
   return '<div class="rd-tip-top">'+c.dataset.date+(m?' <span class="rd-tip-chip" style="color:'+m[1]+';border-color:'+m[1]+'">'+m[0]+'</span>':'')+'</div>'
     +'<div class="rd-tip-val">'+c.dataset.metric+' · <b>'+c.dataset.val+'</b></div>'
     +(c.dataset.ctx?'<div class="rd-tip-ctx">'+c.dataset.ctx+'</div>':'');
