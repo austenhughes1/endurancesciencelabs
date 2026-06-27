@@ -150,6 +150,10 @@ var CSS = `
 
 #rdx-rangeChips .rdx-chip.on{background:rgba(0,229,200,.1);border-color:rgba(0,229,200,.35);color:var(--cyan)}
 
+.rdx-demobar{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-bottom:12px;padding:9px 12px;border:1px dashed var(--gold);border-radius:10px;background:rgba(245,200,66,.05)}
+.rdx-demobar .lbl{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--gold);margin-right:2px}
+.rdx-demobar .rdx-chip{font-size:11px;padding:4px 10px}
+.rdx-demobar .rdx-chip.on{background:rgba(245,200,66,.16);border-color:var(--gold);color:var(--gold)}
 .rdx-hero{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px 22px;border-left:4px solid var(--muted2)}
 .rdx-hero-badge{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-bottom:12px}
 .rdx-hero-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
@@ -247,10 +251,35 @@ var RUN_WINDOWS = [
 var MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 /* ---------- per-mount state ---------- */
-var ROOT=null, DB=null, UID=null, ROLE='athlete';
+var ROOT=null, DB=null, UID=null, ROLE='athlete', ADMIN=false;
 var RAW=[], ACTIVE_TYPES=new Set(), KNOWN_TYPES=new Set();
 var ANCHOR=null, LOAD_PARAMS=null, STD_PROFILE={}, STRAVA_LEVER=[];
 var DAY=864e5;
+
+/* Admin-only demo switcher: forces the hero's 1/3/7-day-vs-28 ratios to a fixed
+   scenario so each recommendation card can be shown on demand. DEMO=null = live.
+   Real run data is never touched — only the hero's displayed windows are overridden. */
+var DEMO=null;
+var DEMO_LIST=[
+  {key:'bigday',   label:'Big day'},
+  {key:'hardday',  label:'Hard day'},
+  {key:'heavy3',   label:'Heavy 3-day'},
+  {key:'bigweek',  label:'Big week'},
+  {key:'ceiling',  label:'Near ceiling'},
+  {key:'building', label:'Room to build'},
+  {key:'safe',     label:'Safe band'},
+  {key:'baseline', label:'No data'},
+];
+var DEMO_PRESETS={
+  bigday:  {base:8.0, r1:2.3, r3:1.5,  r7:1.15},
+  hardday: {base:8.0, r1:1.6, r3:1.15, r7:1.05},
+  heavy3:  {base:8.0, r1:1.2, r3:1.65, r7:1.25},
+  bigweek: {base:8.0, r1:1.1, r3:1.35, r7:1.6 },
+  ceiling: {base:8.0, r1:1.0, r3:1.2,  r7:1.35},
+  building:{base:8.0, r1:0.6, r3:0.65, r7:0.7 },
+  safe:    {base:8.0, r1:1.05,r3:1.0,  r7:0.95},
+  baseline:{nullBase:true},
+};
 
 // Scoped element lookup — IDs live inside the mount container only.
 function $(id){ return ROOT ? ROOT.querySelector('#'+id) : null; }
@@ -547,6 +576,12 @@ function renderHero(){
   var d1=avgLast(tl,1), d3=avgLast(tl,3), d7=avgLast(tl,7), d28=avgLast(tl,28);
   var base = d28>0 ? d28 : null;
   var r1=base?d1/base:null, r3=base?d3/base:null, r7=base?d7/base:null;
+  // Admin demo override: swap in a fixed scenario's windows (real data untouched).
+  if(DEMO && DEMO_PRESETS[DEMO]){
+    var sc=DEMO_PRESETS[DEMO];
+    if(sc.nullBase){ base=null; d1=d3=d7=d28=0; r1=r3=r7=null; }
+    else { base=sc.base; d28=sc.base; r1=sc.r1; r3=sc.r3; r7=sc.r7; d1=r1*base; d3=r3*base; d7=r7*base; }
+  }
   var col1=acwrColor(r1), col3=acwrColor(r3), col7=acwrColor(r7);
 
   var head, accent, doHtml;
@@ -590,6 +625,18 @@ function renderHero(){
       statTile('28-day base', d28, 'var(--muted2)', 'impact mi/day')+
     '</div>'+
     '<div class="rdx-hero-do"><span class="do-hd">What to do next</span>'+doHtml+'</div>';
+}
+// Admin-only scenario switcher above the hero (demo control).
+function renderDemoBar(){
+  if(!ADMIN) return; var el=$('demobar'); if(!el) return;
+  var items=[{key:'',label:'● Live'}].concat(DEMO_LIST);
+  el.innerHTML='<span class="lbl">Demo</span>'+items.map(function(it){
+    var on=(DEMO||'')===it.key;
+    return '<span class="rdx-chip'+(on?' on':'')+'" data-demo="'+it.key+'">'+it.label+'</span>';
+  }).join('');
+  Array.prototype.forEach.call(el.querySelectorAll('.rdx-chip'),function(c){
+    c.onclick=function(){ DEMO=this.getAttribute('data-demo')||null; renderHero(); renderDemoBar(); };
+  });
 }
 
 /* ---------- unified chart: load (default) or metric trend ---------- */
@@ -830,6 +877,7 @@ function renderLoaded(){
   annotateLever();
   buildTypeChips();
   showSections(true);
+  renderDemoBar();
   var lm=$('loadMethod'); if(lm && window.RunLoad) lm.innerHTML=RunLoad.methodologyHTML();
   $('filenote').textContent=RAW.length+' runs stored · '+ymd(min)+' → '+ymd(max);
   $('anchor').value=ymd(max);
@@ -949,7 +997,7 @@ function shellHTML(opts){
 
   '<div class="rdx-empty rdx-section" id="sec-empty">No running activities stored '+(ROLE==='coach'?'for this athlete ':'')+'yet. Import a Garmin <code>Activities.csv</code> above to get started.</div>'+
 
-  '<div class="rdx-section" id="sec-hero"><div class="rdx-hero" id="hero"></div></div>'+
+  '<div class="rdx-section" id="sec-hero">'+(ADMIN?'<div class="rdx-demobar" id="demobar"></div>':'')+'<div class="rdx-hero" id="hero"></div></div>'+
 
   '<div class="rdx-section" id="sec-chart">'+
     '<h2>Training load &amp; trends</h2>'+
@@ -1034,7 +1082,7 @@ function mount(container, opts){
     return;
   }
   injectCSS();
-  ROOT=container; DB=opts.db; UID=opts.uid; ROLE=opts.role||'athlete';
+  ROOT=container; DB=opts.db; UID=opts.uid; ROLE=opts.role||'athlete'; ADMIN=!!opts.admin; DEMO=null;
   RAW=[]; ACTIVE_TYPES=new Set(); KNOWN_TYPES=new Set(); ANCHOR=null; LOAD_PARAMS=null; STD_PROFILE={}; STRAVA_LEVER=[];
   container.classList.add('rdx');
   container.innerHTML=shellHTML(opts);

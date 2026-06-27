@@ -916,7 +916,7 @@ header{display:none}
 <script src="/shared/site.js"></script>
 <script src="/shared/run-load-model.js?v=7"></script>
 <script src="/shared/device-matrix.js"></script>
-<script src="/shared/run-dynamics.js?v=3"></script>
+<script src="/shared/run-dynamics.js?v=4"></script>
 
 <script>
 'use strict';
@@ -3584,7 +3584,7 @@ function mountRunDynamics(uid, role){
   const root=document.getElementById('rd-root');
   if(!root) return;
   if(!uid){ root.innerHTML='<div style="padding:40px;text-align:center;color:var(--muted2);font-size:13px">Select an athlete from the sidebar to view their run dynamics.</div>'; return; }
-  RunDynamics.mount(root, { db: db, uid: uid, role: role });
+  RunDynamics.mount(root, { db: db, uid: uid, role: role, admin: !!(currentUser && currentUser.uid === ADMIN_UID) });
 }
 
 // ══════════════════════════════════════════════════════════
