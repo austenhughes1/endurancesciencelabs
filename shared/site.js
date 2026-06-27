@@ -111,6 +111,27 @@ function createAccount(email, pw) { return auth.createUserWithEmailAndPassword(e
 function sendPasswordReset(email) { return auth.sendPasswordResetEmail(email); }
 function signOut() { return auth.signOut(); }
 
+// Firebase's Google OAuth popup stashes its handoff state in sessionStorage.
+// When that write is blocked the SDK dies on a blank "Unable to save initial
+// state" handler page. Two contexts break it on phones: private/incognito mode
+// (sessionStorage throws) and in-app browsers (Instagram/Facebook/etc., which
+// partition storage). Detect both up front so we can steer users to email.
+function sessionStorageWorks() {
+  try {
+    var k = '__esl_probe__';
+    window.sessionStorage.setItem(k, '1');
+    window.sessionStorage.removeItem(k);
+    return true;
+  } catch (e) { return false; }
+}
+function isInAppBrowser() {
+  var ua = navigator.userAgent || '';
+  return /FBAN|FBAV|FB_IAB|Instagram|Line\/|Twitter|TikTok|musical_ly|MicroMessenger|WeChat|Snapchat|Pinterest|LinkedInApp/i.test(ua);
+}
+function googleOAuthAvailable() {
+  return sessionStorageWorks() && !isInAppBrowser();
+}
+
 function onAuthChange(cb) {
   authListeners.push(cb);
   // Fire immediately with the latest known state so callers don't race.
@@ -658,6 +679,20 @@ function wireGate(host, opts) {
     }).then(function () { googleBtn.disabled = false; });
   });
 
+  // Where Google OAuth can't work (private mode / in-app browser), hide the
+  // button before it dumps the user on Firebase's blank error page, open the
+  // email form, and explain why.
+  if (googleBtn && !googleOAuthAvailable()) {
+    googleBtn.style.display = 'none';
+    var micro = host.querySelector('.eslabs-gate-microcopy');
+    if (micro) micro.style.display = 'none';
+    var emailForm = host.querySelector('[data-eslabs-email-form]');
+    if (emailForm) emailForm.classList.add('open');
+    var emailToggle = host.querySelector('[data-eslabs-email-toggle]');
+    if (emailToggle) emailToggle.style.display = 'none';
+    showGateError(host, 'Google sign-in isn’t available in this browser — create an account with your email below, or open this page in Safari or Chrome to use Google.');
+  }
+
   var toggle = host.querySelector('[data-eslabs-email-toggle]');
   var form = host.querySelector('[data-eslabs-email-form]');
   var toggleLabel = host.querySelector('[data-eslabs-email-toggle-label]');
@@ -783,6 +818,12 @@ function friendlyAuthError(e) {
   if (e.code === 'auth/user-disabled') return 'This account has been disabled. Contact support.';
   if (e.code === 'auth/too-many-requests') return 'Too many attempts. Please wait a minute and try again.';
   if (e.code === 'auth/network-request-failed') return 'Network error. Check your connection and try again.';
+  if (e.code === 'auth/web-storage-unsupported'
+      || e.code === 'auth/operation-not-supported-in-this-environment'
+      || e.code === 'auth/popup-blocked'
+      || /sessionStorage|initial state/i.test(e.message || '')) {
+    return 'Google sign-in isn’t available in this browser (private mode or an in-app browser blocks it). Create an account with your email instead, or open this page in Safari or Chrome.';
+  }
   return e.message || 'Sign-in failed. Please try again.';
 }
 
@@ -872,6 +913,7 @@ window.esLabs = {
   get user() { return state.user; },
   isAdmin: function () { return !!(state.user && state.user.uid === ADMIN_UID); },
   signInGoogle: signInGoogle,
+  googleOAuthAvailable: googleOAuthAvailable,
   signInEmail: signInEmail,
   createAccount: createAccount,
   sendPasswordReset: sendPasswordReset,

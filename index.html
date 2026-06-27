@@ -785,6 +785,23 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
       console.error('Sign-in failed:', e && e.message);
     });
   };
+
+  // Google OAuth dies on a blank Firebase page inside in-app browsers and
+  // private mode. Where it can't work, swap the homepage CTA for a note that
+  // points users to email signup (available on the tool pages' gate) or a
+  // real browser, rather than dead-ending them.
+  if (!esLabs.googleOAuthAvailable()) {
+    var gBtn = document.querySelector('.cta-band-google');
+    if (gBtn) {
+      var note = document.createElement('p');
+      note.className = 'cta-band-sub';
+      note.style.maxWidth = '560px';
+      note.style.margin = '0 auto';
+      note.innerHTML = 'Google sign-in isn’t available in this browser. Tap a free tool below to create your account with an email address — or open this page in Safari or Chrome to use Google.';
+      gBtn.parentNode.insertBefore(note, gBtn);
+      gBtn.style.display = 'none';
+    }
+  }
 })();
 </script>
 </body>
