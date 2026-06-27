@@ -23,6 +23,36 @@
   --bad: #f55050;
   --ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --mono: 'Space Mono', 'SF Mono', Menlo, monospace;
+
+  /* Theme-aware helpers (overridden by html[data-theme="light"] below).
+     These exist so surfaces that previously hardcoded white-on-dark
+     overlays can flip cleanly between themes. */
+  --hover:      rgba(255,255,255,.04);   /* subtle hover/wash on a surface */
+  --nav-bg:     rgba(6,8,13,.97);        /* sticky nav / mobile menu backdrop */
+  --accent-ink: var(--cyan);             /* cyan used as TEXT (needs more contrast on light) */
+  color-scheme: dark;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Light theme — html[data-theme="light"] (specificity 0,1,1) wins
+   over every page's own :root (0,1,0) regardless of source order,
+   so a single block re-themes the whole site. Brand accents
+   (cyan/gold/coral/purple/good/warn/bad) intentionally carry over.
+   ────────────────────────────────────────────────────────────── */
+html[data-theme="light"] {
+  --bg:      #f6f7f9;
+  --panel:   #ffffff;
+  --panel2:  #eef1f5;
+  --border:  rgba(0,0,0,.10);
+  --border2: rgba(0,0,0,.16);
+  --text:    #161922;
+  --muted:   #a6adba;
+  --muted2:  #586072;
+
+  --hover:      rgba(0,0,0,.045);
+  --nav-bg:     rgba(255,255,255,.96);
+  --accent-ink: #08927f;   /* deeper teal — readable as text on light */
+  color-scheme: light;
 }
 
 /* ──────────────────────────────────────────────────────────────
@@ -32,7 +62,7 @@
   height: 58px; padding: 0 32px;
   display: flex; align-items: center; gap: 0;
   position: sticky; top: 0; z-index: 300;
-  background: rgba(6,8,13,.97);
+  background: var(--nav-bg);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
   font-family: var(--ui);
@@ -53,8 +83,8 @@
   transition: all .15s; border: 1px solid transparent;
   background: transparent; font-family: var(--ui);
 }
-.eslabs-nav .nav-link:hover { color: var(--text); background: rgba(255,255,255,.04); }
-.eslabs-nav .nav-link.active { color: var(--cyan); background: rgba(0,229,200,.07); border-color: rgba(0,229,200,.15); }
+.eslabs-nav .nav-link:hover { color: var(--text); background: var(--hover); }
+.eslabs-nav .nav-link.active { color: var(--accent-ink); background: rgba(0,229,200,.07); border-color: rgba(0,229,200,.15); }
 .eslabs-nav .nav-link .pill {
   font-size: 8px; font-weight: 700; letter-spacing: .4px;
   font-family: var(--mono); border-radius: 4px;
@@ -82,7 +112,7 @@
 }
 .eslabs-nav .nav-auth-name {
   font-size: 11px; font-weight: 600;
-  color: var(--cyan); font-family: var(--mono);
+  color: var(--accent-ink); font-family: var(--mono);
 }
 .eslabs-nav .nav-signin-btn {
   display: inline-flex; align-items: center; gap: 6px;
@@ -90,7 +120,7 @@
   font-family: var(--ui); border-radius: 7px;
   border: 1px solid rgba(0,229,200,.3);
   background: rgba(0,229,200,.06);
-  color: var(--cyan); cursor: pointer;
+  color: var(--accent-ink); cursor: pointer;
   transition: all .15s; text-decoration: none;
 }
 .eslabs-nav .nav-signin-btn:hover { background: rgba(0,229,200,.12); }
@@ -123,7 +153,7 @@
   .eslabs-nav .nav-links {
     position: absolute; top: 54px; left: 0; right: 0;
     flex-direction: column; align-items: stretch; gap: 4px;
-    background: rgba(6,8,13,.98); backdrop-filter: blur(12px);
+    background: var(--nav-bg); backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border);
     padding: 10px 16px 14px;
     display: none; flex: none;
@@ -150,7 +180,7 @@
     object-fit: cover; background: var(--panel2);
   }
   .eslabs-nav .nav-mobile-row .nav-mobile-name {
-    font-size: 13px; font-weight: 600; color: var(--cyan);
+    font-size: 13px; font-weight: 600; color: var(--accent-ink);
     font-family: var(--mono); flex: 1;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }

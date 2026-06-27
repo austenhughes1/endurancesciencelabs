@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script>try{if(localStorage.getItem('esl-theme')==='light')document.documentElement.setAttribute('data-theme','light')}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>esMetabolicLab — Metabolic Testing | Endurance Science Labs</title>
+<title>esMetabolicLab - Metabolic Testing | Endurance Science Labs</title>
 <meta name="robots" content="noindex,nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -25,7 +26,7 @@
     <div class="section-label">⬡ esMetabolicLab</div>
     <h1 class="page-title">Your <em>metabolic</em> profile,<br>without a lab.</h1>
     <p class="page-sub">
-      VO₂max, lactate threshold, training zones, and fueling — the same
+      VO₂max, lactate threshold, training zones, and fueling - the same
       model the sports-science labs use, built entirely from your own data.
       Start for free with just 4 simple time trial efforts, or go deeper
       with lactate testing and a coach-run in-person option.
@@ -34,9 +35,9 @@
     <!-- ── Free funnel: Power Profile ───────────────────────────── -->
     <section class="free-card">
       <div class="free-card-eyebrow">▶ Start free</div>
-      <h2 class="free-card-title">Build your <em>full profile</em> — free.</h2>
+      <h2 class="free-card-title">Build your <em>full profile</em> - free.</h2>
       <p class="free-card-sub">
-        Four max efforts (15 s, 3 min, 6 min, 12 min) and your full metabolic profile is built in your browser — VO2max, training paces, and more. No needles, no equipment, no payment. The same model the labs use, estimated from your own power and pace.
+        Four max efforts (15 s, 3 min, 6 min, 12 min) and your full metabolic profile is built in your browser - VO2max, training paces, and more. No needles, no equipment, no payment. The same model the labs use, estimated from your own power and pace.
       </p>
       <ul class="free-card-list">
         <li>VO₂max + anaerobic-engine estimate</li>
@@ -53,18 +54,10 @@
     <!-- ── Go Deeper: paid lactate-anchored profile ─────────────── -->
     <section class="deeper">
       <div class="section-label">◉ Go deeper</div>
-      <h2 class="deeper-title">For the real numbers — <em>measure</em> lactate.</h2>
+      <h2 class="deeper-title">For the real numbers - <em>measure</em> lactate.</h2>
       <p class="deeper-sub">
         The power-only profile is estimated from sprint power and max
-        effort — useful but rough at the edges. The measured-lactate
-        profile is built entirely from your own blood data, sharpening
-        every downstream number — thresholds, fat-burning peak, and zones.
-        Same model, real measurements underneath.
-      </p>
-      <p class="deeper-sub" style="margin-top:8px">
-        <a href="pricing/">See pricing →</a>
-        &nbsp;·&nbsp;
-        <a href="/coaching/">Premium Coaching includes all upload tools</a>
+        effort. The lactate profile is built entirely from your own blood measurements, providing the true data of what's happening in your body. Same model, real measurements underneath, lab-validated accuracy.
       </p>
 
       <div class="tile-grid" style="margin-top:22px">
@@ -75,7 +68,7 @@
             <span class="tile-badge paid">From $30 · or Premium Coaching</span>
           </div>
           <div class="tile-title">Measured-lactate metabolic profile</div>
-          <p class="tile-desc">One unified wizard: athlete inputs, a 15-second all-out sprint, and a 5–9 stage lactate step test. Your lactate response gives us your VO₂max, sustainable threshold, easy-zone limit, fat-burning sweet spot, and personalized training zones — built entirely from your own data.</p>
+          <p class="tile-desc">One unified wizard: athlete inputs, a 15-second all-out sprint, and a 5–9 stage lactate step test. Your lactate response gives us your VO₂max estimate, sustainable threshold, easy-zone limit, fat-burning sweet spot, and personalized training zones - built entirely from your own data.</p>
         </a>
       </div>
     </section>
@@ -89,7 +82,7 @@
           An Endurance Science Labs coach brings the meter, the strips,
           and the experience. We run the full sprint + step-test
           protocol with you and walk through your results face-to-face.
-          Boulder area; Denver-area travel by arrangement.
+          Boulder/Denver area only.
         </p>
       </div>
       <div class="inperson-band-right">
@@ -122,15 +115,15 @@
       <details class="edu">
         <summary>What's the science behind this tool?</summary>
         <div class="body">
-          <p>esMetabolicLab implements the Mader/Heck bioenergetic model of human exercise metabolism, first published in 1984 by the German Sport University Cologne group. It's the same family of model that commercial tools like INSCYD, Aerotune, and Sentiero are built on.</p>
-          <p>What's different here: the math is open, the assumptions are surfaced, the implementation is documented, and your data never leaves the browser. The trade-off is honesty about what the model can and can't tell you — see "What this tool can't tell you" below.</p>
+          <p>esMetabolicLab implements the Mader/Heck bioenergetic model of human exercise metabolism, first published in 1984 by the German Sport University Cologne group. It's the same family of model that commercial tools like INSCYD, Aerotune, and Sentiero are built on, for a fraction of the cost.</p>
+          <p>What's different here: the math is open, the assumptions are explained, the implementation is documented, and your data stays private. The trade-off is honesty about what the model can and can't tell you - see "What this tool can't tell you" below.</p>
         </div>
       </details>
       <details class="edu">
         <summary>What this tool can't tell you</summary>
         <div class="body">
           <p>The Mader model assumes a standard active-muscle fraction (~28% body mass) and standard Hill kinetic constants. Individuals vary, and the model was calibrated primarily on trained European male cyclists. Sex-specific validation in the published literature is thin.</p>
-          <p>VLamax has known reliability issues — within-subject variability of 5–15% between sessions is typical. A single measurement is a snapshot, not a permanent reading.</p>
+          <p>VLamax has known reliability issues - within-subject variability of 5–15% between sessions is typical. A single measurement is a snapshot, not a permanent reading.</p>
           <p>The model captures the steady-state metabolic balance well. It is more approximate for non-steady-state efforts (intervals, surges, tactical race dynamics).</p>
         </div>
       </details>
@@ -154,10 +147,10 @@
   esLabs.mountAuthGate('#esml-gate', {
     eyebrow: '⬡ Sign in',
     headline: 'esMetabolicLab',
-    sub: 'Build your personal metabolic profile — VO₂max, lactate threshold, training zones, and fat-burning sweet spot.',
+    sub: 'Build your personal metabolic profile - VO₂max, lactate threshold, training zones, and fat-burning sweet spot.',
     bullets: [
-      { strong: 'Free power-only profile', span: '— estimate from four max efforts, no needles, runs in your browser.' },
-      { strong: 'Measured-lactate upgrade', span: '— upload your own step-test data, or book an in-person test with an Endurance Science Labs coach.' }
+      { strong: 'Free power-only profile', span: '- estimate from four max efforts, no needles, runs in your browser.' },
+      { strong: 'Measured-lactate upgrade', span: '- upload your own step-test data, or book an in-person test with an Endurance Science Labs coach.' }
     ],
     foot: '<a href="/" style="color:var(--cyan);text-decoration:none">&larr; Back to home</a>'
   });
