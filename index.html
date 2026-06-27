@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script>try{if(localStorage.getItem('esl-theme')==='light')document.documentElement.setAttribute('data-theme','light')}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Endurance Science Labs — Evidence-Based Endurance Coaching</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -43,7 +44,7 @@ nav {
   height: 62px; padding: 0 40px;
   display: flex; align-items: center;
   position: sticky; top: 0; z-index: 200;
-  background: rgba(8,9,15,0.95); backdrop-filter: blur(14px);
+  background: var(--nav-bg); backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border);
 }
 .nav-logo {
@@ -65,8 +66,8 @@ nav {
   font-weight: 500; color: var(--muted2); text-decoration: none;
   transition: all .15s; border: 1px solid transparent;
 }
-.nav-link:hover { color: var(--text); background: rgba(255,255,255,.04); }
-.nav-link.active { color: var(--cyan); background: rgba(0,229,200,.07); border-color: rgba(0,229,200,.14); }
+.nav-link:hover { color: var(--text); background: var(--hover); }
+.nav-link.active { color: var(--accent-ink); background: rgba(0,229,200,.07); border-color: rgba(0,229,200,.14); }
 .nav-pill {
   font-size: 9px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase;
   font-family: var(--mono); background: rgba(110,122,154,.14);
@@ -88,7 +89,7 @@ nav {
   border-radius: 8px;
   transition: color .15s, background .15s;
 }
-.nav-signin-link:hover { color: var(--text); background: rgba(255,255,255,.04); }
+.nav-signin-link:hover { color: var(--text); background: var(--hover); }
 .auth-avatar { width: 24px; height: 24px; border-radius: 50%; display: none; }
 .auth-name { font-size: 12px; font-weight: 600; color: var(--text); }
 
@@ -110,7 +111,7 @@ nav {
 .hero::after {
   content: '';
   position: absolute; inset: 0;
-  background-image: radial-gradient(rgba(255,255,255,.06) 1px, transparent 1px);
+  background-image: radial-gradient(var(--border) 1px, transparent 1px);
   background-size: 28px 28px;
   mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, black, transparent);
   pointer-events: none;
@@ -161,7 +162,7 @@ nav {
   border: 1px solid var(--border2); border-radius: 12px;
   cursor: pointer; text-decoration: none; transition: all .15s; background: transparent;
 }
-.btn-secondary:hover { color: var(--text); border-color: rgba(255,255,255,.28); }
+.btn-secondary:hover { color: var(--text); border-color: var(--border2); }
 .btn-secondary.gold {
   color: var(--gold); border-color: var(--gold);
   background: rgba(245,200,66,.06); font-weight: 600;
@@ -354,7 +355,7 @@ section { padding: 96px 40px; max-width: 1200px; margin: 0 auto; }
 }
 .photo-break-quote {
   font-family: var(--display); font-size: clamp(22px, 3.5vw, 40px);
-  font-weight: 600; color: var(--text); line-height: 1.35;
+  font-weight: 600; color: #f2f4fb; line-height: 1.35;
   max-width: 720px; letter-spacing: -.3px;
 }
 .photo-break-quote em { font-style: italic; color: var(--cyan); }
@@ -457,7 +458,7 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
     flex-direction: column;
     align-items: stretch;
     gap: 4px;
-    background: rgba(8,9,15,0.98);
+    background: var(--nav-bg);
     backdrop-filter: blur(14px);
     border-bottom: 1px solid var(--border);
     padding: 12px 20px 18px;
@@ -633,7 +634,6 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
   <img src="images/female_runners_on_trail.jpg" alt="A group of runners on a forest trail">
   <div class="photo-break-overlay">
     <p class="photo-break-quote">Every athlete.<br>Every distance.</p>
-    <div class="photo-break-attr">— Endurance Science Labs</div>
   </div>
 </div>
 
@@ -643,7 +643,7 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
 <section id="how-it-works">
   <div class="section-label">esFormLab</div>
   <h2 class="section-title">Running form analysis in minutes</h2>
-  <p class="section-sub">No specialist equipment. No lab visit. Three short clips from your phone and a browser is all you need.</p>
+  <p class="section-sub">No specialist equipment. No lab visit. Three short clips from your phone is all you need.</p>
   <div class="hiw-grid">
     <div class="hiw-step">
       <div class="hiw-num">01</div>
@@ -658,7 +658,7 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
     <div class="hiw-step">
       <div class="hiw-num">03</div>
       <div class="hiw-title">Review and refine</div>
-      <p class="hiw-desc">Each phase shows a skeleton overlay with angle arcs and a detection-quality readout. Scrub frame by frame to land on the right moment, with plain-language coaching guidance built in.</p>
+      <p class="hiw-desc">Each phase shows a skeleton overlay with angle arcs and a detection-quality readout. Select frame by frame to land on the right moment, with plain-language coaching guidance built in.</p>
     </div>
     <div class="hiw-step">
       <div class="hiw-num">04</div>
@@ -682,7 +682,6 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
   <img src="images/trail_leg_runner.jpg" alt="Close-up of a runner's stride on trail">
   <div class="photo-break-overlay">
     <p class="photo-break-quote">Your stride is <em>data</em>.<br>We help you read it.</p>
-    <div class="photo-break-attr">— Endurance Science Labs</div>
   </div>
 </div>
 
@@ -697,7 +696,7 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
     <div class="philosophy-points">
       <div class="pp-item">
         <div class="pp-dot"></div>
-        <p class="pp-text"><strong>Data without context is noise.</strong> Every number we surface comes with an explanation of what it means for your performance and how to act on it.</p>
+        <p class="pp-text"><strong>Data without context is noise.</strong> Every number we report comes with an explanation of what it means for your performance and how to act on it.</p>
       </div>
       <div class="pp-item">
         <div class="pp-dot"></div>

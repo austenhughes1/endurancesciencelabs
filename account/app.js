@@ -129,6 +129,7 @@ function renderApp() {
       + trainingCardHtml(doc)
       + prsCardHtml(doc)
       + saveBarHtml()
+      + appearanceCardHtml()
       + '<div id="features-card-mount"></div>'
       + dangerZoneHtml(user);
 
@@ -136,6 +137,7 @@ function renderApp() {
     wireTrainingCard();
     wirePrsCard();
     wireSaveBar();
+    wireAppearanceCard();
     wireDangerZone();
     pageState.shellRendered = true;
   }
@@ -477,6 +479,48 @@ function refreshAddPrButton() {
     btn.disabled = false;
     btn.textContent = '+ Add PR';
   }
+}
+
+// ──────────────────────────────────────────────────────────────
+//  Appearance (theme) — applies + persists instantly, independent
+//  of the Save changes button.
+// ──────────────────────────────────────────────────────────────
+function appearanceCardHtml() {
+  var theme = esLabs.getTheme();
+  return ''
+    + '<section class="acct-card">'
+    + '  <h2>Appearance</h2>'
+    + '  <p class="card-sub">Choose how Endurance Science Labs looks. Your choice is saved to your account and follows you across devices.</p>'
+    + '  <div class="radio-row" id="f-theme">'
+    + '    <label class="radio-pill' + (theme === 'dark' ? ' checked' : '') + '" data-val="dark"><input type="radio" name="acct-theme" value="dark"' + (theme === 'dark' ? ' checked' : '') + '><span>&#9789; Dark</span></label>'
+    + '    <label class="radio-pill' + (theme === 'light' ? ' checked' : '') + '" data-val="light"><input type="radio" name="acct-theme" value="light"' + (theme === 'light' ? ' checked' : '') + '><span>&#9788; Light</span></label>'
+    + '  </div>'
+    + '</section>';
+}
+
+function wireAppearanceCard() {
+  var pills = document.querySelectorAll('#f-theme .radio-pill');
+  for (var i = 0; i < pills.length; i++) {
+    pills[i].addEventListener('click', function () {
+      var val = this.getAttribute('data-val');
+      esLabs.setTheme(val);
+      for (var j = 0; j < pills.length; j++) {
+        var on = pills[j].getAttribute('data-val') === val;
+        pills[j].classList.toggle('checked', on);
+        var inp = pills[j].querySelector('input');
+        if (inp) inp.checked = on;
+      }
+    });
+  }
+  // Keep the pills in sync if the theme changes elsewhere (e.g. Firestore sync).
+  esLabs.onThemeChange(function (t) {
+    for (var k = 0; k < pills.length; k++) {
+      var on = pills[k].getAttribute('data-val') === t;
+      pills[k].classList.toggle('checked', on);
+      var inp = pills[k].querySelector('input');
+      if (inp) inp.checked = on;
+    }
+  });
 }
 
 // ──────────────────────────────────────────────────────────────

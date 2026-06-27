@@ -60,7 +60,7 @@ nav.esml-nav {
   font-weight: 500; color: var(--muted2); text-decoration: none;
   transition: all .15s; border: 1px solid transparent;
 }
-.esml-nav .nav-link:hover { color: var(--text); background: rgba(255,255,255,.04); text-decoration: none; }
+.esml-nav .nav-link:hover { color: var(--text); background: var(--hover); text-decoration: none; }
 .esml-nav .nav-link.active { color: var(--purple); background: rgba(139,124,248,.07); border-color: rgba(139,124,248,.18); }
 .esml-nav .nav-pill {
   font-size: 9px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase;
@@ -99,7 +99,7 @@ nav.esml-nav {
   border: 1px solid var(--border2); background: transparent;
   color: var(--text); transition: all .15s; text-decoration: none;
 }
-.btn:hover { border-color: rgba(255,255,255,.28); text-decoration: none; }
+.btn:hover { border-color: var(--border2); text-decoration: none; }
 .btn.primary {
   background: var(--purple); color: #0c0a18; border-color: var(--purple);
 }
@@ -629,7 +629,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 .unit-toggle-inline {
   display: inline-flex; align-self: stretch; flex-shrink: 0;
   border-left: 1px solid var(--border2);
-  background: rgba(255,255,255,.03);
+  background: var(--hover);
 }
 .unit-toggle-inline button {
   background: transparent; border: none;
@@ -641,7 +641,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 }
 .unit-toggle-inline button:last-child { border-right: none; }
 .unit-toggle-inline button:hover:not(.active) {
-  background: rgba(255,255,255,.06); color: var(--text);
+  background: var(--hover); color: var(--text);
 }
 /* Selected unit gets a solid fill so the active choice is unmistakable. */
 .unit-toggle-inline button.active {
@@ -670,7 +670,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
   font-size: 14px; color: var(--muted2); transition: all .15s;
   user-select: none;
 }
-.radio-row label:hover { color: var(--text); border-color: rgba(255,255,255,.22); }
+.radio-row label:hover { color: var(--text); border-color: var(--border2); }
 .radio-row label:has(input:checked),
 .radio-row label.active {
   border-color: var(--purple); background: rgba(139,124,248,.10); color: var(--text);
@@ -876,7 +876,7 @@ table.zones td.num { font-family: var(--mono); }
   display: flex; align-items: center; justify-content: center;
   font-family: var(--body);
 }
-.esml-modal-close:hover { background: rgba(255,255,255,.06); color: var(--text); }
+.esml-modal-close:hover { background: var(--hover); color: var(--text); }
 .esml-modal-title  { font-family: var(--display); font-size: 28px; font-weight: 700; margin-bottom: 12px; line-height: 1.15; letter-spacing: -.5px; }
 .esml-modal-lede   { color: var(--muted2); font-size: 15px; line-height: 1.65; margin-bottom: 22px; }
 .esml-modal-h3     { font-family: var(--display); font-size: 17px; font-weight: 600; margin: 22px 0 10px; }
@@ -901,7 +901,7 @@ table.zones td.num { font-family: var(--mono); }
   font-weight: 600; font-size: 14px;
   transition: all .15s;
 }
-.esml-tab:hover { color: var(--text); background: rgba(255,255,255,.03); }
+.esml-tab:hover { color: var(--text); background: var(--hover); }
 .esml-tab.active {
   background: rgba(139,124,248,.16);
   color: var(--purple);

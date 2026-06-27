@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script>try{if(localStorage.getItem('esl-theme')==='light')document.documentElement.setAttribute('data-theme','light')}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Running Dynamics — Endurance Science Labs</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -112,8 +113,8 @@ th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:
 thead th{font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono);background:var(--panel2)}
 thead th:first-child{background:var(--panel2)}
 tbody tr:last-child td{border-bottom:none}
-tbody tr:hover td{background:rgba(255,255,255,.018)}
-tbody tr:hover td:first-child{background:#10131f}
+tbody tr:hover td{background:var(--hover)}
+tbody tr:hover td:first-child{background:var(--panel2)}
 .mname{font-weight:600;color:var(--text)}
 .munit{font-size:10px;color:var(--muted);font-family:var(--mono);margin-left:5px}
 .mdesc{font-size:10.5px;color:var(--muted2);font-weight:400;margin-top:2px}
@@ -686,8 +687,9 @@ function renderLoad(){
   var chronicLn='<polyline points="'+tl.map(function(d,i){return xs[i].toFixed(1)+','+yOf(chronicS[i]).toFixed(1);}).join(' ')+'" fill="none" stroke="#8b7cf8" stroke-width="2.2" stroke-linejoin="round"/>';
   var acuteLn=coloredPath(xs, acuteS.map(yOf), tl.map(function(d){return acuteSegColor(d.acwr);}), 2.6);
   var grid='';
+  var gridStroke=getComputedStyle(document.documentElement).getPropertyValue('--border').trim()||'rgba(255,255,255,0.06)';
   for(var g=0;g<=3;g++){ var f=g/3, yy=(padT+innerH-f*innerH).toFixed(1);
-    grid+='<line x1="'+padL+'" y1="'+yy+'" x2="'+(W-padR)+'" y2="'+yy+'" stroke="rgba(255,255,255,0.06)"/>';
+    grid+='<line x1="'+padL+'" y1="'+yy+'" x2="'+(W-padR)+'" y2="'+yy+'" stroke="'+gridStroke+'"/>';
     grid+='<text x="'+(padL-6)+'" y="'+(parseFloat(yy)+3).toFixed(1)+'" text-anchor="end" font-size="9" font-family="ui-monospace,monospace" fill="#6e7a9a">'+(ymax*f).toFixed(0)+'</text>'; }
   var xlab='';
   axisTicks(t0,t1).forEach(function(ts,idx){ xlab+='<text x="'+xOf(ts).toFixed(1)+'" y="'+(H-7)+'" text-anchor="middle" font-size="8.5" font-family="ui-monospace,monospace" fill="#6e7a9a">'+axisLabel(ts,idx)+'</text>'; });
@@ -818,9 +820,10 @@ function renderTrend(){
   var xOf=function(ts){return padL+((ts-t0)/(t1-t0))*innerW;};
   var yOf=function(v,s){return padT+innerH-((v-s.lo)/(s.hi-s.lo))*innerH;};
   var grid='';
+  var gridStroke=getComputedStyle(document.documentElement).getPropertyValue('--border').trim()||'rgba(255,255,255,0.06)';
   for(var g=0;g<=4;g++){
     var f=g/4, yy=(padT+innerH-f*innerH).toFixed(1);
-    grid+='<line x1="'+padL+'" y1="'+yy+'" x2="'+(W-padR)+'" y2="'+yy+'" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>';
+    grid+='<line x1="'+padL+'" y1="'+yy+'" x2="'+(W-padR)+'" y2="'+yy+'" stroke="'+gridStroke+'" stroke-width="1"/>';
     grid+='<text x="'+(padL-6)+'" y="'+(parseFloat(yy)+3).toFixed(1)+'" text-anchor="end" font-size="9" font-family="ui-monospace,monospace" fill="#6e7a9a">'+tickFmt(have[0].m,have[0].lo+(have[0].hi-have[0].lo)*f)+'</text>';
     if(series.length>1&&series[1].dots.length) grid+='<text x="'+(W-padR+6)+'" y="'+(parseFloat(yy)+3).toFixed(1)+'" text-anchor="start" font-size="9" font-family="ui-monospace,monospace" fill="#f5c842">'+tickFmt(series[1].m,series[1].lo+(series[1].hi-series[1].lo)*f)+'</text>';
   }
@@ -828,13 +831,14 @@ function renderTrend(){
   axisTicks(t0,t1).forEach(function(ts,idx){ if(ts<t0||ts>t1) return; xlab+='<text x="'+xOf(ts).toFixed(1)+'" y="'+(H-7)+'" text-anchor="middle" font-size="8.5" font-family="ui-monospace,monospace" fill="#6e7a9a">'+axisLabel(ts,idx)+'</text>'; });
   var ea=function(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
   var lines='', hits='';
+  var haloStroke=document.documentElement.getAttribute('data-theme')==='light'?'rgba(0,0,0,0.30)':'rgba(255,255,255,0.85)';
   have.forEach(function(s){
     var lineSrc=smooth?smoothPts(s.line):s.line;
     if(lineSrc.length>1){ var pts=lineSrc.map(function(p){return xOf(p.ts).toFixed(1)+','+yOf(p.v,s).toFixed(1);});
       lines+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+s.color+'" stroke-width="'+(smooth?2.6:2)+'" stroke-linejoin="round" stroke-linecap="round"/>'; }
     lines+=s.dots.map(function(p){
       var t=evType(p), isMax=!t&&maxIds.has(p.id), cx=xOf(p.ts).toFixed(1), cy=yOf(p.v,s).toFixed(1);
-      if(t) return '<circle cx="'+cx+'" cy="'+cy+'" r="3.8" fill="'+evColor(t)+'" stroke="rgba(255,255,255,0.85)" stroke-width="1.2"/>';
+      if(t) return '<circle cx="'+cx+'" cy="'+cy+'" r="3.8" fill="'+evColor(t)+'" stroke="'+haloStroke+'" stroke-width="1.2"/>';
       if(isMax) return showPts ? '<circle cx="'+cx+'" cy="'+cy+'" r="3.8" fill="none" stroke="#f5c842" stroke-width="1.6"/>' : '';
       return showPts ? '<circle cx="'+cx+'" cy="'+cy+'" r="2.4" fill="'+s.color+'" fill-opacity="'+(smooth?'0.5':'1')+'"/>' : '';
     }).join('');

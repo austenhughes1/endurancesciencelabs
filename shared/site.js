@@ -21,6 +21,21 @@
 (function () {
 'use strict';
 
+// ── Theme (dark default, light opt-in) ──────────────────────────
+// A tiny inline <script> in each page's <head> applies the saved theme
+// before first paint (no flash). This is the fuller machinery: it keeps
+// localStorage + the signed-in user's Firestore doc in sync, swaps the
+// white logos for their dark variants, and notifies listeners.
+var THEME_KEY = 'esl-theme';
+var themeListeners = [];
+
+// Apply ASAP in case the head snippet is missing on some page.
+try {
+  if (localStorage.getItem(THEME_KEY) === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
+} catch (e) {}
+
 // ── Firebase config (the single hardcoded copy) ─────────────────
 var FIREBASE_CONFIG = {
   apiKey: 'AIzaSyDh4LorLQx1DPovQIA4HM3127fAYpyuaY8',
@@ -200,6 +215,11 @@ function attachPassWatchers(uid) {
     state.hasGrantedFlag = !!(state.userDoc.features && state.userDoc.features.esFormLab === true);
     state.grantedUntilSec = toSeconds(state.userDoc.formAnalyzerPassUntil);
     state.metlabAdminGranted = !!(state.userDoc.features && state.userDoc.features.esMetabolicLab === true);
+    // Sync the saved theme preference (source of truth across devices).
+    if ((state.userDoc.theme === 'light' || state.userDoc.theme === 'dark')
+        && state.userDoc.theme !== currentTheme()) {
+      applyTheme(state.userDoc.theme);
+    }
     notifyPassListeners();
   }, function (err) { console.warn('users doc snapshot:', err.message); });
 
@@ -415,6 +435,7 @@ function mountNav(selectorOrEl, opts) {
   if (!host) return null;
   host.innerHTML = renderNavHtml(opts);
   wireNav(host, opts);
+  swapThemedLogos(currentTheme());
   mountedNavs.push({ el: host, opts: opts });
   return host;
 }
@@ -425,6 +446,7 @@ function refreshMountedNav() {
     m.el.innerHTML = renderNavHtml(m.opts);
     wireNav(m.el, m.opts);
   });
+  swapThemedLogos(currentTheme());
 }
 
 function renderNavHtml(opts) {
@@ -526,6 +548,7 @@ function mountAuthGate(selectorOrEl, opts) {
   host.classList.add('eslabs-gate');
   host.innerHTML = gateInnerHtml(opts);
   wireGate(host, opts);
+  swapThemedLogos(currentTheme());
 
   var instance = {
     host: host,
@@ -763,6 +786,70 @@ function friendlyAuthError(e) {
   return e.message || 'Sign-in failed. Please try again.';
 }
 
+// ── Theme API ────────────────────────────────────────────────────
+function currentTheme() {
+  return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+}
+
+function applyTheme(theme) {
+  var t = (theme === 'light') ? 'light' : 'dark';
+  var root = document.documentElement;
+  if (t === 'light') root.setAttribute('data-theme', 'light');
+  else root.removeAttribute('data-theme');
+  try { localStorage.setItem(THEME_KEY, t); } catch (e) {}
+  swapThemedLogos(t);
+  themeListeners.forEach(function (cb) { try { cb(t); } catch (e) { console.error(e); } });
+}
+
+// The nav/footer/gate logos are white artwork built for the dark UI. On
+// light, swap to the matching dark-ink variant ("_white_clean" -> "_clean").
+// The original src is stashed so dark mode can restore it.
+function swapThemedLogos(theme) {
+  var imgs = document.querySelectorAll('img.nav-logo-img, img.footer-logo-img, img.eslabs-gate-logo');
+  imgs.forEach(function (img) {
+    if (theme === 'light') {
+      var src = img.getAttribute('src') || '';
+      var dark = src.replace('_white_clean', '_clean').replace('_white.', '.');
+      if (dark !== src) {
+        if (!img.getAttribute('data-logo-white')) img.setAttribute('data-logo-white', src);
+        img.setAttribute('src', dark);
+      }
+    } else {
+      var white = img.getAttribute('data-logo-white');
+      if (white) { img.setAttribute('src', white); img.removeAttribute('data-logo-white'); }
+    }
+  });
+}
+
+// Set the theme and (when signed in) remember it on the user's profile so
+// it follows them across devices. Pass {skipPersist:true} to apply without
+// writing (used when syncing FROM the Firestore doc).
+function setTheme(theme, opts) {
+  opts = opts || {};
+  var t = (theme === 'light') ? 'light' : 'dark';
+  applyTheme(t);
+  if (!opts.skipPersist && state.user) {
+    db.collection('users').doc(state.user.uid).set({ theme: t }, { merge: true })
+      .catch(function (e) { console.warn('theme save:', e.message); });
+  }
+}
+function toggleTheme() { setTheme(currentTheme() === 'light' ? 'dark' : 'light'); }
+function onThemeChange(cb) {
+  themeListeners.push(cb);
+  try { cb(currentTheme()); } catch (e) { console.error(e); }
+  return function () {
+    var i = themeListeners.indexOf(cb);
+    if (i !== -1) themeListeners.splice(i, 1);
+  };
+}
+
+// Swap any static logos (e.g. the index footer) once the DOM is ready.
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', function () { swapThemedLogos(currentTheme()); });
+} else {
+  swapThemedLogos(currentTheme());
+}
+
 // ── DOM helpers ──────────────────────────────────────────────────
 function resolveEl(target) {
   if (!target) return null;
@@ -792,6 +879,10 @@ window.esLabs = {
   onAuthChange: onAuthChange,
   onPassChange: onPassChange,
   getPassState: passSnapshot,
+  getTheme: currentTheme,
+  setTheme: setTheme,
+  toggleTheme: toggleTheme,
+  onThemeChange: onThemeChange,
   mountNav: mountNav,
   mountAuthGate: mountAuthGate,
   openCustomerPortal: openCustomerPortal,
