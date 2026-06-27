@@ -552,30 +552,29 @@ function renderHero(){
   var head, accent, doHtml;
   if(base==null){
     head='Building your baseline'; accent='var(--muted2)';
-    doHtml='Keep logging easy runs so your baseline settles, then check back for day-to-day guidance.';
+    doHtml='While we learn your baseline, easy <span class="lever">Lever runs</span> at '+pct+'% body-weight support are a great way to bank low-impact volume — add a couple and your day-to-day guidance sharpens up fast.';
   } else if(r1>=1.5){
     var huge=r1>=2.0; accent= huge?'var(--bad)':'var(--gold)';
-    head= huge?'Big day logged — recover next':'Hard day logged — ease off next';
-    doHtml='<b>Your last day was '+(huge?'a very big one':'a hard one')+'</b> — '+d1.toFixed(1)+' impact mi, about <b>'+r1.toFixed(1)+'×</b> your 28-day baseline. '+
-      '<b>Make your next run easy or recovery</b> — the ideal way is a <span class="lever">Lever run</span> at '+pct+'% body-weight support, so you keep the aerobic stimulus while the legs absorb a fraction of the impact and recover.'+
-      (r3>=1.4 ? ' Your last few days are loaded too ('+r3.toFixed(1)+'× over 3 days), so keep it easy for a couple of days.' : ' Then return to normal running once it’s absorbed.');
+    head= huge?'Big day in the bank — recover next':'Solid day in the bank — ease off next';
+    doHtml='<b>Your last day was '+(huge?'a big one':'a hard one')+'</b> — '+d1.toFixed(1)+' impact mi, about <b>'+r1.toFixed(1)+'×</b> your 28-day baseline. Best next move is an easy day, and a <span class="lever">Lever run</span> at '+pct+'% support is made for it: you keep every bit of the aerobic stimulus while your legs rebuild at a fraction of the impact.'+
+      (r3>=1.4 ? ' Your last few days are loaded too ('+r3.toFixed(1)+'× over 3 days) — give it a Lever day or two before your next hard effort.' : ' You’ll be ready for quality again in a day or two.');
   } else if(r3>=1.5){
-    accent='var(--gold)'; head='Heavy few days — ease off';
-    doHtml='Your <b>3-day load is '+r3.toFixed(1)+'×</b> your 28-day baseline — a heavy block. <b>Keep the next day or two easy.</b> A <span class="lever">Lever session</span> at '+pct+'% support lets you hold volume without piling on more impact while you absorb it.';
+    accent='var(--gold)'; head='Strong few days — ease the impact';
+    doHtml='Your <b>3-day load is '+r3.toFixed(1)+'×</b> your baseline — a strong block of work. Keep the next day or two easy and put them on the <span class="lever">Lever</span> at '+pct+'% support: you hold onto the volume and the fitness while the impact comes off your legs.';
   } else if(r7>=1.5){
-    accent='var(--bad)'; head='Load spike — back off';
-    doHtml='<b>Tomorrow: easy or recovery only</b> — your 7-day load is <b>'+r7.toFixed(1)+'×</b> your 28-day base. <span class="lever">Run your next 2–3 sessions on the Lever</span> at '+pct+'% support: those miles keep your aerobic stimulus while cutting the per-step impact, so load settles back toward baseline without losing fitness.';
+    accent='var(--bad)'; head='Big training week — protect it';
+    doHtml='Your <b>7-day load is '+r7.toFixed(1)+'×</b> your baseline — a great stimulus worth protecting. Take your next 2–3 runs to the <span class="lever">Lever</span> at '+pct+'% support: you train right through at full aerobic value while the per-step impact drops, so you absorb the work and come back strong instead of beaten up.';
   } else if(r7>=1.3 || r3>=1.3){
-    accent='var(--gold)'; head='Approaching your ceiling';
-    doHtml='<b>Hold volume steady</b> this week rather than adding more — your recent load is edging above baseline. To keep quality work in, <span class="lever">put a Lever session</span> at '+pct+'% support in place of a hard road run — it adds load at a fraction of the impact and keeps things from tipping over.';
+    accent='var(--gold)'; head='Near your ceiling';
+    doHtml='You’re near the top of your comfortable range — a perfect spot to let the <span class="lever">Lever</span> do some of the lifting. Swap one session onto it at '+pct+'% support and you keep building volume at a fraction of the impact, no need to ease off the gas.';
   } else if(r7<0.8){
-    accent='var(--warn)'; head='Load fading — room to build';
-    doHtml='Your load is fading (taper or time off) — 7-day is <b>'+r7.toFixed(1)+'×</b> baseline. You can <b>safely add volume</b>, building back gradually over the next few days rather than one big jump. A <span class="lever">Lever run</span> is an easy, low-impact way to add a session as you ramp.';
+    accent='var(--warn)'; head='Room to build';
+    doHtml='Your load has eased off (taper or time back) and you’ve got room to build. Ramp back in on the <span class="lever">Lever</span> at '+pct+'% support — it’s the low-impact way to add sessions and rebuild volume while your legs re-adapt.';
   } else {
     accent='var(--good)'; head='In the safe band';
     var room=Math.max(0,(d28*1.25)-d7);
-    var roomTxt = room>0.3 ? 'roughly <b>+'+room.toFixed(1)+' impact mi/day</b> this week' : 'a small, steady build';
-    doHtml='You’re tracking right around your baseline — <b>room to build</b>: '+roomTxt+' keeps you in a healthy range. Lever optional — a <span class="lever">Lever session</span> at '+pct+'% support is a good way to add an extra easy day without extra impact.';
+    var roomTxt = room>0.3 ? 'about <b>+'+room.toFixed(1)+' impact mi/day</b> this week' : 'a small, steady build';
+    doHtml='You’re right around your baseline with room to grow — '+roomTxt+' keeps you in a healthy range. A <span class="lever">Lever session</span> at '+pct+'% support is a great way to add that extra easy day: more volume, almost none of the impact cost.';
   }
 
   // The four tiles carry the numbers (1-/3-/7-day load vs the 28-day base, each
