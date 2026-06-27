@@ -159,6 +159,7 @@ var CSS = `
 .rdx-hero-stat{background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:8px 13px;min-width:96px}
 .rdx-hero-stat .k{font-size:9.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono)}
 .rdx-hero-stat .v{font-size:19px;font-weight:800;font-family:var(--mono);margin-top:3px}
+.rdx-hero-stat .x{font-size:9.5px;font-weight:700;font-family:var(--mono);margin-top:2px;letter-spacing:.2px}
 .rdx-hero-do{font-size:14px;line-height:1.6;color:var(--muted2);background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:13px 15px}
 .rdx-hero-do b{color:var(--text);font-weight:700}
 .rdx-hero-do .lever{color:var(--cyan);font-weight:700}
@@ -527,50 +528,67 @@ function quantile(sorted,q){ var pos=(sorted.length-1)*q, base=Math.floor(pos), 
 function smoothPts(pts){ var w=Math.max(3,Math.min(21,Math.round(pts.length/8))), half=Math.floor(w/2); return pts.map(function(p,i){ var s=0,c=0; for(var j=Math.max(0,i-half);j<=Math.min(pts.length-1,i+half);j++){ s+=pts[j].v; c++; } return {ts:p.ts,v:s/c}; }); }
 
 /* ---------- hero recommendation ---------- */
+// Mean daily load over the last n calendar days (rest days count as 0).
+// loadTimeline exposes each day's load as `.daily`.
+function avgLast(tl,n){ var s=tl.slice(-n); if(!s.length) return 0; var sum=0; for(var i=0;i<s.length;i++) sum+=s[i].daily; return sum/s.length; }
 function renderHero(){
   var el=$('hero'); if(!el) return;
   var tl=RunLoad.loadTimeline(typeRuns(), LOAD_PARAMS);
   if(tl.length<2){
     el.style.borderLeftColor='var(--muted2)';
     el.innerHTML='<div class="rdx-hero-badge" style="color:var(--muted2)"><span class="rdx-hero-dot" style="background:var(--muted2)"></span>Building your baseline</div>'+
-      '<div class="rdx-hero-read">Not enough run history yet to model your training load. Import a few more weeks of activities and your acute-vs-chronic load and day-to-day guidance will show up here.</div>';
+      '<div class="rdx-hero-read">Not enough run history yet to model your training load. Import a few more weeks of activities and your day-to-day guidance will show up here.</div>';
     return;
   }
-  var last=tl[tl.length-1], a=last.acute, c=last.chronic, acwr=last.acwr;
-  var col=acwrColor(acwr), pct=leverPct();
-  var head;
-  if(acwr==null)      head='Building your baseline';
-  else if(acwr>1.5)   head='Load spike — back off';
-  else if(acwr>1.3)   head='Approaching your ceiling';
-  else if(acwr<0.8)   head='Load fading — room to build';
-  else                head='In the safe band';
-  var ratioTxt=acwr!=null?acwr.toFixed(2):'–';
-  var read='Over the last 7 days you’ve averaged <b>'+a.toFixed(1)+'</b> impact mi/day against your 28-day base of <b>'+c.toFixed(1)+'</b> — an acute&#58;chronic ratio of <b style="color:'+col+'">'+ratioTxt+'</b> ('+acwrLabel(acwr)+').';
-  var room=Math.max(0,1.25*c-a), doHtml;
-  if(acwr==null){
+  var pct=leverPct();
+  // 1-, 3-, 7-day load averages vs the 28-day baseline. The short windows weight
+  // the recent days heavily: one big day spikes the 1-day, a hard block the
+  // 3-day, a sustained ramp the 7-day — each compared to the 28-day base rate.
+  var d1=avgLast(tl,1), d3=avgLast(tl,3), d7=avgLast(tl,7), d28=avgLast(tl,28);
+  var base = d28>0 ? d28 : null;
+  var r1=base?d1/base:null, r3=base?d3/base:null, r7=base?d7/base:null;
+  var col1=acwrColor(r1), col3=acwrColor(r3), col7=acwrColor(r7);
+
+  var head, accent, doHtml;
+  if(base==null){
+    head='Building your baseline'; accent='var(--muted2)';
     doHtml='Keep logging easy runs so your baseline settles, then check back for day-to-day guidance.';
-  } else if(acwr>1.5){
-    doHtml='<b>Tomorrow:</b> easy or recovery only — your last week has jumped well above your base. '+
-      '<span class="lever">Run your next 2–3 sessions on the Lever</span> at '+pct+'% body-weight support: those miles keep your aerobic stimulus while cutting the per-step impact, so the ratio settles back toward the 0.8–1.3 band without losing fitness.';
-  } else if(acwr>1.3){
-    doHtml='<b>Hold volume steady</b> this week rather than adding more. To keep quality work in, '+
-      '<span class="lever">put a Lever session</span> at '+pct+'% support in place of a hard road run — it adds load at a fraction of the impact and keeps the ratio from tipping over.';
-  } else if(acwr<0.8){
-    doHtml='Your load is fading (taper or time off). You can <b>safely add volume</b> — build back gradually over the next few days rather than one big jump. '+
-      'A <span class="lever">Lever run</span> is an easy, low-impact way to add a session as you ramp.';
+  } else if(r1>=1.5){
+    var huge=r1>=2.0; accent= huge?'var(--bad)':'var(--gold)';
+    head= huge?'Big day logged — recover next':'Hard day logged — ease off next';
+    doHtml='<b>Your last day was '+(huge?'a very big one':'a hard one')+'</b> — '+d1.toFixed(1)+' impact mi, about <b>'+r1.toFixed(1)+'×</b> your 28-day baseline. '+
+      '<b>Make your next run easy or recovery</b> — the ideal way is a <span class="lever">Lever run</span> at '+pct+'% body-weight support, so you keep the aerobic stimulus while the legs absorb a fraction of the impact and recover.'+
+      (r3>=1.4 ? ' Your last few days are loaded too ('+r3.toFixed(1)+'× over 3 days), so keep it easy for a couple of days.' : ' Then return to normal running once it’s absorbed.');
+  } else if(r3>=1.5){
+    accent='var(--gold)'; head='Heavy few days — ease off';
+    doHtml='Your <b>3-day load is '+r3.toFixed(1)+'×</b> your 28-day baseline — a heavy block. <b>Keep the next day or two easy.</b> A <span class="lever">Lever session</span> at '+pct+'% support lets you hold volume without piling on more impact while you absorb it.';
+  } else if(r7>=1.5){
+    accent='var(--bad)'; head='Load spike — back off';
+    doHtml='<b>Tomorrow: easy or recovery only</b> — your 7-day load is <b>'+r7.toFixed(1)+'×</b> your 28-day base. <span class="lever">Run your next 2–3 sessions on the Lever</span> at '+pct+'% support: those miles keep your aerobic stimulus while cutting the per-step impact, so load settles back toward baseline without losing fitness.';
+  } else if(r7>=1.3 || r3>=1.3){
+    accent='var(--gold)'; head='Approaching your ceiling';
+    doHtml='<b>Hold volume steady</b> this week rather than adding more — your recent load is edging above baseline. To keep quality work in, <span class="lever">put a Lever session</span> at '+pct+'% support in place of a hard road run — it adds load at a fraction of the impact and keeps things from tipping over.';
+  } else if(r7<0.8){
+    accent='var(--warn)'; head='Load fading — room to build';
+    doHtml='Your load is fading (taper or time off) — 7-day is <b>'+r7.toFixed(1)+'×</b> baseline. You can <b>safely add volume</b>, building back gradually over the next few days rather than one big jump. A <span class="lever">Lever run</span> is an easy, low-impact way to add a session as you ramp.';
   } else {
-    var roomTxt = room>0.3 ? 'roughly <b>+'+room.toFixed(1)+' impact mi/day</b> over the coming week' : 'a small, steady build';
-    doHtml='You’re in the safe band, so <b>you have room to build</b>: '+roomTxt+' keeps you here. '+
-      'Lever optional — a <span class="lever">Lever session</span> at '+pct+'% support is a good way to add an extra easy day without extra impact.';
+    accent='var(--good)'; head='In the safe band';
+    var room=Math.max(0,(d28*1.25)-d7);
+    var roomTxt = room>0.3 ? 'roughly <b>+'+room.toFixed(1)+' impact mi/day</b> this week' : 'a small, steady build';
+    doHtml='You’re tracking right around your baseline — <b>room to build</b>: '+roomTxt+' keeps you in a healthy range. Lever optional — a <span class="lever">Lever session</span> at '+pct+'% support is a good way to add an extra easy day without extra impact.';
   }
-  el.style.borderLeftColor=col;
+
+  // The four tiles carry the numbers (1-/3-/7-day load vs the 28-day base, each
+  // tinted by how it compares); the single recommendation below weighs all three.
+  var statTile=function(k,val,c,sub){ return '<div class="rdx-hero-stat"><div class="k">'+k+'</div><div class="v" style="color:'+c+'">'+val.toFixed(1)+'</div>'+(sub?'<div class="x" style="color:'+c+'">'+sub+'</div>':'')+'</div>'; };
+  el.style.borderLeftColor=accent;
   el.innerHTML=
-    '<div class="rdx-hero-badge" style="color:'+col+'"><span class="rdx-hero-dot" style="background:'+col+'"></span>'+head+'</div>'+
-    '<div class="rdx-hero-read">'+read+'</div>'+
+    '<div class="rdx-hero-badge" style="color:'+accent+'"><span class="rdx-hero-dot" style="background:'+accent+'"></span>'+head+'</div>'+
     '<div class="rdx-hero-stats">'+
-      '<div class="rdx-hero-stat"><div class="k">Acute · 7d</div><div class="v">'+a.toFixed(1)+'</div></div>'+
-      '<div class="rdx-hero-stat"><div class="k">Chronic · 28d</div><div class="v">'+c.toFixed(1)+'</div></div>'+
-      '<div class="rdx-hero-stat"><div class="k">Acute : Chronic</div><div class="v" style="color:'+col+'">'+ratioTxt+'</div></div>'+
+      statTile('Last day', d1, col1, r1!=null?r1.toFixed(1)+'× base':'')+
+      statTile('3-day avg', d3, col3, r3!=null?r3.toFixed(1)+'× base':'')+
+      statTile('7-day avg', d7, col7, r7!=null?r7.toFixed(1)+'× base':'')+
+      statTile('28-day base', d28, 'var(--muted2)', 'impact mi/day')+
     '</div>'+
     '<div class="rdx-hero-do"><span class="do-hd">What to do next</span>'+doHtml+'</div>';
 }
