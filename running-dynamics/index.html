@@ -41,7 +41,7 @@ a{color:var(--cyan)}
 <script src="/shared/site.js"></script>
 <script src="/shared/run-load-model.js?v=7"></script>
 <script src="/shared/device-matrix.js"></script>
-<script src="/shared/run-dynamics.js?v=3"></script>
+<script src="/shared/run-dynamics.js?v=4"></script>
 <script>
 'use strict';
 /* The whole Run Dynamics view lives in /shared/run-dynamics.js — this page
@@ -66,6 +66,7 @@ esLabs.onAuthChange(function(user){
     tool.style.display='block';
     RunDynamics.mount(document.getElementById('rdx-mount'), {
       db: esLabs.db, uid: user.uid, role: 'athlete',
+      admin: (user.uid === esLabs.ADMIN_UID),
       title: 'Garmin Run Dynamics',
       sub: 'Import a Garmin Connect activities export (<code>Activities.csv</code>) to backfill your run history. New activities are saved to your account and de-duplicated by start time, so you only ever import what\'s new.'
     });
