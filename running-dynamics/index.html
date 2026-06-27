@@ -137,7 +137,6 @@ tbody tr:hover td:first-child{background:var(--panel2)}
 .chartwrap{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 14px 8px}
 .chart-svg{display:block;width:100%;height:auto}
 .chart-empty{padding:34px;text-align:center;color:var(--muted2);font-size:12px;font-family:var(--mono)}
-#trendChart{position:relative}
 .hit{cursor:pointer}
 .chart-tip{position:absolute;left:0;top:0;display:none;pointer-events:none;z-index:30;min-width:120px;max-width:250px;padding:8px 10px;background:rgba(13,18,30,.97);border:1px solid var(--border2);border-radius:8px;box-shadow:0 6px 22px rgba(0,0,0,.45);font-size:11.5px;line-height:1.5;color:var(--text)}
 .chart-tip.on{display:block}
@@ -152,6 +151,42 @@ tbody tr:hover td:first-child{background:var(--panel2)}
 .info{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;border:1px solid var(--muted2);color:var(--muted2);font-size:9px;font-weight:700;font-style:normal;cursor:help;margin-left:4px;position:relative;vertical-align:middle}
 .info:hover{color:var(--cyan);border-color:var(--cyan)}
 .info:hover::after{content:attr(data-tip);position:absolute;bottom:150%;left:50%;transform:translateX(-50%);width:230px;background:#0b0e18;border:1px solid var(--border2);border-radius:8px;padding:9px 11px;font-size:11px;font-weight:400;line-height:1.5;color:var(--text);font-family:var(--body);text-transform:none;letter-spacing:0;z-index:60;white-space:normal;box-shadow:0 6px 24px rgba(0,0,0,.55)}
+#chartBox{position:relative}
+
+/* Header row + gear */
+.head-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.gear{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.3px;color:var(--muted2);background:var(--panel);border:1px solid var(--border2);border-radius:9px;padding:8px 13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .14s}
+.gear:hover{border-color:var(--cyan);color:var(--cyan)}
+.gear.on{border-color:var(--cyan);color:var(--cyan);background:rgba(0,229,200,.06)}
+.settings-panel{margin-top:18px;animation:fade .25s}
+
+/* Date range quick chips */
+#rangeChips .chip.on{background:rgba(0,229,200,.1);border-color:rgba(0,229,200,.35);color:var(--cyan)}
+
+/* Hero recommendation card */
+.hero{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px 22px;border-left:4px solid var(--muted2)}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-bottom:12px}
+.hero-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.hero-read{font-size:15.5px;line-height:1.55;color:var(--text);margin-bottom:12px}
+.hero-read b{font-family:var(--mono);font-weight:700}
+.hero-stats{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+.hero-stat{background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:8px 13px;min-width:96px}
+.hero-stat .k{font-size:9.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono)}
+.hero-stat .v{font-size:19px;font-weight:800;font-family:var(--mono);margin-top:3px}
+.hero-do{font-size:14px;line-height:1.6;color:var(--muted2);background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:13px 15px}
+.hero-do b{color:var(--text);font-weight:700}
+.hero-do .lever{color:var(--cyan);font-weight:700}
+.hero-do .do-hd{display:block;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--cyan);margin-bottom:6px}
+
+/* Form metric tiles */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+.tile{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.tile-lbl{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono)}
+.tile-val{font-size:24px;font-weight:800;font-family:var(--mono);margin-top:8px;line-height:1}
+.tile-unit{font-size:11px;font-weight:600;color:var(--muted2);margin-left:4px}
+.tile-delta{margin-top:7px;min-height:14px}
+.tile-delta .delta{margin-left:0;font-size:11.5px}
+
 .foot{margin-top:40px;font-size:11px;color:var(--muted);font-family:var(--mono);line-height:1.7;border-top:1px solid var(--border);padding-top:18px}
 .foot code{font-family:var(--mono);color:var(--muted2)}
 </style>
@@ -163,9 +198,12 @@ tbody tr:hover td:first-child{background:var(--panel2)}
 
 <div class="wrap" id="tool" style="display:none">
   <div class="head">
-    <span class="eyebrow">Running Dynamics</span>
+    <div class="head-top">
+      <span class="eyebrow">Running Dynamics</span>
+      <button class="gear" id="gearBtn" style="display:none">⚙ Settings &amp; filters</button>
+    </div>
     <h1>Garmin Run Dynamics</h1>
-    <p class="sub">Import a Garmin Connect activities export (<code>Activities.csv</code>) to backfill your run history. New activities are saved to your account and de-duplicated by start time, so you only ever import what's new. Stats below are computed from your full stored history — ground contact time, vertical oscillation, cadence, stride length and derived efficiency metrics — over default windows and any custom date range.</p>
+    <p class="sub">Import a Garmin Connect activities export (<code>Activities.csv</code>) to backfill your run history. New activities are saved to your account and de-duplicated by start time, so you only ever import what's new. Everything below is computed from your full stored history.</p>
   </div>
 
   <details class="help">
@@ -191,80 +229,97 @@ tbody tr:hover td:first-child{background:var(--panel2)}
     <div class="import-status" id="importStatus"></div>
   </div>
 
-  <div class="controls" id="controls" style="display:none">
-    <div class="group">
-      <div class="group-hd">Filters</div>
-      <div class="group-body">
-        <div class="ctl ctl-grow"><label>Activity types</label><div class="types" id="types"></div></div>
-        <div class="ctl"><label>Runs</label><select id="intensity"><option value="all">All runs</option><option value="workout">Workouts only</option><option value="easy">Easy only</option></select></div>
-        <div class="ctl"><label>Workout cutoff /mi</label><input type="text" id="cutoff" value="6:40" style="width:66px"></div>
-        <div class="ctl"><label>Min distance</label><div class="inunit"><input type="text" id="mindist" value="0.5" style="width:46px"><span>mi</span></div></div>
-        <div class="ctl"><label>Window end</label><input type="date" id="anchor"></div>
+  <!-- Settings & filters — collapsed behind the gear button -->
+  <div class="settings-panel" id="settingsPanel" style="display:none">
+    <div class="controls" id="controls">
+      <div class="group">
+        <div class="group-hd">Filters</div>
+        <div class="group-body">
+          <div class="ctl ctl-grow"><label>Activity types</label><div class="types" id="types"></div></div>
+          <div class="ctl"><label>Runs</label><select id="intensity"><option value="all">All runs</option><option value="workout">Workouts only</option><option value="easy">Easy only</option></select></div>
+          <div class="ctl"><label>Workout cutoff /mi</label><input type="text" id="cutoff" value="6:40" style="width:66px"></div>
+          <div class="ctl"><label>Min distance</label><div class="inunit"><input type="text" id="mindist" value="0.5" style="width:46px"><span>mi</span></div></div>
+          <div class="ctl"><label>Window end</label><input type="date" id="anchor"></div>
+        </div>
+      </div>
+      <div class="group">
+        <div class="group-hd">Athlete</div>
+        <div class="group-body">
+          <div class="ctl"><label>Device</label><select id="device"></select></div>
+          <div class="ctl"><label>Strap / pod</label><div class="types"><span class="chip" id="accessory">chest strap / pod</span></div></div>
+          <div class="ctl"><label>Body weight</label><div class="inunit"><input type="text" id="weight" placeholder="—" style="width:54px"><span>lb</span></div></div>
+          <div class="ctl"><label>Lever support</label><div class="inunit"><input type="text" id="offload" placeholder="85" style="width:42px"><span>% BW</span></div></div>
+        </div>
+      </div>
+      <div class="group group-grow">
+        <div class="group-hd">Performance &amp; injury history <span class="group-sub">marks races &amp; injuries on the chart</span></div>
+        <div class="group-body">
+          <div class="ctl"><label>Type</label><select id="evType"><option value="race">Race</option><option value="injury">Injury</option></select></div>
+          <div class="ctl"><label>Date</label><input type="date" id="evDate"></div>
+          <div class="ctl ctl-grow"><label>Note</label><input type="text" id="evNote" placeholder="e.g. Boston Marathon / left Achilles" style="width:100%"></div>
+          <button class="btn btn-sm" id="evAdd">+ add</button>
+        </div>
+        <div class="events" id="eventsList" style="display:none"></div>
       </div>
     </div>
-    <div class="group">
-      <div class="group-hd">Athlete</div>
-      <div class="group-body">
-        <div class="ctl"><label>Device</label><select id="device"></select></div>
-        <div class="ctl"><label>Strap / pod</label><div class="types"><span class="chip" id="accessory">chest strap / pod</span></div></div>
-        <div class="ctl"><label>Body weight</label><div class="inunit"><input type="text" id="weight" placeholder="—" style="width:54px"><span>lb</span></div></div>
-        <div class="ctl"><label>Lever support</label><div class="inunit"><input type="text" id="offload" placeholder="85" style="width:42px"><span>% BW</span></div></div>
-      </div>
+    <div class="controls-meta">
+      <span class="filenote" id="savedNote" style="color:var(--good);opacity:0;transition:opacity .2s"></span>
+      <span class="filenote" id="filenote"></span>
     </div>
-    <div class="group group-grow">
-      <div class="group-hd">Performance &amp; injury history <span class="group-sub">marks races &amp; injuries on the charts</span></div>
-      <div class="group-body">
-        <div class="ctl"><label>Type</label><select id="evType"><option value="race">Race</option><option value="injury">Injury</option></select></div>
-        <div class="ctl"><label>Date</label><input type="date" id="evDate"></div>
-        <div class="ctl ctl-grow"><label>Note</label><input type="text" id="evNote" placeholder="e.g. Boston Marathon / left Achilles" style="width:100%"></div>
-        <button class="btn btn-sm" id="evAdd">+ add</button>
-      </div>
-      <div class="events" id="eventsList" style="display:none"></div>
-    </div>
-  </div>
-  <div class="controls-meta" style="display:none">
-    <span class="filenote" id="savedNote" style="color:var(--good);opacity:0;transition:opacity .2s"></span>
-    <span class="filenote" id="filenote"></span>
   </div>
 
   <div class="empty section" id="sec-empty">No running activities stored yet. Import your Garmin <code>Activities.csv</code> above to get started.</div>
 
-  <div class="section" id="sec-summary">
-    <h2>Volume by window</h2>
-    <div class="cards" id="cards"></div>
+  <!-- HERO: what you've been doing → what to do next -->
+  <div class="section" id="sec-hero">
+    <div class="hero" id="hero"></div>
   </div>
 
-  <div class="section" id="sec-load">
-    <h2>Load management <span class="note">· mechanical impact load</span></h2>
-    <div class="cards" id="loadCards" style="margin-bottom:14px"></div>
-    <div class="chartwrap"><div id="loadChart"></div></div>
-    <p class="hint">Load is measured in <b>Impact Miles</b> — distance weighted by pace and by <b>per-step impact</b> (duty factor = cadence × ground-contact time vs your baseline; shorter contact / more flight loads each step harder). One easy flat mile = 1 Impact Mile; a hard or hilly mile counts as more. <b>Acute (7-day)</b> and <b>chronic (28-day)</b> are the rolling daily averages, in impact mi/day. This is a <b>load measure, not an injury prediction</b> — mechanics that raise load are only <i>correlated</i> with higher injury risk in the literature. Individual-relative estimate, not a measured force; baseline auto-calibrated from your easy runs. Acute:chronic above ~1.5 flags a load spike; 0.8–1.3 is the commonly cited safe band.</p>
+  <!-- UNIFIED CHART: load by default, any metric / compare on demand -->
+  <div class="section" id="sec-chart">
+    <h2>Training load &amp; trends</h2>
+    <div class="rangebar">
+      <div class="ctl"><label>View</label><select id="chartView"></select></div>
+      <div class="ctl" id="chartView2Wrap" style="display:none"><label>Overlay 2nd</label><select id="chartView2"></select></div>
+      <div class="ctl"><label>From</label><input type="date" id="tFrom"></div>
+      <div class="ctl"><label>To</label><input type="date" id="tTo"></div>
+      <div class="ctl"><label>Range</label><div class="types" id="rangeChips">
+        <span class="chip" data-range="3">3M</span>
+        <span class="chip" data-range="6">6M</span>
+        <span class="chip" data-range="12">1Y</span>
+        <span class="chip" data-range="all">All</span>
+      </div></div>
+      <div class="ctl" id="dispWrap" style="display:none"><label>Display</label><div class="types"><span class="chip on" id="hideOutliers">Hide outliers</span><span class="chip on" id="smooth">Smooth</span><span class="chip" id="points">Points</span></div></div>
+    </div>
+    <div class="chartwrap"><div class="legend" id="chartLegend"></div><div id="chartBox"></div></div>
+    <p class="hint" id="chartHint"></p>
     <details class="help" style="margin-top:12px"><summary>How Impact Load is calculated — equation, variables &amp; sources</summary><div class="help-body" id="loadMethod"></div></details>
   </div>
 
-  <div class="section" id="sec-trend">
-    <h2>Trend</h2>
-    <div class="rangebar">
-      <div class="ctl"><label>Metric 1</label><select id="m1"></select></div>
-      <div class="ctl"><label>Metric 2</label><select id="m2"></select></div>
-      <div class="ctl"><label>From</label><input type="date" id="tFrom"></div>
-      <div class="ctl"><label>To</label><input type="date" id="tTo"></div>
-      <div class="ctl"><label>Display</label><div class="types"><span class="chip on" id="hideOutliers">Hide outliers</span><span class="chip on" id="smooth">Smooth</span><span class="chip" id="points">Points</span></div></div>
-    </div>
-    <div class="chartwrap"><div class="legend" id="trendLegend"></div><div id="trendChart"></div></div>
+  <!-- FORM TILES + full table behind a toggle -->
+  <div class="section" id="sec-form">
+    <h2>Form metrics <span class="note">· recent 90 days vs prior 90</span></h2>
+    <div class="tiles" id="formTiles"></div>
+    <details class="help" style="margin-top:14px">
+      <summary>Show all metrics &amp; compare ranges</summary>
+      <div class="help-body" style="padding-top:14px">
+        <div class="rangebar" style="margin-bottom:14px">
+          <span class="chip" id="formCompare">⇄ compare two ranges</span>
+          <div class="ctl form-range" id="faFromWrap" style="display:none"><label>Range A — from</label><input type="date" id="faFrom"></div>
+          <div class="ctl form-range" id="faToWrap" style="display:none"><label>to</label><input type="date" id="faTo"></div>
+          <div class="ctl form-range" id="fbFromWrap" style="display:none"><label>Range B — from</label><input type="date" id="fbFrom"></div>
+          <div class="ctl form-range" id="fbToWrap" style="display:none"><label>to</label><input type="date" id="fbTo"></div>
+        </div>
+        <div class="tablewrap"><table id="ftable"></table></div>
+        <p class="hint" id="formHint">Showing stored-history averages. Toggle “compare two ranges” to compare periods (Δ = Range A − Range B).</p>
+      </div>
+    </details>
   </div>
 
-  <div class="section" id="sec-form">
-    <h2>Form metrics <span class="note">· mean per run</span></h2>
-    <div class="rangebar">
-      <span class="chip" id="formCompare">⇄ compare two ranges</span>
-      <div class="ctl form-range" id="faFromWrap" style="display:none"><label>Range A — from</label><input type="date" id="faFrom"></div>
-      <div class="ctl form-range" id="faToWrap" style="display:none"><label>to</label><input type="date" id="faTo"></div>
-      <div class="ctl form-range" id="fbFromWrap" style="display:none"><label>Range B — from</label><input type="date" id="fbFrom"></div>
-      <div class="ctl form-range" id="fbToWrap" style="display:none"><label>to</label><input type="date" id="fbTo"></div>
-    </div>
-    <div class="tablewrap"><table id="ftable"></table></div>
-    <p class="hint" id="formHint">Showing stored-history averages. Toggle “compare two ranges” to compare periods (Δ = Range A − Range B).</p>
+  <!-- VOLUME BY WINDOW — moved to the bottom -->
+  <div class="section" id="sec-summary">
+    <h2>Volume by window</h2>
+    <div class="cards" id="cards"></div>
   </div>
 
   <div class="foot" id="foot"></div>
@@ -615,13 +670,14 @@ function renderEventsList(){
   Array.prototype.forEach.call(el.querySelectorAll('.ev-del'),function(b){ b.onclick=function(){ evDelete(+this.getAttribute('data-id')); }; });
 }
 function populateMetricSelects(){
-  var m1=document.getElementById('m1'), m2=document.getElementById('m2'); if(!m1) return;
-  var prev1=m1.value, prev2=m2.value;
+  var v1=document.getElementById('chartView'), v2=document.getElementById('chartView2'); if(!v1) return;
+  var prev1=v1.value, prev2=v2.value;
   var opts=METRICS.map(function(m,i){return metricVisible(m)?'<option value="'+i+'">'+m.label+'</option>':'';}).join('');
-  m1.innerHTML=opts; m2.innerHTML='<option value="">None</option>'+opts;
+  v1.innerHTML='<option value="load">Load (acute vs chronic)</option>'+opts;
+  v2.innerHTML='<option value="">None</option>'+opts;
   var has=function(sel,v){return Array.prototype.some.call(sel.options,function(o){return o.value===v;});};
-  m1.value=has(m1,prev1)?prev1:(metricVisible(METRICS[0])?'0':(m1.options[0]?m1.options[0].value:''));
-  m2.value=has(m2,prev2)?prev2:'';
+  v1.value=has(v1,prev1)?prev1:'load';
+  v2.value=has(v2,prev2)?prev2:'';
 }
 
 /* ---------- load management ---------- */
@@ -647,33 +703,75 @@ function coloredPath(xs,ys,cs,width){ var out='',cur=[],cc=null;
   return out;
 }
 function acuteSegColor(acwr){ if(acwr==null) return '#00e5c8'; if(acwr>1.5) return '#f55050'; if(acwr>1.3) return '#f5a623'; if(acwr>1.0) return '#22c78a'; return '#00e5c8'; }
-function renderLoad(){
-  var cardsEl=document.getElementById('loadCards'), chartEl=document.getElementById('loadChart');
-  if(!cardsEl||!chartEl) return;
+/* ---------- hero recommendation ---------- */
+function leverPct(){ var v=parseFloat(STD_PROFILE.runLeverPctBW); return (v>0&&v<100)?v:85; }
+function renderHero(){
+  var el=document.getElementById('hero'); if(!el) return;
   var tl=RunLoad.loadTimeline(typeRuns(), LOAD_PARAMS);
-  if(tl.length<2){ cardsEl.innerHTML=''; chartEl.innerHTML='<div class="chart-empty">Not enough history to model load yet.</div>'; return; }
-  var last=tl[tl.length-1], acwr=last.acwr, col=acwrColor(acwr);
-  var TIP='Impact Miles — the modeled mechanical cost of a run in units of easy flat miles: one easy flat mile = 1 Impact Mile, and a hard or hilly mile counts as more. Acute &amp; chronic are the 7- and 28-day rolling daily averages, in impact miles per day.';
-  var info='<span class="info" data-tip="'+TIP+'">i</span>';
-  var cardsHtml=
-    '<div class="card"><div class="win">Acute load · 7d</div><div class="row"><span>impact mi / day'+info+'</span><b>'+last.acute.toFixed(1)+'</b></div></div>'+
-    '<div class="card"><div class="win">Chronic load · 28d</div><div class="row"><span>impact mi / day'+info+'</span><b>'+last.chronic.toFixed(1)+'</b></div></div>'+
-    '<div class="card"><div class="win" style="color:'+col+'">Acute : Chronic</div><div class="row">ratio <b style="color:'+col+'">'+(acwr!=null?acwr.toFixed(2):'–')+'</b></div><div class="row" style="color:'+col+'">'+acwrLabel(acwr)+'</div></div>'+
-    '<div class="card"><div class="win">Tolerance ceiling</div><div class="row"><span>impact mi / day'+info+'</span><b>'+(last.chronic*1.3).toFixed(1)+'</b></div></div>';
-  // L/R balance: gctBalL is the % of contact time on the left; report deviation from 50 + side.
-  if(RunDevices.status('gctBalance', deviceId(), hasAccessory())==='native'){
-    var end=last.ts;
-    var meanLOf=function(s,e){ var v=RAW.filter(function(r){return ACTIVE_TYPES.has(effType(r))&&r.gctBalL!=null&&r.ts>s&&r.ts<=e;}).map(function(r){return r.gctBalL;}); return v.length?v.reduce(function(a,b){return a+b;},0)/v.length:null; };
-    var recentL=meanLOf(end-30*DAY,end), priorL=meanLOf(end-60*DAY,end-30*DAY);
-    if(recentL!=null){
-      var dev=recentL-50, mag=Math.abs(dev), side=dev>=0?'left':'right';
-      var aCol=mag>3?'var(--bad)':mag>1.5?'var(--gold)':'var(--good)';
-      var albl=mag<1.5?'balanced':(mag>3?'notable':'mild')+' lean '+side;
-      var rising=(priorL!=null&&Math.abs(priorL-50)<mag-0.3);
-      cardsHtml+='<div class="card"><div class="win" style="color:'+aCol+'">L/R balance · 30d</div><div class="row">lean <b style="color:'+aCol+'">'+mag.toFixed(1)+'% '+side+'</b></div><div class="row" style="color:'+aCol+'">'+albl+(rising?' · rising':'')+'</div></div>';
-    }
+  if(tl.length<2){
+    el.style.borderLeftColor='var(--muted2)';
+    el.innerHTML='<div class="hero-badge" style="color:var(--muted2)"><span class="hero-dot" style="background:var(--muted2)"></span>Building your baseline</div>'+
+      '<div class="hero-read">Not enough run history yet to model your training load. Import a few more weeks of activities and your acute-vs-chronic load and day-to-day guidance will show up here.</div>';
+    return;
   }
-  cardsEl.innerHTML=cardsHtml;
+  var last=tl[tl.length-1], a=last.acute, c=last.chronic, acwr=last.acwr;
+  var col=acwrColor(acwr), pct=leverPct();
+  var head;
+  if(acwr==null)      head='Building your baseline';
+  else if(acwr>1.5)   head='Load spike — back off';
+  else if(acwr>1.3)   head='Approaching your ceiling';
+  else if(acwr<0.8)   head='Load fading — room to build';
+  else                head='In the safe band';
+  var ratioTxt=acwr!=null?acwr.toFixed(2):'–';
+  var read='Over the last 7 days you’ve averaged <b>'+a.toFixed(1)+'</b> impact mi/day against your 28-day base of <b>'+c.toFixed(1)+'</b> — an acute&#58;chronic ratio of <b style="color:'+col+'">'+ratioTxt+'</b> ('+acwrLabel(acwr)+').';
+  var room=Math.max(0,1.25*c-a), doHtml;
+  if(acwr==null){
+    doHtml='Keep logging easy runs so your baseline settles, then check back for day-to-day guidance.';
+  } else if(acwr>1.5){
+    doHtml='<b>Tomorrow:</b> easy or recovery only — your last week has jumped well above your base. '+
+      '<span class="lever">Run your next 2–3 sessions on the Lever</span> at '+pct+'% body-weight support: those miles keep your aerobic stimulus while cutting the per-step impact, so the ratio settles back toward the 0.8–1.3 band without losing fitness.';
+  } else if(acwr>1.3){
+    doHtml='<b>Hold volume steady</b> this week rather than adding more. To keep quality work in, '+
+      '<span class="lever">put a Lever session</span> at '+pct+'% support in place of a hard road run — it adds load at a fraction of the impact and keeps the ratio from tipping over.';
+  } else if(acwr<0.8){
+    doHtml='Your load is fading (taper or time off). You can <b>safely add volume</b> — build back gradually over the next few days rather than one big jump. '+
+      'A <span class="lever">Lever run</span> is an easy, low-impact way to add a session as you ramp.';
+  } else {
+    var roomTxt = room>0.3 ? 'roughly <b>+'+room.toFixed(1)+' impact mi/day</b> over the coming week' : 'a small, steady build';
+    doHtml='You’re in the safe band, so <b>you have room to build</b>: '+roomTxt+' keeps you here. '+
+      'Lever optional — a <span class="lever">Lever session</span> at '+pct+'% support is a good way to add an extra easy day without extra impact.';
+  }
+  el.style.borderLeftColor=col;
+  el.innerHTML=
+    '<div class="hero-badge" style="color:'+col+'"><span class="hero-dot" style="background:'+col+'"></span>'+head+'</div>'+
+    '<div class="hero-read">'+read+'</div>'+
+    '<div class="hero-stats">'+
+      '<div class="hero-stat"><div class="k">Acute · 7d</div><div class="v">'+a.toFixed(1)+'</div></div>'+
+      '<div class="hero-stat"><div class="k">Chronic · 28d</div><div class="v">'+c.toFixed(1)+'</div></div>'+
+      '<div class="hero-stat"><div class="k">Acute : Chronic</div><div class="v" style="color:'+col+'">'+ratioTxt+'</div></div>'+
+    '</div>'+
+    '<div class="hero-do"><span class="do-hd">What to do next</span>'+doHtml+'</div>';
+}
+
+/* ---------- unified chart: load (default) or metric trend ---------- */
+var LOAD_HINT='Load is in <b>Impact Miles</b> — distance weighted by pace and by per-step impact (duty factor = cadence × ground-contact time vs your baseline). One easy flat mile = 1 Impact Mile; a hard or hilly mile counts as more. <b>Acute (7d)</b> and <b>chronic (28d)</b> are rolling daily averages in impact mi/day. This is a <b>load measure, not an injury prediction</b> — auto-calibrated from your easy runs; 0.8–1.3 is the commonly cited safe band.';
+function renderChart(){
+  var v=document.getElementById('chartView').value, isLoad=(v==='load');
+  document.getElementById('chartView2Wrap').style.display=isLoad?'none':'flex';
+  document.getElementById('dispWrap').style.display=isLoad?'none':'flex';
+  if(isLoad) renderLoadChart(); else renderMetricChart();
+}
+function renderLoadChart(){
+  var legEl=document.getElementById('chartLegend'), chartEl=document.getElementById('chartBox'), hintEl=document.getElementById('chartHint');
+  if(!chartEl) return;
+  if(hintEl) hintEl.innerHTML=LOAD_HINT;
+  var full=RunLoad.loadTimeline(typeRuns(), LOAD_PARAMS);
+  if(full.length<2){ legEl.innerHTML=''; chartEl.innerHTML='<div class="chart-empty">Not enough history to model load yet.</div>'; return; }
+  var from=parseDate(document.getElementById('tFrom').value), to=parseDate(document.getElementById('tTo').value);
+  var f0=from?from.getTime():full[0].ts, f1=to?to.getTime():full[full.length-1].ts;
+  var tl=full.filter(function(d){return d.ts>=f0&&d.ts<=f1;});
+  if(tl.length<2) tl=full;                    // window too narrow — show everything
+  var last=tl[tl.length-1];
   var W=720,H=210,padL=40,padR=12,padT=12,padB=24,innerW=W-padL-padR,innerH=H-padT-padB;
   var t0=tl[0].ts,t1=last.ts,span=Math.max(1,t1-t0);
   var ymax=Math.max.apply(null,tl.map(function(d){return Math.max(d.acute,d.chronic*1.3);}))*1.05||1;
@@ -693,8 +791,8 @@ function renderLoad(){
     grid+='<text x="'+(padL-6)+'" y="'+(parseFloat(yy)+3).toFixed(1)+'" text-anchor="end" font-size="9" font-family="ui-monospace,monospace" fill="#6e7a9a">'+(ymax*f).toFixed(0)+'</text>'; }
   var xlab='';
   axisTicks(t0,t1).forEach(function(ts,idx){ xlab+='<text x="'+xOf(ts).toFixed(1)+'" y="'+(H-7)+'" text-anchor="middle" font-size="8.5" font-family="ui-monospace,monospace" fill="#6e7a9a">'+axisLabel(ts,idx)+'</text>'; });
-  chartEl.innerHTML='<div class="legend"><span class="legend-item"><span class="legend-sw" style="background:#00e5c8"></span>Acute (7d)</span><span class="legend-item"><span class="legend-sw" style="background:#8b7cf8"></span>Chronic (28d)</span><span class="legend-item"><span class="legend-sw" style="background:rgba(34,199,138,0.5)"></span>Safe band</span><span class="legend-item" style="color:var(--muted)">acute shifts green above chronic, amber/red above the band</span></div>'+
-    '<svg class="chart-svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Mechanical load timeline">'+grid+band+chronicLn+acuteLn+xlab+RunLoad.eventOverlaySVG(events(),t0,t1,padL,innerW,padT,innerH)+'</svg>';
+  legEl.innerHTML='<span class="legend-item"><span class="legend-sw" style="background:#00e5c8"></span>Acute (7d)</span><span class="legend-item"><span class="legend-sw" style="background:#8b7cf8"></span>Chronic (28d)</span><span class="legend-item"><span class="legend-sw" style="background:rgba(34,199,138,0.5)"></span>Safe band</span><span class="legend-item" style="color:var(--muted)">acute shifts green above chronic, amber/red above the band</span>';
+  chartEl.innerHTML='<svg class="chart-svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Mechanical load timeline">'+grid+band+chronicLn+acuteLn+xlab+RunLoad.eventOverlaySVG(events(),t0,t1,padL,innerW,padT,innerH)+'</svg>';
 }
 
 // Volume by window (cards), intensity-filtered.
@@ -743,6 +841,26 @@ function renderForm(){
   var hintEl=document.getElementById('formHint'); if(hintEl) hintEl.textContent=note;
 }
 
+// Compact headline tiles: current 90-day mean + trend arrow vs the prior 90 days.
+function renderTiles(){
+  var el=document.getElementById('formTiles'); if(!el) return;
+  var it=intensityState(), end=ANCHOR||new Date();
+  var cur =filterIntensity(runsIn(new Date(end.getTime()-90*DAY),end),it.mode,it.cutoff);
+  var prev=filterIntensity(runsIn(new Date(end.getTime()-180*DAY),new Date(end.getTime()-90*DAY)),it.mode,it.cutoff);
+  var pri=['cad','gct','vo','vratio','asym','stride','pace'];
+  var byKey={}; METRICS.forEach(function(m){ byKey[m.key]=m; });
+  var html=pri.map(function(k){
+    var m=byKey[k]; if(!m||!metricVisible(m)) return '';
+    var cv=metricMean(cur,m); if(cv==null) return '';
+    var pv=metricMean(prev,m);
+    var val=m.pace?fmtPace(cv):cv.toFixed(m.dec);
+    return '<div class="tile"><div class="tile-lbl">'+m.label+'</div>'+
+      '<div class="tile-val">'+val+(m.unit?'<span class="tile-unit">'+m.unit+'</span>':'')+'</div>'+
+      '<div class="tile-delta">'+(deltaHTML(cv,pv,m)||'<span class="delta flat">— no prior</span>')+'</div></div>';
+  }).join('');
+  el.innerHTML=html||'<div class="chart-empty">No form metrics available for this device.</div>';
+}
+
 /* ---------- type filter ---------- */
 function buildTypeChips(){
   var counts={};
@@ -763,13 +881,13 @@ function buildTypeChips(){
 }
 
 /* ---------- orchestration ---------- */
-function refresh(){ if(RAW.length){ annotateLever(); LOAD_PARAMS=computeLoadParams(); renderAll(); renderLoad(); renderForm(); renderTrend(); } }
+function refresh(){ if(RAW.length){ annotateLever(); LOAD_PARAMS=computeLoadParams(); renderHero(); renderChart(); renderTiles(); renderForm(); renderAll(); } }
 
 function showSections(hasData){
-  document.getElementById('controls').style.display=hasData?'flex':'none';
-  var meta=document.querySelector('.controls-meta'); if(meta) meta.style.display=hasData?'flex':'none';
+  var gb=document.getElementById('gearBtn'); if(gb){ gb.style.display=hasData?'inline-flex':'none'; gb.classList.remove('on'); }
+  var panel=document.getElementById('settingsPanel'); if(panel) panel.style.display='none';   // collapsed by default
   document.getElementById('sec-empty').classList.toggle('show',!hasData);
-  ['sec-summary','sec-load','sec-form','sec-trend'].forEach(function(id){
+  ['sec-hero','sec-chart','sec-form','sec-summary'].forEach(function(id){
     document.getElementById(id).classList.toggle('show',hasData);
   });
 }
@@ -779,10 +897,11 @@ function tickFmt(m,v){ if(m.pace)return fmtPace(v); if(Math.abs(v)>=100)return M
 function quantile(sorted,q){ var pos=(sorted.length-1)*q, base=Math.floor(pos), rest=pos-base; return sorted[base+1]!==undefined ? sorted[base]+rest*(sorted[base+1]-sorted[base]) : sorted[base]; }
 // Centered moving average; window scales with sample size, shrinks at the edges.
 function smoothPts(pts){ var w=Math.max(3,Math.min(21,Math.round(pts.length/8))), half=Math.floor(w/2); return pts.map(function(p,i){ var s=0,c=0; for(var j=Math.max(0,i-half);j<=Math.min(pts.length-1,i+half);j++){ s+=pts[j].v; c++; } return {ts:p.ts,v:s/c}; }); }
-function renderTrend(){
-  var chart=document.getElementById('trendChart'), legend=document.getElementById('trendLegend');
+function renderMetricChart(){
+  var chart=document.getElementById('chartBox'), legend=document.getElementById('chartLegend'), hintEl=document.getElementById('chartHint');
   if(!chart) return;
-  var i1=document.getElementById('m1').value, i2=document.getElementById('m2').value;
+  if(hintEl) hintEl.innerHTML='Per-run values over the selected range. <b>Smooth</b> draws the trend line; <b>Hide outliers</b> drops glitch values (keeps logged races/injuries and detected hard efforts); <b>Points</b> shows every run.';
+  var i1=document.getElementById('chartView').value, i2=document.getElementById('chartView2').value;
   var from=parseDate(document.getElementById('tFrom').value), to=parseDate(document.getElementById('tTo').value);
   var series=[];
   if(i1!=='') series.push({m:METRICS[+i1],color:'#00e5c8'});
@@ -894,10 +1013,11 @@ function renderLoaded(){
   document.getElementById('accessory').classList.toggle('on', hasAccessory());
   document.getElementById('evDate').value=ymd(max);
   renderEventsList();
-  // Trend section: populate metric selects (device-gated) + default range last 3 months.
+  // Chart: View select (Load default + device-gated metrics) + default range last 3 months.
   populateMetricSelects();
   document.getElementById('tTo').value=ymd(max);
   document.getElementById('tFrom').value=ymd(new Date(max.getTime()-91*DAY));
+  setRangeChip('3');
   document.getElementById('foot').innerHTML=
     'Reading '+RAW.length+' stored runs from your account. Track-running distances are converted from meters to miles. '+
     'Metric definitions live in the <code>METRICS</code> array at the top of this file — edit there to add or tune stats.';
@@ -943,12 +1063,30 @@ drop.ondragleave=function(){ drop.classList.remove('over'); };
 drop.ondrop=function(e){ e.preventDefault(); drop.classList.remove('over'); var f=e.dataTransfer.files[0]; if(f) readFile(f); };
 fileInput.onchange=function(e){ var f=e.target.files[0]; if(f) readFile(f); fileInput.value=''; };
 document.getElementById('anchor').onchange=function(e){ var d=parseDate(e.target.value); if(d){ANCHOR=d;refresh();} };
-// Global intensity filter — drives volume, form metrics, and the trend chart.
+// Gear button: show/hide the settings & filters panel.
+document.getElementById('gearBtn').onclick=function(){
+  var p=document.getElementById('settingsPanel'), open=p.style.display!=='none';
+  p.style.display=open?'none':'block'; this.classList.toggle('on',!open);
+};
+// Global intensity filter — drives volume, form metrics, and the chart.
 document.getElementById('intensity').onchange=refresh;
 document.getElementById('cutoff').onchange=refresh;
 document.getElementById('mindist').onchange=refresh;
-['m1','m2','tFrom','tTo'].forEach(function(id){ document.getElementById(id).onchange=renderTrend; });
-['hideOutliers','smooth','points'].forEach(function(id){ document.getElementById(id).onclick=function(){ this.classList.toggle('on'); renderTrend(); }; });
+// Unified chart controls.
+['chartView','chartView2'].forEach(function(id){ document.getElementById(id).onchange=renderChart; });
+['tFrom','tTo'].forEach(function(id){ document.getElementById(id).onchange=function(){ setRangeChip(''); renderChart(); }; });
+['hideOutliers','smooth','points'].forEach(function(id){ document.getElementById(id).onclick=function(){ this.classList.toggle('on'); renderChart(); }; });
+// Date range quick chips set From/To then redraw.
+function setRangeChip(active){ Array.prototype.forEach.call(document.querySelectorAll('#rangeChips .chip'),function(c){ c.classList.toggle('on', c.getAttribute('data-range')===active); }); }
+function applyRange(r){
+  if(!RAW.length) return;
+  var max=ANCHOR||new Date(RAW[RAW.length-1].ts);
+  var from=(r==='all')?new Date(RAW[0].ts):new Date(max.getTime()-parseInt(r,10)*30.44*DAY);
+  document.getElementById('tFrom').value=ymd(from);
+  document.getElementById('tTo').value=ymd(max);
+  setRangeChip(r); renderChart();
+}
+Array.prototype.forEach.call(document.querySelectorAll('#rangeChips .chip'),function(c){ c.onclick=function(){ applyRange(c.getAttribute('data-range')); }; });
 ['faFrom','faTo','fbFrom','fbTo'].forEach(function(id){ document.getElementById(id).onchange=renderForm; });
 document.getElementById('formCompare').onclick=function(){
   this.classList.toggle('on');
