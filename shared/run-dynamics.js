@@ -3,7 +3,8 @@
 //
 // The ONE Run Dynamics view. Both the standalone /running-dynamics/
 // page and the coaching dashboard's "Run Dynamics" tab mount this —
-// there is no second copy. Imports a Garmin Connect activities export,
+// there is no second copy. Imports a Garmin Connect activities export
+// (Activities.csv) OR a Coros export (.zip of per-activity .fit files),
 // stores it under users/{uid}/garminActivities (de-duped by start
 // time), and renders the actionable hero + unified load/metric chart +
 // form tiles + volume, with all athlete/device/filter settings behind
@@ -364,6 +365,108 @@ function parseExport(text){
     };
   }
   return Object.keys(byId).map(function(k){return byId[k];});
+}
+
+/* ---------- Coros .fit / .zip parsing ----------
+   Coros Connect exports a .zip of per-activity binary .fit files (no CSV).
+   Every running-dynamics metric lives in standard FIT `session` fields
+   (verified against a real Coros export — no developer/custom fields), so
+   each session maps onto the SAME run-doc shape parseExport produces and
+   flows through the identical backfill/dedup path. Units differ from
+   Garmin's CSV: cadence is per-leg (×2), oscillation is mm (÷10 → cm),
+   step length is mm (÷1000 → m). The two parser libs are loaded from CDN
+   on demand the first time a .zip/.fit is dropped — nothing is added to
+   the host pages, keeping this the one self-contained module. */
+var _fitLibs=null;
+function loadFitLibs(){
+  if(_fitLibs) return _fitLibs;
+  _fitLibs=new Promise(function(resolve,reject){
+    if(window.JSZip){ importFitParser(resolve,reject); return; }
+    var s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+    s.onload=function(){ importFitParser(resolve,reject); };
+    s.onerror=function(){ reject(new Error('Could not load the unzip library (check your connection).')); };
+    document.head.appendChild(s);
+  });
+  return _fitLibs;
+}
+function importFitParser(resolve,reject){
+  import('https://cdn.jsdelivr.net/npm/fit-file-parser@3.0.2/+esm')
+    .then(function(mod){ resolve({ JSZip:window.JSZip, FitParser:(mod&&mod.default)||mod }); })
+    .catch(function(){ reject(new Error('Could not load the .fit parser (check your connection).')); });
+}
+function fitNum(v){ return (typeof v==='number'&&!isNaN(v))?v:null; }
+
+/* One FIT `session` message -> the same candidate run doc parseExport emits. */
+function runFromFitSession(s){
+  if(!s||!s.start_time) return null;
+  var sport=String(s.sport||'').toLowerCase();
+  if(sport && !/run/.test(sport)) return null;            // run-focused tool
+  var start=new Date(s.start_time);
+  if(isNaN(start)) return null;
+  var type=s.sport?(s.sport.charAt(0).toUpperCase()+s.sport.slice(1)):'Running';
+  var id=start.toISOString().replace(/\D/g,'').slice(0,14)+'_'+norm(type);
+  var distM=fitNum(s.total_distance);
+  var spd=fitNum(s.avg_speed!=null?s.avg_speed:s.enhanced_avg_speed);
+  var cadHalf=fitNum(s.avg_running_cadence!=null?s.avg_running_cadence:s.avg_cadence);
+  var frac=fitNum(s.avg_fractional_cadence)||0;
+  var voMm=fitNum(s.avg_vertical_oscillation);             // FIT: mm
+  var stepMm=fitNum(s.avg_step_length);                    // FIT: mm
+  var vr=fitNum(s.avg_vertical_ratio);
+  if(vr==null && voMm!=null && stepMm) vr=voMm/stepMm*100; // derive when absent
+  return {
+    id:id, type:type, title:'', leverTitle:false,
+    ts:start.getTime(), dateISO:start.toISOString(),
+    distMi: distM==null?null:distM/1609.34,
+    durSec: fitNum(s.total_timer_time!=null?s.total_timer_time:s.total_elapsed_time),
+    avgHr:fitNum(s.avg_heart_rate), maxHr:fitNum(s.max_heart_rate),
+    aerobicTE:fitNum(s.total_training_effect),
+    cadence: cadHalf==null?null:Math.round((cadHalf+frac)*2),  // per-leg -> spm
+    stride: stepMm==null?null:stepMm/1000,                     // mm -> m
+    vratio: vr,
+    vo: voMm==null?null:voMm/10,                               // mm -> cm
+    gct: fitNum(s.avg_stance_time), gctBalL: fitNum(s.avg_stance_time_balance),
+    paceSec: spd?1609.34/spd:null, gapSec:null,
+    ascentM:fitNum(s.total_ascent), descentM:fitNum(s.total_descent), steps:fitNum(s.total_strides),
+  };
+}
+/* Parse one .fit ArrayBuffer -> run candidates (one per running session). */
+function parseFitBuffer(FitParser, buf){
+  return new Promise(function(resolve){
+    var fp=new FitParser({ force:true, mode:'list', speedUnit:'m/s', lengthUnit:'m' });
+    fp.parse(buf, function(err,data){
+      if(err||!data){ resolve([]); return; }
+      var sessions=data.sessions||[];
+      resolve(sessions.map(runFromFitSession).filter(Boolean));
+    });
+  });
+}
+/* Parse a Coros .zip (or bare .fit) ArrayBuffer into deduped run candidates. */
+function parseCorosArchive(arrayBuffer, fileName, onProgress){
+  return loadFitLibs().then(function(L){
+    var lower=String(fileName||'').toLowerCase();
+    if(/\.fit$/.test(lower)) return parseFitBuffer(L.FitParser, arrayBuffer);
+    return L.JSZip.loadAsync(arrayBuffer).then(function(zip){
+      var entries=[];
+      zip.forEach(function(path,entry){ if(!entry.dir && /\.fit$/i.test(path)) entries.push(entry); });
+      if(!entries.length) throw new Error('No .fit files found inside the .zip.');
+      var done=0, candidates=[], chain=Promise.resolve();
+      entries.forEach(function(entry){
+        chain=chain.then(function(){
+          return entry.async('arraybuffer').then(function(ab){
+            return parseFitBuffer(L.FitParser, ab).then(function(runs){
+              candidates=candidates.concat(runs);
+              done++; if(onProgress) onProgress(done, entries.length);
+            });
+          });
+        });
+      });
+      return chain.then(function(){ return candidates; });
+    });
+  }).then(function(list){
+    var byId={}; list.forEach(function(c){ byId[c.id]=c; });   // dedup within the archive
+    return Object.keys(byId).map(function(k){return byId[k];});
+  });
 }
 
 /* ---------- Firestore: load + backfill ---------- */
@@ -901,33 +1004,58 @@ function renderLoaded(){
 }
 
 /* ---------- import ---------- */
+// Garmin = one Activities.csv (text); Coros = a .zip of binary .fit files
+// (or a single .fit). Both paths produce the same candidate run docs and
+// share saveCandidates() for dedup/backfill/status.
 function readFile(f){
+  var name=String(f.name||'').toLowerCase();
+  if(/\.zip$/.test(name)||/\.fit$/.test(name)) return readCorosFile(f);
+  return readGarminCsv(f);
+}
+function readGarminCsv(f){
   var st=$('importStatus');
-  st.innerHTML='<span class="rdx-spin"></span>Reading '+f.name+'…';
+  st.innerHTML='<span class="rdx-spin"></span>Reading '+esc(f.name)+'…';
   var rd=new FileReader();
   rd.onerror=function(){ st.innerHTML='<span class="err">Could not read file.</span>'; };
   rd.onload=function(){
     var candidates;
     try{ candidates=parseExport(rd.result); }
-    catch(e){ st.innerHTML='<span class="err">'+e.message+'</span>'; return; }
-    if(!candidates.length){ st.innerHTML='<span class="err">No running activities found in this file.</span>'; return; }
-    var elev=candidates.filter(function(c){return c.ascentM!=null;}).length;
-    st.innerHTML='<span class="rdx-spin"></span>Saving '+candidates.length+' runs…';
-    backfill(candidates).then(function(res){
-      return loadFromFirestore().then(function(){
-        renderLoaded();
-        var sample=candidates.filter(function(c){return c.ascentM!=null;})[0];
-        var verify=sample?actCol().doc(sample.id).get().then(function(d){return d.exists&&d.data().ascentM!=null;}):Promise.resolve(null);
-        verify.then(function(ok){
-          st.innerHTML='<span class="ok">✓ '+res.added+' new'+(res.updated?(', '+res.updated+' updated'):'')+'</span> · '+RAW.length+' total · '+elev+'/'+candidates.length+' w/ elevation'+(ok===false?' <span class="err">(elevation did NOT persist — check rules)</span>':'');
-        });
-      });
-    }).catch(function(e){
-      console.error(e);
-      st.innerHTML='<span class="err">Save failed: '+(e&&e.code||e&&e.message||e)+'</span>';
-    });
+    catch(e){ st.innerHTML='<span class="err">'+esc(e.message)+'</span>'; return; }
+    saveCandidates(candidates);
   };
   rd.readAsText(f);
+}
+function readCorosFile(f){
+  var st=$('importStatus');
+  st.innerHTML='<span class="rdx-spin"></span>Reading '+esc(f.name)+'…';
+  var rd=new FileReader();
+  rd.onerror=function(){ st.innerHTML='<span class="err">Could not read file.</span>'; };
+  rd.onload=function(){
+    parseCorosArchive(rd.result, f.name, function(done,total){
+      if(st) st.innerHTML='<span class="rdx-spin"></span>Parsing .fit files… '+done+'/'+total;
+    }).then(function(candidates){ saveCandidates(candidates); })
+      .catch(function(e){ console.error(e); st.innerHTML='<span class="err">'+esc(e&&e.message||'Could not read this Coros file.')+'</span>'; });
+  };
+  rd.readAsArrayBuffer(f);
+}
+function saveCandidates(candidates){
+  var st=$('importStatus');
+  if(!candidates||!candidates.length){ if(st) st.innerHTML='<span class="err">No running activities found in this file.</span>'; return; }
+  var elev=candidates.filter(function(c){return c.ascentM!=null;}).length;
+  if(st) st.innerHTML='<span class="rdx-spin"></span>Saving '+candidates.length+' runs…';
+  backfill(candidates).then(function(res){
+    return loadFromFirestore().then(function(){
+      renderLoaded();
+      var sample=candidates.filter(function(c){return c.ascentM!=null;})[0];
+      var verify=sample?actCol().doc(sample.id).get().then(function(d){return d.exists&&d.data().ascentM!=null;}):Promise.resolve(null);
+      verify.then(function(ok){
+        if(st) st.innerHTML='<span class="ok">✓ '+res.added+' new'+(res.updated?(', '+res.updated+' updated'):'')+'</span> · '+RAW.length+' total · '+elev+'/'+candidates.length+' w/ elevation'+(ok===false?' <span class="err">(elevation did NOT persist — check rules)</span>':'');
+      });
+    });
+  }).catch(function(e){
+    console.error(e);
+    if(st) st.innerHTML='<span class="err">Save failed: '+(e&&e.code||e&&e.message||e)+'</span>';
+  });
 }
 
 /* ---------- shell markup ---------- */
@@ -939,21 +1067,27 @@ function shellHTML(opts){
   return ''+
   '<div class="rdx-topbar">'+titleHTML+'<button class="rdx-gear" id="gearBtn" style="display:none">⚙ Settings &amp; filters</button></div>'+
 
-  '<details class="rdx-help"><summary>How to export your activities from Garmin Connect</summary>'+
-    '<div class="rdx-help-body"><ol>'+
+  '<details class="rdx-help"><summary>How to export your activities from Garmin or Coros</summary>'+
+    '<div class="rdx-help-body">'+
+      '<p><b>Garmin Connect</b> — one <code>Activities.csv</code>:</p><ol>'+
       '<li>On a computer, open <a href="https://connect.garmin.com/modern/activities" target="_blank" rel="noopener">Garmin Connect → Activities → All Activities</a> and sign in.</li>'+
       '<li>Use the <b>filter</b> controls to set <b>Activity Type → Running</b> (optional) and the <b>date range</b> you want.</li>'+
       '<li><b>Scroll to the bottom</b> so every activity in that range loads on screen — the export only includes what is loaded.</li>'+
       '<li>Click <b>Export CSV</b> (top-right) to download <code>Activities.csv</code>.</li>'+
       '<li>Drop that file below. Runs are de-duplicated by start time, so re-uploads only add what is new.</li>'+
     '</ol>'+
-    '<div class="rdx-help-note">Garmin\'s CSV export is capped at ~1,000 activities and exports only the rows loaded on screen. For long histories, export in chunks by date range — each chunk merges in automatically.</div>'+
+      '<p><b>Coros</b> — a <code>.zip</code> of per-activity <code>.fit</code> files:</p><ol>'+
+      '<li>Open <a href="https://t.coros.com" target="_blank" rel="noopener">COROS web (t.coros.com)</a> and sign in, or use the COROS app.</li>'+
+      '<li>Export your activities — COROS bundles them as a <b><code>.zip</code> of <code>.fit</code> files</b> (one per activity). Drop the whole <code>.zip</code> below; you can also drop a single <code>.fit</code>.</li>'+
+      '<li>We unpack and read each <code>.fit</code> right in your browser, then de-duplicate by start time like the Garmin import.</li>'+
+    '</ol>'+
+    '<div class="rdx-help-note">Garmin\'s CSV export is capped at ~1,000 activities and exports only the rows loaded on screen. For long histories, export in chunks by date range — each chunk merges in automatically. Running-form metrics (ground contact, vertical oscillation, cadence, stride) require a compatible device/strap; some Coros runs may not include every field.</div>'+
     '</div></details>'+
 
   '<div class="rdx-importbar">'+
-    '<div class="rdx-drop" id="drop"><b>Import Garmin Activities.csv</b>'+
+    '<div class="rdx-drop" id="drop"><b>Import Garmin <code>Activities.csv</code> or a Coros <code>.zip</code></b>'+
       '<span>Drag &amp; drop, or click to choose — backfills '+who+' run history.</span>'+
-      '<input type="file" id="file" accept=".csv,text/csv" hidden></div>'+
+      '<input type="file" id="file" accept=".csv,text/csv,.zip,.fit,application/zip" hidden></div>'+
     '<div class="rdx-status" id="importStatus"></div>'+
   '</div>'+
 
@@ -995,7 +1129,7 @@ function shellHTML(opts){
     '</div>'+
   '</div>'+
 
-  '<div class="rdx-empty rdx-section" id="sec-empty">No running activities stored '+(ROLE==='coach'?'for this athlete ':'')+'yet. Import a Garmin <code>Activities.csv</code> above to get started.</div>'+
+  '<div class="rdx-empty rdx-section" id="sec-empty">No running activities stored '+(ROLE==='coach'?'for this athlete ':'')+'yet. Import a Garmin <code>Activities.csv</code> or a Coros <code>.zip</code> above to get started.</div>'+
 
   '<div class="rdx-section" id="sec-hero">'+(ADMIN?'<div class="rdx-demobar" id="demobar"></div>':'')+'<div class="rdx-hero" id="hero"></div></div>'+
 
@@ -1093,7 +1227,7 @@ function mount(container, opts){
     renderLoaded();
     if(st) st.innerHTML = RAW.length
       ? '<span class="ok">✓ '+RAW.length+' runs loaded</span> · import a newer export to add more'
-      : 'No runs stored yet — import a Garmin export to begin.';
+      : 'No runs stored yet — import a Garmin or Coros export to begin.';
   }).catch(function(e){
     console.error(e);
     if(st) st.innerHTML='<span class="err">Could not load stored runs: '+(e&&e.message||e)+'</span>';
