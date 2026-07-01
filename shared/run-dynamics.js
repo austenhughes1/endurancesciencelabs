@@ -395,7 +395,12 @@ function importFitParser(resolve,reject){
     .then(function(mod){ resolve({ JSZip:window.JSZip, FitParser:(mod&&mod.default)||mod }); })
     .catch(function(){ reject(new Error('Could not load the .fit parser (check your connection).')); });
 }
-function fitNum(v){ return (typeof v==='number'&&!isNaN(v))?v:null; }
+function fitNum(v){ return (typeof v==='number'&&isFinite(v))?v:null; }
+// Running-form fields (GCT, oscillation, ratio, balance, stride, cadence) can
+// never legitimately be 0. Coros writes a literal 0 (not a blank, unlike
+// Garmin's CSV) on runs recorded WITHOUT a running-dynamics pod/strap. A stored
+// 0 GCT later divides into the load model → Infinity, so treat 0 as "absent".
+function fitPos(v){ return (typeof v==='number'&&isFinite(v)&&v>0)?v:null; }
 
 /* One FIT `session` message -> the same candidate run doc parseExport emits. */
 function runFromFitSession(s){
@@ -406,28 +411,28 @@ function runFromFitSession(s){
   if(isNaN(start)) return null;
   var type=s.sport?(s.sport.charAt(0).toUpperCase()+s.sport.slice(1)):'Running';
   var id=start.toISOString().replace(/\D/g,'').slice(0,14)+'_'+norm(type);
-  var distM=fitNum(s.total_distance);
-  var spd=fitNum(s.avg_speed!=null?s.avg_speed:s.enhanced_avg_speed);
-  var cadHalf=fitNum(s.avg_running_cadence!=null?s.avg_running_cadence:s.avg_cadence);
+  var distM=fitPos(s.total_distance);
+  var spd=fitPos(s.avg_speed!=null?s.avg_speed:s.enhanced_avg_speed);
+  var cadHalf=fitPos(s.avg_running_cadence!=null?s.avg_running_cadence:s.avg_cadence);
   var frac=fitNum(s.avg_fractional_cadence)||0;
-  var voMm=fitNum(s.avg_vertical_oscillation);             // FIT: mm
-  var stepMm=fitNum(s.avg_step_length);                    // FIT: mm
-  var vr=fitNum(s.avg_vertical_ratio);
+  var voMm=fitPos(s.avg_vertical_oscillation);             // FIT: mm (0 = sensor absent)
+  var stepMm=fitPos(s.avg_step_length);                    // FIT: mm (0 = sensor absent)
+  var vr=fitPos(s.avg_vertical_ratio);
   if(vr==null && voMm!=null && stepMm) vr=voMm/stepMm*100; // derive when absent
   return {
     id:id, type:type, title:'', leverTitle:false,
     ts:start.getTime(), dateISO:start.toISOString(),
     distMi: distM==null?null:distM/1609.34,
-    durSec: fitNum(s.total_timer_time!=null?s.total_timer_time:s.total_elapsed_time),
-    avgHr:fitNum(s.avg_heart_rate), maxHr:fitNum(s.max_heart_rate),
-    aerobicTE:fitNum(s.total_training_effect),
-    cadence: cadHalf==null?null:Math.round((cadHalf+frac)*2),  // per-leg -> spm
+    durSec: fitPos(s.total_timer_time!=null?s.total_timer_time:s.total_elapsed_time),
+    avgHr:fitPos(s.avg_heart_rate), maxHr:fitPos(s.max_heart_rate),
+    aerobicTE:fitNum(s.total_training_effect),                 // 0 = valid "no training effect"
+    cadence: cadHalf==null?null:Math.round((cadHalf+frac)*2), // per-leg -> spm
     stride: stepMm==null?null:stepMm/1000,                     // mm -> m
     vratio: vr,
     vo: voMm==null?null:voMm/10,                               // mm -> cm
-    gct: fitNum(s.avg_stance_time), gctBalL: fitNum(s.avg_stance_time_balance),
+    gct: fitPos(s.avg_stance_time), gctBalL: fitPos(s.avg_stance_time_balance),
     paceSec: spd?1609.34/spd:null, gapSec:null,
-    ascentM:fitNum(s.total_ascent), descentM:fitNum(s.total_descent), steps:fitNum(s.total_strides),
+    ascentM:fitNum(s.total_ascent), descentM:fitNum(s.total_descent), steps:fitPos(s.total_strides), // 0 ascent/descent = valid flat run
   };
 }
 /* Parse one .fit ArrayBuffer -> run candidates (one per running session). */
