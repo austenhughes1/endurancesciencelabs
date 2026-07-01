@@ -711,6 +711,19 @@ function renderHero(){
     .map(function(r){ return RunLoad.impactLoad(r, LOAD_PARAMS); }).filter(function(v){ return v!=null && v>0; });
   var typical = loads.length>=3 ? RunLoad.median(loads) : (base?base*1.4:6);
 
+  // Acute-curve trajectory: how fast the 7-day EWMA acute load is climbing, as a fractional change
+  // per week. A steep, sustained rise is a leading injury-risk signal the point-in-time ACWR misses —
+  // acute can rocket up from below chronic, blow past it and keep climbing while the ratio still reads
+  // "in band." We flag it as "climbing hot" once acute is also at/above chronic (not just rebuilding
+  // from a low base, where a fast ramp is expected and healthy).
+  var last=tl[tl.length-1];
+  var acuteNow=last.acute||0, chronicNow=last.chronic||0;
+  var bk=Math.min(7, tl.length-1);
+  var aPast=(!demoOn && bk>=4) ? (tl[tl.length-1-bk].acute||0) : 0;
+  var rampPerWk = aPast>0 ? (Math.pow(acuteNow/aPast, 7/bk)-1) : null;
+  var acwrNow = chronicNow>0 ? acuteNow/chronicNow : null;
+  var climbingHot = rampPerWk!=null && rampPerWk>=0.15 && acwrNow!=null && acwrNow>=0.95;
+
   var head, accent, doHtml;
   if(base==null){
     head='Building your baseline'; accent='var(--muted2)';
@@ -722,14 +735,19 @@ function renderHero(){
     // chronic base (the 0.8–1.3 safe band) and shifted by how loaded the last few days have been.
     var loMult, hiMult, intensity, leverNote;
     var maxR=Math.max(r1,r3,r7);
-    if(maxR>=1.5){
+    var rampWkTxt = rampPerWk!=null ? Math.round(rampPerWk*100)+'%' : '';
+    if(maxR>=1.5 || (climbingHot && rampPerWk>=0.25 && acwrNow>=1.2)){
       accent='var(--bad)'; head='Overreaching — recover next'; loMult=0.3; hiMult=0.6;
-      intensity='<b>Recovery day.</b> Your recent load has pushed past your safe range — keep it truly easy, or take the day off.';
+      intensity='<b>Recovery day.</b> Your recent load has pushed past your safe range'+(climbingHot?' and is still climbing fast (about +'+rampWkTxt+'/week)':'')+' — keep it truly easy, or take the day off.';
       leverNote='<b>Strongly suggest the Lever today.</b> At '+pct+'% support you keep the full aerobic stimulus while your legs rebuild at a fraction of the impact.';
     } else if(maxR>=1.3){
       accent='var(--gold)'; head='At your ceiling — ease off'; loMult=0.6; hiMult=0.9;
-      intensity='<b>Keep it easy today.</b> You’re at the top of your safe range — no more hard efforts until it settles.';
+      intensity='<b>Keep it easy today.</b> You’re at the top of your safe range'+(climbingHot?', and your acute load is still rising fast (about +'+rampWkTxt+'/week)':'')+' — no more hard efforts until it settles.';
       leverNote='<b>Great day for the Lever.</b> At '+pct+'% support you hold onto the volume while the per-step impact comes off your legs.';
+    } else if(climbingHot){
+      accent='var(--gold)'; head='Climbing fast — ease the ramp'; loMult=0.6; hiMult=0.9;
+      intensity='<b>Ease the rate of climb.</b> Your acute load is rising fast — about <b>+'+rampWkTxt+'/week</b> — and has climbed above your chronic base. The ratio is still in range, but a steep, sustained ramp like this is what typically precedes overreaching. Flatten the curve for a few days before you add more.';
+      leverNote='<b>Prime time for the Lever.</b> At '+pct+'% support you can hold your volume flat — or even keep it climbing — while the impact your legs actually absorb stops rising.';
     } else if(maxR>=1.15){
       accent='var(--gold)'; head='Approaching your ceiling'; loMult=0.7; hiMult=1.0;
       intensity='<b>Hold steady — keep it easy.</b> You’ve stacked a few solid days and you’re near the top of your range. An easy run fits, but hold off on another hard effort until the load settles.';
@@ -761,6 +779,11 @@ function renderHero(){
   // The four tiles carry the numbers (1-/3-/7-day load vs the 28-day base, each
   // tinted by how it compares); the recommendation below weighs all three.
   var statTile=function(k,val,c,sub){ return '<div class="rdx-hero-stat"><div class="k">'+k+'</div><div class="v" style="color:'+c+'">'+val.toFixed(1)+'</div>'+(sub?'<div class="x" style="color:'+c+'">'+sub+'</div>':'')+'</div>'; };
+  // Acute-trend tile: weekly rate of rise of the acute curve, tinted by how steep (rising fast is a
+  // leading risk even when the ratio is still in band). '—' when there isn't enough history.
+  var rampTxt = rampPerWk==null ? '—' : (rampPerWk>=0?'+':'')+Math.round(rampPerWk*100)+'%';
+  var rampCol = rampPerWk==null ? 'var(--muted2)' : rampPerWk>=0.20 ? 'var(--bad)' : rampPerWk>=0.10 ? 'var(--gold)' : rampPerWk<=-0.05 ? 'var(--good)' : 'var(--muted2)';
+  var rampTile='<div class="rdx-hero-stat"><div class="k">Acute trend</div><div class="v" style="color:'+rampCol+';font-size:16px">'+rampTxt+'</div><div class="x" style="color:'+rampCol+'">per week</div></div>';
   el.style.borderLeftColor=accent;
   el.innerHTML=
     '<div class="rdx-hero-badge" style="color:'+accent+'"><span class="rdx-hero-dot" style="background:'+accent+'"></span>'+head+'</div>'+
@@ -769,6 +792,7 @@ function renderHero(){
       statTile('3-day avg', d3, col3, r3!=null?r3.toFixed(1)+'× base':'')+
       statTile('7-day avg', d7, col7, r7!=null?r7.toFixed(1)+'× base':'')+
       statTile('28-day base', d28, 'var(--muted2)', 'impact mi/day')+
+      rampTile+
     '</div>'+
     '<div class="rdx-hero-do"><span class="do-hd">What to do next</span>'+doHtml+'</div>';
 }
