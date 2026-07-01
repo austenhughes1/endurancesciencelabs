@@ -717,17 +717,23 @@ function renderHero(){
     doHtml='<div class="rdx-do-line">While we learn your baseline, easy <span class="lever">Lever runs</span> at '+pct+'% body-weight support are a great way to bank low-impact volume — add a couple and your day-to-day guidance sharpens up fast.</div>';
   } else {
     // Recovery state from the recent-load ratios → session volume band (× typical run), an intensity
-    // call, and how hard we lean on the Lever. Volume band is anchored to the chronic base (via the
-    // 0.8–1.3 safe band) and shifted by how loaded the last 1/3/7 days have been.
+    // call, and how hard we lean on the Lever. Driven by the MAX of the 1/3/7-day ratios so a loaded
+    // recent block counts even when the weekly average looks flat. Volume band is anchored to the
+    // chronic base (the 0.8–1.3 safe band) and shifted by how loaded the last few days have been.
     var loMult, hiMult, intensity, leverNote;
-    if(r1>=1.5 || r3>=1.5 || r7>=1.5){
-      accent='var(--bad)'; head='Recover next'; loMult=0.3; hiMult=0.6;
-      intensity='<b>Recovery day.</b> Your recent load has spiked well above baseline — keep it truly easy, or take the day off.';
+    var maxR=Math.max(r1,r3,r7);
+    if(maxR>=1.5){
+      accent='var(--bad)'; head='Overreaching — recover next'; loMult=0.3; hiMult=0.6;
+      intensity='<b>Recovery day.</b> Your recent load has pushed past your safe range — keep it truly easy, or take the day off.';
       leverNote='<b>Strongly suggest the Lever today.</b> At '+pct+'% support you keep the full aerobic stimulus while your legs rebuild at a fraction of the impact.';
-    } else if(r7>=1.3 || r3>=1.3){
-      accent='var(--gold)'; head='Ease the impact'; loMult=0.6; hiMult=0.9;
-      intensity='<b>Keep it easy today.</b> You’re near the top of your safe range — save the quality for when you’re fresher.';
+    } else if(maxR>=1.3){
+      accent='var(--gold)'; head='At your ceiling — ease off'; loMult=0.6; hiMult=0.9;
+      intensity='<b>Keep it easy today.</b> You’re at the top of your safe range — no more hard efforts until it settles.';
       leverNote='<b>Great day for the Lever.</b> At '+pct+'% support you hold onto the volume while the per-step impact comes off your legs.';
+    } else if(maxR>=1.15){
+      accent='var(--gold)'; head='Approaching your ceiling'; loMult=0.7; hiMult=1.0;
+      intensity='<b>Hold steady — keep it easy.</b> You’ve stacked a few solid days and you’re near the top of your range. An easy run fits, but hold off on another hard effort until the load settles.';
+      leverNote='<b>A Lever day fits well here</b> — at '+pct+'% support you keep the volume coming without adding to the impact you’re already carrying.';
     } else if(r7<0.8){
       accent='var(--warn)'; head='Room to build'; loMult=0.9; hiMult=1.3;
       intensity='<b>Room to build.</b> Your load has eased off — an easy run, a longer run, or a workout all fit today.';
