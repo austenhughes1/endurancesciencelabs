@@ -169,6 +169,14 @@ var CSS = `
 .rdx-hero-do b{color:var(--text);font-weight:700}
 .rdx-hero-do .lever{color:var(--cyan);font-weight:700}
 .rdx-hero-do .do-hd{display:block;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--cyan);margin-bottom:6px}
+.rdx-do-line{color:var(--text);margin-bottom:10px}
+.rdx-do-vol{margin-bottom:4px}
+.rdx-do-opts{list-style:none;margin:9px 0 4px;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.rdx-do-opts li{background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:8px 12px;font-size:13px;color:var(--text)}
+.rdx-do-opts li b{font-family:var(--mono);color:var(--text)}
+.rdx-do-opts .lever-opt{border-color:rgba(0,229,200,.4);background:rgba(0,229,200,.06)}
+.rdx-do-opts .lever-opt b{color:var(--cyan)}
+.rdx-do-lever{margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
 
 .rdx-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
 .rdx-tile{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
@@ -668,6 +676,8 @@ function smoothPts(pts){ var w=Math.max(3,Math.min(21,Math.round(pts.length/8)))
 // Mean daily load over the last n calendar days (rest days count as 0).
 // loadTimeline exposes each day's load as `.daily`.
 function avgLast(tl,n){ var s=tl.slice(-n); if(!s.length) return 0; var sum=0; for(var i=0;i<s.length;i++) sum+=s[i].daily; return sum/s.length; }
+// Round to a clean mileage (nearest 0.5), no trailing .0.
+function fmtMi(x){ var r=Math.round(x*2)/2; return (r%1===0)?String(r):r.toFixed(1); }
 function renderHero(){
   var el=$('hero'); if(!el) return;
   var tl=RunLoad.loadTimeline(typeRuns(), LOAD_PARAMS);
@@ -684,44 +694,66 @@ function renderHero(){
   var d1=avgLast(tl,1), d3=avgLast(tl,3), d7=avgLast(tl,7), d28=avgLast(tl,28);
   var base = d28>0 ? d28 : null;
   var r1=base?d1/base:null, r3=base?d3/base:null, r7=base?d7/base:null;
+  var demoOn=false;
   // Admin demo override: swap in a fixed scenario's windows (real data untouched).
   if(DEMO && DEMO_PRESETS[DEMO]){
-    var sc=DEMO_PRESETS[DEMO];
+    demoOn=true; var sc=DEMO_PRESETS[DEMO];
     if(sc.nullBase){ base=null; d1=d3=d7=d28=0; r1=r3=r7=null; }
     else { base=sc.base; d28=sc.base; r1=sc.r1; r3=sc.r3; r7=sc.r7; d1=r1*base; d3=r3*base; d7=r7*base; }
   }
   var col1=acwrColor(r1), col3=acwrColor(r3), col7=acwrColor(r7);
 
+  // Typical single-run Impact Load (median of the last ~6 weeks of runs) — used to turn the daily
+  // load budget into a concrete session size. Falls back to the 28-day daily base × 1.4 (a rough
+  // per-run figure) when there isn't enough per-run data or a demo scenario is forcing the windows.
+  var lastTs=tl[tl.length-1].ts;
+  var loads = demoOn ? [] : typeRuns().filter(function(r){ return r.ts>=lastTs-42*864e5; })
+    .map(function(r){ return RunLoad.impactLoad(r, LOAD_PARAMS); }).filter(function(v){ return v!=null && v>0; });
+  var typical = loads.length>=3 ? RunLoad.median(loads) : (base?base*1.4:6);
+
   var head, accent, doHtml;
   if(base==null){
     head='Building your baseline'; accent='var(--muted2)';
-    doHtml='While we learn your baseline, easy <span class="lever">Lever runs</span> at '+pct+'% body-weight support are a great way to bank low-impact volume — add a couple and your day-to-day guidance sharpens up fast.';
-  } else if(r1>=1.5){
-    var huge=r1>=2.0; accent= huge?'var(--bad)':'var(--gold)';
-    head= huge?'Big day in the bank — recover next':'Solid day in the bank — ease off next';
-    doHtml='<b>Your last day was '+(huge?'a big one':'a hard one')+'</b> — '+d1.toFixed(1)+' impact mi, about <b>'+r1.toFixed(1)+'×</b> your 28-day baseline. Best next move is an easy day, and a <span class="lever">Lever run</span> at '+pct+'% support is made for it: you keep every bit of the aerobic stimulus while your legs rebuild at a fraction of the impact.'+
-      (r3>=1.4 ? ' Your last few days are loaded too ('+r3.toFixed(1)+'× over 3 days) — give it a Lever day or two before your next hard effort.' : ' You’ll be ready for quality again in a day or two.');
-  } else if(r3>=1.5){
-    accent='var(--gold)'; head='Strong few days — ease the impact';
-    doHtml='Your <b>3-day load is '+r3.toFixed(1)+'×</b> your baseline — a strong block of work. Keep the next day or two easy and put them on the <span class="lever">Lever</span> at '+pct+'% support: you hold onto the volume and the fitness while the impact comes off your legs.';
-  } else if(r7>=1.5){
-    accent='var(--bad)'; head='Big training week — protect it';
-    doHtml='Your <b>7-day load is '+r7.toFixed(1)+'×</b> your baseline — a great stimulus worth protecting. Take your next 2–3 runs to the <span class="lever">Lever</span> at '+pct+'% support: you train right through at full aerobic value while the per-step impact drops, so you absorb the work and come back strong instead of beaten up.';
-  } else if(r7>=1.3 || r3>=1.3){
-    accent='var(--gold)'; head='Near your ceiling';
-    doHtml='You’re near the top of your comfortable range — a perfect spot to let the <span class="lever">Lever</span> do some of the lifting. Swap one session onto it at '+pct+'% support and you keep building volume at a fraction of the impact, no need to ease off the gas.';
-  } else if(r7<0.8){
-    accent='var(--warn)'; head='Room to build';
-    doHtml='Your load has eased off (taper or time back) and you’ve got room to build. Ramp back in on the <span class="lever">Lever</span> at '+pct+'% support — it’s the low-impact way to add sessions and rebuild volume while your legs re-adapt.';
+    doHtml='<div class="rdx-do-line">While we learn your baseline, easy <span class="lever">Lever runs</span> at '+pct+'% body-weight support are a great way to bank low-impact volume — add a couple and your day-to-day guidance sharpens up fast.</div>';
   } else {
-    accent='var(--good)'; head='In the safe band';
-    var room=Math.max(0,(d28*1.25)-d7);
-    var roomTxt = room>0.3 ? 'about <b>+'+room.toFixed(1)+' impact mi/day</b> this week' : 'a small, steady build';
-    doHtml='You’re right around your baseline with room to grow — '+roomTxt+' keeps you in a healthy range. A <span class="lever">Lever session</span> at '+pct+'% support is a great way to add that extra easy day: more volume, almost none of the impact cost.';
+    // Recovery state from the recent-load ratios → session volume band (× typical run), an intensity
+    // call, and how hard we lean on the Lever. Volume band is anchored to the chronic base (via the
+    // 0.8–1.3 safe band) and shifted by how loaded the last 1/3/7 days have been.
+    var loMult, hiMult, intensity, leverNote;
+    if(r1>=1.5 || r3>=1.5 || r7>=1.5){
+      accent='var(--bad)'; head='Recover next'; loMult=0.3; hiMult=0.6;
+      intensity='<b>Recovery day.</b> Your recent load has spiked well above baseline — keep it truly easy, or take the day off.';
+      leverNote='<b>Strongly suggest the Lever today.</b> At '+pct+'% support you keep the full aerobic stimulus while your legs rebuild at a fraction of the impact.';
+    } else if(r7>=1.3 || r3>=1.3){
+      accent='var(--gold)'; head='Ease the impact'; loMult=0.6; hiMult=0.9;
+      intensity='<b>Keep it easy today.</b> You’re near the top of your safe range — save the quality for when you’re fresher.';
+      leverNote='<b>Great day for the Lever.</b> At '+pct+'% support you hold onto the volume while the per-step impact comes off your legs.';
+    } else if(r7<0.8){
+      accent='var(--warn)'; head='Room to build'; loMult=0.9; hiMult=1.3;
+      intensity='<b>Room to build.</b> Your load has eased off — an easy run, a longer run, or a workout all fit today.';
+      leverNote='The <span class="lever">Lever</span> at '+pct+'% support is a low-impact way to add sessions as you ramp back up.';
+    } else {
+      accent='var(--good)'; head='In the safe band'; loMult=0.8; hiMult=1.15;
+      intensity='<b>You’re recovered.</b> An easy run or a workout both fit today — you’re right in your safe zone.';
+      leverNote='Lever optional — a <span class="lever">Lever session</span> at '+pct+'% support is a nice way to bank extra easy volume with almost no impact cost.';
+    }
+    var lo=typical*loMult, hi=typical*hiMult;
+    // Translate the top-end budget (hi, in Impact Miles) into concrete run options:
+    //   flat easy outside ≈ 1 impact mi/mi · rolling/hilly inflates ~25% · Lever offloads, so more
+    //   actual miles fit under the same impact budget (lever mi = budget ÷ %BW-on-legs).
+    var flat=hi, hilly=hi/1.25, lever=hi/(pct/100);
+    doHtml='<div class="rdx-do-line">'+intensity+'</div>'+
+      '<div class="rdx-do-vol">Aim for <b>'+fmtMi(lo)+'–'+fmtMi(hi)+' impact miles</b> today. At the top end, that’s about:</div>'+
+      '<ul class="rdx-do-opts">'+
+        '<li><b>'+fmtMi(flat)+' mi</b> flat easy outside</li>'+
+        '<li><b>'+fmtMi(hilly)+' mi</b> hilly outside</li>'+
+        '<li class="lever-opt"><b>'+fmtMi(lever)+' mi</b> on the Lever · '+pct+'% BW</li>'+
+      '</ul>'+
+      '<div class="rdx-do-lever">'+leverNote+'</div>';
   }
 
   // The four tiles carry the numbers (1-/3-/7-day load vs the 28-day base, each
-  // tinted by how it compares); the single recommendation below weighs all three.
+  // tinted by how it compares); the recommendation below weighs all three.
   var statTile=function(k,val,c,sub){ return '<div class="rdx-hero-stat"><div class="k">'+k+'</div><div class="v" style="color:'+c+'">'+val.toFixed(1)+'</div>'+(sub?'<div class="x" style="color:'+c+'">'+sub+'</div>':'')+'</div>'; };
   el.style.borderLeftColor=accent;
   el.innerHTML=
