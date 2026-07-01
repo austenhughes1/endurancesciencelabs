@@ -1072,8 +1072,10 @@ function shellHTML(opts){
   return ''+
   '<div class="rdx-topbar">'+titleHTML+'<button class="rdx-gear" id="gearBtn" style="display:none">⚙ Settings &amp; filters</button></div>'+
 
-  '<details class="rdx-help"><summary>How to export your activities from Garmin or Coros</summary>'+
+  '<details class="rdx-help"><summary>How to export your run history and import it here</summary>'+
     '<div class="rdx-help-body">'+
+      '<p>Export from your watch platform below, then drop the file in the box. '+
+        'Everything is read in your browser and de-duplicated by start time, so re-uploads only add what is new — and importing from more than one source is fine.</p>'+
       '<p><b>Garmin Connect</b> — one <code>Activities.csv</code>:</p><ol>'+
       '<li>On a computer, open <a href="https://connect.garmin.com/modern/activities" target="_blank" rel="noopener">Garmin Connect → Activities → All Activities</a> and sign in.</li>'+
       '<li>Use the <b>filter</b> controls to set <b>Activity Type → Running</b> (optional) and the <b>date range</b> you want.</li>'+
@@ -1081,12 +1083,14 @@ function shellHTML(opts){
       '<li>Click <b>Export CSV</b> (top-right) to download <code>Activities.csv</code>.</li>'+
       '<li>Drop that file below. Runs are de-duplicated by start time, so re-uploads only add what is new.</li>'+
     '</ol>'+
-      '<p><b>Coros</b> — a <code>.zip</code> of per-activity <code>.fit</code> files:</p><ol>'+
-      '<li>Open <a href="https://t.coros.com" target="_blank" rel="noopener">COROS web (t.coros.com)</a> and sign in, or use the COROS app.</li>'+
-      '<li>Export your activities — COROS bundles them as a <b><code>.zip</code> of <code>.fit</code> files</b> (one per activity). Drop the whole <code>.zip</code> below; you can also drop a single <code>.fit</code>.</li>'+
-      '<li>We unpack and read each <code>.fit</code> right in your browser, then de-duplicate by start time like the Garmin import.</li>'+
+      '<p><b>COROS Training Hub</b> — a <code>.zip</code> of per-activity <code>.fit</code> files, delivered by email:</p><ol>'+
+      '<li>On a computer, open <a href="https://t.coros.com" target="_blank" rel="noopener">COROS Training Hub (t.coros.com)</a> and sign in.</li>'+
+      '<li>Open the <b>Activity List</b> tab at the top. To import only part of your history, use the list\'s <b>filter</b> controls to narrow by <b>date range</b> and sport first (optional — re-imports de-dupe, so exporting everything is fine too).</li>'+
+      '<li>Click <b>Export Data</b> on the right, choose <b>.FIT</b> as the format, and enter the <b>email address</b> to send the export to.</li>'+
+      '<li>COROS emails a <b>download link</b> (usually within a few minutes). Open it and download the <code>.zip</code> — it holds one <code>.fit</code> file per activity.</li>'+
+      '<li>Drop that <code>.zip</code> below (a single <code>.fit</code> works too). We unpack and read each <code>.fit</code> right in your browser.</li>'+
     '</ol>'+
-    '<div class="rdx-help-note">Garmin\'s CSV export is capped at ~1,000 activities and exports only the rows loaded on screen. For long histories, export in chunks by date range — each chunk merges in automatically. Running-form metrics (ground contact, vertical oscillation, cadence, stride) require a compatible device/strap; some Coros runs may not include every field.</div>'+
+    '<div class="rdx-help-note">Running-form metrics (ground contact, vertical oscillation, cadence, stride) require a compatible device or strap — runs recorded without one still import for load and pace, they just skip those fields. Garmin\'s CSV export is also capped at ~1,000 rows and only includes what is loaded on screen, so export long Garmin histories in chunks by date range — each chunk merges in automatically.</div>'+
     '</div></details>'+
 
   '<div class="rdx-importbar">'+
