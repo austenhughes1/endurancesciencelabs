@@ -67,19 +67,26 @@ function calibrateBaseline(runs, cutoffSec) {
 function impactLoad(run, p) {
   p = p || DEFAULTS;
   if (run.distMi == null || run.paceSec == null) return null;
-  var paceF = Math.pow(p.basePaceSec / run.paceSec, p.kPace);
+  // Lever body-weight support: a fraction of bodyweight is offloaded on the device. Per-run
+  // run.offload wins; otherwise a run flagged run.lever uses the profile-level p.offload; 0 for
+  // normal runs. Clamped to 95% so load can't go to zero.
+  var off   = run.offload != null ? run.offload : (run.lever ? (p.offload || 0) : 0);
+  off = off > 0 ? Math.min(off, 0.95) : 0;
+  // The offload enters in TWO places, because bodyweight support both (a) cuts ground reaction
+  // force AND (b) lets a given effort hold a faster pace. So the easy-pace baseline itself is
+  // discounted by (1−O): a Lever run is scored against a faster "easy" pace, not the athlete's
+  // ground baseline. E.g. a 7:15 easy pace at 15% offload compares against 6:10 (7:15 × 0.85).
+  var basePace = off > 0 ? p.basePaceSec * (1 - off) : p.basePaceSec;
+  var paceF = Math.pow(basePace / run.paceSec, p.kPace);
   // Per-step impact from duty factor (cadence × GCT), normalized to the athlete's easy-run
   // baseline. Peak vGRF ∝ 1/duty factor (Morin 2005; Patoz 2023), so a lower duty factor —
   // shorter contact / more flight — loads each step harder ⇒ factor > 1. This is a load term,
   // NOT an injury predictor. Needs cadence + GCT; defaults to 1 on devices that don't report them.
   var dfF   = (run.cadence != null && run.gct != null)
     ? Math.pow(p.baseDF / (run.cadence * run.gct), p.kImpact) : 1;
+  // (b) less ground reaction force → the weight term is also multiplied by (1 − O).
   var wF    = (run.weight || p.refWeight) / p.refWeight;
-  // Lever body-weight support: a fraction of bodyweight is offloaded on the device, cutting ground
-  // reaction force (and thus impact) for that run. Per-run run.offload wins; otherwise a run flagged
-  // run.lever uses the profile-level p.offload. Clamped to 95% so load can't go to zero.
-  var off   = run.offload != null ? run.offload : (run.lever ? (p.offload || 0) : 0);
-  if (off > 0) wF *= (1 - Math.min(off, 0.95));
+  if (off > 0) wF *= (1 - off);
   var il = run.distMi * paceF * dfF * wF;
   if (p.useGrade && run.distMi) {
     var distM = run.distMi * 1609.34;
@@ -170,10 +177,13 @@ function methodologyHTML() {
   return `<span style="${H}">a · the equation</span>`
 + `<pre style="${EQ}">Impact Load (per run) — measured in Impact Miles:
 
-  IL = D · (P₀ ⁄ P)^1.5 · (DF₀ ⁄ DF)^1.0 · (W ⁄ W₀) · (1 − O) · G
+  IL = D · (P₀·(1−O) ⁄ P)^1.5 · (DF₀ ⁄ DF)^1.0 · (W ⁄ W₀)·(1−O) · G
 
        DF = cadence × GCT
        O  = Lever body-weight offload (0 when not on the Lever)
+       (1−O) enters twice: it discounts the easy-pace baseline P₀
+              (support lets you hold a faster pace) AND the weight
+              term W (support cuts ground reaction force).
        G  = min( 1 + 330·(desc ⁄ L)² + 110·(asc ⁄ L)² , 2.5 )
 
 Load over time:
@@ -188,6 +198,11 @@ Load over time:
    × (body-weight scale, minus any Lever offload)
    × (hill surcharge)
 
+On the Lever, the body-weight support both softens each step AND
+lets you hold a faster pace at the same effort — so it discounts
+your easy pace too, and a Lever run is scored against that faster
+easy pace (e.g. a 7:15 easy pace at 15% support counts as 6:10).
+
 One easy flat mile = 1 Impact Mile; a hard or hilly mile counts as more.
 
 Acute   = 7-day rolling average of daily Impact Miles
@@ -195,10 +210,10 @@ Chronic = 28-day rolling average
 Acute : Chronic = recent load vs the base you have built</pre>`
 + `<span style="${H}">c · each variable — meaning, measurement, caveats</span>`
 + `<div style="${V}"><span style="${K}">D</span> — run distance (mi), from GPS or foot-pod / treadmill. Track distances arrive in metres and are converted.</div>`
-+ `<div style="${V}"><span style="${K}">P, P₀</span> — average pace and your easy-run baseline pace (s/mi), from GPS. Baseline = median of your easy runs (at or slower than the workout-pace cutoff). The 1.5 power reflects force &amp; metabolic cost rising faster than speed. Caveat: pace under-rates uphill effort (hard but slow) — the hill term offsets this.</div>`
++ `<div style="${V}"><span style="${K}">P, P₀</span> — average pace and your easy-run baseline pace (s/mi), from GPS. Baseline = median of your easy runs (at or slower than the workout-pace cutoff). The 1.5 power reflects force &amp; metabolic cost rising faster than speed. On a <b>Lever run</b> the baseline P₀ is itself discounted by the offload (P₀ × (1 − O)), because body-weight support lets you hold a faster pace at the same effort — so the run is compared against a faster easy pace (e.g. 7:15 at 15% support → 6:10). Caveat: pace under-rates uphill effort (hard but slow) — the hill term offsets this.</div>`
 + `<div style="${V}"><span style="${K}">DF, DF₀</span> — duty factor = cadence × ground-contact time, vs your easy baseline. Cadence from the wrist; GCT from a chest strap, foot/waist pod, or wrist running-dynamics. Lower duty factor (shorter contact, more flight) loads each step harder. Caveats: needs a running-dynamics-capable device; GCT is an estimate; duty factor changes with speed, so we only ever compare you to <i>your own</i> baseline.</div>`
 + `<div style="${V}"><span style="${K}">W, W₀</span> — body weight ÷ a reference weight, from the profile. Equals 1 for a single athlete (drops out); only matters when comparing across athletes.</div>`
-+ `<div style="${V}"><span style="${K}">O</span> — Lever body-weight offload: on a Lever run part of bodyweight is supported, cutting ground reaction force, so the run's load is multiplied by (1 − O); O = 0 for normal runs. Default is <b>85% bodyweight</b> (O = 0.15), set in the profile. Lever runs are detected automatically — a <b>treadmill</b> activity whose <b>HR is lower than expected for its pace</b> (the offload signature) — or by an activity title containing “lever.” Caveat: treadmill pace can be miscalibrated; a dedicated per-run Lever source (tag / device import) can be wired in later for exact offloads.</div>`
++ `<div style="${V}"><span style="${K}">O</span> — Lever body-weight offload: on a Lever run part of bodyweight is supported. This enters the load in two places — it discounts the easy-pace baseline P₀ (support lets you run faster at the same effort) <i>and</i> the weight term (support cuts ground reaction force), so both are multiplied by (1 − O); O = 0 for normal runs. Default is <b>85% bodyweight</b> (O = 0.15), set in the profile. Lever runs are detected automatically — a <b>treadmill</b> activity whose <b>HR is lower than expected for its pace</b> (the offload signature) — or by an activity title containing “lever.” Caveat: treadmill pace can be miscalibrated; a dedicated per-run Lever source (tag / device import) can be wired in later for exact offloads.</div>`
 + `<div style="${V}"><span style="${K}">G</span> — hill surcharge from total ascent &amp; descent ÷ distance (mean grade), descent weighted ~3× ascent, capped at 2.5. Caveat: only the totals are recorded, so this is <i>mean</i> grade — it can’t tell one steep descent from rolling terrain with the same total, and under-counts concentrated descents. Per-segment grade (from FIT files) would fix this.</div>`
 + `<div style="${V}"><span style="${K}">Acute / Chronic / ACWR</span> — exponentially-weighted 7- and 28-day averages of daily load; the ratio sits in a 0.8–1.3 “safe band,” and &gt;1.5 flags a spike.</div>`
 + `<span style="${H}">d · why each piece is defensible (sources)</span>`
