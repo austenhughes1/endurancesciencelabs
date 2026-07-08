@@ -341,7 +341,11 @@ function parseExport(text){
   var rows=parseCSV(text);
   if(rows.length<2) throw new Error('No data rows found.');
   var col=buildColMap(rows[0]);
-  ['activitytype','date','avggroundcontacttime'].forEach(function(k){
+  // Fingerprint on the columns every Garmin activities export has. Do NOT
+  // require running-form columns (GCT etc.) — Garmin only exports what's on
+  // screen, so they're often absent; missing fields just parse as null and
+  // the load model falls back to its no-dynamics path.
+  ['activitytype','date'].forEach(function(k){
     if(!(k in col)) throw new Error('Not a Garmin activities export (missing "'+k+'").');
   });
   var get=function(r,k){ return col[k]!=null ? r[col[k]] : null; };
