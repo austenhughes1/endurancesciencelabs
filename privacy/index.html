@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script>try{if(localStorage.getItem('esl-theme')==='light')document.documentElement.setAttribute('data-theme','light')}catch(e){}</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — Endurance Science Labs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:      #08090f;
+  --panel:   #0e1018;
+  --border:  rgba(255,255,255,0.07);
+  --text:    #e8ecf8;
+  --muted:   #454960;
+  --muted2:  #8492b4;
+  --cyan:    #00e5c8;
+  --display: 'Fraunces', Georgia, serif;
+  --body:    'DM Sans', system-ui, sans-serif;
+  --mono:    'Space Mono', monospace;
+}
+:root[data-theme="light"] {
+  --bg:      #f7f7f4;
+  --panel:   #ffffff;
+  --border:  rgba(10,12,20,0.10);
+  --text:    #14161f;
+  --muted:   #9aa0b4;
+  --muted2:  #565d75;
+  --cyan:    #00806f;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--body); line-height: 1.75; font-size: 15px; }
+.wrap { max-width: 760px; margin: 0 auto; padding: 48px 24px 80px; }
+.back { font-family: var(--mono); font-size: 12px; color: var(--muted2); text-decoration: none; }
+.back:hover { color: var(--cyan); }
+h1 { font-family: var(--display); font-size: 34px; font-weight: 700; margin: 22px 0 4px; }
+.updated { font-family: var(--mono); font-size: 11px; color: var(--muted2); margin-bottom: 34px; }
+h2 { font-family: var(--display); font-size: 21px; font-weight: 600; margin: 36px 0 10px; }
+p, ul { margin-bottom: 14px; color: var(--text); }
+ul { padding-left: 22px; }
+li { margin-bottom: 6px; }
+a { color: var(--cyan); }
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; margin: 14px 0; }
+.mono { font-family: var(--mono); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="/">← Endurance Science Labs</a>
+  <h1>Privacy Policy</h1>
+  <div class="updated">Last updated: July 9, 2026</div>
+
+  <p>Endurance Science Labs ("ESL", "we", "us") provides evidence-based endurance coaching and running analysis tools at endurancesciencelabs.com. This policy explains what personal data we collect, how we use it, and the rights you have over it. It is written to meet the requirements of the EU General Data Protection Regulation (GDPR) and the UK GDPR.</p>
+
+  <div class="card mono">Data controller: Endurance Science Labs<br>Contact: <a href="mailto:austen.hughes@finalforms.com">austen.hughes@finalforms.com</a></div>
+
+  <h2>What we collect</h2>
+  <ul>
+    <li><strong>Account information</strong> — your email address, display name, and profile photo, provided when you sign in (via Google or email) through Firebase Authentication.</li>
+    <li><strong>Coaching data</strong> — training plans, workout logs and notes, strength-training entries, race goals, and profile details (such as body weight and watch model) that you or your coach enter.</li>
+    <li><strong>Strava data</strong> — only if you choose to connect your Strava account (see the Strava section below).</li>
+    <li><strong>Uploaded device files</strong> — activity exports (for example Garmin CSV or Coros/Garmin FIT files) that you upload to the Run Dynamics tool, and the running metrics parsed from them.</li>
+    <li><strong>Form-analysis data (esFormLab)</strong> — running videos you submit are analyzed in your browser; the analysis results, and the captured frames used to generate your PDF report, are associated with your account when you save or download a report.</li>
+    <li><strong>Payment status</strong> — payments are processed by Stripe. We store your subscription and payment status; we never see or store card numbers.</li>
+  </ul>
+
+  <h2>How we use your data</h2>
+  <p>We use your data solely to provide our services: displaying your training to you and your assigned coach, generating your analysis reports, processing purchases, and sending service and coaching-related email (via MailerLite). We do not sell personal data, we do not use it for advertising, and we do not use it to train AI or machine-learning models.</p>
+
+  <h2>Strava data</h2>
+  <p>If you connect your Strava account, we access your activities through the official Strava API, under the <a href="https://www.strava.com/legal/api" target="_blank" rel="noopener">Strava API Agreement</a>, using the permission you grant during Strava's authorization screen. Specifically:</p>
+  <ul>
+    <li>We sync your recent activities (rolling ~120-day window): activity name, type, date, distance, moving/elapsed time, elevation gain, average speed and pace, heart-rate averages, and recent activity descriptions.</li>
+    <li>Your Strava data is displayed <strong>only to you and your assigned coach</strong>. It is never shown to other athletes, never published, never used in leaderboards, and never shared with third parties.</li>
+    <li>Your Strava data is used only to deliver your coaching — never for analytics products, aggregated insights, or AI/ML purposes.</li>
+    <li>Strava access tokens are stored server-side and are never accessible from the browser.</li>
+    <li>You can disconnect at any time using the Disconnect option in your coaching dashboard, or by revoking access at strava.com → Settings → My Apps. Either way, we delete your stored Strava activities and tokens immediately upon disconnection or deauthorization.</li>
+  </ul>
+
+  <h2>Where your data lives</h2>
+  <p>Data is stored in Google Firebase (Firestore and Firebase Authentication, hosted in the United States). Our payment processor is Stripe; our email provider is MailerLite. Each processes data under its own privacy terms and safeguards for international transfers (including standard contractual clauses where applicable).</p>
+
+  <h2>Retention</h2>
+  <p>Account and coaching data are kept while your account is active. Strava data is deleted immediately when you disconnect Strava or deauthorize the app. To delete your account and all associated data, email us and we will complete the deletion within 30 days.</p>
+
+  <h2>Legal bases</h2>
+  <p>We process your data to perform our contract with you (providing coaching and analysis services), with your consent (connecting Strava, receiving marketing email), and under our legitimate interest in operating and securing the service.</p>
+
+  <h2>Your rights</h2>
+  <p>Under the GDPR and UK GDPR you may request access to, correction of, deletion of, or a portable copy of your personal data, and you may object to or restrict certain processing. Contact us at <a href="mailto:austen.hughes@finalforms.com">austen.hughes@finalforms.com</a> and we will respond within 30 days. You also have the right to lodge a complaint with your local supervisory authority.</p>
+
+  <h2>Children</h2>
+  <p>Our services are not directed at children under 16, and we do not knowingly collect their data.</p>
+
+  <h2>Changes</h2>
+  <p>If we materially change this policy we will update this page and the date above. Continued use of the service after a change means the updated policy applies.</p>
+</div>
+</body>
+</html>
