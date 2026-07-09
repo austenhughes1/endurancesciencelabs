@@ -98,6 +98,8 @@ var CSS = `
 .rdx-ctl input[type=text]{cursor:text}
 .rdx-btn{padding:9px 16px;background:var(--cyan);color:#000;font-weight:700;font-size:12.5px;border:none;border-radius:8px;cursor:pointer;transition:opacity .15s}
 .rdx-btn:hover{opacity:.85}
+.rdx-btn-danger{background:transparent;color:var(--bad);border:1px solid var(--bad);font-weight:600}
+.rdx-btn-danger:disabled{opacity:.5;cursor:default}
 .rdx-filenote{font-size:11px;color:var(--muted2);font-family:var(--mono)}
 
 .rdx-section{display:none;margin-top:26px}
@@ -508,6 +510,26 @@ function backfill(candidates){
       });
     });
     return p.then(function(){ return {added:added, updated:candidates.length-added}; });
+  });
+}
+/* Delete every stored activity doc. Escape hatch for a bad import: backfill
+   upserts by start-time id, so a mislabeled activity that was re-exported
+   under the same id can never be fixed by re-uploading — wipe and re-import
+   is the only clean path. Profile, races/injuries live on the user doc and
+   are untouched. Resolves with the number of docs deleted. */
+function deleteAllRuns(){
+  return actCol().get().then(function(snap){
+    var refs=[]; snap.forEach(function(d){ refs.push(d.ref); });
+    var chunks=[]; for(var i=0;i<refs.length;i+=450) chunks.push(refs.slice(i,i+450));
+    var p=Promise.resolve();
+    chunks.forEach(function(chunk){
+      p=p.then(function(){
+        var batch=DB.batch();
+        chunk.forEach(function(ref){ batch.delete(ref); });
+        return batch.commit();
+      });
+    });
+    return p.then(function(){ return refs.length; });
   });
 }
 
@@ -1201,6 +1223,7 @@ function shellHTML(opts){
     '<div class="rdx-controls-meta">'+
       '<span class="rdx-filenote" id="savedNote" style="color:var(--good);opacity:0;transition:opacity .2s"></span>'+
       '<span class="rdx-filenote" id="filenote"></span>'+
+      '<button class="rdx-btn rdx-btn-sm rdx-btn-danger" id="resetData">Delete all imported runs</button>'+
     '</div>'+
   '</div>'+
 
@@ -1281,6 +1304,28 @@ function wire(){
   $('offload').onchange=function(e){ var pct=parseFloat(String(e.target.value).replace(/[^0-9.]/g,'')); saveProfile({ runLeverPctBW:(pct>0&&pct<100)?pct:null }); refresh(); };
   $('evAdd').onclick=evAdd;
   $('evNote').onkeydown=function(e){ if(e.key==='Enter') evAdd(); };
+  $('resetData').onclick=function(){
+    var btn=this, st=$('importStatus');
+    var who = ROLE==='coach' ? "this athlete's" : 'your';
+    if(!confirm('Delete ALL of '+who+' stored run history ('+RAW.length+' runs)?\n\n'+
+      'This clears every imported activity so a fresh export can be re-imported clean — '+
+      'use it if a bad activity got stuck in an earlier upload. '+
+      'Profile settings and race/injury markers are kept.\n\nThis cannot be undone.')) return;
+    btn.disabled=true;
+    if(st) st.innerHTML='<span class="rdx-spin"></span>Deleting '+RAW.length+' stored runs…';
+    deleteAllRuns().then(function(n){
+      RAW=[]; KNOWN_TYPES=new Set(); ACTIVE_TYPES=new Set();
+      renderLoaded();
+      if(st) st.innerHTML='<span class="ok">✓ '+n+' runs deleted</span> · import an export above to start fresh.';
+    }).catch(function(e){
+      console.error(e);
+      // A mid-way batch failure leaves a partial history — reload so the view
+      // shows what actually remains rather than the pre-delete state.
+      return loadFromFirestore().then(renderLoaded).catch(function(){}).then(function(){
+        if(st) st.innerHTML='<span class="err">Delete failed: '+esc(e&&e.code||e&&e.message||e)+'</span>';
+      });
+    }).then(function(){ btn.disabled=false; });
+  };
 }
 
 /* ---------- public entry point ---------- */
