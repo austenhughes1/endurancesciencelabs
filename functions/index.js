@@ -142,7 +142,15 @@ exports.syncStravaActivities = onCall({ cors: true }, async (request) => {
     });
 
     if (!refreshRes.ok) {
-      console.error("Token refresh failed:", await refreshRes.text());
+      const errText = await refreshRes.text();
+      console.error("Token refresh failed:", errText);
+      // 400/401 means the athlete revoked access on Strava's side — purge
+      // everything we hold so stored data doesn't outlive the authorization.
+      if (refreshRes.status === 400 || refreshRes.status === 401) {
+        const deleted = await purgeStravaData(uid);
+        console.log(`Strava token revoked for uid ${uid} — purged tokens + ${deleted} activities`);
+        throw new HttpsError("failed-precondition", "Strava access was revoked. Please reconnect.");
+      }
       throw new HttpsError("internal", "Failed to refresh Strava token.");
     }
 
@@ -274,6 +282,142 @@ exports.syncStravaActivities = onCall({ cors: true }, async (request) => {
 });
 
 // ═══════════════════════════════════════════════════════════
+//  purgeStravaData — deletes everything we hold that came from
+//  Strava for one athlete: stored tokens, synced activities,
+//  and the connection flags on the user doc. Used by the
+//  disconnect flow, the deauthorization webhook, and the sync
+//  path when it detects a revoked token, so deletion happens
+//  immediately (Strava API Agreement requires within 30 days).
+// ═══════════════════════════════════════════════════════════
+async function purgeStravaData(uid) {
+  // Tokens
+  await db.collection("users").doc(uid).collection("private").doc("strava").delete();
+
+  // Connection flags + disconnect time for audit
+  await db.collection("users").doc(uid).update({
+    stravaConnected: false,
+    stravaAthleteId: null,
+    stravaDisconnectedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  // Synced activities on the athlete's training plan
+  let deletedActivities = 0;
+  const planSnap = await db.collection("trainingPlans")
+    .where("athleteUid", "==", uid)
+    .limit(1)
+    .get();
+
+  if (!planSnap.empty) {
+    const planId = planSnap.docs[0].id;
+    const actSnap = await db.collection("trainingPlans")
+      .doc(planId)
+      .collection("stravaActivities")
+      .get();
+
+    let batch = db.batch();
+    let count = 0;
+    for (const doc of actSnap.docs) {
+      batch.delete(doc.ref);
+      count++;
+      deletedActivities++;
+      // Firestore batch limit is 500
+      if (count % 450 === 0) {
+        await batch.commit();
+        batch = db.batch();
+        count = 0;
+      }
+    }
+    if (count > 0) await batch.commit();
+  }
+
+  return deletedActivities;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  stravaWebhook — Strava push subscription endpoint.
+//  GET  = subscription validation handshake (echo hub.challenge).
+//  POST = event delivery. We handle:
+//    • athlete deauthorization (updates.authorized === "false")
+//        → purge all Strava data for that athlete immediately
+//    • activity delete → remove our synced copy
+//    • activity update (title/type) → update our synced copy
+//  so stored data always respects the athlete's choices on
+//  Strava, per the API Agreement.
+//
+//  One-time setup after deploy (see docs/strava-compliance.md):
+//  create the subscription with callback_url pointing here and
+//  verify_token = STRAVA_VERIFY_TOKEN.
+// ═══════════════════════════════════════════════════════════
+exports.stravaWebhook = onRequest({ cors: false }, async (req, res) => {
+  // Subscription validation handshake
+  if (req.method === "GET") {
+    const mode = req.query["hub.mode"];
+    const token = req.query["hub.verify_token"];
+    const challenge = req.query["hub.challenge"];
+    if (mode === "subscribe" && token && token === process.env.STRAVA_VERIFY_TOKEN) {
+      res.status(200).json({ "hub.challenge": challenge });
+    } else {
+      res.status(403).send("Verify token mismatch.");
+    }
+    return;
+  }
+
+  if (req.method !== "POST") {
+    res.status(405).send("Method not allowed.");
+    return;
+  }
+
+  // Always ack quickly with 200 so Strava doesn't retry/disable the
+  // subscription; do the work before responding (events are small).
+  try {
+    const event = req.body || {};
+    const athleteId = event.owner_id;
+
+    // Look up which user this Strava athlete id belongs to
+    const userSnap = await db.collection("users")
+      .where("stravaAthleteId", "==", athleteId)
+      .limit(1)
+      .get();
+
+    if (!userSnap.empty) {
+      const uid = userSnap.docs[0].id;
+
+      if (event.object_type === "athlete" &&
+          event.updates && String(event.updates.authorized) === "false") {
+        const deleted = await purgeStravaData(uid);
+        console.log(`Webhook: athlete ${athleteId} deauthorized — purged tokens + ${deleted} activities for uid ${uid}`);
+      } else if (event.object_type === "activity" && event.object_id) {
+        const planSnap = await db.collection("trainingPlans")
+          .where("athleteUid", "==", uid)
+          .limit(1)
+          .get();
+        if (!planSnap.empty) {
+          const actRef = db.collection("trainingPlans")
+            .doc(planSnap.docs[0].id)
+            .collection("stravaActivities")
+            .doc(String(event.object_id));
+          if (event.aspect_type === "delete") {
+            await actRef.delete();
+          } else if (event.aspect_type === "update" && event.updates) {
+            const patch = {};
+            if (typeof event.updates.title === "string") patch.name = event.updates.title;
+            if (typeof event.updates.type === "string") patch.type = event.updates.type;
+            if (Object.keys(patch).length) {
+              await actRef.set(patch, { merge: true });
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {
+    // Log but still 200 — a retry storm can get the subscription disabled.
+    console.error("stravaWebhook handler error:", e);
+  }
+
+  res.status(200).send("EVENT_RECEIVED");
+});
+
+// ═══════════════════════════════════════════════════════════
 //  deauthorizeStrava — Callable function that fully revokes
 //  the athlete's Strava connection per Strava API Agreement:
 //    1. Calls Strava's /oauth/deauthorize to invalidate the token
@@ -320,46 +464,10 @@ exports.deauthorizeStrava = onCall({ cors: true }, async (request) => {
         console.error(revokeWarning);
       }
     }
-    // Step 2: Delete stored tokens regardless of revoke outcome
-    await tokenDocRef.delete();
   }
 
-  // Step 3: Clear public user-doc flags + record disconnect time for audit
-  await db.collection("users").doc(uid).update({
-    stravaConnected: false,
-    stravaAthleteId: null,
-    stravaDisconnectedAt: admin.firestore.FieldValue.serverTimestamp(),
-  });
-
-  // Step 4: Delete all synced Strava activity data on the user's training plan
-  let deletedActivities = 0;
-  const planSnap = await db.collection("trainingPlans")
-    .where("athleteUid", "==", uid)
-    .limit(1)
-    .get();
-
-  if (!planSnap.empty) {
-    const planId = planSnap.docs[0].id;
-    const actSnap = await db.collection("trainingPlans")
-      .doc(planId)
-      .collection("stravaActivities")
-      .get();
-
-    let batch = db.batch();
-    let count = 0;
-    for (const doc of actSnap.docs) {
-      batch.delete(doc.ref);
-      count++;
-      deletedActivities++;
-      // Firestore batch limit is 500
-      if (count % 450 === 0) {
-        await batch.commit();
-        batch = db.batch();
-        count = 0;
-      }
-    }
-    if (count > 0) await batch.commit();
-  }
+  // Steps 2-4: delete tokens, clear flags, delete synced activities
+  const deletedActivities = await purgeStravaData(uid);
 
   return {
     success: true,
