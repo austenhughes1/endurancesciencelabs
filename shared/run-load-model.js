@@ -71,7 +71,12 @@ function calibrateBaseline(runs, cutoffSec) {
 // are missing (can't model). VO and grade degrade gracefully to 1.0.
 function impactLoad(run, p) {
   p = p || DEFAULTS;
-  if (run.distMi == null || run.paceSec == null) return null;
+  // Guard the inputs BEFORE any division. A zeroed/negative pace (bad Coros/Garmin
+  // imports that write 0 rather than a blank) would divide through to Infinity/NaN,
+  // and a single non-finite daily load poisons the entire acute/chronic EWMA + ACWR
+  // curve downstream. A negative distance is likewise garbage. Distance 0 stays
+  // modelable — it's a valid explicit rest day (IL 0). Mirrors the lever-iq port.
+  if (run.distMi == null || run.paceSec == null || run.distMi < 0 || run.paceSec <= 0) return null;
   // Lever body-weight support: a fraction of bodyweight is offloaded on the device. Per-run
   // run.offload wins; otherwise a run flagged run.lever uses the profile-level p.offload; 0 for
   // normal runs. Clamped to 95% so load can't go to zero.
@@ -96,7 +101,9 @@ function impactLoad(run, p) {
   var dfF   = (run.cadence > 0 && run.gct > 0)
     ? Math.pow(p.baseDF / (run.cadence * run.gct), p.kImpact) : 1;
   // (b) less ground reaction force → the weight term is also multiplied by (1 − O).
-  var wF    = (run.weight || p.refWeight) / p.refWeight;
+  // Require weight > 0: a negative weight (garbage) would otherwise flow through as a
+  // negative load; missing/zero falls back to refWeight (→ 1). Matches the lever-iq port.
+  var wF    = ((run.weight > 0 ? run.weight : p.refWeight)) / p.refWeight;
   if (off > 0) wF *= (1 - off);
   var il = run.distMi * paceF * dfF * wF;
   if (p.useGrade && run.distMi) {
@@ -105,7 +112,8 @@ function impactLoad(run, p) {
     var ag = (run.ascentM  || 0) / distM;   // mean ascent grade (fraction)
     il *= Math.min(1 + p.kDescent * dg * dg + p.kAscent * ag * ag, p.gradeCap);
   }
-  return il;
+  // Final belt-and-braces: never let a non-finite value escape into the load series.
+  return Number.isFinite(il) ? il : null;
 }
 
 // Collapse runs into a dense per-day Impact Load series (0 on rest days).
