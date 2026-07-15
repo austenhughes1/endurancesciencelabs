@@ -406,6 +406,35 @@ section { padding: 96px 40px; max-width: 1200px; margin: 0 auto; }
 }
 .cta-band-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
 
+/* ── Sponsors ────────────────────────────────────────── */
+.sponsors-header { text-align: center; margin-bottom: 48px; }
+.sponsors-header .section-sub { margin-left: auto; margin-right: auto; }
+.sponsors-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px,1fr));
+  gap: 16px; max-width: 1080px; margin: 0 auto;
+}
+.sponsor-card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 18px; padding: 30px; text-decoration: none; color: inherit;
+  display: flex; flex-direction: column;
+  transition: border-color .2s, transform .15s;
+}
+.sponsor-card:hover { border-color: rgba(0,229,200,.42); transform: translateY(-2px); }
+.sponsor-logo {
+  background: #fff; border-radius: 12px; height: 96px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px 24px; margin-bottom: 20px;
+}
+.sponsor-logo img { max-height: 100%; max-width: 100%; object-fit: contain; display: block; }
+.sponsor-name { font-family: var(--display); font-size: 19px; font-weight: 600; margin-bottom: 8px; letter-spacing: -.2px; }
+.sponsor-desc { font-size: 15px; color: var(--muted2); line-height: 1.75; flex: 1; font-weight: 400; }
+.sponsor-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 18px; font-size: 14px; font-weight: 600; color: var(--cyan);
+  transition: gap .15s;
+}
+.sponsor-card:hover .sponsor-link { gap: 10px; }
+
 /* ── Footer ──────────────────────────────────────────── */
 footer {
   border-top: 1px solid var(--border); padding: 42px 40px;
@@ -727,6 +756,35 @@ nav.menu-open .menu-toggle span:nth-child(3) { transform: translateY(-6px) rotat
     <strong>Not medical advice.</strong> Endurance Science Labs tools are for educational purposes only — not a medical diagnosis. Use does not create a doctor–patient relationship. Consult a qualified healthcare professional before changing your training based on these results.
   </div>
 </div>
+
+<!-- Sponsors -->
+<section id="sponsors">
+  <div class="sponsors-header">
+    <div class="section-label">Sponsors</div>
+    <h2 class="section-title">Partners in the pursuit</h2>
+    <p class="section-sub">We're proud to work alongside brands and clinics that share our mission — keeping athletes healthy, moving, and improving.</p>
+  </div>
+  <div class="sponsors-grid">
+    <a href="https://levermovement.com" target="_blank" rel="noopener" class="sponsor-card">
+      <div class="sponsor-logo"><img src="/images/sponsor-logos/lever-movement.png" alt="LEVER Movement" loading="lazy"></div>
+      <div class="sponsor-name">LEVER Movement</div>
+      <p class="sponsor-desc">Body-weight support systems that attach to your treadmill, unloading up to 45&nbsp;lbs so you can build volume, return from injury, and train with less impact.</p>
+      <span class="sponsor-link">levermovement.com →</span>
+    </a>
+    <a href="https://coloradospineandsport.com" target="_blank" rel="noopener" class="sponsor-card">
+      <div class="sponsor-logo"><img src="/images/sponsor-logos/colorado-spine-and-sport.png" alt="Colorado Spine &amp; Sport" loading="lazy"></div>
+      <div class="sponsor-name">Colorado Spine &amp; Sport</div>
+      <p class="sponsor-desc">Boulder's team-based clinic since 2001 — chiropractic, physical therapy, sports medicine, and massage under one roof, built for active people.</p>
+      <span class="sponsor-link">coloradospineandsport.com →</span>
+    </a>
+    <a href="https://amoutpost.com" target="_blank" rel="noopener" class="sponsor-card">
+      <div class="sponsor-logo"><img src="/images/sponsor-logos/amo-chiropractic.png" alt="AMO — Alternative Medicine Outpost" loading="lazy"></div>
+      <div class="sponsor-name">Alternative Medicine Outpost</div>
+      <p class="sponsor-desc">Boulder wellness clinic pairing expert chiropractic care with massage, shockwave + EMTT, and red light therapy for recovery and long-term durability.</p>
+      <span class="sponsor-link">amoutpost.com →</span>
+    </a>
+  </div>
+</section>
 
 <!-- Footer -->
 <footer>
