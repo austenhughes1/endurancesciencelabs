@@ -36,6 +36,18 @@ var DEFAULTS = {
   kDescent:   330,
   kAscent:    110,
   gradeCap:   2.5,
+  // Baseline-calibration grade adjustment (GAP). Used ONLY inside calibrateBaseline —
+  // hilly runs at honest slow paces were diluting the easy-pace median, inflating flat
+  // runs' scores. ~3.5% pace cost per 1% mean ascent grade, downhill gives back about
+  // half (Daniels/Minetti first-order). The per-run IL pace term stays RAW pace — the
+  // convex grade surcharge already prices the hill; adjusting both would double-count.
+  gapUp:      3.5,
+  gapDown:    1.8,
+  // Duty factor can't be grade-adjusted, so the baseDF median instead uses only runs
+  // flatter than this mean total grade ((ascent+descent)/distance). Slow long-contact
+  // trail steps otherwise inflate baseDF and surcharge normal flat running (+14% for
+  // a real 77%-trail athlete). Falls back to all runs when < 5 flat samples exist.
+  dfFlatGrade: 0.02,
   offload:    0,     // Lever body-weight-support offload fraction (0–1) applied to Lever runs
   // Pace speedup per unit body-weight offload: a Lever run holds a faster pace at the same effort,
   // so we convert its pace to a road-equivalent P/(1−offloadPaceK·offload) before the pace term.
@@ -51,16 +63,42 @@ function median(arr) {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 }
 
-// Per-athlete, per-device baseline from their easy-run history (pace at or
-// slower than the easy/workout cutoff). Falls back to all runs, then to
-// DEFAULTS, when there aren't enough easy runs. Normalising every factor to
-// this baseline makes the model self-calibrating and cancels most of the
-// cross-device absolute offset in VO/GCT.
-function calibrateBaseline(runs, cutoffSec) {
-  var easy = runs.filter(function (r) { return r.paceSec != null && r.paceSec >= cutoffSec; });
+// Grade-adjusted (flat-equivalent) pace, for baseline calibration ONLY. A device-
+// reported Avg GAP (gapSec, Garmin exports it on some devices) wins; otherwise adjust
+// the raw pace by mean ascent/descent grade from the run's totals. Flat runs adjust by
+// ~0, so no threshold cliff — every run is comparable on the same footing. Floor the
+// divisor so a huge net descent can't flip the adjustment into nonsense.
+function calibPace(r, p) {
+  if (r.paceSec == null || r.paceSec <= 0) return null;
+  if (r.gapSec > 0) return r.gapSec;
+  if (!(r.distMi > 0)) return r.paceSec;
+  var dM = r.distMi * 1609.34;
+  var ag = (r.ascentM  > 0 ? r.ascentM  : 0) / dM;
+  var dg = (r.descentM > 0 ? r.descentM : 0) / dM;
+  return r.paceSec / Math.max(1 + p.gapUp * ag - p.gapDown * dg, 0.7);
+}
+function meanTotalGrade(r) {
+  if (!(r.distMi > 0)) return 0;
+  return ((r.ascentM > 0 ? r.ascentM : 0) + (r.descentM > 0 ? r.descentM : 0)) / (r.distMi * 1609.34);
+}
+
+// Per-athlete, per-device baseline from their easy-run history (grade-adjusted pace at
+// or slower than the easy/workout cutoff). Falls back to all runs, then to DEFAULTS,
+// when there aren't enough easy runs. Normalising every factor to this baseline makes
+// the model self-calibrating and cancels most of the cross-device absolute offset in
+// VO/GCT. Trail-heavy athletes: easy pace is calibrated on grade-ADJUSTED pace (so
+// slow honest climbing doesn't drag the baseline slower), and easy form (baseDF) on
+// FLAT easy runs only (so long-contact trail steps don't inflate it) — otherwise both
+// baselines drift and flat easy runs score artificially high.
+function calibrateBaseline(runs, cutoffSec, params) {
+  var p = Object.assign({}, DEFAULTS, params || {});
+  var easy = runs.filter(function (r) { var eq = calibPace(r, p); return eq != null && eq >= cutoffSec; });
   var pool = easy.length >= 5 ? easy : runs;
-  var basePace = median(pool.map(function (r) { return r.paceSec; }).filter(function (v) { return v != null; }));
-  var baseDF   = median(pool.map(function (r) { return (r.cadence > 0 && r.gct > 0) ? r.cadence * r.gct : null; }).filter(function (v) { return v != null; }));
+  var basePace = median(pool.map(function (r) { return calibPace(r, p); }).filter(function (v) { return v != null; }));
+  var dfOf = function (r) { return (r.cadence > 0 && r.gct > 0) ? r.cadence * r.gct : null; };
+  var flat = pool.filter(function (r) { return dfOf(r) != null && meanTotalGrade(r) <= p.dfFlatGrade; });
+  var dfPool = flat.length >= 5 ? flat : pool;
+  var baseDF = median(dfPool.map(dfOf).filter(function (v) { return v != null; }));
   return {
     basePaceSec: basePace || DEFAULTS.basePaceSec,
     baseDF:      baseDF   || DEFAULTS.baseDF
@@ -232,8 +270,8 @@ Chronic = 28-day rolling average
 Acute : Chronic = recent load vs the base you have built</pre>`
 + `<span style="${H}">c · each variable — meaning, measurement, caveats</span>`
 + `<div style="${V}"><span style="${K}">D</span> — run distance (mi), from GPS or foot-pod / treadmill. Track distances arrive in metres and are converted.</div>`
-+ `<div style="${V}"><span style="${K}">P, P₀</span> — average pace and your easy-run baseline pace (s/mi), from GPS. Baseline = median of your easy runs (at or slower than the workout-pace cutoff). The 1.5 power reflects force &amp; metabolic cost rising faster than speed. On a <b>Lever run</b> the pace P is first converted to its <b>road-equivalent</b> Pᵉ = P ⁄ (1 − 0.76·O) — body-weight support lets you hold a faster pace at the same effort, so we credit that speedup back before comparing to baseline (e.g. a 6:30 mile at 15% support ≈ a 7:20 road mile). The 0.76 coefficient is roughly effort-independent, so it holds from easy to threshold pace. Caveat: pace under-rates uphill effort (hard but slow) — the hill term offsets this.</div>`
-+ `<div style="${V}"><span style="${K}">DF, DF₀</span> — duty factor = cadence × ground-contact time, vs your easy baseline. Cadence from the wrist; GCT from a chest strap, foot/waist pod, or wrist running-dynamics. Lower duty factor (shorter contact, more flight) loads each step harder. Caveats: needs a running-dynamics-capable device; GCT is an estimate; duty factor changes with speed, so we only ever compare you to <i>your own</i> baseline.</div>`
++ `<div style="${V}"><span style="${K}">P, P₀</span> — average pace and your easy-run baseline pace (s/mi), from GPS. Baseline = median <b>grade-adjusted</b> pace of your easy runs (at or slower than the workout-pace cutoff on adjusted pace): each run's pace is first converted to its flat-equivalent (~3.5% per 1% mean ascent grade, downhill credits about half; a device-reported Avg GAP is used directly when present) so honest slow climbing on trail runs doesn't drag the easy baseline slower and inflate flat runs' scores. Only the baseline uses adjusted pace — each run is still scored on its raw pace, since the hill surcharge G already prices the grade. The 1.5 power reflects force &amp; metabolic cost rising faster than speed. On a <b>Lever run</b> the pace P is first converted to its <b>road-equivalent</b> Pᵉ = P ⁄ (1 − 0.76·O) — body-weight support lets you hold a faster pace at the same effort, so we credit that speedup back before comparing to baseline (e.g. a 6:30 mile at 15% support ≈ a 7:20 road mile). The 0.76 coefficient is roughly effort-independent, so it holds from easy to threshold pace. Caveat: pace under-rates uphill effort (hard but slow) — the hill term offsets this.</div>`
++ `<div style="${V}"><span style="${K}">DF, DF₀</span> — duty factor = cadence × ground-contact time, vs your easy baseline (median of <b>flat</b> easy runs only, ≤2% mean total grade when enough exist — slow long-contact trail steps would otherwise inflate the form baseline and surcharge normal flat running). Cadence from the wrist; GCT from a chest strap, foot/waist pod, or wrist running-dynamics. Lower duty factor (shorter contact, more flight) loads each step harder. Caveats: needs a running-dynamics-capable device; GCT is an estimate; duty factor changes with speed, so we only ever compare you to <i>your own</i> baseline.</div>`
 + `<div style="${V}"><span style="${K}">W, W₀</span> — body weight ÷ a reference weight, from the profile. Equals 1 for a single athlete (drops out); only matters when comparing across athletes.</div>`
 + `<div style="${V}"><span style="${K}">O</span> — Lever body-weight offload: on a Lever run part of bodyweight is supported. This enters the load in two places — it speeds the run's pace back to its road-equivalent Pᵉ = P ⁄ (1 − 0.76·O) (support lets you run faster at the same effort) <i>and</i> discounts the weight term by (1 − O) (support cuts ground reaction force); O = 0 for normal runs. Default is <b>85% bodyweight</b> (O = 0.15), set in the profile. Lever runs are detected automatically — a <b>treadmill</b> activity whose <b>HR is lower than expected for its pace</b> (the offload signature) — or by an activity title containing “lever.” Caveat: treadmill pace can be miscalibrated; a dedicated per-run Lever source (tag / device import) can be wired in later for exact offloads.</div>`
 + `<div style="${V}"><span style="${K}">G</span> — hill surcharge from total ascent &amp; descent ÷ distance (mean grade), descent weighted ~3× ascent, capped at 2.5. Caveat: only the totals are recorded, so this is <i>mean</i> grade — it can’t tell one steep descent from rolling terrain with the same total, and under-counts concentrated descents. Per-segment grade (from FIT files) would fix this.</div>`
