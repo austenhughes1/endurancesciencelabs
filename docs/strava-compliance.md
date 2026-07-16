@@ -11,7 +11,12 @@ Audit date: **July 9, 2026**, against the **June 1, 2026** [API Agreement](https
 
 ## Our use case (what to write on the form)
 
-Private 1-coach coaching platform. An athlete explicitly authorizes the app via OAuth (`activity:read_all`) so their own coach can see their training. Strava data (last ~120 days of activities: name, type, date, distance, time, elevation, HR, pace, recent descriptions) is shown **only to the athlete themself and their assigned coach**. No leaderboards, no cross-athlete visibility, no public display, no analytics products, no AI/ML, no data resale.
+Private 1-coach coaching platform. An athlete explicitly authorizes the app via OAuth (`activity:read_all`) so their own coach can see their training. Strava data is shown **only to the athlete themself and their assigned coach**, in two places:
+
+- **Coach dashboard feed** — last ~120 days of activities (name, type, date, distance, time, elevation, HR, pace, recent descriptions), stored per training plan.
+- **Run Dynamics** (training-load view for the same athlete + coach) — last **2 years** of the athlete's runs (summary fields only: name, type, date, distance, moving time, elevation gain, HR, cadence), used solely to fill days the athlete hasn't covered with a manual Garmin/Coros file upload. Watch uploads always take precedence, and the derived load metric is computed per-athlete against the athlete's own baseline — never compared across athletes.
+
+No leaderboards, no cross-athlete visibility, no public display, no analytics products, no AI/ML, no data resale.
 
 ## Compliance checklist
 
@@ -19,13 +24,13 @@ Private 1-coach coaching platform. An athlete explicitly authorizes the app via 
 |---|---|
 | Data shown only to the authorizing user (+ their coach, the consented coaching use case Strava's FAQ allows) | ✅ Firestore rules scope `stravaActivities` reads to the plan's `athleteUid`, `coachUid`, and admin only |
 | No leaderboards / cross-athlete sharing | ✅ None anywhere in the app |
-| No analytics products / aggregated insights from Strava data (API Policy §5.4) | ✅ esFormLab and esMetabolicLab do not touch Strava data; Run Dynamics runs on Garmin/Coros file uploads (Strava is only used to match "lever" titles on the athlete's own runs, displayed to the same athlete + coach) |
+| No analytics products / aggregated insights from Strava data (API Policy §5.4) | ✅ esFormLab and esMetabolicLab do not touch Strava data; Run Dynamics uses the authorizing athlete's own runs to show that same athlete (+ their coach) their individual training load — no aggregation across athletes, no comparison to other athletes' data |
 | No AI/ML use of Strava data (API Policy §5.3) | ✅ None |
 | Tokens inaccessible to clients | ✅ Stored in `users/{uid}/private/strava`; rules deny all client access |
-| Deletion on disconnect (API Policy §7.4, ≤30 days) | ✅ Immediate: in-app disconnect, the deauthorization **webhook** (`stravaWebhook`), and revoked-token detection during sync all call `purgeStravaData()` (tokens + all synced activities) |
-| Respect athlete's Strava edits/deletes | ✅ Webhook applies activity `update`/`delete` events to our copies |
+| Deletion on disconnect (API Policy §7.4, ≤30 days) | ✅ Immediate: in-app disconnect, the deauthorization **webhook** (`stravaWebhook`), and revoked-token detection during sync all call `purgeStravaData()` (tokens + coach-feed activities + all Strava-sourced Run Dynamics docs, which carry `source: "strava"` and are never merged into device-upload data) |
+| Respect athlete's Strava edits/deletes | ✅ Webhook applies activity `update`/`delete` events to both copies (coach feed and Run Dynamics doc); re-typing an activity away from running removes it from Run Dynamics |
 | Official "Connect with Strava" button, unmodified, 48px | ✅ Official SVG asset at `images/strava/btn_strava_connect_with_orange.svg` |
-| Official "Powered by Strava" logo where Strava data appears | ✅ Official horizontal SVG on every dashboard card footer |
+| Official "Powered by Strava" logo where Strava data appears | ✅ Official horizontal SVG on every dashboard card footer, and in the Run Dynamics footer whenever Strava-synced runs are displayed |
 | Correct brand orange | ✅ `#FC5200` (was `#FC4C02`, fixed) |
 | "View on Strava" link-backs on displayed activities | ✅ Each activity row links to `strava.com/activities/{id}` in brand orange |
 | No Strava name/logo in our branding, no imitation of Strava's look | ✅ |

@@ -262,7 +262,7 @@ var RUN_WINDOWS = [
 var MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 /* ---------- per-mount state ---------- */
-var ROOT=null, DB=null, UID=null, ROLE='athlete', ADMIN=false;
+var ROOT=null, DB=null, UID=null, ROLE='athlete', ADMIN=false, STRAVA_SYNC={};
 var RAW=[], ACTIVE_TYPES=new Set(), KNOWN_TYPES=new Set();
 var ANCHOR=null, LOAD_PARAMS=null, STD_PROFILE={}, STRAVA_LEVER=[];
 var DAY=864e5;
@@ -496,20 +496,34 @@ function loadFromFirestore(){
     RAW.sort(function(a,b){ return a.ts-b.ts; });
   });
 }
+function localDayKey(ts){ var d=new Date(ts); return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate(); }
 function backfill(candidates){
   return actCol().get().then(function(snap){
-    var existing=new Set(); snap.forEach(function(d){ existing.add(d.id); });
+    var candIds=new Set(candidates.map(function(c){return c.id;}));
+    var candDays=new Set(candidates.map(function(c){return localDayKey(c.ts);}));
+    var existing=new Set(), replace=[];
+    snap.forEach(function(d){
+      existing.add(d.id);
+      var x=d.data();
+      // A watch export is the richer record (GCT, oscillation, descent) — drop
+      // any Strava-synced doc on a day this import now covers. Same-id docs
+      // need no delete: the set() below overwrites them wholesale. The server
+      // sync skips device-covered days, so these never come back.
+      if(x.source==='strava' && !candIds.has(d.id) && candDays.has(localDayKey(x.ts))) replace.push(d.ref);
+    });
     var added=0; candidates.forEach(function(c){ if(!existing.has(c.id)) added++; });
-    var chunks=[]; for(var i=0;i<candidates.length;i+=450) chunks.push(candidates.slice(i,i+450));
+    var ops=candidates.slice();
+    replace.forEach(function(ref){ ops.push({del:ref}); });
+    var chunks=[]; for(var i=0;i<ops.length;i+=450) chunks.push(ops.slice(i,i+450));
     var p=Promise.resolve();
     chunks.forEach(function(chunk){
       p=p.then(function(){
         var batch=DB.batch();
-        chunk.forEach(function(c){ batch.set(actCol().doc(c.id), c); });
+        chunk.forEach(function(op){ if(op.del) batch.delete(op.del); else batch.set(actCol().doc(op.id), op); });
         return batch.commit();
       });
     });
-    return p.then(function(){ return {added:added, updated:candidates.length-added}; });
+    return p.then(function(){ return {added:added, updated:candidates.length-added, replaced:replace.length}; });
   });
 }
 /* Delete every stored activity doc. Escape hatch for a bad import: backfill
@@ -635,7 +649,7 @@ function saveProfile(patch){
       if(!ok) console.warn('RunDynamics: profile did not persist',{uid:UID,key:key,got:data[key],sent:patch[key]}); })
     .catch(function(e){ console.error('profile save',e); show('⚠ '+(e&&e.code||'save failed'),false); });
 }
-function loadProfile(){ if(!UID) return Promise.resolve(); return DB.collection('users').doc(UID).get().then(function(d){ var x=d.exists?d.data():{}; STD_PROFILE={ weightLb:x.weightLb, runDevice:x.runDevice, runHasAccessory:x.runHasAccessory, runLeverPctBW:x.runLeverPctBW, runEvents:Array.isArray(x.runEvents)?x.runEvents:[] }; }).catch(function(){ STD_PROFILE={}; }); }
+function loadProfile(){ if(!UID) return Promise.resolve(); return DB.collection('users').doc(UID).get().then(function(d){ var x=d.exists?d.data():{}; STD_PROFILE={ weightLb:x.weightLb, runDevice:x.runDevice, runHasAccessory:x.runHasAccessory, runLeverPctBW:x.runLeverPctBW, runEvents:Array.isArray(x.runEvents)?x.runEvents:[] }; STRAVA_SYNC={ connected:!!x.stravaConnected, last:x.stravaLastSyncedAt||null }; }).catch(function(){ STD_PROFILE={}; STRAVA_SYNC={}; }); }
 
 /* ---------- performance/injury history events ---------- */
 function events(){ return Array.isArray(STD_PROFILE.runEvents)?STD_PROFILE.runEvents:[]; }
@@ -1092,7 +1106,10 @@ function renderLoaded(){
   $('tTo').value=ymd(max);
   $('tFrom').value=ymd(new Date(max.getTime()-91*DAY));
   setRangeChip('3');
-  var foot=$('foot'); if(foot) foot.innerHTML='Reading '+RAW.length+' stored runs. Track-running distances are converted from meters to miles. Load and form math live in <code>shared/run-load-model.js</code>; this view in <code>shared/run-dynamics.js</code>.';
+  var nStrava=RAW.filter(function(r){return r.source==='strava';}).length;
+  var foot=$('foot'); if(foot) foot.innerHTML='Reading '+RAW.length+' stored runs.'+
+    (nStrava?(' '+nStrava+' synced from Strava on days with no watch import — Strava runs carry pace, distance, HR, cadence and ascent, but no ground-contact or oscillation data. <img src="/images/strava/api_logo_pwrdBy_strava_horiz_orange.svg" alt="Powered by Strava" style="height:15px;vertical-align:-4px">'):'')+
+    ' Track-running distances are converted from meters to miles. Load and form math live in <code>shared/run-load-model.js</code>; this view in <code>shared/run-dynamics.js</code>.';
   refresh();
 }
 
@@ -1142,7 +1159,7 @@ function saveCandidates(candidates){
       var sample=candidates.filter(function(c){return c.ascentM!=null;})[0];
       var verify=sample?actCol().doc(sample.id).get().then(function(d){return d.exists&&d.data().ascentM!=null;}):Promise.resolve(null);
       verify.then(function(ok){
-        if(st) st.innerHTML='<span class="ok">✓ '+res.added+' new'+(res.updated?(', '+res.updated+' updated'):'')+'</span> · '+RAW.length+' total · '+elev+'/'+candidates.length+' w/ elevation'+(ok===false?' <span class="err">(elevation did NOT persist — check rules)</span>':'');
+        if(st) st.innerHTML='<span class="ok">✓ '+res.added+' new'+(res.updated?(', '+res.updated+' updated'):'')+(res.replaced?(', '+res.replaced+' Strava-synced replaced by watch data'):'')+'</span> · '+RAW.length+' total · '+elev+'/'+candidates.length+' w/ elevation'+(ok===false?' <span class="err">(elevation did NOT persist — check rules)</span>':'');
       });
     });
   }).catch(function(e){
@@ -1179,6 +1196,7 @@ function shellHTML(opts){
       '<li>Drop that <code>.zip</code> below (a single <code>.fit</code> works too). We unpack and read each <code>.fit</code> right in your browser.</li>'+
     '</ol>'+
     '<div class="rdx-help-note">Running-form metrics (ground contact, vertical oscillation, cadence, stride) require a compatible device or strap — runs recorded without one still import for load and pace, they just skip those fields. Garmin\'s CSV export is also capped at ~1,000 rows and only includes what is loaded on screen, so export long Garmin histories in chunks by date range — each chunk merges in automatically.</div>'+
+    '<div class="rdx-help-note">Strava connected (via the coaching dashboard)? The last 2 years of Strava runs sync in automatically, once a day, for days with no watch import. Strava can\'t provide ground contact, oscillation, or descent, so uploading a watch export for those days replaces the Strava copy with the full-metric version.</div>'+
     '</div></details>'+
 
   '<div class="rdx-importbar">'+
@@ -1227,7 +1245,7 @@ function shellHTML(opts){
     '</div>'+
   '</div>'+
 
-  '<div class="rdx-empty rdx-section" id="sec-empty">No running activities stored '+(ROLE==='coach'?'for this athlete ':'')+'yet. Import a Garmin <code>Activities.csv</code> or a Coros <code>.zip</code> above to get started.</div>'+
+  '<div class="rdx-empty rdx-section" id="sec-empty">No running activities stored '+(ROLE==='coach'?'for this athlete ':'')+'yet. Import a Garmin <code>Activities.csv</code> or a Coros <code>.zip</code> above to get started — or connect Strava on the coaching dashboard and recent run history fills in automatically.</div>'+
 
   '<div class="rdx-section" id="sec-hero">'+(ADMIN?'<div class="rdx-demobar" id="demobar"></div>':'')+'<div class="rdx-hero" id="hero"></div></div>'+
 
@@ -1328,6 +1346,30 @@ function wire(){
   };
 }
 
+/* Strava auto-sync: if this athlete has Strava connected (coaching dashboard
+   flow), top up their stored run history once per local day. The server
+   (syncStravaActivities in functions/index.js) pulls 2 years of Strava runs
+   but skips every day already covered by a watch import — Strava only fills
+   the gaps, and can't provide GCT/oscillation/descent. Coach view skips this:
+   the coaching page runs its own athlete-scoped daily sync, and the callable
+   syncs the CALLER's account unless invoked with athleteUid by the admin. */
+function maybeSyncStrava(){
+  if(ROLE==='coach' || DEMO) return;
+  if(!STRAVA_SYNC.connected) return;
+  if(!(window.firebase && firebase.functions)) return;
+  var last=STRAVA_SYNC.last;
+  if(last){
+    var d=last.toDate?last.toDate():new Date(last);
+    if(d.toDateString()===new Date().toDateString()) return;
+  }
+  var container=ROOT;
+  firebase.functions().httpsCallable('syncStravaActivities')({}).then(function(res){
+    var n=res&&res.data&&res.data.runDocs;
+    if(!n || ROOT!==container) return;
+    return loadFromFirestore().then(function(){ if(ROOT===container) renderLoaded(); });
+  }).catch(function(e){ console.warn('RunDynamics: Strava sync failed', e); });
+}
+
 /* ---------- public entry point ---------- */
 function mount(container, opts){
   opts=opts||{};
@@ -1337,7 +1379,7 @@ function mount(container, opts){
   }
   injectCSS();
   ROOT=container; DB=opts.db; UID=opts.uid; ROLE=opts.role||'athlete'; ADMIN=!!opts.admin; DEMO=null;
-  RAW=[]; ACTIVE_TYPES=new Set(); KNOWN_TYPES=new Set(); ANCHOR=null; LOAD_PARAMS=null; STD_PROFILE={}; STRAVA_LEVER=[];
+  RAW=[]; ACTIVE_TYPES=new Set(); KNOWN_TYPES=new Set(); ANCHOR=null; LOAD_PARAMS=null; STD_PROFILE={}; STRAVA_LEVER=[]; STRAVA_SYNC={};
   container.classList.add('rdx');
   container.innerHTML=shellHTML(opts);
   wire();
@@ -1348,6 +1390,7 @@ function mount(container, opts){
     if(st) st.innerHTML = RAW.length
       ? '<span class="ok">✓ '+RAW.length+' runs loaded</span> · import a newer export to add more'
       : 'No runs stored yet — import a Garmin or Coros export to begin.';
+    maybeSyncStrava();
   }).catch(function(e){
     console.error(e);
     if(st) st.innerHTML='<span class="err">Could not load stored runs: '+(e&&e.message||e)+'</span>';

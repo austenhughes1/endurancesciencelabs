@@ -99,9 +99,61 @@ exports.stravaCallback = onRequest({ cors: false }, async (req, res) => {
   }
 });
 
+// How far back a sync pulls run history for Run Dynamics (the athlete's
+// full chart history), vs. the short coach-view mirror on the training plan.
+const STRAVA_LOOKBACK_DAYS = 730;
+const STRAVA_MIRROR_DAYS = 120;
+
+// One Strava SummaryActivity -> the run-doc shape the client importers in
+// shared/run-dynamics.js produce (parseExport / runFromFitSession), stored
+// under users/{uid}/garminActivities. Strava's API never exposes running
+// dynamics (GCT, vertical oscillation, stride) or total descent, so those
+// stay null and the load model falls back to its no-dynamics / ascent-only
+// path. Cadence is per-leg -> ×2 for spm. Returns null for non-runs.
+function stravaRunDoc(act) {
+  const sport = String(act.sport_type || act.type || "");
+  if (!/run/i.test(sport)) return null;
+  const start = new Date(act.start_date);
+  if (isNaN(start)) return null;
+  const type =
+    sport === "TrailRun" ? "Trail Running" :
+    (sport === "VirtualRun" || act.trainer) ? "Treadmill Running" :
+    "Running";
+  // Same id scheme as the client importers (local start-time digits + type),
+  // so the same run arriving later in a Garmin CSV lands on the same doc id.
+  const digits = String(act.start_date_local || act.start_date).replace(/\D/g, "").slice(0, 14);
+  const id = digits + "_" + type.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const pos = (v) => (typeof v === "number" && isFinite(v) && v > 0 ? v : null);
+  const distM = pos(act.distance);
+  const durSec = pos(act.moving_time);
+  const title = String(act.name || "");
+  return {
+    id, type, title,
+    leverTitle: /lever/i.test(title),
+    ts: start.getTime(),
+    dateISO: start.toISOString(),
+    distMi: distM == null ? null : distM / 1609.34,
+    durSec,
+    avgHr: pos(act.average_heartrate), maxHr: pos(act.max_heartrate),
+    aerobicTE: null,
+    cadence: pos(act.average_cadence) == null ? null : Math.round(act.average_cadence * 2),
+    stride: null, vratio: null, vo: null, gct: null, gctBalL: null,
+    paceSec: distM && durSec ? (durSec / distM) * 1609.34 : null,
+    gapSec: null,
+    ascentM: (typeof act.total_elevation_gain === "number" && isFinite(act.total_elevation_gain))
+      ? act.total_elevation_gain : null,
+    descentM: null, steps: null,
+    source: "strava",
+    stravaId: act.id,
+  };
+}
+
 // ═══════════════════════════════════════════════════════════
 //  syncStravaActivities — Callable function that fetches
-//  recent Strava activities and writes them to Firestore.
+//  recent Strava activities and writes them to Firestore:
+//  a 2-year run-history supplement for Run Dynamics
+//  (users/{uid}/garminActivities) plus the short coach-view
+//  mirror (trainingPlans/{plan}/stravaActivities).
 //  Called by the client after connecting or via a sync button.
 // ═══════════════════════════════════════════════════════════
 exports.syncStravaActivities = onCall({ cors: true }, async (request) => {
@@ -167,13 +219,14 @@ exports.syncStravaActivities = onCall({ cors: true }, async (request) => {
     });
   }
 
-  // Fetch activities from the last 120 days
-  const after = Math.floor(Date.now() / 1000) - 120 * 24 * 60 * 60;
+  // Fetch summary activities for the full lookback window (2 years).
+  // 200/page is Strava's max; the page cap allows 3,000 activities.
+  const after = Math.floor(Date.now() / 1000) - STRAVA_LOOKBACK_DAYS * 24 * 60 * 60;
   let allActivities = [];
   let page = 1;
 
-  while (page <= 5) {
-    const url = `${STRAVA_ACTIVITIES_URL}?after=${after}&per_page=100&page=${page}`;
+  while (page <= 15) {
+    const url = `${STRAVA_ACTIVITIES_URL}?after=${after}&per_page=200&page=${page}`;
     const actRes = await fetch(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -189,21 +242,87 @@ exports.syncStravaActivities = onCall({ cors: true }, async (request) => {
     page++;
   }
 
-  // Find the user's training plan
+  // ── Run Dynamics supplement ──────────────────────────────
+  // Convert Strava runs into run docs for users/{uid}/garminActivities so
+  // Run Dynamics is populated even without a manual export upload. Watch
+  // imports are the richer record (GCT, oscillation, descent), so any local
+  // calendar day that already has a device-imported run is skipped entirely —
+  // Strava only fills the gaps. (The reverse direction — a later device
+  // upload replacing Strava docs on the days it covers — is handled by
+  // backfill() in shared/run-dynamics.js.)
+  const runCol = db.collection("users").doc(uid).collection("garminActivities");
+  const existingSnap = await runCol.select("ts", "source").get();
+  const deviceTs = [];
+  const deviceIds = new Set();
+  existingSnap.forEach((d) => {
+    if (d.get("source") !== "strava") {
+      deviceIds.add(d.id);
+      const t = d.get("ts");
+      if (Number.isFinite(t)) deviceTs.push(t);
+    }
+  });
+  // Local-day buckets of the device runs, computed per UTC offset (device
+  // docs store only the epoch; each Strava activity carries its own offset,
+  // and device + Strava runs share a timezone in the overwhelming case).
+  const dayBucketsByOffset = new Map();
+  const deviceDaySet = (offsetMs) => {
+    if (!dayBucketsByOffset.has(offsetMs)) {
+      dayBucketsByOffset.set(offsetMs,
+        new Set(deviceTs.map((t) => Math.floor((t + offsetMs) / 86400000))));
+    }
+    return dayBucketsByOffset.get(offsetMs);
+  };
+
+  const runWrites = [];
+  let runSkipped = 0;
+  for (const act of allActivities) {
+    const doc = stravaRunDoc(act);
+    if (!doc) continue;
+    const offsetMs = (typeof act.utc_offset === "number" && isFinite(act.utc_offset))
+      ? act.utc_offset * 1000
+      : (Date.parse(act.start_date_local) - Date.parse(act.start_date)) || 0;
+    const day = Math.floor((doc.ts + offsetMs) / 86400000);
+    if (deviceDaySet(offsetMs).has(day) || deviceIds.has(doc.id)) {
+      runSkipped++;
+      continue;
+    }
+    runWrites.push(doc);
+  }
+  for (let i = 0; i < runWrites.length; i += 450) {
+    const batch = db.batch();
+    runWrites.slice(i, i + 450).forEach((doc) => batch.set(runCol.doc(doc.id), doc));
+    await batch.commit();
+  }
+
+  // ── Coach-view mirror (short window, training plan required) ──
   const planSnap = await db.collection("trainingPlans")
     .where("athleteUid", "==", uid)
     .limit(1)
     .get();
 
   if (planSnap.empty) {
-    throw new HttpsError("not-found", "No training plan found.");
+    // No training plan (standalone Run Dynamics user) — the run-history
+    // supplement above is still valid, so finish instead of erroring.
+    await db.collection("users").doc(uid).update({
+      stravaLastSyncedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return {
+      synced: 0,
+      runDocs: runWrites.length,
+      runSkipped,
+      message: `Synced ${runWrites.length} runs (${runSkipped} days already covered by watch imports).`,
+    };
   }
 
   const planId = planSnap.docs[0].id;
+  const mirrorCutoff = Date.now() - STRAVA_MIRROR_DAYS * 24 * 60 * 60 * 1000;
+  const mirrorActivities = allActivities.filter(
+    (a) => a.start_date && new Date(a.start_date).getTime() >= mirrorCutoff
+  );
 
   // Fetch descriptions for recent runs (last 7 days only, to limit API calls)
   const sevenDaysAgo = Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60;
-  const recentRunIds = allActivities
+  const recentRunIds = mirrorActivities
     .filter(a => a.type === "Run" && a.start_date && new Date(a.start_date).getTime() / 1000 > sevenDaysAgo)
     .map(a => a.id);
 
@@ -222,10 +341,10 @@ exports.syncStravaActivities = onCall({ cors: true }, async (request) => {
     }
   }
 
-  const batch = db.batch();
+  let batch = db.batch();
   let count = 0;
 
-  for (const act of allActivities) {
+  for (const act of mirrorActivities) {
     // Convert start_date_local to YYYY-MM-DD for querying
     const dateStr = act.start_date_local
       ? act.start_date_local.substring(0, 10)
@@ -267,6 +386,7 @@ exports.syncStravaActivities = onCall({ cors: true }, async (request) => {
     // Firestore batch limit is 500
     if (count % 450 === 0) {
       await batch.commit();
+      batch = db.batch();
     }
   }
 
@@ -278,7 +398,12 @@ exports.syncStravaActivities = onCall({ cors: true }, async (request) => {
     stravaLastSyncedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 
-  return { synced: count, message: `Synced ${count} activities.` };
+  return {
+    synced: count,
+    runDocs: runWrites.length,
+    runSkipped,
+    message: `Synced ${count} activities; ${runWrites.length} runs added to Run Dynamics (${runSkipped} days already covered by watch imports).`,
+  };
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -300,8 +425,31 @@ async function purgeStravaData(uid) {
     stravaDisconnectedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 
-  // Synced activities on the athlete's training plan
+  // Strava-sourced run docs in the athlete's Run Dynamics history
+  // (users/{uid}/garminActivities, source == "strava"). Device-imported
+  // runs are untouched — they never came from Strava.
   let deletedActivities = 0;
+  const runSnap = await db.collection("users").doc(uid)
+    .collection("garminActivities")
+    .where("source", "==", "strava")
+    .get();
+  {
+    let batch = db.batch();
+    let count = 0;
+    for (const doc of runSnap.docs) {
+      batch.delete(doc.ref);
+      count++;
+      deletedActivities++;
+      if (count % 450 === 0) {
+        await batch.commit();
+        batch = db.batch();
+        count = 0;
+      }
+    }
+    if (count > 0) await batch.commit();
+  }
+
+  // Synced activities on the athlete's training plan
   const planSnap = await db.collection("trainingPlans")
     .where("athleteUid", "==", uid)
     .limit(1)
@@ -404,6 +552,32 @@ exports.stravaWebhook = onRequest({ cors: false }, async (req, res) => {
             if (typeof event.updates.type === "string") patch.type = event.updates.type;
             if (Object.keys(patch).length) {
               await actRef.set(patch, { merge: true });
+            }
+          }
+        }
+
+        // Run Dynamics doc synced from this activity (keyed by start time,
+        // so look it up via the stored stravaId).
+        const runQ = await db.collection("users").doc(uid)
+          .collection("garminActivities")
+          .where("stravaId", "==", event.object_id)
+          .limit(1)
+          .get();
+        if (!runQ.empty) {
+          const runRef = runQ.docs[0].ref;
+          if (event.aspect_type === "delete") {
+            await runRef.delete();
+          } else if (event.aspect_type === "update" && event.updates) {
+            if (typeof event.updates.type === "string" && !/run/i.test(event.updates.type)) {
+              // Re-categorized away from running — no longer belongs here.
+              await runRef.delete();
+            } else if (typeof event.updates.title === "string") {
+              // Renames matter: "Lever" in the title is the manual signal
+              // the load model's body-weight-support detection keys off.
+              await runRef.set({
+                title: event.updates.title,
+                leverTitle: /lever/i.test(event.updates.title),
+              }, { merge: true });
             }
           }
         }
