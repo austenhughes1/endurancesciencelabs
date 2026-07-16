@@ -143,13 +143,20 @@ function impactLoad(run, p) {
   // negative load; missing/zero falls back to refWeight (→ 1). Matches the lever-iq port.
   var wF    = ((run.weight > 0 ? run.weight : p.refWeight)) / p.refWeight;
   if (off > 0) wF *= (1 - off);
-  var il = run.distMi * paceF * dfF * wF;
+  var mods = paceF * dfF;
   if (p.useGrade && run.distMi) {
     var distM = run.distMi * 1609.34;
     var dg = (run.descentM || 0) / distM;   // mean descent grade (fraction)
     var ag = (run.ascentM  || 0) / distM;   // mean ascent grade (fraction)
-    il *= Math.min(1 + p.kDescent * dg * dg + p.kAscent * ag * ag, p.gradeCap);
+    mods *= Math.min(1 + p.kDescent * dg * dg + p.kAscent * ag * ag, p.gradeCap);
   }
+  // FLOOR: at full bodyweight, a mile is never less than a mile of impact. Slower-than-
+  // baseline pace or soft form lowers PEAK force per step, but you take more steps per
+  // mile — the distance itself is the irreducible impact, so the pace × form × grade
+  // modifier product can't discount below 1. The weight/offload term stays OUTSIDE the
+  // floor: Lever body-weight support genuinely removes ground reaction force, so a
+  // Lever run's floor is distance × (1 − O), not distance.
+  var il = run.distMi * wF * Math.max(mods, 1);
   // Final belt-and-braces: never let a non-finite value escape into the load series.
   return Number.isFinite(il) ? il : null;
 }
@@ -234,8 +241,12 @@ function methodologyHTML() {
   return `<span style="${H}">a · the equation</span>`
 + `<pre style="${EQ}">Impact Load (per run) — measured in Impact Miles:
 
-  IL = D · (P₀ ⁄ Pᵉ)^1.5 · (DF₀ ⁄ DF)^1.0 · (W ⁄ W₀)·(1−O) · G
+  IL = D · (W ⁄ W₀)·(1−O) · max( (P₀ ⁄ Pᵉ)^1.5 · (DF₀ ⁄ DF)^1.0 · G , 1 )
 
+       The max(…, 1) floor: at full bodyweight a mile is never less
+              than a mile of impact — easy pace and soft form can't
+              discount the distance itself. Only the Lever offload
+              (outside the floor) can take IL below actual distance.
        DF = cadence × GCT
        O  = Lever body-weight offload (0 when not on the Lever)
        Pᵉ = P ⁄ (1 − 0.76·O)   ← Lever pace → road-equivalent
@@ -263,7 +274,11 @@ the Lever pace back to the road pace that effort would have been
 (e.g. a 6:30 mile at 15% support ≈ a 7:20 road mile), then score it
 normally. This works at any intensity, easy through threshold.
 
-One easy flat mile = 1 Impact Mile; a hard or hilly mile counts as more.
+One easy flat mile = 1 Impact Mile; a hard or hilly mile counts as
+more. A full-bodyweight mile never counts as LESS than one Impact
+Mile — running slower softens each step but adds steps per mile, so
+the distance itself is the floor. Only Lever body-weight support
+(which removes ground reaction force) can score below distance.
 
 Acute   = 7-day rolling average of daily Impact Miles
 Chronic = 28-day rolling average
