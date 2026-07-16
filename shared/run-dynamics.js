@@ -378,7 +378,50 @@ function parseExport(text){
       ascentM:num(get(r,'totalascent')), descentM:num(get(r,'totaldescent')), steps:num(get(r,'steps')),
     };
   }
-  return Object.keys(byId).map(function(k){return byId[k];});
+  var runs=Object.keys(byId).map(function(k){return byId[k];});
+  var units=detectCsvUnits(runs);
+  runs.forEach(function(c){
+    if(units==='metric'){
+      // Distance column is km and pace is s/km; elevation is already meters.
+      if(c.distMi!=null && !/track/i.test(c.type)) c.distMi=c.distMi/1.60934;
+      if(c.paceSec!=null) c.paceSec=c.paceSec*1.60934;
+      if(c.gapSec!=null)  c.gapSec =c.gapSec *1.60934;
+    } else {
+      // Statute: distance/pace are per-mile as assumed; elevation is FEET.
+      if(c.ascentM!=null)  c.ascentM =c.ascentM *0.3048;
+      if(c.descentM!=null) c.descentM=c.descentM*0.3048;
+    }
+  });
+  runs.csvUnits=units;
+  return runs;
+}
+
+/* Garmin exports every column in the account's display units (statute:
+   miles & feet, metric: km & meters) with no units metadata in the file, so
+   the system has to be inferred from the data. Steps × stride length is the
+   unit-free ground truth: stride is exported in meters under BOTH systems,
+   so steps×stride ≈ the run's true distance in meters. Each row votes for
+   whichever reading of its Distance column (miles or km) lands closer to
+   that truth — the two readings differ by 1.61×, so votes are unambiguous;
+   rows missing steps/stride, track runs (distance column is meters in both
+   systems), and rows where neither reading is close (bad pod data) abstain.
+   With no votes the file stays statute — the assumption this parser always
+   made. (A plausibility fallback, e.g. "median grade too steep to be
+   meters", was rejected: a genuinely flat statute export would be misread
+   as metric and get its distance AND pace corrupted, a far worse failure
+   than the elevation one being fixed. Metric exports without a Steps
+   column remain unsupported, as they always were.) */
+function detectCsvUnits(runs){
+  var mi=0, km=0;
+  runs.forEach(function(c){
+    if(c.distMi==null||!(c.steps>0)||!(c.stride>0)||/track/i.test(c.type)) return;
+    var trueM=c.steps*c.stride;
+    var dMi=Math.abs(Math.log((c.distMi*1609.34)/trueM));
+    var dKm=Math.abs(Math.log((c.distMi*1000)/trueM));
+    if(Math.min(dMi,dKm)>Math.log(1.25)) return;
+    if(dMi<dKm) mi++; else km++;
+  });
+  return km>mi?'metric':'statute';
 }
 
 /* ---------- Coros .fit / .zip parsing ----------
@@ -1159,7 +1202,8 @@ function saveCandidates(candidates){
       var sample=candidates.filter(function(c){return c.ascentM!=null;})[0];
       var verify=sample?actCol().doc(sample.id).get().then(function(d){return d.exists&&d.data().ascentM!=null;}):Promise.resolve(null);
       verify.then(function(ok){
-        if(st) st.innerHTML='<span class="ok">✓ '+res.added+' new'+(res.updated?(', '+res.updated+' updated'):'')+(res.replaced?(', '+res.replaced+' Strava-synced replaced by watch data'):'')+'</span> · '+RAW.length+' total · '+elev+'/'+candidates.length+' w/ elevation'+(ok===false?' <span class="err">(elevation did NOT persist — check rules)</span>':'');
+        var unitsNote=candidates.csvUnits?' · '+(candidates.csvUnits==='metric'?'km/m':'mi/ft')+' export detected':'';
+        if(st) st.innerHTML='<span class="ok">✓ '+res.added+' new'+(res.updated?(', '+res.updated+' updated'):'')+(res.replaced?(', '+res.replaced+' Strava-synced replaced by watch data'):'')+'</span> · '+RAW.length+' total · '+elev+'/'+candidates.length+' w/ elevation'+unitsNote+(ok===false?' <span class="err">(elevation did NOT persist — check rules)</span>':'');
       });
     });
   }).catch(function(e){
