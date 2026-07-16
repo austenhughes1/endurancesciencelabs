@@ -867,6 +867,14 @@ function renderHero(){
   var rampTxt = rampPerWk==null ? '—' : (rampPerWk>=0?'+':'')+Math.round(rampPerWk*100)+'%';
   var rampCol = rampPerWk==null ? 'var(--muted2)' : rampPerWk>=0.20 ? 'var(--bad)' : rampPerWk>=0.10 ? 'var(--gold)' : rampPerWk<=-0.05 ? 'var(--good)' : 'var(--muted2)';
   var rampTile='<div class="rdx-hero-stat"><div class="k">Acute trend</div><div class="v" style="color:'+rampCol+';font-size:16px">'+rampTxt+'</div><div class="x" style="color:'+rampCol+'">per week</div></div>';
+  // Easy-baseline-pace tile: the P₀ every run's Impact Load pace term is scored against —
+  // NOT an average of recent runs. Median grade-adjusted (flat-equivalent) easy-run pace.
+  var baseTile=LOAD_PARAMS&&LOAD_PARAMS.basePaceSec?
+    '<div class="rdx-hero-stat" title="Your Impact Load baseline: the median grade-adjusted (flat-equivalent) pace of your easy runs. Every run’s pace is compared against this in the load equation — it is a calibration anchor, not your recent average pace.">'+
+      '<div class="k">Easy base pace</div>'+
+      '<div class="v" style="color:var(--cyan)">'+fmtPace(LOAD_PARAMS.basePaceSec)+'</div>'+
+      '<div class="x" style="color:var(--muted2)">/mi · grade-adj · load baseline</div>'+
+    '</div>':'';
   el.style.borderLeftColor=accent;
   el.innerHTML=
     '<div class="rdx-hero-badge" style="color:'+accent+'"><span class="rdx-hero-dot" style="background:'+accent+'"></span>'+head+'</div>'+
@@ -876,6 +884,7 @@ function renderHero(){
       statTile('7-day avg', d7, col7, r7!=null?r7.toFixed(1)+'× base':'')+
       statTile('28-day base', d28, 'var(--muted2)', 'impact mi/day')+
       rampTile+
+      baseTile+
     '</div>'+
     '<div class="rdx-hero-do"><span class="do-hd">What to do next</span>'+doHtml+'</div>';
 }
