@@ -142,8 +142,7 @@ function impactLoad(run, p) {
   // Require weight > 0: a negative weight (garbage) would otherwise flow through as a
   // negative load; missing/zero falls back to refWeight (→ 1). Matches the lever-iq port.
   var wF    = ((run.weight > 0 ? run.weight : p.refWeight)) / p.refWeight;
-  if (off > 0) wF *= (1 - off);
-  var mods = paceF * dfF;
+  var mods = paceF * dfF * wF;
   if (p.useGrade && run.distMi) {
     var distM = run.distMi * 1609.34;
     var dg = (run.descentM || 0) / distM;   // mean descent grade (fraction)
@@ -151,12 +150,12 @@ function impactLoad(run, p) {
     mods *= Math.min(1 + p.kDescent * dg * dg + p.kAscent * ag * ag, p.gradeCap);
   }
   // FLOOR: at full bodyweight, a mile is never less than a mile of impact. Slower-than-
-  // baseline pace or soft form lowers PEAK force per step, but you take more steps per
-  // mile — the distance itself is the irreducible impact, so the pace × form × grade
-  // modifier product can't discount below 1. The weight/offload term stays OUTSIDE the
-  // floor: Lever body-weight support genuinely removes ground reaction force, so a
-  // Lever run's floor is distance × (1 − O), not distance.
-  var il = run.distMi * wF * Math.max(mods, 1);
+  // baseline pace, soft form, or a light-day weight ratio lower PEAK force per step,
+  // but you take more steps per mile — the distance itself is the irreducible impact,
+  // so the pace × form × weight × grade modifier product can't discount below 1. ONLY
+  // the Lever offload sits outside the floor: body-weight support genuinely removes
+  // ground reaction force, so a Lever run's floor is distance × (1 − O), not distance.
+  var il = run.distMi * (off > 0 ? 1 - off : 1) * Math.max(mods, 1);
   // Final belt-and-braces: never let a non-finite value escape into the load series.
   return Number.isFinite(il) ? il : null;
 }
@@ -241,12 +240,13 @@ function methodologyHTML() {
   return `<span style="${H}">a · the equation</span>`
 + `<pre style="${EQ}">Impact Load (per run) — measured in Impact Miles:
 
-  IL = D · (W ⁄ W₀)·(1−O) · max( (P₀ ⁄ Pᵉ)^1.5 · (DF₀ ⁄ DF)^1.0 · G , 1 )
+  IL = D · (1−O) · max( (W ⁄ W₀) · (P₀ ⁄ Pᵉ)^1.5 · (DF₀ ⁄ DF)^1.0 · G , 1 )
 
        The max(…, 1) floor: at full bodyweight a mile is never less
-              than a mile of impact — easy pace and soft form can't
-              discount the distance itself. Only the Lever offload
-              (outside the floor) can take IL below actual distance.
+              than a mile of impact — easy pace, soft form, and the
+              weight ratio can't discount the distance itself. ONLY
+              the Lever offload (1−O), outside the floor, can take
+              IL below actual distance.
        DF = cadence × GCT
        O  = Lever body-weight offload (0 when not on the Lever)
        Pᵉ = P ⁄ (1 − 0.76·O)   ← Lever pace → road-equivalent
