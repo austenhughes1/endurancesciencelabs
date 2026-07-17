@@ -2,7 +2,7 @@
 // shared/run-load-model.js
 //
 // Transparent mechanical-load model for the Run Dynamics tool.
-// Per-run Impact Load, in Impact Miles + acute/chronic load
+// Per-run Impact Load, in Impact Adjusted Distance (IAD miles) + acute/chronic load
 // tracking and ACWR, per the ESL Mechanical Load Management spec.
 //
 // Pure functions only — no DOM, no Firebase. Exposed as window.RunLoad
@@ -105,7 +105,7 @@ function calibrateBaseline(runs, cutoffSec, params) {
   };
 }
 
-// Per-run Impact Load in Impact Miles. Null when distance/pace
+// Per-run Impact Load in Impact Adjusted Distance (IAD miles). Null when distance/pace
 // are missing (can't model). VO and grade degrade gracefully to 1.0.
 function impactLoad(run, p) {
   p = p || DEFAULTS;
@@ -238,7 +238,7 @@ function methodologyHTML() {
   var K='color:var(--text);font-weight:700;font-family:ui-monospace,monospace';
   var A=function(href,txt){ return '<a href="'+href+'" target="_blank" rel="noopener" style="color:var(--cyan);text-decoration:none;border-bottom:1px solid rgba(0,229,200,.35)">'+txt+'</a>'; };
   return `<span style="${H}">a · the equation</span>`
-+ `<pre style="${EQ}">Impact Load (per run) — measured in Impact Miles:
++ `<pre style="${EQ}">Impact Load (per run) — measured in Impact Adjusted Distance (IAD miles):
 
   IL = D · (1−O) · max( (W ⁄ W₀) · (P₀ ⁄ Pᵉ)^1.5 · (DF₀ ⁄ DF)^1.0 · G , 1 )
 
@@ -262,7 +262,7 @@ Load over time:
   Acute = EWMA(N = 7 d)    Chronic = EWMA(N = 28 d)
   ACWR  = Acute ⁄ Chronic</pre>`
 + `<span style="${H}">b · in plain language</span>`
-+ `<pre style="${EQ}">Impact Miles = distance
++ `<pre style="${EQ}">Impact Adjusted Distance (IAD miles) = distance
    × (how much faster than your easy pace)^1.5
    × (how much springier than your easy form)
    × (body-weight scale, minus any Lever offload)
@@ -274,13 +274,13 @@ the Lever pace back to the road pace that effort would have been
 (e.g. a 6:30 mile at 15% support ≈ a 7:20 road mile), then score it
 normally. This works at any intensity, easy through threshold.
 
-One easy flat mile = 1 Impact Mile; a hard or hilly mile counts as
-more. A full-bodyweight mile never counts as LESS than one Impact
-Mile — running slower softens each step but adds steps per mile, so
+One easy flat mile = 1 IAD mile; a hard or hilly mile counts as
+more. A full-bodyweight mile never counts as LESS than one IAD
+mile — running slower softens each step but adds steps per mile, so
 the distance itself is the floor. Only Lever body-weight support
 (which removes ground reaction force) can score below distance.
 
-Acute   = 7-day rolling average of daily Impact Miles
+Acute   = 7-day rolling average of daily IAD miles
 Chronic = 28-day rolling average
 Acute : Chronic = recent load vs the base you have built</pre>`
 + `<span style="${H}">c · each variable — meaning, measurement, caveats</span>`

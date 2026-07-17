@@ -180,6 +180,22 @@ var CSS = `
 .rdx-do-opts .lever-opt b{color:var(--cyan)}
 .rdx-do-lever{margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
 
+.rdx-pat-intro{font-size:13px;color:var(--muted2);line-height:1.6;margin-bottom:12px}
+.rdx-pat-intro b{color:var(--text);font-family:var(--mono)}
+.rdx-pat-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:8px}
+.rdx-pat-main{display:flex;flex-direction:column;gap:2px;min-width:220px;flex:1}
+.rdx-pat-name{font-weight:700;font-size:13.5px}
+.rdx-pat-desc{font-size:11px;color:var(--muted2)}
+.rdx-pat-stats{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.rdx-pat-stat{font-size:11.5px;color:var(--muted2);font-family:var(--mono)}
+.rdx-pat-stat b{color:var(--text)}
+.rdx-pat-lift{font-family:var(--mono);font-size:10.5px;font-weight:700;border:1px solid;border-radius:20px;padding:3px 10px;white-space:nowrap}
+.rdx-pat-none{font-size:11px;color:var(--muted);font-family:var(--mono);margin:6px 2px 0;line-height:1.6}
+.rdx-pat-sub{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono);margin:18px 0 10px}
+.rdx-pat-flag{font-size:12px;padding:4px 0;color:var(--muted2);line-height:1.45}
+.rdx-pat-flag b{display:block;color:var(--text);font-size:12px}
+.rdx-pat-flagval{font-size:11.5px;color:var(--muted2);line-height:1.5}
+.rdx-pat-dropintro{font-size:12px;color:var(--muted2);margin-bottom:10px;line-height:1.6}
 .rdx-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
 .rdx-tile{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
 .rdx-tile-lbl{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono)}
@@ -248,8 +264,8 @@ var METRICS = [
   { key:'hr',     label:'Avg HR',              unit:'bpm', dec:0, better:'lower', needs:null,
     desc:'average heart rate',
     calc:function(r){ return r.avgHr; } },
-  { key:'impact', label:'Impact Load',         unit:'impact mi',  dec:1, better:null, needs:null,
-    desc:'modeled mechanical load in Impact Miles (distance × pace × duty-factor impact + grade)',
+  { key:'impact', label:'Impact Load',         unit:'IAD mi',  dec:1, better:null, needs:null,
+    desc:'modeled mechanical load in Impact Adjusted Distance (distance × pace × duty-factor impact + grade)',
     calc:function(r){ return window.RunLoad ? RunLoad.impactLoad(r, LOAD_PARAMS) : null; } },
 ];
 var RUN_WINDOWS = [
@@ -845,12 +861,12 @@ function renderHero(){
       leverNote='Lever optional — a <span class="lever">Lever session</span> at '+pct+'% support is a nice way to bank extra easy volume with almost no impact cost.';
     }
     var lo=typical*loMult, hi=typical*hiMult;
-    // Translate the top-end budget (hi, in Impact Miles) into concrete run options:
+    // Translate the top-end budget (hi, in IAD miles) into concrete run options:
     //   flat easy outside ≈ 1 impact mi/mi · rolling/hilly inflates ~25% · Lever offloads, so more
     //   actual miles fit under the same impact budget (lever mi = budget ÷ %BW-on-legs).
     var flat=hi, hilly=hi/1.25, lever=hi/(pct/100);
     doHtml='<div class="rdx-do-line">'+intensity+'</div>'+
-      '<div class="rdx-do-vol">Aim for <b>'+fmtMi(lo)+'–'+fmtMi(hi)+' impact miles</b> today. At the top end, that’s about:</div>'+
+      '<div class="rdx-do-vol">Aim for <b>'+fmtMi(lo)+'–'+fmtMi(hi)+' impact-adjusted miles</b> today. At the top end, that’s about:</div>'+
       '<ul class="rdx-do-opts">'+
         '<li><b>'+fmtMi(flat)+' mi</b> flat easy outside</li>'+
         '<li><b>'+fmtMi(hilly)+' mi</b> hilly outside</li>'+
@@ -882,7 +898,7 @@ function renderHero(){
       statTile('Last day', d1, col1, r1!=null?r1.toFixed(1)+'× base':'')+
       statTile('3-day avg', d3, col3, r3!=null?r3.toFixed(1)+'× base':'')+
       statTile('7-day avg', d7, col7, r7!=null?r7.toFixed(1)+'× base':'')+
-      statTile('28-day base', d28, 'var(--muted2)', 'impact mi/day')+
+      statTile('28-day base', d28, 'var(--muted2)', 'IAD mi/day')+
       rampTile+
       baseTile+
     '</div>'+
@@ -902,7 +918,7 @@ function renderDemoBar(){
 }
 
 /* ---------- unified chart: load (default) or metric trend ---------- */
-var LOAD_HINT='Load is in <b>Impact Miles</b> — distance weighted by pace and by per-step impact (duty factor = cadence × ground-contact time vs your baseline). One easy flat mile = 1 Impact Mile; a hard or hilly mile counts as more. <b>Acute (7d)</b> and <b>chronic (28d)</b> are rolling daily averages in impact mi/day. This is a <b>load measure, not an injury prediction</b> — auto-calibrated from your easy runs; 0.8–1.3 is the commonly cited safe band.';
+var LOAD_HINT='Load is in <b>Impact Adjusted Distance (IAD miles)</b> — distance weighted by pace and by per-step impact (duty factor = cadence × ground-contact time vs your baseline). One easy flat mile = 1 IAD mile; a hard or hilly mile counts as more. <b>Acute (7d)</b> and <b>chronic (28d)</b> are rolling daily averages in IAD mi/day. This is a <b>load measure, not an injury prediction</b> — auto-calibrated from your easy runs; 0.8–1.3 is the commonly cited safe band.';
 function renderChart(){
   var sel=$('chartView'); if(!sel) return;
   var v=sel.value, isLoad=(v==='load');
@@ -1031,6 +1047,102 @@ function wireChartTip(chart){
   chart.onmouseleave=function(){ tip.classList.remove('on'); };
 }
 
+/* ---------- injury pattern report ---------- */
+// Renders InjuryPatterns.analyze() (shared/injury-patterns.js): every logged
+// injury's lead-up window scored against the pattern registry, each pattern's
+// base rate from control windows across the rest of the history, and big
+// UNexplained volume drops (not near a race / logged injury) offered as
+// possible unlogged setbacks with a one-click "log as injury".
+function renderPatterns(){
+  var box=$('patternsBox'); if(!box) return;
+  if(!window.InjuryPatterns || !LOAD_PARAMS){ box.innerHTML=''; return; }
+  var res=InjuryPatterns.analyze(typeRuns(), events(), LOAD_PARAMS);
+  var nInj=events().filter(function(e){return e.type==='injury';}).length;
+  if(!res.ok){
+    box.innerHTML='<div class="rdx-chart-empty">'+(res.reason==='history'
+      ? 'Not enough continuous run history to analyze injury patterns yet — about 10 weeks of data unlocks this report.'
+      : 'Import run history to unlock the injury pattern report.')+'</div>';
+    return;
+  }
+  var drops=res.drops.filter(function(d){return !d.explained;});
+  if(!res.meta.nEval && !drops.length){
+    box.innerHTML='<div class="rdx-chart-empty">'+(nInj
+      ? 'The logged injuries fall outside the stored run history, so there is no training window to analyze — import the runs from the weeks before each injury.'
+      : 'No injuries logged yet. Add past injuries under ⚙ Settings → Performance &amp; injury history, and this report analyzes the training that led up to each one.')+'</div>';
+    return;
+  }
+  var html='';
+  if(res.meta.nEval){
+    html+='<div class="rdx-pat-intro">Compared the '+res.meta.acuteWinDays+' days (and trailing weeks) leading into '+
+      '<b>'+res.meta.nEval+'</b> logged injur'+(res.meta.nEval>1?'ies':'y')+' against <b>'+res.meta.nControls+
+      '</b> control windows sampled from the rest of the stored history. A pattern matters when it fired before injuries far more often than its normal-week base rate.</div>';
+    var hit=res.patterns.filter(function(p){return p.injHits>0;});
+    var missed=res.patterns.filter(function(p){return !p.injHits;}).map(function(p){return p.name;});
+    if(hit.length){
+      html+=hit.map(function(p){
+        var liftTxt=p.lift==null?'—':'×'+(p.lift>=10?Math.round(p.lift):p.lift.toFixed(1));
+        var col=(p.lift!=null&&p.lift>=2)?'var(--bad)':(p.lift!=null&&p.lift>=1.2)?'var(--gold)':'var(--muted2)';
+        return '<div class="rdx-pat-row">'+
+          '<div class="rdx-pat-main"><span class="rdx-pat-name">'+p.name+'</span><span class="rdx-pat-desc">'+p.desc+'</span></div>'+
+          '<div class="rdx-pat-stats">'+
+            '<span class="rdx-pat-stat">before <b>'+p.injHits+' of '+p.injEval+'</b> injuries</span>'+
+            '<span class="rdx-pat-stat">'+(p.ctrlRate==null?'—':Math.round(p.ctrlRate*100)+'% of normal weeks')+'</span>'+
+            '<span class="rdx-pat-lift" style="color:'+col+';border-color:'+col+'">'+liftTxt+' vs normal'+(p.lowConf?' · few controls':'')+'</span>'+
+          '</div></div>';
+      }).join('');
+    } else {
+      html+='<div class="rdx-chart-empty">None of the current pattern set fired before the logged injuries — the lead-ups looked like typical training weeks. As the pattern registry grows this may change.</div>';
+    }
+    if(missed.length) html+='<div class="rdx-pat-none">Didn’t fire before any injury: '+missed.join(' · ')+'</div>';
+    var co=res.combos.filter(function(c){return c.injHits>0;});
+    if(co.length){
+      html+='<div class="rdx-pat-sub">Combinations</div>'+co.slice(0,4).map(function(c){
+        var liftTxt=c.lift==null?'—':'×'+(c.lift>=10?Math.round(c.lift):c.lift.toFixed(1));
+        return '<div class="rdx-pat-row"><div class="rdx-pat-main"><span class="rdx-pat-name">'+c.names.join(' + ')+'</span><span class="rdx-pat-desc">both fired in the same lead-up</span></div>'+
+          '<div class="rdx-pat-stats"><span class="rdx-pat-stat">before <b>'+c.injHits+' of '+c.injEval+'</b> injuries</span>'+
+          '<span class="rdx-pat-stat">'+(c.ctrlRate==null?'—':Math.round(c.ctrlRate*100)+'% of normal weeks')+'</span>'+
+          '<span class="rdx-pat-lift" style="color:var(--bad);border-color:var(--bad)">'+liftTxt+' vs normal</span></div></div>';
+      }).join('');
+    }
+    html+='<div class="rdx-pat-sub">Each injury, up close</div><div class="rdx-cards">'+res.injuries.map(function(c){
+      var d=ymd(new Date(c.event.ts));
+      var inner;
+      if(!c.ok) inner='<div class="rdx-pat-flagval">outside the stored run history — no training window to analyze</div>';
+      else{
+        var fired=c.flags.filter(function(f){return f.fired;});
+        inner=fired.length
+          ? fired.map(function(f){return '<div class="rdx-pat-flag"><b>'+f.name+'</b><span>'+f.value+'</span></div>';}).join('')
+          : '<div class="rdx-pat-flagval">no flagged pattern — the lead-up looked like typical training</div>';
+      }
+      return '<div class="rdx-card"><div class="rdx-win" style="color:var(--bad)">⚠ '+d+(c.event.note?' · '+esc(c.event.note):'')+'</div>'+inner+'</div>';
+    }).join('')+'</div>';
+  }
+  if(drops.length){
+    html+='<div class="rdx-pat-sub">Unexplained training drops · possible unlogged setbacks</div>'+
+      '<div class="rdx-pat-dropintro">Sharp volume drops with no race or logged injury nearby — a forced reduction is often an unlogged setback. Logging one adds its lead-up to the analysis above.</div>'+
+      '<div class="rdx-cards">'+drops.map(function(d){
+        var fired=(d.flags||[]).filter(function(f){return f.fired;});
+        return '<div class="rdx-card">'+
+          '<div class="rdx-win" style="color:var(--warn)">▼ '+ymd(new Date(d.t0))+' → '+(d.ongoing?'now':ymd(new Date(d.t1)))+'</div>'+
+          '<div class="rdx-row">Volume drop <b>−'+Math.round(d.pct*100)+'%</b></div>'+
+          '<div class="rdx-row">Duration <b>'+d.weeks+(d.capped?'+':'')+' wk'+(d.weeks>1?'s':'')+(d.ongoing?' · ongoing':'')+'</b></div>'+
+          (fired.length?'<div class="rdx-pat-flagval" style="margin-top:6px">in its lead-up: '+fired.map(function(f){return f.name;}).join(' · ')+'</div>':'')+
+          '<button class="rdx-btn rdx-btn-sm rdx-drop-log" data-ts="'+d.t0+'" style="margin-top:10px">+ log as injury</button>'+
+        '</div>';
+      }).join('')+'</div>';
+  }
+  html+='<p class="rdx-hint">Retrospective and correlational — these are load patterns that showed up before logged injuries, not causes and not an injury prediction. With a handful of injuries the sample is small; every added injury, logged setback and month of history sharpens the report. Detectors and thresholds are transparent, tunable heuristics in <code>shared/injury-patterns.js</code>.</p>';
+  box.innerHTML=html;
+  Array.prototype.forEach.call(box.querySelectorAll('.rdx-drop-log'),function(b){
+    b.onclick=function(){
+      var ts=+this.getAttribute('data-ts');
+      var evs=events().slice(); evs.push({ id:Date.now(), type:'injury', ts:ts, note:'Setback — unexplained training drop' });
+      saveProfile({ runEvents:evs });
+      renderEventsList(); refresh();
+    };
+  });
+}
+
 /* ---------- volume + form ---------- */
 function renderAll(){
   var cards=$('cards'); if(!cards) return;
@@ -1113,7 +1225,7 @@ function buildTypeChips(){
 }
 
 /* ---------- orchestration ---------- */
-function refresh(){ if(RAW.length){ annotateLever(); LOAD_PARAMS=computeLoadParams(); renderHero(); renderChart(); renderTiles(); renderForm(); renderAll(); } }
+function refresh(){ if(RAW.length){ annotateLever(); LOAD_PARAMS=computeLoadParams(); renderHero(); renderChart(); renderPatterns(); renderTiles(); renderForm(); renderAll(); } }
 function setRangeChip(active){ Array.prototype.forEach.call($all('#rdx-rangeChips .rdx-chip'),function(c){ c.classList.toggle('on', c.getAttribute('data-range')===active); }); }
 function applyRange(r){
   if(!RAW.length) return;
@@ -1126,7 +1238,7 @@ function showSections(hasData){
   var gb=$('gearBtn'); if(gb){ gb.style.display=hasData?'inline-flex':'none'; gb.classList.remove('on'); }
   var panel=$('settingsPanel'); if(panel) panel.style.display='none';   // collapsed by default
   var emptyEl=$('sec-empty'); if(emptyEl) emptyEl.classList.toggle('show',!hasData);
-  ['sec-hero','sec-chart','sec-form','sec-summary'].forEach(function(id){
+  ['sec-hero','sec-chart','sec-patterns','sec-form','sec-summary'].forEach(function(id){
     var e=$(id); if(e) e.classList.toggle('show',hasData);
   });
 }
@@ -1320,6 +1432,11 @@ function shellHTML(opts){
     '<div class="rdx-chartwrap"><div class="rdx-legend" id="chartLegend"></div><div id="chartBox"></div></div>'+
     '<p class="rdx-hint" id="chartHint"></p>'+
     '<details class="rdx-help" style="margin-top:12px"><summary>How Impact Load is calculated — equation, variables &amp; sources</summary><div class="rdx-help-body" id="loadMethod"></div></details>'+
+  '</div>'+
+
+  '<div class="rdx-section" id="sec-patterns">'+
+    '<h2>Injury patterns <span class="rdx-note">· the training that preceded each logged injury</span></h2>'+
+    '<div id="patternsBox"></div>'+
   '</div>'+
 
   '<div class="rdx-section" id="sec-form">'+
