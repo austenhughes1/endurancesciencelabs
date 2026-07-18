@@ -86,6 +86,8 @@ var CSS = `
 .rdx-chip.on{background:rgba(0,229,200,.1);border-color:rgba(0,229,200,.35);color:var(--cyan)}
 .rdx-events{display:flex;flex-wrap:wrap;gap:8px}
 .rdx-ev-empty{font-size:11px;color:var(--muted2);font-family:var(--mono)}
+.rdx-ev-guide{font-size:11.5px;color:var(--muted2);line-height:1.55}
+.rdx-ev-guide b{color:var(--text)}
 .rdx-ev-chip{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;padding:5px 9px;border-radius:20px;border:1px solid var(--border2);background:var(--panel2)}
 .rdx-ev-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .rdx-ev-chip b{font-size:10px;text-transform:uppercase;letter-spacing:.4px;font-family:var(--mono)}
@@ -190,7 +192,6 @@ var CSS = `
 .rdx-pat-stat{font-size:11.5px;color:var(--muted2);font-family:var(--mono)}
 .rdx-pat-stat b{color:var(--text)}
 .rdx-pat-lift{font-family:var(--mono);font-size:10.5px;font-weight:700;border:1px solid;border-radius:20px;padding:3px 10px;white-space:nowrap}
-.rdx-pat-none{font-size:11px;color:var(--muted);font-family:var(--mono);margin:6px 2px 0;line-height:1.6}
 .rdx-pat-sub{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono);margin:18px 0 10px}
 .rdx-pat-flag{font-size:12px;padding:4px 0;color:var(--muted2);line-height:1.45}
 .rdx-pat-flag b{display:block;color:var(--text);font-size:12px}
@@ -1068,7 +1069,7 @@ function renderPatterns(){
   if(!res.meta.nEval && !drops.length){
     box.innerHTML='<div class="rdx-chart-empty">'+(nInj
       ? 'The logged injuries fall outside the stored run history, so there is no training window to analyze — import the runs from the weeks before each injury.'
-      : 'No injuries logged yet. Add past injuries under ⚙ Settings → Performance &amp; injury history, and this report analyzes the training that led up to each one.')+'</div>';
+      : 'No injuries logged yet. Add past injuries under ⚙ Settings → Performance &amp; injury history, and this report analyzes the training that led up to each one. Log <b>overuse injuries</b> (and, optionally, significant illnesses that stopped training) — leave out acute injuries that didn’t come from running, so they don’t skew the analysis.')+'</div>';
     return;
   }
   var html='';
@@ -1077,7 +1078,6 @@ function renderPatterns(){
       '<b>'+res.meta.nEval+'</b> logged injur'+(res.meta.nEval>1?'ies':'y')+' against <b>'+res.meta.nControls+
       '</b> control windows sampled from the rest of the stored history. A pattern matters when it fired before injuries far more often than its normal-week base rate.</div>';
     var hit=res.patterns.filter(function(p){return p.injHits>0;});
-    var missed=res.patterns.filter(function(p){return !p.injHits;}).map(function(p){return p.name;});
     if(hit.length){
       html+=hit.map(function(p){
         var liftTxt=p.lift==null?'—':'×'+(p.lift>=10?Math.round(p.lift):p.lift.toFixed(1));
@@ -1093,7 +1093,6 @@ function renderPatterns(){
     } else {
       html+='<div class="rdx-chart-empty">None of the current pattern set fired before the logged injuries — the lead-ups looked like typical training weeks. As the pattern registry grows this may change.</div>';
     }
-    if(missed.length) html+='<div class="rdx-pat-none">Didn’t fire before any injury: '+missed.join(' · ')+'</div>';
     var co=res.combos.filter(function(c){return c.injHits>0;});
     if(co.length){
       html+='<div class="rdx-pat-sub">Combinations</div>'+co.slice(0,4).map(function(c){
@@ -1131,7 +1130,7 @@ function renderPatterns(){
         '</div>';
       }).join('')+'</div>';
   }
-  html+='<p class="rdx-hint">Retrospective and correlational — these are load patterns that showed up before logged injuries, not causes and not an injury prediction. With a handful of injuries the sample is small; every added injury, logged setback and month of history sharpens the report. Detectors and thresholds are transparent, tunable heuristics in <code>shared/injury-patterns.js</code>.</p>';
+  html+='<p class="rdx-hint">Retrospective and correlational — these are load patterns that showed up before logged injuries, not causes and not an injury prediction. With a handful of injuries the sample is small; every added injury, logged setback and month of history sharpens the report. Log only <b>overuse injuries</b> (plus, optionally, significant illnesses) — acute injuries that didn’t come from running would skew these base rates. Detectors and thresholds are transparent, tunable heuristics in <code>shared/injury-patterns.js</code>.</p>';
   box.innerHTML=html;
   Array.prototype.forEach.call(box.querySelectorAll('.rdx-drop-log'),function(b){
     b.onclick=function(){
@@ -1400,6 +1399,7 @@ function shellHTML(opts){
           '<div class="rdx-ctl rdx-ctl-grow"><label>Note</label><input type="text" id="evNote" placeholder="e.g. Boston Marathon / left Achilles" style="width:100%"></div>'+
           '<button class="rdx-btn rdx-btn-sm" id="evAdd">+ add</button>'+
         '</div>'+
+        '<div class="rdx-ev-guide">Log <b>overuse injuries</b> — the kind that build up from training — and, optionally, significant illnesses that stopped training. Don’t log acute injuries that didn’t come from running (a basketball ankle, a bike crash): their lead-up says nothing about training load and skews the pattern analysis.</div>'+
         '<div class="rdx-events" id="eventsList" style="display:none"></div>'+
       '</div>'+
     '</div>'+
