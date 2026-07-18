@@ -1526,7 +1526,11 @@ function wire(){
     btn.disabled=true;
     if(st) st.innerHTML='<span class="rdx-spin"></span>Backfilling from Strava — fetching the full activity history, this can take a minute…';
     var payload={backfill:true}; if(ROLE==='coach') payload.athleteUid=UID;
-    firebase.functions().httpsCallable('syncStravaActivities')(payload).then(function(res){
+    // The callable SDK's default client timeout is 70s; a full-history
+    // backfill (up to 40 sequential Strava page fetches) can outlast it,
+    // surfacing as deadline-exceeded while the server keeps working.
+    // Match the function's own timeoutSeconds: 300.
+    firebase.functions().httpsCallable('syncStravaActivities',{timeout:300000})(payload).then(function(res){
       var d=(res&&res.data)||{};
       return loadFromFirestore().then(function(){
         renderLoaded();
@@ -1557,7 +1561,7 @@ function maybeSyncStrava(){
     if(d.toDateString()===new Date().toDateString()) return;
   }
   var container=ROOT;
-  firebase.functions().httpsCallable('syncStravaActivities')({}).then(function(res){
+  firebase.functions().httpsCallable('syncStravaActivities',{timeout:300000})({}).then(function(res){
     var n=res&&res.data&&res.data.runDocs;
     if(!n || ROOT!==container) return;
     return loadFromFirestore().then(function(){ if(ROOT===container) renderLoaded(); });
