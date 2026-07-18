@@ -1360,7 +1360,7 @@ function shellHTML(opts){
       '<li>Drop that <code>.zip</code> below (a single <code>.fit</code> works too). We unpack and read each <code>.fit</code> right in your browser.</li>'+
     '</ol>'+
     '<div class="rdx-help-note">Running-form metrics (ground contact, vertical oscillation, cadence, stride) require a compatible device or strap — runs recorded without one still import for load and pace, they just skip those fields. Garmin\'s CSV export is also capped at ~1,000 rows and only includes what is loaded on screen, so export long Garmin histories in chunks by date range — each chunk merges in automatically.</div>'+
-    '<div class="rdx-help-note">Strava connected (via the coaching dashboard)? The last 2 years of Strava runs sync in automatically, once a day, for days with no watch import. Strava can\'t provide ground contact, oscillation, or descent, so uploading a watch export for those days replaces the Strava copy with the full-metric version.</div>'+
+    '<div class="rdx-help-note">Strava connected (via the coaching dashboard)? The last 2 years of Strava runs sync in automatically, once a day, for days with no watch import — and the <b>Backfill Strava history</b> button pulls your entire Strava history at once for the same gap-fill. Strava can\'t provide ground contact, oscillation, or descent, so uploading a watch export for those days replaces the Strava copy with the full-metric version.</div>'+
     '</div></details>'+
 
   '<div class="rdx-importbar">'+
@@ -1368,6 +1368,7 @@ function shellHTML(opts){
       '<span>Drag &amp; drop, or click to choose — backfills '+who+' run history.</span>'+
       '<input type="file" id="file" accept=".csv,text/csv,.zip,.fit,application/zip" hidden></div>'+
     '<div class="rdx-status" id="importStatus"></div>'+
+    '<button class="rdx-btn rdx-btn-sm" id="stravaBackfill" style="display:none;align-self:center" title="Fetch '+who+' entire Strava history — one run per day is added for every day with no imported activity">⟲ Backfill Strava history</button>'+
   '</div>'+
 
   '<div class="rdx-settings" id="settingsPanel" style="display:none">'+
@@ -1514,6 +1515,29 @@ function wire(){
       });
     }).then(function(){ btn.disabled=false; });
   };
+  // Backfill = the daily Strava gap-fill without the 2-year cutoff: the
+  // server pages the athlete's ENTIRE history through Strava's list endpoint
+  // (200 activities per request — no per-activity calls) and adds a run doc
+  // for every day with no imported activity. Re-runs are cheap: already
+  // stored runs are skipped server-side.
+  $('stravaBackfill').onclick=function(){
+    var btn=this, st=$('importStatus');
+    if(DEMO || !(window.firebase && firebase.functions)) return;
+    btn.disabled=true;
+    if(st) st.innerHTML='<span class="rdx-spin"></span>Backfilling from Strava — fetching the full activity history, this can take a minute…';
+    var payload={backfill:true}; if(ROLE==='coach') payload.athleteUid=UID;
+    firebase.functions().httpsCallable('syncStravaActivities')(payload).then(function(res){
+      var d=(res&&res.data)||{};
+      return loadFromFirestore().then(function(){
+        renderLoaded();
+        if(st) st.innerHTML='<span class="ok">✓ '+(d.runDocs||0)+' Strava runs added</span> · '+(d.runSkipped||0)+' already stored or covered by watch imports'+
+          (d.rateLimited?' · <span class="err">Strava’s rate limit paused the fetch — run backfill again in ~15 minutes to pull the rest</span>':'');
+      });
+    }).catch(function(e){
+      console.error(e);
+      if(st) st.innerHTML='<span class="err">Backfill failed: '+esc(e&&e.message||e)+'</span>';
+    }).then(function(){ btn.disabled=false; });
+  };
 }
 
 /* Strava auto-sync: if this athlete has Strava connected (coaching dashboard
@@ -1560,6 +1584,7 @@ function mount(container, opts){
     if(st) st.innerHTML = RAW.length
       ? '<span class="ok">✓ '+RAW.length+' runs loaded</span> · import a newer export to add more'
       : 'No runs stored yet — import a Garmin or Coros export to begin.';
+    var bf=$('stravaBackfill'); if(bf && STRAVA_SYNC.connected) bf.style.display='';
     maybeSyncStrava();
   }).catch(function(e){
     console.error(e);
