@@ -7,6 +7,8 @@
 //   - assign an athlete to a coach (users/{uid}.coachUid)
 //   - switch a user's role between athlete and coach (users/{uid}.role)
 //   - toggle feature access (users/{uid}.features.{feature})
+//   - disconnect a user's Strava (deauthorizeStrava with athleteUid —
+//     the function only honors athleteUid when the caller is the admin)
 //
 // Access is gated two ways:
 //   1. The shared sign-in gate is mounted with requireAdmin:true, so a
@@ -22,12 +24,17 @@ var db = esLabs.db;
 var FEATURE_LIST   = ['coaching', 'lifting', 'esFormLab', 'esMetabolicLab'];
 var FEATURE_LABELS = { coaching: 'Coaching', lifting: 'Lifting', esFormLab: 'esFormLab', esMetabolicLab: 'esMetabolicLab' };
 
+// Official Strava mountain logo (per Strava brand guidelines — use as-is,
+// never recreate). Same asset the coaching dashboard uses.
+var STRAVA_LOGO_SVG = '<svg class="strava-logo" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>';
+
 // Sortable columns: key -> how to extract a comparable value from a user.
 var COLUMNS = [
   { key: 'name',   label: 'User',     sortable: true },
   { key: 'role',   label: 'Role',     sortable: true },
   { key: 'coach',  label: 'Coach',    sortable: true },
   { key: 'feats',  label: 'Features', sortable: false },
+  { key: 'strava', label: 'Strava',   sortable: true },
   { key: 'joined', label: 'Joined',   sortable: true }
 ];
 
@@ -71,7 +78,7 @@ esLabs.onAuthChange(function (user) {
 // deployed yet.
 function loadUsers() {
   var body = document.getElementById('mu-body');
-  body.innerHTML = '<tr><td colspan="5"><div class="mu-loading">Loading users…</div></td></tr>';
+  body.innerHTML = '<tr><td colspan="6"><div class="mu-loading">Loading users…</div></td></tr>';
 
   var fns = esLabs.firebase.app().functions('us-central1');
   fns.httpsCallable('listAllUsers')().then(function (res) {
@@ -83,7 +90,8 @@ function loadUsers() {
           email: u.email, displayName: u.displayName, photoURL: u.photoURL,
           role: u.role, coachUid: u.coachUid, features: u.features || {},
           createdAt: u.createdAt, lastSignInAt: u.lastSignInAt,
-          hasDoc: u.hasDoc, hasAuth: u.hasAuth, disabled: u.disabled
+          hasDoc: u.hasDoc, hasAuth: u.hasAuth, disabled: u.disabled,
+          stravaConnected: u.stravaConnected === true
         }
       };
     });
@@ -101,7 +109,7 @@ function loadUsers() {
       toast('Showing Firestore profiles only — deploy listAllUsers to include sign-ups without a profile.', 'error');
     }).catch(function (e2) {
       console.error('Manage Users load failed:', e2);
-      body.innerHTML = '<tr><td colspan="5"><div class="mu-empty" style="color:var(--bad)">Failed to load users. ' + esc(e2.message || '') + '</div></td></tr>';
+      body.innerHTML = '<tr><td colspan="6"><div class="mu-empty" style="color:var(--bad)">Failed to load users. ' + esc(e2.message || '') + '</div></td></tr>';
     });
   });
 }
@@ -189,6 +197,7 @@ function sortValue(u) {
   switch (sort.key) {
     case 'role':   return d.role === 'coach' ? 'coach' : 'athlete';
     case 'coach':  return (coachMap[d.coachUid] || '￿').toLowerCase(); // unassigned sorts last
+    case 'strava': return d.stravaConnected ? 0 : 1; // connected sorts first (asc)
     case 'joined': return createdSeconds(d.createdAt) || 0;
     case 'name':
     default:       return (d.displayName || d.email || '').toLowerCase();
@@ -248,7 +257,7 @@ function renderBody() {
   var users = visibleUsers();
 
   if (users.length === 0) {
-    body.innerHTML = '<tr><td colspan="5"><div class="mu-empty">'
+    body.innerHTML = '<tr><td colspan="6"><div class="mu-empty">'
       + (allUsers.length === 0 ? 'No users found.' : 'No users match these filters.')
       + '</div></td></tr>';
     return;
@@ -304,6 +313,19 @@ function renderBody() {
         + 'onclick="muToggleFeature(this)"><span class="mu-feat-dot"></span>' + FEATURE_LABELS[f] + '</div>';
     }).join('') + '</div>';
 
+    // Strava cell — connection badge + admin unlink (calls deauthorizeStrava
+    // on the athlete's behalf: revokes the token and deletes synced data)
+    var stravaCell;
+    if (d.stravaConnected) {
+      stravaCell = '<div class="mu-strava">'
+        + '<span class="mu-strava-badge">' + STRAVA_LOGO_SVG + ' CONNECTED</span>'
+        + '<button class="mu-strava-unlink" data-uid="' + esc(uid) + '" '
+        + 'onclick="muUnlinkStrava(this)" title="Revoke this user\'s Strava access and delete synced data">Unlink</button>'
+        + '</div>';
+    } else {
+      stravaCell = '<span class="mu-coach-na">—</span>';
+    }
+
     // Joined cell
     var joined = createdSeconds(d.createdAt);
     var joinedCell = '<span class="mu-joined">' + (joined ? fmtDate(joined) : '—') + '</span>';
@@ -313,6 +335,7 @@ function renderBody() {
       + '<td>' + roleCell + '</td>'
       + '<td>' + coachCell + '</td>'
       + '<td>' + featsCell + '</td>'
+      + '<td>' + stravaCell + '</td>'
       + '<td>' + joinedCell + '</td>'
       + '</tr>';
   }).join('');
@@ -412,6 +435,40 @@ function muToggleRole(el) {
   });
 }
 window.muToggleRole = muToggleRole;
+
+// Admin-only Strava disconnect. deauthorizeStrava revokes the token with
+// Strava, deletes stored tokens, and purges all synced activity data —
+// same cleanup the athlete's own Unlink button performs, but on their behalf.
+function muUnlinkStrava(el) {
+  var uid = el.dataset.uid;
+  var u = localUser(uid);
+  if (!u) return;
+  var name = d_name(u);
+  if (!confirm(
+    'Disconnect ' + name + '’s Strava and revoke access?\n\n'
+    + 'This will:\n'
+    + '  • Revoke this app’s access token with Strava\n'
+    + '  • Delete all activity data this app has synced from Strava\n\n'
+    + 'Their data on Strava itself is unaffected. They can reconnect at any time.'
+  )) return;
+
+  el.setAttribute('disabled', 'true');
+  el.textContent = 'Unlinking…';
+  var fns = esLabs.firebase.app().functions('us-central1');
+  fns.httpsCallable('deauthorizeStrava')({ athleteUid: uid }).then(function (res) {
+    var warn = res && res.data && res.data.revokeWarning;
+    if (warn) console.warn('Strava revoke warning:', warn);
+    u.data.stravaConnected = false;
+    render();
+    toast(name + '’s Strava disconnected' + (warn ? ' (token revoke reported a warning — data still purged)' : ''), 'success');
+  }).catch(function (e) {
+    console.error('Strava unlink failed:', e);
+    el.removeAttribute('disabled');
+    el.textContent = 'Unlink';
+    toast('Failed to unlink Strava: ' + (e.message || e), 'error');
+  });
+}
+window.muUnlinkStrava = muUnlinkStrava;
 
 // ── Helpers ──────────────────────────────────────────────────────
 function d_name(u) { return u.data.displayName || u.data.email || 'User'; }

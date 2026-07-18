@@ -43,7 +43,7 @@
   /* ── Table ──────────────────────────────────────────── */
   .mu-table-wrap { background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden }
   .mu-table-scroll { overflow-x:auto }
-  table.mu-table { width:100%;border-collapse:collapse;min-width:860px }
+  table.mu-table { width:100%;border-collapse:collapse;min-width:980px }
   .mu-table thead th { position:sticky;top:0;background:var(--panel2);text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono);padding:12px 16px;border-bottom:1px solid var(--border2);white-space:nowrap }
   .mu-table thead th.sortable { cursor:pointer;user-select:none }
   .mu-table thead th.sortable:hover { color:var(--text) }
@@ -86,6 +86,14 @@
   .mu-feat-dot { width:7px;height:7px;border-radius:50%;transition:background .15s }
   .mu-feat.on .mu-feat-dot { background:var(--cyan) }
   .mu-feat.off .mu-feat-dot { background:var(--muted) }
+
+  /* Strava connection badge + admin unlink */
+  .mu-strava { display:flex;align-items:center;gap:8px;white-space:nowrap }
+  .mu-strava-badge { display:inline-flex;align-items:center;gap:5px;font-size:9.5px;font-weight:800;letter-spacing:.5px;color:#FC5200;font-family:var(--mono);padding:4px 9px;background:rgba(252,82,0,.08);border:1px solid rgba(252,82,0,.22);border-radius:6px }
+  .mu-strava-badge .strava-logo { display:inline-block;width:10px;height:10px;fill:currentColor;flex-shrink:0 }
+  .mu-strava-unlink { padding:5px 10px;background:transparent;border:1px solid var(--border2);border-radius:7px;color:var(--muted2);font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;transition:all .15s;white-space:nowrap }
+  .mu-strava-unlink:hover { border-color:var(--bad);color:var(--bad) }
+  .mu-strava-unlink[disabled] { opacity:.5;cursor:wait }
 
   .mu-joined { font-size:11px;color:var(--muted2);font-family:var(--mono);white-space:nowrap }
 
@@ -153,7 +161,7 @@
             <tr id="mu-head-row"></tr>
           </thead>
           <tbody id="mu-body">
-            <tr><td colspan="5"><div class="mu-loading">Loading users…</div></td></tr>
+            <tr><td colspan="6"><div class="mu-loading">Loading users…</div></td></tr>
           </tbody>
         </table>
       </div>
