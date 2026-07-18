@@ -2812,7 +2812,9 @@ async function maybeAutoSyncStrava(role) {
   if (isFromToday(data.stravaLastSyncedAt)) return;
 
   try {
-    const syncFn = firebase.functions().httpsCallable('syncStravaActivities');
+    // 300s client timeout to match the function's timeoutSeconds — the SDK
+    // default (70s) can fire deadline-exceeded while the sync is still running.
+    const syncFn = firebase.functions().httpsCallable('syncStravaActivities', { timeout: 300000 });
     const params = role === 'coach' ? { athleteUid: uid } : {};
     await syncFn(params);
 
@@ -2835,7 +2837,7 @@ async function maybeAutoSyncStrava(role) {
 }
 
 async function syncStravaFor(role) {
-  const syncFn = firebase.functions().httpsCallable('syncStravaActivities');
+  const syncFn = firebase.functions().httpsCallable('syncStravaActivities', { timeout: 300000 });
   const params = role === 'coach' && selectedAthleteUid ? { athleteUid: selectedAthleteUid } : {};
   try {
     const result = await syncFn(params);
