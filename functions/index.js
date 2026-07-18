@@ -156,7 +156,7 @@ function stravaRunDoc(act) {
 //  mirror (trainingPlans/{plan}/stravaActivities).
 //  Called by the client after connecting or via a sync button.
 // ═══════════════════════════════════════════════════════════
-exports.syncStravaActivities = onCall({ cors: true }, async (request) => {
+exports.syncStravaActivities = onCall({ cors: true, timeoutSeconds: 300 }, async (request) => {
   const callerUid = request.auth?.uid;
   if (!callerUid) {
     throw new HttpsError("unauthenticated", "Must be signed in.");
@@ -219,18 +219,32 @@ exports.syncStravaActivities = onCall({ cors: true }, async (request) => {
     });
   }
 
-  // Fetch summary activities for the full lookback window (2 years).
-  // 200/page is Strava's max; the page cap allows 3,000 activities.
+  // Fetch summary activities. The daily sync covers the 2-year lookback
+  // window; backfill mode (the "Backfill Strava history" button in Run
+  // Dynamics) drops the cutoff and pages through the athlete's entire
+  // history. Both use only the list endpoint at Strava's 200/page maximum —
+  // the cheapest way to cover a history (1 request per 200 activities, no
+  // per-activity detail calls).
+  const isBackfill = request.data?.backfill === true;
   const after = Math.floor(Date.now() / 1000) - STRAVA_LOOKBACK_DAYS * 24 * 60 * 60;
+  const maxPages = isBackfill ? 40 : 15; // 8,000 vs 3,000 activities
   let allActivities = [];
   let page = 1;
+  let rateLimited = false;
 
-  while (page <= 15) {
-    const url = `${STRAVA_ACTIVITIES_URL}?after=${after}&per_page=200&page=${page}`;
+  while (page <= maxPages) {
+    const url = `${STRAVA_ACTIVITIES_URL}?${isBackfill ? "" : `after=${after}&`}per_page=200&page=${page}`;
     const actRes = await fetch(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
+    if (actRes.status === 429) {
+      // App-level read limit (shared across all athletes, resets every
+      // 15 min) — keep what we already fetched and tell the client so the
+      // user can rerun the backfill after the window resets.
+      rateLimited = true;
+      break;
+    }
     if (!actRes.ok) {
       console.error("Strava activities fetch failed:", await actRes.text());
       break;
@@ -254,11 +268,14 @@ exports.syncStravaActivities = onCall({ cors: true }, async (request) => {
   const existingSnap = await runCol.select("ts", "source").get();
   const deviceTs = [];
   const deviceIds = new Set();
+  const stravaIds = new Set();
   existingSnap.forEach((d) => {
     if (d.get("source") !== "strava") {
       deviceIds.add(d.id);
       const t = d.get("ts");
       if (Number.isFinite(t)) deviceTs.push(t);
+    } else {
+      stravaIds.add(d.id);
     }
   });
   // Local-day buckets of the device runs, computed per UTC offset (device
@@ -282,7 +299,11 @@ exports.syncStravaActivities = onCall({ cors: true }, async (request) => {
       ? act.utc_offset * 1000
       : (Date.parse(act.start_date_local) - Date.parse(act.start_date)) || 0;
     const day = Math.floor((doc.ts + offsetMs) / 86400000);
-    if (deviceDaySet(offsetMs).has(day) || deviceIds.has(doc.id)) {
+    // Backfill also skips Strava docs already stored (same id ⇒ same run —
+    // no point re-writing thousands of unchanged docs). The daily sync keeps
+    // overwriting its 2-year window so Strava-side renames still propagate.
+    if (deviceDaySet(offsetMs).has(day) || deviceIds.has(doc.id) ||
+        (isBackfill && stravaIds.has(doc.id))) {
       runSkipped++;
       continue;
     }
@@ -292,6 +313,19 @@ exports.syncStravaActivities = onCall({ cors: true }, async (request) => {
     const batch = db.batch();
     runWrites.slice(i, i + 450).forEach((doc) => batch.set(runCol.doc(doc.id), doc));
     await batch.commit();
+  }
+
+  // Backfill stops here: the coach mirror + description fetches are the
+  // daily sync's job, and stravaLastSyncedAt stays untouched so today's
+  // normal auto-sync still runs.
+  if (isBackfill) {
+    return {
+      backfill: true,
+      rateLimited,
+      runDocs: runWrites.length,
+      runSkipped,
+      message: `Backfilled ${runWrites.length} runs (${runSkipped} already stored or covered by watch imports).`,
+    };
   }
 
   // ── Coach-view mirror (short window, training plan required) ──
