@@ -98,10 +98,10 @@ var CSS = `
 .rdx-ctl input[type=date]{background:var(--panel2);border:1px solid var(--border2);border-radius:8px;padding:8px 11px;color:var(--text);font-family:var(--mono);font-size:12.5px;color-scheme:dark}
 .rdx-ctl select,.rdx-ctl input[type=text]{background:var(--panel2);border:1px solid var(--border2);border-radius:8px;padding:8px 11px;color:var(--text);font-family:var(--mono);font-size:12.5px;cursor:pointer;outline:none}
 .rdx-ctl input[type=text]{cursor:text}
-.rdx-drop-form{margin-top:10px;padding-top:10px;border-top:1px solid var(--border2);display:flex;flex-direction:column;gap:6px}
-.rdx-drop-form select,.rdx-drop-form input{background:var(--panel2);border:1px solid var(--border2);border-radius:7px;padding:6px 8px;color:var(--text);font-family:var(--mono);font-size:11.5px;outline:none;min-width:0}
-.rdx-df-row{display:flex;flex-wrap:wrap;gap:6px}
-.rdx-df-row select,.rdx-df-row input{flex:1}
+.rdx-drop-form{margin-top:10px;padding-top:10px;border-top:1px solid var(--border2);display:flex;flex-direction:column;gap:8px}
+.rdx-df-field{display:flex;flex-direction:column;gap:4px}
+.rdx-df-field label{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono)}
+.rdx-drop-form select,.rdx-drop-form input{width:100%;box-sizing:border-box;background:var(--panel2);border:1px solid var(--border2);border-radius:7px;padding:7px 9px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none;min-width:0}
 .rdx-df-err{border-color:var(--bad)!important}
 .rdx-btn{padding:9px 16px;background:var(--cyan);color:#000;font-weight:700;font-size:12.5px;border:none;border-radius:8px;cursor:pointer;transition:opacity .15s}
 .rdx-btn:hover{opacity:.85}
@@ -1147,12 +1147,10 @@ function renderPatterns(){
           (fired.length?'<div class="rdx-pat-flagval" style="margin-top:6px">in its lead-up: '+fired.map(function(f){return f.name;}).join(' · ')+'</div>':'')+
           '<button class="rdx-btn rdx-btn-sm rdx-drop-log" style="margin-top:10px">+ log as event</button>'+
           '<div class="rdx-drop-form" style="display:none">'+
-            '<div class="rdx-df-row">'+
-              '<select class="rdx-df-type"><option value="injury">Injury</option><option value="race">Race</option><option value="timeoff">Planned Downtime</option></select>'+
-              '<input type="date" class="rdx-df-start" value="'+ymd(new Date(d.t0))+'" title="start date">'+
-              '<input type="date" class="rdx-df-end" value="'+(d.ongoing?'':ymd(new Date(d.t1)))+'" title="end date (optional)">'+
-            '</div>'+
-            '<input type="text" class="rdx-df-note" placeholder="note — e.g. calf strain / off-season break">'+
+            '<div class="rdx-df-field"><label>Type</label><select class="rdx-df-type"><option value="injury">Injury</option><option value="race">Race</option><option value="timeoff">Planned Downtime</option></select></div>'+
+            '<div class="rdx-df-field"><label>Start</label><input type="date" class="rdx-df-start" value="'+ymd(new Date(d.t0))+'"></div>'+
+            '<div class="rdx-df-field rdx-df-endf"><label>End (optional)</label><input type="date" class="rdx-df-end" value="'+(d.ongoing?'':ymd(new Date(d.t1)))+'"></div>'+
+            '<div class="rdx-df-field"><label>Note</label><input type="text" class="rdx-df-note" placeholder="e.g. calf strain / off-season break"></div>'+
             '<button class="rdx-btn rdx-btn-sm rdx-df-save">save</button>'+
           '</div>'+
         '</div>';
@@ -1168,8 +1166,8 @@ function renderPatterns(){
     };
   });
   Array.prototype.forEach.call(box.querySelectorAll('.rdx-drop-form'),function(form){
-    var type=form.querySelector('.rdx-df-type'), start=form.querySelector('.rdx-df-start'), end=form.querySelector('.rdx-df-end');
-    type.onchange=function(){ end.style.display=this.value==='race'?'none':''; if(this.value==='race') end.value=''; };
+    var type=form.querySelector('.rdx-df-type'), start=form.querySelector('.rdx-df-start'), end=form.querySelector('.rdx-df-end'), endF=form.querySelector('.rdx-df-endf');
+    type.onchange=function(){ endF.style.display=this.value==='race'?'none':''; if(this.value==='race') end.value=''; };
     form.querySelector('.rdx-df-save').onclick=function(){
       start.classList.remove('rdx-df-err'); end.classList.remove('rdx-df-err');
       var s=parseDate(start.value);
