@@ -318,7 +318,7 @@ function eventOverlaySVG(events, t0, t1, padL, innerW, padT, innerH) {
   if (!events || !events.length || !(t1 > t0)) return '';
   function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   var span = t1 - t0, top = padT, bot = padT + innerH, out = '';
-  var META = { injury: ['#f55050', '⚠ Injury'], race: ['#22c78a', '🏁 Race'], timeoff: ['#5b9cf5', '⏸ Planned Downtime'] };
+  var META = { injury: ['#f55050', '⚠ Injury'], race: ['#22c78a', '🏁 Race'], illness: ['#f59a4d', '🤒 Illness'], timeoff: ['#5b9cf5', '⏸ Planned Downtime'] };
   var xOf = function (ts) { return padL + ((ts - t0) / span) * innerW; };
   var day = function (ts) { return new Date(ts).toISOString().slice(0, 10); };
   events.forEach(function (e) {
