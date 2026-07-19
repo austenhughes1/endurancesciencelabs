@@ -21,11 +21,15 @@
 //      A pattern is "correlated" when it fires before injuries far
 //      more often than its base rate (the lift).
 //   4. Big unexplained volume drops — not near a race / hard effort
-//      (taper or recovery = planned), not after a logged injury, and
-//      not during logged planned downtime — are surfaced as possible
-//      unlogged setbacks, each with the same pattern analysis at its
-//      onset. Injuries and downtime may carry an endTs, making them
-//      spans rather than single dates.
+//      (taper or recovery = planned), not after a logged injury or
+//      illness, and not during logged planned downtime — are surfaced
+//      as possible unlogged setbacks, each with the same pattern
+//      analysis at its onset. Any non-race event may carry an endTs,
+//      making it a span rather than a single date. Illness behaves
+//      like an injury (explains drops, excluded from controls) but its
+//      case window is scored against systemic/overtraining patterns
+//      only (systemic:true in the registry) — mechanical tissue-stress
+//      patterns like a long-run jump don't cause a flu.
 //
 // Small-sample honesty: most athletes log 1–5 injuries. The report
 // always shows raw counts (2 of 2, not "100%"), the control base
@@ -76,7 +80,7 @@ var OPTS = {
                         //      without this a post-setback rebuild extends the drop forever and
                         //      swallows genuinely separate later drops
   raceExplainDays:10,   // a race/hard effort within ±10 d of the drop explains it
-  injExplainPre:  14,   // a logged injury up to 14 d before the drop explains it
+  injExplainPre:  14,   // a logged injury/illness up to 14 d before the drop explains it
   injExplainPost: 21,   // …or up to 21 d into it
   offExplainDays: 7,    // logged planned downtime within ±7 d of the drop explains it
   // control sampling
@@ -150,9 +154,12 @@ function weeksEnding(days, endIdx, n){
    Each detector gets ctx = {days, endIdx, weeks (12 trailing, oldest first),
    acute (14-d window stats), prepd, o} and returns null (can't evaluate here)
    or {fired, value} where value is the plain-language evidence string.
-   Add new patterns here — the case/control machinery picks them up automatically. */
+   Add new patterns here — the case/control machinery picks them up automatically.
+   systemic:true marks overtraining-type patterns (whole-body stress) — these
+   also run on illness lead-ups; mechanical tissue-stress patterns (long-run
+   jump, downhill) stay injury-only. */
 var PATTERNS=[
-  { id:'ramp', name:'Volume ramping too fast, too long',
+  { id:'ramp', name:'Volume ramping too fast, too long', systemic:true,
     desc:'weekly load climbing ≥8% week-over-week for 3+ straight weeks',
     detect:function(ctx){
       var w=ctx.weeks.filter(function(x){return x!=null;});
@@ -171,7 +178,7 @@ var PATTERNS=[
       }
       return {fired:fired, value:value};
     } },
-  { id:'acwr', name:'Load spike vs your base (ACWR)',
+  { id:'acwr', name:'Load spike vs your base (ACWR)', systemic:true,
     desc:'acute:chronic ratio reached ≥1.4 inside the window',
     detect:function(ctx){
       var best=null;
@@ -194,7 +201,7 @@ var PATTERNS=[
       return { fired: big>=typ*ctx.o.longRunRatio && (big-typ)>=ctx.o.longRunMinGap,
                value:'biggest run '+big.toFixed(1)+' IAD mi vs typical long run '+typ.toFixed(1) };
     } },
-  { id:'intensity', name:'Intensity spike',
+  { id:'intensity', name:'Intensity spike', systemic:true,
     desc:'share of load from hard sessions well above your norm',
     detect:function(ctx){
       var rec=ctx.acute;
@@ -204,7 +211,7 @@ var PATTERNS=[
       return { fired: sR>=ctx.o.intShareFire && sR>=Math.max(sB*ctx.o.intShareLift, sB+0.15),
                value: pctTxt(sR)+' of load from hard sessions vs '+pctTxt(sB)+' typical' };
     } },
-  { id:'monotony', name:'No easy days / no rest',
+  { id:'monotony', name:'No easy days / no rest', systemic:true,
     desc:'day-after-day loading with little variation or rest',
     detect:function(ctx){
       var s=winStats(ctx.days, ctx.endIdx-ctx.o.monoWinDays+1, ctx.endIdx);
@@ -288,6 +295,7 @@ function analyze(runs, events, params, opts){
   var evs=(events||[]).filter(function(e){return e&&e.ts!=null;});
   var evEnd=function(e){ return dayFloor(e.endTs!=null&&e.endTs>e.ts?e.endTs:e.ts); };
   var injuries=evs.filter(function(e){return e.type==='injury';}).sort(function(a,b){return a.ts-b.ts;});
+  var illnesses=evs.filter(function(e){return e.type==='illness';});
   var timeoffs=evs.filter(function(e){return e.type==='timeoff';});
   var raceTs=evs.filter(function(e){return e.type==='race';}).map(function(e){return dayFloor(e.ts);})
     .concat(prepd.hardDays);
@@ -297,6 +305,8 @@ function analyze(runs, events, params, opts){
     var why=null;
     if(injuries.some(function(e){ return evEnd(e)>=d.t0-o.injExplainPre*DAY && dayFloor(e.ts)<=d.t1+o.injExplainPost*DAY; }))
       why='follows a logged injury';
+    if(!why && illnesses.some(function(e){ return evEnd(e)>=d.t0-o.injExplainPre*DAY && dayFloor(e.ts)<=d.t1+o.injExplainPost*DAY; }))
+      why='follows a logged illness';
     if(!why && timeoffs.some(function(e){ return evEnd(e)>=d.t0-o.offExplainDays*DAY && dayFloor(e.ts)<=d.t1+o.offExplainDays*DAY; }))
       why='logged planned downtime';
     if(!why && raceTs.some(function(t){ return t>=d.t0-o.raceExplainDays*DAY && t<=d.t1+o.raceExplainDays*DAY; }))
@@ -310,17 +320,24 @@ function analyze(runs, events, params, opts){
   });
   var openDrops=drops.filter(function(d){return !d.explained;});
 
-  // case windows: one per logged injury
+  // case windows: one per logged injury (all patterns) and illness
+  // (systemic/overtraining patterns only — a long-run jump doesn't cause a flu)
+  var SYS={}; PATTERNS.forEach(function(p){ if(p.systemic) SYS[p.id]=true; });
   var cases=injuries.map(function(e){
     var ev=evaluateAt(prepd, e.ts, o);
     return {event:e, ok:!!ev, flags:ev?ev.flags:[], firedIds:ev?ev.firedIds:[]};
-  });
+  }).concat(illnesses.map(function(e){
+    var ev=evaluateAt(prepd, e.ts, o);
+    return {event:e, ok:!!ev,
+            flags:ev?ev.flags.filter(function(f){return SYS[f.id];}):[],
+            firedIds:ev?ev.firedIds.filter(function(id){return SYS[id];}):[]};
+  })).sort(function(a,b){return a.event.ts-b.event.ts;});
   var evalCases=cases.filter(function(c){return c.ok;});
 
   // control windows: every ctrlStepDays across the history, away from
   // injuries and unexplained drops
   var excl=[];
-  injuries.forEach(function(e){ excl.push([dayFloor(e.ts)-o.ctrlExclPreInj*DAY, evEnd(e)+o.ctrlExclPostInj*DAY]); });
+  injuries.concat(illnesses).forEach(function(e){ excl.push([dayFloor(e.ts)-o.ctrlExclPreInj*DAY, evEnd(e)+o.ctrlExclPostInj*DAY]); });
   openDrops.forEach(function(d){ excl.push([d.t0-o.ctrlExclDropPre*DAY, d.t1+o.ctrlExclDropPost*DAY]); });
   var controls=[];
   for(var i=o.minLeadDays; i<days.length; i+=o.ctrlStepDays){
@@ -339,8 +356,9 @@ function analyze(runs, events, params, opts){
     var ctrlRate=ct.length?ctrlHits/ct.length:null;
     var lift=null;
     if(cs.length&&ct.length) lift=(injHits/cs.length)/Math.max(ctrlHits/ct.length, 0.5/ct.length);
+    var illEval=evalCases.filter(function(c){return c.event.type==='illness'&&c.flags.some(function(f){return f.id===p.id;});}).length;
     return { id:p.id, name:p.name, desc:p.desc,
-             injHits:injHits, injEval:cs.length, ctrlRate:ctrlRate, ctrlEval:ct.length,
+             injHits:injHits, injEval:cs.length, illEval:illEval, ctrlRate:ctrlRate, ctrlEval:ct.length,
              lift:lift, lowConf:ct.length<o.lowConfCtrls };
   }).filter(function(p){return p.injEval>0;})
     .sort(function(a,b){ return (b.injHits/b.injEval)-(a.injHits/a.injEval) || (b.lift||0)-(a.lift||0); });
@@ -363,10 +381,13 @@ function analyze(runs, events, params, opts){
              lift:(evalCases.length&&controls.length)?(pairCount[k]/evalCases.length)/Math.max(ctrlHits/controls.length,0.5/controls.length):null };
   }).sort(function(a,b){return b.injHits-a.injHits||(b.lift||0)-(a.lift||0);});
 
+  var nEvalInj=evalCases.filter(function(c){return c.event.type==='injury';}).length;
   return { ok:true,
-    meta:{ nInjuries:injuries.length, nEval:evalCases.length, nControls:controls.length,
+    meta:{ nInjuries:injuries.length, nIllnesses:illnesses.length,
+           nEval:evalCases.length, nEvalInj:nEvalInj, nEvalIll:evalCases.length-nEvalInj,
+           nControls:controls.length,
            acuteWinDays:o.acuteWinDays, historyDays:days.length, t0:days[0].ts, t1:days[days.length-1].ts },
-    injuries:cases, patterns:patterns, combos:combos, drops:drops };
+    cases:cases, patterns:patterns, combos:combos, drops:drops };
 }
 
 window.InjuryPatterns = { analyze:analyze, PATTERNS:PATTERNS, OPTS:OPTS };
