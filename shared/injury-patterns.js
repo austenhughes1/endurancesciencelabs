@@ -22,9 +22,9 @@
 //      more often than its base rate (the lift).
 //   4. Big unexplained volume drops — not near a race / hard effort
 //      (taper or recovery = planned), not after a logged injury, and
-//      not during logged planned time off — are surfaced as possible
+//      not during logged planned downtime — are surfaced as possible
 //      unlogged setbacks, each with the same pattern analysis at its
-//      onset. Injuries and time off may carry an endTs, making them
+//      onset. Injuries and downtime may carry an endTs, making them
 //      spans rather than single dates.
 //
 // Small-sample honesty: most athletes log 1–5 injuries. The report
@@ -78,7 +78,7 @@ var OPTS = {
   raceExplainDays:10,   // a race/hard effort within ±10 d of the drop explains it
   injExplainPre:  14,   // a logged injury up to 14 d before the drop explains it
   injExplainPost: 21,   // …or up to 21 d into it
-  offExplainDays: 7,    // logged planned time off within ±7 d of the drop explains it
+  offExplainDays: 7,    // logged planned downtime within ±7 d of the drop explains it
   // control sampling
   ctrlStepDays:   7,
   ctrlExclPreInj: 28,   // days before an injury excluded from controls
@@ -298,7 +298,7 @@ function analyze(runs, events, params, opts){
     if(injuries.some(function(e){ return evEnd(e)>=d.t0-o.injExplainPre*DAY && dayFloor(e.ts)<=d.t1+o.injExplainPost*DAY; }))
       why='follows a logged injury';
     if(!why && timeoffs.some(function(e){ return evEnd(e)>=d.t0-o.offExplainDays*DAY && dayFloor(e.ts)<=d.t1+o.offExplainDays*DAY; }))
-      why='logged planned time off';
+      why='logged planned downtime';
     if(!why && raceTs.some(function(t){ return t>=d.t0-o.raceExplainDays*DAY && t<=d.t1+o.raceExplainDays*DAY; }))
       why='around a race / max effort — taper or recovery';
     d.explained=!!why; d.why=why;
