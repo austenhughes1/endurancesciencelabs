@@ -270,7 +270,7 @@ var METRICS = [
   { key:'hr',     label:'Avg HR',              unit:'bpm', dec:0, better:'lower', needs:null,
     desc:'average heart rate',
     calc:function(r){ return r.avgHr; } },
-  { key:'impact', label:'Impact Load',         unit:'IAD mi',  dec:1, better:null, needs:null,
+  { key:'impact', label:'Impact Load',         unit:'IAD mi',  dec:1, better:null, needs:null, zeroFill:true,
     desc:'modeled mechanical load in Impact Adjusted Distance (distance × pace × duty-factor impact + grade)',
     calc:function(r){ return window.RunLoad ? RunLoad.impactLoad(r, LOAD_PARAMS) : null; } },
 ];
@@ -1010,8 +1010,21 @@ function renderMetricChart(){
     var inF=function(p){ return p.v>=flo&&p.v<=fhi; };
     s.line = hideOut ? all.filter(inF) : all;
     s.dots = hideOut ? all.filter(function(p){return inF(p)||evType(p)||maxIds.has(p.id);}) : all;
+    // Volume metrics (Impact Load): a day without a run is a real 0, so the line drops to
+    // zero on rest days — matching how the acute/chronic chart's daily loads treat them —
+    // instead of connecting run to run. Zeros shape the line only: no dot, no hover target.
+    if(s.m.zeroFill && all.length>1){
+      var has=new Set(all.map(function(p){ var d=new Date(p.ts); d.setHours(0,0,0,0); return d.getTime(); }));
+      var zeros=[], cur=new Date(all[0].ts); cur.setHours(0,0,0,0);
+      var endDay=new Date(all[all.length-1].ts); endDay.setHours(0,0,0,0);
+      while(cur.getTime()<endDay.getTime()){
+        if(!has.has(cur.getTime())) zeros.push({ts:cur.getTime()+DAY/2, v:0});
+        cur.setDate(cur.getDate()+1); cur.setHours(0,0,0,0);
+      }
+      s.line=s.line.concat(zeros).sort(function(a,b){return a.ts-b.ts;});
+    }
     var scaleSrc = s.dots.length ? s.dots : all;
-    if(scaleSrc.length){ var mn=Math.min.apply(null,scaleSrc.map(function(p){return p.v;})), mx=Math.max.apply(null,scaleSrc.map(function(p){return p.v;})); if(mn===mx){mn-=1;mx+=1;} var pad=(mx-mn)*0.08; s.lo=mn-pad; s.hi=mx+pad; }
+    if(scaleSrc.length){ var mn=Math.min.apply(null,scaleSrc.map(function(p){return p.v;})), mx=Math.max.apply(null,scaleSrc.map(function(p){return p.v;})); if(mn===mx){mn-=1;mx+=1;} var pad=(mx-mn)*0.08; s.lo=mn-pad; s.hi=mx+pad; if(s.m.zeroFill) s.lo=Math.min(s.lo,0); }
   });
   var have=series.filter(function(s){return s.dots.length;});
   if(!have.length){ chart.innerHTML='<div class="rdx-chart-empty">No runs with this metric in range.</div>'; return; }
