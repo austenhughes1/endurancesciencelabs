@@ -98,6 +98,11 @@ var CSS = `
 .rdx-ctl input[type=date]{background:var(--panel2);border:1px solid var(--border2);border-radius:8px;padding:8px 11px;color:var(--text);font-family:var(--mono);font-size:12.5px;color-scheme:dark}
 .rdx-ctl select,.rdx-ctl input[type=text]{background:var(--panel2);border:1px solid var(--border2);border-radius:8px;padding:8px 11px;color:var(--text);font-family:var(--mono);font-size:12.5px;cursor:pointer;outline:none}
 .rdx-ctl input[type=text]{cursor:text}
+.rdx-drop-form{margin-top:10px;padding-top:10px;border-top:1px solid var(--border2);display:flex;flex-direction:column;gap:6px}
+.rdx-drop-form select,.rdx-drop-form input{background:var(--panel2);border:1px solid var(--border2);border-radius:7px;padding:6px 8px;color:var(--text);font-family:var(--mono);font-size:11.5px;outline:none;min-width:0}
+.rdx-df-row{display:flex;flex-wrap:wrap;gap:6px}
+.rdx-df-row select,.rdx-df-row input{flex:1}
+.rdx-df-err{border-color:var(--bad)!important}
 .rdx-btn{padding:9px 16px;background:var(--cyan);color:#000;font-weight:700;font-size:12.5px;border:none;border-radius:8px;cursor:pointer;transition:opacity .15s}
 .rdx-btn:hover{opacity:.85}
 .rdx-btn-danger{background:transparent;color:var(--bad);border:1px solid var(--bad);font-weight:600}
@@ -711,16 +716,29 @@ function saveProfile(patch){
 }
 function loadProfile(){ if(!UID) return Promise.resolve(); return DB.collection('users').doc(UID).get().then(function(d){ var x=d.exists?d.data():{}; STD_PROFILE={ weightLb:x.weightLb, runDevice:x.runDevice, runHasAccessory:x.runHasAccessory, runLeverPctBW:x.runLeverPctBW, runEvents:Array.isArray(x.runEvents)?x.runEvents:[] }; STRAVA_SYNC={ connected:!!x.stravaConnected, last:x.stravaLastSyncedAt||null }; }).catch(function(){ STD_PROFILE={}; STRAVA_SYNC={}; }); }
 
-/* ---------- performance/injury history events ---------- */
+/* ---------- performance/injury/time-off history events ---------- */
+// runEvents[] entry: { id, type:'race'|'injury'|'timeoff', ts, endTs?, note }.
+// endTs (injury & time off only) makes the event a span — drawn as a faint
+// band on the charts instead of a single marker line.
+var EV_META={ injury:['Injury','var(--bad)'], race:['Race','var(--good)'], timeoff:['Time Off','#5b9cf5'] };
 function events(){ return Array.isArray(STD_PROFILE.runEvents)?STD_PROFILE.runEvents:[]; }
+function evWarn(msg){ var el=$('savedNote'); if(el){el.style.color='var(--bad)';el.textContent=msg;el.style.opacity='1';} }
 function evAdd(){
   var d=parseDate($('evDate').value);
-  if(!d){ var el=$('savedNote'); if(el){el.style.color='var(--bad)';el.textContent='⚠ pick a date';el.style.opacity='1';} return; }
-  var type=$('evType').value;
+  if(!d){ evWarn('⚠ pick a date'); return; }
+  var type=$('evType').value; if(!EV_META[type]) type='race';
   var note=($('evNote').value||'').trim();
-  var evs=events().slice(); evs.push({ id:Date.now(), type:(type==='injury'?'injury':'race'), ts:d.getTime(), note:note });
+  var e={ id:Date.now(), type:type, ts:d.getTime(), note:note };
+  if(type!=='race'){
+    var end=parseDate($('evEndDate').value);
+    if(end){
+      if(end.getTime()<=d.getTime()){ evWarn('⚠ end date must be after the start'); return; }
+      e.endTs=end.getTime();
+    }
+  }
+  var evs=events().slice(); evs.push(e);
   saveProfile({ runEvents:evs });
-  $('evNote').value='';
+  $('evNote').value=''; $('evEndDate').value='';
   renderEventsList(); refresh();
 }
 function evDelete(id){ var evs=events().filter(function(e){return e.id!==id;}); saveProfile({ runEvents:evs }); renderEventsList(); refresh(); }
@@ -728,9 +746,10 @@ function renderEventsList(){
   var el=$('eventsList'); if(!el) return;
   var evs=events().slice().sort(function(a,b){return b.ts-a.ts;});
   el.style.display='flex';
-  if(!evs.length){ el.innerHTML='<span class="rdx-ev-empty">No races or injuries logged yet — add one to overlay it on the chart.</span>'; return; }
-  el.innerHTML=evs.map(function(e){ var inj=e.type==='injury'; var col=inj?'var(--bad)':'var(--good)';
-    return '<span class="rdx-ev-chip"><span class="rdx-ev-dot" style="background:'+col+'"></span><b style="color:'+col+'">'+(inj?'Injury':'Race')+'</b><span class="rdx-ev-date">'+new Date(e.ts).toISOString().slice(0,10)+'</span>'+(e.note?'<span class="rdx-ev-note">'+esc(e.note)+'</span>':'')+'<button class="rdx-ev-del" data-id="'+e.id+'" title="Remove">✕</button></span>';
+  if(!evs.length){ el.innerHTML='<span class="rdx-ev-empty">No races, injuries or time off logged yet — add one to overlay it on the chart.</span>'; return; }
+  el.innerHTML=evs.map(function(e){ var m=EV_META[e.type]||EV_META.race, col=m[1];
+    var when=new Date(e.ts).toISOString().slice(0,10)+(e.endTs?' → '+new Date(e.endTs).toISOString().slice(0,10):'');
+    return '<span class="rdx-ev-chip"><span class="rdx-ev-dot" style="background:'+col+'"></span><b style="color:'+col+'">'+m[0]+'</b><span class="rdx-ev-date">'+when+'</span>'+(e.note?'<span class="rdx-ev-note">'+esc(e.note)+'</span>':'')+'<button class="rdx-ev-del" data-id="'+e.id+'" title="Remove">✕</button></span>';
   }).join('');
   Array.prototype.forEach.call(el.querySelectorAll('.rdx-ev-del'),function(b){ b.onclick=function(){ evDelete(+this.getAttribute('data-id')); }; });
 }
@@ -969,7 +988,7 @@ function renderMetricChart(){
   var series=[];
   if(i1!=='') series.push({m:METRICS[+i1],color:'#00e5c8'});
   if(i2!==''&&i2!==i1) series.push({m:METRICS[+i2],color:'#f5c842'});
-  var evMap=new Map(); events().forEach(function(e){ evMap.set(new Date(e.ts).toISOString().slice(0,10), e.type==='injury'?'injury':'race'); });
+  var evMap=new Map(); events().forEach(function(e){ if(e.type==='timeoff') return; evMap.set(new Date(e.ts).toISOString().slice(0,10), e.type==='injury'?'injury':'race'); });
   var evType=function(p){ return evMap.get(p.date.toISOString().slice(0,10))||null; };
   var maxIds=RunLoad.maxEffortIds(typeRuns());
   var legHtml=series.map(function(s){return '<span class="rdx-legend-item"><span class="rdx-legend-sw" style="background:'+s.color+'"></span>'+s.m.label+(s.m.unit?' ('+s.m.unit+')':'')+'</span>';}).join('');
@@ -1052,8 +1071,8 @@ function wireChartTip(chart){
 // Renders InjuryPatterns.analyze() (shared/injury-patterns.js): every logged
 // injury's lead-up window scored against the pattern registry, each pattern's
 // base rate from control windows across the rest of the history, and big
-// UNexplained volume drops (not near a race / logged injury) offered as
-// possible unlogged setbacks with a one-click "log as injury".
+// UNexplained volume drops (not near a race / logged injury / logged time
+// off) offered as possible unlogged setbacks with a one-click "log as injury".
 function renderPatterns(){
   var box=$('patternsBox'); if(!box) return;
   if(!window.InjuryPatterns || !LOAD_PARAMS){ box.innerHTML=''; return; }
@@ -1104,7 +1123,7 @@ function renderPatterns(){
       }).join('');
     }
     html+='<div class="rdx-pat-sub">Each injury, up close</div><div class="rdx-cards">'+res.injuries.map(function(c){
-      var d=ymd(new Date(c.event.ts));
+      var d=ymd(new Date(c.event.ts))+(c.event.endTs?' → '+ymd(new Date(c.event.endTs)):'');
       var inner;
       if(!c.ok) inner='<div class="rdx-pat-flagval">outside the stored run history — no training window to analyze</div>';
       else{
@@ -1118,7 +1137,7 @@ function renderPatterns(){
   }
   if(drops.length){
     html+='<div class="rdx-pat-sub">Unexplained training drops · possible unlogged setbacks</div>'+
-      '<div class="rdx-pat-dropintro">Sharp volume drops with no race or logged injury nearby — a forced reduction is often an unlogged setback. Logging one adds its lead-up to the analysis above.</div>'+
+      '<div class="rdx-pat-dropintro">Sharp volume drops with no race, logged injury or planned time off nearby — a forced reduction is often an unlogged setback. Logging one adds its lead-up to the analysis above; if it was a planned break, log it as Time Off instead and it disappears from this list.</div>'+
       '<div class="rdx-cards">'+drops.map(function(d){
         var fired=(d.flags||[]).filter(function(f){return f.fired;});
         return '<div class="rdx-card">'+
@@ -1126,7 +1145,16 @@ function renderPatterns(){
           '<div class="rdx-row">Volume drop <b>−'+Math.round(d.pct*100)+'%</b></div>'+
           '<div class="rdx-row">Duration <b>'+d.weeks+(d.capped?'+':'')+' wk'+(d.weeks>1?'s':'')+(d.ongoing?' · ongoing':'')+'</b></div>'+
           (fired.length?'<div class="rdx-pat-flagval" style="margin-top:6px">in its lead-up: '+fired.map(function(f){return f.name;}).join(' · ')+'</div>':'')+
-          '<button class="rdx-btn rdx-btn-sm rdx-drop-log" data-ts="'+d.t0+'" style="margin-top:10px">+ log as injury</button>'+
+          '<button class="rdx-btn rdx-btn-sm rdx-drop-log" style="margin-top:10px">+ log as event</button>'+
+          '<div class="rdx-drop-form" style="display:none">'+
+            '<div class="rdx-df-row">'+
+              '<select class="rdx-df-type"><option value="injury">Injury</option><option value="race">Race</option><option value="timeoff">Time Off</option></select>'+
+              '<input type="date" class="rdx-df-start" value="'+ymd(new Date(d.t0))+'" title="start date">'+
+              '<input type="date" class="rdx-df-end" value="'+(d.ongoing?'':ymd(new Date(d.t1)))+'" title="end date (optional)">'+
+            '</div>'+
+            '<input type="text" class="rdx-df-note" placeholder="note — e.g. calf strain / off-season break">'+
+            '<button class="rdx-btn rdx-btn-sm rdx-df-save">save</button>'+
+          '</div>'+
         '</div>';
       }).join('')+'</div>';
   }
@@ -1134,8 +1162,29 @@ function renderPatterns(){
   box.innerHTML=html;
   Array.prototype.forEach.call(box.querySelectorAll('.rdx-drop-log'),function(b){
     b.onclick=function(){
-      var ts=+this.getAttribute('data-ts');
-      var evs=events().slice(); evs.push({ id:Date.now(), type:'injury', ts:ts, note:'Setback — unexplained training drop' });
+      var form=this.nextElementSibling, open=form.style.display==='none';
+      form.style.display=open?'':'none';
+      this.textContent=open?'cancel':'+ log as event';
+    };
+  });
+  Array.prototype.forEach.call(box.querySelectorAll('.rdx-drop-form'),function(form){
+    var type=form.querySelector('.rdx-df-type'), start=form.querySelector('.rdx-df-start'), end=form.querySelector('.rdx-df-end');
+    type.onchange=function(){ end.style.display=this.value==='race'?'none':''; if(this.value==='race') end.value=''; };
+    form.querySelector('.rdx-df-save').onclick=function(){
+      start.classList.remove('rdx-df-err'); end.classList.remove('rdx-df-err');
+      var s=parseDate(start.value);
+      if(!s){ start.classList.add('rdx-df-err'); return; }
+      var note=(form.querySelector('.rdx-df-note').value||'').trim();
+      var e={ id:Date.now(), type:type.value, ts:s.getTime(),
+              note:note||(type.value==='injury'?'Setback — unexplained training drop':'') };
+      if(type.value!=='race'){
+        var en=parseDate(end.value);
+        if(en){
+          if(en.getTime()<=s.getTime()){ end.classList.add('rdx-df-err'); return; }
+          e.endTs=en.getTime();
+        }
+      }
+      var evs=events().slice(); evs.push(e);
       saveProfile({ runEvents:evs });
       renderEventsList(); refresh();
     };
@@ -1393,14 +1442,15 @@ function shellHTML(opts){
         '</div>'+
       '</div>'+
       '<div class="rdx-group rdx-group-grow">'+
-        '<div class="rdx-group-hd">Performance &amp; injury history <span class="rdx-group-sub">marks races &amp; injuries on the chart</span></div>'+
+        '<div class="rdx-group-hd">Performance &amp; injury history <span class="rdx-group-sub">marks races, injuries &amp; time off on the chart</span></div>'+
         '<div class="rdx-group-body">'+
-          '<div class="rdx-ctl"><label>Type</label><select id="evType"><option value="race">Race</option><option value="injury">Injury</option></select></div>'+
+          '<div class="rdx-ctl"><label>Type</label><select id="evType"><option value="race">Race</option><option value="injury">Injury</option><option value="timeoff">Time Off</option></select></div>'+
           '<div class="rdx-ctl"><label>Date</label><input type="date" id="evDate"></div>'+
+          '<div class="rdx-ctl" id="evEndCtl" style="display:none"><label>End (opt.)</label><input type="date" id="evEndDate"></div>'+
           '<div class="rdx-ctl rdx-ctl-grow"><label>Note</label><input type="text" id="evNote" placeholder="e.g. Boston Marathon / left Achilles" style="width:100%"></div>'+
           '<button class="rdx-btn rdx-btn-sm" id="evAdd">+ add</button>'+
         '</div>'+
-        '<div class="rdx-ev-guide">Log <b>overuse injuries</b> — the kind that build up from training — and, optionally, significant illnesses that stopped training. Don’t log acute injuries that didn’t come from running (a basketball ankle, a bike crash): their lead-up says nothing about training load and skews the pattern analysis.</div>'+
+        '<div class="rdx-ev-guide">Log <b>overuse injuries</b> — the kind that build up from training — and, optionally, significant illnesses that stopped training. Don’t log acute injuries that didn’t come from running (a basketball ankle, a bike crash): their lead-up says nothing about training load and skews the pattern analysis. Log <b>time off</b> for planned breaks (off-season, vacation) so the volume drop reads as planned rather than a possible setback. Injuries and time off take an optional end date and shade the whole span on the chart.</div>'+
         '<div class="rdx-events" id="eventsList" style="display:none"></div>'+
       '</div>'+
     '</div>'+
@@ -1492,6 +1542,7 @@ function wire(){
   $('weight').onchange=function(e){ var lb=parseFloat(String(e.target.value).replace(/[^0-9.]/g,'')); saveProfile({ weightLb:(lb&&lb>0)?lb:null }); refresh(); };
   $('offload').onchange=function(e){ var pct=parseFloat(String(e.target.value).replace(/[^0-9.]/g,'')); saveProfile({ runLeverPctBW:(pct>0&&pct<100)?pct:null }); refresh(); };
   $('evAdd').onclick=evAdd;
+  $('evType').onchange=function(){ $('evEndCtl').style.display=this.value==='race'?'none':''; if(this.value==='race') $('evEndDate').value=''; };
   $('evNote').onkeydown=function(e){ if(e.key==='Enter') evAdd(); };
   $('resetData').onclick=function(){
     var btn=this, st=$('importStatus');

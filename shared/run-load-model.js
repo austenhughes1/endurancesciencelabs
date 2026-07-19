@@ -318,14 +318,28 @@ function eventOverlaySVG(events, t0, t1, padL, innerW, padT, innerH) {
   if (!events || !events.length || !(t1 > t0)) return '';
   function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   var span = t1 - t0, top = padT, bot = padT + innerH, out = '';
+  var META = { injury: ['#f55050', '⚠ Injury'], race: ['#22c78a', '🏁 Race'], timeoff: ['#5b9cf5', '⏸ Time Off'] };
+  var xOf = function (ts) { return padL + ((ts - t0) / span) * innerW; };
+  var day = function (ts) { return new Date(ts).toISOString().slice(0, 10); };
   events.forEach(function (e) {
-    if (e.ts == null || e.ts < t0 || e.ts > t1) return;
-    var x = padL + ((e.ts - t0) / span) * innerW;
-    var col = e.type === 'injury' ? '#f55050' : '#22c78a';
-    var label = (e.type === 'injury' ? '⚠ Injury' : '🏁 Race') + ' · ' + new Date(e.ts).toISOString().slice(0, 10) + (e.note ? ' — ' + e.note : '');
-    out += '<line x1="' + x.toFixed(1) + '" y1="' + top + '" x2="' + x.toFixed(1) + '" y2="' + bot + '" stroke="' + col + '" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.85"/>'
-      + '<polygon points="' + (x - 3.5).toFixed(1) + ',' + top + ' ' + (x + 3.5).toFixed(1) + ',' + top + ' ' + x.toFixed(1) + ',' + (top + 6) + '" fill="' + col + '"/>'
-      + '<line x1="' + x.toFixed(1) + '" y1="' + top + '" x2="' + x.toFixed(1) + '" y2="' + bot + '" stroke="rgba(0,0,0,0)" stroke-width="12"><title>' + esc(label) + '</title></line>';
+    if (e.ts == null) return;
+    var m = META[e.type] || META.race, col = m[0];
+    var end = (e.endTs != null && e.endTs > e.ts) ? e.endTs : null;
+    if ((end || e.ts) < t0 || e.ts > t1) return;
+    if (end) {
+      var x0 = xOf(Math.max(e.ts, t0)), x1 = xOf(Math.min(end, t1));
+      var label = m[1] + ' · ' + day(e.ts) + ' – ' + day(end) + (e.note ? ' — ' + e.note : '');
+      out += '<rect x="' + x0.toFixed(1) + '" y="' + top + '" width="' + (x1 - x0).toFixed(1) + '" height="' + innerH + '" fill="' + col + '" opacity="0.12"/>';
+      if (e.ts >= t0) out += '<line x1="' + x0.toFixed(1) + '" y1="' + top + '" x2="' + x0.toFixed(1) + '" y2="' + bot + '" stroke="' + col + '" stroke-width="1" stroke-dasharray="5 3" opacity="0.55"/>';
+      if (end <= t1) out += '<line x1="' + x1.toFixed(1) + '" y1="' + top + '" x2="' + x1.toFixed(1) + '" y2="' + bot + '" stroke="' + col + '" stroke-width="1" stroke-dasharray="5 3" opacity="0.55"/>';
+      out += '<rect x="' + x0.toFixed(1) + '" y="' + top + '" width="' + Math.max(x1 - x0, 12).toFixed(1) + '" height="' + innerH + '" fill="rgba(0,0,0,0)"><title>' + esc(label) + '</title></rect>';
+    } else {
+      var x = xOf(e.ts);
+      var label1 = m[1] + ' · ' + day(e.ts) + (e.note ? ' — ' + e.note : '');
+      out += '<line x1="' + x.toFixed(1) + '" y1="' + top + '" x2="' + x.toFixed(1) + '" y2="' + bot + '" stroke="' + col + '" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.85"/>'
+        + '<polygon points="' + (x - 3.5).toFixed(1) + ',' + top + ' ' + (x + 3.5).toFixed(1) + ',' + top + ' ' + x.toFixed(1) + ',' + (top + 6) + '" fill="' + col + '"/>'
+        + '<line x1="' + x.toFixed(1) + '" y1="' + top + '" x2="' + x.toFixed(1) + '" y2="' + bot + '" stroke="rgba(0,0,0,0)" stroke-width="12"><title>' + esc(label1) + '</title></line>';
+    }
   });
   return out;
 }
