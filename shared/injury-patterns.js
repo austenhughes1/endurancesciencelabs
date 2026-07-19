@@ -29,7 +29,10 @@
 //      like an injury (explains drops, excluded from controls) but its
 //      case window is scored against systemic/overtraining patterns
 //      only (systemic:true in the registry) — mechanical tissue-stress
-//      patterns like a long-run jump don't cause a flu.
+//      patterns like a long-run jump don't cause a flu. Non-running
+//      injuries ('nonrun') explain drops and are excluded from
+//      controls too, but get NO case window at all — their lead-up
+//      says nothing about training load.
 //
 // Small-sample honesty: most athletes log 1–5 injuries. The report
 // always shows raw counts (2 of 2, not "100%"), the control base
@@ -296,6 +299,7 @@ function analyze(runs, events, params, opts){
   var evEnd=function(e){ return dayFloor(e.endTs!=null&&e.endTs>e.ts?e.endTs:e.ts); };
   var injuries=evs.filter(function(e){return e.type==='injury';}).sort(function(a,b){return a.ts-b.ts;});
   var illnesses=evs.filter(function(e){return e.type==='illness';});
+  var nonruns=evs.filter(function(e){return e.type==='nonrun';});
   var timeoffs=evs.filter(function(e){return e.type==='timeoff';});
   var raceTs=evs.filter(function(e){return e.type==='race';}).map(function(e){return dayFloor(e.ts);})
     .concat(prepd.hardDays);
@@ -307,6 +311,8 @@ function analyze(runs, events, params, opts){
       why='follows a logged injury';
     if(!why && illnesses.some(function(e){ return evEnd(e)>=d.t0-o.injExplainPre*DAY && dayFloor(e.ts)<=d.t1+o.injExplainPost*DAY; }))
       why='follows a logged illness';
+    if(!why && nonruns.some(function(e){ return evEnd(e)>=d.t0-o.injExplainPre*DAY && dayFloor(e.ts)<=d.t1+o.injExplainPost*DAY; }))
+      why='follows a non-running injury';
     if(!why && timeoffs.some(function(e){ return evEnd(e)>=d.t0-o.offExplainDays*DAY && dayFloor(e.ts)<=d.t1+o.offExplainDays*DAY; }))
       why='logged planned downtime';
     if(!why && raceTs.some(function(t){ return t>=d.t0-o.raceExplainDays*DAY && t<=d.t1+o.raceExplainDays*DAY; }))
@@ -337,7 +343,7 @@ function analyze(runs, events, params, opts){
   // control windows: every ctrlStepDays across the history, away from
   // injuries and unexplained drops
   var excl=[];
-  injuries.concat(illnesses).forEach(function(e){ excl.push([dayFloor(e.ts)-o.ctrlExclPreInj*DAY, evEnd(e)+o.ctrlExclPostInj*DAY]); });
+  injuries.concat(illnesses,nonruns).forEach(function(e){ excl.push([dayFloor(e.ts)-o.ctrlExclPreInj*DAY, evEnd(e)+o.ctrlExclPostInj*DAY]); });
   openDrops.forEach(function(d){ excl.push([d.t0-o.ctrlExclDropPre*DAY, d.t1+o.ctrlExclDropPost*DAY]); });
   var controls=[];
   for(var i=o.minLeadDays; i<days.length; i+=o.ctrlStepDays){
