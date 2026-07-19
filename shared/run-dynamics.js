@@ -717,10 +717,12 @@ function saveProfile(patch){
 function loadProfile(){ if(!UID) return Promise.resolve(); return DB.collection('users').doc(UID).get().then(function(d){ var x=d.exists?d.data():{}; STD_PROFILE={ weightLb:x.weightLb, runDevice:x.runDevice, runHasAccessory:x.runHasAccessory, runLeverPctBW:x.runLeverPctBW, runEvents:Array.isArray(x.runEvents)?x.runEvents:[] }; STRAVA_SYNC={ connected:!!x.stravaConnected, last:x.stravaLastSyncedAt||null }; }).catch(function(){ STD_PROFILE={}; STRAVA_SYNC={}; }); }
 
 /* ---------- performance/injury/downtime history events ---------- */
-// runEvents[] entry: { id, type:'race'|'injury'|'illness'|'timeoff', ts, endTs?, note }.
+// runEvents[] entry: { id, type:'race'|'injury'|'illness'|'nonrun'|'timeoff', ts, endTs?, note }.
 // endTs (every type but race) makes the event a span — drawn as a faint band
-// on the charts instead of a single marker line.
-var EV_META={ injury:['Injury','var(--bad)'], race:['Race','var(--good)'], illness:['Illness','#f59a4d'], timeoff:['Planned Downtime','#5b9cf5'] };
+// on the charts instead of a single marker line. 'nonrun' = an acute injury
+// that didn't come from running: overlaid + explains drops, but NEVER enters
+// the pattern analysis (its lead-up says nothing about training load).
+var EV_META={ injury:['Injury','var(--bad)'], race:['Race','var(--good)'], illness:['Illness','#f59a4d'], nonrun:['Non-Running Injury','#ef6bab'], timeoff:['Planned Downtime','#5b9cf5'] };
 function events(){ return Array.isArray(STD_PROFILE.runEvents)?STD_PROFILE.runEvents:[]; }
 function evWarn(msg){ var el=$('savedNote'); if(el){el.style.color='var(--bad)';el.textContent=msg;el.style.opacity='1';} }
 function evAdd(){
@@ -1088,7 +1090,7 @@ function renderPatterns(){
   if(!res.meta.nEval && !drops.length){
     box.innerHTML='<div class="rdx-chart-empty">'+(nInj
       ? 'The logged injuries fall outside the stored run history, so there is no training window to analyze — import the runs from the weeks before each injury.'
-      : 'No injuries logged yet. Add past injuries under ⚙ Settings → Performance &amp; injury history, and this report analyzes the training that led up to each one. Log <b>overuse injuries</b> — leave out acute injuries that didn’t come from running, so they don’t skew the analysis; significant illnesses that stopped training go under the separate <b>Illness</b> type.')+'</div>';
+      : 'No injuries logged yet. Add past injuries under ⚙ Settings → Performance &amp; injury history, and this report analyzes the training that led up to each one. Log <b>overuse injuries</b> as Injury; acute injuries that didn’t come from running go under <b>Non-Running Injury</b> and significant illnesses under <b>Illness</b>, so they don’t skew the analysis.')+'</div>';
     return;
   }
   var html='';
@@ -1142,7 +1144,7 @@ function renderPatterns(){
   }
   if(drops.length){
     html+='<div class="rdx-pat-sub">Unexplained training drops · possible unlogged setbacks</div>'+
-      '<div class="rdx-pat-dropintro">Sharp volume drops with no race, logged injury, illness or planned downtime nearby — a forced reduction is often an unlogged setback. Logging one adds its lead-up to the analysis above; if it was a sickness or a planned break, log it as Illness or Planned Downtime instead and it disappears from this list.</div>'+
+      '<div class="rdx-pat-dropintro">Sharp volume drops with nothing logged nearby to explain them — a forced reduction is often an unlogged setback. Logging one as Injury adds its lead-up to the analysis above; logged as Illness, Non-Running Injury or Planned Downtime it simply disappears from this list.</div>'+
       '<div class="rdx-cards">'+drops.map(function(d){
         var fired=(d.flags||[]).filter(function(f){return f.fired;});
         return '<div class="rdx-card">'+
@@ -1152,7 +1154,7 @@ function renderPatterns(){
           (fired.length?'<div class="rdx-pat-flagval" style="margin-top:6px">in its lead-up: '+fired.map(function(f){return f.name;}).join(' · ')+'</div>':'')+
           '<button class="rdx-btn rdx-btn-sm rdx-drop-log" style="margin-top:10px">+ log as event</button>'+
           '<div class="rdx-drop-form" style="display:none">'+
-            '<div class="rdx-df-field"><label>Type</label><select class="rdx-df-type"><option value="injury">Injury</option><option value="illness">Illness</option><option value="race">Race</option><option value="timeoff">Planned Downtime</option></select></div>'+
+            '<div class="rdx-df-field"><label>Type</label><select class="rdx-df-type"><option value="injury">Injury</option><option value="illness">Illness</option><option value="nonrun">Non-Running Injury</option><option value="race">Race</option><option value="timeoff">Planned Downtime</option></select></div>'+
             '<div class="rdx-df-field"><label>Start</label><input type="date" class="rdx-df-start" value="'+ymd(new Date(d.t0))+'"></div>'+
             '<div class="rdx-df-field rdx-df-endf"><label>End (optional)</label><input type="date" class="rdx-df-end" value="'+(d.ongoing?'':ymd(new Date(d.t1)))+'"></div>'+
             '<div class="rdx-df-field"><label>Note</label><input type="text" class="rdx-df-note" placeholder="e.g. calf strain / off-season break"></div>'+
@@ -1161,7 +1163,7 @@ function renderPatterns(){
         '</div>';
       }).join('')+'</div>';
   }
-  html+='<p class="rdx-hint">Retrospective and correlational — these are load patterns that showed up before logged injuries, not causes and not an injury prediction. With a handful of injuries the sample is small; every added injury, logged setback and month of history sharpens the report. Log only <b>overuse injuries</b> as injuries — acute injuries that didn’t come from running would skew these base rates. Illnesses get their own event type and join only the overtraining-type patterns; planned breaks logged as downtime explain training drops without entering the analysis. Detectors and thresholds are transparent, tunable heuristics in <code>shared/injury-patterns.js</code>.</p>';
+  html+='<p class="rdx-hint">Retrospective and correlational — these are load patterns that showed up before logged injuries, not causes and not an injury prediction. With a handful of injuries the sample is small; every added injury, logged setback and month of history sharpens the report. Log only <b>overuse injuries</b> as injuries — acute injuries that didn’t come from running would skew these base rates and belong under Non-Running Injury, which stays out of the analysis entirely. Illnesses get their own event type and join only the overtraining-type patterns; planned breaks logged as downtime explain training drops without entering the analysis. Detectors and thresholds are transparent, tunable heuristics in <code>shared/injury-patterns.js</code>.</p>';
   box.innerHTML=html;
   Array.prototype.forEach.call(box.querySelectorAll('.rdx-drop-log'),function(b){
     b.onclick=function(){
@@ -1445,15 +1447,15 @@ function shellHTML(opts){
         '</div>'+
       '</div>'+
       '<div class="rdx-group rdx-group-grow">'+
-        '<div class="rdx-group-hd">Performance &amp; injury history <span class="rdx-group-sub">marks races, injuries, illness &amp; downtime on the chart</span></div>'+
+        '<div class="rdx-group-hd">Performance &amp; injury history <span class="rdx-group-sub">overlays your logged events on the chart</span></div>'+
         '<div class="rdx-group-body">'+
-          '<div class="rdx-ctl"><label>Type</label><select id="evType"><option value="race">Race</option><option value="injury">Injury</option><option value="illness">Illness</option><option value="timeoff">Planned Downtime</option></select></div>'+
+          '<div class="rdx-ctl"><label>Type</label><select id="evType"><option value="race">Race</option><option value="injury">Injury</option><option value="illness">Illness</option><option value="nonrun">Non-Running Injury</option><option value="timeoff">Planned Downtime</option></select></div>'+
           '<div class="rdx-ctl"><label>Date</label><input type="date" id="evDate"></div>'+
           '<div class="rdx-ctl" id="evEndCtl" style="display:none"><label>End (opt.)</label><input type="date" id="evEndDate"></div>'+
           '<div class="rdx-ctl rdx-ctl-grow"><label>Note</label><input type="text" id="evNote" placeholder="e.g. Boston Marathon / left Achilles" style="width:100%"></div>'+
           '<button class="rdx-btn rdx-btn-sm" id="evAdd">+ add</button>'+
         '</div>'+
-        '<div class="rdx-ev-guide">Log <b>overuse injuries</b> — the kind that build up from training. Don’t log acute injuries that didn’t come from running (a basketball ankle, a bike crash): their lead-up says nothing about training load and skews the pattern analysis. Log significant <b>illnesses</b> that stopped training — their lead-ups are checked against overtraining-type patterns (ramp, load spike, intensity, monotony) but not mechanical ones. Log <b>planned downtime</b> (off-season break, vacation) so the volume drop reads as planned. Everything but races takes an optional end date and shades the whole span on the chart.</div>'+
+        '<div class="rdx-ev-guide">Log <b>overuse injuries</b> — the kind that build up from training — as Injury. An acute injury that didn’t come from running (a basketball ankle, a bike crash) goes under <b>Non-Running Injury</b>: it explains the training gap but stays out of the pattern analysis, since its lead-up says nothing about training load. Log significant <b>illnesses</b> that stopped training — their lead-ups are checked against overtraining-type patterns (ramp, load spike, intensity, monotony) but not mechanical ones. Log <b>planned downtime</b> (off-season break, vacation) so the volume drop reads as planned. Everything but races takes an optional end date and shades the whole span on the chart.</div>'+
         '<div class="rdx-events" id="eventsList" style="display:none"></div>'+
       '</div>'+
     '</div>'+
