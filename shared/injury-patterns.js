@@ -21,9 +21,11 @@
 //      A pattern is "correlated" when it fires before injuries far
 //      more often than its base rate (the lift).
 //   4. Big unexplained volume drops — not near a race / hard effort
-//      (taper or recovery = planned) and not after a logged injury —
-//      are surfaced as possible unlogged setbacks, each with the same
-//      pattern analysis at its onset.
+//      (taper or recovery = planned), not after a logged injury, and
+//      not during logged planned time off — are surfaced as possible
+//      unlogged setbacks, each with the same pattern analysis at its
+//      onset. Injuries and time off may carry an endTs, making them
+//      spans rather than single dates.
 //
 // Small-sample honesty: most athletes log 1–5 injuries. The report
 // always shows raw counts (2 of 2, not "100%"), the control base
@@ -76,10 +78,12 @@ var OPTS = {
   raceExplainDays:10,   // a race/hard effort within ±10 d of the drop explains it
   injExplainPre:  14,   // a logged injury up to 14 d before the drop explains it
   injExplainPost: 21,   // …or up to 21 d into it
+  offExplainDays: 7,    // logged planned time off within ±7 d of the drop explains it
   // control sampling
   ctrlStepDays:   7,
   ctrlExclPreInj: 28,   // days before an injury excluded from controls
-  ctrlExclPostInj:56,   // days after an injury excluded (recovery pollutes the base rate)
+  ctrlExclPostInj:56,   // days after an injury (its end date, when logged) excluded
+                        // (recovery pollutes the base rate)
   ctrlExclDropPre:21,   // same exclusions around unexplained drops
   ctrlExclDropPost:28,
   lowConfCtrls:   8     // fewer controls than this ⇒ mark base rates low-confidence
@@ -282,15 +286,19 @@ function analyze(runs, events, params, opts){
   if(!prepd || prepd.days.length<o.minHistoryDays) return {ok:false, reason:'history', days:prepd?prepd.days.length:0};
   var days=prepd.days;
   var evs=(events||[]).filter(function(e){return e&&e.ts!=null;});
+  var evEnd=function(e){ return dayFloor(e.endTs!=null&&e.endTs>e.ts?e.endTs:e.ts); };
   var injuries=evs.filter(function(e){return e.type==='injury';}).sort(function(a,b){return a.ts-b.ts;});
+  var timeoffs=evs.filter(function(e){return e.type==='timeoff';});
   var raceTs=evs.filter(function(e){return e.type==='race';}).map(function(e){return dayFloor(e.ts);})
     .concat(prepd.hardDays);
 
-  // drops + planned/explained classification
+  // drops + planned/explained classification (span events count over [ts, endTs])
   var drops=detectDrops(prepd,o).map(function(d){
     var why=null;
-    if(injuries.some(function(e){ var t=dayFloor(e.ts); return t>=d.t0-o.injExplainPre*DAY && t<=d.t1+o.injExplainPost*DAY; }))
+    if(injuries.some(function(e){ return evEnd(e)>=d.t0-o.injExplainPre*DAY && dayFloor(e.ts)<=d.t1+o.injExplainPost*DAY; }))
       why='follows a logged injury';
+    if(!why && timeoffs.some(function(e){ return evEnd(e)>=d.t0-o.offExplainDays*DAY && dayFloor(e.ts)<=d.t1+o.offExplainDays*DAY; }))
+      why='logged planned time off';
     if(!why && raceTs.some(function(t){ return t>=d.t0-o.raceExplainDays*DAY && t<=d.t1+o.raceExplainDays*DAY; }))
       why='around a race / max effort — taper or recovery';
     d.explained=!!why; d.why=why;
@@ -312,7 +320,7 @@ function analyze(runs, events, params, opts){
   // control windows: every ctrlStepDays across the history, away from
   // injuries and unexplained drops
   var excl=[];
-  injuries.forEach(function(e){ var t=dayFloor(e.ts); excl.push([t-o.ctrlExclPreInj*DAY, t+o.ctrlExclPostInj*DAY]); });
+  injuries.forEach(function(e){ excl.push([dayFloor(e.ts)-o.ctrlExclPreInj*DAY, evEnd(e)+o.ctrlExclPostInj*DAY]); });
   openDrops.forEach(function(d){ excl.push([d.t0-o.ctrlExclDropPre*DAY, d.t1+o.ctrlExclDropPost*DAY]); });
   var controls=[];
   for(var i=o.minLeadDays; i<days.length; i+=o.ctrlStepDays){
