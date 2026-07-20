@@ -984,7 +984,7 @@ function renderLoadChart(){
 function renderMetricChart(){
   var chart=$('chartBox'), legend=$('chartLegend'), hintEl=$('chartHint');
   if(!chart) return;
-  if(hintEl) hintEl.innerHTML='Per-run values over the selected range. <b>Smooth</b> draws the trend line; <b>Hide outliers</b> drops glitch values (keeps logged races/injuries and detected hard efforts); <b>Points</b> shows every run.';
+  if(hintEl) hintEl.innerHTML='Per-run values over the selected range. <b>Smooth</b> draws the trend line; <b>Hide outliers</b> drops glitch values (keeps logged races/injuries and detected hard efforts); <b>Points</b> shows every run. Runs missing a metric leave a gap in its line; Impact Load drops to 0 on rest days.';
   var i1=$('chartView').value, i2=$('chartView2').value;
   var from=parseDate($('tFrom').value), to=parseDate($('tTo').value);
   var series=[];
@@ -1004,7 +1004,17 @@ function renderMetricChart(){
   var runs=runsInF(new Date(from.getTime()-DAY),to);
   var evColor=function(t){ return t==='injury'?'#f55050':'#22c78a'; };
   series.forEach(function(s){
-    var all=runs.map(function(r){return {ts:r.ts,v:s.m.calc(r),date:r.date,id:r.id,dist:r.distMi,pace:r.paceSec,title:r.title};}).filter(function(p){return p.v!=null&&!isNaN(p.v);}).sort(function(a,b){return a.ts-b.ts;});
+    var mapped=runs.map(function(r){return {ts:r.ts,v:s.m.calc(r),date:r.date,id:r.id,dist:r.distMi,pace:r.paceSec,title:r.title};}).sort(function(a,b){return a.ts-b.ts;});
+    // A run that exists but lacks this metric (no pod/strap that day, manual entry) splits
+    // the line into segments — bridging it would draw continuity the device never measured.
+    // Rest days between measured runs still connect, and zero-filled volume metrics keep a
+    // single segment (their rest-day zeros cover the gaps; an unmodelable run reads as a
+    // 0-load day, matching how the acute/chronic chart's dailyLoads treats it).
+    var seg=0, all=[];
+    mapped.forEach(function(p){
+      if(p.v==null||isNaN(p.v)){ if(!s.m.zeroFill) seg++; return; }
+      p.seg=seg; all.push(p);
+    });
     var flo=-Infinity, fhi=Infinity;
     if(all.length>=5){ var vals=all.map(function(p){return p.v;}).slice().sort(function(a,b){return a-b;}); var q1=quantile(vals,0.25), q3=quantile(vals,0.75), iqr=q3-q1; if(iqr>0){ flo=q1-1.5*iqr; fhi=q3+1.5*iqr; } }
     var inF=function(p){ return p.v>=flo&&p.v<=fhi; };
@@ -1046,9 +1056,16 @@ function renderMetricChart(){
   var lines='', hits='';
   var haloStroke=document.documentElement.getAttribute('data-theme')==='light'?'rgba(0,0,0,0.30)':'rgba(255,255,255,0.85)';
   have.forEach(function(s){
-    var lineSrc=smooth?smoothPts(s.line):s.line;
-    if(lineSrc.length>1){ var pts=lineSrc.map(function(p){return xOf(p.ts).toFixed(1)+','+yOf(p.v,s).toFixed(1);});
-      lines+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+s.color+'" stroke-width="'+(smooth?2.6:2)+'" stroke-linejoin="round" stroke-linecap="round"/>'; }
+    // Draw each gap-delimited segment as its own polyline (smoothed independently, so the
+    // moving average never averages across a gap). A segment reduced to a single point
+    // would otherwise vanish when Points is off — give it a dot so the data stays visible.
+    var segs=[]; s.line.forEach(function(p){ var k=p.seg||0; (segs[k]=segs[k]||[]).push(p); });
+    segs.forEach(function(segPts){
+      var lineSrc=smooth?smoothPts(segPts):segPts;
+      if(lineSrc.length>1){ var pts=lineSrc.map(function(p){return xOf(p.ts).toFixed(1)+','+yOf(p.v,s).toFixed(1);});
+        lines+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+s.color+'" stroke-width="'+(smooth?2.6:2)+'" stroke-linejoin="round" stroke-linecap="round"/>'; }
+      else if(lineSrc.length===1&&!showPts){ lines+='<circle cx="'+xOf(lineSrc[0].ts).toFixed(1)+'" cy="'+yOf(lineSrc[0].v,s).toFixed(1)+'" r="2.4" fill="'+s.color+'"/>'; }
+    });
     lines+=s.dots.map(function(p){
       var t=evType(p), isMax=!t&&maxIds.has(p.id), cx=xOf(p.ts).toFixed(1), cy=yOf(p.v,s).toFixed(1);
       if(t) return '<circle cx="'+cx+'" cy="'+cy+'" r="3.8" fill="'+evColor(t)+'" stroke="'+haloStroke+'" stroke-width="1.2"/>';
