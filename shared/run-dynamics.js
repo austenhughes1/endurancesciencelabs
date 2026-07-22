@@ -358,7 +358,16 @@ function hmsToSec(v){
   return p[0];
 }
 function gctBalLeft(v){ if(v==null) return null; var mm=String(v).match(/([\d.]+)\s*%?\s*L/i); return mm?parseFloat(mm[1]):null; }
-function parseDate(v){ if(!v) return null; var d=new Date(String(v).trim().replace(' ','T')); return isNaN(d)?null:d; }
+function parseDate(v){
+  if(!v) return null;
+  v=String(v).trim();
+  // Bare dates (from <input type="date">) parse as UTC midnight per spec, which lands on the
+  // previous local evening west of UTC — parse them as LOCAL midnight so day math stays local.
+  var m=v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(m) return new Date(+m[1],+m[2]-1,+m[3]);
+  var d=new Date(v.replace(' ','T'));
+  return isNaN(d)?null:d;
+}
 
 /* Parse a Garmin export into candidate run docs keyed by a stable id. */
 function parseExport(text){
@@ -647,7 +656,11 @@ function deltaHTML(cur,prev,m){
   var txt=m.pace?((diff>0?'+':'−')+fmtPace(Math.abs(diff))):((diff>0?'+':'−')+Math.abs(diff).toFixed(m.dec));
   return '<span class="rdx-delta '+cls+'">'+dir+' '+txt+'</span>';
 }
-function ymd(d){ return d.toISOString().slice(0,10); }
+// Local calendar date — toISOString() would shift evening runs (and their day keys) to the
+// next UTC day for athletes west of UTC.
+function ymd(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
+// Inclusive end bound for a date-input "To" value: the whole local day, not its midnight.
+function dayEnd(d){ var e=new Date(d); e.setHours(23,59,59,999); return e; }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 /* ---------- rendering helpers ---------- */
@@ -723,7 +736,19 @@ function loadProfile(){ if(!UID) return Promise.resolve(); return DB.collection(
 // that didn't come from running: overlaid + explains drops, but NEVER enters
 // the pattern analysis (its lead-up says nothing about training load).
 var EV_META={ injury:['Injury','var(--bad)'], race:['Race','var(--good)'], illness:['Illness','#f59a4d'], nonrun:['Non-Running Injury','#ef6bab'], timeoff:['Planned Downtime','#5b9cf5'] };
-function events(){ return Array.isArray(STD_PROFILE.runEvents)?STD_PROFILE.runEvents:[]; }
+// Events saved before the local-day fix carry UTC-midnight timestamps (the old date parser);
+// remap those to local midnight of the same calendar date so they key and display on the day
+// the athlete picked. New events store local midnight, which is only an exact UTC midnight for
+// UTC±0 viewers — where the remap is the identity.
+function evLocalTs(ts){ if(ts%DAY===0){ var d=new Date(ts); return new Date(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()).getTime(); } return ts; }
+function events(){
+  var raw=Array.isArray(STD_PROFILE.runEvents)?STD_PROFILE.runEvents:[];
+  return raw.map(function(e){
+    var o=Object.assign({},e,{ts:evLocalTs(e.ts)});
+    if(o.endTs!=null) o.endTs=evLocalTs(o.endTs);
+    return o;
+  });
+}
 function evWarn(msg){ var el=$('savedNote'); if(el){el.style.color='var(--bad)';el.textContent=msg;el.style.opacity='1';} }
 function evAdd(){
   var d=parseDate($('evDate').value);
@@ -750,7 +775,7 @@ function renderEventsList(){
   el.style.display='flex';
   if(!evs.length){ el.innerHTML='<span class="rdx-ev-empty">No events logged yet — add one to overlay it on the chart.</span>'; return; }
   el.innerHTML=evs.map(function(e){ var m=EV_META[e.type]||EV_META.race, col=m[1];
-    var when=new Date(e.ts).toISOString().slice(0,10)+(e.endTs?' → '+new Date(e.endTs).toISOString().slice(0,10):'');
+    var when=ymd(new Date(e.ts))+(e.endTs?' → '+ymd(new Date(e.endTs)):'');
     return '<span class="rdx-ev-chip"><span class="rdx-ev-dot" style="background:'+col+'"></span><b style="color:'+col+'">'+m[0]+'</b><span class="rdx-ev-date">'+when+'</span>'+(e.note?'<span class="rdx-ev-note">'+esc(e.note)+'</span>':'')+'<button class="rdx-ev-del" data-id="'+e.id+'" title="Remove">✕</button></span>';
   }).join('');
   Array.prototype.forEach.call(el.querySelectorAll('.rdx-ev-del'),function(b){ b.onclick=function(){ evDelete(+this.getAttribute('data-id')); }; });
@@ -955,7 +980,7 @@ function renderLoadChart(){
   var full=RunLoad.loadTimeline(typeRuns(), LOAD_PARAMS);
   if(full.length<2){ legEl.innerHTML=''; chartEl.innerHTML='<div class="rdx-chart-empty">Not enough history to model load yet.</div>'; return; }
   var from=parseDate($('tFrom').value), to=parseDate($('tTo').value);
-  var f0=from?from.getTime():full[0].ts, f1=to?to.getTime():full[full.length-1].ts;
+  var f0=from?from.getTime():full[0].ts, f1=to?dayEnd(to).getTime():full[full.length-1].ts;
   var tl=full.filter(function(d){return d.ts>=f0&&d.ts<=f1;});
   if(tl.length<2) tl=full;                    // window too narrow — show everything
   var last=tl[tl.length-1];
@@ -990,18 +1015,21 @@ function renderMetricChart(){
   var series=[];
   if(i1!=='') series.push({m:METRICS[+i1],color:'#00e5c8'});
   if(i2!==''&&i2!==i1) series.push({m:METRICS[+i2],color:'#f5c842'});
-  var evMap=new Map(); events().forEach(function(e){ if(e.type!=='injury'&&e.type!=='race') return; evMap.set(new Date(e.ts).toISOString().slice(0,10), e.type); });
-  var evType=function(p){ return evMap.get(p.date.toISOString().slice(0,10))||null; };
+  var evMap=new Map(); events().forEach(function(e){ if(e.type!=='injury'&&e.type!=='race') return; evMap.set(ymd(new Date(e.ts)), e.type); });
+  var evType=function(p){ return evMap.get(ymd(p.date))||null; };
   var maxIds=RunLoad.maxEffortIds(typeRuns());
   var legHtml=series.map(function(s){return '<span class="rdx-legend-item"><span class="rdx-legend-sw" style="background:'+s.color+'"></span>'+s.m.label+(s.m.unit?' ('+s.m.unit+')':'')+'</span>';}).join('');
   if(evMap.size||maxIds.size) legHtml+='<span class="rdx-legend-item" style="color:var(--muted)"><span class="rdx-legend-sw" style="background:#22c78a"></span>race<span class="rdx-legend-sw" style="background:#f55050;margin-left:8px"></span>injury<span class="rdx-legend-ring" style="margin-left:8px"></span>hard effort</span>';
   legend.innerHTML=legHtml;
   if(!series.length){ chart.innerHTML='<div class="rdx-chart-empty">Select a metric to plot.</div>'; return; }
-  if(!from||!to||to.getTime()<=from.getTime()){ chart.innerHTML='<div class="rdx-chart-empty">Pick a valid date range.</div>'; return; }
+  if(!from||!to||dayEnd(to).getTime()<=from.getTime()){ chart.innerHTML='<div class="rdx-chart-empty">Pick a valid date range.</div>'; return; }
   var hideOut=$('hideOutliers').classList.contains('on');
   var smooth=$('smooth').classList.contains('on');
   var showPts=$('points').classList.contains('on');
-  var runs=runsInF(new Date(from.getTime()-DAY),to);
+  // runsIn is exclusive on start and inclusive on end: back the start off by 1ms so runs at
+  // exactly local midnight count, and extend the end through the whole To day — otherwise a
+  // run logged the morning of the To date (ts past midnight) never plots.
+  var runs=runsInF(new Date(from.getTime()-1),dayEnd(to));
   var evColor=function(t){ return t==='injury'?'#f55050':'#22c78a'; };
   series.forEach(function(s){
     var mapped=runs.map(function(r){return {ts:r.ts,v:s.m.calc(r),date:r.date,id:r.id,dist:r.distMi,pace:r.paceSec,title:r.title};}).sort(function(a,b){return a.ts-b.ts;});
@@ -1039,7 +1067,7 @@ function renderMetricChart(){
   var have=series.filter(function(s){return s.dots.length;});
   if(!have.length){ chart.innerHTML='<div class="rdx-chart-empty">No runs with this metric in range.</div>'; return; }
   var W=720,H=240,padL=42,padR=series.length>1?46:12,padT=12,padB=26,innerW=W-padL-padR,innerH=H-padT-padB;
-  var t0=from.getTime(),t1=to.getTime();
+  var t0=from.getTime(),t1=dayEnd(to).getTime();
   var xOf=function(ts){return padL+((ts-t0)/(t1-t0))*innerW;};
   var yOf=function(v,s){return padT+innerH-((v-s.lo)/(s.hi-s.lo))*innerH;};
   var grid='';
@@ -1076,7 +1104,7 @@ function renderMetricChart(){
       var t=evType(p), kind=t||(maxIds.has(p.id)?'max':''), cx=xOf(p.ts).toFixed(1), cy=yOf(p.v,s).toFixed(1);
       var val=tickFmt(s.m,p.v)+(s.m.unit?' '+s.m.unit:'');
       var ctx=(p.dist!=null?p.dist.toFixed(1)+' mi':''); if(p.pace){ ctx+=(ctx?' · ':'')+fmtPace(p.pace)+'/mi'; } if(p.title){ ctx+=(ctx?' · ':'')+p.title; }
-      return '<circle class="rdx-hit" cx="'+cx+'" cy="'+cy+'" r="7" fill="rgba(0,0,0,0)" data-date="'+ea(p.date.toISOString().slice(0,10))+'" data-kind="'+kind+'" data-metric="'+ea(s.m.label)+'" data-val="'+ea(val)+'" data-ctx="'+ea(ctx)+'"/>';
+      return '<circle class="rdx-hit" cx="'+cx+'" cy="'+cy+'" r="7" fill="rgba(0,0,0,0)" data-date="'+ea(ymd(p.date))+'" data-kind="'+kind+'" data-metric="'+ea(s.m.label)+'" data-val="'+ea(val)+'" data-ctx="'+ea(ctx)+'"/>';
     }).join('');
   });
   chart.innerHTML='<svg class="rdx-chart-svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Run metric trend">'+grid+xlab+lines+RunLoad.eventOverlaySVG(events(),t0,t1,padL,innerW,padT,innerH)+hits+'</svg>';
@@ -1243,8 +1271,8 @@ function renderForm(){
   if(compare){
     var af=parseDate($('faFrom').value), at=parseDate($('faTo').value);
     var bf=parseDate($('fbFrom').value), bt=parseDate($('fbTo').value);
-    var A=(af&&at)?filterIntensity(runsIn(new Date(af.getTime()-DAY),at),it.mode,it.cutoff):[];
-    var B=(bf&&bt)?filterIntensity(runsIn(new Date(bf.getTime()-DAY),bt),it.mode,it.cutoff):[];
+    var A=(af&&at)?filterIntensity(runsIn(new Date(af.getTime()-1),dayEnd(at)),it.mode,it.cutoff):[];
+    var B=(bf&&bt)?filterIntensity(runsIn(new Date(bf.getTime()-1),dayEnd(bt)),it.mode,it.cutoff):[];
     cols=[{label:'Range A',runs:A},{label:'Range B',runs:B}];
   } else {
     cols=[{label:'Stored ('+spanDays()+' d)', runs:filterIntensity(runsIn(new Date(0), new Date(8.64e15)),it.mode,it.cutoff)}];
@@ -1556,7 +1584,7 @@ function wire(){
   drop.ondragleave=function(){ drop.classList.remove('over'); };
   drop.ondrop=function(e){ e.preventDefault(); drop.classList.remove('over'); var f=e.dataTransfer.files[0]; if(f) readFile(f); };
   fileInput.onchange=function(e){ var f=e.target.files[0]; if(f) readFile(f); fileInput.value=''; };
-  $('anchor').onchange=function(e){ var d=parseDate(e.target.value); if(d){ANCHOR=d;refresh();} };
+  $('anchor').onchange=function(e){ var d=parseDate(e.target.value); if(d){ANCHOR=dayEnd(d);refresh();} };
   $('gearBtn').onclick=function(){ var p=$('settingsPanel'), open=p.style.display!=='none'; p.style.display=open?'none':'block'; this.classList.toggle('on',!open); };
   $('intensity').onchange=refresh;
   $('cutoff').onchange=refresh;
