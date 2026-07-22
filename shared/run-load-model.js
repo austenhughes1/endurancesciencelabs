@@ -320,7 +320,7 @@ function eventOverlaySVG(events, t0, t1, padL, innerW, padT, innerH) {
   var span = t1 - t0, top = padT, bot = padT + innerH, out = '';
   var META = { injury: ['#f55050', '⚠ Injury'], race: ['#22c78a', '🏁 Race'], illness: ['#f59a4d', '🤒 Illness'], nonrun: ['#ef6bab', '🩹 Non-Running Injury'], timeoff: ['#5b9cf5', '⏸ Planned Downtime'] };
   var xOf = function (ts) { return padL + ((ts - t0) / span) * innerW; };
-  var day = function (ts) { return new Date(ts).toISOString().slice(0, 10); };
+  var day = function (ts) { var d = new Date(ts); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); };
   events.forEach(function (e) {
     if (e.ts == null) return;
     var m = META[e.type] || META.race, col = m[0];
