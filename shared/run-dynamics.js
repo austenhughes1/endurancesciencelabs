@@ -1097,7 +1097,10 @@ function renderMetricChart(){
     lines+=s.dots.map(function(p){
       var t=evType(p), isMax=!t&&maxIds.has(p.id), cx=xOf(p.ts).toFixed(1), cy=yOf(p.v,s).toFixed(1);
       if(t) return '<circle cx="'+cx+'" cy="'+cy+'" r="3.8" fill="'+evColor(t)+'" stroke="'+haloStroke+'" stroke-width="1.2"/>';
-      if(isMax) return showPts ? '<circle cx="'+cx+'" cy="'+cy+'" r="3.8" fill="none" stroke="#f5c842" stroke-width="1.6"/>' : '';
+      // Hard-effort rings draw regardless of the Points toggle, same as race/injury dots —
+      // the outlier filter promises to keep detected hard efforts visible, and with Points
+      // off the ring is the only thing marking them (their values are excluded from the line).
+      if(isMax) return '<circle cx="'+cx+'" cy="'+cy+'" r="3.8" fill="none" stroke="#f5c842" stroke-width="1.6"/>';
       return showPts ? '<circle cx="'+cx+'" cy="'+cy+'" r="2.4" fill="'+s.color+'" fill-opacity="'+(smooth?'0.5':'1')+'"/>' : '';
     }).join('');
     hits+=s.dots.map(function(p){
