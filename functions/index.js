@@ -107,9 +107,12 @@ const STRAVA_MIRROR_DAYS = 120;
 // One Strava SummaryActivity -> the run-doc shape the client importers in
 // shared/run-dynamics.js produce (parseExport / runFromFitSession), stored
 // under users/{uid}/garminActivities. Strava's API never exposes running
-// dynamics (GCT, vertical oscillation, stride) or total descent, so those
-// stay null and the load model falls back to its no-dynamics / ascent-only
-// path. Cadence is per-leg -> ×2 for spm. Returns null for non-runs.
+// dynamics (GCT, vertical oscillation, stride), so those stay null and the
+// load model falls back to its no-dynamics path. It also omits total
+// descent — but nearly every run starts and ends at the same point, so
+// descent is assumed equal to ascent (a point-to-point net-downhill race is
+// the rare exception, and a later watch import replaces the doc anyway).
+// Cadence is per-leg -> ×2 for spm. Returns null for non-runs.
 function stravaRunDoc(act) {
   const sport = String(act.sport_type || act.type || "");
   if (!/run/i.test(sport)) return null;
@@ -142,7 +145,9 @@ function stravaRunDoc(act) {
     gapSec: null,
     ascentM: (typeof act.total_elevation_gain === "number" && isFinite(act.total_elevation_gain))
       ? act.total_elevation_gain : null,
-    descentM: null, steps: null,
+    descentM: (typeof act.total_elevation_gain === "number" && isFinite(act.total_elevation_gain))
+      ? act.total_elevation_gain : null,
+    steps: null,
     source: "strava",
     stravaId: act.id,
   };
