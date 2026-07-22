@@ -1399,7 +1399,7 @@ function renderLoaded(){
   setRangeChip('3');
   var nStrava=RAW.filter(function(r){return r.source==='strava';}).length;
   var foot=$('foot'); if(foot) foot.innerHTML='Reading '+RAW.length+' stored runs.'+
-    (nStrava?(' '+nStrava+' synced from Strava on days with no watch import — Strava runs carry pace, distance, HR, cadence and ascent, but no ground-contact or oscillation data. <img src="/images/strava/api_logo_pwrdBy_strava_horiz_orange.svg" alt="Powered by Strava" style="height:15px;vertical-align:-4px">'):'')+
+    (nStrava?(' '+nStrava+' synced from Strava on days with no watch import — Strava runs carry pace, distance, HR, cadence and ascent (descent assumed equal — runs almost always start and end at the same point), but no ground-contact or oscillation data. <img src="/images/strava/api_logo_pwrdBy_strava_horiz_orange.svg" alt="Powered by Strava" style="height:15px;vertical-align:-4px">'):'')+
     ' Track-running distances are converted from meters to miles. Load and form math live in <code>shared/run-load-model.js</code>; this view in <code>shared/run-dynamics.js</code>.';
   refresh();
 }
