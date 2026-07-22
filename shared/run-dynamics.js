@@ -1009,7 +1009,7 @@ function renderLoadChart(){
 function renderMetricChart(){
   var chart=$('chartBox'), legend=$('chartLegend'), hintEl=$('chartHint');
   if(!chart) return;
-  if(hintEl) hintEl.innerHTML='Per-run values over the selected range. <b>Smooth</b> draws the trend line; <b>Hide outliers</b> drops glitch values (keeps logged races/injuries and detected hard efforts); <b>Points</b> shows every run. Runs missing a metric leave a gap in its line; Impact Load drops to 0 on rest days.';
+  if(hintEl) hintEl.innerHTML='Per-run values over the selected range. <b>Smooth</b> draws the trend line; <b>Hide outliers</b> drops glitch values (keeps logged races/injuries and detected hard efforts); <b>Points</b> shows every run. Runs missing a metric leave a gap in its line; Impact Load drops to 0 on rest days and is never outlier-filtered (big days are real training, not glitches).';
   var i1=$('chartView').value, i2=$('chartView2').value;
   var from=parseDate($('tFrom').value), to=parseDate($('tTo').value);
   var series=[];
@@ -1044,7 +1044,20 @@ function renderMetricChart(){
       p.seg=seg; all.push(p);
     });
     var flo=-Infinity, fhi=Infinity;
-    if(all.length>=5){ var vals=all.map(function(p){return p.v;}).slice().sort(function(a,b){return a-b;}); var q1=quantile(vals,0.25), q3=quantile(vals,0.75), iqr=q3-q1; if(iqr>0){ flo=q1-1.5*iqr; fhi=q3+1.5*iqr; } }
+    // Glitch fence, not a workout fence. At 1.5×IQR, homogeneous training (easy paces
+    // clustering tightly) collapses the fence onto the cluster and genuine hard efforts
+    // get dropped as "outliers" — and detection can't always rescue them (Strava-synced
+    // runs carry no Training Effect). Sensor glitches are order-of-magnitude wrong, so a
+    // far-out fence — 3×IQR, never tighter than 25% of the median — still drops them
+    // while keeping real workouts visible. Volume metrics (Impact Load) skip the fence
+    // entirely: a long run at 3× an easy day is the signal, not a glitch, and the load
+    // model already caps glitch leverage (neutral factor for absent dynamics, grade cap,
+    // distance floor).
+    if(!s.m.zeroFill && all.length>=5){
+      var vals=all.map(function(p){return p.v;}).slice().sort(function(a,b){return a-b;});
+      var q1=quantile(vals,0.25), q3=quantile(vals,0.75), iqr=q3-q1, med=quantile(vals,0.5);
+      if(iqr>0){ var half=Math.max(3*iqr, 0.25*Math.abs(med)); flo=q1-half; fhi=q3+half; }
+    }
     var inF=function(p){ return p.v>=flo&&p.v<=fhi; };
     s.line = hideOut ? all.filter(inF) : all;
     s.dots = hideOut ? all.filter(function(p){return inF(p)||evType(p)||maxIds.has(p.id);}) : all;
