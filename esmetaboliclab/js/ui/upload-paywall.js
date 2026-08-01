@@ -45,7 +45,10 @@ export function wireUploadPaywall(opts) {
   function render() {
     const user = window.esLabs.user;
     const pass = window.esLabs.getPassState();
-    const isAdmin = !!(user && user.uid === window.esLabs.ADMIN_UID);
+    // isAdmin() checks the real signed-in account, so the admin keeps
+    // upload access while acting as an athlete (esLabs.user is the
+    // stand-in user in that case and wouldn't match ADMIN_UID).
+    const isAdmin = window.esLabs.isAdmin();
     const hasAccess = isAdmin || (pass && pass.metlab && pass.metlab.uploadAccess);
 
     let next;

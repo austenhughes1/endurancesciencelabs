@@ -61,7 +61,9 @@ esLabs.mountAuthGate('#mu-gate', {
 esLabs.onAuthChange(function (user) {
   var app = document.getElementById('mu-app');
   if (!app) return;
-  if (user && user.uid === esLabs.ADMIN_UID) {
+  // realUid keeps the console usable while an act-as session is active
+  // (the listener hands us the stand-in user in that case).
+  if (user && (user.realUid || user.uid) === esLabs.ADMIN_UID) {
     app.classList.add('show');
     if (!loaded) loadUsers();
   } else {
@@ -279,11 +281,15 @@ function renderBody() {
     if (isSelf) tags += '<span class="mu-you-tag">YOU</span>';
     if (d.hasDoc === false) tags += '<span class="mu-flag-tag noprofile" title="Signed in but has no profile doc yet — created on first change">NO PROFILE</span>';
     if (d.disabled) tags += '<span class="mu-flag-tag disabled" title="Account disabled in Firebase Auth">DISABLED</span>';
+    var actAsBtn = isSelf ? '' : '<button class="mu-actas-btn" data-uid="' + esc(uid) + '" '
+      + 'data-name="' + esc(d.displayName || '') + '" data-email="' + esc(d.email || '') + '" '
+      + 'onclick="muActAs(this)" title="Browse the site as this user to enter data on their behalf">Act as &rarr;</button>';
     var userCell = '<div class="mu-user">'
       + '<div class="mu-avatar">' + esc(initials) + '</div>'
       + '<div style="min-width:0">'
       + '<div class="mu-user-name">' + esc(d.displayName || d.email || '(no name)') + tags + '</div>'
       + '<div class="mu-user-email">' + esc(d.email || '') + '</div>'
+      + actAsBtn
       + '</div></div>';
 
     // Role cell — pill toggles athlete <-> coach
@@ -469,6 +475,23 @@ function muUnlinkStrava(el) {
   });
 }
 window.muUnlinkStrava = muUnlinkStrava;
+
+// Start an act-as session (site.js layer) and jump to the user's
+// account page. Firestore rules — not this button — are what let the
+// admin write to the target's users/{uid} doc.
+function muActAs(el) {
+  var info = {
+    uid: el.dataset.uid,
+    name: el.dataset.name || null,
+    email: el.dataset.email || null
+  };
+  if (!esLabs.startActAs(info)) {
+    toast('Could not start act-as session.', 'error');
+    return;
+  }
+  window.location.href = '/account/';
+}
+window.muActAs = muActAs;
 
 // ── Helpers ──────────────────────────────────────────────────────
 function d_name(u) { return u.data.displayName || u.data.email || 'User'; }
