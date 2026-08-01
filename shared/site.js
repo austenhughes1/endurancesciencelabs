@@ -109,7 +109,98 @@ function signInGoogle() {
 function signInEmail(email, pw) { return auth.signInWithEmailAndPassword(email, pw); }
 function createAccount(email, pw) { return auth.createUserWithEmailAndPassword(email, pw); }
 function sendPasswordReset(email) { return auth.sendPasswordResetEmail(email); }
-function signOut() { return auth.signOut(); }
+function signOut() { clearActAs(); return auth.signOut(); }
+
+// ── Act-as (admin-only impersonation layer) ──────────────────────
+// The admin can browse the site "as" another user: pages receive a
+// stand-in user object whose uid is the target's, so every Firestore
+// read/write keyed on user.uid lands on the target's data. The real
+// Firebase session stays the admin's — Firestore rules (admin may
+// read/update any users/{uid} doc) are what actually authorize the
+// writes, so this is UX, not a privilege escalation. Per-tab
+// (sessionStorage), and inert unless the signed-in uid is ADMIN_UID.
+// Internal pass/entitlement state (attachPassWatchers, isAdmin, the
+// esLabs.user getter) intentionally stays on the REAL user — the
+// admin keeps their own paywall bypass, and we never try to read the
+// target's customers/{uid} docs (rules would reject that).
+var ACT_AS_KEY = 'eslActAs';
+
+function getActAs() {
+  if (!state.user || state.user.uid !== ADMIN_UID) return null;
+  try {
+    var info = JSON.parse(sessionStorage.getItem(ACT_AS_KEY) || 'null');
+    if (!info || !info.uid || info.uid === ADMIN_UID) return null;
+    return info;
+  } catch (e) { return null; }
+}
+
+function effectiveUser() {
+  var real = state.user;
+  var act = getActAs();
+  if (!real || !act) return real;
+  return {
+    uid: act.uid,
+    displayName: act.name || null,
+    email: act.email || null,
+    photoURL: null,
+    emailVerified: true,
+    isAnonymous: false,
+    providerData: [],
+    isActingAs: true,
+    realUid: real.uid,
+    getIdToken: function () { return real.getIdToken.apply(real, arguments); },
+    // Never let a page rename/modify the ADMIN's Auth record while
+    // acting; the meaningful profile fields live in users/{uid} anyway.
+    updateProfile: function () { return Promise.resolve(); }
+  };
+}
+
+function startActAs(info) {
+  if (!state.user || state.user.uid !== ADMIN_UID) return false;
+  if (!info || !info.uid || info.uid === ADMIN_UID) return false;
+  try {
+    sessionStorage.setItem(ACT_AS_KEY, JSON.stringify({
+      uid: info.uid, name: info.name || null, email: info.email || null
+    }));
+  } catch (e) { return false; }
+  return true;
+}
+
+function clearActAs() {
+  try { sessionStorage.removeItem(ACT_AS_KEY); } catch (e) {}
+}
+
+function stopActAs() {
+  clearActAs();
+  window.location.reload();
+}
+
+function refreshActAsBanner() {
+  var act = getActAs();
+  var el = document.getElementById('eslabs-actas-banner');
+  if (!act) {
+    if (el) { el.remove(); document.body.style.paddingBottom = ''; }
+    return;
+  }
+  var who = act.name || act.email || act.uid;
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'eslabs-actas-banner';
+    el.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;'
+      + 'display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;'
+      + 'padding:10px 16px;background:#b45309;color:#fff;'
+      + 'font:600 13.5px/1.4 system-ui,-apple-system,sans-serif;'
+      + 'box-shadow:0 -2px 12px rgba(0,0,0,.35)';
+    document.body.appendChild(el);
+    document.body.style.paddingBottom = '58px';
+  }
+  el.innerHTML = '<span>&#9888;&#65039; Acting as <strong>' + escapeHtml(who)
+    + '</strong> &mdash; anything you enter is saved to their account.</span>'
+    + '<button id="eslabs-actas-stop" style="background:transparent;color:#fff;'
+    + 'border:1.5px solid rgba(255,255,255,.75);border-radius:6px;padding:4px 12px;'
+    + 'font:700 12.5px system-ui,-apple-system,sans-serif;cursor:pointer">Stop acting</button>';
+  document.getElementById('eslabs-actas-stop').addEventListener('click', stopActAs);
+}
 
 // Firebase's Google OAuth popup stashes its handoff state in sessionStorage.
 // When that write is blocked the SDK dies on a blank "Unable to save initial
@@ -135,7 +226,8 @@ function googleOAuthAvailable() {
 function onAuthChange(cb) {
   authListeners.push(cb);
   // Fire immediately with the latest known state so callers don't race.
-  try { cb(state.user); } catch (e) { console.error(e); }
+  // Listeners get the effective user (act-as stand-in when active).
+  try { cb(effectiveUser()); } catch (e) { console.error(e); }
   return function () {
     var i = authListeners.indexOf(cb);
     if (i !== -1) authListeners.splice(i, 1);
@@ -162,11 +254,13 @@ auth.onAuthStateChanged(function (user) {
   if (user) attachPassWatchers(user.uid);
   notifyAuthListeners();
   refreshMountedNav();
+  refreshActAsBanner();
 });
 
 function notifyAuthListeners() {
+  var u = effectiveUser();
   authListeners.forEach(function (cb) {
-    try { cb(state.user); } catch (e) { console.error(e); }
+    try { cb(u); } catch (e) { console.error(e); }
   });
 }
 function notifyPassListeners() {
@@ -586,7 +680,7 @@ function mountAuthGate(selectorOrEl, opts) {
   var unsub = onAuthChange(function (user) {
     if (!user) {
       instance.show();
-    } else if (opts.requireAdmin && user.uid !== ADMIN_UID) {
+    } else if (opts.requireAdmin && (user.realUid || user.uid) !== ADMIN_UID) {
       instance.show();
       var card = host.querySelector('.eslabs-gate-card');
       if (card) {
@@ -910,7 +1004,13 @@ window.esLabs = {
   firebase: firebase,
   auth: auth,
   db: db,
-  get user() { return state.user; },
+  // Effective user: the act-as stand-in when a session is active, else
+  // the real signed-in user. Pages key Firestore paths off this, so it
+  // must match what onAuthChange listeners receive.
+  get user() { return effectiveUser(); },
+  get realUser() { return state.user; },
+  // Based on the REAL account — stays true while acting, so admin-only
+  // affordances (e.g. the metlab paywall bypass) keep working.
   isAdmin: function () { return !!(state.user && state.user.uid === ADMIN_UID); },
   signInGoogle: signInGoogle,
   googleOAuthAvailable: googleOAuthAvailable,
@@ -920,6 +1020,10 @@ window.esLabs = {
   signOut: signOut,
   onAuthChange: onAuthChange,
   onPassChange: onPassChange,
+  startActAs: startActAs,
+  stopActAs: stopActAs,
+  getActAs: getActAs,
+  isActingAs: function () { return !!getActAs(); },
   getPassState: passSnapshot,
   getTheme: currentTheme,
   setTheme: setTheme,
