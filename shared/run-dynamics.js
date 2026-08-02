@@ -283,6 +283,16 @@ var RUN_WINDOWS = [
 ];
 var MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
+/* ---------- COACH_STRAVA_HIDDEN — temporary kill switch ----------
+   While false, a COACH mount drops every Strava-synced run before anything
+   renders (charts, tiles, volume, load all recompute without them), skips the
+   Strava title lookup, and hides the Strava backfill button and help copy.
+   An ATHLETE mount is untouched. Flip to true — together with
+   SHOW_STRAVA_TO_COACH in coaching/index.html — to restore. Every gated site
+   is marked "COACH_STRAVA_HIDDEN". */
+var SHOW_STRAVA_TO_COACH=false;
+function hideStrava(){ return !SHOW_STRAVA_TO_COACH && ROLE==='coach'; }
+
 /* ---------- per-mount state ---------- */
 var ROOT=null, DB=null, UID=null, ROLE='athlete', ADMIN=false, STRAVA_SYNC={};
 var RAW=[], ACTIVE_TYPES=new Set(), KNOWN_TYPES=new Set();
@@ -566,7 +576,16 @@ function parseCorosArchive(arrayBuffer, fileName, onProgress){
 function docToRun(d){ var o=Object.assign({},d); o.date=new Date(d.ts); return o; }
 function loadFromFirestore(){
   return actCol().get().then(function(snap){
-    RAW=[]; snap.forEach(function(doc){ RAW.push(docToRun(doc.data())); });
+    // COACH_STRAVA_HIDDEN: a coach sees only runs the athlete imported from a
+    // watch export — Strava-synced runs are dropped here, so every downstream
+    // chart, tile and load number is computed without them.
+    // Original: RAW=[]; snap.forEach(function(doc){ RAW.push(docToRun(doc.data())); });
+    var skipStrava=hideStrava();
+    RAW=[]; snap.forEach(function(doc){
+      var d=doc.data();
+      if(skipStrava && d.source==='strava') return;
+      RAW.push(docToRun(d));
+    });
     RAW.sort(function(a,b){ return a.ts-b.ts; });
   });
 }
@@ -689,6 +708,8 @@ function leverPct(){ var v=parseFloat(STD_PROFILE.runLeverPctBW); return (v>0&&v
 // name contains "lever" is a strong manual Lever flag. We pull ONLY the title from Strava and match
 // it to the Garmin run by date (+distance); every metric still comes from Garmin.
 function fetchStravaLever(){
+  // COACH_STRAVA_HIDDEN: no Strava-sourced titles are read in the coach view.
+  if(hideStrava()){ STRAVA_LEVER=[]; return Promise.resolve(); }
   if(!UID) return Promise.resolve();
   return DB.collection('trainingPlans').where('athleteUid','==',UID).limit(1).get().then(function(ps){
     if(ps.empty){ STRAVA_LEVER=[]; return; }
@@ -1488,7 +1509,9 @@ function shellHTML(opts){
       '<li>Drop that <code>.zip</code> below (a single <code>.fit</code> works too). We unpack and read each <code>.fit</code> right in your browser.</li>'+
     '</ol>'+
     '<div class="rdx-help-note">Running-form metrics (ground contact, vertical oscillation, cadence, stride) require a compatible device or strap — runs recorded without one still import for load and pace, they just skip those fields. Garmin\'s CSV export is also capped at ~1,000 rows and only includes what is loaded on screen, so export long Garmin histories in chunks by date range — each chunk merges in automatically.</div>'+
-    '<div class="rdx-help-note">Strava connected (via the coaching dashboard)? The last 2 years of Strava runs sync in automatically, once a day, for days with no watch import — and the <b>Backfill Strava history</b> button pulls your entire Strava history at once for the same gap-fill. Strava can\'t provide ground contact, oscillation, or descent, so uploading a watch export for those days replaces the Strava copy with the full-metric version.</div>'+
+    // COACH_STRAVA_HIDDEN: the Strava sync/backfill note is athlete-only copy.
+    // Original: this note rendered unconditionally.
+    (hideStrava()?'':'<div class="rdx-help-note">Strava connected (via the coaching dashboard)? The last 2 years of Strava runs sync in automatically, once a day, for days with no watch import — and the <b>Backfill Strava history</b> button pulls your entire Strava history at once for the same gap-fill. Strava can\'t provide ground contact, oscillation, or descent, so uploading a watch export for those days replaces the Strava copy with the full-metric version.</div>')+
     '</div></details>'+
 
   '<div class="rdx-importbar">'+
@@ -1540,7 +1563,9 @@ function shellHTML(opts){
     '</div>'+
   '</div>'+
 
-  '<div class="rdx-empty rdx-section" id="sec-empty">No running activities stored '+(ROLE==='coach'?'for this athlete ':'')+'yet. Import a Garmin <code>Activities.csv</code> or a Coros <code>.zip</code> above to get started — or connect Strava on the coaching dashboard and recent run history fills in automatically.</div>'+
+  // COACH_STRAVA_HIDDEN: the "connect Strava" tail is dropped in the coach view.
+  // Original: the Strava sentence was always appended.
+  '<div class="rdx-empty rdx-section" id="sec-empty">No running activities stored '+(ROLE==='coach'?'for this athlete ':'')+'yet. Import a Garmin <code>Activities.csv</code> or a Coros <code>.zip</code> above to get started'+(hideStrava()?'.':' — or connect Strava on the coaching dashboard and recent run history fills in automatically.')+'</div>'+
 
   '<div class="rdx-section" id="sec-hero">'+(ADMIN?'<div class="rdx-demobar" id="demobar"></div>':'')+'<div class="rdx-hero" id="hero"></div></div>'+
 
@@ -1718,7 +1743,9 @@ function mount(container, opts){
     if(st) st.innerHTML = RAW.length
       ? '<span class="ok">✓ '+RAW.length+' runs loaded</span> · import a newer export to add more'
       : 'No runs stored yet — import a Garmin or Coros export to begin.';
-    var bf=$('stravaBackfill'); if(bf && STRAVA_SYNC.connected) bf.style.display='';
+    // COACH_STRAVA_HIDDEN: no Strava backfill control in the coach view.
+    // Original: var bf=$('stravaBackfill'); if(bf && STRAVA_SYNC.connected) bf.style.display='';
+    var bf=$('stravaBackfill'); if(bf && STRAVA_SYNC.connected && !hideStrava()) bf.style.display='';
     maybeSyncStrava();
   }).catch(function(e){
     console.error(e);
