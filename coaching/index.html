@@ -362,6 +362,10 @@ header{display:none}
 /* "View on Strava" link-back required by Strava brand guidelines (orange #FC5200 treatment) */
 .act-strava-link{display:inline-block;font-size:10px;font-weight:700;color:#FC5200;text-decoration:none;margin-top:2px}
 .act-strava-link:hover{text-decoration:underline}
+/* COACH_STRAVA_HIDDEN: coach-side link-out that replaces the synced dashboard */
+.coach-strava-link{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:1px solid rgba(252,82,0,.35);border-radius:8px;background:rgba(252,82,0,.07);color:#FC5200;font-family:var(--mono);font-size:11px;font-weight:800;letter-spacing:.4px;text-decoration:none;transition:background .15s}
+.coach-strava-link:hover{background:rgba(252,82,0,.14)}
+.coach-strava-link .strava-logo{width:12px;height:12px}
 .act-date{font-size:10px;color:var(--card-muted);font-family:var(--mono)}
 .act-val{font-family:var(--mono);font-weight:600;font-size:12px}
 .act-no-data{padding:32px;text-align:center;color:var(--card-muted2);font-size:13px;font-family:var(--mono)}
@@ -921,7 +925,7 @@ header{display:none}
 <script src="/shared/run-load-model.js?v=20"></script>
 <script src="/shared/injury-patterns.js?v=5"></script>
 <script src="/shared/device-matrix.js"></script>
-<script src="/shared/run-dynamics.js?v=25"></script>
+<script src="/shared/run-dynamics.js?v=26"></script>
 
 <script>
 'use strict';
@@ -974,6 +978,23 @@ const ADMIN_UID = esLabs.ADMIN_UID;
 // Official Strava mountain logo (per Strava brand guidelines).
 // Used wherever Strava data is displayed; color inherits from the parent via fill="currentColor".
 const STRAVA_LOGO_SVG = `<svg class="strava-logo" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>`;
+
+// ══════════════════════════════════════════════════════════
+//  COACH_STRAVA_HIDDEN — temporary kill switch
+// ══════════════════════════════════════════════════════════
+// While false, the COACH view shows no Strava-sourced athlete data at all:
+// no STRAVA badge in the sidebar, no synced weekly mileage, no dashboard
+// stats/charts/PMC, no recent-runs table, and Run Dynamics drops every
+// Strava-synced run. The coach gets a single link out to the athlete's
+// Strava profile instead. The ATHLETE's own view is untouched.
+//
+// To restore the previous behavior: flip this to true (and the matching
+// SHOW_STRAVA_TO_COACH in shared/run-dynamics.js). Every gated site is
+// marked "COACH_STRAVA_HIDDEN" with the original code commented beside it.
+const SHOW_STRAVA_TO_COACH = false;
+function hideStravaFor(role) { return !SHOW_STRAVA_TO_COACH && role === 'coach'; }
+// Same test for the call sites that only have the page-level role flag.
+function hideStravaForCurrentView() { return hideStravaFor(isCoach ? 'coach' : 'athlete'); }
 
 // ══════════════════════════════════════════════════════════
 //  LIFTING PLAN DATA (from CSV)
@@ -1408,7 +1429,9 @@ async function loadAthleteList() {
         const data = {
           displayName: u.displayName, email: u.email, role: u.role,
           coachUid: u.coachUid || null, raceName: u.raceName,
-          stravaConnected: u.stravaConnected, hasDoc: u.hasDoc
+          stravaConnected: u.stravaConnected, hasDoc: u.hasDoc,
+          // Needed for the coach-side "View on Strava" link-out (COACH_STRAVA_HIDDEN).
+          stravaAthleteId: u.stravaAthleteId || null
         };
         userMap[u.uid] = data;
         allUsers.push({ id: u.uid, data });
@@ -1498,6 +1521,10 @@ async function loadAthleteList() {
         coachTag = ` <span class="athlete-coach-tag">· ${esc(coachName).toUpperCase()}</span>`;
       }
     }
+    // COACH_STRAVA_HIDDEN: the sidebar STRAVA tag is hidden from coaches.
+    // Original: const stravaTag = d.stravaConnected ? '<div class="athlete-strava">STRAVA ✓</div>' : '';
+    const stravaTag = (!hideStravaFor('coach') && d.stravaConnected)
+      ? '<div class="athlete-strava">STRAVA ✓</div>' : '';
     const item = document.createElement('div');
     // Admin can view any athlete regardless of coach assignment (read-only of their existing plan).
     const blocked = isForeign && !isAdminUser;
@@ -1513,7 +1540,7 @@ async function loadAthleteList() {
       <div style="min-width:0;flex:1">
         <div class="athlete-name">${esc(d.displayName || d.email)}${coachTag}</div>
         <div class="athlete-meta">${d.raceName ? esc(d.raceName) : 'No race set'}</div>
-        ${d.stravaConnected ? '<div class="athlete-strava">STRAVA ✓</div>' : ''}
+        ${stravaTag}
       </div>`;
     list.appendChild(item);
   });
@@ -1578,12 +1605,17 @@ async function selectAthlete(uid, data, el) {
   document.getElementById('coach-empty').style.display = 'none';
   document.getElementById('coach-week-container').style.display = 'block';
 
+  // COACH_STRAVA_HIDDEN: a coach no longer pulls the athlete's Strava
+  // activities into the browser at all — nothing on this page renders them.
+  // Original: loadStravaRange(-16, 4) unconditionally in the list below.
   await Promise.all([
     loadWorkoutsRange(-16, 4),
-    loadStravaRange(-16, 4),
+    ...(hideStravaFor('coach') ? [] : [loadStravaRange(-16, 4)]),
     loadLiftingRange(-16, 4)
   ]);
   renderSingleWeek('coach-week-container', 'coach-dashboard', 'coach');
+  // Server-side daily sync still runs (it writes data for the athlete's own
+  // views); it just never renders anything here while COACH_STRAVA_HIDDEN.
   maybeAutoSyncStrava('coach');
 }
 
@@ -1853,6 +1885,8 @@ function renderWeekCard(mondayStr, role) {
 
   // Strava block reused inside the miles row when data is present.
   function stravaInfo() {
+    // COACH_STRAVA_HIDDEN: coaches see planned miles only — no synced totals.
+    if (hideStravaFor(role)) return '';
     if (stravaTotalMi <= 0) return '';
     let html = '';
     if (stravaRunMi > 0) {
@@ -2056,7 +2090,9 @@ function renderPlanOverview(role) {
         ? `<span class="po-current-pill">This week</span>`
         : (r.wb ? `${r.wb.weeksOut} wks out` : '');
     const milesVal = r.w.milesPerWeek;
-    const stravaSummary =
+    // COACH_STRAVA_HIDDEN: the coach's 16-week table shows planned miles only.
+    // Original: the two spans below, ungated by hideStravaFor(role).
+    const stravaSummary = hideStravaFor(role) ? '' :
       (r.stravaRunMi > 0 ? `<span class="po-miles-strava">${STRAVA_LOGO_SVG}${r.stravaRunMi.toFixed(1)} mi run</span>` : '') +
       (r.stravaCrossMi > 0 ? `<span class="po-miles-strava">${STRAVA_LOGO_SVG}${r.stravaCrossMi.toFixed(1)} mi cross-training</span>` : '');
     const milesHtml = milesVal
@@ -2086,9 +2122,11 @@ async function setViewMode(mode) {
   viewMode = mode;
   if (mode === 'overview') {
     // Pre-load 16 weeks of workouts + strava (some weeks may already be cached)
+    // COACH_STRAVA_HIDDEN: the strava half is skipped for coaches.
+    // Original: loadStravaRange(-15, 0) unconditionally.
     await Promise.all([
       loadWorkoutsRange(-15, 0),
-      loadStravaRange(-15, 0)
+      ...(hideStravaForCurrentView() ? [] : [loadStravaRange(-15, 0)])
     ]);
   }
   const role = isCoach ? 'coach' : 'athlete';
@@ -2446,9 +2484,53 @@ function renderPMC(days, hrParams) {
   </div>`;
 }
 
+// COACH_STRAVA_HIDDEN: the coach-side stand-in for the Strava dashboard —
+// a link out to the athlete's Strava profile and nothing else. No mileage,
+// charts, activities or load numbers. Remove this function together with the
+// early return in renderDashboard() when restoring the full coach dashboard.
+function renderCoachStravaLink(container) {
+  const connected = !!(selectedAthleteData && selectedAthleteData.stravaConnected);
+  const athleteId = selectedAthleteData && selectedAthleteData.stravaAthleteId;
+  const isAdminUser = currentUser && currentUser.uid === ADMIN_UID;
+
+  let body;
+  if (!connected) {
+    body = `<div class="strava-connect-text">This athlete has not connected their Strava account.</div>`;
+  } else if (athleteId) {
+    body = `<div class="strava-connect-text">Strava activity data isn't shown in the coaching view. Open the athlete's Strava profile to review their activities.</div>
+      <a class="coach-strava-link" href="https://www.strava.com/athletes/${encodeURIComponent(athleteId)}" target="_blank" rel="noopener">${STRAVA_LOGO_SVG} VIEW ACTIVITIES ON STRAVA</a>`;
+  } else {
+    body = `<div class="strava-connect-text">Strava is connected, but no Strava profile ID is on file for this athlete — ask them to reconnect from their own account to enable the link.</div>`;
+  }
+
+  container.innerHTML = `
+  <div class="dash-card">
+    <div class="dash-header">
+      <div class="dash-title">Training Data</div>
+      ${isAdminUser && connected ? `<div style="margin-left:auto"><button class="btn-ghost btn-signout" onclick="unlinkStrava('coach')" style="font-size:10px;padding:4px 10px" title="Admin: disconnect this athlete's Strava">Unlink</button></div>` : ''}
+    </div>
+    <div class="dash-body">
+      <div class="strava-connect">
+        <div class="strava-connect-icon">${STRAVA_LOGO_SVG}</div>
+        ${body}
+      </div>
+    </div>
+    <div class="dash-powered-by"><img src="/images/strava/api_logo_pwrdBy_strava_horiz_orange.svg" alt="Powered by Strava"></div>
+  </div>`;
+}
+
 function renderDashboard(containerId, role) {
   const container = document.getElementById(containerId);
   container.style.display = 'block';
+
+  // COACH_STRAVA_HIDDEN: coaches get the link-out card instead of the synced
+  // dashboard below (weekly stats, chart, recent runs, PMC). The athlete's own
+  // view falls through to the original code unchanged.
+  if (hideStravaFor(role)) {
+    renderCoachStravaLink(container);
+    return;
+  }
+
   // For coach view, check athlete's strava status; for athlete, check own
   const stravaConnected = role === 'coach'
     ? (selectedAthleteData?.stravaConnected || false)
@@ -2818,9 +2900,16 @@ async function maybeAutoSyncStrava(role) {
     const params = role === 'coach' ? { athleteUid: uid } : {};
     await syncFn(params);
 
+    data.stravaLastSyncedAt = firebase.firestore.Timestamp.now();
+
+    // COACH_STRAVA_HIDDEN: the sync itself still runs on the coach's page load
+    // (it feeds the athlete's own views), but the coach never reads the synced
+    // activities back or re-renders a dashboard from them.
+    // Original: the cache reload + dashboard re-render below ran for both roles.
+    if (hideStravaFor(role)) return;
+
     stravaCache = {};
     await loadStravaRange(-16, 4);
-    data.stravaLastSyncedAt = firebase.firestore.Timestamp.now();
 
     // Re-render only the dashboard so any in-progress edits in the week card
     // aren't blown away. If the dashboard isn't currently mounted (lifting
