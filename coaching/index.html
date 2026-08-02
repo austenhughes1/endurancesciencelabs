@@ -2184,15 +2184,7 @@ function renderSingleWeek(weekContainerId, dashContainerId, role) {
   const showLifting = role === 'coach' || currentUser.uid === ADMIN_UID || athleteFeatures.lifting === true;
   // Run Dynamics is available to coaches/admin always, and to athletes
   // unless explicitly turned off via features.runDynamics === false.
-  //
-  // TEMPORARY: the Run Dynamics tab is hidden from the COACH view (including
-  // admin-as-coach). Athletes' own views are unaffected. Flip the flag below
-  // back to true to restore — nothing else changed.
-  // Original: const showRunDynamics = role === 'coach' || currentUser.uid === ADMIN_UID || athleteFeatures.runDynamics !== false;
-  const SHOW_RUN_DYNAMICS_TO_COACH = false;
-  const showRunDynamics = role === 'coach'
-    ? SHOW_RUN_DYNAMICS_TO_COACH
-    : (currentUser.uid === ADMIN_UID || athleteFeatures.runDynamics !== false);
+  const showRunDynamics = role === 'coach' || currentUser.uid === ADMIN_UID || athleteFeatures.runDynamics !== false;
 
   // Build the list of available tabs; fall back to the first available
   // if the active tab isn't available for this athlete.
