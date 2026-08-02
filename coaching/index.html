@@ -366,6 +366,8 @@ header{display:none}
 .coach-strava-link{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border:1px solid rgba(252,82,0,.35);border-radius:8px;background:rgba(252,82,0,.07);color:#FC5200;font-family:var(--mono);font-size:11px;font-weight:800;letter-spacing:.4px;text-decoration:none;transition:background .15s}
 .coach-strava-link:hover{background:rgba(252,82,0,.14)}
 .coach-strava-link .strava-logo{width:12px;height:12px}
+.coach-strava-link.sm{padding:6px 12px;font-size:10px;gap:6px}
+.coach-strava-link.sm .strava-logo{width:10px;height:10px}
 .act-date{font-size:10px;color:var(--card-muted);font-family:var(--mono)}
 .act-val{font-family:var(--mono);font-weight:600;font-size:12px}
 .act-no-data{padding:32px;text-align:center;color:var(--card-muted2);font-size:13px;font-family:var(--mono)}
@@ -2195,11 +2197,23 @@ function renderSingleWeek(weekContainerId, dashContainerId, role) {
     ? `<div class="plan-race">${upcomingRaces.map(r => `<span class="plan-race-name">${esc(r.name || 'Race')}</span> · ${r.date}`).join('&nbsp;&nbsp;|&nbsp;&nbsp;')}</div>`
     : '';
 
+  // COACH_STRAVA_HIDDEN: the only Strava surface left in the coach view — a
+  // link out to the athlete's profile in the header, plus the admin's unlink
+  // control that used to live in the (now hidden) training-data card.
+  const coachStravaId = hideStravaFor(role) && selectedAthleteData?.stravaConnected
+    ? selectedAthleteData?.stravaAthleteId : null;
+  const coachStravaLink = coachStravaId
+    ? `<a class="coach-strava-link sm" href="https://www.strava.com/athletes/${encodeURIComponent(coachStravaId)}" target="_blank" rel="noopener" title="Open this athlete's activities on Strava">${STRAVA_LOGO_SVG} STRAVA</a>`
+    : '';
+  const coachStravaUnlink = (hideStravaFor(role) && selectedAthleteData?.stravaConnected && currentUser.uid === ADMIN_UID)
+    ? `<button class="btn-ghost btn-signout" onclick="unlinkStrava('coach')" title="Admin: disconnect this athlete's Strava">Unlink Strava</button>`
+    : '';
+
   let html = `
     <div class="plan-header">
       <div class="plan-athlete-name">${esc(name)}</div>
       ${raceHtml}
-      ${role === 'coach' ? `<div class="plan-actions"><button class="btn-ghost" onclick="openEditRace()">✎ Races</button></div>` : ''}
+      ${role === 'coach' ? `<div class="plan-actions">${coachStravaLink}${coachStravaUnlink}<button class="btn-ghost" onclick="openEditRace()">✎ Races</button></div>` : ''}
     </div>`;
 
   // Tab bar (show if more than one tab available, or a single non-training tab)
@@ -2526,19 +2540,18 @@ function renderDashboard(containerId, role) {
   const container = document.getElementById(containerId);
   container.style.display = 'block';
 
-  // COACH_STRAVA_HIDDEN: coaches get the link-out card instead of the synced
-  // dashboard below (weekly stats, chart, recent runs, PMC) — and if there is
-  // no Strava connection to link to, the whole section below the weekly plan
-  // is dropped rather than showing an empty card. The athlete's own view falls
-  // through to the original code unchanged.
+  // COACH_STRAVA_HIDDEN: the whole training-data section below the weekly plan
+  // (stats, chart, recent runs, PMC — and the link-out card that briefly stood
+  // in for them) is gone for coaches, connected or not. The only Strava surface
+  // left in the coach view is the header link built in renderSingleWeek().
+  // The athlete's own view falls through to the original code unchanged.
   if (hideStravaFor(role)) {
-    if (!(selectedAthleteData && selectedAthleteData.stravaConnected)) {
-      container.style.display = 'none';
-      container.innerHTML = '';
-      return;
-    }
-    renderCoachStravaLink(container);
+    container.style.display = 'none';
+    container.innerHTML = '';
     return;
+    // Original stand-in, kept for the revert:
+    // renderCoachStravaLink(container);
+    // return;
   }
 
   // For coach view, check athlete's strava status; for athlete, check own
@@ -2997,6 +3010,13 @@ async function unlinkStrava(role) {
     // Re-render dashboard to show the reconnect prompt
     const dashRole = onBehalf || isCoach ? 'coach' : 'athlete';
     const dashId = dashRole === 'coach' ? 'coach-dashboard' : 'athlete-dashboard';
+    // COACH_STRAVA_HIDDEN: the coach's Strava link lives in the plan header, so
+    // re-render the whole week view to drop it (the dashboard section below is
+    // hidden either way). Original: renderDashboard(dashId, dashRole) only.
+    if (hideStravaFor(dashRole)) {
+      renderSingleWeek('coach-week-container', 'coach-dashboard', 'coach');
+      return;
+    }
     renderDashboard(dashId, dashRole);
   } catch(e) {
     console.error('Disconnect failed:', e);
