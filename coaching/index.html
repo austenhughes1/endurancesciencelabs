@@ -2494,9 +2494,12 @@ function renderCoachStravaLink(container) {
   const isAdminUser = currentUser && currentUser.uid === ADMIN_UID;
 
   let body;
-  if (!connected) {
-    body = `<div class="strava-connect-text">This athlete has not connected their Strava account.</div>`;
-  } else if (athleteId) {
+  // COACH_STRAVA_HIDDEN: the not-connected case never reaches here — the
+  // caller drops the whole section instead of rendering an empty card.
+  // Original: if (!connected) {
+  //   body = `<div class="strava-connect-text">This athlete has not connected their Strava account.</div>`;
+  // } else if (athleteId) {
+  if (athleteId) {
     body = `<div class="strava-connect-text">Strava activity data isn't shown in the coaching view. Open the athlete's Strava profile to review their activities.</div>
       <a class="coach-strava-link" href="https://www.strava.com/athletes/${encodeURIComponent(athleteId)}" target="_blank" rel="noopener">${STRAVA_LOGO_SVG} VIEW ACTIVITIES ON STRAVA</a>`;
   } else {
@@ -2524,9 +2527,16 @@ function renderDashboard(containerId, role) {
   container.style.display = 'block';
 
   // COACH_STRAVA_HIDDEN: coaches get the link-out card instead of the synced
-  // dashboard below (weekly stats, chart, recent runs, PMC). The athlete's own
-  // view falls through to the original code unchanged.
+  // dashboard below (weekly stats, chart, recent runs, PMC) — and if there is
+  // no Strava connection to link to, the whole section below the weekly plan
+  // is dropped rather than showing an empty card. The athlete's own view falls
+  // through to the original code unchanged.
   if (hideStravaFor(role)) {
+    if (!(selectedAthleteData && selectedAthleteData.stravaConnected)) {
+      container.style.display = 'none';
+      container.innerHTML = '';
+      return;
+    }
     renderCoachStravaLink(container);
     return;
   }
