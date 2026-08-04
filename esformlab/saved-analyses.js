@@ -55,6 +55,15 @@ async function saveAnalysis() {
     data.phases[def.key] = entry;
   });
 
+  // Stamp the schema version (and the KFO aggregate block when available) so
+  // stored analyses stay version-aware. Absence of schemaVersion = version 1.
+  if (typeof KFOApp !== 'undefined') {
+    try {
+      var kfoFields = KFOApp.storedFields();
+      Object.keys(kfoFields).forEach(function (k) { data[k] = kfoFields[k]; });
+    } catch (e) { console.warn('kfo save fields skipped:', e.message); }
+  }
+
   try {
     var db = firebase.firestore();
     await db.collection('users').doc(currentUser.uid).collection('analyses').add(data);
@@ -281,6 +290,12 @@ async function viewSavedAnalysis(id) {
   var reportEl = document.getElementById('report-section');
   if (reportEl) reportEl.style.display = 'block';
   renderReport(d.issues || {});
+
+  // Version-aware KFO panel. Renders from the stored block only -- a saved
+  // session has no keypoints, so it is never recomputed here.
+  if (typeof KFOApp !== 'undefined') {
+    try { KFOApp.renderSaved(d); } catch (e) { console.error('kfo saved render:', e); }
+  }
 
   // Show summary table
   var summaryEl = document.getElementById('summary-section');
