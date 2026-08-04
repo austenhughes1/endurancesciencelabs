@@ -634,9 +634,18 @@
 <script src="auth-paywall.js"></script>
 <script src="gait-data.js"></script>
 <script src="gait-engine.js"></script>
-<!-- Admin-only force-vector prototype (gated by isAdmin(); no effect for users) -->
+<!-- Kinematic Force-Orientation (admin-only, flag-gated; no effect for users).
+     force-vector*.js are the superseded V1 prototype, kept for comparison behind
+     the legacyForceVectorV1 flag. See docs/kinematic-force-orientation.md -->
 <script src="force-vector.js"></script>
 <script src="force-vector-admin.js"></script>
+<script src="kfo-core.js"></script>
+<script src="kfo-reference.js"></script>
+<script src="kfo-estimators.js"></script>
+<script src="kfo-analysis.js"></script>
+<script src="kfo-render.js"></script>
+<script src="kfo-export.js"></script>
+<script src="kfo-app.js"></script>
 
 <script>
 'use strict';
@@ -1006,8 +1015,8 @@ function completeAnalysis(){
   var summaryEl = document.getElementById('summary-section');
   if(reportEl) reportEl.style.display='block';
   if(summaryEl) summaryEl.style.display='block';
-  // Admin-only force-vector report (no-op for regular users).
-  if(isAdmin() && typeof renderForceVectorReport==='function'){ try{ renderForceVectorReport(); }catch(e){ console.error('force-vector report:',e); } }
+  // Admin-only Kinematic Force-Orientation panel (no-op for regular users).
+  if(typeof KFOApp!=='undefined'){ try{ KFOApp.render(); }catch(e){ console.error('kfo render:',e); } }
   var ccaSH = document.getElementById('coaching-cta-section');
   if(ccaSH) ccaSH.style.display='block';
   var rfnSH = document.getElementById('report-footnotes');
@@ -1289,6 +1298,11 @@ async function autoScanAll(){
     samples = samples.filter(function(s){return s.scale!=null && s.scale >= thresh;});
     console.log('[scale filter] side: kept',samples.length,'of',before,'(threshold',thresh.toFixed(1)+'px, median',med.toFixed(1)+'px)');
   })();
+
+  // Retain the scale-filtered samples for Kinematic Force-Orientation. They already
+  // carry full keypoints per sampled frame, so multi-stride analysis costs no extra
+  // pose inference. Admin-only consumer; harmless if nothing reads it.
+  try{ window.__kfoSamples = samples; }catch(e){}
 
   // Detect side phases
   try{findPhases(samples,sideDur);}catch(e){console.error('findPhases:',e);}
@@ -1908,7 +1922,7 @@ async function analyzeCard(key){
   if (lastIssues !== null) {
     lastIssues = detectIssues();
     renderReport(lastIssues);
-    if(isAdmin() && typeof renderForceVectorReport==='function'){ try{ renderForceVectorReport(); }catch(e){ console.error('force-vector report:',e); } }
+    if(typeof KFOApp!=='undefined'){ try{ KFOApp.render(); }catch(e){ console.error('kfo render:',e); } }
   }
   checkAllAnalyzed();
 }
