@@ -81,7 +81,58 @@
     'Predicts peak force but not loading rate'
   ]);
 
+  // Quality flags from the orientation analysis that specifically threaten the
+  // TIMING estimate. Flags that only affect sagittal angles (perspective,
+  // mirroring, direction) are deliberately absent: contact and flight time do
+  // not depend on them.
+  var CAVEAT_BY_FLAG = Object.freeze({
+    acceleration_detected: 'Steady speed could not be confirmed. The impulse identity assumes steady-speed ' +
+      'level running, so acceleration or deceleration biases both values.',
+    grade_unknown: 'Grade is unknown. Running on a gradient breaks the level-running assumption the ' +
+      'impulse identity depends on.',
+    sparse_stance_sampling: 'Few samples fell inside stance, so each contact time is resolved coarsely.',
+    low_frame_rate: 'Low effective frame rate limits how precisely stance edges can be located.',
+    uncertain_contact_frame: 'Contact frames were uncertain, and that error propagates directly into contact time.'
+  });
+
+  var SYSTEMATIC_BIAS_CAVEAT = 'Systematic bias in locating stance edges does not average out across steps, ' +
+    'which is why force-plate validation is still required.';
+
   function isNum(v) { return typeof v === 'number' && isFinite(v); }
+
+  /**
+   * Caveats specific to the timing estimate.
+   *
+   * The random-error line and the systematic-bias line are always present
+   * together on purpose: quoting a shrinking random error without saying that
+   * the systematic part does NOT shrink would read as a precision claim this
+   * method cannot make.
+   *
+   * @param {string[]} qualityFlags  KFO.QUALITY_FLAG values from the analysis
+   * @param {Object|null} uncertainty  output of timingUncertainty()
+   * @param {number} nSteps
+   */
+  function buildCaveats(qualityFlags, uncertainty, nSteps) {
+    var out = [];
+    function add(text) { if (text && out.indexOf(text) === -1) out.push(text); }
+
+    (qualityFlags || []).forEach(function (f) { add(CAVEAT_BY_FLAG[f]); });
+
+    if (uncertainty && isNum(uncertainty.perStepRelative) && isNum(uncertainty.aggregateRelative)) {
+      add('Random timing error is roughly ' + (uncertainty.perStepRelative * 100).toFixed(0) +
+        '% per step, falling to roughly ' + (uncertainty.aggregateRelative * 100).toFixed(0) +
+        '% averaged over ' + nSteps + ' step' + (nSteps === 1 ? '' : 's') + '. ' + SYSTEMATIC_BIAS_CAVEAT);
+    } else {
+      add(SYSTEMATIC_BIAS_CAVEAT);
+    }
+
+    if (isNum(nSteps) && nSteps < LIMITS.recommendedSteps) {
+      add('Only ' + nSteps + ' step' + (nSteps === 1 ? '' : 's') + ' were usable (' +
+        LIMITS.recommendedSteps + ' or more preferred). Multi-step averaging is what makes a timing-only ' +
+        'estimate usable at all.');
+    }
+    return out;
+  }
 
   /**
    * Build per-step timing from both sides' stance intervals.
@@ -199,6 +250,7 @@
    * @param {Array} input.rightStanceIntervals
    * @param {number} input.effectiveSampleRateHz
    * @param {number|null} [input.bodyMassKg]  enables absolute newtons
+   * @param {string[]} [input.qualityFlags]  KFO quality flags, for caveats
    */
   function analyze(input) {
     input = input || {};
@@ -225,12 +277,14 @@
       base.availability = KFO.AVAILABILITY.UNAVAILABLE;
       base.reason = 'double_support_detected_not_running';
       base.gaitValidity = { isRunning: false, doubleSupportCount: built.doubleSupportCount };
+      base.caveats = [];
       return base;
     }
     if (steps.length < LIMITS.minSteps) {
       base.availability = KFO.AVAILABILITY.UNAVAILABLE;
       base.reason = 'insufficient_steps';
       base.gaitValidity = { isRunning: null, doubleSupportCount: built.doubleSupportCount };
+      base.caveats = [];
       return base;
     }
 
@@ -263,10 +317,11 @@
     base.cadenceSpm = cadenceAgg;
     base.meanVerticalForceBw = meanAgg;
     base.peakVerticalForceBw = peakAgg;
-    base.peakBiasNote = 'Half-sine assumption; validated against Dorn et al. 2012 at 0.85-0.95 of ' +
-      'measured peak, i.e. a likely 5-15% underestimate. No correction applied.';
+    base.peakBiasNote = 'Half-sine assumption; checked against Dorn et al. 2012 at 0.85-0.95 of their ' +
+      'force-plate peak, i.e. a likely 5-15% underestimate. No correction applied.';
     base.uncertainty = uncertainty;
     base.relativeUncertainty = uncertainty ? uncertainty.aggregateRelative : null;
+    base.caveats = buildCaveats(input.qualityFlags, uncertainty, steps.length);
 
     // Same convention as shared/run-load-model.js (cadence(spm) x GCT(ms)), so the
     // video-derived value can be compared directly with the device-derived one.
@@ -310,7 +365,10 @@
     RUN_LOAD_DF_PROXY_SCALE: RUN_LOAD_DF_PROXY_SCALE,
     LIMITS: LIMITS,
     LIMITATIONS: LIMITATIONS,
+    CAVEAT_BY_FLAG: CAVEAT_BY_FLAG,
+    SYSTEMATIC_BIAS_CAVEAT: SYSTEMATIC_BIAS_CAVEAT,
     buildSteps: buildSteps,
+    buildCaveats: buildCaveats,
     meanVerticalForceBw: meanVerticalForceBw,
     peakVerticalForceBw: peakVerticalForceBw,
     timingUncertainty: timingUncertainty,

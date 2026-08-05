@@ -23,9 +23,10 @@
   'use strict';
 
   var FEATURE_TITLE = 'Kinematic Force-Orientation Estimate';
-  var FEATURE_SUBTITLE = 'Video-derived support-line geometry across stance. Not a direct GRF measurement.';
-  var PERSISTENT_NOTICE = 'This is a video-derived estimate of support-line orientation, ' +
-    'not a direct ground-reaction-force measurement.';
+  var FEATURE_SUBTITLE = 'Vertical force magnitude from stance and flight timing, plus support-line geometry ' +
+    'across stance. Not a direct GRF measurement.';
+  var PERSISTENT_NOTICE = 'These are video-derived estimates of vertical force magnitude and support-line ' +
+    'orientation, not a direct ground-reaction-force measurement.';
   var METHOD_EXPLANATION = 'The estimate is based on body and contact geometry. Actual ground-reaction ' +
     'force also depends on center-of-mass acceleration, center-of-pressure location and force magnitude.';
   var ECONOMY_DISCLAIMER = 'Reference similarity is not a direct measure of running economy.';
@@ -68,6 +69,113 @@
       'color:var(--muted2,#8aa0c0);margin-bottom:5px">' + esc(text) + '</div>';
   }
 
+  // ── Vertical force headline ───────────────────────────────────────────────
+  //
+  // The headline quantity, because it is the one that varies between runners.
+  // Deliberately NOT colour-banded: a higher peak vertical force is a larger
+  // load, not a fault, and a red/green scale would read as a verdict.
+  var FORCE_NOTICE = 'Estimated from stance and flight timing. This is not a ground-reaction-force measurement.';
+  var FORCE_METHOD_NOTE = 'Over a complete step at steady speed the vertical impulse must support ' +
+    'bodyweight, so mean force in bodyweights is exactly 1 / duty factor. The peak additionally ' +
+    'assumes a half-sine force waveform (Morin et al. 2005; Patoz et al. 2023).';
+  var FORCE_UNAVAILABLE_REASON = {
+    double_support_detected_not_running: 'Overlapping stance phases were detected, which is walking rather ' +
+      'than running. The flight-time relationship this estimate depends on does not hold without flight.',
+    insufficient_steps: 'Too few complete steps (one contact plus the following flight) passed the timing ' +
+      'checks in this clip.',
+    vertical_force_module_not_loaded: 'The vertical-force module was not loaded on this page.'
+  };
+
+  /** value ± timing uncertainty, in bodyweights. */
+  function forceValue(agg, relativeUncertainty) {
+    if (!agg || !isNum(agg.median)) return '—';
+    var v = agg.median;
+    if (!isNum(relativeUncertainty) || relativeUncertainty <= 0) return v.toFixed(2) + ' BW';
+    return v.toFixed(2) + ' ± ' + Math.max(0.01, v * relativeUncertainty).toFixed(2) + ' BW';
+  }
+
+  function bigStat(title, value, sub) {
+    return '<div style="flex:1 1 150px;min-width:130px">' + label(title) +
+      '<div style="font-size:23px;font-weight:800;letter-spacing:-.5px;color:var(--cyan,#00e5c8);' +
+      'line-height:1.15">' + esc(value) + '</div>' +
+      (sub ? '<div style="font-size:10.5px;color:var(--muted2,#8aa0c0);margin-top:3px;line-height:1.45">' +
+        esc(sub) + '</div>' : '') + '</div>';
+  }
+
+  function timingChips(vf) {
+    var chips = [];
+    function chip(name, text) {
+      chips.push('<span style="display:inline-block;font-size:11px;padding:3px 9px;border-radius:20px;' +
+        'border:1px solid var(--border,#243044);color:var(--muted2,#8aa0c0)">' +
+        esc(name) + ' <strong style="color:inherit">' + esc(text) + '</strong></span>');
+    }
+    var df = vf.dutyFactor, ct = vf.contactSeconds, ft = vf.flightSeconds, cad = vf.cadenceSpm;
+    if (df && isNum(df.median)) chip('Duty factor', df.median.toFixed(3));
+    if (ct && isNum(ct.median)) chip('Contact', Math.round(ct.median * 1000) + ' ms');
+    if (ft && isNum(ft.median)) chip('Flight', Math.round(ft.median * 1000) + ' ms');
+    if (cad && isNum(cad.median)) chip('Step rate', Math.round(cad.median) + ' spm');
+    chip('Steps', String(vf.stepsAnalyzed || 0) + (vf.stepsRejected ? ' (' + vf.stepsRejected + ' rejected)' : ''));
+    return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:11px">' + chips.join('') + '</div>';
+  }
+
+  /**
+   * Exported so the copy-audit tests can assert on this block alone: it is the
+   * one place a force number is shown, so it is the one place the "not measured"
+   * rule has to hold word by word.
+   */
+  function verticalForceSection(result) {
+    var vf = result && result.verticalForce;
+    if (!vf) return '';
+
+    if (vf.availability !== KFO.AVAILABILITY.AVAILABLE) {
+      return box(
+        label('Estimated vertical force') +
+        '<div style="font-size:12px;line-height:1.6">' +
+        esc(FORCE_UNAVAILABLE_REASON[vf.reason] ||
+            'A vertical force estimate could not be produced from this clip’s timing.') + '</div>' +
+        '<div style="font-size:10.5px;color:var(--muted2,#8aa0c0);margin-top:7px;font-family:var(--mono,monospace)">' +
+        'reason: ' + esc(vf.reason || 'unavailable') + '</div>'
+      );
+    }
+
+    var rel = isNum(vf.relativeUncertainty) ? vf.relativeUncertainty : null;
+    var peakSd = (vf.peakVerticalForceBw && isNum(vf.peakVerticalForceBw.sd))
+      ? 'Step-to-step SD ' + vf.peakVerticalForceBw.sd.toFixed(2) + ' BW' : null;
+    var meanSub = 'Exact consequence of the impulse balance, given the timing.';
+
+    var caveats = (vf.caveats || []).map(function (c) {
+      return '<li style="margin-bottom:3px">' + esc(c) + '</li>';
+    }).join('');
+
+    var horiz = vf.horizontal || {};
+
+    return box(
+      label('Estimated vertical force · headline') +
+      '<div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start">' +
+      bigStat('Peak, per bodyweight', forceValue(vf.peakVerticalForceBw, rel), peakSd) +
+      bigStat('Mean over contact', forceValue(vf.meanVerticalForceBw, rel), meanSub) +
+      '</div>' +
+      '<div style="margin-top:11px;padding:8px 11px;border-left:3px solid var(--warn,#f5a623);' +
+      'background:rgba(245,166,35,.08);border-radius:6px;font-size:11.5px;line-height:1.55">' +
+      '<strong>' + esc(FORCE_NOTICE) + '</strong></div>' +
+      timingChips(vf) +
+      (vf.peakBiasNote ? '<div style="font-size:11px;color:var(--muted2,#8aa0c0);margin-top:9px;line-height:1.5">' +
+        esc(vf.peakBiasNote) + '</div>' : '') +
+      (caveats ? '<ul style="margin:8px 0 0;padding-left:16px;font-size:11px;line-height:1.55;' +
+        'color:var(--muted2,#8aa0c0)">' + caveats + '</ul>' : '') +
+      '<div style="margin-top:9px;padding-top:8px;border-top:1px dashed var(--border,#243044);' +
+      'font-size:11px;color:var(--muted2,#8aa0c0);line-height:1.5">' +
+      '<strong>Horizontal force is not reported.</strong> ' +
+      esc(horiz.explanation || 'At constant average speed the braking and propulsive impulses cancel, so ' +
+        'there is no net horizontal force to report.') + '</div>' +
+      '<details style="margin-top:8px"><summary style="cursor:pointer;font-size:11px;' +
+      'color:var(--muted2,#8aa0c0)">How this is derived</summary>' +
+      '<div style="font-size:11px;color:var(--muted2,#8aa0c0);margin-top:5px;line-height:1.55">' +
+      esc(FORCE_METHOD_NOTE) + ' Force is computed per step and then aggregated, because 1 / duty factor ' +
+      'is convex and averaging duty factor first would bias the result.</div></details>'
+    );
+  }
+
   // ── Summary cards ─────────────────────────────────────────────────────────
   function phaseCard(result, phase) {
     var win = KFO.PHASE_WINDOWS[phase];
@@ -106,9 +214,25 @@
     );
   }
 
+  /**
+   * Support-line geometry, demoted to a secondary row. Orientation says which way
+   * the support line points; it never says how hard the runner pushes, so it sits
+   * below the force headline rather than beside it.
+   */
+  function geometryGrid(result) {
+    var cards = KFO.PHASE_ORDER.map(function (p) { return phaseCard(result, p); });
+    return '<div style="margin-top:14px">' +
+      '<div style="font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;' +
+      'color:var(--muted2,#8aa0c0);margin-bottom:3px">Support-line geometry · secondary</div>' +
+      '<div style="font-size:11px;color:var(--muted2,#8aa0c0);margin-bottom:8px;line-height:1.5">' +
+      'The support-line angle is a geometric descriptor of orientation across stance. It carries no force ' +
+      'magnitude, and a near-vertical late stance is not a deficiency.</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:10px">' +
+      cards.join('') + '</div></div>';
+  }
+
   function summaryGrid(result) {
     var cards = [];
-    KFO.PHASE_ORDER.forEach(function (p) { cards.push(phaseCard(result, p)); });
 
     var sym = result.symmetry || {};
     cards.push(metricCard('Left / right symmetry',
@@ -303,8 +427,23 @@
         'effectiveSampleRateHz: ' + (isNum(vm.effectiveSampleRateHz) ? vm.effectiveSampleRateHz.toFixed(1) : '—') + '<br>' +
         'estimatedSpeedMps: ' + (vm.estimatedSpeedMps == null ? 'null' : esc(vm.estimatedSpeedMps)) + '<br>' +
         'forceMetrics: ' + esc(result.forceMetrics ? result.forceMetrics.availability : 'unavailable') +
-        ' (' + esc(result.forceMetrics ? result.forceMetrics.reason : '') + ')' +
+        ' (' + esc(result.forceMetrics ? result.forceMetrics.reason : '') + ')<br>' +
+        'verticalForce.method: ' + esc(result.verticalForce ? (result.verticalForce.method || 'null') : 'null') + '<br>' +
+        'verticalForce.availability: ' + esc(result.verticalForce ? result.verticalForce.availability : 'unavailable') +
+        '<br>verticalForce.isValidated: ' +
+        ((result.verticalForce && result.verticalForce.isValidated) ? 'true' : 'false') + '<br>' +
+        'verticalForce.runLoadDfProxy: ' +
+        ((result.verticalForce && result.verticalForce.runLoadDfProxy &&
+          isNum(result.verticalForce.runLoadDfProxy.value))
+            ? Math.round(result.verticalForce.runLoadDfProxy.value) +
+              ' (' + esc(result.verticalForce.runLoadDfProxy.convention) + ')'
+            : 'null') +
         '</div>' +
+        (result.verticalForce && result.verticalForce.limitations &&
+         result.verticalForce.limitations.length
+          ? '<div style="font-size:11px;color:var(--muted2,#8aa0c0);margin-top:7px;line-height:1.5">' +
+            'Vertical force limitations: ' + esc(result.verticalForce.limitations.join(' · ')) + '</div>'
+          : '') +
         '<div style="font-size:11px;color:var(--muted2,#8aa0c0);margin-top:7px;line-height:1.5">Limitations: ' +
         esc((result.limitations || []).join(' · ')) + '</div>', 'margin-top:10px') +
       '</div></details>';
@@ -380,7 +519,9 @@
     }
     return wrapper(
       extraNotice(opts.notice) +
-      summaryGrid(result) +
+      verticalForceSection(result) +
+      geometryGrid(result) +
+      '<div style="margin-top:10px">' + summaryGrid(result) + '</div>' +
       coupledSection(result) +
       referenceSection(result) +
       qualitySection(result) +
@@ -445,6 +586,9 @@
         confidenceBand: stored.quality.confidenceBand
       } : null,
       left: side(stored.left), right: side(stored.right),
+      // The persisted force block is already the aggregate shape the card reads,
+      // so it needs no reshaping — only a null guard for pre-force saves.
+      verticalForce: stored.verticalForce || null,
       symmetry: stored.symmetry || { available: false, reason: 'not_persisted' },
       consistency: { left: {}, right: {} },
       coupledPattern: stored.coupledPattern || {},
@@ -554,7 +698,10 @@
     PERSISTENT_NOTICE: PERSISTENT_NOTICE,
     METHOD_EXPLANATION: METHOD_EXPLANATION,
     ECONOMY_DISCLAIMER: ECONOMY_DISCLAIMER,
+    FORCE_NOTICE: FORCE_NOTICE,
+    FORCE_METHOD_NOTE: FORCE_METHOD_NOTE,
     OVERLAY: OVERLAY,
+    verticalForceSection: verticalForceSection,
     buildHtml: buildHtml,
     buildStoredHtml: buildStoredHtml,
     fromStoredForm: fromStoredForm,

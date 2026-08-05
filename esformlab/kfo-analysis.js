@@ -6,6 +6,7 @@
 //      -> per-side stance intervals (ankle-Y peak + plateau, same algorithm the
 //         production phase detector already uses in index.html findPhases)
 //      -> per-stride support-line angle at three normalised stance windows
+//      -> per-step vertical force magnitude from the same stance intervals
 //      -> robust aggregation across strides
 //      -> quality flags + uncertainty
 //      -> reference comparison (if any reference is loaded)
@@ -22,10 +23,13 @@
   var core = isNode ? require('./kfo-core.js') : root.KFO;
   var ref = isNode ? require('./kfo-reference.js') : root.KFOReference;
   var est = isNode ? require('./kfo-estimators.js') : root.KFOEstimators;
-  var api = factory(core, ref, est);
+  // Optional: if the vertical-force module is not loaded the analysis still runs
+  // and simply reports the force block as unavailable.
+  var vf = isNode ? require('./kfo-vertical-force.js') : root.KFOVerticalForce;
+  var api = factory(core, ref, est, vf);
   if (isNode) module.exports = api;
   if (root) root.KFOAnalysis = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (KFO, KFOReference, KFOEstimators) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (KFO, KFOReference, KFOEstimators, KFOVerticalForce) {
   'use strict';
 
   var F = KFO.QUALITY_FLAG;
@@ -590,6 +594,23 @@
       maxStrideSd: strideSds.length ? Math.max.apply(null, strideSds) : null
     });
 
+    // Vertical force magnitude from stance/flight timing. This is the headline
+    // quantity: unlike the support-line angle it says how hard the runner pushes,
+    // and unlike the vertical:horizontal ratio it actually varies between runners.
+    // It shares the stance intervals the angles are computed from, so the two can
+    // never disagree about where stance was.
+    var verticalForce = KFOVerticalForce ? KFOVerticalForce.analyze({
+      leftStanceIntervals: left.stanceIntervals,
+      rightStanceIntervals: right.stanceIntervals,
+      effectiveSampleRateHz: effectiveFps,
+      bodyMassKg: input.bodyMassKg == null ? null : input.bodyMassKg,
+      qualityFlags: flags
+    }) : {
+      availability: KFO.AVAILABILITY.UNAVAILABLE,
+      reason: 'vertical_force_module_not_loaded',
+      isValidated: false
+    };
+
     // Per-phase uncertainty, then attach to each aggregate.
     var overallSem = null;
     var sems = [];
@@ -679,6 +700,9 @@
       right: buildReferenceComparison(right, overallConfidence.score, context),
       disclaimer: 'Reference similarity is not a direct measure of running economy.'
     };
+    envelope.verticalForce = verticalForce;
+    // forceMetrics stays unavailable: those are IMPULSE quantities requiring a
+    // force-time series. A stride-averaged magnitude does not supply one.
     envelope.forceMetrics = KFO.unavailableForceMetrics('geometry_proxy_has_no_force_magnitude');
     envelope.config = {
       minStrides: cfg.minStrides, recommendedStrides: cfg.recommendedStrides, maxStrides: cfg.maxStrides
@@ -704,6 +728,42 @@
       });
       return { stridesAnalyzed: s.stridesAnalyzed, stridesRejected: s.stridesRejected, phases: phases };
     }
+    /**
+     * Aggregate-only force block. Per-step timing and the per-step rejection list
+     * stay in the research export: they are what a force-plate study needs and
+     * what a user document has no reason to carry.
+     */
+    function forceSummary(vf) {
+      if (!vf) return null;
+      function agg(a) {
+        if (!a) return null;
+        return { n: a.n, median: a.median, mean: a.mean, sd: a.sd, ci95: a.ci95 };
+      }
+      return {
+        method: vf.method || null,
+        isValidated: !!vf.isValidated,
+        availability: vf.availability,
+        reason: vf.reason || null,
+        stepsAnalyzed: vf.stepsAnalyzed || 0,
+        stepsRejected: vf.stepsRejected || 0,
+        dutyFactor: agg(vf.dutyFactor),
+        contactSeconds: agg(vf.contactSeconds),
+        flightSeconds: agg(vf.flightSeconds),
+        cadenceSpm: agg(vf.cadenceSpm),
+        meanVerticalForceBw: agg(vf.meanVerticalForceBw),
+        peakVerticalForceBw: agg(vf.peakVerticalForceBw),
+        relativeUncertainty: vf.relativeUncertainty == null ? null : vf.relativeUncertainty,
+        peakBiasNote: vf.peakBiasNote || null,
+        runLoadDfProxy: vf.runLoadDfProxy || null,
+        gaitValidity: vf.gaitValidity || null,
+        horizontal: vf.horizontal
+          ? { availability: vf.horizontal.availability, reason: vf.horizontal.reason,
+              explanation: vf.horizontal.explanation }
+          : null,
+        caveats: vf.caveats || [],
+        limitations: vf.limitations || []
+      };
+    }
     return {
       analysisType: result.analysisType,
       schemaVersion: result.schemaVersion,
@@ -722,6 +782,7 @@
       } : null,
       left: sideSummary(result.left),
       right: sideSummary(result.right),
+      verticalForce: forceSummary(result.verticalForce),
       symmetry: result.symmetry || null,
       coupledPattern: result.coupledPattern || null,
       limitations: result.limitations || []
