@@ -1,5 +1,13 @@
 # Handoff — KFO vertical force from timing
 
+> **SUPERSEDED — historical.** The work this note asks for was completed in
+> `74d7c1a` (vertical force wired in as the headline) and extended in the
+> impulse-accounting follow-up (schema v3). Read
+> `docs/kinematic-force-orientation.md` sections 2 and 11b and
+> `docs/kinematic-force-orientation-refactor.md` section 7 for the current state.
+> The "Hard rules", "Traps" and "Flags" sections below are still accurate and
+> still binding; the "Remaining work" list is done.
+
 Paste this into a new chat to continue. Repo: `/home/finalforms/endurancesciencelabs`
 (Endurance Science Labs, static site, vanilla browser JS, no build step, deploys on
 push to `main` via GitHub Pages).

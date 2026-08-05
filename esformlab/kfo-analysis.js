@@ -11,7 +11,9 @@
 //      -> quality flags + uncertainty
 //      -> reference comparison (if any reference is loaded)
 //      -> coupled braking/propulsion pattern, symmetry, consistency
-//      -> schema-v2 result envelope
+//      -> impulse accounting IF a force source exists, otherwise geometry-only
+//         momentum-preservation proxies
+//      -> schema-v3 result envelope
 //
 //  Stance intervals come from ankle-Y maxima: in image space the ankle sits at
 //  its lowest point (largest y) while the foot is planted, so the plateau around
@@ -26,10 +28,11 @@
   // Optional: if the vertical-force module is not loaded the analysis still runs
   // and simply reports the force block as unavailable.
   var vf = isNode ? require('./kfo-vertical-force.js') : root.KFOVerticalForce;
-  var api = factory(core, ref, est, vf);
+  var imp = isNode ? require('./kfo-impulse.js') : root.KFOImpulse;
+  var api = factory(core, ref, est, vf, imp);
   if (isNode) module.exports = api;
   if (root) root.KFOAnalysis = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (KFO, KFOReference, KFOEstimators, KFOVerticalForce) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (KFO, KFOReference, KFOEstimators, KFOVerticalForce, KFOImpulse) {
   'use strict';
 
   var F = KFO.QUALITY_FLAG;
@@ -514,6 +517,135 @@
    * @param {Object} [input.config]
    * @returns {Object} schema-v2 KFO result
    */
+  // ── Impulse accounting ────────────────────────────────────────────────────
+  /**
+   * Impulse metrics for the analysis, IF a force source exists.
+   *
+   * There is exactly one way in: `input.forceSeries`, a real force-time series
+   * with declared units and provenance. The geometry proxy has no path here, by
+   * construction — a phase angle carries no magnitude and no time weighting, so
+   * no arrangement of angles can produce an impulse. When no series is supplied
+   * the result is the explicit unavailable envelope, with every field null rather
+   * than zero.
+   *
+   * @param {Object} left   analyzeSide result
+   * @param {Object} right  analyzeSide result
+   * @param {Object} input  analyze() input
+   * @param {Object} ctx    {confidenceScore, flags, sampleRateHz}
+   */
+  function buildImpulseMetrics(left, right, input, ctx) {
+    if (!KFOImpulse) {
+      return { availability: 'unavailable', reason: 'impulse_module_not_loaded',
+               JvTotal: null, JvEffective: null, JBrake: null, JProp: null,
+               JhTurnover: null, JxNet: null };
+    }
+    var meta = input.forceSeriesMeta || {};
+    var series = input.forceSeries;
+    var iCtx = {
+      method: meta.method || KFO.METHOD.GEOMETRY_PROXY,
+      confidenceScore: ctx.confidenceScore,
+      gradeKnown: input.gradePercent != null,
+      speedKnown: input.speedMps != null,
+      sampleRateHz: meta.sampleRateHz == null ? ctx.sampleRateHz : meta.sampleRateHz,
+      isForceMeasurementValidated: !!meta.isValidated
+    };
+
+    if (!series || !series.length) {
+      return KFOImpulse.unavailableImpulseMetrics(
+        'geometry_proxy_does_not_estimate_force_magnitude_or_impulse', iCtx);
+    }
+
+    var normalized = meta.normalizedToBodyWeight !== false;
+    var bodyWeight = isNum(meta.bodyWeight) ? meta.bodyWeight : (normalized ? 1 : null);
+    var unit = meta.unit || (normalized ? KFOImpulse.IMPULSE_UNIT.BW_SECONDS
+                                        : KFOImpulse.IMPULSE_UNIT.NEWTON_SECONDS);
+
+    function stancesFor(side, sd) {
+      return (sd.stanceIntervals || []).map(function (iv, i) {
+        var pts = series.filter(function (p) {
+          return p && isNum(p.t) && p.t >= iv.startTime && p.t <= iv.endTime;
+        });
+        return KFOImpulse.integrateStance(pts, {
+          bodyWeight: bodyWeight, normalizedToBodyWeight: normalized, unit: unit,
+          method: iCtx.method, side: side, strideIndex: i
+        });
+      });
+    }
+    var leftStances = stancesFor('left', left);
+    var rightStances = stancesFor('right', right);
+
+    var perSide = {
+      left: leftStances.length ? KFOImpulse.aggregateStances(leftStances, iCtx) : null,
+      right: rightStances.length ? KFOImpulse.aggregateStances(rightStances, iCtx) : null
+    };
+    var combined = KFOImpulse.aggregateStances([].concat(leftStances, rightStances), iCtx);
+
+    // Side difference in fore-aft turnover, only when both sides produced one.
+    var symmetry = null;
+    if (perSide.left && perSide.right &&
+        isNum(perSide.left.JhTurnover) && isNum(perSide.right.JhTurnover)) {
+      symmetry = { turnoverDifference: perSide.left.JhTurnover - perSide.right.JhTurnover };
+    }
+
+    return {
+      availability: combined.availability,
+      reason: combined.reason,
+      method: iCtx.method,
+      isValidated: !!meta.isValidated,
+      isExperimental: !meta.isValidated,
+      calculationVersion: KFOImpulse.CALCULATION_VERSION,
+      unit: unit,
+      normalizedToBodyWeight: normalized,
+      forceSource: meta.source || 'provided_force_series',
+      signConvention: KFOImpulse.SIGN_CONVENTION,
+      definitions: KFOImpulse.IMPULSE_DEFINITIONS,
+      perSide: perSide,
+      combined: combined,
+      steadyStateConsistency: combined.steadyStateConsistency,
+      impact: combined.impact,
+      momentumPreservation: KFOImpulse.momentumPreservation(combined, {
+        confidenceScore: ctx.confidenceScore,
+        symmetry: symmetry,
+        speedStateConfidence: input.speedMps == null ? null : 1,
+        geometryPattern: ctx.geometryPattern || null
+      })
+    };
+  }
+
+  /**
+   * Geometry-only precursors, per side. These are the honest thing to show when
+   * impulse is unavailable: they describe orientation and geometric span, and
+   * their names and flags say so.
+   */
+  function buildMomentumProxies(left, right, coupled, confidenceScore) {
+    if (!KFOImpulse) return null;
+    function forSide(sd, side) {
+      if (!sd || !sd.phases) return null;
+      var p = KFOImpulse.geometryProxies({
+        early: sd.phases[KFO.PHASE.EARLY_STANCE] && sd.phases[KFO.PHASE.EARLY_STANCE].angle,
+        central: sd.phases[KFO.PHASE.CENTRAL_STANCE] && sd.phases[KFO.PHASE.CENTRAL_STANCE].angle,
+        late: sd.phases[KFO.PHASE.LATE_STANCE] && sd.phases[KFO.PHASE.LATE_STANCE].angle,
+        coupled: coupled ? coupled[side] : null,
+        confidence: confidenceScore
+      });
+      p.side = side;
+      return p;
+    }
+    var l = forSide(left, 'left'), r = forSide(right, 'right');
+    var out = {
+      availability: (l || r) ? 'available' : 'unavailable',
+      method: KFO.METHOD.GEOMETRY_PROXY,
+      left: l, right: r,
+      leftRightDifferenceDegrees: (coupled && isNum(coupled.excursionDifferenceDegrees))
+        ? coupled.excursionDifferenceDegrees : null,
+      higherExcursionSide: (coupled && coupled.higherExcursionSide) || null,
+      confidence: confidenceScore == null ? null : confidenceScore,
+      impulseNote: 'Force and impulse percentages require force magnitude and are not available from ' +
+        'geometry-only video.'
+    };
+    return out;
+  }
+
   function analyze(input) {
     input = input || {};
     var cfg = input.config || CONFIG;
@@ -704,6 +836,20 @@
     // forceMetrics stays unavailable: those are IMPULSE quantities requiring a
     // force-time series. A stride-averaged magnitude does not supply one.
     envelope.forceMetrics = KFO.unavailableForceMetrics('geometry_proxy_has_no_force_magnitude');
+
+    // Impulse accounting. Unavailable on the geometry-only path, which is every
+    // path the product currently takes; a force series has to be handed in
+    // explicitly. The timing-derived vertical force does NOT qualify: it is a
+    // stride-averaged magnitude with no waveform, so it cannot be integrated
+    // over stance and cannot say anything about the fore-aft axis at all.
+    envelope.impulseMetrics = buildImpulseMetrics(left, right, input, {
+      confidenceScore: overallConfidence.score,
+      sampleRateHz: effectiveFps,
+      geometryPattern: coupled.left ? coupled.left.pattern : null
+    });
+    envelope.momentumPreservationProxies =
+      buildMomentumProxies(left, right, coupled, overallConfidence.score);
+
     envelope.config = {
       minStrides: cfg.minStrides, recommendedStrides: cfg.recommendedStrides, maxStrides: cfg.maxStrides
     };
@@ -764,6 +910,148 @@
         limitations: vf.limitations || []
       };
     }
+    /**
+     * Aggregate-only impulse block. Per-stance integrals and the rejection list
+     * stay in the research export.
+     *
+     * Static definition text is NOT persisted: it would bloat every document and
+     * go stale the moment the wording improves. A reader rehydrating the block
+     * gets the current definitions from kfo-impulse.js instead.
+     */
+    function compositionSummary(c) {
+      if (!c) return null;
+      return {
+        id: c.id,
+        verticalBasis: c.verticalBasis,
+        horizontalBasis: c.horizontalBasis,
+        availability: c.availability,
+        availabilityReason: c.availabilityReason || null,
+        verticalImpulse: c.verticalImpulse ? {
+          value: c.verticalImpulse.value, unit: c.verticalImpulse.unit,
+          symbol: c.verticalImpulse.symbol,
+          normalizedToBodyWeight: c.verticalImpulse.normalizedToBodyWeight
+        } : null,
+        horizontalImpulse: c.horizontalImpulse ? {
+          value: c.horizontalImpulse.value, unit: c.horizontalImpulse.unit,
+          symbol: c.horizontalImpulse.symbol,
+          normalizedToBodyWeight: c.horizontalImpulse.normalizedToBodyWeight
+        } : null,
+        verticalShareScalarSum: c.verticalShareScalarSum,
+        horizontalShareScalarSum: c.horizontalShareScalarSum,
+        ratioVerticalToHorizontal: c.ratioVerticalToHorizontal,
+        angleEquivalentDegrees: c.angleEquivalentDegrees,
+        shareConvention: c.shareConvention || 'scalar_sum_share',
+        isEfficiencyValidated: false
+      };
+    }
+    function impulseSideSummary(s) {
+      if (!s) return null;
+      var out = {
+        availability: s.availability,
+        reason: s.reason || null,
+        unit: s.unit || null,
+        normalizedToBodyWeight: s.normalizedToBodyWeight !== false,
+        stancesAnalyzed: s.stancesAnalyzed || 0,
+        stancesRejected: s.stancesRejected || 0,
+        compositions: {}
+      };
+      ['JvTotal', 'JvEffective', 'JBrake', 'JProp', 'JhTurnover', 'JxNet'].forEach(function (f) {
+        // Null, never zero: a missing impulse must not aggregate as a measurement.
+        out[f] = isNum(s[f]) ? s[f] : null;
+        var a = s[f + 'Aggregate'];
+        out[f + 'Aggregate'] = a ? { n: a.n, median: a.median, mean: a.mean, sd: a.sd, ci95: a.ci95 } : null;
+      });
+      if (s.compositions) {
+        Object.keys(s.compositions).forEach(function (k) {
+          out.compositions[k] = compositionSummary(s.compositions[k]);
+        });
+      }
+      return out;
+    }
+    function impulseSummary(im) {
+      if (!im) return null;
+      // An unavailable block persists as a two-field marker, not as a full tree of
+      // nulls. On the geometry-only path — every current path — the whole
+      // structure is null anyway, and writing ~6 KB of scaffolding into every user
+      // document to say "nothing here" is not a trade worth making. The shape is
+      // rebuilt at read time from kfo-impulse.js.
+      if (im.availability === 'unavailable') {
+        return { availability: im.availability, reason: im.reason || null };
+      }
+      var ss = im.steadyStateConsistency;
+      var mp = im.momentumPreservation;
+      return {
+        availability: im.availability,
+        reason: im.reason || null,
+        method: im.method || null,
+        isValidated: !!im.isValidated,
+        calculationVersion: im.calculationVersion || null,
+        unit: im.unit || null,
+        forceSource: im.forceSource || null,
+        perSide: {
+          left: impulseSideSummary(im.perSide ? im.perSide.left : null),
+          right: impulseSideSummary(im.perSide ? im.perSide.right : null)
+        },
+        combined: impulseSideSummary(im.combined),
+        steadyStateConsistency: ss ? {
+          availability: ss.availability, state: ss.state,
+          JxNet: ss.JxNet, JhTurnover: ss.JhTurnover,
+          horizontalImpulseImbalance: ss.horizontalImpulseImbalance,
+          warnThreshold: ss.warnThreshold, rejectThreshold: ss.rejectThreshold,
+          isProvisional: true,
+          normativeComparisonAllowed: !!ss.normativeComparisonAllowed,
+          interpretation: ss.interpretation || null
+        } : null,
+        momentumPreservation: mp ? {
+          availability: mp.availability,
+          reason: mp.reason || null,
+          brakingDemand: mp.brakingDemand, replacementDemand: mp.replacementDemand,
+          foreAftTurnover: mp.foreAftTurnover, effectiveProjection: mp.effectiveProjection,
+          steadyStateConsistency: mp.steadyStateConsistency,
+          leftRightAsymmetry: mp.leftRightAsymmetry,
+          interpretation: mp.interpretation || [],
+          isEfficiencyValidated: false
+        } : null,
+        impact: im.impact ? {
+          availability: im.impact.availability, reason: im.impact.reason,
+          verticalImpactPeak: null, verticalAverageLoadingRate: null,
+          verticalInstantaneousLoadingRate: null, impactTransientDetected: null,
+          partitionedNotRemoved: true, isBrakingImpulse: false
+        } : null
+      };
+    }
+    /** Geometry precursors, aggregate only, with their non-impulse flags intact. */
+    function proxySummary(p) {
+      if (!p) return null;
+      function one(side) {
+        var s = p[side];
+        if (!s) return null;
+        function m(name) {
+          var v = s[name];
+          if (!v) return null;
+          return { availability: v.availability, medianDegrees: v.medianDegrees,
+                   sdDegrees: v.sdDegrees, n: v.n, unit: v.unit, isImpulse: false };
+        }
+        return {
+          brakingOrientationProxy: m('brakingOrientationProxy'),
+          supportAlignmentProxy: m('supportAlignmentProxy'),
+          replacementOrientationProxy: m('replacementOrientationProxy'),
+          foreAftGeometricExcursion: s.foreAftGeometricExcursion ? {
+            availability: s.foreAftGeometricExcursion.availability,
+            valueDegrees: s.foreAftGeometricExcursion.valueDegrees,
+            unit: 'degrees', isImpulse: false
+          } : null,
+          momentumPreservationGeometryPattern: s.momentumPreservationGeometryPattern || null
+        };
+      }
+      return {
+        availability: p.availability, method: p.method || null,
+        left: one('left'), right: one('right'),
+        leftRightDifferenceDegrees: p.leftRightDifferenceDegrees,
+        higherExcursionSide: p.higherExcursionSide || null,
+        confidence: p.confidence == null ? null : p.confidence
+      };
+    }
     return {
       analysisType: result.analysisType,
       schemaVersion: result.schemaVersion,
@@ -783,6 +1071,8 @@
       left: sideSummary(result.left),
       right: sideSummary(result.right),
       verticalForce: forceSummary(result.verticalForce),
+      impulseMetrics: impulseSummary(result.impulseMetrics),
+      momentumPreservationProxies: proxySummary(result.momentumPreservationProxies),
       symmetry: result.symmetry || null,
       coupledPattern: result.coupledPattern || null,
       limitations: result.limitations || []
@@ -791,6 +1081,8 @@
 
   return {
     CONFIG: CONFIG,
+    buildImpulseMetrics: buildImpulseMetrics,
+    buildMomentumProxies: buildMomentumProxies,
     detectStanceIntervals: detectStanceIntervals,
     analyzeStride: analyzeStride,
     analyzeSide: analyzeSide,

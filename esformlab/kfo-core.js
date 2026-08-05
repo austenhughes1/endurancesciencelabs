@@ -42,9 +42,24 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  var SCHEMA_VERSION = 2;
-  var MODEL_VERSION = 'kinematic-force-orientation-v2.0.0';
+  // The STORED-DOCUMENT schema version and the CALCULATION version move
+  // independently: adding the impulse-accounting block changed both, but a future
+  // change to how a number is computed must be able to bump the model version
+  // without invalidating stored documents, and vice versa.
+  var SCHEMA_VERSION = 3;
+  var MODEL_VERSION = 'kinematic-force-orientation-v2.1.0';
   var ANALYSIS_TYPE = 'kinematic_force_orientation';
+
+  // Schema history, so a migration can be reasoned about without git archaeology.
+  var SCHEMA_HISTORY = Object.freeze({
+    1: 'Pre-KFO. No force-orientation block; pose keypoints were never stored.',
+    2: 'Kinematic Force-Orientation V2 — per-phase angles, multi-stride aggregation, ' +
+       'uncertainty, timing-derived vertical force.',
+    3: 'Adds the impulse-accounting block (impulseMetrics) and the geometry-only ' +
+       'momentum-preservation proxies. Version 2 documents are adapted forward with ' +
+       'impulse fields explicitly unavailable — never zero, and never back-derived ' +
+       'from stored angles.'
+  });
 
   // ── Enums ──────────────────────────────────────────────────────────────────
 
@@ -728,12 +743,20 @@
     };
   }
 
-  // ── Impulse / force domain definitions (Phase 12) ─────────────────────────
+  // ── Impulse / force domain definitions ────────────────────────────────────
   //
-  // Defined now so a validated estimator can populate them later. Under
-  // geometry_proxy every field is null with an explicit reason — these require
-  // force MAGNITUDE and time weighting and must never be synthesised from a few
-  // phase angles.
+  // Under geometry_proxy every field is null with an explicit reason — these
+  // require force MAGNITUDE and time weighting and must never be synthesised
+  // from a few phase angles.
+  //
+  // THE SINGLE-VIEW SHAPE BELOW IS THE ORIGINAL ONE, AND IT IS NOT THE WHOLE
+  // STORY. `verticalSupportShare` here is total vertical over total fore-aft
+  // turnover — one accounting choice among several. kfo-impulse.js is the
+  // authority on accounting: it separates total from effective vertical impulse
+  // and reports three explicitly-labelled compositions, because the same trace
+  // yields 85/15, 71/29 or 55/45 depending on what is counted. These fields are
+  // retained so existing callers and stored documents keep working; new work
+  // reads the compositions.
   var IMPULSE_DEFINITIONS = Object.freeze({
     verticalImpulse: 'Jv = ∫ Fz dt over stance',
     effectiveVerticalImpulse: 'JvEffective = ∫ (Fz − bodyWeight) dt over stance',
@@ -806,15 +829,51 @@
       horizontalDemandShare: denom !== 0 ? jhAbs / denom : null,
       foreAftDemandAngleEquivalent: jv !== 0 ? toDeg(Math.atan(jhAbs / jv)) : null,
       shareConvention: 'scalar_sum_share',
+      accountingBasis: 'total_vertical_over_total_turnover',
+      accountingNote: 'One accounting choice among several. See kfo-impulse.js for the three ' +
+        'explicitly-labelled compositions and for effective (above-bodyweight) vertical impulse.',
       definitions: IMPULSE_DEFINITIONS
     };
   }
 
   // ── Schema migration ──────────────────────────────────────────────────────
   /**
+   * The unavailable impulse block a version-2 document is adapted forward with.
+   *
+   * Kept here rather than imported from kfo-impulse.js so that core has no
+   * dependency on it (the dependency runs the other way) and so a stored
+   * document can be normalised even on a page where the impulse module was not
+   * loaded. kfo-impulse.js produces the richer runtime shape; this is the
+   * minimum a renderer needs to show "not available" honestly.
+   */
+  function unavailableImpulseBlock(reason) {
+    var block = {
+      availability: AVAILABILITY.UNAVAILABLE,
+      reason: reason || 'analysis_predates_impulse_accounting',
+      isEfficiencyValidated: false,
+      note: 'This analysis was saved before impulse accounting existed. Impulse quantities ' +
+        'require force magnitude and cannot be back-derived from stored support-line angles.',
+      perSide: { left: null, right: null },
+      combined: null,
+      steadyStateConsistency: null,
+      momentumPreservation: null
+    };
+    ['JvTotal', 'JvEffective', 'JBrake', 'JProp', 'JhTurnover', 'JxNet'].forEach(function (f) {
+      block[f] = null;
+    });
+    return block;
+  }
+
+  /**
    * Read-time normalisation of a stored analysis. Never mutates or rewrites the
    * stored document; a pre-KFO analysis becomes an explicit "unavailable"
    * envelope rather than an empty or fabricated panel.
+   *
+   * VERSION 2 DOCUMENTS ARE ADAPTED FORWARD, NOT DISCARDED. Everything a v2 save
+   * holds — angles, aggregates, the timing-derived vertical force — is still
+   * valid under v3; only the impulse block is new, and it is filled in as
+   * explicitly unavailable. Treating a v2 document as "predates KFO" would throw
+   * away real data, which is why the version test is exact rather than `>=`.
    */
   function migrateAnalysis(stored) {
     var doc = stored || {};
@@ -827,6 +886,23 @@
                 : 1;
     if (version >= SCHEMA_VERSION && doc.kfo) {
       return { schemaVersion: version, kfo: doc.kfo, migrated: false, sourceVersion: version };
+    }
+    if (version === 2 && doc.kfo) {
+      var adapted = {};
+      Object.keys(doc.kfo).forEach(function (k) { adapted[k] = doc.kfo[k]; });
+      adapted.schemaVersion = SCHEMA_VERSION;
+      if (!adapted.impulseMetrics) {
+        adapted.impulseMetrics = unavailableImpulseBlock('analysis_predates_impulse_accounting');
+      }
+      if (!adapted.momentumPreservationProxies) {
+        // Not reconstructed from the stored angles on purpose: the proxies carry
+        // per-phase aggregates the v2 stored form does keep, but rebuilding them
+        // here would blur the line between what was computed and what was
+        // inferred at read time. The renderer falls back to the angle cards.
+        adapted.momentumPreservationProxies = null;
+      }
+      adapted.migratedFrom = 2;
+      return { schemaVersion: SCHEMA_VERSION, kfo: adapted, migrated: true, sourceVersion: 2 };
     }
     return {
       schemaVersion: SCHEMA_VERSION,
@@ -856,8 +932,10 @@
 
   return {
     SCHEMA_VERSION: SCHEMA_VERSION,
+    SCHEMA_HISTORY: SCHEMA_HISTORY,
     MODEL_VERSION: MODEL_VERSION,
     ANALYSIS_TYPE: ANALYSIS_TYPE,
+    unavailableImpulseBlock: unavailableImpulseBlock,
     MIN_CONF: MIN_CONF,
     METHOD: METHOD,
     METHOD_IS_VALIDATED: METHOD_IS_VALIDATED,
