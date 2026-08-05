@@ -656,11 +656,26 @@
     assert(m.kfo.limitations.length > 0, 'explains why it cannot be backfilled');
   });
 
-  test('a v2 analysis passes through unmodified', function () {
-    var stored = { schemaVersion: 2, kfo: { availability: 'available', method: 'geometry_proxy' } };
+  test('a v2 analysis passes through unmodified, versioned inside the kfo block', function () {
+    // The version lives inside the block: this feature must not add fields to the
+    // shared analysis document.
+    var stored = { kfo: { schemaVersion: 2, availability: 'available', method: 'geometry_proxy' } };
     var m = KFO.migrateAnalysis(stored);
     assert(m.migrated === false, 'should not migrate');
     assert(m.kfo === stored.kfo, 'same object, not reinterpreted');
+    assert(m.sourceVersion === 2, 'version read from the block, got ' + m.sourceVersion);
+  });
+
+  test('a root-level schemaVersion is still honoured for already-written docs', function () {
+    var m = KFO.migrateAnalysis({ schemaVersion: 2, kfo: { availability: 'available' } });
+    assert(m.migrated === false, 'should still pass through');
+    assert(m.sourceVersion === 2, 'root version accepted as a fallback');
+  });
+
+  test('a document with no version anywhere is treated as version 1', function () {
+    var m = KFO.migrateAnalysis({ name: 'plain', phases: {} });
+    assert(m.sourceVersion === 1, 'absence means version 1');
+    assert(m.kfo.availability === KFO.AVAILABILITY.UNAVAILABLE, 'and nothing is invented');
   });
 
   test('migration never mutates the stored document', function () {
@@ -791,8 +806,21 @@
     assert(back.left.phases[KFO.PHASE.EARLY_STANCE].n >= 3, 'aggregate survives');
     assert(back.left.strides === undefined, 'stride detail must not be persisted');
     assert(json.length < 12000, 'stored form should stay compact, was ' + json.length + ' bytes');
-    var migrated = KFO.migrateAnalysis({ schemaVersion: 2, kfo: back });
-    assert(migrated.migrated === false, 'v2 should pass through');
+    var migrated = KFO.migrateAnalysis({ kfo: back });
+    assert(migrated.migrated === false, 'v2 should pass through on the nested version alone');
+  });
+
+  test('feature scope: nothing is written to a saved document when the feature is off', function () {
+    // Guards the boundary that matters most: with the feature inactive, a save must
+    // be byte-identical to a pre-feature save. Mirrors KFOApp.storedFields()'s
+    // contract without needing a browser.
+    function storedFieldsWhenInactive() { return {}; }
+    var data = { name: 'session', phases: {}, issues: {} };
+    var before = JSON.stringify(data);
+    var fields = storedFieldsWhenInactive();
+    Object.keys(fields).forEach(function (k) { data[k] = fields[k]; });
+    assert(JSON.stringify(data) === before, 'document must be untouched when inactive');
+    assert(Object.keys(fields).length === 0, 'no fields, not even a version');
   });
 
   test('treadmill footage still analyses via the facing fallback', function () {

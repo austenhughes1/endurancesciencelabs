@@ -209,9 +209,16 @@ Changed:
 
 ## 4. Migration strategy
 
-Historical analyses have neither `schemaVersion` nor keypoints.
+Historical analyses have neither a version nor keypoints.
 
-1. Absence of `schemaVersion` ⇒ treated as **version 1**.
+**Scope constraint:** this feature must not alter the shared analysis document, so
+the version is stored *inside* the `kfo` block rather than at the document root.
+A save made without the feature active is byte-identical to a pre-feature save.
+(An early revision stamped a root-level `schemaVersion` for every user; that was
+out of scope and was reverted. `migrateAnalysis()` still accepts a root-level
+version on read, for the few documents written during that window.)
+
+1. Absence of any version ⇒ treated as **version 1**.
 2. `kfoMigrate()` (`kfo-core.js`) normalises any stored analysis to the current
    in-memory shape. For v1 input it returns a v2 envelope with
    `kfo.availability = 'unavailable'` and
@@ -220,9 +227,9 @@ Historical analyses have neither `schemaVersion` nor keypoints.
    this saved session" state rather than an empty or fabricated panel.
 4. No stored document is rewritten or reinterpreted in place. Migration is
    read-time only.
-5. New saves write `schemaVersion: 2` plus the `kfo` aggregate block (stride-level
-   detail is not persisted to Firestore — it is export-only, to avoid bloating
-   user documents).
+5. When the feature is active, a save adds only the `kfo` aggregate block, which
+   carries its own `schemaVersion`. Stride-level detail is not persisted to
+   Firestore — it is export-only, to avoid bloating user documents.
 
 ---
 
