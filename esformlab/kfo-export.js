@@ -71,8 +71,35 @@
     'foreAftExcursionDeg', 'comLegDivergenceEarlyDeg', 'comLegDivergenceCentralDeg',
     'comLegDivergenceLateDeg', 'poseConfidence', 'eventConfidenceMean',
     'sampleCount', 'qualityFlags', 'wasManuallyAdjusted', 'adjustmentReason',
-    'runningDirection', 'method', 'modelVersion', 'referenceVersion', 'schemaVersion'
+    'runningDirection', 'method', 'modelVersion', 'referenceVersion', 'schemaVersion',
+    // Per-step timing and force. A "step" is this contact plus the flight that
+    // follows it, so the last contact of a clip has no step and these stay empty.
+    'stepContactMs', 'stepFlightMs', 'stepDurationMs', 'stepDutyFactor', 'stepCadenceSpm',
+    'stepMeanVerticalForceBw', 'stepPeakVerticalForceBw', 'verticalForceMethod'
   ];
+
+  /**
+   * Index the per-step force records by contact side and start time so each
+   * stride row can pick up its own step.
+   *
+   * Both come from the same stance intervals, so the start times are identical
+   * rather than merely close; the tolerance only guards against float drift.
+   */
+  var STEP_MATCH_TOLERANCE_SECONDS = 0.002;
+
+  function stepLookup(result) {
+    var vf = result && result.verticalForce;
+    var steps = (vf && vf.steps) || [];
+    return function (side, startTime) {
+      var best = null, bestDt = Infinity;
+      for (var i = 0; i < steps.length; i++) {
+        if (steps[i].contactSide !== side) continue;
+        var dt = Math.abs(steps[i].startTime - startTime);
+        if (dt < bestDt) { bestDt = dt; best = steps[i]; }
+      }
+      return bestDt <= STEP_MATCH_TOLERANCE_SECONDS ? best : null;
+    };
+  }
 
   /**
    * @param {Object} result   KFO analysis result
@@ -83,6 +110,8 @@
     if (!result || !result.left) return [];
     var vm = result.videoMetadata || {};
     var flags = (result.quality && result.quality.flags) ? result.quality.flags.join('|') : '';
+    var findStep = stepLookup(result);
+    var vfMethod = (result.verticalForce && result.verticalForce.method) || null;
     var rows = [];
 
     ['left', 'right'].forEach(function (side) {
@@ -105,6 +134,11 @@
           return st.phases[p] && st.phases[p].available ? st.phases[p].event.eventConfidence : null;
         }).filter(isNum);
         var adj = (meta.adjustments && meta.adjustments[side + ':' + st.strideIndex]) || null;
+        var step = findStep(side, st.startTime);
+        // Per step, never recomputed from the aggregate duty factor: 1/DF is
+        // convex, so a row-level value derived from a mean would not be this
+        // step's force.
+        var stepDf = step ? step.dutyFactor : null;
 
         rows.push({
           exportVersion: EXPORT_VERSION,
@@ -143,7 +177,15 @@
           method: result.method,
           modelVersion: result.modelVersion,
           referenceVersion: result.referenceVersion,
-          schemaVersion: result.schemaVersion
+          schemaVersion: result.schemaVersion,
+          stepContactMs: step ? Math.round(step.contactSeconds * 1000) : null,
+          stepFlightMs: step ? Math.round(step.flightSeconds * 1000) : null,
+          stepDurationMs: step ? Math.round(step.stepSeconds * 1000) : null,
+          stepDutyFactor: round(stepDf, 4),
+          stepCadenceSpm: step ? round(step.cadenceSpm, 2) : null,
+          stepMeanVerticalForceBw: isNum(stepDf) && stepDf > 0 ? round(1 / stepDf, 4) : null,
+          stepPeakVerticalForceBw: isNum(stepDf) && stepDf > 0 ? round(Math.PI / 2 / stepDf, 4) : null,
+          verticalForceMethod: step ? vfMethod : null
         });
       });
     });
@@ -270,7 +312,12 @@
       notes: [
         'Support-line angles are kinematic estimates, not measured ground-reaction force.',
         'Angle convention: degrees from vertical, negative = braking, positive = propulsive.',
-        'Manual event corrections are retained beside automatic values, not substituted for them.'
+        'Manual event corrections are retained beside automatic values, not substituted for them.',
+        'Vertical force columns are timing-derived estimates in bodyweights, not measured force. ' +
+          'Mean = 1 / duty factor (exact at steady state); peak assumes a half-sine waveform and ' +
+          'underestimates the force-plate peak by roughly 5-15%.',
+        'Horizontal force is absent by design: net horizontal impulse is ~0 at steady speed, and braking ' +
+          'impulse magnitude needs force measurement or a speed estimate that this pipeline does not capture.'
       ]
     };
   }

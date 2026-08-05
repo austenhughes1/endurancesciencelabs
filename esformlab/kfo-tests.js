@@ -17,10 +17,12 @@
     KFO: require('./kfo-core.js'),
     KFOReference: require('./kfo-reference.js'),
     KFOEstimators: require('./kfo-estimators.js'),
-    KFOAnalysis: require('./kfo-analysis.js')
+    KFOAnalysis: require('./kfo-analysis.js'),
+    KFOVerticalForce: require('./kfo-vertical-force.js')
   } : {
     KFO: root.KFO, KFOReference: root.KFOReference,
-    KFOEstimators: root.KFOEstimators, KFOAnalysis: root.KFOAnalysis
+    KFOEstimators: root.KFOEstimators, KFOAnalysis: root.KFOAnalysis,
+    KFOVerticalForce: root.KFOVerticalForce
   };
   var api = factory(deps);
   if (isNode) { module.exports = api; if (require.main === module) api.run(); }
@@ -29,7 +31,8 @@
   'use strict';
 
   var KFO = d.KFO, KFOReference = d.KFOReference,
-      KFOEstimators = d.KFOEstimators, KFOAnalysis = d.KFOAnalysis;
+      KFOEstimators = d.KFOEstimators, KFOAnalysis = d.KFOAnalysis,
+      VF = d.KFOVerticalForce;
 
   // ── Harness ────────────────────────────────────────────────────────────────
   var results = [], currentSuite = '';
@@ -1073,6 +1076,343 @@
       return Object.assign({}, c, { startTime: c.startTime + 5 });
     }), { toleranceSeconds: 0.02 });
     assert(farOff.length === 0, 'unsynchronised data must not be paired');
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  VERTICAL FORCE FROM TIMING
+  // ═══════════════════════════════════════════════════════════════════════════
+  suite('vertical force');
+
+  /** Stance intervals from explicit step timing, alternating sides. */
+  function stanceIntervals(o) {
+    var contact = o.contactSeconds, step = o.stepSeconds, n = o.steps;
+    var left = [], right = [], t = o.startAt || 0;
+    for (var i = 0; i < n; i++) {
+      var iv = { startTime: t, endTime: t + contact };
+      (i % 2 === 0 ? left : right).push(iv);
+      t += step;
+    }
+    return { leftStanceIntervals: left, rightStanceIntervals: right };
+  }
+
+  test('mean vertical force in bodyweights is exactly 1 / duty factor', function () {
+    assertClose(VF.meanVerticalForceBw(0.5), 2, 1e-12, 'DF 0.5');
+    assertClose(VF.meanVerticalForceBw(0.611), 1 / 0.611, 1e-12, 'DF 0.611');
+    assert(VF.meanVerticalForceBw(0) === null, 'zero duty factor has no mean force');
+    assert(VF.meanVerticalForceBw(null) === null, 'null duty factor has no mean force');
+  });
+
+  test('peak vertical force matches the half-sine flight-time method', function () {
+    assertClose(VF.peakVerticalForceBw(0.5), Math.PI, 1e-12, 'DF 0.5');
+    // Morin's Fmax/mg = (pi/2)*(tf/tc + 1); tf/tc + 1 = 1/DF, so the two agree.
+    var tc = 0.22, tf = 0.14, df = tc / (tc + tf);
+    assertClose(VF.peakVerticalForceBw(df), (Math.PI / 2) * (tf / tc + 1), 1e-12, 'Morin form');
+  });
+
+  // Dorn et al. 2012, measured peak vertical GRF at four speeds. The predicted
+  // values must stay a CONSISTENT UNDERESTIMATE: no empirical correction is
+  // applied, because fitting a factor to four points from one study would
+  // manufacture precision. If this test starts failing high, someone added one.
+  var DORN_2012 = [
+    { speedMps: 3.49, dutyFactor: 0.637, measuredPeakBw: 2.71 },
+    { speedMps: 5.17, dutyFactor: 0.533, measuredPeakBw: 3.10 },
+    { speedMps: 6.96, dutyFactor: 0.507, measuredPeakBw: 3.58 },
+    { speedMps: 8.99, dutyFactor: 0.514, measuredPeakBw: 3.59 }
+  ];
+
+  test('predicted peak agrees with Dorn 2012 to within a 5-15% underestimate', function () {
+    DORN_2012.forEach(function (c) {
+      var predicted = VF.peakVerticalForceBw(c.dutyFactor);
+      var ratio = predicted / c.measuredPeakBw;
+      assert(ratio < 1, c.speedMps + ' m/s: must not over-predict, ratio ' + ratio.toFixed(3));
+      assert(ratio >= 0.84 && ratio <= 0.96,
+        c.speedMps + ' m/s: ratio ' + ratio.toFixed(3) + ' outside the disclosed 0.84-0.96 band');
+    });
+  });
+
+  test('no empirical correction factor has been fitted to the Dorn data', function () {
+    // A fitted correction would drive the mean ratio to ~1. It must stay biased.
+    var ratios = DORN_2012.map(function (c) {
+      return VF.peakVerticalForceBw(c.dutyFactor) / c.measuredPeakBw;
+    });
+    var mean = ratios.reduce(function (a, b) { return a + b; }, 0) / ratios.length;
+    assert(mean < 0.97, 'mean ratio ' + mean.toFixed(3) + ' looks corrected; the bias must be disclosed, not fitted');
+    var res = VF.analyze(stanceIntervals({ contactSeconds: 0.22, stepSeconds: 0.36, steps: 10 }));
+    assert(/no correction applied/i.test(res.peakBiasNote), 'the bias must be stated in the result');
+  });
+
+  test('duty factor and force are recovered from alternating stance intervals', function () {
+    var res = VF.analyze(Object.assign(
+      stanceIntervals({ contactSeconds: 0.22, stepSeconds: 0.36, steps: 10 }),
+      { effectiveSampleRateHz: 25 }));
+    assert(res.availability === KFO.AVAILABILITY.AVAILABLE, 'available, got ' + res.reason);
+    assertClose(res.dutyFactor.median, 0.22 / 0.36, 1e-9, 'duty factor');
+    assertClose(res.contactSeconds.median, 0.22, 1e-9, 'contact time');
+    assertClose(res.flightSeconds.median, 0.14, 1e-9, 'flight time');
+    assertClose(res.cadenceSpm.median, 60 / 0.36, 1e-6, 'step rate');
+    assertClose(res.meanVerticalForceBw.median, 0.36 / 0.22, 1e-9, 'mean force');
+    assertClose(res.peakVerticalForceBw.median, (Math.PI / 2) * 0.36 / 0.22, 1e-9, 'peak force');
+    assert(res.isValidated === false, 'must never claim validation');
+    assert(res.provenance === KFO.PROVENANCE.KINEMATIC_ESTIMATE, 'provenance is a kinematic estimate');
+  });
+
+  test('duty factor is recovered from a synthetic clip through the full analysis', function () {
+    var res = KFOAnalysis.analyze({ samples: clip({}) });
+    var vf = res.verticalForce;
+    assert(vf, 'analysis must attach a verticalForce block');
+    assert(vf.availability === KFO.AVAILABILITY.AVAILABLE, 'available, got ' + vf.reason);
+    // The fixture runs 0.22 s stance on a 0.36 s step period; stance edges come
+    // from the sampled scan, so exact recovery is not expected.
+    assertClose(vf.dutyFactor.median, 0.22 / 0.36, 0.06, 'duty factor from detected stance');
+    assertClose(vf.peakVerticalForceBw.median, (Math.PI / 2) / (0.22 / 0.36), 0.30, 'peak force');
+    assert(vf.stepsAnalyzed >= 3, 'steps analysed: ' + vf.stepsAnalyzed);
+  });
+
+  test('overlapping stances are refused as walking rather than reported', function () {
+    // Double support: each contact still going when the other side lands.
+    var res = VF.analyze({
+      leftStanceIntervals: [{ startTime: 0.0, endTime: 0.7 }, { startTime: 0.6, endTime: 1.3 }],
+      rightStanceIntervals: [{ startTime: 0.3, endTime: 1.0 }, { startTime: 0.9, endTime: 1.6 }],
+      effectiveSampleRateHz: 25
+    });
+    assert(res.availability === KFO.AVAILABILITY.UNAVAILABLE, 'must not report a force');
+    assert(res.reason === 'double_support_detected_not_running', 'reason: ' + res.reason);
+    assert(res.gaitValidity.isRunning === false, 'gait explicitly marked not running');
+    assert(res.peakVerticalForceBw === undefined, 'no force value may be present');
+  });
+
+  test('a repeated side is skipped rather than treated as one long step', function () {
+    var built = VF.buildSteps(
+      [{ startTime: 0.00, endTime: 0.22 }, { startTime: 0.72, endTime: 0.94 }],
+      [{ startTime: 1.08, endTime: 1.30 }]);
+    // left, left, right: the first pair is a missed opposite stance.
+    assert(built.steps.length === 1, 'one usable step, got ' + built.steps.length);
+    assert(built.rejected.some(function (r) { return r.reason === 'missed_opposite_stance'; }),
+      'the repeated side must be reported as a missed stance');
+  });
+
+  test('steps outside the running range are rejected with a reason', function () {
+    var built = VF.buildSteps(
+      // No flight at all: contact fills the whole step.
+      [{ startTime: 0.0, endTime: 0.40 }],
+      [{ startTime: 0.40, endTime: 0.80 }]);
+    assert(built.steps.length === 0, 'no usable running steps');
+    assert(built.rejected.some(function (r) {
+      return r.reason === 'insufficient_flight_time' || r.reason === 'duty_factor_out_of_running_range';
+    }), 'reasons: ' + JSON.stringify(built.rejected.map(function (r) { return r.reason; })));
+  });
+
+  test('fewer than three steps is refused', function () {
+    var res = VF.analyze(stanceIntervals({ contactSeconds: 0.22, stepSeconds: 0.36, steps: 2 }));
+    assert(res.availability === KFO.AVAILABILITY.UNAVAILABLE, 'must refuse');
+    assert(res.reason === 'insufficient_steps', 'reason: ' + res.reason);
+  });
+
+  // Jensen's inequality: 1/DF is convex, so the mean of the per-step forces is
+  // strictly GREATER than the force computed from the mean duty factor. Computing
+  // from the aggregate would systematically under-report.
+  test('force is aggregated per step, not derived from the mean duty factor', function () {
+    // Deliberately variable contact times so the convexity gap is measurable.
+    var left = [], right = [], t = 0, contacts = [0.18, 0.26, 0.20, 0.28, 0.19, 0.27, 0.21, 0.25];
+    contacts.forEach(function (c, i) {
+      (i % 2 === 0 ? left : right).push({ startTime: t, endTime: t + c });
+      t += 0.36;
+    });
+    var res = VF.analyze({ leftStanceIntervals: left, rightStanceIntervals: right, effectiveSampleRateHz: 25 });
+    assert(res.availability === KFO.AVAILABILITY.AVAILABLE, 'available, got ' + res.reason);
+
+    var fromMeanDf = VF.meanVerticalForceBw(res.dutyFactor.mean);
+    assert(res.meanVerticalForceBw.mean > fromMeanDf,
+      'per-step aggregation must exceed the value from the mean duty factor (' +
+      res.meanVerticalForceBw.mean + ' vs ' + fromMeanDf + ')');
+
+    var peakFromMeanDf = VF.peakVerticalForceBw(res.dutyFactor.mean);
+    assert(res.peakVerticalForceBw.mean > peakFromMeanDf, 'same ordering must hold for the peak');
+    // And the gap must be real, not float noise.
+    assert(res.meanVerticalForceBw.mean - fromMeanDf > 1e-4, 'convexity gap should be measurable');
+  });
+
+  test('timing uncertainty shrinks with step count but never claims to remove bias', function () {
+    var one = VF.timingUncertainty(1 / 25, 0.22, 1);
+    var ten = VF.timingUncertainty(1 / 25, 0.22, 10);
+    assertClose(one.perStepRelative, ten.perStepRelative, 1e-12, 'per-step error is step-count independent');
+    assertClose(ten.aggregateRelative, one.aggregateRelative / Math.sqrt(10), 1e-12, 'averages as 1/sqrt(n)');
+    assert(ten.aggregateRelative < one.aggregateRelative, 'aggregate error must fall');
+    assert(/systematic/i.test(one.note), 'must say the systematic part is excluded');
+    // At the ~25 Hz scan rate the per-step figure is the documented ~7%.
+    assertClose(one.perStepRelative, 0.07, 0.02, 'per-step relative error at 25 Hz');
+    assert(ten.aggregateRelative < 0.035, 'ten steps should land near 2-3%: ' + ten.aggregateRelative);
+  });
+
+  test('caveats surface acceleration and always disclose the systematic bias', function () {
+    var res = VF.analyze(Object.assign(
+      stanceIntervals({ contactSeconds: 0.22, stepSeconds: 0.36, steps: 10 }),
+      { effectiveSampleRateHz: 25, qualityFlags: [KFO.QUALITY_FLAG.ACCELERATION_DETECTED] }));
+    var text = res.caveats.join(' ');
+    assert(/steady speed could not be confirmed/i.test(text), 'acceleration must be caveated');
+    assert(/does not average out/i.test(text), 'systematic bias must always be disclosed');
+    assert(/force-plate validation is still required/i.test(text), 'must say validation is still required');
+    // Flags that only affect sagittal angles must not be imported as force caveats.
+    var mirrored = VF.buildCaveats([KFO.QUALITY_FLAG.MIRRORED_VIDEO], null, 10);
+    assert(mirrored.length === 1 && /does not average out/i.test(mirrored[0]),
+      'mirroring does not affect timing and must not add a caveat');
+  });
+
+  test('the horizontal half is reported unavailable, never fabricated', function () {
+    var res = VF.analyze(stanceIntervals({ contactSeconds: 0.22, stepSeconds: 0.36, steps: 10 }));
+    var h = res.horizontal;
+    assert(h.availability === KFO.AVAILABILITY.UNAVAILABLE, 'must be unavailable');
+    assert(h.brakingImpulseBwSeconds === null && h.propulsiveImpulseBwSeconds === null, 'no invented values');
+    assert(/net_horizontal_impulse/.test(h.reason), 'reason names the physics: ' + h.reason);
+    assert(/speed is not captured/i.test(h.explanation), 'must say why it cannot be derived');
+  });
+
+  test('the duty-factor proxy matches the Impact Load model convention', function () {
+    var res = VF.analyze(Object.assign(
+      stanceIntervals({ contactSeconds: 0.228, stepSeconds: 60 / 186, steps: 10 }),
+      { effectiveSampleRateHz: 25 }));
+    var proxy = res.runLoadDfProxy;
+    // shared/run-load-model.js expresses duty factor as cadence(spm) x GCT(ms).
+    assertClose(proxy.value, 186 * 228, 6, 'proxy must equal cadence x GCT');
+    assertClose(proxy.value, res.dutyFactor.median * 60000, 1e-6, 'dfProxy = 60000 x dutyFactor');
+    assert(proxy.convention === 'cadence_spm_times_gct_ms', 'convention recorded');
+    // The model's easy-run fallback must be a duty factor this module accepts, or
+    // the two definitions have drifted apart.
+    var baseDf = 42408 / VF.RUN_LOAD_DF_PROXY_SCALE;
+    assert(baseDf >= VF.LIMITS.minDutyFactor && baseDf <= VF.LIMITS.maxDutyFactor,
+      'run-load baseDF implies duty factor ' + baseDf.toFixed(3) + ', outside this module\'s running range');
+  });
+
+  test('absolute newtons appear only when body mass is supplied', function () {
+    var base = stanceIntervals({ contactSeconds: 0.22, stepSeconds: 0.36, steps: 10 });
+    var without = VF.analyze(base);
+    assert(without.peakVerticalForceNewtons === null, 'no newtons without mass');
+    assert(/body_mass_unavailable/.test(without.absoluteForceReason), 'reason given');
+    var withMass = VF.analyze(Object.assign({}, base, { bodyMassKg: 70 }));
+    assertClose(withMass.bodyWeightNewtons, 70 * VF.GRAVITY_MPS2, 1e-9, 'bodyweight in newtons');
+    assertClose(withMass.peakVerticalForceNewtons,
+      withMass.peakVerticalForceBw.median * 70 * VF.GRAVITY_MPS2, 1e-6, 'peak in newtons');
+  });
+
+  test('the stored form carries force aggregates but no per-step detail', function () {
+    var stored = KFOAnalysis.toStoredForm(KFOAnalysis.analyze({ samples: clip({}) }));
+    var vf = stored.verticalForce;
+    assert(vf, 'force block persisted');
+    assert(vf.steps === undefined, 'per-step detail must stay in the research export');
+    assert(vf.rejections === undefined, 'per-step rejections must not be persisted');
+    assert(isFinite(vf.peakVerticalForceBw.median), 'aggregate peak persisted');
+    assert(isFinite(vf.dutyFactor.median), 'aggregate duty factor persisted');
+    assert(vf.isValidated === false, 'validation state persisted as false');
+    assert(vf.horizontal.availability === KFO.AVAILABILITY.UNAVAILABLE, 'horizontal state persisted');
+    assert(JSON.stringify(stored).indexOf('"contactSide"') === -1, 'no step records anywhere in the document');
+  });
+
+  test('the stored force block round-trips into the rendered panel', function () {
+    var R = d.KFORender; if (!R) { assert(true, 'renderer unavailable'); return; }
+    var stored = KFOAnalysis.toStoredForm(KFOAnalysis.analyze({ samples: clip({}) }));
+    var html = R.buildStoredHtml(stored);
+    assert(/Estimated vertical force/i.test(html), 'force card renders from the stored block');
+    assert(/\bBW\b/.test(html), 'bodyweight units shown');
+    assert(!/NaN|undefined/.test(html), 'no NaN or undefined leaking into the view');
+  });
+
+  test('per-step force columns reach the stride export', function () {
+    var X = loadExport(); if (!X) { assert(true, 'export unavailable'); return; }
+    var res = KFOAnalysis.analyze({ samples: clip({}) });
+    var rows = X.strideRows(res, { analysisId: 'a1' });
+    ['stepContactMs', 'stepFlightMs', 'stepDurationMs', 'stepDutyFactor', 'stepCadenceSpm',
+     'stepMeanVerticalForceBw', 'stepPeakVerticalForceBw', 'verticalForceMethod'].forEach(function (c) {
+      assert(X.STRIDE_COLUMNS.indexOf(c) > -1, 'column declared: ' + c);
+      assert(Object.prototype.hasOwnProperty.call(rows[0], c), 'column present on rows: ' + c);
+    });
+    // Note: isFinite(null) is true in JS, so the type check is the load-bearing part.
+    var withStep = rows.filter(function (r) { return typeof r.stepDutyFactor === 'number'; });
+    assert(withStep.length > 0, 'at least one stride matched its step');
+    withStep.forEach(function (r) {
+      assertClose(r.stepMeanVerticalForceBw, 1 / r.stepDutyFactor, 1e-3, 'row mean force');
+      assertClose(r.stepPeakVerticalForceBw, Math.PI / 2 / r.stepDutyFactor, 1e-3, 'row peak force');
+      assert(r.verticalForceMethod === 'timing_duty_factor', 'method recorded per row');
+    });
+  });
+
+  test('the export bundle disclaims the force columns and the missing horizontal', function () {
+    var X = loadExport(); if (!X) { assert(true, 'export unavailable'); return; }
+    var bundle = X.buildExport(KFOAnalysis.analyze({ samples: clip({}) }), clip({}), { analysisId: 'a1' });
+    var notes = bundle.notes.join(' ');
+    assert(/not measured force/i.test(notes), 'force columns must be disclaimed');
+    assert(/underestimates the force-plate peak/i.test(notes), 'the peak bias must be stated');
+    assert(/Horizontal force is absent by design/i.test(notes), 'the missing horizontal must be explained');
+  });
+
+  // ── Copy audit for the force headline ─────────────────────────────────────
+  // Scoped to the force block: it is the only place a force NUMBER is shown, so
+  // it is the only place this rule has to hold word by word.
+  function forceHtml(over) {
+    if (typeof d.KFORender === 'undefined' && typeof require === 'function') {
+      try { d.KFORender = require('./kfo-render.js'); } catch (e) { return null; }
+    }
+    var R = d.KFORender;
+    if (!R || typeof R.verticalForceSection !== 'function') return null;
+    return R.verticalForceSection(KFOAnalysis.analyze({ samples: clip(over || {}) }));
+  }
+
+  test('the force headline never calls the estimate a measured force', function () {
+    var html = forceHtml();
+    if (html === null) { assert(true, 'renderer unavailable'); return; }
+    assert(html.length > 0, 'the force card must render');
+    var lower = html.toLowerCase(), i = -1;
+    while ((i = lower.indexOf('measured', i + 1)) !== -1) {
+      var before = lower.slice(Math.max(0, i - 14), i);
+      assert(/\bnot\s+(a\s+|any\s+)?$/.test(before),
+        '"measured" must always be negated, found: "…' + before + 'measured…"');
+    }
+    assert(/not a ground-reaction-force measurement/i.test(html), 'must carry the explicit disclaimer');
+    assert(!/\bGRF\b/.test(html), 'the card must spell it out rather than lean on an acronym');
+  });
+
+  test('the force headline shows uncertainty, timing and the peak bias', function () {
+    var html = forceHtml();
+    if (html === null) { assert(true, 'renderer unavailable'); return; }
+    assert(/±/.test(html), 'uncertainty must be visible');
+    assert(/BW/.test(html), 'bodyweight units must be visible');
+    assert(/Duty factor/i.test(html), 'duty factor must be shown');
+    assert(/Contact/i.test(html) && /Flight/i.test(html), 'contact and flight time must be shown');
+    assert(/underestimate/i.test(html), 'the peak bias must be disclosed in the UI');
+    assert(/does not average out/i.test(html), 'the systematic-bias caveat must reach the UI');
+  });
+
+  test('the force headline never presents force as good or bad', function () {
+    var html = forceHtml();
+    if (html === null) { assert(true, 'renderer unavailable'); return; }
+    assert(!/injur/i.test(html), 'must not mention injury');
+    assert(!/\b(too high|too low|excessive|poor|good|optimal|ideal)\b/i.test(html),
+      'force magnitude is a load, not a verdict');
+    assert(!/efficien|econom/i.test(html), 'must not imply efficiency or economy');
+  });
+
+  test('the panel leads with force and demotes the support-line angle', function () {
+    if (typeof d.KFORender === 'undefined' && typeof require === 'function') {
+      try { d.KFORender = require('./kfo-render.js'); } catch (e) { assert(true, 'unavailable'); return; }
+    }
+    var R = d.KFORender; if (!R) { assert(true, 'renderer unavailable'); return; }
+    var html = R.buildHtml(KFOAnalysis.analyze({ samples: clip({}) }));
+    var forceAt = html.indexOf('Estimated vertical force');
+    var geomAt = html.indexOf('Support-line geometry');
+    assert(forceAt > -1, 'force card present');
+    assert(geomAt > -1, 'geometry row present');
+    assert(forceAt < geomAt, 'the force headline must come before the angle cards');
+    assert(/secondary/i.test(html.slice(geomAt, geomAt + 200)), 'the geometry row must be marked secondary');
+  });
+
+  test('an unavailable force block explains itself instead of rendering blank', function () {
+    var R = d.KFORender; if (!R) { assert(true, 'renderer unavailable'); return; }
+    var html = R.verticalForceSection({
+      verticalForce: { availability: KFO.AVAILABILITY.UNAVAILABLE, reason: 'double_support_detected_not_running' }
+    });
+    assert(/walking rather than running/i.test(html), 'explains the walking case');
+    assert(/double_support_detected_not_running/.test(html), 'exposes the machine-readable reason');
+    assert(!/BW/.test(html), 'no force value may appear');
+    assert(R.verticalForceSection({}) === '', 'a result with no force block renders nothing');
   });
 
   // ── Runner ────────────────────────────────────────────────────────────────
