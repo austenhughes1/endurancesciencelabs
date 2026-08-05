@@ -818,7 +818,13 @@
    */
   function migrateAnalysis(stored) {
     var doc = stored || {};
-    var version = isNum(doc.schemaVersion) ? doc.schemaVersion : 1;
+    // The version lives INSIDE the kfo block: this feature must not add fields to
+    // the shared analysis document. A root-level schemaVersion is still accepted,
+    // because a small number of documents were written that way before the scope
+    // was tightened.
+    var version = (doc.kfo && isNum(doc.kfo.schemaVersion)) ? doc.kfo.schemaVersion
+                : isNum(doc.schemaVersion) ? doc.schemaVersion
+                : 1;
     if (version >= SCHEMA_VERSION && doc.kfo) {
       return { schemaVersion: version, kfo: doc.kfo, migrated: false, sourceVersion: version };
     }

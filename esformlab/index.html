@@ -1299,10 +1299,10 @@ async function autoScanAll(){
     console.log('[scale filter] side: kept',samples.length,'of',before,'(threshold',thresh.toFixed(1)+'px, median',med.toFixed(1)+'px)');
   })();
 
-  // Retain the scale-filtered samples for Kinematic Force-Orientation. They already
-  // carry full keypoints per sampled frame, so multi-stride analysis costs no extra
-  // pose inference. Admin-only consumer; harmless if nothing reads it.
-  try{ window.__kfoSamples = samples; }catch(e){}
+  // Hand the scale-filtered samples to the admin-only force-orientation feature,
+  // which reuses their keypoints so multi-stride analysis costs no extra pose
+  // inference. Gated so nothing is retained when the feature is off.
+  try{ if(typeof KFOApp!=='undefined' && KFOApp.shouldCapture()) window.__kfoSamples = samples; }catch(e){}
 
   // Detect side phases
   try{findPhases(samples,sideDur);}catch(e){console.error('findPhases:',e);}

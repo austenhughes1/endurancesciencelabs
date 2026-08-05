@@ -55,8 +55,8 @@ async function saveAnalysis() {
     data.phases[def.key] = entry;
   });
 
-  // Stamp the schema version (and the KFO aggregate block when available) so
-  // stored analyses stay version-aware. Absence of schemaVersion = version 1.
+  // Attach the admin-only force-orientation block when that feature is active.
+  // Returns {} otherwise, so this save is unchanged for everyone else.
   if (typeof KFOApp !== 'undefined') {
     try {
       var kfoFields = KFOApp.storedFields();

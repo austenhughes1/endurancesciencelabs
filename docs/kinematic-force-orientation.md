@@ -272,8 +272,12 @@ nothing from it is user-facing.
 - `analysisType: "kinematic_force_orientation"`, `schemaVersion: 2`.
 - `MODEL_VERSION` in `kfo-core.js`; `REFERENCE_VERSION` in `kfo-reference.js`;
   `EXPORT_VERSION` in `kfo-export.js`.
-- Saved analyses are stamped with `schemaVersion`. **Absence of the field means
-  version 1**, forever.
+- **The version lives inside the `kfo` block, not at the document root.** This
+  feature adds no fields to the shared analysis document, so a save made without
+  the feature active is byte-identical to a pre-feature save. A root-level
+  `schemaVersion` is still accepted on read, because a small number of documents
+  were written that way before the scope was tightened.
+- Absence of any version means **version 1**.
 - `migrateAnalysis()` is read-time only and never mutates or rewrites a stored
   document. A v1 analysis becomes an explicit `availability: "unavailable"`
   envelope with reason `analysis_predates_kinematic_force_orientation`.
@@ -339,8 +343,18 @@ KFOApp.clearFlag('forceValidationTools'); location.reload()
 
 One-off, no persistence: append `?esl-kfo-forceValidationTools=1` to the URL.
 
-Everything is additionally gated on `esLabs.isAdmin()`. With all flags off,
-nothing renders and no behaviour changes for any user.
+Everything is additionally gated on `esLabs.isAdmin()`, which is the hard gate: a
+non-admin gets nothing even if a flag is forced on.
+
+**Feature scope.** This feature is confined to itself. With it inactive:
+
+- nothing renders;
+- no fields are added to a saved analysis (`storedFields()` returns `{}`);
+- the side scan does not retain its samples, so no keypoints are held in memory
+  after it returns.
+
+No other part of the gait analysis — detection rules, angles, reference ranges,
+report copy, or the stride cards — is altered by this feature.
 
 ## 16. Tests
 

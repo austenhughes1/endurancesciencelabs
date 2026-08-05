@@ -95,6 +95,18 @@
     return (s && s.length) ? s : null;
   }
 
+  /**
+   * Whether the side scan should hand its samples over for retention.
+   *
+   * SCOPE: false for everyone but an admin with the feature on. Without this the
+   * scan would keep ~150 frames of keypoints alive after it returns for every
+   * user, which is memory this feature has no right to hold when it is off.
+   */
+  function shouldCapture() {
+    try { return isAdminUser() && isEnabled('kinematicForceOrientationV2'); }
+    catch (e) { return false; }
+  }
+
   var lastResult = null;
   function getLastResult() { return lastResult; }
 
@@ -281,24 +293,28 @@
 
   // ── Persistence ───────────────────────────────────────────────────────────
   /**
-   * Fields to merge into a saved-analysis document. Always stamps
-   * `schemaVersion` so absence of the field can be read as "version 1" forever,
-   * and attaches the aggregate KFO block when one is available.
+   * Fields to merge into a saved-analysis document.
+   *
+   * SCOPE: returns an EMPTY object unless this feature is actually active. The
+   * version lives inside the `kfo` block, not at the document root, so a save
+   * by a user without this feature is byte-identical to a pre-feature save.
+   * Nothing outside the force-orientation feature touches the stored schema.
    *
    * Stride-level detail is deliberately NOT persisted — it belongs in the
    * research export, not in every user document.
    */
   function storedFields() {
-    var out = { schemaVersion: (typeof KFO !== 'undefined') ? KFO.SCHEMA_VERSION : 2 };
     try {
-      if (!isAdminUser() || !isEnabled('kinematicForceOrientationV2')) return out;
-      if (typeof KFOAnalysis === 'undefined') return out;
+      if (!isAdminUser() || !isEnabled('kinematicForceOrientationV2')) return {};
+      if (typeof KFOAnalysis === 'undefined') return {};
       var result = lastResult || analyze();
-      if (!result) return out;
+      if (!result) return {};
       var stored = KFOAnalysis.toStoredForm(result);
-      if (stored) out.kfo = stored;
-    } catch (e) { console.warn('[kfo] stored fields skipped:', e.message); }
-    return out;
+      return stored ? { kfo: stored } : {};
+    } catch (e) {
+      console.warn('[kfo] stored fields skipped:', e.message);
+      return {};
+    }
   }
 
   /** Read-time normalisation for rendering a saved analysis of any vintage. */
@@ -354,6 +370,7 @@
     clearFlag: clearFlag,
     flagState: flagState,
     getSamples: getSamples,
+    shouldCapture: shouldCapture,
     analyze: analyze,
     getLastResult: getLastResult,
     render: render,
