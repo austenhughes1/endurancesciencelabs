@@ -13,11 +13,13 @@
 //                that refuse to run rather than silently returning nothing)
 // ─────────────────────────────────────────────────────────────────────────────
 (function (root, factory) {
-  var core = (typeof module === 'object' && module.exports) ? require('./kfo-core.js') : root.KFO;
-  var api = factory(core);
-  if (typeof module === 'object' && module.exports) module.exports = api;
+  var isNode = (typeof module === 'object' && module.exports);
+  var core = isNode ? require('./kfo-core.js') : root.KFO;
+  var imp = isNode ? require('./kfo-impulse.js') : root.KFOImpulse;
+  var api = factory(core, imp);
+  if (isNode) module.exports = api;
   if (root) root.KFOEstimators = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (KFO) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (KFO, KFOImpulse) {
   'use strict';
 
   var GRAVITY_MPS2 = 9.80665;
@@ -226,17 +228,25 @@
         return { ok: false, method: this.method, reason: 'no_valid_acceleration_samples', diagnostics: diagnostics };
       }
 
-      // Impulses only over an explicit stance window, and only with a mass.
+      // Legacy single-view metrics, unchanged, and still requiring a mass because
+      // they are expressed in newton-seconds.
       var forceMetrics = KFO.unavailableForceMetrics('experimental_estimator_impulses_require_stance_window_and_mass');
       if (input.stanceWindow && isNum(input.bodyMassKg)) {
         var w = input.stanceWindow;
-        var bw = input.bodyMassKg * GRAVITY_MPS2;
+        var bwN = input.bodyMassKg * GRAVITY_MPS2;
         var stance = series.filter(function (p) { return p.t >= w.startTime && p.t <= w.endTime; })
                            .map(function (p) {
-                             return { t: p.t, fx: p.fxBodyWeights * bw, fz: p.fzBodyWeights * bw };
+                             return { t: p.t, fx: p.fxBodyWeights * bwN, fz: p.fzBodyWeights * bwN };
                            });
-        if (stance.length >= 3) forceMetrics = KFO.computeImpulseMetrics(stance, bw);
+        if (stance.length >= 3) forceMetrics = KFO.computeImpulseMetrics(stance, bwN);
       }
+
+      // Impulse accounting. Body mass is NOT required here: the series is already
+      // bodyweight-normalised (Fz/BW = az/g + 1, Fx/BW = ax/g), so integrating it
+      // gives BW·s directly and the bodyweight reference is exactly 1. Only the
+      // scale calibration is load-bearing, and that has already been checked
+      // above.
+      var impulseMetrics = this.impulseAccounting(series, input);
 
       return {
         ok: true,
@@ -247,6 +257,7 @@
         gravityMps2: GRAVITY_MPS2,
         series: series,
         forceMetrics: forceMetrics,
+        impulseMetrics: impulseMetrics,
         diagnostics: diagnostics,
         limitations: [
           'Experimental and unvalidated',
@@ -255,6 +266,106 @@
           'Not to be shown as a consumer-facing force magnitude'
         ]
       };
+    },
+
+    /**
+     * Integrate the impulse quantities over each supplied stance window, per side,
+     * and aggregate. Every stance is integrated on its OWN timestamps rather than
+     * on a resampled grid, because the sample spacing out of video seeking is not
+     * uniform and resampling would move the stance boundaries that JvEffective is
+     * most sensitive to.
+     *
+     * @param {Array} series  bodyweight-normalised force series from estimate()
+     * @param {Object} input  {stanceWindows|stanceWindow, confidence, sampleRateHz}
+     */
+    impulseAccounting: function (series, input) {
+      input = input || {};
+      if (!KFOImpulse) {
+        return { availability: 'unavailable', reason: 'impulse_module_not_loaded' };
+      }
+      var windows = input.stanceWindows ||
+        (input.stanceWindow ? [input.stanceWindow] : null);
+      if (!windows || !windows.length) {
+        return KFOImpulse.unavailableImpulseMetrics(
+          'no_stance_windows_supplied_to_experimental_estimator',
+          { method: this.method });
+      }
+
+      var self = this;
+      var perSideStances = { left: [], right: [] };
+      var all = [];
+      windows.forEach(function (w, i) {
+        var pts = series.filter(function (p) { return p.t >= w.startTime && p.t <= w.endTime; })
+                        .map(function (p) { return { t: p.t, fx: p.fxBodyWeights, fz: p.fzBodyWeights }; });
+        var stance = KFOImpulse.integrateStance(pts, {
+          bodyWeight: 1,
+          normalizedToBodyWeight: true,
+          unit: KFOImpulse.IMPULSE_UNIT.BW_SECONDS,
+          method: self.method,
+          side: w.side || null,
+          strideIndex: isNum(w.strideIndex) ? w.strideIndex : i
+        });
+        all.push(stance);
+        if (w.side === 'left' || w.side === 'right') perSideStances[w.side].push(stance);
+      });
+
+      var ctx = {
+        method: this.method,
+        confidence: input.confidence || null,
+        confidenceScore: input.confidenceScore == null ? null : input.confidenceScore,
+        gradeKnown: !!input.gradeKnown,
+        speedKnown: !!input.speedKnown,
+        sampleRateHz: input.sampleRateHz == null ? null : input.sampleRateHz,
+        isForceMeasurementValidated: false
+      };
+      var combined = KFOImpulse.aggregateStances(all, ctx);
+      var out = {
+        availability: combined.availability,
+        reason: combined.reason,
+        method: this.method,
+        isValidated: false,
+        isExperimental: true,
+        calculationVersion: KFOImpulse.CALCULATION_VERSION,
+        unit: KFOImpulse.IMPULSE_UNIT.BW_SECONDS,
+        normalizedToBodyWeight: true,
+        bodyMassRequired: false,
+        bodyMassNote: 'Impulses are bodyweight-normalised, so body mass is not needed. It is needed only ' +
+          'to express them in newton-seconds.',
+        perSide: {
+          left: perSideStances.left.length ? KFOImpulse.aggregateStances(perSideStances.left, ctx) : null,
+          right: perSideStances.right.length ? KFOImpulse.aggregateStances(perSideStances.right, ctx) : null
+        },
+        combined: combined,
+        steadyStateConsistency: combined.steadyStateConsistency,
+        impact: combined.impact,
+        definitions: KFOImpulse.IMPULSE_DEFINITIONS,
+        signConvention: KFOImpulse.SIGN_CONVENTION
+      };
+      out.momentumPreservation = KFOImpulse.momentumPreservation(combined, ctx);
+      // Everything an admin needs to see WHERE each integral came from, so a wrong
+      // number can be traced to a wrong region rather than argued about.
+      out.diagnostics = {
+        fxSeriesBw: series.map(function (p) { return { t: p.t, v: p.fxBodyWeights }; }),
+        fzSeriesBw: series.map(function (p) { return { t: p.t, v: p.fzBodyWeights }; }),
+        bodyWeightLineBw: 1,
+        perStance: all.map(function (s) {
+          return {
+            side: s.side, strideIndex: s.strideIndex,
+            availability: s.availability, reason: s.reason,
+            stanceBoundaries: { startTime: s.stanceStartSeconds, endTime: s.stanceEndSeconds },
+            regions: s.diagnostics ? s.diagnostics.integrationRegions : null,
+            fxZeroCrossings: s.diagnostics ? s.diagnostics.fxZeroCrossings : null,
+            JvTotal: s.JvTotal, JvEffective: s.JvEffective,
+            JBrake: s.JBrake, JProp: s.JProp,
+            shortcutDelta: s.diagnostics ? s.diagnostics.JvEffectiveShortcutDelta : null
+          };
+        }),
+        note: 'Regions are the intervals contributing to each integral: braking where Fx < 0, ' +
+          'propulsive where Fx > 0, aboveBodyWeight where Fz > 1 BW. The total vertical integral ' +
+          'spans the whole stance; the effective vertical integral is the signed area relative to ' +
+          'the bodyweight line, so the below-bodyweight regions subtract from it.'
+      };
+      return out;
     }
   };
 

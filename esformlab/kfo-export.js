@@ -16,13 +16,18 @@
 (function (root, factory) {
   var isNode = (typeof module === 'object' && module.exports);
   var core = isNode ? require('./kfo-core.js') : root.KFO;
-  var api = factory(core);
+  var imp = isNode ? require('./kfo-impulse.js') : root.KFOImpulse;
+  var api = factory(core, imp);
   if (isNode) module.exports = api;
   if (root) root.KFOExport = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (KFO) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (KFO, KFOImpulse) {
   'use strict';
 
-  var EXPORT_VERSION = 'kfo-export-v1';
+  // v2 adds the impulse-accounting and geometry-proxy columns. The export version
+  // moves independently of the analysis schema version: a consumer parsing CSV
+  // needs to know which columns exist, which is a different question from which
+  // fields a stored document has.
+  var EXPORT_VERSION = 'kfo-export-v2';
   function isNum(v) { return typeof v === 'number' && isFinite(v); }
 
   // ── CSV helpers ───────────────────────────────────────────────────────────
@@ -75,7 +80,24 @@
     // Per-step timing and force. A "step" is this contact plus the flight that
     // follows it, so the last contact of a clip has no step and these stay empty.
     'stepContactMs', 'stepFlightMs', 'stepDurationMs', 'stepDutyFactor', 'stepCadenceSpm',
-    'stepMeanVerticalForceBw', 'stepPeakVerticalForceBw', 'verticalForceMethod'
+    'stepMeanVerticalForceBw', 'stepPeakVerticalForceBw', 'verticalForceMethod',
+    // ── Impulse accounting, per stance ──────────────────────────────────────
+    // Empty on the geometry-only path, and empty is the correct value: these are
+    // impulses, and no arrangement of the angle columns above can produce one.
+    // Geometry proxies are exported in their own `proxy*` columns so a downstream
+    // analysis cannot confuse a degree-valued orientation with a BW·s impulse.
+    'JvTotal', 'JvEffective', 'JBrake', 'JProp', 'JhTurnover', 'JxNet',
+    'impulseUnit', 'impulseNormalizedToBodyWeight',
+    'horizontalImpulseImbalance', 'steadyStateClassification',
+    'totalSupportReplacementVerticalShare', 'totalSupportReplacementHorizontalShare',
+    'projectionReplacementVerticalShare', 'projectionReplacementHorizontalShare',
+    'activeProjectionTurnoverVerticalShare', 'activeProjectionTurnoverHorizontalShare',
+    'forceEstimatorMethod', 'forceEstimatorVersion', 'filterSettings', 'forceConfidence',
+    'impulseAvailability', 'impulseRejectReason',
+    // ── Geometry proxies, kept separate from every force-derived column ──────
+    'proxyBrakingOrientationDeg', 'proxySupportAlignmentDeg',
+    'proxyReplacementOrientationDeg', 'proxyForeAftGeometricExcursionDeg',
+    'proxyMomentumPreservationGeometryPattern'
   ];
 
   /**
@@ -102,6 +124,52 @@
   }
 
   /**
+   * Index the per-stance impulse records the same way, by side and stance start
+   * time. Matching on time rather than on stride index means a row can never pick
+   * up a neighbouring stance's impulses if the two lists ever diverge.
+   */
+  function impulseLookup(result) {
+    var im = result && result.impulseMetrics;
+    var stances = [];
+    if (im && im.perSide) {
+      ['left', 'right'].forEach(function (side) {
+        var s = im.perSide[side];
+        if (s && s.perStance) stances = stances.concat(s.perStance);
+      });
+    }
+    if (!stances.length && im && im.combined && im.combined.perStance) {
+      stances = im.combined.perStance.slice();
+    }
+    return function (side, startTime) {
+      var best = null, bestDt = Infinity;
+      for (var i = 0; i < stances.length; i++) {
+        if (stances[i].side !== side) continue;
+        var dt = Math.abs(stances[i].stanceStartSeconds - startTime);
+        if (dt < bestDt) { bestDt = dt; best = stances[i]; }
+      }
+      return bestDt <= STEP_MATCH_TOLERANCE_SECONDS ? best : null;
+    };
+  }
+
+  /**
+   * Per-stance accounting shares. Computed from THAT stance's impulses, never
+   * copied down from the session aggregate: a share is nonlinear in its inputs,
+   * so an aggregate share is not any individual stance's share.
+   */
+  function stanceCompositions(stance) {
+    if (!stance || !KFOImpulse) return null;
+    if (!stance.isPlausible) return null;
+    return KFOImpulse.buildCompositions(stance, { method: stance.method });
+  }
+
+  function proxyFor(result, side, phaseKey) {
+    var p = result && result.momentumPreservationProxies;
+    var s = p && p[side];
+    var m = s && s[phaseKey];
+    return m && isNum(m.medianDegrees) ? m.medianDegrees : null;
+  }
+
+  /**
    * @param {Object} result   KFO analysis result
    * @param {Object} [meta]   {analysisId, subjectId, videoId, surface, footwear, adjustments}
    */
@@ -111,7 +179,13 @@
     var vm = result.videoMetadata || {};
     var flags = (result.quality && result.quality.flags) ? result.quality.flags.join('|') : '';
     var findStep = stepLookup(result);
+    var findStance = impulseLookup(result);
     var vfMethod = (result.verticalForce && result.verticalForce.method) || null;
+    var im = result.impulseMetrics || null;
+    var ss = im && im.steadyStateConsistency ? im.steadyStateConsistency : null;
+    var filterSettings = null;
+    if (im && im.filter) filterSettings = JSON.stringify(im.filter);
+    else if (meta.filterSettings) filterSettings = JSON.stringify(meta.filterSettings);
     var rows = [];
 
     ['left', 'right'].forEach(function (side) {
@@ -135,6 +209,19 @@
         }).filter(isNum);
         var adj = (meta.adjustments && meta.adjustments[side + ':' + st.strideIndex]) || null;
         var step = findStep(side, st.startTime);
+        var stance = findStance(side, st.startTime);
+        var comps = stanceCompositions(stance);
+        function share(key, which) {
+          var c = comps && comps[key];
+          if (!c) return null;
+          var v = which === 'v' ? c.verticalShareScalarSum : c.horizontalShareScalarSum;
+          return round(v, 6);
+        }
+        // Per-stance imbalance, so a single bad stance is visible rather than
+        // averaged into the session number.
+        var stanceImbalance = (stance && isNum(stance.JxNet) && isNum(stance.JhTurnover) &&
+                               stance.JhTurnover > 0)
+          ? Math.abs(stance.JxNet) / stance.JhTurnover : null;
         // Per step, never recomputed from the aggregate duty factor: 1/DF is
         // convex, so a row-level value derived from a mean would not be this
         // step's force.
@@ -185,7 +272,46 @@
           stepCadenceSpm: step ? round(step.cadenceSpm, 2) : null,
           stepMeanVerticalForceBw: isNum(stepDf) && stepDf > 0 ? round(1 / stepDf, 4) : null,
           stepPeakVerticalForceBw: isNum(stepDf) && stepDf > 0 ? round(Math.PI / 2 / stepDf, 4) : null,
-          verticalForceMethod: step ? vfMethod : null
+          verticalForceMethod: step ? vfMethod : null,
+
+          JvTotal: stance ? round(stance.JvTotal, 6) : null,
+          JvEffective: stance ? round(stance.JvEffective, 6) : null,
+          JBrake: stance ? round(stance.JBrake, 6) : null,
+          JProp: stance ? round(stance.JProp, 6) : null,
+          JhTurnover: stance ? round(stance.JhTurnover, 6) : null,
+          JxNet: stance ? round(stance.JxNet, 6) : null,
+          impulseUnit: stance ? stance.unit : null,
+          impulseNormalizedToBodyWeight: stance ? stance.normalizedToBodyWeight !== false : null,
+          horizontalImpulseImbalance: round(stanceImbalance, 6),
+          steadyStateClassification: ss ? ss.state : null,
+          totalSupportReplacementVerticalShare: share('totalSupportReplacement', 'v'),
+          totalSupportReplacementHorizontalShare: share('totalSupportReplacement', 'h'),
+          projectionReplacementVerticalShare: share('projectionReplacement', 'v'),
+          projectionReplacementHorizontalShare: share('projectionReplacement', 'h'),
+          activeProjectionTurnoverVerticalShare: share('activeProjectionTurnover', 'v'),
+          activeProjectionTurnoverHorizontalShare: share('activeProjectionTurnover', 'h'),
+          forceEstimatorMethod: im ? (im.method || null) : null,
+          forceEstimatorVersion: im ? (im.calculationVersion || null) : null,
+          filterSettings: filterSettings,
+          forceConfidence: (result.quality && result.quality.confidence)
+            ? round(result.quality.confidence.score, 4) : null,
+          impulseAvailability: im ? im.availability : null,
+          // A stance the estimator refused says WHY here, so a gap in the impulse
+          // columns can be told apart from a gap in the force source.
+          impulseRejectReason: stance ? (stance.reason || null) : (im ? im.reason || null : null),
+
+          proxyBrakingOrientationDeg: round(proxyFor(result, side, 'brakingOrientationProxy'), 3),
+          proxySupportAlignmentDeg: round(proxyFor(result, side, 'supportAlignmentProxy'), 3),
+          proxyReplacementOrientationDeg: round(proxyFor(result, side, 'replacementOrientationProxy'), 3),
+          proxyForeAftGeometricExcursionDeg: (function () {
+            var p = result.momentumPreservationProxies;
+            var s = p && p[side] && p[side].foreAftGeometricExcursion;
+            return s ? round(s.valueDegrees, 3) : null;
+          })(),
+          proxyMomentumPreservationGeometryPattern: (function () {
+            var p = result.momentumPreservationProxies;
+            return (p && p[side] && p[side].momentumPreservationGeometryPattern) || null;
+          })()
         });
       });
     });
@@ -201,8 +327,34 @@
     'poseConfidence', 'landmarkConfidenceMin', 'landmarks',
     'rawComX', 'rawComY', 'smoothedComX', 'smoothedComY',
     'experimentalAxMps2', 'experimentalAzMps2', 'experimentalFxBw', 'experimentalFzBw',
+    // Which integration region this instant falls in, so a reviewer can see where
+    // each impulse came from instead of taking the totals on trust.
+    'horizontalIntegrationRegion', 'verticalIntegrationRegion', 'bodyWeightLine',
+    'stanceStartMs', 'stanceEndMs',
     'method', 'modelVersion'
   ];
+
+  /**
+   * Classify one instant against a stance's integration regions.
+   * Returns nulls rather than 'none' when no force source exists: absence of a
+   * region and an instant genuinely outside every region are different facts.
+   */
+  function regionAt(stance, t) {
+    var regions = stance && stance.diagnostics && stance.diagnostics.integrationRegions;
+    if (!regions) return { horizontal: null, vertical: null, bodyWeightLine: null };
+    function inAny(list) {
+      for (var i = 0; i < (list || []).length; i++) {
+        if (t >= list[i].startTime && t <= list[i].endTime) return true;
+      }
+      return false;
+    }
+    return {
+      horizontal: inAny(regions.braking) ? 'braking' : inAny(regions.propulsive) ? 'propulsive' : 'zero_crossing',
+      vertical: inAny(regions.aboveBodyWeight) ? 'above_body_weight'
+              : inAny(regions.belowBodyWeight) ? 'below_body_weight' : 'at_body_weight',
+      bodyWeightLine: regions.bodyWeightLine == null ? null : regions.bodyWeightLine
+    };
+  }
 
   /**
    * Frame-level rows. `includeLandmarks` embeds the full pose as JSON, which is
@@ -214,6 +366,7 @@
     if (!result || !result.left) return [];
     var rows = [];
     var experimental = opts.experimentalSeries || null;
+    var findStance = impulseLookup(result);
 
     function expAt(t) {
       if (!experimental) return null;
@@ -245,6 +398,8 @@
             }, null);
           }
           var ex = expAt(t);
+          var stance = findStance(side, st.startTime);
+          var reg = regionAt(stance, t);
           rows.push({
             exportVersion: EXPORT_VERSION,
             analysisId: opts.analysisId || null,
@@ -279,6 +434,11 @@
             experimentalAzMps2: ex ? round(ex.azMps2, 4) : null,
             experimentalFxBw: ex ? round(ex.fxBodyWeights, 4) : null,
             experimentalFzBw: ex ? round(ex.fzBodyWeights, 4) : null,
+            horizontalIntegrationRegion: reg.horizontal,
+            verticalIntegrationRegion: reg.vertical,
+            bodyWeightLine: reg.bodyWeightLine,
+            stanceStartMs: stance ? Math.round(stance.stanceStartSeconds * 1000) : null,
+            stanceEndMs: stance ? Math.round(stance.stanceEndSeconds * 1000) : null,
             method: result.method,
             modelVersion: result.modelVersion
           });
@@ -309,6 +469,21 @@
         strides: toCsv(STRIDE_COLUMNS, strides),
         frames: toCsv(FRAME_COLUMNS, frames)
       },
+      impulseAccounting: {
+        availability: (result && result.impulseMetrics) ? result.impulseMetrics.availability : 'unavailable',
+        reason: (result && result.impulseMetrics) ? result.impulseMetrics.reason || null : null,
+        method: (result && result.impulseMetrics) ? result.impulseMetrics.method || null : null,
+        calculationVersion: KFOImpulse ? KFOImpulse.CALCULATION_VERSION : null,
+        signConvention: KFOImpulse ? KFOImpulse.SIGN_CONVENTION : null,
+        definitions: KFOImpulse ? KFOImpulse.IMPULSE_DEFINITIONS : null,
+        compositionSpec: KFOImpulse ? KFOImpulse.COMPOSITION_SPEC : null,
+        provisionalThresholds: KFOImpulse ? {
+          imbalanceWarnRatio: KFOImpulse.CONFIG.imbalanceWarnRatio,
+          imbalanceRejectRatio: KFOImpulse.CONFIG.imbalanceRejectRatio,
+          isProvisional: true,
+          note: KFOImpulse.CONFIG.provisionalNote
+        } : null
+      },
       notes: [
         'Support-line angles are kinematic estimates, not measured ground-reaction force.',
         'Angle convention: degrees from vertical, negative = braking, positive = propulsive.',
@@ -316,8 +491,19 @@
         'Vertical force columns are timing-derived estimates in bodyweights, not measured force. ' +
           'Mean = 1 / duty factor (exact at steady state); peak assumes a half-sine waveform and ' +
           'underestimates the force-plate peak by roughly 5-15%.',
-        'Horizontal force is absent by design: net horizontal impulse is ~0 at steady speed, and braking ' +
-          'impulse magnitude needs force measurement or a speed estimate that this pipeline does not capture.'
+        'Net horizontal force is not reported: net horizontal impulse is ~0 at steady speed. The ' +
+          'discriminating quantity is braking impulse MAGNITUDE, which needs force measurement or a ' +
+          'speed estimate that this pipeline does not capture.',
+        'Impulse columns (Jv*, JBrake, JProp, JhTurnover, JxNet) are empty unless a force-time series ' +
+          'was supplied. They cannot be derived from the angle columns, which carry no magnitude.',
+        'The three composition share pairs are DIFFERENT ACCOUNTING VIEWS of the same stance, not ' +
+          'competing estimates of one quantity: total vs effective vertical impulse, and ' +
+          'replacement-only vs total fore-aft turnover. Each is a scalar-sum share, not a direction ' +
+          'cosine, and none is a validated efficiency target.',
+        'proxy* columns are geometric orientations in DEGREES. They are not impulses, force shares, ' +
+          'work or energy, and must not be pooled with the impulse columns.',
+        'Vertical impact peak and loading rate are not exported: they need a force source sampled at ' +
+          '200 Hz or better. Vertical impact is not the same quantity as horizontal braking impulse.'
       ]
     };
   }
@@ -573,6 +759,8 @@
     VALIDATION_CRITERIA: VALIDATION_CRITERIA,
     toCsv: toCsv,
     makeAdjustmentRecord: makeAdjustmentRecord,
+    impulseLookup: impulseLookup,
+    regionAt: regionAt,
     strideRows: strideRows,
     frameRows: frameRows,
     buildExport: buildExport,

@@ -18,6 +18,12 @@
       adminDefault: true, userDefault: false,
       description: 'Multi-stride support-line orientation estimate with uncertainty.'
     },
+    impulseAccountingPanel: {
+      label: 'Impulse accounting panel',
+      adminDefault: true, userDefault: false,
+      description: 'Momentum-preservation proxies plus the three impulse compositions. Reports ' +
+        'unavailable on the geometry-only path, which is every current path.'
+    },
     experimentalComForceEstimator: {
       label: 'Experimental COM-acceleration estimator',
       adminDefault: false, userDefault: false,
@@ -129,6 +135,10 @@
     return lastResult;
   }
 
+  function renderOpts() {
+    return { hideImpulseAccounting: !isEnabled('impulseAccountingPanel') };
+  }
+
   /** Render dispatcher called from completeAnalysis() / analyzeCard(). */
   function render() {
     if (!isAdminUser()) return;
@@ -137,7 +147,7 @@
       try {
         var result = analyze();
         if (typeof KFORender !== 'undefined') {
-          if (result) KFORender.mount(result, 'kfo-admin-report');
+          if (result) KFORender.mount(result, 'kfo-admin-report', renderOpts());
           else mountMessage('kfo-admin-report',
             'Kinematic Force-Orientation needs the side-view scan data from this session. ' +
             'Re-run the analysis from the upload screen to populate it.');
@@ -340,7 +350,7 @@
     var host = ensureHost('kfo-admin-report');
     if (!host) return;
     host.innerHTML = (migrated && migrated.kfo && migrated.kfo.availability === KFO.AVAILABILITY.AVAILABLE)
-      ? KFORender.buildStoredHtml(migrated.kfo)
+      ? KFORender.buildStoredHtml(migrated.kfo, renderOpts())
       : KFORender.unavailableHtml(migrated ? migrated.kfo : null,
           'Saved sessions store aggregate values only, and sessions saved before this feature existed ' +
           'store none at all. Pose keypoints are never persisted, so this cannot be recomputed retroactively.');

@@ -176,6 +176,337 @@
     );
   }
 
+  // ── Momentum-preservation proxies (geometry-only) ──────────────────────────
+  //
+  // What the geometry path can honestly say about braking and replacement. Every
+  // row is in DEGREES and named as a proxy, so nothing here can be misread as an
+  // impulse or a force share. The closing line states the unavailability rather
+  // than leaving the reader to infer it from an absence.
+  var PROXY_UNAVAILABLE_NOTE = 'Force and impulse percentages require force magnitude and are not ' +
+    'available from geometry-only video.';
+
+  function proxyRow(name, m) {
+    if (!m) return '';
+    var val = isNum(m.medianDegrees) ? KFO.formatAngle(m.medianDegrees, m.sdDegrees) : '—';
+    return '<tr><td style="padding:3px 6px">' + esc(name) + '</td>' +
+      '<td style="padding:3px 6px;font-weight:700;color:' + orientationColor(m.medianDegrees) + '">' +
+      esc(val) + '</td>' +
+      '<td style="padding:3px 6px;color:var(--muted2,#8aa0c0)">n=' + (m.n || 0) + '</td></tr>';
+  }
+
+  function proxySideBlock(side, p) {
+    if (!p) return '';
+    var exc = p.foreAftGeometricExcursion;
+    var rows = proxyRow('Early-stance braking orientation', p.brakingOrientationProxy) +
+      proxyRow('Central-stance support alignment', p.supportAlignmentProxy) +
+      proxyRow('Late-stance replacement orientation', p.replacementOrientationProxy) +
+      (exc && isNum(exc.valueDegrees)
+        ? '<tr><td style="padding:3px 6px">Fore–aft geometric excursion</td>' +
+          '<td style="padding:3px 6px;font-weight:700">' + exc.valueDegrees.toFixed(1) + '°</td>' +
+          '<td style="padding:3px 6px;color:var(--muted2,#8aa0c0)">span</td></tr>'
+        : '');
+    return '<div style="margin-top:7px">' +
+      '<div style="font-size:11.5px;font-weight:700;text-transform:capitalize">' + esc(side) + '</div>' +
+      '<table style="width:100%;border-collapse:collapse;font-size:11.5px">' + rows + '</table></div>';
+  }
+
+  function momentumProxySection(result) {
+    var p = result && result.momentumPreservationProxies;
+    if (!p || p.availability !== 'available') return '';
+    var diff = '';
+    if (isNum(p.leftRightDifferenceDegrees)) {
+      diff = '<div style="font-size:11.5px;margin-top:8px">Left/right difference in fore–aft excursion: ' +
+        '<strong>' + p.leftRightDifferenceDegrees.toFixed(1) + '°</strong>' +
+        (p.higherExcursionSide ? ' (larger on the ' + esc(p.higherExcursionSide) + ')' : '') + '.</div>';
+    }
+    var conf = isNum(p.confidence)
+      ? '<div style="font-size:11.5px;margin-top:4px;color:var(--muted2,#8aa0c0)">Confidence ' +
+        Math.round(p.confidence * 100) + '/100 · ' + esc(KFO.confidenceBand(p.confidence)) + '</div>'
+      : '';
+    return box(
+      label('Momentum-preservation proxies') +
+      '<div style="font-size:11px;color:var(--muted2,#8aa0c0);line-height:1.5">' +
+      'Geometric precursors to braking and propulsive replacement, in degrees. They are orientations, ' +
+      'not impulses, and not force shares.</div>' +
+      proxySideBlock('left', p.left) + proxySideBlock('right', p.right) + diff + conf +
+      '<div style="margin-top:9px;padding:7px 10px;border-left:3px solid var(--purple,#8b7cf8);' +
+      'background:rgba(139,124,248,.08);border-radius:6px;font-size:11px;line-height:1.5">' +
+      esc(PROXY_UNAVAILABLE_NOTE) + '</div>',
+      'margin-top:12px'
+    );
+  }
+
+  // ── Impulse accounting ────────────────────────────────────────────────────
+  //
+  // Three compositions, shown side by side and never reconciled into one number.
+  // Deliberately NOT colour-banded and deliberately without a target: there is no
+  // validated cutoff for any of them, and a red/green scale would invent one.
+  var WHY_RATIOS_DIFFER = [
+    ['Total vertical impulse vs effective vertical impulse',
+     'Total vertical impulse (JvTotal = ∫Fz dt) includes the impulse needed just to hold bodyweight up ' +
+     'during contact. Effective vertical impulse (JvEffective = ∫(Fz − BW) dt) is the part above ' +
+     'bodyweight — the net upward projection, and the quantity in Dorn et al. 2012 equations A5–A6. ' +
+     'Because the bodyweight-support portion is large, swapping one for the other moves the vertical ' +
+     'share a long way.'],
+    ['Replacement-only vs total turnover',
+     'Counting only the propulsive impulse (JProp) gives the horizontal impulse needed to replace what ' +
+     'braking removed. Counting braking as well (JBrake + JProp) gives the total fore-aft turnover, ' +
+     'which is roughly double, so the horizontal share roughly doubles with it.'],
+    ['Why the signed net is not used',
+     'At steady speed the propulsive and braking impulses cancel, so the signed net horizontal impulse ' +
+     '(JProp − JBrake) is near zero for everyone. It is a quality check on the steady-speed assumption, ' +
+     'not a metric.'],
+    ['85/15, 71/29 and 55/45 from one trial',
+     'Reconstructing the Clark, Ryan & Weyand 2012 rounded means at 5 m/s gives 85.7% vertical on the ' +
+     'first composition, 71.2% on the second and 55.3% on the third. Same trial, three accounting ' +
+     'choices. None of them is a validated efficiency target.'],
+    ['These are not vector percentages',
+     'Each share is a magnitude divided by a sum of magnitudes — a scalar-sum share. It is not a ' +
+     'direction cosine, not a percentage of a resultant force vector, and not an energy fraction. ' +
+     'Where the horizontal term is a turnover sum it adds two opposing directions, so the angle ' +
+     'equivalent corresponds to no physical direction at all.'],
+    ['Impulse is not work',
+     'Impulse (∫F dt) changes momentum; work (∫F·dx) changes energy. Braking and propulsion cancelling ' +
+     'in impulse does not mean the energy cost cancels: the muscle does negative work then positive ' +
+     'work, and both cost.']
+  ];
+
+  var IMPULSE_PANEL_NOTICE = 'Experimental force estimates. None of these compositions is a validated ' +
+    'efficiency score, and no target value is applied to any of them.';
+
+  function impulseFmt(v, unit) {
+    if (!isNum(v)) return '—';
+    var dp = unit === 'BW*s' ? 3 : 1;
+    return v.toFixed(dp) + ' ' + (unit || '');
+  }
+  function pct(v) { return isNum(v) ? (v * 100).toFixed(1) + '%' : '—'; }
+
+  function badge(text, color) {
+    return '<span style="font-size:9.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;' +
+      'border:1px solid ' + color + ';color:' + color + ';border-radius:20px;padding:2px 7px">' +
+      esc(text) + '</span>';
+  }
+
+  function compositionCard(c, ctx) {
+    if (!c) return '';
+    // The badge reads off the composition's OWN availability, not a caller flag:
+    // "available" is reserved for a force source that has passed criterion
+    // validation, so a source that merely claims to be validated still reads
+    // experimental here.
+    var badgeHtml = c.availability === 'unavailable'
+      ? badge('unavailable', 'var(--muted2,#8aa0c0)')
+      : c.availability === 'available'
+        ? badge('validated', 'var(--cyan,#00e5c8)')
+        : badge('experimental', 'var(--warn,#f5a623)');
+
+    if (c.availability === 'unavailable') {
+      return box(
+        '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">' +
+        '<div style="font-size:12.5px;font-weight:800">' + esc(c.label) + '</div>' + badgeHtml + '</div>' +
+        '<div style="font-size:11px;color:var(--muted2,#8aa0c0);margin-top:6px;line-height:1.5">' +
+        esc(c.availabilityReason || 'Not available for this analysis.') + '</div>'
+      );
+    }
+
+    var conf = ctx && isNum(ctx.confidenceScore)
+      ? 'Confidence ' + Math.round(ctx.confidenceScore * 100) + '/100'
+      : null;
+    var vAgg = c.verticalShareAggregate;
+    var spread = (vAgg && isNum(vAgg.sd))
+      ? 'Stance-to-stance SD ' + (vAgg.sd * 100).toFixed(1) + ' pp over n=' + vAgg.n
+      : null;
+
+    return box(
+      '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">' +
+      '<div style="font-size:12.5px;font-weight:800">' + esc(c.label) + '</div>' + badgeHtml + '</div>' +
+
+      '<div style="display:flex;gap:14px;margin-top:9px;flex-wrap:wrap">' +
+      '<div style="flex:1 1 90px">' + label('Vertical') +
+      '<div style="font-size:20px;font-weight:800;color:var(--cyan,#00e5c8);line-height:1.15">' +
+      esc(pct(c.verticalShareScalarSum)) + '</div></div>' +
+      '<div style="flex:1 1 90px">' + label('Horizontal') +
+      '<div style="font-size:20px;font-weight:800;color:var(--purple,#8b7cf8);line-height:1.15">' +
+      esc(pct(c.horizontalShareScalarSum)) + '</div></div>' +
+      '</div>' +
+
+      '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:9px">' +
+      '<tr><td style="padding:2px 0;color:var(--muted2,#8aa0c0)">Numerator</td>' +
+      '<td style="padding:2px 0;text-align:right">' + esc(c.numeratorLabel) + '</td></tr>' +
+      '<tr><td style="padding:2px 0;color:var(--muted2,#8aa0c0)">Denominator</td>' +
+      '<td style="padding:2px 0;text-align:right">' + esc(c.denominatorLabel) + '</td></tr>' +
+      '<tr><td style="padding:2px 0;color:var(--muted2,#8aa0c0)">' +
+      esc((c.verticalImpulse && c.verticalImpulse.symbol) || 'Vertical impulse') + '</td>' +
+      '<td style="padding:2px 0;text-align:right;font-family:var(--mono,monospace)">' +
+      esc(impulseFmt(c.verticalImpulse ? c.verticalImpulse.value : null,
+                     c.verticalImpulse ? c.verticalImpulse.unit : null)) + '</td></tr>' +
+      '<tr><td style="padding:2px 0;color:var(--muted2,#8aa0c0)">' +
+      esc((c.horizontalImpulse && c.horizontalImpulse.symbol) || 'Horizontal impulse') + '</td>' +
+      '<td style="padding:2px 0;text-align:right;font-family:var(--mono,monospace)">' +
+      esc(impulseFmt(c.horizontalImpulse ? c.horizontalImpulse.value : null,
+                     c.horizontalImpulse ? c.horizontalImpulse.unit : null)) + '</td></tr>' +
+      '<tr><td style="padding:2px 0;color:var(--muted2,#8aa0c0)">Angle equivalent</td>' +
+      '<td style="padding:2px 0;text-align:right;font-family:var(--mono,monospace)">' +
+      (isNum(c.angleEquivalentDegrees) ? c.angleEquivalentDegrees.toFixed(1) + '°' : '—') + '</td></tr>' +
+      '</table>' +
+
+      ((conf || spread) ? '<div style="font-size:10.5px;color:var(--muted2,#8aa0c0);margin-top:6px">' +
+        esc([conf, spread].filter(Boolean).join(' · ')) + '</div>' : '') +
+
+      '<div style="font-size:11px;line-height:1.5;margin-top:8px">' + esc(c.interpretation) + '</div>' +
+      '<div style="font-size:11px;line-height:1.5;margin-top:6px;color:var(--warn,#f5a623)">' +
+      '<strong>What this does not mean:</strong> ' + esc(c.disclaimer) + '</div>' +
+      '<ul style="margin:6px 0 0;padding-left:15px;font-size:10.5px;line-height:1.5;' +
+      'color:var(--muted2,#8aa0c0)">' +
+      (c.limitations || []).map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') +
+      '</ul>' +
+      '<div style="font-size:10px;color:var(--muted2,#8aa0c0);margin-top:6px;font-family:var(--mono,monospace)">' +
+      'vertical: ' + esc(c.verticalBasis) + ' · horizontal: ' + esc(c.horizontalBasis) + ' · ' +
+      esc(c.shareConvention || 'scalar_sum_share') + '</div>'
+    );
+  }
+
+  function steadyStateRow(ss) {
+    if (!ss) return '';
+    var imb = isNum(ss.horizontalImpulseImbalance) ? pct(ss.horizontalImpulseImbalance) : '—';
+    return box(
+      label('Steady-state check · signed net horizontal impulse') +
+      '<div style="font-size:11.5px;line-height:1.55">' +
+      '<strong>' + esc(String(ss.state || '').replace(/_/g, ' ')) + '</strong> — imbalance ' + esc(imb) +
+      ' (|JxNet| / JhTurnover). JxNet ' +
+      (isNum(ss.JxNet) ? ss.JxNet.toFixed(3) : '—') + ', turnover ' +
+      (isNum(ss.JhTurnover) ? ss.JhTurnover.toFixed(3) : '—') + '.</div>' +
+      (ss.interpretation ? '<div style="font-size:11px;color:var(--muted2,#8aa0c0);margin-top:5px;' +
+        'line-height:1.5">' + esc(ss.interpretation) + '</div>' : '') +
+      '<div style="font-size:10.5px;color:var(--muted2,#8aa0c0);margin-top:5px;line-height:1.5">' +
+      'Thresholds ' + esc(String(ss.warnThreshold)) + ' / ' + esc(String(ss.rejectThreshold)) +
+      ' are provisional internal working values, not validated cutoffs. Near-zero net horizontal ' +
+      'impulse is the expected condition at steady speed, not an achievement.' +
+      (ss.normativeComparisonAllowed ? '' : ' Normative comparison is withheld for this clip.') +
+      '</div>',
+      'margin-top:10px'
+    );
+  }
+
+  function momentumPreservationRow(mp) {
+    if (!mp || !mp.interpretation || !mp.interpretation.length) return '';
+    var items = mp.interpretation.map(function (t) {
+      return '<li style="margin-bottom:3px">' + esc(t) + '</li>';
+    }).join('');
+    function line(name, a) {
+      if (!a || !isNum(a.value)) return '';
+      return '<tr><td style="padding:2px 6px 2px 0;color:var(--muted2,#8aa0c0)">' + esc(name) + '</td>' +
+        '<td style="padding:2px 0;text-align:right;font-family:var(--mono,monospace)">' +
+        esc(impulseFmt(a.value, a.unit)) + '</td>' +
+        '<td style="padding:2px 0 2px 8px;color:var(--muted2,#8aa0c0);font-size:10px">' +
+        esc(a.basis || '') + '</td></tr>';
+    }
+    return box(
+      label('Momentum-preservation reading') +
+      '<table style="width:100%;border-collapse:collapse;font-size:11px">' +
+      line('Braking demand', mp.brakingDemand) +
+      line('Replacement demand', mp.replacementDemand) +
+      line('Fore–aft turnover', mp.foreAftTurnover) +
+      line('Effective projection', mp.effectiveProjection) +
+      line('Left/right asymmetry', mp.leftRightAsymmetry) +
+      '</table>' +
+      '<ul style="margin:8px 0 0;padding-left:16px;font-size:11.5px;line-height:1.55">' + items + '</ul>',
+      'margin-top:10px'
+    );
+  }
+
+  function whyRatiosDiffer() {
+    var body = WHY_RATIOS_DIFFER.map(function (pair) {
+      return '<div style="margin-top:7px"><div style="font-size:11.5px;font-weight:700">' +
+        esc(pair[0]) + '</div><div style="font-size:11px;color:var(--muted2,#8aa0c0);line-height:1.55;' +
+        'margin-top:2px">' + esc(pair[1]) + '</div></div>';
+    }).join('');
+    return '<details style="margin-top:10px"><summary style="cursor:pointer;font-size:12px;' +
+      'font-weight:700">Why do these ratios differ?</summary>' +
+      '<div style="margin-top:4px">' + body + '</div></details>';
+  }
+
+  /**
+   * Exported so the copy-audit tests can assert on this panel alone: it is the
+   * only place a force SHARE is shown, so it is the only place the
+   * "no universal ratio, no efficiency claim" rule has to hold word by word.
+   */
+  function impulseAccountingSection(result) {
+    var im = result && result.impulseMetrics;
+    if (!im) return '';
+
+    if (im.availability === 'unavailable' || !im.combined) {
+      return box(
+        label('Impulse accounting') +
+        '<div style="font-size:12px;line-height:1.6">' + esc(PROXY_UNAVAILABLE_NOTE) + '</div>' +
+        '<div style="font-size:11px;color:var(--muted2,#8aa0c0);margin-top:6px;line-height:1.55">' +
+        'Total and effective vertical impulse, braking impulse and propulsive replacement impulse all ' +
+        'need a force-time series. Support-line angles carry no magnitude, so none of them can be ' +
+        'derived from this analysis.</div>' +
+        '<div style="font-size:11px;color:var(--muted2,#8aa0c0);margin-top:6px;line-height:1.55">' +
+        'Nothing is subtracted from the landing phase to reach this state — there is no force signal to ' +
+        'partition. Vertical impact and horizontal braking impulse remain separate quantities and one is ' +
+        'never used in place of the other.</div>' +
+        '<div style="font-size:10.5px;color:var(--muted2,#8aa0c0);margin-top:7px;' +
+        'font-family:var(--mono,monospace)">reason: ' + esc(im.reason || 'unavailable') + '</div>' +
+        whyRatiosDiffer(),
+        'margin-top:12px'
+      );
+    }
+
+    var comps = im.combined.compositions || {};
+    var ctx = {
+      isValidated: !!im.isValidated,
+      confidenceScore: (result.quality && result.quality.confidence)
+        ? result.quality.confidence.score : null
+    };
+    var cards = ['totalSupportReplacement', 'projectionReplacement', 'activeProjectionTurnover']
+      .map(function (k) { return compositionCard(comps[k], ctx); }).join('');
+
+    return box(
+      label('Impulse accounting') +
+      '<div style="margin-bottom:9px;padding:8px 11px;border-left:3px solid var(--warn,#f5a623);' +
+      'background:rgba(245,166,35,.08);border-radius:6px;font-size:11.5px;line-height:1.55">' +
+      '<strong>' + esc(IMPULSE_PANEL_NOTICE) + '</strong></div>' +
+      '<div style="font-size:11px;color:var(--muted2,#8aa0c0);margin-bottom:9px;line-height:1.5">' +
+      'Three accounting views of the same stance phases. They differ because they count different ' +
+      'things, not because one is more accurate.' +
+      (im.unit ? ' Impulses in ' + esc(im.unit) + '.' : '') +
+      ' Stances analysed: ' + (im.combined.stancesAnalyzed || 0) +
+      (im.combined.stancesRejected ? ' (' + im.combined.stancesRejected + ' rejected)' : '') + '.</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px">' +
+      cards + '</div>' +
+      steadyStateRow(im.steadyStateConsistency) +
+      momentumPreservationRow(im.momentumPreservation) +
+      impactPartitionRow(im.impact) +
+      whyRatiosDiffer(),
+      'margin-top:12px'
+    );
+  }
+
+  /**
+   * The landing phase is partitioned, not removed. Saying so where the impulse
+   * numbers are shown is the only way a reader can tell that "no impact metric"
+   * means "not resolvable here", rather than "impact was subtracted out".
+   */
+  function impactPartitionRow(impact) {
+    if (!impact) return '';
+    return box(
+      label('Vertical impact · partitioned, not removed') +
+      '<div style="font-size:11.5px;line-height:1.55">The landing phase is kept in every integral ' +
+      'above. No generic impact component is subtracted.</div>' +
+      '<div style="font-size:11px;color:var(--muted2,#8aa0c0);margin-top:5px;line-height:1.55">' +
+      'Impact peak and loading rate are separate <strong>vertical</strong> measures and are not ' +
+      'reported: they need a force source sampled at ' + esc(String(impact.minimumSampleRateHz || 200)) +
+      ' Hz or better, which neither 30–60 fps video nor a doubly-differentiated centre-of-mass ' +
+      'trajectory provides. Vertical impact is not the same quantity as horizontal braking impulse, ' +
+      'and one is never substituted for the other.</div>' +
+      '<div style="font-size:10.5px;color:var(--muted2,#8aa0c0);margin-top:6px;' +
+      'font-family:var(--mono,monospace)">impact: ' + esc(impact.availability || 'unavailable') +
+      ' (' + esc(impact.reason || '') + ')</div>',
+      'margin-top:10px'
+    );
+  }
+
   // ── Summary cards ─────────────────────────────────────────────────────────
   function phaseCard(result, phase) {
     var win = KFO.PHASE_WINDOWS[phase];
@@ -522,6 +853,8 @@
       verticalForceSection(result) +
       geometryGrid(result) +
       '<div style="margin-top:10px">' + summaryGrid(result) + '</div>' +
+      (opts.hideImpulseAccounting ? '' : momentumProxySection(result)) +
+      (opts.hideImpulseAccounting ? '' : impulseAccountingSection(result)) +
       coupledSection(result) +
       referenceSection(result) +
       qualitySection(result) +
@@ -589,6 +922,14 @@
       // The persisted force block is already the aggregate shape the card reads,
       // so it needs no reshaping — only a null guard for pre-force saves.
       verticalForce: stored.verticalForce || null,
+      // Both blocks are already the aggregate shape their panels read, so they
+      // need no reshaping. A document saved before impulse accounting existed
+      // carries neither: the migration supplies an explicitly-unavailable impulse
+      // block, and the proxy section simply does not render.
+      impulseMetrics: stored.impulseMetrics ||
+        (KFO.unavailableImpulseBlock ? KFO.unavailableImpulseBlock('analysis_predates_impulse_accounting')
+                                     : null),
+      momentumPreservationProxies: stored.momentumPreservationProxies || null,
       symmetry: stored.symmetry || { available: false, reason: 'not_persisted' },
       consistency: { left: {}, right: {} },
       coupledPattern: stored.coupledPattern || {},
@@ -598,10 +939,12 @@
     };
   }
 
-  function buildStoredHtml(stored) {
+  function buildStoredHtml(stored, opts) {
+    opts = opts || {};
     var result = fromStoredForm(stored);
     if (!result) return unavailableHtml({ reason: 'unavailable' });
     return buildHtml(result, {
+      hideImpulseAccounting: !!opts.hideImpulseAccounting,
       notice: 'Restored from a saved session. Aggregate values were stored; stride-level detail was not, ' +
         'so distributions show only what was persisted.'
     });
@@ -676,7 +1019,7 @@
   }
 
   // ── DOM mount ─────────────────────────────────────────────────────────────
-  function mount(result, hostId) {
+  function mount(result, hostId, opts) {
     if (typeof document === 'undefined') return null;
     var host = document.getElementById(hostId || 'kfo-admin-report');
     if (!host) {
@@ -688,7 +1031,7 @@
       else if (section) section.appendChild(host);
       else return null;
     }
-    host.innerHTML = buildHtml(result);
+    host.innerHTML = buildHtml(result, opts || {});
     return host;
   }
 
@@ -700,8 +1043,14 @@
     ECONOMY_DISCLAIMER: ECONOMY_DISCLAIMER,
     FORCE_NOTICE: FORCE_NOTICE,
     FORCE_METHOD_NOTE: FORCE_METHOD_NOTE,
+    PROXY_UNAVAILABLE_NOTE: PROXY_UNAVAILABLE_NOTE,
+    IMPULSE_PANEL_NOTICE: IMPULSE_PANEL_NOTICE,
+    WHY_RATIOS_DIFFER: WHY_RATIOS_DIFFER,
     OVERLAY: OVERLAY,
     verticalForceSection: verticalForceSection,
+    momentumProxySection: momentumProxySection,
+    impulseAccountingSection: impulseAccountingSection,
+    compositionCard: compositionCard,
     buildHtml: buildHtml,
     buildStoredHtml: buildStoredHtml,
     fromStoredForm: fromStoredForm,

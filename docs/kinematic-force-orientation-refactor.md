@@ -269,3 +269,84 @@ Flags (see `docs/kinematic-force-orientation.md` for how to set them):
 Progression: admin testing → V1/V2 comparison on the same clips → resolve
 regressions → selected users → collect quality data → force-plate validation →
 only then consider stronger GRF terminology.
+
+---
+
+## 7. Follow-up: impulse accounting (schema v3)
+
+An incremental follow-up, not a second refactor. The V2 work above is untouched:
+same three stance windows, same aggregation, same uncertainty model, same
+reference separation, same coupled braking/propulsion interpretation.
+
+### Why
+
+The product discussion had been carrying a single "vertical/horizontal ratio",
+originally as 80/20. That quantity does not exist. Reconstructing Clark, Ryan &
+Weyand's rounded means at 5 m/s, the *same trial* reads as 85.7%, 71.2% or 55.3%
+vertical depending on whether total or effective vertical impulse is used, and
+whether the horizontal term is propulsion alone or the full braking + propulsion
+turnover. Presenting any one of them as "the" ratio would have been wrong in a way
+that is very hard to walk back once it is in a coach's vocabulary.
+
+### Decisions
+
+- **Three named compositions, never reconciled.** `total_support_replacement`,
+  `projection_replacement`, `active_projection_turnover`. Every share carries its
+  `verticalBasis`, `horizontalBasis` and `shareConvention`. A field named only
+  `verticalHorizontalRatio` is banned, and a test asserts it does not exist.
+- **Total vs effective vertical impulse are separate fields.** `JvEffective` is
+  Dorn's projection quantity; `JvTotal` is dominated by bodyweight support, which
+  is why the first composition is identical at 5 m/s and at top speed and
+  therefore cannot discriminate athletes.
+- **`JxNet` is a quality check, not a metric.** Near-zero is the expected steady
+  state, not an achievement. Above a provisional imbalance threshold, normative
+  comparison is withheld and every plausible cause is listed rather than one being
+  guessed.
+- **Thresholds are provisional and labelled as such.** No published cutoff exists
+  for "steady enough to compare", so `CONFIG` values are internal working numbers
+  carrying `isProvisional: true`.
+- **Landing is partitioned, not removed.** No generic impact component is
+  subtracted; a test asserts an early half plus a late half sums to the whole
+  vertical integral. Vertical impact metrics stay unavailable below 200 Hz.
+- **Zero-crossing splitting.** Braking and propulsion integrate with sub-interval
+  splitting at `Fx = 0` rather than bucketing whole intervals by mean sign, which
+  matters most exactly where the fore-aft trace spends the most time.
+- **Shares aggregate per stance, then combine.** Same Jensen's-inequality
+  discipline the timing force estimate follows; the pooled value is kept only as a
+  diagnostic.
+- **Body mass is not required.** Bodyweight-normalised integration yields BW·s
+  directly, so the experimental COM estimator no longer needs a mass — only the
+  scale calibration, which it already refused to run without.
+- **`available` is reserved for criterion-validated force.** A source that merely
+  declares itself validated still reads `experimental`, and
+  `isEfficiencyValidated` stays `false` even then: validated impulses are not a
+  validated efficiency claim.
+
+### Departures from the brief
+
+- **No new efficiency score, and no reference distributions.** The brief allowed
+  percentile comparison "if reference data are later available". None is, so none
+  is shipped and the momentum-preservation narrative says so rather than banding
+  against invented numbers.
+- **The unavailable impulse block persists as a two-field marker**, not the full
+  tree of nulls the suggested schema implies. On every current path the whole
+  structure is null, and ~6 KB per user document to say "nothing here" is not a
+  trade worth making. The shape is rebuilt at read time.
+- **`estimator_inconsistency` is defined but never emitted.** It needs two
+  estimators to disagree, and only one force path exists.
+- **Fatigue-zone work is architecture only** — no UI, no storage, no caller —
+  because nothing in the repository captures repeated gait windows yet.
+
+### Backwards compatibility
+
+`SCHEMA_VERSION` 2 → 3, with an exact-match v2 adapter. A v2 document keeps every
+field it had and gains an explicitly-unavailable impulse block; it is never treated
+as pre-KFO, and a stored angle is never reinterpreted as an impulse ratio. Both are
+asserted in tests, including that a v2 save still renders its force card and angle
+cards without NaN.
+
+### Scope
+
+Unchanged and re-verified. With the feature inactive nothing renders,
+`storedFields()` returns `{}`, and the side scan retains no samples. The only
+edits outside the `kfo-*` files are two `<script>` tags in `esformlab/index.html`.

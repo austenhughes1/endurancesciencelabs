@@ -18,11 +18,14 @@
     KFOReference: require('./kfo-reference.js'),
     KFOEstimators: require('./kfo-estimators.js'),
     KFOAnalysis: require('./kfo-analysis.js'),
-    KFOVerticalForce: require('./kfo-vertical-force.js')
+    KFOVerticalForce: require('./kfo-vertical-force.js'),
+    KFOImpulse: require('./kfo-impulse.js'),
+    KFOFatigue: require('./kfo-fatigue.js')
   } : {
     KFO: root.KFO, KFOReference: root.KFOReference,
     KFOEstimators: root.KFOEstimators, KFOAnalysis: root.KFOAnalysis,
-    KFOVerticalForce: root.KFOVerticalForce
+    KFOVerticalForce: root.KFOVerticalForce,
+    KFOImpulse: root.KFOImpulse, KFOFatigue: root.KFOFatigue
   };
   var api = factory(deps);
   if (isNode) { module.exports = api; if (require.main === module) api.run(); }
@@ -32,7 +35,7 @@
 
   var KFO = d.KFO, KFOReference = d.KFOReference,
       KFOEstimators = d.KFOEstimators, KFOAnalysis = d.KFOAnalysis,
-      VF = d.KFOVerticalForce;
+      VF = d.KFOVerticalForce, IMP = d.KFOImpulse, FAT = d.KFOFatigue;
 
   // ── Harness ────────────────────────────────────────────────────────────────
   var results = [], currentSuite = '';
@@ -659,20 +662,42 @@
     assert(m.kfo.limitations.length > 0, 'explains why it cannot be backfilled');
   });
 
-  test('a v2 analysis passes through unmodified, versioned inside the kfo block', function () {
+  test('a v2 analysis is adapted forward to v3 with its own data intact', function () {
     // The version lives inside the block: this feature must not add fields to the
-    // shared analysis document.
-    var stored = { kfo: { schemaVersion: 2, availability: 'available', method: 'geometry_proxy' } };
+    // shared analysis document. Everything a v2 save holds is still valid under
+    // v3, so it must survive — only the impulse block is new.
+    var stored = {
+      kfo: {
+        schemaVersion: 2, availability: 'available', method: 'geometry_proxy',
+        left: { stridesAnalyzed: 6 }, verticalForce: { availability: 'available', method: 'timing_duty_factor' }
+      }
+    };
     var m = KFO.migrateAnalysis(stored);
-    assert(m.migrated === false, 'should not migrate');
-    assert(m.kfo === stored.kfo, 'same object, not reinterpreted');
     assert(m.sourceVersion === 2, 'version read from the block, got ' + m.sourceVersion);
+    assert(m.schemaVersion === 3, 'adapted to v3');
+    assert(m.migrated === true, 'adaptation is reported, not silent');
+    assert(m.kfo.availability === 'available', 'availability preserved');
+    assert(m.kfo.left.stridesAnalyzed === 6, 'stride aggregates preserved');
+    assert(m.kfo.verticalForce.method === 'timing_duty_factor', 'timing force block preserved');
+    assert(m.kfo.impulseMetrics.availability === KFO.AVAILABILITY.UNAVAILABLE,
+      'impulse block added as unavailable');
+    assert(m.kfo.impulseMetrics.JvEffective === null, 'and null, never zero');
+    assert(m.kfo.impulseMetrics.reason === 'analysis_predates_impulse_accounting', 'with a reason');
   });
 
-  test('a root-level schemaVersion is still honoured for already-written docs', function () {
+  test('a v2 root-level schemaVersion is still honoured for already-written docs', function () {
     var m = KFO.migrateAnalysis({ schemaVersion: 2, kfo: { availability: 'available' } });
-    assert(m.migrated === false, 'should still pass through');
     assert(m.sourceVersion === 2, 'root version accepted as a fallback');
+    assert(m.kfo.availability === 'available', 'the block is kept rather than discarded');
+    assert(m.kfo.reason !== 'analysis_predates_kinematic_force_orientation',
+      'a v2 document must never be treated as pre-KFO');
+  });
+
+  test('a current-version analysis passes through untouched', function () {
+    var stored = { kfo: { schemaVersion: KFO.SCHEMA_VERSION, availability: 'available' } };
+    var m = KFO.migrateAnalysis(stored);
+    assert(m.migrated === false, 'no migration needed');
+    assert(m.kfo === stored.kfo, 'same object, not reinterpreted');
   });
 
   test('a document with no version anywhere is treated as version 1', function () {
@@ -790,7 +815,7 @@
   test('result envelope is versioned and declares its method and limits', function () {
     var res = KFOAnalysis.analyze({ samples: clip({}) });
     assert(res.analysisType === 'kinematic_force_orientation', 'analysis type');
-    assert(res.schemaVersion === 2, 'schema version');
+    assert(res.schemaVersion === KFO.SCHEMA_VERSION, 'schema version');
     assert(res.method === KFO.METHOD.GEOMETRY_PROXY, 'method');
     assert(res.isValidated === false, 'must not claim validation');
     assert(res.modelVersion && res.referenceVersion, 'versions present');
@@ -805,7 +830,7 @@
     var stored = KFOAnalysis.toStoredForm(res);
     var json = JSON.stringify(stored);
     var back = JSON.parse(json);
-    assert(back.schemaVersion === 2, 'version survives');
+    assert(back.schemaVersion === KFO.SCHEMA_VERSION, 'version survives');
     assert(back.left.phases[KFO.PHASE.EARLY_STANCE].n >= 3, 'aggregate survives');
     assert(back.left.strides === undefined, 'stride detail must not be persisted');
     assert(json.length < 12000, 'stored form should stay compact, was ' + json.length + ' bytes');
@@ -1341,7 +1366,11 @@
     var notes = bundle.notes.join(' ');
     assert(/not measured force/i.test(notes), 'force columns must be disclaimed');
     assert(/underestimates the force-plate peak/i.test(notes), 'the peak bias must be stated');
-    assert(/Horizontal force is absent by design/i.test(notes), 'the missing horizontal must be explained');
+    // The claim is specifically about the NET horizontal force. Braking impulse
+    // magnitude is representable once a force source exists, so a blanket
+    // "horizontal is absent" would now be wrong.
+    assert(/Net horizontal force is not reported/i.test(notes), 'the missing net horizontal must be explained');
+    assert(/braking impulse MAGNITUDE/i.test(notes), 'and the reason must name the quantity that is missing');
   });
 
   // ── Copy audit for the force headline ─────────────────────────────────────
@@ -1413,6 +1442,894 @@
     assert(/double_support_detected_not_running/.test(html), 'exposes the machine-readable reason');
     assert(!/BW/.test(html), 'no force value may appear');
     assert(R.verticalForceSection({}) === '', 'a result with no force block renders nothing');
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  IMPULSE ACCOUNTING
+  //
+  //  The Clark fixtures below are ACCOUNTING EXAMPLES derived from the rounded
+  //  means in a conference abstract. They exist to pin the arithmetic of the three
+  //  compositions to numbers a reader can follow by hand. They are NOT normative
+  //  targets, NOT measurements, and nothing may compare a runner to them.
+  // ═══════════════════════════════════════════════════════════════════════════
+  suite('impulse accounting — definitions');
+
+  test('sign conventions are declared, not assumed', function () {
+    var s = IMP.SIGN_CONVENTION;
+    assert(/upward/i.test(s.verticalPositive), 'vertical positive is up');
+    assert(/anterior|direction of travel/i.test(s.horizontalPositive), 'horizontal positive is forward');
+    assert(/braking/i.test(s.horizontalNegative), 'horizontal negative is braking');
+  });
+
+  test('total and effective vertical impulse are separate concepts', function () {
+    assert(/∫ Fz dt/.test(IMP.IMPULSE_DEFINITIONS.JvTotal), 'JvTotal defined');
+    assert(/Fz − bodyWeight|Fz - bodyWeight/.test(IMP.IMPULSE_DEFINITIONS.JvEffective), 'JvEffective defined');
+    assert(/NOT JvTotal/i.test(IMP.IMPULSE_DEFINITIONS.JvEffective),
+      'JvEffective must say it is not JvTotal');
+  });
+
+  test('shares are declared scalar-sum, never direction cosines', function () {
+    var t = IMP.IMPULSE_DEFINITIONS.shares;
+    assert(/SCALAR-SUM/i.test(t), 'convention stated');
+    assert(/not direction cosines/i.test(t), 'cosine reading refused');
+    assert(/not energy/i.test(t), 'energy reading refused');
+    assert(/NOT an instantaneous ground-reaction-force angle/i.test(IMP.IMPULSE_DEFINITIONS.angleEquivalent),
+      'the angle equivalent must disclaim being a GRF angle');
+  });
+
+  test('impulse is documented as distinct from work, and impact from braking', function () {
+    assert(/momentum/i.test(IMP.IMPULSE_DEFINITIONS.impulseVsWork) &&
+           /energy/i.test(IMP.IMPULSE_DEFINITIONS.impulseVsWork), 'impulse vs work');
+    assert(/does NOT mean|not imply/i.test(IMP.IMPULSE_DEFINITIONS.impulseVsWork),
+      'zero net impulse must not imply zero energy cost');
+    var ib = IMP.IMPULSE_DEFINITIONS.impactVsBraking;
+    assert(/VERTICAL/.test(ib) && /FORE-AFT/.test(ib), 'impact and braking are on different axes');
+    assert(/not interchangeable/i.test(ib), 'and are explicitly not interchangeable');
+  });
+
+  test('every composition names its own accounting basis', function () {
+    IMP.COMPOSITION_ORDER.forEach(function (id) {
+      var spec = IMP.COMPOSITION_SPEC[id];
+      assert(!!spec, id + ' has a spec');
+      assert(spec.verticalBasis === IMP.VERTICAL_BASIS.TOTAL ||
+             spec.verticalBasis === IMP.VERTICAL_BASIS.EFFECTIVE, id + ' vertical basis');
+      assert(!!spec.numeratorLabel && !!spec.denominatorLabel, id + ' labels its fraction');
+      assert(spec.limitations.length > 0, id + ' carries limitations');
+    });
+  });
+
+  test('no field is named as a bare vertical/horizontal ratio', function () {
+    // A ratio with no accounting metadata attached is the exact defect this work
+    // exists to prevent, so the name is banned outright.
+    var series = analyticStance();
+    var st = IMP.integrateStance(series, { bodyWeight: 1, method: KFO.METHOD.VALIDATED_GRF });
+    var c = IMP.buildCompositions(st, {});
+    Object.keys(c).forEach(function (k) {
+      assert(!('verticalHorizontalRatio' in c[k]), k + ' must not carry an unlabelled ratio');
+      assert(typeof c[k].verticalBasis === 'string', k + ' carries its vertical basis');
+      assert(typeof c[k].horizontalBasis === 'string', k + ' carries its horizontal basis');
+    });
+    assert(!('verticalHorizontalRatio' in st), 'the stance record must not carry one either');
+  });
+
+  // ── Integration ───────────────────────────────────────────────────────────
+  suite('impulse accounting — integration');
+
+  /**
+   * A stance with a known closed form: Fz = 2 BW constant for 0.2 s, Fx = −0.5 BW
+   * for the first half then +0.5 BW for the second.
+   *   JvTotal = 0.4, JvEffective = 0.4 − 0.2 = 0.2
+   *   JBrake = JProp = 0.05, JhTurnover = 0.1, JxNet = 0
+   */
+  function analyticStance(opts) {
+    opts = opts || {};
+    var fzBw = opts.fzBw == null ? 2 : opts.fzBw;
+    var brake = opts.brake == null ? 0.5 : opts.brake;
+    var prop = opts.prop == null ? 0.5 : opts.prop;
+    var dur = opts.durationSeconds == null ? 0.2 : opts.durationSeconds;
+    var n = opts.n == null ? 200 : opts.n;
+    var out = [];
+    for (var i = 0; i <= n; i++) {
+      var t = (i / n) * dur;
+      out.push({ t: t, fz: fzBw, fx: t < dur / 2 ? -brake : prop });
+    }
+    return out;
+  }
+
+  test('the six impulses integrate to their closed form', function () {
+    var st = IMP.integrateStance(analyticStance(), { bodyWeight: 1, method: KFO.METHOD.VALIDATED_GRF });
+    assert(st.availability !== 'unavailable', 'stance is usable: ' + st.reason);
+    assertClose(st.JvTotal, 0.4, 1e-6, 'JvTotal');
+    assertClose(st.JvEffective, 0.2, 1e-6, 'JvEffective');
+    assertClose(st.JBrake, 0.05, 2e-3, 'JBrake');
+    assertClose(st.JProp, 0.05, 2e-3, 'JProp');
+    assertClose(st.JhTurnover, 0.1, 3e-3, 'JhTurnover');
+    assertClose(st.JxNet, 0, 3e-3, 'JxNet');
+  });
+
+  test('the effective-vertical shortcut is kept as a diagnostic, not as the value', function () {
+    var st = IMP.integrateStance(analyticStance(), { bodyWeight: 1, method: KFO.METHOD.VALIDATED_GRF });
+    var dg = st.diagnostics;
+    assertClose(dg.JvEffectiveDirectIntegration, st.JvEffective, 1e-12, 'the reported value IS the integral');
+    assertClose(dg.JvEffectiveShortcutReconstruction, 0.4 - 0.2, 1e-6, 'shortcut agrees here');
+    assert(isFinite(dg.JvEffectiveShortcutDelta), 'the disagreement is quantified');
+    assert(typeof dg.shortcutValidWhen === 'string', 'and its validity condition is stated');
+  });
+
+  test('a fore-aft zero crossing is split, not bucketed by interval sign', function () {
+    // Two samples straddling zero: −1 then +3 over 0.04 s. Crossing at 25% of the
+    // interval, so the braking area is 0.5*1*0.01 = 0.005 and the propulsive area
+    // 0.5*3*0.03 = 0.045. Bucketing by the mean sign would put all 0.04 in one.
+    var r = IMP.integrateBySign([{ t: 0, v: -1 }, { t: 0.04, v: 3 }]);
+    assertClose(r.negative, 0.005, 1e-9, 'braking part');
+    assertClose(r.positive, 0.045, 1e-9, 'propulsive part');
+    assert(r.crossings.length === 1, 'the crossing is recorded');
+    assertClose(r.crossings[0], 0.01, 1e-9, 'crossing time');
+  });
+
+  test('integration regions are reported so each integral can be traced', function () {
+    var st = IMP.integrateStance(analyticStance(), { bodyWeight: 1, method: KFO.METHOD.VALIDATED_GRF });
+    var reg = st.diagnostics.integrationRegions;
+    assert(reg.braking.length >= 1 && reg.propulsive.length >= 1, 'both fore-aft regions present');
+    assert(reg.aboveBodyWeight.length >= 1, 'above-bodyweight region present');
+    assert(reg.bodyWeightLine === 1, 'the bodyweight line is stated');
+    assertClose(reg.stance.startTime, 0, 1e-9, 'stance start');
+    assertClose(reg.stance.endTime, 0.2, 1e-9, 'stance end');
+  });
+
+  test('acceleration shows as JProp > JBrake, deceleration as the reverse', function () {
+    var acc = IMP.integrateStance(analyticStance({ brake: 0.2, prop: 0.6 }),
+      { bodyWeight: 1, method: KFO.METHOD.VALIDATED_GRF });
+    assert(acc.JProp > acc.JBrake, 'accelerating: propulsion dominates');
+    assert(acc.JxNet > 0, 'and the signed net is positive');
+    var dec = IMP.integrateStance(analyticStance({ brake: 0.6, prop: 0.2 }),
+      { bodyWeight: 1, method: KFO.METHOD.VALIDATED_GRF });
+    assert(dec.JBrake > dec.JProp, 'decelerating: braking dominates');
+    assert(dec.JxNet < 0, 'and the signed net is negative');
+  });
+
+  test('a zero horizontal trace gives zero turnover without dividing by zero', function () {
+    var st = IMP.integrateStance(analyticStance({ brake: 0, prop: 0 }),
+      { bodyWeight: 1, method: KFO.METHOD.VALIDATED_GRF });
+    assertClose(st.JBrake, 0, 1e-9, 'JBrake');
+    assertClose(st.JhTurnover, 0, 1e-9, 'JhTurnover');
+    var c = IMP.buildCompositions(st, {});
+    assert(c.projectionReplacement.verticalShareScalarSum === 1, 'all vertical when there is no horizontal');
+    assert(c.projectionReplacement.ratioVerticalToHorizontal === null,
+      'the ratio is null rather than Infinity');
+    assert(c.projectionReplacement.angleEquivalentDegrees === 0, 'and the angle equivalent is zero');
+  });
+
+  test('bodyweight-normalised data needs no body mass', function () {
+    var st = IMP.integrateStance(analyticStance(), {
+      bodyWeight: 1, normalizedToBodyWeight: true, method: KFO.METHOD.VALIDATED_GRF
+    });
+    assert(st.unit === IMP.IMPULSE_UNIT.BW_SECONDS, 'unit is BW*s');
+    assert(st.normalizedToBodyWeight === true, 'flagged as normalised');
+    assertClose(st.JvEffective, 0.2, 1e-6, 'JvEffective computed without a mass');
+  });
+
+  test('newton-second data is carried in its own unit', function () {
+    var bwN = 700;
+    var series = analyticStance().map(function (p) {
+      return { t: p.t, fz: p.fz * bwN, fx: p.fx * bwN };
+    });
+    var st = IMP.integrateStance(series, {
+      bodyWeight: bwN, normalizedToBodyWeight: false, method: KFO.METHOD.VALIDATED_GRF
+    });
+    assert(st.unit === IMP.IMPULSE_UNIT.NEWTON_SECONDS, 'unit is N*s');
+    assertClose(st.JvTotal, 0.4 * bwN, 1e-3, 'JvTotal in N*s');
+    assertClose(st.JvEffective, 0.2 * bwN, 1e-3, 'JvEffective in N*s');
+    var c = IMP.buildCompositions(st, {});
+    assert(c.projectionReplacement.verticalImpulse.unit === IMP.IMPULSE_UNIT.NEWTON_SECONDS,
+      'the unit propagates into the composition');
+    assert(c.projectionReplacement.verticalImpulse.normalizedToBodyWeight === false,
+      'and so does the normalisation flag');
+    // The shares are dimensionless, so they must match the normalised case exactly.
+    var norm = IMP.buildCompositions(
+      IMP.integrateStance(analyticStance(), { bodyWeight: 1, method: KFO.METHOD.VALIDATED_GRF }), {});
+    assertClose(c.projectionReplacement.verticalShareScalarSum,
+      norm.projectionReplacement.verticalShareScalarSum, 1e-9, 'shares are unit-independent');
+  });
+
+  test('a non-positive stance duration is refused', function () {
+    var st = IMP.integrateStance([{ t: 0.2, fz: 2, fx: 0 }, { t: 0.2, fz: 2, fx: 0 }, { t: 0.2, fz: 2, fx: 0 }],
+      { bodyWeight: 1 });
+    assert(st.availability === 'unavailable', 'refused');
+    assert(st.reason === 'non_positive_stance_duration', 'reason ' + st.reason);
+    assert(st.JvTotal === null, 'and nothing is invented');
+  });
+
+  test('a missing bodyweight reference is refused rather than falling back to total', function () {
+    var st = IMP.integrateStance(analyticStance(), { bodyWeight: null, normalizedToBodyWeight: false });
+    assert(st.availability === 'unavailable', 'refused');
+    assert(st.reason === 'body_weight_reference_unavailable', 'reason ' + st.reason);
+    assert(st.JvEffective === null, 'JvEffective must not silently become JvTotal');
+  });
+
+  test('an implausible stance is rejected with a reason, not aggregated', function () {
+    // Mean vertical force below bodyweight cannot be a running contact.
+    var st = IMP.integrateStance(analyticStance({ fzBw: 0.4 }), { bodyWeight: 1 });
+    assert(st.isPlausible === false, 'flagged implausible');
+    assert(st.reason === 'mean_vertical_force_below_body_weight', 'reason ' + st.reason);
+    var agg = IMP.aggregateStances([st, st, st], {});
+    assert(agg.availability === 'unavailable', 'implausible stances cannot form an aggregate');
+    assert(agg.stancesRejected === 3, 'and the rejections are counted');
+  });
+
+  // ── Clark accounting fixtures ─────────────────────────────────────────────
+  suite('impulse accounting — Clark reconstruction fixtures');
+
+  test('5.0 m/s accounting example reproduces all three vertical shares', function () {
+    var ex = IMP.fromNormalizedMeans({
+      averageVerticalForceBw: 1.70,
+      totalVerticalImpulseBwSeconds: 0.30,
+      phaseHorizontalImpulseBwSeconds: 0.05,
+      label: 'clark_2012_5mps'
+    });
+    assertClose(ex.contactTimeSeconds, 0.176470588, 1e-7, 'contact time');
+    assertClose(ex.JvEffective, 0.123529412, 1e-7, 'JvEffective');
+    assertClose(ex.JBrake, 0.05, 1e-12, 'JBrake');
+    assertClose(ex.JProp, 0.05, 1e-12, 'JProp');
+    assertClose(ex.JhTurnover, 0.10, 1e-12, 'JhTurnover');
+    assertClose(ex.JxNet, 0, 1e-12, 'JxNet');
+
+    var c = IMP.buildCompositions(ex, {});
+    assertClose(c.totalSupportReplacement.verticalShareScalarSum, 0.857142857, 1e-7, 'A vertical share');
+    assertClose(c.projectionReplacement.verticalShareScalarSum, 0.711864407, 1e-7, 'B vertical share');
+    assertClose(c.activeProjectionTurnover.verticalShareScalarSum, 0.552631579, 1e-7, 'C vertical share');
+    // Each pair must sum to 1, which is what makes them shares rather than cosines.
+    IMP.COMPOSITION_ORDER.forEach(function (id) {
+      var k = id.replace(/_([a-z])/g, function (_, ch) { return ch.toUpperCase(); });
+      assertClose(c[k].verticalShareScalarSum + c[k].horizontalShareScalarSum, 1, 1e-12, k + ' shares sum to 1');
+    });
+  });
+
+  test('top-speed accounting example reproduces its shares', function () {
+    var ex = IMP.fromNormalizedMeans({
+      averageVerticalForceBw: 1.99,
+      totalVerticalImpulseBwSeconds: 0.24,
+      phaseHorizontalImpulseBwSeconds: 0.04,
+      label: 'clark_2012_top_speed'
+    });
+    assertClose(ex.contactTimeSeconds, 0.120603015, 1e-7, 'contact time');
+    assertClose(ex.JvEffective, 0.119396985, 1e-7, 'JvEffective');
+    assertClose(ex.JhTurnover, 0.08, 1e-12, 'JhTurnover');
+    assertClose(ex.JxNet, 0, 1e-12, 'JxNet');
+    var c = IMP.buildCompositions(ex, {});
+    assertClose(c.totalSupportReplacement.verticalShareScalarSum, 0.857142857, 1e-7, 'A vertical share');
+    assertClose(c.projectionReplacement.verticalShareScalarSum, 0.7491, 1e-4, 'B vertical share');
+    assertClose(c.activeProjectionTurnover.verticalShareScalarSum, 0.5988, 1e-4, 'C vertical share');
+  });
+
+  test('the accounting examples label themselves as examples, not targets', function () {
+    var ex = IMP.fromNormalizedMeans({
+      averageVerticalForceBw: 1.70, totalVerticalImpulseBwSeconds: 0.30,
+      phaseHorizontalImpulseBwSeconds: 0.05
+    });
+    assert(ex.isAccountingExample === true, 'flagged as an example');
+    assert(/not a measurement/i.test(ex.exampleNote), 'says it is not a measurement');
+    assert(/not a normative target/i.test(ex.exampleNote), 'says it is not a target');
+    assert(ex.provenance === KFO.PROVENANCE.DERIVED, 'provenance is derived');
+  });
+
+  test('the same trial genuinely yields three different vertical shares', function () {
+    // The whole point of the accounting work: one trace, three answers, ordered
+    // by how much of the vertical impulse and how much of the fore-aft axis each
+    // one counts.
+    var ex = IMP.fromNormalizedMeans({
+      averageVerticalForceBw: 1.70, totalVerticalImpulseBwSeconds: 0.30,
+      phaseHorizontalImpulseBwSeconds: 0.05
+    });
+    var c = IMP.buildCompositions(ex, {});
+    var a = c.totalSupportReplacement.verticalShareScalarSum;
+    var b = c.projectionReplacement.verticalShareScalarSum;
+    var z = c.activeProjectionTurnover.verticalShareScalarSum;
+    assert(a > b && b > z, 'shares must be strictly ordered A > B > C, got ' + [a, b, z].join(' > '));
+    assert(a - z > 0.25, 'and the spread must be large enough to matter: ' + (a - z));
+  });
+
+  test('invalid reconstruction inputs are refused', function () {
+    var bad = IMP.fromNormalizedMeans({ averageVerticalForceBw: 0, totalVerticalImpulseBwSeconds: 0.3 });
+    assert(bad.availability === 'unavailable', 'refused');
+    assert(bad.reason === 'invalid_reconstruction_inputs', 'reason ' + bad.reason);
+  });
+
+  // ── Aggregation, steady state, availability ───────────────────────────────
+  suite('impulse accounting — aggregation and quality');
+
+  test('shares are aggregated per stance, not recomputed from mean impulses', function () {
+    // Four stances with deliberately different fore-aft magnitudes. A share is
+    // nonlinear in its inputs, so the median of the shares is not the share of the
+    // median impulses; the reported value must be the former and the latter is
+    // retained only as a diagnostic. Four rather than three, so both medians
+    // interpolate and the two routes cannot coincide by construction.
+    var amps = [0.1, 0.4, 0.9, 1.4];
+    var stances = amps.map(function (a, i) {
+      return IMP.integrateStance(analyticStance({ brake: a, prop: a }),
+        { bodyWeight: 1, strideIndex: i });
+    });
+    var agg = IMP.aggregateStances(stances, {});
+    var c = agg.compositions.activeProjectionTurnover;
+    assert(c.verticalShareAggregate.n === 4, 'all four stances contributed');
+    assert(/median of per-stance shares/i.test(c.aggregationNote), 'the rule is stated');
+    var pooled = c.pooledFromAggregateImpulses.verticalShareScalarSum;
+    assert(Math.abs(c.verticalShareScalarSum - pooled) > 1e-9,
+      'the two must actually differ here, or the test proves nothing');
+  });
+
+  test('fewer than three usable stances refuses to aggregate', function () {
+    var s = IMP.integrateStance(analyticStance(), { bodyWeight: 1 });
+    var agg = IMP.aggregateStances([s, s], {});
+    assert(agg.availability === 'unavailable', 'refused');
+    assert(agg.reason === 'insufficient_stances_for_aggregate', 'reason ' + agg.reason);
+    IMP.IMPULSE_FIELDS.forEach(function (f) {
+      assert(agg[f] === null, f + ' must be null, not zero');
+    });
+  });
+
+  test('left and right aggregate separately and combine', function () {
+    function side(name, brake) {
+      return [0, 1, 2].map(function (i) {
+        return IMP.integrateStance(analyticStance({ brake: brake, prop: brake }),
+          { bodyWeight: 1, side: name, strideIndex: i });
+      });
+    }
+    var l = side('left', 0.5), r = side('right', 0.3);
+    var la = IMP.aggregateStances(l, {}), ra = IMP.aggregateStances(r, {});
+    assert(la.stancesAnalyzed === 3 && ra.stancesAnalyzed === 3, 'both sides aggregate');
+    assert(la.JhTurnover > ra.JhTurnover, 'the side difference survives aggregation');
+    var combined = IMP.combineSides(la, ra, {});
+    assert(combined.stancesAnalyzed === 6, 'combined pools both sides');
+    assert(combined.JhTurnover > ra.JhTurnover && combined.JhTurnover < la.JhTurnover,
+      'and the combined turnover sits between the two sides');
+  });
+
+  test('signed net horizontal impulse gates steady-state comparison', function () {
+    var balanced = IMP.classifySteadyState({ JxNet: 0.001, JhTurnover: 0.1 }, {});
+    assert(balanced.state === IMP.STEADY_STATE.CONSISTENT, 'balanced: ' + balanced.state);
+    assert(balanced.normativeComparisonAllowed === true, 'comparison allowed');
+    assert(/expected condition/i.test(balanced.interpretation),
+      'and near-zero must be framed as expected, not as an achievement');
+
+    var accelerating = IMP.classifySteadyState({ JxNet: 0.05, JhTurnover: 0.1 }, {});
+    assert(accelerating.state === IMP.STEADY_STATE.POSSIBLE_ACCELERATION, 'accel: ' + accelerating.state);
+    assert(accelerating.normativeComparisonAllowed === false, 'comparison withheld');
+    assert(accelerating.candidateCauses.length > 1, 'and no single cause is asserted');
+
+    var decelerating = IMP.classifySteadyState({ JxNet: -0.05, JhTurnover: 0.1 }, {});
+    assert(decelerating.state === IMP.STEADY_STATE.POSSIBLE_DECELERATION, 'decel: ' + decelerating.state);
+  });
+
+  test('the steady-state thresholds are labelled provisional everywhere', function () {
+    var ss = IMP.classifySteadyState({ JxNet: 0, JhTurnover: 0.1 }, {});
+    assert(ss.isProvisional === true, 'flagged on the result');
+    assert(/provisional/i.test(ss.provisionalNote), 'and explained');
+    assert(IMP.CONFIG.isProvisional === true, 'and on the config');
+    assert(isFinite(ss.warnThreshold) && isFinite(ss.rejectThreshold), 'both thresholds are exposed');
+  });
+
+  test('low confidence refuses to classify the balance at all', function () {
+    var ss = IMP.classifySteadyState({ JxNet: 0.001, JhTurnover: 0.1 }, { confidenceScore: 0.1 });
+    assert(ss.state === IMP.STEADY_STATE.INSUFFICIENT_CONFIDENCE, 'state ' + ss.state);
+    assert(ss.normativeComparisonAllowed === false, 'and no comparison is offered');
+  });
+
+  test('zero turnover cannot divide by zero', function () {
+    var ss = IMP.classifySteadyState({ JxNet: 0, JhTurnover: 0 }, {});
+    assert(isFinite(ss.horizontalImpulseImbalance), 'imbalance stays finite: ' + ss.horizontalImpulseImbalance);
+  });
+
+  test('uncertainty and confidence propagate into every impulse value', function () {
+    var s = [0, 1, 2].map(function (i) {
+      return IMP.integrateStance(analyticStance({ brake: 0.4 + i * 0.05, prop: 0.4 + i * 0.05 }),
+        { bodyWeight: 1, strideIndex: i });
+    });
+    var agg = IMP.aggregateStances(s, { confidence: { score: 0.62 } });
+    var c = agg.compositions.projectionReplacement;
+    assert(c.verticalImpulse.confidence !== null, 'confidence is attached to the impulse value');
+    assert(c.verticalImpulse.confidence.score === 0.62, 'and it is the confidence supplied');
+    assert(agg.JhTurnoverAggregate.n === 3, 'the distribution is retained');
+    assert(agg.JhTurnoverAggregate.sd > 0, 'with a real spread');
+    assert(Array.isArray(agg.JhTurnoverAggregate.ci95), 'and a confidence interval');
+    assert(c.verticalShareAggregate.sd > 0, 'the share carries its own spread');
+  });
+
+  test('experimental stays experimental until criterion validation passes', function () {
+    var s = [0, 1, 2].map(function () { return IMP.integrateStance(analyticStance(), { bodyWeight: 1 }); });
+    var exp = IMP.aggregateStances(s, { isForceMeasurementValidated: false });
+    assert(exp.availability === 'experimental', 'unvalidated source: ' + exp.availability);
+    assert(exp.compositions.projectionReplacement.availability === 'experimental', 'and its compositions');
+    var val = IMP.aggregateStances(s, { isForceMeasurementValidated: true });
+    assert(val.availability === 'available', 'validated source: ' + val.availability);
+    IMP.COMPOSITION_ORDER.forEach(function (id) {
+      var k = id.replace(/_([a-z])/g, function (_, ch) { return ch.toUpperCase(); });
+      assert(val.compositions[k].isEfficiencyValidated === false,
+        k + ' must never claim efficiency validation, even when force-plate validated');
+    });
+  });
+
+  // ── Impact partition ──────────────────────────────────────────────────────
+  suite('impulse accounting — impact partition');
+
+  test('impact metrics stay unavailable without a high-rate validated source', function () {
+    var lowRate = IMP.impactMetrics({ sampleRateHz: 60, isForceMeasurementValidated: true });
+    assert(lowRate.availability === 'unavailable', 'refused at 60 Hz');
+    assert(lowRate.reason === 'sample_rate_too_low_for_impact_metrics', 'reason ' + lowRate.reason);
+    var unvalidated = IMP.impactMetrics({ sampleRateHz: 1000, isForceMeasurementValidated: false });
+    assert(unvalidated.availability === 'unavailable', 'refused for an unvalidated source');
+    assert(/validated/i.test(unvalidated.reason), 'reason names validation: ' + unvalidated.reason);
+    ['verticalImpactPeak', 'verticalAverageLoadingRate', 'verticalInstantaneousLoadingRate',
+     'impactTransientDetected'].forEach(function (f) {
+      assert(lowRate[f] === null, f + ' must be null');
+    });
+  });
+
+  test('impact is never treated as equivalent to braking impulse', function () {
+    var im = IMP.impactMetrics({});
+    assert(im.isBrakingImpulse === false, 'explicitly not a braking impulse');
+    assert(/VERTICAL/.test(im.notEquivalentTo) && /FORE-AFT/.test(im.notEquivalentTo),
+      'the axes are distinguished');
+    assert(im.partitionedNotRemoved === true, 'and the landing phase is partitioned, not removed');
+  });
+
+  test('the landing phase is inside every integral, not subtracted out', function () {
+    // JvTotal over the whole stance must equal the sum over an early and a late
+    // half: nothing is removed in between.
+    var full = IMP.integrateStance(analyticStance(), { bodyWeight: 1 });
+    var series = analyticStance();
+    var mid = 0.1;
+    var early = series.filter(function (p) { return p.t <= mid; });
+    var late = series.filter(function (p) { return p.t >= mid; });
+    var a = IMP.integrate(early.map(function (p) { return { t: p.t, v: p.fz }; }));
+    var b = IMP.integrate(late.map(function (p) { return { t: p.t, v: p.fz }; }));
+    assertClose(a + b, full.JvTotal, 1e-9, 'the halves sum to the whole');
+    assert(a > 0, 'the landing half contributes a real amount');
+  });
+
+  // ── Geometry-only behaviour ───────────────────────────────────────────────
+  suite('impulse accounting — geometry-only refusal');
+
+  test('the geometry path returns impulses as unavailable, never zero', function () {
+    var res = KFOAnalysis.analyze({ samples: clip({}) });
+    var im = res.impulseMetrics;
+    assert(im.availability === 'unavailable', 'availability ' + im.availability);
+    assert(im.reason === 'geometry_proxy_does_not_estimate_force_magnitude_or_impulse',
+      'reason ' + im.reason);
+    ['JvTotal', 'JvEffective', 'JBrake', 'JProp', 'JhTurnover', 'JxNet'].forEach(function (f) {
+      assert(im[f] === null, f + ' must be null, not 0');
+    });
+    IMP.COMPOSITION_ORDER.forEach(function (id) {
+      var k = id.replace(/_([a-z])/g, function (_, ch) { return ch.toUpperCase(); });
+      var c = im.compositions[k];
+      assert(c.availability === 'unavailable', k + ' unavailable');
+      assert(c.verticalShareScalarSum === null, k + ' share must be null');
+      assert(c.angleEquivalentDegrees === null, k + ' angle equivalent must be null');
+    });
+  });
+
+  test('no phase angle is ever converted into an impulse share', function () {
+    // The strongest form of the check: change the angles a lot and confirm that
+    // nothing in the impulse block moves, because there is no path from one to
+    // the other.
+    var neutral = KFOAnalysis.analyze({ samples: clip({}) });
+    var over = KFOAnalysis.analyze({ samples: clip({ overstrideBiasLeft: 40, overstrideBiasRight: 40 }) });
+    var a = neutral.left.phases[KFO.PHASE.EARLY_STANCE].angle.median;
+    var b = over.left.phases[KFO.PHASE.EARLY_STANCE].angle.median;
+    assert(Math.abs(a - b) > 2, 'the fixtures must differ in angle, got ' + a + ' vs ' + b);
+    assert(JSON.stringify(neutral.impulseMetrics.compositions) ===
+           JSON.stringify(over.impulseMetrics.compositions),
+      'the impulse block must be identical regardless of geometry');
+  });
+
+  test('geometry precursors are named as proxies and flagged as not impulses', function () {
+    var res = KFOAnalysis.analyze({ samples: clip({}) });
+    var p = res.momentumPreservationProxies;
+    assert(p.availability === 'available', 'proxies are available on this path');
+    ['brakingOrientationProxy', 'supportAlignmentProxy', 'replacementOrientationProxy'].forEach(function (k) {
+      var m = p.left[k];
+      assert(!!m, k + ' present');
+      assert(m.unit === 'degrees', k + ' is in degrees');
+      assert(m.isImpulse === false, k + ' must declare it is not an impulse');
+      assert(m.isForceShare === false, k + ' must declare it is not a force share');
+      assert(m.isWorkOrEnergy === false, k + ' must declare it is not work or energy');
+    });
+    assert(p.left.foreAftGeometricExcursion.isImpulse === false, 'excursion is not an impulse');
+    assert(/require force magnitude/i.test(p.impulseNote), 'and the unavailability is stated');
+  });
+
+  test('a force series does produce impulse metrics on the same stances', function () {
+    var samples = clip({});
+    var base = KFOAnalysis.analyze({ samples: samples });
+    var series = syntheticForceSeries(base);
+    var res = KFOAnalysis.analyze({
+      samples: samples,
+      forceSeries: series,
+      forceSeriesMeta: { normalizedToBodyWeight: true, bodyWeight: 1, sampleRateHz: 500,
+                         method: KFO.METHOD.COM_ACCELERATION_EXPERIMENTAL, source: 'synthetic_fixture' }
+    });
+    var im = res.impulseMetrics;
+    assert(im.availability === 'experimental', 'availability ' + im.availability + ' ' + im.reason);
+    assert(im.combined.stancesAnalyzed >= 3, 'stances integrated: ' + im.combined.stancesAnalyzed);
+    assert(im.combined.JvEffective < im.combined.JvTotal, 'effective is below total');
+    assertClose(im.combined.JxNet, 0, 0.01, 'the synthetic runner is at steady speed');
+    var c = im.combined.compositions;
+    assert(c.totalSupportReplacement.verticalShareScalarSum >
+           c.projectionReplacement.verticalShareScalarSum, 'A > B');
+    assert(c.projectionReplacement.verticalShareScalarSum >
+           c.activeProjectionTurnover.verticalShareScalarSum, 'B > C');
+    // The stances must be the SAME ones the angles came from.
+    assert(im.perSide.left.stancesAnalyzed <= base.left.stanceIntervals.length,
+      'left stances cannot exceed the detected intervals');
+  });
+
+  /**
+   * A physically-shaped bodyweight-normalised force series over a fixture clip:
+   * half-sine vertical inside each detected stance, one full sine of fore-aft so
+   * braking and propulsion balance, zero during flight.
+   */
+  function syntheticForceSeries(base, opts) {
+    opts = opts || {};
+    var peak = opts.peakFzBw == null ? 2.6 : opts.peakFzBw;
+    var brake = opts.brakeAmpBw == null ? 0.45 : opts.brakeAmpBw;
+    var prop = opts.propAmpBw == null ? brake : opts.propAmpBw;
+    var ivs = [].concat(base.left.stanceIntervals, base.right.stanceIntervals);
+    var end = 0;
+    ivs.forEach(function (iv) { if (iv.endTime > end) end = iv.endTime; });
+    var out = [];
+    for (var t = 0; t <= end + 0.05; t += 0.002) {
+      var fz = 0, fx = 0;
+      for (var i = 0; i < ivs.length; i++) {
+        var iv = ivs[i];
+        if (t >= iv.startTime && t <= iv.endTime) {
+          var u = (t - iv.startTime) / (iv.endTime - iv.startTime);
+          fz = peak * Math.sin(Math.PI * u);
+          fx = u < 0.5 ? -brake * Math.sin(2 * Math.PI * u) : prop * Math.sin(2 * Math.PI * u - Math.PI);
+          break;
+        }
+      }
+      out.push({ t: t, fx: fx, fz: fz });
+    }
+    return out;
+  }
+
+  // ── Persistence and migration ─────────────────────────────────────────────
+  suite('impulse accounting — persistence');
+
+  test('the stored form carries impulse aggregates but no per-stance detail', function () {
+    var samples = clip({});
+    var base = KFOAnalysis.analyze({ samples: samples });
+    var res = KFOAnalysis.analyze({
+      samples: samples, forceSeries: syntheticForceSeries(base),
+      forceSeriesMeta: { normalizedToBodyWeight: true, bodyWeight: 1, sampleRateHz: 500 }
+    });
+    var stored = KFOAnalysis.toStoredForm(res);
+    var im = stored.impulseMetrics;
+    assert(im.availability === 'experimental', 'availability persisted');
+    assert(isFinite(im.combined.JvEffective), 'the aggregate value is persisted');
+    assert(!('perStance' in im.combined), 'per-stance detail must stay in the export');
+    assert(!('rejections' in im.combined), 'and so must the rejection list');
+    assert(!('definitions' in im), 'static definition text is not persisted');
+    var c = im.combined.compositions.projectionReplacement;
+    assert(c.verticalBasis === 'effective_vertical', 'accounting metadata survives');
+    assert(c.horizontalBasis === 'replacement_only', 'both bases survive');
+    assert(c.shareConvention === 'scalar_sum_share', 'and the share convention');
+    assert(c.isEfficiencyValidated === false, 'and the non-validation flag');
+  });
+
+  test('a geometry-only save persists a compact unavailable marker, not a tree of nulls', function () {
+    var stored = KFOAnalysis.toStoredForm(KFOAnalysis.analyze({ samples: clip({}) }));
+    var im = stored.impulseMetrics;
+    assert(im.availability === 'unavailable', 'availability');
+    assert(im.reason === 'geometry_proxy_does_not_estimate_force_magnitude_or_impulse',
+      'reason ' + im.reason);
+    // Writing the whole null structure into every user document would cost several
+    // kilobytes to say nothing.
+    assert(Object.keys(im).length === 2, 'marker carries only availability and reason, got ' +
+      Object.keys(im).join(','));
+    assert(JSON.stringify(im).length < 200, 'and stays small: ' + JSON.stringify(im).length + ' bytes');
+    // Nothing may read as a zero measurement anywhere in the persisted block.
+    assert(!/[:,]0[,}]/.test(JSON.stringify(im)), 'no zero may appear where an impulse would be');
+    assert(stored.momentumPreservationProxies.left.brakingOrientationProxy.isImpulse === false,
+      'and the proxies keep their non-impulse flag');
+  });
+
+  test('the compact marker still rehydrates and renders as unavailable', function () {
+    var R = d.KFORender; if (!R) { assert(true, 'renderer unavailable'); return; }
+    var stored = KFOAnalysis.toStoredForm(KFOAnalysis.analyze({ samples: clip({}) }));
+    var back = R.fromStoredForm(stored);
+    assert(back.impulseMetrics.availability === 'unavailable', 'availability survives the round trip');
+    var html = R.buildStoredHtml(stored);
+    assert(/Impulse accounting/.test(html), 'the panel renders');
+    assert(/require force magnitude/i.test(html), 'and says what is missing');
+    assert(!/\bNaN\b/.test(html) && !/undefined/.test(html), 'without NaN or undefined leaking through');
+  });
+
+  test('a v2 stored document still renders, with impulses reported unavailable', function () {
+    var R = d.KFORender; if (!R) { assert(true, 'renderer unavailable'); return; }
+    var v2 = KFOAnalysis.toStoredForm(KFOAnalysis.analyze({ samples: clip({}) }));
+    // Simulate a genuine v2 save: strip everything v3 added.
+    delete v2.impulseMetrics;
+    delete v2.momentumPreservationProxies;
+    v2.schemaVersion = 2;
+    var migrated = KFO.migrateAnalysis({ kfo: v2 });
+    assert(migrated.kfo.availability === KFO.AVAILABILITY.AVAILABLE, 'the v2 analysis survives migration');
+    var html = R.buildStoredHtml(migrated.kfo);
+    assert(/Estimated vertical force/.test(html), 'the v2 force card still renders');
+    assert(/Support-line geometry/.test(html), 'and the v2 angle cards');
+    assert(/Impulse accounting/.test(html), 'the impulse panel appears');
+    assert(!/\bNaN\b/.test(html), 'and nothing renders as NaN');
+  });
+
+  test('an old geometry angle is never reinterpreted as an impulse ratio', function () {
+    var v2 = { kfo: { schemaVersion: 2, availability: 'available',
+                      left: { phases: { early_stance: { median: -11.4 } } } } };
+    var m = KFO.migrateAnalysis(v2);
+    var im = m.kfo.impulseMetrics;
+    assert(im.availability === KFO.AVAILABILITY.UNAVAILABLE, 'unavailable');
+    IMP.IMPULSE_FIELDS.forEach(function (f) {
+      assert(im[f] === null, f + ' must be null, not derived from -11.4°');
+    });
+    assert(m.kfo.left.phases.early_stance.median === -11.4, 'and the angle itself is untouched');
+  });
+
+  // ── UI copy ───────────────────────────────────────────────────────────────
+  suite('impulse accounting — copy audit');
+
+  function impulsePanel(availableCase) {
+    var R = d.KFORender; if (!R) return null;
+    if (!availableCase) return R.impulseAccountingSection(KFOAnalysis.analyze({ samples: clip({}) }));
+    var samples = clip({});
+    var base = KFOAnalysis.analyze({ samples: samples });
+    return R.impulseAccountingSection(KFOAnalysis.analyze({
+      samples: samples, forceSeries: syntheticForceSeries(base),
+      forceSeriesMeta: { normalizedToBodyWeight: true, bodyWeight: 1, sampleRateHz: 500 }
+    }));
+  }
+
+  test('the panel presents three accounting views, not one universal ratio', function () {
+    var html = impulsePanel(true); if (html === null) { assert(true, 'renderer unavailable'); return; }
+    assert(/Total Support \/ Replacement/.test(html), 'view A present');
+    assert(/Projection \/ Replacement/.test(html), 'view B present');
+    assert(/Active Projection \/ Fore-Aft Turnover/.test(html), 'view C present');
+    assert(/Why do these ratios differ/.test(html), 'and the explanation is offered');
+    assert(/different accounting views|count different things/i.test(html),
+      'the panel must say why they differ');
+  });
+
+  test('each view shows its own numerator, denominator and raw impulses', function () {
+    var html = impulsePanel(true); if (html === null) { assert(true, 'renderer unavailable'); return; }
+    assert(/Numerator/.test(html) && /Denominator/.test(html), 'the fraction is spelled out');
+    assert(/JvTotal/.test(html), 'total vertical impulse is named');
+    assert(/JvEffective/.test(html), 'effective vertical impulse is named');
+    assert(/JProp/.test(html) && /JhTurnover/.test(html), 'both horizontal bases are named');
+    assert(/BW\*s/.test(html), 'units are shown');
+    assert(/Angle equivalent/.test(html), 'the angle equivalent is labelled as an equivalent');
+    assert(/scalar_sum_share/.test(html), 'and the share convention is exposed');
+  });
+
+  /**
+   * Words like "target" and "efficiency score" DO appear in this panel — always
+   * inside a denial ("not a validated efficiency score", "no target value is
+   * applied"). Banning the word outright would push the copy into vagueness, so
+   * the rule is that every occurrence must be negated nearby. Anything that reads
+   * as an assertion fails.
+   */
+  function everyMentionIsDenied(html, word, negations) {
+    var text = String(html).replace(/<[^>]*>/g, ' ');
+    var re = new RegExp(word, 'gi');
+    var neg = negations || /\b(not|never|no|none|without|cannot|un)\b/i;
+    var m, ok = true, offenders = [];
+    while ((m = re.exec(text)) !== null) {
+      var before = text.slice(Math.max(0, m.index - 70), m.index);
+      if (!neg.test(before)) { ok = false; offenders.push(before.slice(-50) + '[' + m[0] + ']'); }
+    }
+    return { ok: ok, offenders: offenders };
+  }
+
+  test('no universal 85/15, 70/30 or 60/40 cutoff is presented as a target', function () {
+    var html = impulsePanel(true); if (html === null) { assert(true, 'renderer unavailable'); return; }
+    ['target', 'optimal', 'ideal', 'goal'].forEach(function (w) {
+      var r = everyMentionIsDenied(html, w);
+      assert(r.ok, '"' + w + '" must only appear in a denial: ' + r.offenders.join(' | '));
+    });
+    assert(!/should be/i.test(html), 'no prescription');
+    // Nor may any specific ratio be attached to goal language.
+    ['85/15', '70/30', '60/40', '85\\.7', '71\\.2', '55\\.3'].forEach(function (pat) {
+      var re = new RegExp(pat + '[^<]{0,60}(target|optimal|ideal|goal|aim for)', 'i');
+      assert(!re.test(html), pat + ' must not be presented as a goal');
+    });
+  });
+
+  test('the panel makes no efficiency or economy claim', function () {
+    var html = impulsePanel(true); if (html === null) { assert(true, 'renderer unavailable'); return; }
+    ['efficiency score', 'more efficient', 'more economical', 'economy'].forEach(function (w) {
+      var r = everyMentionIsDenied(html, w);
+      assert(r.ok, '"' + w + '" must only appear in a denial: ' + r.offenders.join(' | '));
+    });
+    assert(/not.{0,40}(validated|metabolically)/i.test(html), 'and validation is explicitly denied');
+    assert(/experimental/i.test(html), 'the estimates are badged experimental');
+    assert(/metabolic/i.test(html), 'and metabolic validation is named as the missing step');
+  });
+
+  test('the panel never calls an estimated share a measured force share', function () {
+    [impulsePanel(true), impulsePanel(false)].forEach(function (html, i) {
+      if (html === null) { assert(true, 'renderer unavailable'); return; }
+      var label = i === 0 ? 'available' : 'unavailable';
+      assert(!/measured force share/i.test(html), label + ': no measured force share');
+      assert(!/measured ground.reaction/i.test(html) || /not a measured ground.reaction/i.test(html),
+        label + ': any mention of measured GRF must be a denial');
+    });
+  });
+
+  test('impact and braking are kept visibly separate in the panel', function () {
+    var html = impulsePanel(true); if (html === null) { assert(true, 'renderer unavailable'); return; }
+    assert(/partitioned, not removed/i.test(html), 'the partition is stated');
+    assert(/not the same quantity as horizontal braking impulse/i.test(html),
+      'and impact is distinguished from braking');
+    assert(/200 Hz|sampled at/i.test(html), 'with the reason impact is absent');
+  });
+
+  test('the geometry-only panel states the unavailability instead of rendering blank', function () {
+    var html = impulsePanel(false); if (html === null) { assert(true, 'renderer unavailable'); return; }
+    assert(/require force magnitude/i.test(html), 'explains what is missing');
+    assert(/geometry_proxy_does_not_estimate_force_magnitude_or_impulse/.test(html),
+      'exposes the machine-readable reason');
+    // No composition card may render: that is where a share for THIS runner would
+    // appear. The Clark accounting-example percentages inside the explainer are a
+    // different thing and are allowed to stay.
+    assert(!/Numerator/.test(html), 'no composition card may render');
+    assert(!/Total Support \/ Replacement/.test(html), 'and no composition is named as a result');
+    assert(/Why do these ratios differ/.test(html), 'the explanation is still available');
+    assert(/Reconstructing the Clark/.test(html), 'including the worked accounting example');
+  });
+
+  test('the proxy section is in degrees and disclaims force shares', function () {
+    var R = d.KFORender; if (!R) { assert(true, 'renderer unavailable'); return; }
+    var html = R.momentumProxySection(KFOAnalysis.analyze({ samples: clip({}) }));
+    assert(/Momentum-preservation proxies/.test(html), 'section present');
+    assert(/braking orientation/i.test(html), 'braking proxy shown');
+    assert(/replacement orientation/i.test(html), 'replacement proxy shown');
+    assert(/°/.test(html), 'values are in degrees');
+    assert(/not impulses/i.test(html), 'and are declared not to be impulses');
+    assert(new RegExp(R.PROXY_UNAVAILABLE_NOTE.slice(0, 40)).test(html), 'the standard note appears');
+    assert(!/BW\*s/.test(html), 'no impulse unit may appear in the proxy section');
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  FATIGUE-ZONE ARCHITECTURE (experimental, no product surface)
+  // ═══════════════════════════════════════════════════════════════════════════
+  suite('fatigue zone');
+
+  function windowsFrom(values, opts) {
+    opts = opts || {};
+    return values.map(function (v, i) {
+      return {
+        windowId: 'w' + i,
+        timeElapsedSeconds: i * 300,
+        distanceElapsedMeters: i * 1000,
+        lapIndex: i,
+        confidenceScore: opts.confidence == null ? 0.8 : opts.confidence,
+        metrics: (function () {
+          var m = {};
+          FAT.TREND_METRICS.forEach(function (def) {
+            m[def.key] = { value: def.key === (opts.metric || 'JhTurnover') ? v : 1,
+                           unit: def.unit, family: def.family, availability: 'available' };
+          });
+          return m;
+        })()
+      };
+    });
+  }
+
+  test('trend metrics are extracted from a real analysis result', function () {
+    var res = KFOAnalysis.analyze({ samples: clip({}) });
+    var w = FAT.buildWindow({ windowId: 'w0', analysis: res, timeElapsedSeconds: 0, distanceElapsedMeters: 0 });
+    assert(w.metrics.brakingOrientationProxy.availability === 'available',
+      'the geometry proxy is picked up');
+    assert(w.metrics.JhTurnover.availability === 'unavailable',
+      'and the impulse metric is correctly unavailable on this path');
+    assert(w.metrics.brakingOrientationProxy.unit === 'degrees', 'units are carried');
+    assert(w.metrics.JhTurnover.family === 'impulse', 'families are carried');
+    assert(w.confidenceScore !== null, 'confidence comes across');
+  });
+
+  test('windows order by the requested key and separate those that lack it', function () {
+    var ws = windowsFrom([1, 2, 3, 4]);
+    ws[2].distanceElapsedMeters = null;
+    var byTime = FAT.orderWindows(ws, FAT.ORDER_BY.TIME_ELAPSED);
+    assert(byTime.ok && byTime.ordered.length === 4, 'all four order by time');
+    assert(byTime.ordered[0].windowId === 'w0', 'and in the right order');
+    var byDist = FAT.orderWindows(ws, FAT.ORDER_BY.DISTANCE_ELAPSED);
+    assert(byDist.ordered.length === 3 && byDist.unordered.length === 1,
+      'the window missing distance is set aside, not dropped or sorted to the front');
+    var bad = FAT.orderWindows(ws, 'vibes');
+    assert(bad.ok === false && bad.reason === 'unknown_order_key', 'an unknown key is refused');
+  });
+
+  test('too few windows refuses rather than guessing a baseline', function () {
+    var out = FAT.analyzeFatigueZone({ windows: windowsFrom([1, 2]) });
+    assert(out.availability === 'unavailable', 'refused');
+    assert(out.reason === 'insufficient_windows', 'reason ' + out.reason);
+    assert(!out.detectedChangePoint, 'and no change point is invented');
+  });
+
+  test('a sustained departure from baseline is located', function () {
+    // Two baseline windows near 0.10, then a sustained jump to 0.20.
+    var out = FAT.analyzeFatigueZone({
+      windows: windowsFrom([0.100, 0.104, 0.200, 0.205, 0.210]),
+      metrics: ['JhTurnover']
+    });
+    assert(out.availability === 'experimental', 'assessed: ' + out.reason);
+    assert(out.baselineWindowIds.length === 2, 'baseline is the first two windows');
+    var m = out.changedMetrics[0];
+    assert(m.metric === 'JhTurnover', 'the metric assessed');
+    assert(!!m.changePoint, 'a change point was found');
+    assert(m.changePoint.windowId === 'w2', 'at the right window: ' + m.changePoint.windowId);
+    assert(m.changePoint.direction === 'increase', 'in the right direction');
+    assert(out.detectedChangePoint.timeSeconds === 600, 'located in time');
+    assert(out.detectedChangePoint.distanceMeters === 2000, 'and in distance');
+    assert(out.validationStatus === 'experimental', 'and stays experimental');
+  });
+
+  test('a single deviant window is not a fatigue zone', function () {
+    var out = FAT.analyzeFatigueZone({
+      windows: windowsFrom([0.100, 0.104, 0.400, 0.102, 0.101]),
+      metrics: ['JhTurnover']
+    });
+    assert(!out.detectedChangePoint, 'one outlier window must not trigger detection');
+    assert(/No sustained departure/i.test(out.interpretation.join(' ')), 'and that is stated');
+  });
+
+  test('a stable session reports no change point', function () {
+    var out = FAT.analyzeFatigueZone({
+      windows: windowsFrom([0.100, 0.101, 0.100, 0.102, 0.099]),
+      metrics: ['JhTurnover']
+    });
+    assert(out.availability === 'experimental', 'still assessed');
+    assert(!out.detectedChangePoint, 'no change point');
+  });
+
+  test('no universal fatigue threshold is asserted', function () {
+    var out = FAT.analyzeFatigueZone({ windows: windowsFrom([0.1, 0.1, 0.2, 0.2, 0.2]),
+                                       metrics: ['JhTurnover'] });
+    assert(out.isFatigueThresholdValidated === false, 'no validated threshold');
+    assert(out.config.isProvisional === true, 'the config is provisional');
+    assert(/provisional/i.test(out.interpretation.join(' ')), 'and it is said out loud');
+    assert(/cannot be determined|fatigue, pacing, terrain/i.test(out.interpretation.join(' ')),
+      'and the cause is not asserted');
+  });
+
+  test('a metric missing from some windows is reported, not silently subsetted', function () {
+    var ws = windowsFrom([0.1, 0.1, 0.2, 0.2]);
+    ws[2].metrics.JhTurnover.value = null;
+    var out = FAT.analyzeFatigueZone({ windows: ws, metrics: ['JhTurnover'] });
+    var m = out.changedMetrics[0];
+    assert(m.availability === 'unavailable', 'flagged unavailable');
+    assert(m.reason === 'metric_missing_in_some_windows', 'reason ' + m.reason);
+    assert(m.windowsWithValue === 3 && m.windowsTotal === 4, 'and the gap is quantified');
+  });
+
+  test('a degenerate baseline falls back to a relative change and says so', function () {
+    var out = FAT.analyzeFatigueZone({
+      windows: windowsFrom([0.100, 0.100, 0.130, 0.131, 0.132]),
+      metrics: ['JhTurnover']
+    });
+    var m = out.changedMetrics[0];
+    assert(m.changeRule === 'relative_baseline_sd_degenerate', 'rule ' + m.changeRule);
+    assert(m.standardizedChange === null, 'no standardized change is claimed');
+    assert(m.relativeChange > 0.2, 'but the relative change is reported: ' + m.relativeChange);
+    assert(!!m.changePoint, 'and detection still works');
+  });
+
+  test('the trend registry separates geometry proxies from impulse quantities', function () {
+    var families = {};
+    FAT.TREND_METRICS.forEach(function (m) { families[m.family] = true; });
+    assert(families.geometry_proxy && families.impulse, 'both families exist');
+    FAT.TREND_METRICS.forEach(function (m) {
+      if (m.family === 'geometry_proxy') assert(m.unit === 'degrees', m.key + ' must be in degrees');
+      if (m.family === 'impulse') assert(m.unit === 'BW*s', m.key + ' must be in BW*s');
+    });
   });
 
   // ── Runner ────────────────────────────────────────────────────────────────
