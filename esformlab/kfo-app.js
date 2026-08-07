@@ -13,14 +13,19 @@
   var STORAGE_PREFIX = 'esl-kfo-';
 
   var FLAG_DEFS = {
+    // SUPERSEDED by Projection & Ground Interaction (pgi-app.js), which reuses
+    // this module's calculations but replaces its product surface. Default is
+    // now OFF: the panel is reachable only through PGIApp's `legacyKfoPanel`
+    // flag, for regression comparison.
     kinematicForceOrientationV2: {
-      label: 'Kinematic Force-Orientation V2',
-      adminDefault: true, userDefault: false,
-      description: 'Multi-stride support-line orientation estimate with uncertainty.'
+      label: 'Kinematic Force-Orientation V2 (superseded)',
+      adminDefault: false, userDefault: false,
+      description: 'Superseded by Projection & Ground Interaction. Multi-stride support-line ' +
+        'orientation estimate; its calculations are now inputs to the newer analysis.'
     },
     impulseAccountingPanel: {
       label: 'Impulse accounting panel',
-      adminDefault: true, userDefault: false,
+      adminDefault: false, userDefault: false,
       description: 'Momentum-preservation proxies plus the three impulse compositions. Reports ' +
         'unavailable on the geometry-only path, which is every current path.'
     },
@@ -109,6 +114,8 @@
    * user, which is memory this feature has no right to hold when it is off.
    */
   function shouldCapture() {
+    // Off by default now that this panel is superseded; PGI retains its own copy
+    // of the samples under its own gate.
     try { return isAdminUser() && isEnabled('kinematicForceOrientationV2'); }
     catch (e) { return false; }
   }
@@ -139,11 +146,15 @@
     return { hideImpulseAccounting: !isEnabled('impulseAccountingPanel') };
   }
 
-  /** Render dispatcher called from completeAnalysis() / analyzeCard(). */
-  function render() {
+  /**
+   * Render dispatcher. Now called by PGIApp rather than by index.html directly:
+   * this panel is superseded, so `force` is how PGIApp's `legacyKfoPanel` flag
+   * asks for it despite this module's own default being off.
+   */
+  function render(force) {
     if (!isAdminUser()) return;
 
-    if (isEnabled('kinematicForceOrientationV2')) {
+    if (force || isEnabled('kinematicForceOrientationV2')) {
       try {
         var result = analyze();
         if (typeof KFORender !== 'undefined') {
@@ -338,8 +349,8 @@
    * and window.__kfoSamples may still hold a previous clip's data, so recomputing
    * here would silently attribute one runner's mechanics to another's session.
    */
-  function renderSaved(doc) {
-    if (!isAdminUser() || !isEnabled('kinematicForceOrientationV2')) {
+  function renderSaved(doc, force) {
+    if (!isAdminUser() || !(force || isEnabled('kinematicForceOrientationV2'))) {
       removeNode('kfo-admin-report'); removeNode('kfo-research-tools');
       return;
     }
