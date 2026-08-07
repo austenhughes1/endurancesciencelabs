@@ -28,6 +28,7 @@
     PGICom: require('./pgi-com.js'),
     PGITouchdown: require('./pgi-touchdown.js'),
     PGIOutcome: require('./pgi-outcome.js'),
+    PGIPhases: require('./pgi-phases.js'),
     PGIPatterns: require('./pgi-patterns.js'),
     PGICompare: require('./pgi-compare.js'),
     PGIAnalysis: require('./pgi-analysis.js'),
@@ -36,7 +37,7 @@
   } : {
     KFO: root.KFO, PGI: root.PGI, PGITiming: root.PGITiming, PGICom: root.PGICom,
     PGITouchdown: root.PGITouchdown, PGIOutcome: root.PGIOutcome,
-    PGIPatterns: root.PGIPatterns, PGICompare: root.PGICompare,
+    PGIPhases: root.PGIPhases, PGIPatterns: root.PGIPatterns, PGICompare: root.PGICompare,
     PGIAnalysis: root.PGIAnalysis, PGIRender: root.PGIRender, PGIExport: root.PGIExport
   };
   var api = factory(deps);
@@ -46,9 +47,9 @@
   'use strict';
 
   var KFO = d.KFO, PGI = d.PGI, PGITiming = d.PGITiming, PGICom = d.PGICom,
-      PGITouchdown = d.PGITouchdown, PGIOutcome = d.PGIOutcome, PGIPatterns = d.PGIPatterns,
-      PGICompare = d.PGICompare, PGIAnalysis = d.PGIAnalysis, PGIRender = d.PGIRender,
-      PGIExport = d.PGIExport;
+      PGITouchdown = d.PGITouchdown, PGIOutcome = d.PGIOutcome, PGIPhases = d.PGIPhases,
+      PGIPatterns = d.PGIPatterns, PGICompare = d.PGICompare, PGIAnalysis = d.PGIAnalysis,
+      PGIRender = d.PGIRender, PGIExport = d.PGIExport;
 
   // ── Harness ────────────────────────────────────────────────────────────────
   var results = [], currentSuite = '';
@@ -187,26 +188,43 @@
      * to mid-stance and recovers; during flight it follows a ballistic arc whose
      * rise is g*t_f^2/8 in metres, converted with a fixture scale so the
      * decomposition has a physically coherent shape.
+     *
+     * Four-phase fixture knobs:
+     *   comDropRightPx    per-side compression depth (rebound asymmetry)
+     *   minComSkew        >1 pushes the stance minimum later, <1 earlier
+     *   minComSkewRight   per-side skew
+     *   flatMinimum       clips the fall curve into a broad flat bottom
+     *   stanceEndDropPx   stance ends this much lower than it began
+     *                     (compression that is not recovered before toe-off)
      */
     var pxPerMeter = o.pixelsPerMeter == null ? 300 : o.pixelsPerMeter;
     var aerialRisePx = (G * flight * flight / 8) * pxPerMeter;
+    var endDropPx = o.stanceEndDropPx == null ? 0 : o.stanceEndDropPx;
+    function stanceFallPx(c, u) {
+      var drop = (o.comDropRightPx != null && c.side === 'right') ? o.comDropRightPx : comDrop;
+      var skew = (o.minComSkewRight != null && c.side === 'right')
+        ? o.minComSkewRight : (o.minComSkew == null ? 1 : o.minComSkew);
+      var shape = Math.sin(Math.PI * Math.pow(u, skew));
+      if (o.flatMinimum) shape = Math.min(1, 1.35 * shape);
+      return drop * shape + endDropPx * u;
+    }
     function hipYAt(t) {
       var base = GROUND_Y - HIP_ABOVE_GROUND;
       // Which phase are we in?
       for (var i = 0; i < contacts.length; i++) {
         var c = contacts[i];
         if (t >= c.start && t <= c.end) {
-          // Stance: fall then recover, minimum at mid-stance.
+          // Stance: fall then recover, minimum near mid-stance unless skewed.
           var u = (t - c.start) / stance;           // 0..1
-          var fall = comDrop * Math.sin(Math.PI * u);
-          return base + fall;                       // +y is down => lower COM
+          return base + stanceFallPx(c, u);         // +y is down => lower COM
         }
         var nextStart = (i + 1 < contacts.length) ? contacts[i + 1].start : null;
         if (nextStart != null && t > c.end && t < nextStart) {
-          // Flight: ballistic arc, apex mid-flight.
+          // Flight: ballistic arc, apex mid-flight, continuous with any
+          // unrecovered stance drop.
           var w = (t - c.end) / (nextStart - c.end);
           var rise = aerialRisePx * 4 * w * (1 - w);  // parabola, peak at w=0.5
-          return base - rise;
+          return base + endDropPx * (1 - w) - rise;
         }
       }
       return base;
@@ -1097,6 +1115,511 @@
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
+  //  Minimum-COM detection (four-phase model)
+  // ═══════════════════════════════════════════════════════════════════════════
+  suite('Minimum COM detection');
+
+  /** Synthetic smoothed-series points with analytic derivatives. */
+  function comPoints(fn, t0, t1, n) {
+    var pts = [], dt = (t1 - t0) / (n - 1), h = 1e-4;
+    for (var i = 0; i < n; i++) {
+      var t = t0 + i * dt;
+      pts.push({ t: t, value: fn(t), d1: (fn(t + h) - fn(t - h)) / (2 * h) });
+    }
+    return pts;
+  }
+
+  test('a clean parabolic minimum is located at its true time with high confidence', function () {
+    var pts = comPoints(function (t) { return 100 + 300 * Math.pow(t - 0.12, 2); }, 0, 0.24, 25);
+    var det = PGICom.detectMinimumCom(pts, 0, 0.24);
+    assert(det.available, 'detected');
+    assertClose(det.stancePercent, 50, 8, 'minimum near mid-stance');
+    assert(det.detectionMethod === 'smoothed_com_extremum', 'sharp extremum method');
+    assert(det.window === null, 'no flat window on a sharp minimum');
+    assertGt(det.confidence, 0.7, 'high confidence');
+  });
+
+  test('image-Y-down coordinates: the visually lowest COM is the detected minimum', function () {
+    // Raw samples whose hip moves DOWN the image (y increases) to mid-interval.
+    // buildComSeries owns the up-positive normalization (h = −y), so the
+    // detector must find the minimum where image y is LARGEST.
+    var samples = [];
+    for (var i = 0; i <= 24; i++) {
+      var t = i * 0.02, u = i / 24;
+      var hipY = (GROUND_Y - HIP_ABOVE_GROUND) + 14 * Math.sin(Math.PI * u);
+      samples.push({
+        t: t,
+        kps: frame({ bodyX: 300, hipY: hipY, dirSign: 1,
+                     lAnkleX: 290, lAnkleY: GROUND_Y, rAnkleX: 310, rAnkleY: GROUND_Y - 30 })
+      });
+    }
+    var series = PGICom.buildComSeries(samples);
+    var det = PGICom.detectMinimumCom(series.smoothed, 0.06, 0.42);
+    assert(det.available, 'detected');
+    // Largest image y (visually lowest) is at t = 0.24, the middle of the dip.
+    assertClose(det.t, 0.24, 0.05, 'minimum where the body is visually lowest');
+  });
+
+  test('a broad flat minimum yields a region whose centre is chosen, at lower confidence', function () {
+    function f(t) {
+      var d = Math.abs(t - 0.12);
+      return d <= 0.055 ? 100 : 100 + 6000 * Math.pow(d - 0.055, 2);
+    }
+    var flat = PGICom.detectMinimumCom(comPoints(f, 0, 0.24, 33), 0, 0.24);
+    assert(flat.available, 'detected');
+    assert(flat.window, 'flat region reported as a window');
+    assertGt(flat.flatWidthPercent, 15, 'region width recognised');
+    assert(flat.detectionMethod === 'smoothed_com_flat_region_center', 'centre-of-region method');
+    assertClose(flat.stancePercent, 50, 12, 'centre lands near the true middle');
+    assert(flat.flags.indexOf('minimum_com_flat_region') !== -1, 'flat flag raised');
+    var sharp = PGICom.detectMinimumCom(
+      comPoints(function (t) { return 100 + 300 * Math.pow(t - 0.12, 2); }, 0, 0.24, 33), 0, 0.24);
+    assertGt(sharp.confidence, flat.confidence, 'flat minimum is less certain than a sharp one');
+  });
+
+  test('multiple comparable local minima are flagged', function () {
+    // Two equal dips at 25% and 75% of stance.
+    var pts = comPoints(function (t) {
+      return 102 - 2 * Math.cos(2 * Math.PI * (t - 0.06) / 0.12);
+    }, 0, 0.24, 33);
+    var det = PGICom.detectMinimumCom(pts, 0, 0.24);
+    assert(det.available, 'detected');
+    assertGt(det.localMinimaCount, 1, 'both dips counted');
+    assert(det.flags.indexOf('minimum_com_multiple_local_extrema') !== -1, 'flagged');
+  });
+
+  test('a minimum at the stance edge is flagged rather than trusted', function () {
+    var pts = comPoints(function (t) { return 100 + 60 * t; }, 0, 0.24, 25);
+    var det = PGICom.detectMinimumCom(pts, 0, 0.24);
+    assert(det.available, 'detected');
+    assert(det.flags.indexOf('minimum_com_near_touchdown') !== -1, 'near-touchdown flag');
+    assertLt(det.confidence, 0.65, 'confidence reduced');
+  });
+
+  test('a noisy trajectory raises the noise flag', function () {
+    var pts = comPoints(function (t) {
+      return 100 + 300 * Math.pow(t - 0.12, 2) + 0.6 * Math.sin(40 * Math.PI * t);
+    }, 0, 0.24, 49);
+    var det = PGICom.detectMinimumCom(pts, 0, 0.24);
+    assert(det.available, 'detected');
+    assert(det.flags.indexOf('com_trajectory_noisy') !== -1, 'noise flag raised');
+  });
+
+  test('a non-zero vertical velocity at the detected minimum is flagged as inconsistent', function () {
+    // Heights form a parabola, but the (fabricated) fitted velocity never
+    // passes near zero — the minimum and the derivative disagree.
+    var pts = comPoints(function (t) { return 100 + 300 * Math.pow(t - 0.12, 2); }, 0, 0.24, 25)
+      .map(function (p) { return { t: p.t, value: p.value, d1: -60 }; });
+    var det = PGICom.detectMinimumCom(pts, 0, 0.24);
+    assert(det.available, 'detected');
+    assert(det.flags.indexOf('minimum_com_velocity_inconsistent') !== -1, 'velocity check fired');
+  });
+
+  test('the pipeline reports minimum COM per side with a reliability verdict', function () {
+    var r = analyze({});
+    var mc = r.minimumCom;
+    assert(mc.availability === 'available', 'block available');
+    assert(isNum(mc.overall.stancePercent.median), 'stance percent aggregated');
+    assertGt(mc.overall.stancePercent.median, 20, 'minimum not at touchdown');
+    assertLt(mc.overall.stancePercent.median, 85, 'minimum not at toe-off');
+    assertGt(mc.overall.confidence.median, 0.5, 'confident on the clean fixture');
+    assert(mc.reliability && mc.reliability.unreliable === false, 'reliable');
+    assert(mc.left.n > 0 && mc.right.n > 0, 'both sides represented');
+  });
+
+  test('a skewed COM trajectory moves the detected minimum in the modelled direction', function () {
+    var early = analyze({ minComSkew: 0.6 });
+    var late = analyze({ minComSkew: 1.6 });
+    assertGt(late.minimumCom.overall.stancePercent.median,
+             early.minimumCom.overall.stancePercent.median + 5,
+             'later-skewed fixture detects a later minimum');
+  });
+
+  test('a flat-bottomed COM trajectory is reported as a flat region in the pipeline', function () {
+    // A deep clipped-bottom trajectory: smoothing rounds shallow plateaus away,
+    // so the fixture uses a pronounced one.
+    var r = analyze({ flatMinimum: true, comDropPx: 20 });
+    var mc = r.minimumCom;
+    assert(mc.availability === 'available', 'block available');
+    var flagged = (mc.overall.flagCounts && mc.overall.flagCounts.minimum_com_flat_region > 0) ||
+                  (isNum(mc.overall.flatWidthPercent.median) && mc.overall.flatWidthPercent.median >= 15);
+    assert(flagged, 'flat region surfaced');
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  Loading/compression and rebound/projection phases
+  // ═══════════════════════════════════════════════════════════════════════════
+  suite('Loading and rebound phases');
+
+  test('per step, loading + rebound exactly partition stance and the identities hold', function () {
+    var r = analyze({});
+    var steps = r.comTrajectory.stepResults.filter(function (s) { return s.valid; });
+    assertGt(steps.length, 3, 'steps analysed');
+    steps.forEach(function (s) {
+      assertClose(s.loading.durationSeconds + s.reboundPhase.durationSeconds,
+                  s.contactSeconds, 1e-9, 'durations partition GCT');
+      assertClose(s.loading.fractionOfStance + s.reboundPhase.fractionOfStance, 1, 1e-9,
+        'fractions sum to one');
+      if (s.reboundPhase.durationSeconds > 0) {
+        assertClose(s.reboundPhase.meanRiseVelocityPxPerS,
+                    s.reboundPhase.risePx / s.reboundPhase.durationSeconds, 1e-9,
+                    'mean rebound velocity is rise over time');
+        assertClose(s.reboundPhase.compressionToReboundRatio,
+                    s.loading.durationSeconds / s.reboundPhase.durationSeconds, 1e-9,
+                    'compression:rebound ratio identity');
+      }
+    });
+  });
+
+  test('the envelope carries both phase blocks with durations that partition contact', function () {
+    var r = analyze({});
+    var lc = r.loadingCompression, rp = r.reboundProjection;
+    assert(lc.availability === 'available' && rp.availability === 'available', 'both available');
+    var gctMs = r.strideTiming.overall.contactSeconds.median * 1000;
+    assertClose(lc.overall.durationMs.median + rp.overall.durationMs.median, gctMs, gctMs * 0.15,
+      'phase medians approximately partition contact time');
+    assertGt(rp.overall.comRise.medianLegLengths, 0, 'rebound rise positive');
+    assertGt(lc.overall.compression.medianLegLengths, 0, 'compression positive');
+  });
+
+  test('a deeper modelled collapse increases the loading compression depth', function () {
+    var shallow = analyze({ comDropPx: 5 });
+    var deep = analyze({ comDropPx: 20 });
+    assertGt(deep.loadingCompression.overall.compression.medianLegLengths,
+             shallow.loadingCompression.overall.compression.medianLegLengths,
+             'compression follows the model');
+  });
+
+  test('COM horizontal travel is forward-positive in both phases on an overground clip', function () {
+    var r = analyze({});
+    assertGt(r.loadingCompression.overall.horizontalTravel.px.median, 0, 'loading travel forward');
+    assertGt(r.reboundProjection.overall.horizontalTravel.px.median, 0, 'rebound travel forward');
+  });
+
+  test('asymmetric compression is reported side-specifically and in the symmetry block', function () {
+    var r = analyze({ comDropPx: 14, comDropRightPx: 5 });
+    var lc = r.loadingCompression;
+    assertGt(lc.left.compression.medianLegLengths, lc.right.compression.medianLegLengths,
+      'left compresses more, as modelled');
+    var sp = r.symmetry.stancePhases;
+    assert(sp, 'stance-phase symmetry present');
+    assertGt(sp.compressionDepthDifferenceLegLengths, 0.02, 'difference surfaced');
+  });
+
+  test('asymmetric rebound timing is reported as a duration difference', function () {
+    var r = analyze({ minComSkewRight: 1.8 });
+    var sp = r.symmetry.stancePhases;
+    assert(sp, 'stance-phase symmetry present');
+    // The right minimum arrives later, so the right rebound is SHORTER.
+    assertGt(sp.reboundDurationDifferenceMs, 8, 'left rebound longer than right');
+    assert(isNum(sp.reboundDurationRelativeDifference), 'relative difference for descriptive copy');
+  });
+
+  test('hip and knee changes are summarized for both phases; ankle and pelvis are refused', function () {
+    var r = analyze({});
+    var jc = r.reboundProjection.overall.jointChanges;
+    ['hip', 'knee', 'trunk', 'shank'].forEach(function (k) {
+      assert(isNum(jc[k].angleAtStartDegrees.median), k + ' angle at minimum COM');
+      assert(isNum(jc[k].angleAtEndDegrees.median), k + ' angle at toe-off');
+      assert(isNum(jc[k].changeDegrees.median), k + ' change');
+    });
+    assert(jc.ankle.availability === 'unavailable' &&
+           jc.ankle.reason === 'requires_foot_landmark',
+      'ankle plantarflexion refused: no foot landmark exists');
+    assert(jc.pelvis.availability === 'unavailable', 'pelvis orientation refused');
+    var lj = r.loadingCompression.overall.jointChanges;
+    assert(isNum(lj.knee.changeDegrees.median), 'loading knee change');
+  });
+
+  test('joint angular velocities are refused below the frame-rate floor', function () {
+    var r = analyze({});
+    var lowRate = PGIPhases.analyze({
+      samples: clip({}),
+      com: r.comTrajectory,
+      timing: { timing: { overall: r.strideTiming.overall } },
+      directionSign: 1,
+      legLengthPx: r.video.legLengthPx,
+      calibration: r.video.calibration,
+      effectiveSampleRateHz: 12
+    });
+    var hip = lowRate.reboundProjection.overall.jointChanges.hip;
+    assert(hip.meanAngularVelocityDegPerS === null, 'no velocity fabricated at 12 Hz');
+    assert(hip.velocityAvailability.reason === 'video_frame_rate_insufficient', 'reason stated');
+    var okRate = r.reboundProjection.overall.jointChanges.hip;
+    assert(okRate.meanAngularVelocityDegPerS && isNum(okRate.meanAngularVelocityDegPerS.median),
+      'velocity available at 60 Hz');
+  });
+
+  test('toe-off velocity carries both estimates, cross-checked and never averaged', function () {
+    var r = analyze({});
+    var vto = r.reboundProjection.overall.verticalVelocityAtToeoff;
+    var flightMed = r.strideTiming.overall.flightSeconds.median;
+    assertClose(vto.ballisticFromFlightMps.median, 9.80665 * flightMed / 2, 0.08,
+      'ballistic estimate is g·t_flight/2');
+    assert(vto.poseDerived && isNum(vto.poseDerived.medianMps), 'pose-derived estimate exposed');
+    assert(isNum(vto.agreement.medianRelativeError), 'agreement quantified');
+    assert(vto.preferredSource === 'ballistic_flight_time', 'flight-derived leads');
+  });
+
+  test('the acceleration proxy is withheld when the COM velocity fails its cross-check', function () {
+    var r = analyze({});
+    var vto = r.reboundProjection.overall.verticalVelocityAtToeoff;
+    var accel = r.reboundProjection.overall.meanVerticalAccelerationProxy;
+    if (isNum(vto.agreement.medianRelativeError) && vto.agreement.medianRelativeError > 0.35) {
+      assert(accel.availability === 'unavailable', 'proxy withheld');
+      assert(accel.reason === 'com_velocity_quality_insufficient', 'reason names the gate');
+    } else {
+      assert(accel.pxPerS2, 'proxy available when the cross-check passes');
+    }
+  });
+
+  test('the outcome chain runs from minimum COM to stride length in order', function () {
+    var r = analyze({}, { userSpeedMps: 3.5 });
+    var chain = r.reboundProjection.outcomeChain;
+    assert(chain.sequence[0] === 'minimum_com', 'starts at minimum COM');
+    assert(chain.sequence[chain.sequence.length - 1] === 'stride_length', 'ends at stride length');
+    assert(isNum(chain.reboundDurationMs), 'rebound duration in the chain');
+    assert(isNum(chain.verticalVelocityAtToeoffMps), 'take-off velocity in the chain');
+    assert(isNum(chain.flightSeconds), 'flight in the chain');
+    assert(isNum(chain.strideLengthMeters), 'stride length in the chain');
+    assert(/not a full causal chain/i.test(chain.note), 'causality disclaimer');
+  });
+
+  test('the movement summary is descriptive and never grades the rebound', function () {
+    var r = analyze({}, { userSpeedMps: 3.5 });
+    var ms = r.reboundProjection.movementSummary;
+    assert(ms.availability === 'available', 'summary produced');
+    assert(/From minimum COM/.test(ms.text), 'anchored at minimum COM');
+    assert(/toe-off/.test(ms.text), 'runs to toe-off');
+    assert(!/excellent|poor|optimal|ideal/i.test(ms.text + ' ' + (ms.patternNote || '')),
+      'no grading vocabulary');
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  Stance-organization patterns (four-phase model)
+  // ═══════════════════════════════════════════════════════════════════════════
+  suite('Stance organization patterns');
+
+  function hasPattern(r, name) {
+    return r.patterns.some(function (p) { return p.pattern === name; });
+  }
+
+  test('deep compression with a strong rebound and useful flight reads as that combination', function () {
+    var r = analyze({ comDropPx: 9 });
+    assert(hasPattern(r, 'high_compression_strong_rebound'),
+      'pattern fires on the compliant fixture: ' +
+      r.patterns.map(function (p) { return p.pattern; }).join(', '));
+    var p = r.patterns.filter(function (x) { return x.pattern === 'high_compression_strong_rebound'; })[0];
+    assert(/neither is ranked/i.test(p.interpretation), 'refuses to rank strategies');
+  });
+
+  test('a short rebound with contained compression and real flight reads as rapid rebound', function () {
+    var r = analyze({ stanceSeconds: 0.20, flightSeconds: 0.14, comDropPx: 5, stanceEndDropPx: -3 });
+    assert(hasPattern(r, 'rapid_rebound'),
+      'got: ' + r.patterns.map(function (p) { return p.pattern; }).join(', '));
+  });
+
+  test('a long rebound with limited flight reads as slow rebound', function () {
+    var r = analyze({ stanceSeconds: 0.29, flightSeconds: 0.10, comDropPx: 9, minComSkew: 0.6 });
+    assert(hasPattern(r, 'slow_rebound'),
+      'got: ' + r.patterns.map(function (p) { return p.pattern; }).join(', '));
+  });
+
+  test('minimal compression with a quick reversal reads as the stiff strategy', function () {
+    var r = analyze({ stanceSeconds: 0.20, flightSeconds: 0.13, comDropPx: 2.5 });
+    assert(hasPattern(r, 'low_compression_rapid_rebound'),
+      'got: ' + r.patterns.map(function (p) { return p.pattern; }).join(', '));
+  });
+
+  test('deep compression that is not recovered reads as high compression / low rebound', function () {
+    var r = analyze({ stanceSeconds: 0.25, flightSeconds: 0.09, comDropPx: 10, stanceEndDropPx: 18 });
+    assert(hasPattern(r, 'high_compression_low_rebound'),
+      'got: ' + r.patterns.map(function (p) { return p.pattern; }).join(', '));
+  });
+
+  test('stance-organization patterns are withheld when the minimum is unreliable', function () {
+    function phasesFixture(unreliable) {
+      return {
+        availability: 'available',
+        minimumCom: { overall: { stancePercent: { median: 52 } } },
+        minimumComReliability: { medianConfidence: unreliable ? 0.3 : 0.9, unreliable: unreliable },
+        loadingCompression: { overall: { durationMs: { median: 130 },
+                                         fractionOfStance: { median: 0.57 } } },
+        reboundProjection: { overall: {
+          durationMs: { median: 95 }, fractionOfStance: { median: 0.43 },
+          comRise: { medianLegLengths: 0.08 },
+          meanComRiseVelocity: { medianLegLengthsPerS: 0.85 },
+          compressionToReboundRatio: { median: 1.35 } } }
+      };
+    }
+    var base = {
+      timing: { timing: { overall: { contactSeconds: { median: 0.225 },
+                                     flightSeconds: { median: 0.14 },
+                                     dutyFactor: { median: 0.62 } } } },
+      com: { decomposition: { overall: {
+              stanceCompression: { medianLegLengths: 0.05 },
+              stanceRebound: { medianLegLengths: 0.08 },
+              verticalOscillation: { medianLegLengths: 0.09 },
+              aerialRiseMeasured: { medianLegLengths: 0.04 } } },
+             velocity: { overall: {} } }
+    };
+    var okInput = { timing: base.timing, com: base.com, phases: phasesFixture(false) };
+    var badInput = { timing: base.timing, com: base.com, phases: phasesFixture(true) };
+    var ok = PGIPatterns.interpret(okInput);
+    var bad = PGIPatterns.interpret(badInput);
+    assert(ok.patterns.some(function (p) { return p.pattern === 'rapid_rebound'; }),
+      'fires when reliable');
+    assert(!bad.patterns.some(function (p) { return p.domain === 'rebound_projection'; }),
+      'no stance-organization pattern from an unreliable minimum');
+  });
+
+  test('phase durations are declared derived views of the landmark, not extra evidence', function () {
+    var r = analyze({ comDropPx: 9 });
+    var p = r.patterns.filter(function (x) { return x.domain === 'rebound_projection'; })[0];
+    assert(p, 'a stance-organization pattern fired');
+    var derived = p.supportingMetrics.derivedFromLandmark;
+    assert(derived, 'derived block present');
+    assert(/not independent evidence/i.test(derived.note), 'independence stated');
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  Rebound in pre/post comparison
+  // ═══════════════════════════════════════════════════════════════════════════
+  suite('Rebound comparison');
+
+  test('a faster, larger rebound with more flight is described — and not ranked', function () {
+    var out = PGIPatterns.interpretComparison({
+      reboundDurationMs: deltaOf(102, 87),
+      reboundRiseLegLengths: deltaOf(0.044, 0.056),
+      meanReboundVelocityLegLengthsPerS: deltaOf(0.43, 0.64),
+      minComStancePercent: deltaOf(52, 49),
+      flightSeconds: deltaOf(0.110, 0.126)
+    }, { speedComparable: true });
+    var p = out.patterns.filter(function (x) { return x.pattern === 'rebound_organization_change'; })[0];
+    assert(p, 'rebound comparison pattern fired');
+    assert(/faster and larger COM rebound/i.test(p.interpretation), 'describes the change');
+    assert(/greater aerial time/i.test(p.interpretation), 'links to the flight outcome');
+    assert(/neither condition is ranked/i.test(p.interpretation), 'refuses to rank');
+  });
+
+  test('THE BEFORE/AFTER CASE with rebound: the mechanical differences are reported faithfully', function () {
+    // AFTER: lower cadence, shorter GCT, more vertical excursion, longer
+    // flight, longer stride, faster and larger min-COM → toe-off rebound.
+    var a = analyze({ stanceSeconds: 0.245, flightSeconds: 0.105, comDropPx: 8 },
+                    { userSpeedMps: 3.5 });
+    var b = analyze({ stanceSeconds: 0.225, flightSeconds: 0.145, comDropPx: 11 },
+                    { userSpeedMps: 3.5 });
+    var cmp = PGICompare.compare({ result: a, label: 'Before' }, { result: b, label: 'After' });
+    assertLt(cmp.deltas.gctSeconds.absolute, 0, 'GCT shortened');
+    assertGt(cmp.deltas.flightSeconds.absolute, 0, 'flight lengthened');
+    assertLt(cmp.deltas.cadenceSpm.absolute, 0, 'cadence dropped');
+    assertGt(cmp.deltas.stepLengthMeters.absolute, 0, 'stride lengthened');
+    assertGt(cmp.deltas.verticalOscillationLegLengths.absolute, 0, 'excursion grew');
+    assert(cmp.deltas.reboundDurationMs.available, 'rebound duration compared');
+    assertLt(cmp.deltas.reboundDurationMs.absolute, 0, 'rebound got faster');
+    assertGt(cmp.deltas.reboundRiseLegLengths.absolute, 0, 'rebound rise grew');
+    assertGt(cmp.groups.reboundProjection.filter(function (d) { return d.available; }).length, 2,
+      'rebound group populated');
+    var names = cmp.patterns.map(function (p) { return p.pattern; });
+    assert(names.indexOf('productive_projection') !== -1,
+      'the productive combination is recognised, got: ' + names.join(', '));
+    var html = PGIRender.comparisonHtml(cmp);
+    assert(html.indexOf('Rebound / projection') !== -1, 'rebound group rendered');
+    assertOnlyInDenial(html, /\bbetter\b/, 'ranking language');
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  Four-phase storage, rendering and copy
+  // ═══════════════════════════════════════════════════════════════════════════
+  suite('Four-phase storage and rendering');
+
+  test('the stored form persists the phase blocks without per-step joint records', function () {
+    var stored = PGIAnalysis.toStoredForm(analyze({}, { userSpeedMps: 3.5 }));
+    assert(stored.minimumCom.availability === 'available', 'minimum COM stored');
+    assert(isNum(stored.minimumCom.overall.stancePercent.median), 'stance percent stored');
+    assert(isNum(stored.loadingCompression.overall.durationMs.median), 'loading duration stored');
+    assert(isNum(stored.reboundProjection.overall.comRise.medianLegLengths), 'rebound rise stored');
+    assert(stored.reboundProjection.outcomeChain, 'outcome chain stored');
+    assert(typeof stored.reboundProjection.movementSummary.text === 'string', 'summary stored verbatim');
+    var json = JSON.stringify(stored);
+    assert(json.indexOf('stepPhases') === -1, 'per-step joint samples never persisted');
+  });
+
+  test('rehydration restores the phase statics: ankle refusal, definitions, chain note', function () {
+    var stored = PGIAnalysis.toStoredForm(analyze({}, { userSpeedMps: 3.5 }));
+    var re = PGIAnalysis.rehydrateStatic(JSON.parse(JSON.stringify(stored)));
+    assert(re.minimumCom.definition &&
+           /Not the onset of propulsive force/i.test(re.minimumCom.definition),
+      'minimum-COM definition restored with its denial');
+    assert(re.loadingCompression.overall.jointChanges.ankle.reason === 'requires_foot_landmark',
+      'ankle refusal restored');
+    assert(re.reboundProjection.overall.verticalVelocityAtToeoff.preferredSource ===
+           'ballistic_flight_time', 'preferred source restored');
+    assert(/not a full causal chain/i.test(re.reboundProjection.outcomeChain.note),
+      'chain note restored');
+  });
+
+  test('a stored analysis renders the timeline and both phase cards', function () {
+    var re = PGIAnalysis.rehydrateStatic(
+      PGIAnalysis.toStoredForm(analyze({}, { userSpeedMps: 3.5 })));
+    var h = PGIRender.buildHtml(re);
+    assert(h.indexOf('Stride timeline') !== -1, 'timeline rendered');
+    assert(h.indexOf('MINIMUM COM') !== -1, 'minimum COM emphasised');
+    assert(h.indexOf('Loading / Compression') !== -1, 'loading card rendered');
+    assert(h.indexOf('Rebound / Projection') !== -1, 'rebound card rendered');
+    assert(h.indexOf('loading / compression') !== -1, 'trajectory shading labelled');
+  });
+
+  test('an old (pre-four-phase) stored document still renders, with the phase cards unavailable', function () {
+    var stored = PGIAnalysis.toStoredForm(analyze({}, { userSpeedMps: 3.5 }));
+    delete stored.minimumCom; delete stored.loadingCompression; delete stored.reboundProjection;
+    stored.schemaVersion = 3;
+    var re = PGIAnalysis.rehydrateStatic(JSON.parse(JSON.stringify(stored)));
+    var h = PGIRender.buildHtml(re);
+    assertGt(h.length, 2000, 'renders substantively');
+    assert(h.indexOf('NaN') === -1 && h.indexOf('undefined') === -1, 'clean render');
+    assert(/Loading \/ Compression/.test(h), 'loading card present as unavailable');
+  });
+
+  test('minimum COM is never described as the onset of propulsion', function () {
+    var h = PGIRender.buildHtml(analyze({}, { userSpeedMps: 3.5 }));
+    assert(/not the onset of propulsive force|not the point where force production begins|not the start of force production/i.test(h),
+      'the denial is stated');
+    assertOnlyInDenial(h, /onset of propulsive force/, 'propulsion-onset language');
+    assertOnlyInDenial(h, /force production/, 'force-production language');
+    assert(!/propulsive phase/i.test(h), 'the rebound phase is never named "propulsive phase"');
+  });
+
+  test('mean rebound velocity is labelled as motion, not force', function () {
+    var h = PGIRender.buildHtml(analyze({}, { userSpeedMps: 3.5 }));
+    assert(/Mean rebound velocity/i.test(h), 'metric shown');
+    assert(/mean COM rise velocity/i.test(h), 'described as a COM rise velocity');
+    assert(/motion, not force/i.test(h), 'denial adjacent to the metric');
+  });
+
+  test('the research export carries the minimum-COM and phase columns', function () {
+    var samples = clip({});
+    var r = PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 },
+                                  userHeightMeters: 1.78, surfaceType: 'overground',
+                                  userSpeedMps: 3.5 });
+    var b = PGIExport.buildExport(r, samples, { analysisId: 'P1' });
+    ['minimumComStancePercent', 'minimumComConfidence', 'compressionDurationMs',
+     'reboundDurationMs', 'reboundFraction', 'meanReboundVelocityMps',
+     'vyToeoffPoseMps', 'vyToeoffBallisticMps', 'toeoffVelocityAgreementRelError',
+     'hipAngleDeltaReboundDegrees', 'supportAngleMinComDegrees'].forEach(function (col) {
+      assert(PGIExport.STRIDE_COLUMNS.indexOf(col) !== -1, col + ' declared');
+      assert(b.strideLevel.some(function (row) { return isNum(row[col]); }),
+        col + ' populated on at least one stride');
+    });
+    b.strideLevel.forEach(function (row) {
+      assert(row.ankleAngleMinComDegrees === '' && row.ankleAngleDeltaReboundDegrees === '',
+        'ankle columns stay empty — no foot landmark exists');
+    });
+    assert(/NOT the onset of propulsive force/i.test(b.conventions.minimumCom),
+      'export conventions carry the denial');
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
   //  Stride outcome and arms
   // ═══════════════════════════════════════════════════════════════════════════
   suite('Stride outcome');
@@ -1189,7 +1712,7 @@
   test('the envelope carries the declared analysis type and schema version', function () {
     var r = analyze({});
     assert(r.analysisType === 'projection_ground_interaction', 'analysis type');
-    assert(r.schemaVersion === 3, 'schema version 3');
+    assert(r.schemaVersion === 4, 'schema version 4');
     assert(r.isValidated === false, 'not validated');
     assert(typeof r.modelVersion === 'string', 'model version present');
   });
@@ -1197,7 +1720,9 @@
   test('the stored form stays within the document budget', function () {
     var stored = PGIAnalysis.toStoredForm(analyze({}));
     var bytes = JSON.stringify(stored).length;
-    assertLt(bytes, 20480, 'stored bytes (' + bytes + ') under 20KB');
+    // The budget rose from 20KB when the four-phase blocks (minimum COM,
+    // loading/compression, rebound/projection) were added in schema v4.
+    assertLt(bytes, 24576, 'stored bytes (' + bytes + ') under 24KB');
   });
 
   test('no keypoints, per-step records or raw series reach the stored form', function () {
@@ -1337,7 +1862,8 @@
     var samples = clip({});
     var b = PGIExport.buildExport(
       PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 } }), samples, {});
-    assert(b.conventions.independentTimingQuantities.length === 2, 'two independent timing quantities');
+    assert(b.conventions.independentTimingQuantities.length === 3,
+      'contact, flight and minimum-COM timing are the independent quantities');
     assert(/must not be treated as independent/i.test(b.conventions.independenceNote),
       'independence caveat present');
   });

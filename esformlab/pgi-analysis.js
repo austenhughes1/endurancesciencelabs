@@ -41,11 +41,13 @@
     PGICom: require('./pgi-com.js'),
     PGITouchdown: require('./pgi-touchdown.js'),
     PGIOutcome: require('./pgi-outcome.js'),
+    PGIPhases: require('./pgi-phases.js'),
     PGIPatterns: require('./pgi-patterns.js')
   } : {
     KFO: root.KFO, KFOAnalysis: root.KFOAnalysis, KFOEstimators: root.KFOEstimators,
     PGI: root.PGI, PGITiming: root.PGITiming, PGICom: root.PGICom,
-    PGITouchdown: root.PGITouchdown, PGIOutcome: root.PGIOutcome, PGIPatterns: root.PGIPatterns
+    PGITouchdown: root.PGITouchdown, PGIOutcome: root.PGIOutcome,
+    PGIPhases: root.PGIPhases, PGIPatterns: root.PGIPatterns
   };
   var api = factory(deps);
   if (isNode) module.exports = api;
@@ -55,7 +57,8 @@
 
   var KFO = d.KFO, KFOAnalysis = d.KFOAnalysis, KFOEstimators = d.KFOEstimators,
       PGI = d.PGI, PGITiming = d.PGITiming, PGICom = d.PGICom,
-      PGITouchdown = d.PGITouchdown, PGIOutcome = d.PGIOutcome, PGIPatterns = d.PGIPatterns;
+      PGITouchdown = d.PGITouchdown, PGIOutcome = d.PGIOutcome,
+      PGIPhases = d.PGIPhases, PGIPatterns = d.PGIPatterns;
 
   function isNum(v) { return typeof v === 'number' && isFinite(v); }
   function median(a) { return KFO._internals.median(a); }
@@ -88,6 +91,8 @@
     }
     if (ctx.velocityWindow && !ctx.velocityWindow.available) add(F.VELOCITY_SAMPLING_INSUFFICIENT);
     if (ctx.denseRequested && !ctx.denseUsed) add(F.DENSE_PRECONTACT_UNAVAILABLE);
+    if (ctx.minimumComReliability && ctx.minimumComReliability.unreliable &&
+        ctx.comAvailable) add(F.MINIMUM_COM_UNRELIABLE);
     return flags;
   }
 
@@ -162,6 +167,48 @@
     }
     if (geom && geom.symmetry && geom.symmetry.available) {
       out.supportGeometry = geom.symmetry; any = true;
+    }
+
+    // ── Loading/rebound phase asymmetry (four-phase model) ──
+    // Descriptive deltas only: no red/yellow/green banding exists for these
+    // until normative data do.
+    var ph = parts.phases;
+    if (ph && ph.availability === 'available' && ph.loadingCompression && ph.reboundProjection) {
+      function medOf(block, path) {
+        var cur = block;
+        path.split('.').forEach(function (k) { cur = cur ? cur[k] : null; });
+        return (cur && isNum(cur.median)) ? cur.median : null;
+      }
+      function diff(l, r) { return (isNum(l) && isNum(r)) ? l - r : null; }
+      function relDiff(l, r) {
+        if (!isNum(l) || !isNum(r)) return null;
+        var mean = (l + r) / 2;
+        return mean !== 0 ? (l - r) / mean : null;
+      }
+      var lcL = ph.loadingCompression.left, lcR = ph.loadingCompression.right;
+      var rpL = ph.reboundProjection.left, rpR = ph.reboundProjection.right;
+      var mcL = ph.minimumCom ? ph.minimumCom.left : null;
+      var mcR = ph.minimumCom ? ph.minimumCom.right : null;
+      if (lcL && lcR && lcL.n > 0 && lcR.n > 0 && rpL && rpR) {
+        out.stancePhases = {
+          minimumComStancePercentDifference: diff(
+            mcL && mcL.stancePercent ? mcL.stancePercent.median : null,
+            mcR && mcR.stancePercent ? mcR.stancePercent.median : null),
+          compressionDurationDifferenceMs: diff(medOf(lcL, 'durationMs'), medOf(lcR, 'durationMs')),
+          compressionDepthDifferenceLegLengths: diff(
+            lcL.compression ? lcL.compression.medianLegLengths : null,
+            lcR.compression ? lcR.compression.medianLegLengths : null),
+          reboundDurationDifferenceMs: diff(medOf(rpL, 'durationMs'), medOf(rpR, 'durationMs')),
+          reboundDurationRelativeDifference: relDiff(medOf(rpL, 'durationMs'), medOf(rpR, 'durationMs')),
+          reboundRiseDifferenceLegLengths: diff(
+            rpL.comRise ? rpL.comRise.medianLegLengths : null,
+            rpR.comRise ? rpR.comRise.medianLegLengths : null),
+          meanReboundVelocityDifferenceLegLengthsPerS: diff(
+            rpL.meanComRiseVelocity ? rpL.meanComRiseVelocity.medianLegLengthsPerS : null,
+            rpR.meanComRiseVelocity ? rpR.meanComRiseVelocity.medianLegLengthsPerS : null)
+        };
+        any = true;
+      }
     }
     out.available = any;
     if (!any) out.reason = 'insufficient_bilateral_data';
@@ -254,6 +301,7 @@
       steps: timing.steps || [],
       legLengthPx: legLengthPx,
       userHeightCalibration: heightCal,
+      directionSign: direction.sign,
       smoothing: input.smoothing
     });
     var calibration = (com.availability === KFO.AVAILABILITY.AVAILABLE && com.calibration)
@@ -324,7 +372,9 @@
       treadmillSpeedMps: input.treadmillSpeedMps,
       velocityWindow: touchdown.velocityWindow,
       denseRequested: !!(input.denseWindows && input.denseWindows.length),
-      denseUsed: !!(touchdown.densePreContactSampling && touchdown.densePreContactSampling.used)
+      denseUsed: !!(touchdown.densePreContactSampling && touchdown.densePreContactSampling.used),
+      minimumComReliability: com.minimumComReliability || null,
+      comAvailable: com.availability === KFO.AVAILABILITY.AVAILABLE
     });
     var confidence = KFO.computeConfidence({
       poseConfidence: meanPoseConfidence,
@@ -348,6 +398,19 @@
     });
 
     var rebound = buildRebound(com, timing);
+
+    // ── Four-phase stride model (minimum-COM landmark) ──
+    var phases = PGIPhases.analyze({
+      samples: samples,
+      com: com,
+      timing: timing,
+      outcome: outcome,
+      directionSign: direction.sign,
+      legLengthPx: legLengthPx,
+      calibration: calibration,
+      effectiveSampleRateHz: effectiveRate,
+      smoothing: input.smoothing
+    });
 
     // ── Envelope ──
     envelope.video = {
@@ -444,17 +507,55 @@
           verticalSupport: timing.verticalSupport };
     envelope.comTrajectory = com;
     envelope.rebound = rebound;
+    // The four-phase blocks. minimumCom is exposed even when the joint-angle
+    // pass could not run, because the landmark itself only needs the COM pass.
+    envelope.minimumCom = (com.availability === KFO.AVAILABILITY.AVAILABLE && com.minimumCom)
+      ? {
+          availability: KFO.AVAILABILITY.AVAILABLE,
+          overall: com.minimumCom.overall,
+          left: com.minimumCom.left,
+          right: com.minimumCom.right,
+          reliability: com.minimumComReliability,
+          note: com.minimumCom.note,
+          definition: phases.definition ? phases.definition.minimumCom : null
+        }
+      : { availability: KFO.AVAILABILITY.UNAVAILABLE, reason: com.reason || 'com_trajectory_unavailable' };
+    envelope.loadingCompression = phases.availability === KFO.AVAILABILITY.AVAILABLE
+      ? {
+          availability: KFO.AVAILABILITY.AVAILABLE,
+          definition: phases.definition.loadingCompression,
+          overall: phases.loadingCompression.overall,
+          left: phases.loadingCompression.left,
+          right: phases.loadingCompression.right,
+          note: phases.loadingCompression.note
+        }
+      : { availability: KFO.AVAILABILITY.UNAVAILABLE, reason: phases.reason };
+    envelope.reboundProjection = phases.availability === KFO.AVAILABILITY.AVAILABLE
+      ? {
+          availability: KFO.AVAILABILITY.AVAILABLE,
+          definition: phases.definition.reboundProjection,
+          overall: phases.reboundProjection.overall,
+          left: phases.reboundProjection.left,
+          right: phases.reboundProjection.right,
+          note: phases.reboundProjection.note,
+          outcomeChain: phases.outcomeChain,
+          movementSummary: phases.movementSummary,
+          stepPhases: phases.stepPhases   // runtime/export only; not persisted
+        }
+      : { availability: KFO.AVAILABILITY.UNAVAILABLE, reason: phases.reason };
     envelope.strideOutcome = outcome;
     envelope.armCarriage = arms;
 
     var interpreted = PGIPatterns.interpret({
       touchdown: touchdown, timing: timing, com: com, outcome: outcome,
+      phases: phases,
       quality: envelope.quality
     });
     envelope.patterns = interpreted.patterns;
     envelope.domains = interpreted.domains;
     envelope.symmetry = buildSymmetry({
-      touchdown: touchdown, timing: timing, com: com, geometry: envelope.supportGeometry
+      touchdown: touchdown, timing: timing, com: com, geometry: envelope.supportGeometry,
+      phases: phases
     });
     envelope.comparison = null;
 
@@ -556,7 +657,8 @@
       col('t', function (q) { return q.tMsFromTouchdown; }, 0);
       col('pct', function (q) { return q.pct; }, 0);
       col('w', function (q) { return q.worldForward; }, 3);
-      col('h', function (q) { return q.height; }, 3);
+      // Touchdown paths carry `height`; the COM step path carries `h`.
+      col('h', function (q) { return isNum(q.height) ? q.height : q.h; }, 3);
       col('c', function (q) { return q.comRelativeForward; }, 3);
       return out;
     }
@@ -665,6 +767,109 @@
       };
     }
 
+    // ── Four-phase blocks (compact) ──
+    // Per-side joint blocks keep only the CHANGE aggregates; the overall block
+    // keeps the endpoint angles too. The permanently-unavailable ankle/pelvis
+    // markers and all static notes are rebuilt at read time.
+    function jointLite(j, full) {
+      if (!j || j.availability === 'unavailable') return null;
+      var o = { changeDegrees: aggDisplay(j.changeDegrees) };
+      if (full) {
+        o.angleAtStartDegrees = aggDisplay(j.angleAtStartDegrees);
+        o.angleAtEndDegrees = aggDisplay(j.angleAtEndDegrees);
+      }
+      return o;
+    }
+    function jointChangesLite(jc, full) {
+      if (!jc) return null;
+      return { hip: jointLite(jc.hip, full), knee: jointLite(jc.knee, full),
+               trunk: jointLite(jc.trunk, full), shank: jointLite(jc.shank, full) };
+    }
+    // Side blocks store the compact core (duration, depth/rise, rise velocity);
+    // the overall block carries joint endpoints, support geometry, fractions and
+    // the toe-off velocity pair. Side-to-side deltas persist in
+    // symmetry.stancePhases, so the per-side detail is not duplicated here.
+    function minComSideLite(b, full) {
+      if (!b || !b.n) return b ? { n: 0 } : null;
+      var o = {
+        n: b.n,
+        stancePercent: full ? aggLite(b.stancePercent) : aggDisplay(b.stancePercent),
+        confidence: aggDisplay(b.confidence)
+      };
+      if (full) {
+        o.flagCounts = (b.flagCounts && Object.keys(b.flagCounts).length) ? b.flagCounts : null;
+        o.detectionMethod = b.detectionMethod;
+      }
+      return o;
+    }
+    function loadingSideLite(b, full) {
+      if (!b || !b.n) return b ? { n: 0 } : null;
+      var o = {
+        n: b.n,
+        durationMs: full ? aggLite(b.durationMs) : aggDisplay(b.durationMs),
+        compression: lengthLite(b.compression)
+      };
+      if (full) {
+        o.fractionOfStance = aggLite(b.fractionOfStance);
+        o.horizontalTravel = lengthLite(b.horizontalTravel);
+        o.jointChanges = jointChangesLite(b.jointChanges, true);
+        o.supportGeometry = b.supportGeometry ? {
+          angleAtTouchdownDegrees: aggDisplay(b.supportGeometry.angleAtTouchdownDegrees),
+          angleAtMinimumComDegrees: aggDisplay(b.supportGeometry.angleAtMinimumComDegrees)
+        } : null;
+      }
+      return o;
+    }
+    function reboundSideLite(b, full) {
+      if (!b || !b.n) return b ? { n: 0 } : null;
+      var vto = b.verticalVelocityAtToeoff || {};
+      var o = {
+        n: b.n,
+        durationMs: full ? aggLite(b.durationMs) : aggDisplay(b.durationMs),
+        comRise: lengthLite(b.comRise),
+        meanComRiseVelocity: velLite(b.meanComRiseVelocity)
+      };
+      if (full) {
+        o.fractionOfStance = aggLite(b.fractionOfStance);
+        o.horizontalTravel = lengthLite(b.horizontalTravel);
+        o.verticalVelocityAtToeoff = {
+          poseDerived: velLite(vto.poseDerived),
+          ballisticFromFlightMps: aggLite(vto.ballisticFromFlightMps),
+          agreement: (vto.agreement && isNum(vto.agreement.medianRelativeError)) ? {
+            medianRelativeError: round(vto.agreement.medianRelativeError, 4),
+            isIndependent: vto.agreement.isIndependent
+          } : null
+        };
+        o.compressionToReboundRatio = aggLite(b.compressionToReboundRatio);
+        o.jointChanges = jointChangesLite(b.jointChanges, true);
+        o.supportGeometry = b.supportGeometry ? {
+          angleAtMinimumComDegrees: aggDisplay(b.supportGeometry.angleAtMinimumComDegrees),
+          angleAtLateStanceDegrees: aggDisplay(b.supportGeometry.angleAtLateStanceDegrees)
+        } : null;
+        o.comVelocityAtMinimum = velLite(b.comVelocityAtMinimum);
+        if (b.meanVerticalAccelerationProxy && b.meanVerticalAccelerationProxy.pxPerS2) {
+          o.meanVerticalAccelerationProxy = {
+            medianLegLengthsPerS2: round(b.meanVerticalAccelerationProxy.medianLegLengthsPerS2, 3),
+            medianMps2: round(b.meanVerticalAccelerationProxy.medianMps2, 3)
+          };
+        }
+      }
+      return o;
+    }
+    function chainLite(c) {
+      if (!c) return null;
+      return {
+        minimumComStancePercent: round(c.minimumComStancePercent, 2),
+        reboundRiseLegLengths: round(c.reboundRiseLegLengths, 4),
+        reboundRiseCentimeters: round(c.reboundRiseCentimeters, 2),
+        reboundDurationMs: round(c.reboundDurationMs, 1),
+        verticalVelocityAtToeoffMps: round(c.verticalVelocityAtToeoffMps, 4),
+        flightSeconds: round(c.flightSeconds, 4),
+        aerialRiseBallisticMeters: round(c.aerialRiseBallisticMeters, 5),
+        strideLengthMeters: round(c.strideLengthMeters, 3)
+      };
+    }
+
     var td = result.touchdownPreparation || {};
     var com = result.comTrajectory || {};
     var sg = result.supportGeometry || {};
@@ -672,6 +877,9 @@
     var st = result.strideTiming || {};
     var so = result.strideOutcome || {};
     var rb = result.rebound || {};
+    var mc = result.minimumCom || {};
+    var lc = result.loadingCompression || {};
+    var rp = result.reboundProjection || {};
 
     return {
       analysisType: result.analysisType,
@@ -786,6 +994,35 @@
         reversalRateLegLengthsPerS2: aggLite(rb.reversalRateLegLengthsPerS2),
         reversalRateMps2: aggLite(rb.reversalRateMps2)
       },
+      minimumCom: mc.availability === KFO.AVAILABILITY.AVAILABLE ? {
+        availability: mc.availability,
+        overall: minComSideLite(mc.overall, true),
+        left: minComSideLite(mc.left, false),
+        right: minComSideLite(mc.right, false),
+        reliability: mc.reliability ? {
+          medianConfidence: round(mc.reliability.medianConfidence, 3),
+          unreliable: !!mc.reliability.unreliable
+        } : null
+      } : { availability: mc.availability || null, reason: mc.reason || null },
+      loadingCompression: lc.availability === KFO.AVAILABILITY.AVAILABLE ? {
+        availability: lc.availability,
+        overall: loadingSideLite(lc.overall, true),
+        left: loadingSideLite(lc.left, false),
+        right: loadingSideLite(lc.right, false)
+      } : { availability: lc.availability || null, reason: lc.reason || null },
+      reboundProjection: rp.availability === KFO.AVAILABILITY.AVAILABLE ? {
+        availability: rp.availability,
+        overall: reboundSideLite(rp.overall, true),
+        left: reboundSideLite(rp.left, false),
+        right: reboundSideLite(rp.right, false),
+        outcomeChain: chainLite(rp.outcomeChain),
+        // The movement summary is built from computed values, so it is stored
+        // verbatim like pattern observations.
+        movementSummary: (rp.movementSummary && rp.movementSummary.availability === 'available') ? {
+          text: rp.movementSummary.text,
+          patternNote: rp.movementSummary.patternNote || null
+        } : null
+      } : { availability: rp.availability || null, reason: rp.reason || null },
       strideOutcome: {
         availability: so.availability, reason: so.reason || null, method: so.method || null,
         speedMps: round(so.speedMps, 3), speedSource: so.speedSource,
@@ -892,6 +1129,69 @@
       out.patterns.forEach(function (p) {
         if (!p.alternatives) p.alternatives = PGIPatterns.alternativesFor(p.pattern);
       });
+    }
+
+    // ── Four-phase static prose ──
+    var MIN_COM_DEFINITION = 'Kinematic reversal point of vertical COM motion (vertical COM ' +
+      'velocity ≈ 0). Not the onset of propulsive force, and not the fore-aft ' +
+      'braking-to-propulsion force reversal, which is a separate unobserved event.';
+    function restoreJointMarkers(sideBlock) {
+      if (!sideBlock || !sideBlock.jointChanges) return;
+      sideBlock.jointChanges.ankle = {
+        availability: 'unavailable', reason: 'requires_foot_landmark',
+        note: 'COCO-17 provides no heel, toe or foot landmark, so no foot segment exists to ' +
+          'measure plantarflexion against. The shank angle carries the distal-segment motion instead.'
+      };
+      sideBlock.jointChanges.pelvis = {
+        availability: 'unavailable', reason: 'requires_pelvis_landmarks',
+        note: 'Sagittal pelvis orientation cannot be resolved from the two near-collinear COCO-17 ' +
+          'hip points.'
+      };
+      if (sideBlock.supportGeometry) {
+        sideBlock.supportGeometry.signConvention = 'negative = support point ahead of the COM';
+        sideBlock.supportGeometry.role = 'secondary_descriptive_geometry';
+      }
+    }
+    if (out.minimumCom && out.minimumCom.availability === 'available') {
+      out.minimumCom.definition = MIN_COM_DEFINITION;
+      out.minimumCom.note = 'Minimum COM is the kinematic reversal point of vertical COM motion — ' +
+        'vertical COM velocity is approximately zero there. It is not the onset of propulsive ' +
+        'force: upward force is already produced before it to decelerate the descending COM.';
+    }
+    if (out.loadingCompression && out.loadingCompression.availability === 'available') {
+      out.loadingCompression.definition = 'touchdown → minimum COM';
+      out.loadingCompression.note = 'How the runner receives and compresses into the ground. More ' +
+        'compression is not automatically worse — deep and shallow strategies both appear in ' +
+        'effective running.';
+      ['overall', 'left', 'right'].forEach(function (s) {
+        restoreJointMarkers(out.loadingCompression[s]);
+      });
+    }
+    if (out.reboundProjection && out.reboundProjection.availability === 'available') {
+      out.reboundProjection.definition = 'minimum COM → toe-off';
+      out.reboundProjection.note = 'How the body is organised from the lowest COM point through ' +
+        'toe-off to create the outgoing stride. These are motion quantities: none is a measured ' +
+        'force, and no single joint is credited with creating propulsion on its own.';
+      ['overall', 'left', 'right'].forEach(function (s) {
+        var b = out.reboundProjection[s];
+        restoreJointMarkers(b);
+        if (b && b.verticalVelocityAtToeoff) {
+          b.verticalVelocityAtToeoff.preferredSource = 'ballistic_flight_time';
+        }
+      });
+      if (out.reboundProjection.outcomeChain) {
+        out.reboundProjection.outcomeChain.sequence = ['minimum_com', 'rebound_rise',
+          'rebound_duration', 'vertical_velocity_at_toeoff', 'toe_off', 'flight_time',
+          'aerial_rise', 'stride_length'];
+        out.reboundProjection.outcomeChain.verticalVelocitySource = 'ballistic_flight_time';
+        out.reboundProjection.outcomeChain.note = 'A temporal sequence, not a full causal chain: ' +
+          'mechanics link these quantities in order, but no step is claimed to be produced by a ' +
+          'single joint or fully determined by the one before it.';
+      }
+      if (out.reboundProjection.movementSummary) {
+        out.reboundProjection.movementSummary.availability = 'available';
+        out.reboundProjection.movementSummary.isDescriptive = true;
+      }
     }
     return out;
   }

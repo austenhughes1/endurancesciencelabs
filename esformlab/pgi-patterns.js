@@ -83,7 +83,18 @@
     aerialShareHigh: 0.45,
     aerialShareLow: 0.25,
     // Fraction of contacts needing clear retraction to call preparation clean.
-    clearRetractionFraction: 0.6
+    clearRetractionFraction: 0.6,
+    // ── Four-phase (minimum-COM) stance organization ──
+    // Rebound duration is GCT × (1 − compressionFraction), so these bands must
+    // stay reachable inside the accepted running range: with GCT ≤ 0.30 s and a
+    // rebound fraction near 0.5, 105–150 ms brackets the observable middle.
+    reboundShortMs: 105,
+    reboundLongMs: 140,
+    compressionSmallLegLengths: 0.05,
+    // stanceCompressionLargeLegLengths (0.075) above doubles as the four-phase
+    // "high compression" band.
+    reboundRiseMeaningfulLegLengths: 0.05,
+    reboundRiseLimitedLegLengths: 0.03
   });
 
   var THRESHOLD_NOTE = 'Thresholds are provisional internal working values, not validated ' +
@@ -200,7 +211,49 @@
     set('flightDistanceMeters', o.flightDistanceMeters ? o.flightDistanceMeters.median : null);
     set('speedMps', o.speedMps);
     r.speedKnown = isNum(o.speedMps);
+
+    // ── Four-phase (minimum-COM) readings ──
+    // The genuinely new independent quantity is the minimum-COM timing within
+    // stance. Compression/rebound durations and fractions are algebra on GCT
+    // plus that timing; mean rebound velocity is rise over rebound time.
+    var ph = input.phases || {};
+    var phOk = ph.availability === 'available';
+    var rp = phOk && ph.reboundProjection ? ph.reboundProjection.overall : null;
+    var lc = phOk && ph.loadingCompression ? ph.loadingCompression.overall : null;
+    var mc = phOk && ph.minimumCom ? ph.minimumCom.overall : null;
+    function medOf(a) { return a && isNum(a.median) ? a.median : null; }
+    set('minComStancePercent', mc ? medOf(mc.stancePercent) : null);
+    set('compressionDurationMs', lc ? medOf(lc.durationMs) : null);
+    set('compressionFraction', lc ? medOf(lc.fractionOfStance) : null);
+    set('reboundDurationMs', rp ? medOf(rp.durationMs) : null);
+    set('reboundFraction', rp ? medOf(rp.fractionOfStance) : null);
+    set('reboundRiseLegLengths', rp && rp.comRise ? rp.comRise.medianLegLengths : null);
+    set('meanReboundVelocityLegLengthsPerS',
+        rp && rp.meanComRiseVelocity ? rp.meanComRiseVelocity.medianLegLengthsPerS : null);
+    set('compressionToReboundRatio', rp ? medOf(rp.compressionToReboundRatio) : null);
+    // Strong rebound interpretation is withheld when the minimum-COM landmark
+    // could not be reliably located.
+    r.minimumComReliable = !!(phOk && (!ph.minimumComReliability ||
+      ph.minimumComReliability.unreliable === false));
     return r;
+  }
+
+  /** Derived four-phase views, listed together as restatements of the landmark. */
+  function phaseViews(r) {
+    return {
+      minComStancePercent: r.minComStancePercent,
+      reboundDurationMs: r.reboundDurationMs,
+      derivedFromLandmark: {
+        compressionDurationMs: r.compressionDurationMs,
+        compressionFraction: r.compressionFraction,
+        reboundFraction: r.reboundFraction,
+        compressionToReboundRatio: r.compressionToReboundRatio,
+        meanReboundVelocityLegLengthsPerS: r.meanReboundVelocityLegLengthsPerS,
+        note: 'Compression and rebound durations, both fractions and the ratio are algebra on ' +
+          'contact time and the minimum-COM timing; mean rebound velocity is rise over rebound ' +
+          'time. They are views of the landmark, not independent evidence.'
+      }
+    };
   }
 
   /** Derived timing views, listed together so they read as one quantity restated. */
@@ -474,6 +527,145 @@
     });
   }
 
+  // ── Stance-organization rules (four-phase model) ────────────────────────────
+  //
+  // These read the minimum-COM landmark: how deep the compression went, how
+  // long the rebound took, how much the COM rose, and what flight resulted.
+  // They fire only when the landmark was reliably located, and NO compression
+  // or stiffness strategy is ranked as universally superior — each pattern is a
+  // description of how stance is organised, not a grade.
+
+  function phaseGate(r) {
+    return r.minimumComReliable &&
+           r.available.reboundDurationMs && r.available.stanceCompressionLegLengths;
+  }
+
+  function rapidRebound(r, T) {
+    if (!phaseGate(r)) return null;
+    if (!(r.reboundDurationMs <= T.reboundShortMs)) return null;
+    if (!(isNum(r.reboundRiseLegLengths) && r.reboundRiseLegLengths >= T.reboundRiseMeaningfulLegLengths)) return null;
+    if (!(isNum(r.flightSeconds) && r.flightSeconds > T.flightShortSeconds)) return null;
+    if (r.stanceCompressionLegLengths >= T.stanceCompressionLargeLegLengths) return null;
+    return makePattern({
+      pattern: PGI.STANCE_ORGANIZATION_PATTERN.RAPID_REBOUND,
+      domain: 'rebound_projection',
+      confidence: conf(0.7, r),
+      observations: [
+        'Rebound (minimum COM → toe-off) lasts ' + Math.round(r.reboundDurationMs) + ' ms (short by provisional bands)',
+        'COM rises ' + r.reboundRiseLegLengths.toFixed(3) + ' leg lengths during rebound',
+        'Flight time ' + Math.round(r.flightSeconds * 1000) + ' ms follows',
+        'Stance compression ' + r.stanceCompressionLegLengths.toFixed(3) + ' leg lengths is contained'
+      ],
+      interpretation: 'The outgoing stride is organised quickly after the vertical reversal: a short ' +
+        'rebound interval still produces a useful COM rise and flight.' + (r.speedKnown ? '' : ' ' + SPEED_CAVEAT),
+      alternatives: ['Fast running speed', 'Stance edges detected too tightly',
+                     'Minimum COM located late by a flat trajectory'],
+      supportingMetrics: phaseViews(r),
+      evidenceClasses: ['timing', 'com', 'minimum_com_landmark'],
+      sortWeight: 76
+    });
+  }
+
+  function slowRebound(r, T) {
+    if (!phaseGate(r)) return null;
+    if (!(r.reboundDurationMs >= T.reboundLongMs)) return null;
+    if (!(isNum(r.flightSeconds) && r.flightSeconds <= T.flightShortSeconds)) return null;
+    return makePattern({
+      pattern: PGI.STANCE_ORGANIZATION_PATTERN.SLOW_REBOUND,
+      domain: 'rebound_projection',
+      confidence: conf(0.65, r),
+      observations: [
+        'Rebound (minimum COM → toe-off) lasts ' + Math.round(r.reboundDurationMs) + ' ms (long by provisional bands)',
+        'Flight time ' + Math.round(r.flightSeconds * 1000) + ' ms is limited',
+        isNum(r.meanReboundVelocityLegLengthsPerS)
+          ? 'Mean COM rise velocity during rebound ' + r.meanReboundVelocityLegLengthsPerS.toFixed(2) + ' leg lengths/s'
+          : null
+      ].filter(Boolean),
+      interpretation: 'The COM rise from minimum COM to toe-off is produced over a long interval and ' +
+        'yields limited flight. This describes stance organisation, not force output.' +
+        (r.speedKnown ? '' : ' ' + SPEED_CAVEAT),
+      alternatives: ['Slow running speed', 'Uphill running',
+                     'Contact edges over-extended by sparse stance sampling'],
+      supportingMetrics: phaseViews(r),
+      evidenceClasses: ['timing', 'com', 'minimum_com_landmark'],
+      sortWeight: 74
+    });
+  }
+
+  function highCompressionLowRebound(r, T) {
+    if (!phaseGate(r)) return null;
+    if (!(r.stanceCompressionLegLengths >= T.stanceCompressionLargeLegLengths)) return null;
+    if (!(isNum(r.reboundRiseLegLengths) && r.reboundRiseLegLengths <= T.reboundRiseLimitedLegLengths)) return null;
+    if (!(isNum(r.flightSeconds) && r.flightSeconds <= T.flightShortSeconds)) return null;
+    return makePattern({
+      pattern: PGI.STANCE_ORGANIZATION_PATTERN.HIGH_COMPRESSION_LOW_REBOUND,
+      domain: 'rebound_projection',
+      confidence: conf(0.65, r),
+      observations: [
+        'Stance compression ' + r.stanceCompressionLegLengths.toFixed(3) + ' leg lengths (large by provisional bands)',
+        'COM rise during rebound is limited: ' + r.reboundRiseLegLengths.toFixed(3) + ' leg lengths',
+        'Flight time ' + Math.round(r.flightSeconds * 1000) + ' ms is short'
+      ],
+      interpretation: 'The COM travels a long way down under load but recovers little of that height ' +
+        'before toe-off, and flight is limited. The compression itself is not the finding — the ' +
+        'combination with the limited rebound and flight is.',
+      alternatives: ['Fatigue during the trial', 'COM estimate degraded by occluded landmarks',
+                     'Soft or uneven surface'],
+      supportingMetrics: phaseViews(r),
+      evidenceClasses: ['com', 'timing', 'minimum_com_landmark'],
+      sortWeight: 79
+    });
+  }
+
+  function highCompressionStrongRebound(r, T) {
+    if (!phaseGate(r)) return null;
+    if (!(r.stanceCompressionLegLengths >= T.stanceCompressionLargeLegLengths)) return null;
+    if (!(isNum(r.reboundRiseLegLengths) && r.reboundRiseLegLengths >= T.reboundRiseMeaningfulLegLengths)) return null;
+    if (!(isNum(r.flightSeconds) && r.flightSeconds > T.flightShortSeconds)) return null;
+    return makePattern({
+      pattern: PGI.STANCE_ORGANIZATION_PATTERN.HIGH_COMPRESSION_STRONG_REBOUND,
+      domain: 'rebound_projection',
+      confidence: conf(0.65, r),
+      observations: [
+        'Stance compression ' + r.stanceCompressionLegLengths.toFixed(3) + ' leg lengths (large by provisional bands)',
+        'COM rises ' + r.reboundRiseLegLengths.toFixed(3) + ' leg lengths from minimum COM to toe-off',
+        'Flight time ' + Math.round(r.flightSeconds * 1000) + ' ms follows'
+      ],
+      interpretation: 'A deep compression is followed by a substantial rebound and useful flight — a ' +
+        'compliant stance strategy that still projects. Deep and shallow strategies both appear in ' +
+        'effective running; neither is ranked above the other.',
+      alternatives: ['Slow-motion or high-amplitude running style', 'COM estimate noise inflating both phases'],
+      supportingMetrics: phaseViews(r),
+      evidenceClasses: ['com', 'timing', 'minimum_com_landmark'],
+      sortWeight: 72
+    });
+  }
+
+  function lowCompressionRapidRebound(r, T) {
+    if (!phaseGate(r)) return null;
+    if (!(r.stanceCompressionLegLengths <= T.compressionSmallLegLengths)) return null;
+    if (!(r.reboundDurationMs <= T.reboundShortMs)) return null;
+    if (!(isNum(r.flightSeconds) && r.flightSeconds >= T.flightShortSeconds)) return null;
+    return makePattern({
+      pattern: PGI.STANCE_ORGANIZATION_PATTERN.LOW_COMPRESSION_RAPID_REBOUND,
+      domain: 'rebound_projection',
+      confidence: conf(0.65, r),
+      observations: [
+        'Stance compression ' + r.stanceCompressionLegLengths.toFixed(3) + ' leg lengths (small by provisional bands)',
+        'Rebound (minimum COM → toe-off) lasts ' + Math.round(r.reboundDurationMs) + ' ms',
+        'Flight time ' + Math.round(r.flightSeconds * 1000) + ' ms follows'
+      ],
+      interpretation: 'A relatively stiff support strategy: the COM compresses little, the vertical ' +
+        'reversal is organised quickly, and flight still results. This is a kinematic description — ' +
+        'leg stiffness itself is not measured.',
+      alternatives: ['Fast running speed', 'Sparse stance sampling flattening the trajectory',
+                     'Minimum COM located by a shallow, flat trajectory'],
+      supportingMetrics: phaseViews(r),
+      evidenceClasses: ['com', 'timing', 'minimum_com_landmark'],
+      sortWeight: 71
+    });
+  }
+
   /** Re-emit each side's touchdown/braking classification into the unified list. */
   function touchdownPatterns(input) {
     var out = [];
@@ -571,7 +763,9 @@
     var r = readings(input);
     var patterns = [];
     [verticalOscillationComposition, lowProjection, slowProjection, productiveProjection,
-     collisionHeavy, excessiveVerticalExcursion, elasticRapidRebound].forEach(function (rule) {
+     collisionHeavy, excessiveVerticalExcursion, elasticRapidRebound,
+     rapidRebound, slowRebound, highCompressionLowRebound, highCompressionStrongRebound,
+     lowCompressionRapidRebound].forEach(function (rule) {
       var p = rule(r, T);
       if (p) patterns.push(p);
     });
@@ -751,12 +945,57 @@
       }));
     }
 
+    // ── Rebound organization change (four-phase model) ──
+    // Reads the minimum-COM-anchored rebound: duration, rise and the flight
+    // that followed. Describes the change; ranks neither condition.
+    var rbDur = direction(d.reboundDurationMs, 0.05);
+    var rbRise = direction(d.reboundRiseLegLengths, 0.05);
+    if ((rbDur !== DIRECTION.UNKNOWN || rbRise !== DIRECTION.UNKNOWN) &&
+        (rbDur === DIRECTION.UP || rbDur === DIRECTION.DOWN ||
+         rbRise === DIRECTION.UP || rbRise === DIRECTION.DOWN)) {
+      var speedPart = rbDur === DIRECTION.DOWN ? 'a faster' : rbDur === DIRECTION.UP ? 'a slower' : 'a similar-speed';
+      var sizePart = rbRise === DIRECTION.UP ? 'larger' : rbRise === DIRECTION.DOWN ? 'smaller' : 'similar-sized';
+      var flightPart = flight === DIRECTION.UP ? ', followed by greater aerial time'
+                     : flight === DIRECTION.DOWN ? ', followed by less aerial time' : '';
+      var o4 = [
+        obs('Rebound duration', d.reboundDurationMs, 'ms', 0),
+        obs('Rebound COM rise', d.reboundRiseLegLengths, 'leg lengths'),
+        obs('Mean rebound velocity', d.meanReboundVelocityLegLengthsPerS, 'leg lengths/s', 2),
+        obs('Minimum COM timing', d.minComStancePercent, '% of stance', 1),
+        obs('Flight time', d.flightSeconds, 's', 3)
+      ].filter(Boolean);
+      if (o4.length >= 2) {
+        patterns.push(makePattern({
+          pattern: 'rebound_organization_change',
+          domain: 'comparison',
+          confidence: 0.68 * confScale,
+          observations: o4,
+          interpretation: 'The second condition shows ' + speedPart + ' and ' + sizePart +
+            ' COM rebound from minimum COM to toe-off' + flightPart + '.' + speedNote +
+            ' This describes how stance is organised; neither condition is ranked as better.',
+          alternatives: ['Different running speed between conditions',
+                         'Minimum-COM detection differing between clips',
+                         'Fatigue between conditions'],
+          supportingMetrics: {
+            reboundDurationMs: d.reboundDurationMs,
+            reboundRiseLegLengths: d.reboundRiseLegLengths,
+            meanReboundVelocityLegLengthsPerS: d.meanReboundVelocityLegLengthsPerS,
+            minComStancePercent: d.minComStancePercent,
+            flightSeconds: d.flightSeconds
+          },
+          evidenceClasses: ['com', 'timing', 'minimum_com_landmark'],
+          sortWeight: 94
+        }));
+      }
+    }
+
     patterns.sort(function (a, b) { return b.sortWeight - a.sortWeight; });
     return {
       patterns: patterns,
       directions: {
         verticalOscillation: vo, gct: gct, flight: flight, stepLength: stride,
-        stanceCompression: compression, cadence: cadence, retractionTime: retraction
+        stanceCompression: compression, cadence: cadence, retractionTime: retraction,
+        reboundDuration: rbDur, reboundRise: rbRise
       },
       speedComparable: ctx.speedComparable === undefined ? null : ctx.speedComparable
     };
@@ -798,7 +1037,22 @@
     combined_braking: ['Camera not perpendicular to the runner', 'Low frame rate',
                        'Acceleration during the trial'],
     well_prepared_touchdown: ['Contact frame located one sample late',
-                              'Sparse pre-contact sampling smoothing over a late reach']
+                              'Sparse pre-contact sampling smoothing over a late reach'],
+    rapid_rebound: ['Fast running speed', 'Stance edges detected too tightly',
+                    'Minimum COM located late by a flat trajectory'],
+    slow_rebound: ['Slow running speed', 'Uphill running',
+                   'Contact edges over-extended by sparse stance sampling'],
+    high_compression_low_rebound: ['Fatigue during the trial',
+                                   'COM estimate degraded by occluded landmarks',
+                                   'Soft or uneven surface'],
+    high_compression_strong_rebound: ['Slow-motion or high-amplitude running style',
+                                      'COM estimate noise inflating both phases'],
+    low_compression_rapid_rebound: ['Fast running speed',
+                                    'Sparse stance sampling flattening the trajectory',
+                                    'Minimum COM located by a shallow, flat trajectory'],
+    rebound_organization_change: ['Different running speed between conditions',
+                                  'Minimum-COM detection differing between clips',
+                                  'Fatigue between conditions']
   });
 
   function alternativesFor(pattern) {

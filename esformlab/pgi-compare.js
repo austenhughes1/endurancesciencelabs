@@ -153,6 +153,64 @@
       label: 'COM vertical velocity reversal rate',
       get: function (r) { return fromAggregate(r.rebound && r.rebound.reversalRateLegLengthsPerS2); } },
 
+    // ── Loading / compression (touchdown → minimum COM) ──
+    { key: 'minComStancePercent', group: 'loadingCompression', unit: '% of stance', dp: 1,
+      label: 'Minimum COM timing',
+      get: function (r) { return fromAggregate(r.minimumCom && r.minimumCom.overall
+        ? r.minimumCom.overall.stancePercent : null); } },
+    { key: 'compressionDurationMs', group: 'loadingCompression', unit: 'ms', dp: 0,
+      label: 'Loading/compression duration',
+      get: function (r) { return fromAggregate(ovr(r.loadingCompression) &&
+        ovr(r.loadingCompression).durationMs); } },
+    { key: 'compressionFraction', group: 'loadingCompression', unit: '', dp: 3,
+      label: 'Compression fraction of stance',
+      get: function (r) { return fromAggregate(ovr(r.loadingCompression) &&
+        ovr(r.loadingCompression).fractionOfStance); } },
+    { key: 'loadingHorizontalTravelLegLengths', group: 'loadingCompression', unit: 'leg lengths', dp: 3,
+      label: 'COM horizontal travel during loading',
+      get: function (r) { var b = ovr(r.loadingCompression);
+        return scalar(b && b.horizontalTravel ? b.horizontalTravel.medianLegLengths : null); } },
+
+    // ── Rebound / projection (minimum COM → toe-off) ──
+    { key: 'reboundDurationMs', group: 'reboundProjection', unit: 'ms', dp: 0,
+      label: 'Rebound duration',
+      get: function (r) { return fromAggregate(ovr(r.reboundProjection) &&
+        ovr(r.reboundProjection).durationMs); } },
+    { key: 'reboundFraction', group: 'reboundProjection', unit: '', dp: 3,
+      label: 'Rebound fraction of stance',
+      get: function (r) { return fromAggregate(ovr(r.reboundProjection) &&
+        ovr(r.reboundProjection).fractionOfStance); } },
+    { key: 'reboundRiseLegLengths', group: 'reboundProjection', unit: 'leg lengths', dp: 3,
+      label: 'Rebound COM rise',
+      get: function (r) { var b = ovr(r.reboundProjection);
+        return scalar(b && b.comRise ? b.comRise.medianLegLengths : null); } },
+    { key: 'reboundRiseCm', group: 'reboundProjection', unit: 'cm', dp: 1,
+      label: 'Rebound COM rise',
+      get: function (r) { var b = ovr(r.reboundProjection);
+        return scalar(b && b.comRise ? b.comRise.medianCentimeters : null); } },
+    { key: 'meanReboundVelocityLegLengthsPerS', group: 'reboundProjection', unit: 'leg lengths/s', dp: 2,
+      label: 'Mean rebound velocity',
+      get: function (r) { var b = ovr(r.reboundProjection);
+        return scalar(b && b.meanComRiseVelocity ? b.meanComRiseVelocity.medianLegLengthsPerS : null); } },
+    { key: 'meanReboundVelocityMps', group: 'reboundProjection', unit: 'm/s', dp: 2,
+      label: 'Mean rebound velocity',
+      get: function (r) { var b = ovr(r.reboundProjection);
+        return scalar(b && b.meanComRiseVelocity ? b.meanComRiseVelocity.medianMps : null); } },
+    { key: 'compressionToReboundRatio', group: 'reboundProjection', unit: '', dp: 2,
+      label: 'Compression : rebound ratio',
+      get: function (r) { return fromAggregate(ovr(r.reboundProjection) &&
+        ovr(r.reboundProjection).compressionToReboundRatio); } },
+    { key: 'hipChangeReboundDegrees', group: 'reboundProjection', unit: '°', dp: 1,
+      label: 'Hip angle change during rebound',
+      get: function (r) { var b = ovr(r.reboundProjection);
+        return fromAggregate(b && b.jointChanges && b.jointChanges.hip
+          ? b.jointChanges.hip.changeDegrees : null); } },
+    { key: 'kneeChangeReboundDegrees', group: 'reboundProjection', unit: '°', dp: 1,
+      label: 'Knee angle change during rebound',
+      get: function (r) { var b = ovr(r.reboundProjection);
+        return fromAggregate(b && b.jointChanges && b.jointChanges.knee
+          ? b.jointChanges.knee.changeDegrees : null); } },
+
     // ── Outcome ──
     { key: 'cadenceSpm', group: 'outcome', unit: 'spm', dp: 1, label: 'Cadence',
       get: function (r) { return fromAggregate(ovr(r.strideTiming) && ovr(r.strideTiming).cadenceSpm); } },
@@ -314,7 +372,9 @@
     }
 
     var speed = speedComparability(ra, rb);
-    var deltas = {}, byGroup = { touchdownPreparation: [], projection: [], outcome: [], groundInteraction: [] };
+    var deltas = {}, byGroup = { touchdownPreparation: [], loadingCompression: [],
+                                 reboundProjection: [], projection: [], outcome: [],
+                                 groundInteraction: [] };
     METRICS.forEach(function (m) {
       var d = delta(m, ra, rb);
       deltas[m.key] = d;

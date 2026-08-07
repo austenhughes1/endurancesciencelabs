@@ -67,6 +67,24 @@
     'stanceCompressionLegLengths', 'stanceReboundLegLengths', 'aerialRiseMeasuredLegLengths',
     'comVelocityTouchdownPxPerS', 'comVelocityToeoffPxPerS',
     'comVelocityReversalPxPerS', 'comReversalRatePxPerS2',
+    // four-phase model: minimum COM
+    'minimumComTimeSeconds', 'minimumComStancePercent', 'minimumComHeightPx',
+    'minimumComConfidence', 'minimumComDetectionMethod', 'minimumComFlags',
+    'minimumComWindowStartPercent', 'minimumComWindowEndPercent',
+    // four-phase model: loading/compression (touchdown -> minimum COM)
+    'compressionDurationMs', 'compressionFraction', 'compressionHorizontalTravelLegLengths',
+    // four-phase model: rebound/projection (minimum COM -> toe-off)
+    'reboundDurationMs', 'reboundFraction', 'compressionToReboundRatio',
+    'reboundHorizontalTravelLegLengths',
+    'meanReboundVelocityLegLengthsPerS', 'meanReboundVelocityMps',
+    'vyMinComPxPerS', 'vyToeoffPoseMps', 'vyToeoffBallisticMps', 'toeoffVelocityAgreementRelError',
+    // four-phase model: joint angles at the phase landmarks
+    'hipAngleMinComDegrees', 'hipAngleToeoffDegrees', 'hipAngleDeltaReboundDegrees',
+    'kneeAngleMinComDegrees', 'kneeAngleToeoffDegrees', 'kneeAngleDeltaReboundDegrees',
+    'trunkAngleMinComDegrees', 'trunkAngleToeoffDegrees', 'trunkAngleDeltaReboundDegrees',
+    'shankAngleMinComDegrees', 'shankAngleToeoffDegrees', 'shankAngleDeltaReboundDegrees',
+    'ankleAngleMinComDegrees', 'ankleAngleToeoffDegrees', 'ankleAngleDeltaReboundDegrees',
+    'supportAngleMinComDegrees', 'supportAngleLateStanceDegrees',
     // touchdown preparation
     'footComOffsetAtTouchdownLegLengths', 'footComOffsetAtTouchdownMeters',
     'maxAnteriorExcursionLegLengths', 'maxAnteriorExcursionTimeSeconds',
@@ -109,6 +127,16 @@
     return function (side, t) { return map[side + ':' + Math.round(t * 1000)] || null; };
   }
 
+  /** Index the four-phase joint samples by side and step start time. */
+  function phasesLookup(result) {
+    var map = {};
+    var rows = (result.reboundProjection && result.reboundProjection.stepPhases) || [];
+    rows.forEach(function (r) {
+      if (r) map[r.contactSide + ':' + Math.round(r.startTime * 1000)] = r;
+    });
+    return function (side, t) { return map[side + ':' + Math.round(t * 1000)] || null; };
+  }
+
   function geometryFor(result, side, phase, field) {
     var sg = result.supportGeometry;
     if (!sg || !sg[side] || !sg[side].phases || !sg[side].phases[phase]) return null;
@@ -123,6 +151,7 @@
     var rows = [];
     var comAt = comLookup(result);
     var tdAt = touchdownLookup(result);
+    var phAt = phasesLookup(result);
     var v = result.video || {};
     var q = result.quality || {};
     var flags = (q.flags || []).join('|');
@@ -153,6 +182,29 @@
         ? td.retraction : null;
       var av = td && td.arrivalVelocity && td.arrivalVelocity.availability === KFO.AVAILABILITY.AVAILABLE
         ? td.arrivalVelocity : null;
+      // Four-phase per-step records.
+      var mc = (com && com.minimumCom && com.minimumCom.available) ? com.minimumCom : null;
+      var ld = com ? com.loading : null;
+      var rp = com ? com.reboundPhase : null;
+      var ph = phAt(st.contactSide, st.startTime);
+      var ppm = (cal && isNum(cal.pixelsPerMeter) && cal.pixelsPerMeter > 0)
+        ? cal.pixelsPerMeter : null;
+      var vyPoseMps = (com && isNum(com.velocityPxPerS.toeoff) && ppm)
+        ? com.velocityPxPerS.toeoff / ppm : null;
+      // Per-step agreement between the pose-derived toe-off velocity and the
+      // flight it should ballistically produce.
+      var agreeRelError = null;
+      if (isNum(vyPoseMps) && isNum(st.flightSeconds) && st.flightSeconds > 0.02) {
+        var predictedFlight = PGI.predictedFlightTimeSeconds(Math.max(0, vyPoseMps));
+        if (isNum(predictedFlight)) {
+          agreeRelError = Math.abs(st.flightSeconds - predictedFlight) / st.flightSeconds;
+        }
+      }
+      function jointDelta(phRow, key) {
+        if (!phRow || !phRow[key]) return '';
+        var a = phRow[key].minimumCom, b = phRow[key].toeoff;
+        return (isNum(a) && isNum(b)) ? round(b - a, 2) : '';
+      }
 
       rows.push({
         analysisId: meta.analysisId || '',
@@ -193,6 +245,47 @@
         comVelocityToeoffPxPerS: com ? round(com.velocityPxPerS.toeoff, 3) : '',
         comVelocityReversalPxPerS: com ? round(com.velocityPxPerS.reversal, 3) : '',
         comReversalRatePxPerS2: com ? round(com.velocityPxPerS.reversalRatePerS, 3) : '',
+        minimumComTimeSeconds: mc ? round(mc.t, 4) : '',
+        minimumComStancePercent: mc ? round(mc.stancePercent, 2) : '',
+        minimumComHeightPx: mc ? round(mc.heightPx, 3) : '',
+        minimumComConfidence: mc ? round(mc.confidence, 3) : '',
+        minimumComDetectionMethod: mc ? mc.detectionMethod : '',
+        minimumComFlags: mc ? (mc.flags || []).join('|') : '',
+        minimumComWindowStartPercent: (mc && mc.window) ? round(mc.window.startPercent, 2) : '',
+        minimumComWindowEndPercent: (mc && mc.window) ? round(mc.window.endPercent, 2) : '',
+        compressionDurationMs: ld ? round(ld.durationSeconds * 1000, 2) : '',
+        compressionFraction: ld ? round(ld.fractionOfStance, 4) : '',
+        compressionHorizontalTravelLegLengths: ld ? ll(ld.horizontalTravelPx) : '',
+        reboundDurationMs: rp ? round(rp.durationSeconds * 1000, 2) : '',
+        reboundFraction: rp ? round(rp.fractionOfStance, 4) : '',
+        compressionToReboundRatio: rp ? round(rp.compressionToReboundRatio, 4) : '',
+        reboundHorizontalTravelLegLengths: rp ? ll(rp.horizontalTravelPx) : '',
+        meanReboundVelocityLegLengthsPerS: (rp && legLen && isNum(rp.meanRiseVelocityPxPerS))
+          ? round(rp.meanRiseVelocityPxPerS / legLen, 5) : '',
+        meanReboundVelocityMps: rp ? round(PGI.pxToMeters(rp.meanRiseVelocityPxPerS, cal), 4) : '',
+        vyMinComPxPerS: rp ? round(rp.vyAtMinimumPxPerS, 3) : '',
+        vyToeoffPoseMps: vyPoseMps === null ? '' : round(vyPoseMps, 4),
+        vyToeoffBallisticMps: round(PGI.verticalTakeoffVelocityMps(st.flightSeconds), 4),
+        toeoffVelocityAgreementRelError: agreeRelError === null ? '' : round(agreeRelError, 4),
+        hipAngleMinComDegrees: ph ? round(ph.hip.minimumCom, 2) : '',
+        hipAngleToeoffDegrees: ph ? round(ph.hip.toeoff, 2) : '',
+        hipAngleDeltaReboundDegrees: jointDelta(ph, 'hip'),
+        kneeAngleMinComDegrees: ph ? round(ph.knee.minimumCom, 2) : '',
+        kneeAngleToeoffDegrees: ph ? round(ph.knee.toeoff, 2) : '',
+        kneeAngleDeltaReboundDegrees: jointDelta(ph, 'knee'),
+        trunkAngleMinComDegrees: ph ? round(ph.trunk.minimumCom, 2) : '',
+        trunkAngleToeoffDegrees: ph ? round(ph.trunk.toeoff, 2) : '',
+        trunkAngleDeltaReboundDegrees: jointDelta(ph, 'trunk'),
+        shankAngleMinComDegrees: ph ? round(ph.shank.minimumCom, 2) : '',
+        shankAngleToeoffDegrees: ph ? round(ph.shank.toeoff, 2) : '',
+        shankAngleDeltaReboundDegrees: jointDelta(ph, 'shank'),
+        // Ankle plantarflexion has no measurable basis (no foot landmark): the
+        // cells stay empty, per the empty-means-unavailable convention.
+        ankleAngleMinComDegrees: '',
+        ankleAngleToeoffDegrees: '',
+        ankleAngleDeltaReboundDegrees: '',
+        supportAngleMinComDegrees: ph && ph.support ? round(ph.support.minimumCom, 2) : '',
+        supportAngleLateStanceDegrees: ph && ph.support ? round(ph.support.lateStance, 2) : '',
         footComOffsetAtTouchdownLegLengths: pos ? round(pos.footComOffsetAtTouchdownLegLengths, 5) : '',
         footComOffsetAtTouchdownMeters: pos ? round(pos.footComOffsetAtTouchdownMeters, 5) : '',
         maxAnteriorExcursionLegLengths: pos ? round(pos.maxAnteriorExcursionLegLengths, 5) : '',
@@ -377,10 +470,30 @@
                                 'aerialRiseBallisticMeters = g*t_flight^2/8'],
         derivedFromDutyFactor: ['meanVerticalSupportBW = 1/dutyFactor',
                                 'peakVerticalSupportBW = (pi/2)/dutyFactor'],
-        independentTimingQuantities: ['contactSeconds', 'flightSeconds'],
+        independentTimingQuantities: ['contactSeconds', 'flightSeconds', 'minimumComTimeSeconds'],
         independenceNote: 'Duty factor, cadence, step time, the support estimates and the ballistic ' +
-          'projection quantities are all algebra on contact and flight time. They are exported for ' +
-          'convenience and must not be treated as independent variables in an analysis.'
+          'projection quantities are all algebra on contact and flight time. Compression/rebound ' +
+          'durations, both phase fractions and the compression:rebound ratio are algebra on contact ' +
+          'time and the minimum-COM timing. They are exported for convenience and must not be ' +
+          'treated as independent variables in an analysis.',
+        minimumCom: 'The minimum of the SMOOTHED COM height within stance: the kinematic reversal ' +
+          'point of vertical COM motion (vertical COM velocity ~ 0). It is NOT the onset of ' +
+          'propulsive force and NOT the fore-aft braking-to-propulsion force reversal, which this ' +
+          'video-only pipeline does not observe.',
+        reboundRise: 'stanceReboundLegLengths is the rebound COM rise (minimum COM -> toe-off); ' +
+          'stanceCompressionLegLengths is the loading compression depth (touchdown -> minimum COM).',
+        toeoffVelocity: 'vyToeoffPoseMps (fitted COM derivative) and vyToeoffBallisticMps ' +
+          '(g*t_flight/2) are two estimates of the same quantity. They are cross-checked via ' +
+          'toeoffVelocityAgreementRelError, never averaged; the flight-derived value leads ' +
+          'user-facing summaries.',
+        ankleAngle: 'ankleAngle* columns are permanently empty: COCO-17 has no heel, toe or foot ' +
+          'landmark, so no foot segment exists to measure plantarflexion against. Shank angle ' +
+          'carries the distal-segment motion.',
+        angleConventions: 'hip = trunk-thigh interior angle (larger = more extended); knee = ' +
+          'thigh-shank interior angle (larger = straighter); trunk = lean from vertical ' +
+          '(positive = forward); shank = knee->ankle inclination from vertical (positive = knee ' +
+          'ahead of ankle); support = COM-to-ankle line from vertical (negative = support point ' +
+          'ahead of the COM).'
       },
       quality: result ? result.quality : null,
       video: result ? result.video : null,
