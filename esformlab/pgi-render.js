@@ -213,8 +213,14 @@
       'Dots darken with time; the amber dot is touchdown. Ankle-anchored.</div></div>';
   }
 
-  /** COM vertical path across one normalised step, with the decomposition marked. */
-  function comTrajectorySvg(com) {
+  /**
+   * COM vertical path across one normalised step. The stance events are marked
+   * (TD, MIN COM, TO) and the two stance phases the minimum-COM landmark
+   * separates are shaded: touchdown → minimum COM as loading/compression,
+   * minimum COM → toe-off as rebound/projection.
+   */
+  function comTrajectorySvg(com, ctx) {
+    ctx = ctx || {};
     var pts = pathPoints(com.meanPath);
     if (!pts || !pts.length) return '';
     var usable = pts.filter(function (p) { return isNum(p.h) || isNum(p.height); })
@@ -222,7 +228,7 @@
                     .filter(function (p) { return isNum(p.pct) && isNum(p.h); });
     if (usable.length < 4) return '';
 
-    var W = 420, H = 160, padL = 34, padR = 12, padT = 14, padB = 26;
+    var W = 420, H = 170, padL = 34, padR = 12, padT = 14, padB = 34;
     var ys = usable.map(function (p) { return p.h; });
     var y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
     var yr = (y1 - y0) || 0.05;
@@ -231,15 +237,54 @@
     function sy(v) { return H - padB - (v - y0) / (y1 - y0) * (H - padT - padB); }
 
     var parts = [];
+
+    // Phase shading: the x-axis is % of STEP, so stance ends at dutyFactor and
+    // the minimum sits at minComStancePercent × dutyFactor.
+    var df = isNum(ctx.dutyFactor) ? ctx.dutyFactor : null;
+    var minStancePct = isNum(ctx.minComStancePercent) ? ctx.minComStancePercent : null;
+    var toPct = isNum(df) ? df * 100 : null;
+    var minPct = (isNum(df) && isNum(minStancePct)) ? minStancePct * df : null;
+    if (isNum(minPct) && isNum(toPct) && minPct > 0 && toPct > minPct) {
+      parts.push('<rect x="' + sx(0).toFixed(1) + '" y="' + padT + '" width="' +
+        (sx(minPct) - sx(0)).toFixed(1) + '" height="' + (H - padT - padB) +
+        '" fill="var(--warn,#ffb020)" opacity=".08"/>');
+      parts.push('<rect x="' + sx(minPct).toFixed(1) + '" y="' + padT + '" width="' +
+        (sx(toPct) - sx(minPct)).toFixed(1) + '" height="' + (H - padT - padB) +
+        '" fill="var(--good,#3ddc97)" opacity=".08"/>');
+      parts.push('<text x="' + ((sx(0) + sx(minPct)) / 2).toFixed(1) + '" y="' + (H - padB + 10) +
+        '" font-size="8" text-anchor="middle" fill="var(--muted2,#8aa0c0)">loading / compression</text>');
+      parts.push('<text x="' + ((sx(minPct) + sx(toPct)) / 2).toFixed(1) + '" y="' + (H - padB + 10) +
+        '" font-size="8" text-anchor="middle" fill="var(--muted2,#8aa0c0)">rebound / projection</text>');
+    }
+
     var poly = usable.map(function (p) { return sx(p.pct).toFixed(1) + ',' + sy(p.h).toFixed(1); }).join(' ');
     parts.push('<polyline points="' + poly + '" fill="none" stroke="var(--accent,#4da3ff)" stroke-width="2"/>');
 
-    // Minimum height marker.
+    function hAtPct(pc) {
+      var best = usable[0];
+      usable.forEach(function (p) { if (Math.abs(p.pct - pc) < Math.abs(best.pct - pc)) best = p; });
+      return best.h;
+    }
+    // Event markers: TD, MIN COM, TO.
+    parts.push('<line x1="' + sx(0).toFixed(1) + '" y1="' + padT + '" x2="' + sx(0).toFixed(1) +
+      '" y2="' + (H - padB) + '" stroke="var(--muted2,#8aa0c0)" stroke-width="1" stroke-dasharray="3 3" opacity=".5"/>');
+    parts.push('<text x="' + (sx(0) + 2).toFixed(1) + '" y="' + (padT + 8) +
+      '" font-size="9" fill="var(--muted2,#8aa0c0)">TD</text>');
+    if (isNum(toPct)) {
+      parts.push('<line x1="' + sx(toPct).toFixed(1) + '" y1="' + padT + '" x2="' + sx(toPct).toFixed(1) +
+        '" y2="' + (H - padB) + '" stroke="var(--muted2,#8aa0c0)" stroke-width="1" stroke-dasharray="3 3" opacity=".5"/>');
+      parts.push('<text x="' + (sx(toPct) + 2).toFixed(1) + '" y="' + (padT + 8) +
+        '" font-size="9" fill="var(--muted2,#8aa0c0)">TO</text>');
+    }
+    // Minimum-COM marker: at the landmark's timing when known, else at the
+    // lowest point of the drawn path.
     var minP = usable.reduce(function (a, b) { return b.h < a.h ? b : a; });
-    parts.push('<circle cx="' + sx(minP.pct).toFixed(1) + '" cy="' + sy(minP.h).toFixed(1) +
-      '" r="4" fill="var(--warn,#ffb020)"/>');
-    parts.push('<text x="' + (sx(minP.pct) + 6).toFixed(1) + '" y="' + (sy(minP.h) + 12).toFixed(1) +
-      '" font-size="9" fill="var(--muted2,#8aa0c0)">lowest COM</text>');
+    var mx = isNum(minPct) ? minPct : minP.pct;
+    var my = isNum(minPct) ? hAtPct(minPct) : minP.h;
+    parts.push('<circle cx="' + sx(mx).toFixed(1) + '" cy="' + sy(my).toFixed(1) +
+      '" r="4.5" fill="var(--warn,#ffb020)"/>');
+    parts.push('<text x="' + (sx(mx) + 6).toFixed(1) + '" y="' + (sy(my) + 12).toFixed(1) +
+      '" font-size="9" font-weight="700" fill="var(--warn,#ffb020)">MIN COM</text>');
     // Apex marker.
     var maxP = usable.reduce(function (a, b) { return b.h > a.h ? b : a; });
     parts.push('<circle cx="' + sx(maxP.pct).toFixed(1) + '" cy="' + sy(maxP.h).toFixed(1) +
@@ -252,10 +297,211 @@
 
     return '<div style="margin-top:10px">' + svgFrame(W, H, parts.join('')) +
       '<div style="font-size:10.5px;color:var(--muted2,#8aa0c0);line-height:1.5;margin-top:2px">' +
-      'Centre-of-mass height across one step, in leg lengths.</div></div>';
+      'Centre-of-mass height across one step, in leg lengths. Shaded: loading/compression ' +
+      '(touchdown &#8594; minimum COM) and rebound/projection (minimum COM &#8594; toe-off).</div></div>';
+  }
+
+  /** Pull the SVG context (duty factor + min-COM stance %) from any result shape. */
+  function comSvgContext(result) {
+    var st = result.strideTiming;
+    var t = st && st.overall ? st.overall : null;
+    var mc = result.minimumCom;
+    return {
+      dutyFactor: t && t.dutyFactor && isNum(t.dutyFactor.median) ? t.dutyFactor.median : null,
+      minComStancePercent: (mc && mc.availability === KFO.AVAILABILITY.AVAILABLE && mc.overall &&
+                            mc.overall.stancePercent && isNum(mc.overall.stancePercent.median))
+        ? mc.overall.stancePercent.median : null
+    };
   }
 
   // ── Sections ───────────────────────────────────────────────────────────────
+
+  /**
+   * The stride timeline the whole report is organised around. Minimum COM is
+   * emphasised as the transition landmark between loading and rebound — and the
+   * caption keeps it honest about what it is not.
+   */
+  function timelineSection(result) {
+    var steps = [
+      { label: 'Touchdown preparation', phase: true },
+      { label: 'TOUCHDOWN', event: true },
+      { label: 'Loading / Compression', phase: true },
+      { label: 'MINIMUM COM', event: true, emph: true },
+      { label: 'Rebound / Projection', phase: true },
+      { label: 'TOE-OFF', event: true },
+      { label: 'Flight / Stride outcome', phase: true }
+    ];
+    var chips = steps.map(function (s) {
+      var style = s.emph
+        ? 'border:1.5px solid var(--warn,#ffb020);color:var(--warn,#ffb020);font-weight:800'
+        : s.event
+          ? 'border:1px solid var(--border2,#2a3550);font-weight:700'
+          : 'border:1px solid var(--border2,#2a3550);color:var(--muted2,#8aa0c0)';
+      return '<span style="font-size:10px;letter-spacing:.4px;padding:4px 9px;border-radius:99px;' +
+        'white-space:nowrap;' + style + '">' + esc(s.label) + '</span>';
+    }).join('<span style="color:var(--muted2,#8aa0c0);font-size:11px">&#8594;</span>');
+    return panel(
+      label('Stride timeline') +
+      '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">' + chips + '</div>' +
+      note('Minimum COM is the reversal point of vertical COM motion — vertical COM velocity is ' +
+           'approximately zero there. It is not the point where force production begins: upward ' +
+           'force is already being produced before it to slow the descending COM, and the fore-aft ' +
+           'braking-to-propulsion force reversal is a separate event this analysis does not observe.'));
+  }
+
+  function jointChangeText(j) {
+    if (!j || j.availability === 'unavailable' || !j.changeDegrees ||
+        !isNum(j.changeDegrees.median)) return '—';
+    var v = j.changeDegrees.median;
+    return (v > 0 ? '+' : '') + v.toFixed(1) + '&deg;';
+  }
+
+  function loadingSection(result) {
+    var lc = result.loadingCompression;
+    if (!lc || lc.availability !== KFO.AVAILABILITY.AVAILABLE || !lc.overall || !lc.overall.n) {
+      return panel(label('B · Loading / Compression') +
+        unavailable('Loading/compression phase is unavailable' +
+          (lc && lc.reason ? ' (' + String(lc.reason).replace(/_/g, ' ') + ').' : '.')));
+    }
+    var o = lc.overall;
+    var jc = o.jointChanges || {};
+    var body = row(
+      stat('Duration', med(o.durationMs, 0, ' ms'), 'touchdown &#8594; minimum COM') +
+      stat('Share of contact', o.fractionOfStance && isNum(o.fractionOfStance.median)
+             ? Math.round(o.fractionOfStance.median * 100) + '%' : '—', 'of ground contact time') +
+      stat('Compression depth', lenText(o.compression), 'COM drop under load') +
+      stat('Horizontal COM travel', lenText(o.horizontalTravel), 'during loading')
+    );
+    body += '<div style="margin-top:12px">' +
+      '<div style="font-size:12px;font-weight:700;margin-bottom:6px">Body-angle changes, touchdown &#8594; minimum COM</div>' +
+      row(
+        stat('Hip', jointChangeText(jc.hip), 'positive = extending') +
+        stat('Knee', jointChangeText(jc.knee), 'positive = extending') +
+        stat('Trunk', jointChangeText(jc.trunk), 'positive = more forward lean') +
+        stat('Shank', jointChangeText(jc.shank), 'positive = rotating forward')
+      ) + '</div>';
+    return panel(label('B · Loading / Compression') + body +
+      note('How the runner receives and compresses into the ground. More compression is not ' +
+           'automatically worse — deep and shallow strategies both appear in effective running, ' +
+           'so this phase is described, not scored.'));
+  }
+
+  function reboundProjectionSection(result) {
+    var rp = result.reboundProjection;
+    if (!rp || rp.availability !== KFO.AVAILABILITY.AVAILABLE || !rp.overall || !rp.overall.n) {
+      return panel(label('C · Rebound / Projection') +
+        unavailable('Rebound/projection phase is unavailable' +
+          (rp && rp.reason ? ' (' + String(rp.reason).replace(/_/g, ' ') + ').' : '.')));
+    }
+    var o = rp.overall;
+    var mc = result.minimumCom;
+    var mcOverall = (mc && mc.availability === KFO.AVAILABILITY.AVAILABLE) ? mc.overall : null;
+    var chain = rp.outcomeChain || {};
+    var jc = o.jointChanges || {};
+    var vto = o.verticalVelocityAtToeoff || {};
+
+    var warn = '';
+    if (mc && mc.reliability && mc.reliability.unreliable) {
+      warn = '<div style="margin-top:8px;padding:8px 11px;border-radius:8px;border-left:3px solid ' +
+        'var(--warn,#ffb020);background:rgba(255,176,32,.10);font-size:11px;line-height:1.6">' +
+        'The minimum-COM point could not be reliably located on most steps, so these phase figures ' +
+        'are low-confidence and no strong rebound interpretation is offered.</div>';
+    }
+
+    var body = row(
+      stat('Minimum COM', mcOverall && mcOverall.stancePercent && isNum(mcOverall.stancePercent.median)
+             ? Math.round(mcOverall.stancePercent.median) + '% of stance' : '—',
+           'lowest COM point; vertical COM reversal') +
+      stat('Rebound duration', med(o.durationMs, 0, ' ms'), 'minimum COM &#8594; toe-off') +
+      stat('COM rise', lenText(o.comRise), 'from minimum COM to toe-off') +
+      stat('Mean rebound velocity', velText(o.meanComRiseVelocity),
+           'mean COM rise velocity — motion, not force') +
+      stat('Vertical velocity at toe-off',
+           vto.ballisticFromFlightMps && isNum(vto.ballisticFromFlightMps.median)
+             ? vto.ballisticFromFlightMps.median.toFixed(2) + ' m/s' : '—',
+           'from flight time (ballistic)') +
+      stat('Flight time', isNum(chain.flightSeconds)
+             ? Math.round(chain.flightSeconds * 1000) + ' ms' : '—', 'resulting flight') +
+      stat('Stride length', isNum(chain.strideLengthMeters)
+             ? chain.strideLengthMeters.toFixed(2) + ' m' : '—', 'resulting stride')
+    );
+
+    body += '<div style="margin-top:12px">' +
+      '<div style="font-size:12px;font-weight:700;margin-bottom:6px">Body-angle changes, minimum COM &#8594; toe-off</div>' +
+      row(
+        stat('Hip', jointChangeText(jc.hip), 'positive = extending') +
+        stat('Knee', jointChangeText(jc.knee), 'positive = extending') +
+        stat('Trunk', jointChangeText(jc.trunk), 'positive = more forward lean') +
+        stat('Shank', jointChangeText(jc.shank), 'positive = rotating forward') +
+        stat('Ankle', 'not measurable', 'no foot landmark in the pose model')
+      ) +
+      note('Coordinated whole-body movement: no single joint is credited with creating the ' +
+           'outgoing stride on its own.') + '</div>';
+
+    // The rebound → outcome chain, as a readable sequence.
+    var chainItems = [];
+    function chainItem(labelText, value) {
+      if (value == null) return;
+      chainItems.push('<span style="font-size:10.5px;padding:4px 9px;border-radius:8px;' +
+        'border:1px solid var(--border2,#2a3550);white-space:nowrap">' +
+        '<span style="color:var(--muted2,#8aa0c0)">' + esc(labelText) + '</span> ' +
+        '<strong>' + value + '</strong></span>');
+    }
+    chainItem('min COM', isNum(chain.minimumComStancePercent)
+      ? Math.round(chain.minimumComStancePercent) + '% stance' : null);
+    chainItem('COM rise', isNum(chain.reboundRiseCentimeters)
+      ? '+' + chain.reboundRiseCentimeters.toFixed(1) + ' cm'
+      : (isNum(chain.reboundRiseLegLengths) ? '+' + chain.reboundRiseLegLengths.toFixed(3) + ' LL' : null));
+    chainItem('over', isNum(chain.reboundDurationMs) ? Math.round(chain.reboundDurationMs) + ' ms' : null);
+    chainItem('take-off v&#8593;', isNum(chain.verticalVelocityAtToeoffMps)
+      ? chain.verticalVelocityAtToeoffMps.toFixed(2) + ' m/s' : null);
+    chainItem('flight', isNum(chain.flightSeconds) ? Math.round(chain.flightSeconds * 1000) + ' ms' : null);
+    chainItem('aerial rise', isNum(chain.aerialRiseBallisticMeters)
+      ? (chain.aerialRiseBallisticMeters * 100).toFixed(1) + ' cm' : null);
+    chainItem('stride', isNum(chain.strideLengthMeters) ? chain.strideLengthMeters.toFixed(2) + ' m' : null);
+    if (chainItems.length >= 3) {
+      body += '<div style="margin-top:12px">' +
+        '<div style="font-size:12px;font-weight:700;margin-bottom:6px">From minimum COM to stride</div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">' +
+        chainItems.join('<span style="color:var(--muted2,#8aa0c0);font-size:11px">&#8594;</span>') +
+        '</div>' +
+        note('A temporal sequence, not a full causal chain: mechanics link these quantities in ' +
+             'order, but no step is claimed to be fully determined by the one before it.') + '</div>';
+    }
+
+    // Movement summary (descriptive).
+    var ms = rp.movementSummary;
+    if (ms && (ms.availability === 'available' || ms.text)) {
+      body += '<div style="margin-top:12px;padding:10px 12px;border-radius:8px;' +
+        'border:1px solid var(--border2,#2a3550);font-size:12px;line-height:1.65">' +
+        esc(ms.text) +
+        (ms.patternNote ? '<div style="font-size:11px;color:var(--muted2,#8aa0c0);margin-top:6px">' +
+          esc(ms.patternNote) + '</div>' : '') + '</div>';
+    }
+
+    // Toe-off velocity cross-check: two estimates, never averaged.
+    var agree = vto.agreement;
+    if (vto.poseDerived && isNum(vto.poseDerived.medianMps) && agree && isNum(agree.medianRelativeError)) {
+      body += note('Cross-check: pose-derived toe-off velocity ' + vto.poseDerived.medianMps.toFixed(2) +
+        ' m/s vs flight-derived ' + (vto.ballisticFromFlightMps && isNum(vto.ballisticFromFlightMps.median)
+          ? vto.ballisticFromFlightMps.median.toFixed(2) : '—') + ' m/s (median disagreement ' +
+        Math.round(agree.medianRelativeError * 100) + '%). The flight-derived value leads this ' +
+        'summary; the two estimates are never averaged together.' +
+        (agree.isIndependent === false ? ' The calibration itself came from flight time, so this ' +
+          'check is not independent.' : ''));
+    }
+
+    return panel(label('C · Rebound / Projection') + warn + body +
+      note('These describe how the body is organised from the lowest COM point through toe-off. ' +
+           'They are motion measurements, not forces, and not a measure of tendon elasticity. ' +
+           'Minimum COM is the vertical COM reversal point, not the start of force production.'));
+  }
+
+  function velText(v) {
+    if (!v) return '—';
+    if (isNum(v.medianMps)) return v.medianMps.toFixed(2) + ' m/s';
+    return isNum(v.medianLegLengthsPerS) ? v.medianLegLengthsPerS.toFixed(2) + ' LL/s' : '—';
+  }
 
   function touchdownSection(result) {
     var td = result.touchdownPreparation;
@@ -313,7 +559,7 @@
   function projectionSection(result) {
     var vp = result.verticalProjection, st = result.strideTiming, com = result.comTrajectory;
     if (!vp || vp.availability !== KFO.AVAILABILITY.AVAILABLE) {
-      return panel(label('B · Projection') + unavailable('Projection metrics are unavailable.'));
+      return panel(label('D · Flight &amp; projection') + unavailable('Projection metrics are unavailable.'));
     }
     var t = st && st.overall ? st.overall : null;
     var p = vp.overall;
@@ -349,13 +595,13 @@
         note('The same total excursion can come from a deep stance collapse or from genuine aerial ' +
              'time. Those are different mechanics, so the total is never interpreted on its own — ' +
              'and a larger value is not treated as a fault.') +
-        comTrajectorySvg(com) + '</div>';
+        comTrajectorySvg(com, comSvgContext(result)) + '</div>';
     }
     if (vs && vs.caveats && vs.caveats.length) {
       body += '<ul style="font-size:11px;color:var(--muted2,#8aa0c0);line-height:1.6;margin:9px 0 0 16px;padding:0">' +
         vs.caveats.map(function (c) { return '<li>' + esc(c) + '</li>'; }).join('') + '</ul>';
     }
-    return panel(label('B · Projection') + body);
+    return panel(label('D · Flight &amp; projection') + body);
   }
 
   function lenText(v) {
@@ -371,7 +617,7 @@
   function groundInteractionSection(result) {
     var sg = result.supportGeometry;
     if (!sg || sg.availability !== KFO.AVAILABILITY.AVAILABLE) {
-      return panel(label('C · Ground interaction') + unavailable('Support geometry is unavailable.'));
+      return panel(label('F · Ground interaction') + unavailable('Support geometry is unavailable.'));
     }
     var rows = '';
     [['early_stance', 'Early stance', 'braking-oriented support geometry'],
@@ -408,7 +654,7 @@
       });
     }
 
-    return panel(label('C · Ground interaction') + table +
+    return panel(label('F · Ground interaction') + table +
       (patterns ? '<div style="margin-top:12px"><div style="font-size:12px;font-weight:700">' +
         'Touchdown pattern</div>' + patterns + '</div>' : '') +
       note('These angles describe body geometry at three points in stance. They are not a measured ' +
@@ -416,21 +662,14 @@
            'Negative means the support point is ahead of the centre of mass.'));
   }
 
-  function reboundSection(result) {
+  /**
+   * COM velocity-reversal detail. The loading/rebound story now leads in the
+   * dedicated phase cards; this keeps the whole-stance velocity quantities.
+   */
+  function reboundVelocitySection(result) {
     var rb = result.rebound;
-    if (!rb || rb.availability !== KFO.AVAILABILITY.AVAILABLE) {
-      return panel(label('D · Rebound') + unavailable('Rebound metrics are unavailable' +
-        (rb && rb.reason ? ' (' + String(rb.reason).replace(/_/g, ' ') + ').' : '.')));
-    }
-    function velText(v, unit) {
-      if (!v) return '—';
-      if (isNum(v.medianMps)) return v.medianMps.toFixed(2) + ' m/s';
-      return isNum(v.medianLegLengthsPerS) ? v.medianLegLengthsPerS.toFixed(2) + ' LL/s' : '—';
-    }
+    if (!rb || rb.availability !== KFO.AVAILABILITY.AVAILABLE) return '';
     var body = row(
-      stat('Stance compression', lenText(rb.stanceCompression), 'COM drop under load') +
-      stat('Stance rebound', lenText(rb.stanceRebound), 'recovered before toe-off') +
-      stat('Contact time', med(rb.contactSeconds, 3, ' s'), null) +
       stat('COM velocity at touchdown', velText(rb.comVelocityAtTouchdown), 'negative is downward') +
       stat('COM velocity at toe-off', velText(rb.comVelocityAtToeoff), 'positive is upward') +
       stat('Velocity reversal rate', rb.reversalRateLegLengthsPerS2 &&
@@ -446,7 +685,7 @@
         (cc.isIndependent ? '.' : ', though the scale calibration came from flight time itself, so ' +
           'this check is not independent.'));
     }
-    return panel(label('D · Rebound') + body +
+    return panel(label('COM velocity through stance') + body +
       note('These describe how quickly downward motion is redirected upward. They are motion ' +
            'measurements, not forces, and not a measure of tendon elasticity.'));
   }
@@ -554,12 +793,15 @@
         (result.note ? ' ' + result.note : '')));
     }
     return header(result) +
+      timelineSection(result) +
       domainSection(result) +
       touchdownSection(result) +
+      loadingSection(result) +
+      reboundProjectionSection(result) +
       projectionSection(result) +
-      groundInteractionSection(result) +
-      reboundSection(result) +
       outcomeSection(result) +
+      groundInteractionSection(result) +
+      reboundVelocitySection(result) +
       patternsSection(result) +
       (opts.hideQuality ? '' : qualitySection(result));
   }
@@ -568,6 +810,8 @@
 
   var GROUP_LABEL = {
     touchdownPreparation: 'Touchdown preparation',
+    loadingCompression: 'Loading / compression',
+    reboundProjection: 'Rebound / projection',
     projection: 'Projection',
     outcome: 'Outcome',
     groundInteraction: 'Ground interaction'

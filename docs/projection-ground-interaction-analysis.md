@@ -11,9 +11,22 @@ through five linked domains along the mechanical chain:
 PROJECT → PREPARE → LAND / LOAD → REBOUND → FLIGHT / STRIDE OUTCOME
 ```
 
+Since schema v4 the stride timeline is anchored on the **minimum-COM landmark**
+(the four-phase model, §4):
+
+```
+TOUCHDOWN PREPARATION → TOUCHDOWN → LOADING / COMPRESSION → MINIMUM COM
+  → REBOUND / PROJECTION → TOE-OFF → FLIGHT / STRIDE OUTCOME
+```
+
+The central coaching question this makes easy to answer: *how did the athlete
+receive the incoming stride, reach maximum compression, and then organise the
+body from minimum COM through toe-off to create the outgoing stride?*
+
 It deliberately does **not** produce a single efficiency score, does not match
-runners against elite angle templates, and does not treat any single metric
-(vertical oscillation included) as good or bad on its own.
+runners against elite angle templates, does not treat any single metric
+(vertical oscillation included) as good or bad on its own — and does not call
+minimum COM the onset of propulsive force (§4).
 
 Technical disclaimer shown in the UI: *"This analysis is derived from video
 kinematics. It does not directly measure ground-reaction force."*
@@ -115,9 +128,11 @@ rules (no "under-propulsive" labels, coupled braking/propulsion, no measured-GRF
 claims, timing force per-step-then-aggregate) are inherited wholesale.
 
 **D2 — Schema.** New saves write a `pgi` block only:
-`analysisType: "projection_ground_interaction"`, `schemaVersion: 3`. The version
-counts product generations of this analysis surface (1 = pre-KFO prototype era,
-2 = `kfo` block, 3 = `pgi` block) so a document's vintage is unambiguous.
+`analysisType: "projection_ground_interaction"`, `schemaVersion: 4`. The version
+counts generations of this analysis surface (1 = pre-KFO prototype era,
+2 = `kfo` block, 3 = `pgi` block, 4 = the four-phase / minimum-COM stride
+model) so a document's vintage is unambiguous. v3 `pgi` documents still render;
+the four-phase cards read as unavailable on them.
 Read-time migration: `pgi` present → render PGI; only `kfo` → render the stored
 KFO aggregate through the legacy KFO renderer, tagged legacy; neither →
 explicit unavailable. **No stored KFO/V1 value is reinterpreted as a PGI
@@ -180,6 +195,7 @@ for ordering and are not rendered as scores.
 | `esformlab/pgi-com.js` | `PGICom` | COMTrajectoryAnalyzer + ReboundAnalyzer + flight cross-check |
 | `esformlab/pgi-touchdown.js` | `PGITouchdown` | TouchdownPreparationAnalyzer + braking-pattern classification |
 | `esformlab/pgi-outcome.js` | `PGIOutcome` | StrideOutcomeAnalyzer + ArmCarriageAnalyzer |
+| `esformlab/pgi-phases.js` | `PGIPhases` | four-phase stride model: joint-angle series, loading/compression + rebound/projection blocks, outcome chain, movement summary |
 | `esformlab/pgi-patterns.js` | `PGIPatterns` | MechanicsPatternInterpreter + domain summary |
 | `esformlab/pgi-compare.js` | `PGICompare` | ConditionComparisonAnalyzer (pre/post) |
 | `esformlab/pgi-analysis.js` | `PGIAnalysis` | orchestration, envelope assembly, `toStoredForm`, migration |
@@ -189,8 +205,8 @@ for ordering and are not rendered as scores.
 | `esformlab/pgi-tests.js` / `pgi-tests.html` | `PGITests` | fixtures + suites (node + browser) |
 
 Script load order (after the `kfo-*` scripts they depend on):
-`pgi-core → pgi-timing → pgi-com → pgi-touchdown → pgi-outcome → pgi-patterns →
-pgi-compare → pgi-analysis → pgi-render → pgi-export → pgi-app`.
+`pgi-core → pgi-timing → pgi-com → pgi-touchdown → pgi-outcome → pgi-phases →
+pgi-patterns → pgi-compare → pgi-analysis → pgi-render → pgi-export → pgi-app`.
 
 ---
 
@@ -272,6 +288,111 @@ thresholdable without calibration, and converted to `m/s²` when one exists. It
 is a **kinematic proxy**; it is never multiplied by a mass and never called a
 force.
 
+### The four-phase stride model (minimum COM) — schema v4
+
+The stride timeline is organised around four functional windows:
+
+```
+TOUCHDOWN PREPARATION   ~150 ms before contact → touchdown        (pgi-touchdown)
+LOADING / COMPRESSION   touchdown → minimum COM                   (pgi-com + pgi-phases)
+REBOUND / PROJECTION    minimum COM → toe-off                     (pgi-com + pgi-phases)
+FLIGHT / STRIDE OUTCOME toe-off → next touchdown                  (pgi-timing + pgi-outcome)
+```
+
+**Why minimum COM.** The lowest point of the smoothed whole-body COM trajectory
+within stance is the kinematic reversal point of vertical COM motion: the COM
+descends, upward force decelerates the descent, vertical COM velocity passes
+through approximately zero, and the COM rises to toe-off. That makes it an
+excellent, robustly detectable landmark for summarising how the runner
+organises the outgoing stride.
+
+**What minimum COM is NOT.** It is *not* the exact start of propulsive force,
+*not* the start of positive vertical force, and *not* the braking-to-propulsion
+transition. Upward force is already being produced **before** the minimum in
+order to decelerate the descending COM. The fore-aft (AP) force reversal —
+`Fx` crossing from braking to propulsion — is a *separate* event that is not
+guaranteed to coincide with the vertical reversal, and this video-only pipeline
+does not observe it. The architecture keeps the two distinct: minimum COM is
+described as the *vertical COM reversal* / *start of the rebound–projection
+window*, never as a force event. The phase after it is named
+**rebound/projection**, never "propulsive phase".
+
+**Detection** (`PGICom.detectMinimumCom`). Runs on the smoothed trajectory,
+never a single raw frame. Candidates are the smoothed samples inside the stance
+plus the interpolated stance endpoints. A broad flat bottom (region within 5%
+of the excursion range of the minimum, wider than 30% of stance — above the
+~22% a parabolic minimum shows at that epsilon) is reported as a **region**
+with its centre chosen and the bounds retained
+(`window: {startPercent, endPercent}`, `detectionMethod:
+'smoothed_com_flat_region_center'`). Each detection carries a confidence and
+flags rather than failing silently:
+
+| Flag | Trigger |
+| --- | --- |
+| `minimum_com_flat_region` | flat bottom wider than 30% of stance |
+| `minimum_com_multiple_local_extrema` | >1 comparable local minimum |
+| `minimum_com_near_touchdown` / `_near_toeoff` | minimum within 12% of a stance edge |
+| `com_trajectory_noisy` | >3 fitted-velocity sign changes within stance |
+| `minimum_com_velocity_inconsistent` | \|v_y\| at the minimum > 0.35 × peak stance \|v_y\| |
+| `minimum_com_low_confidence` | combined confidence < 0.5 |
+
+The clip-level flag `minimum_com_unreliable` is raised when the median
+per-step confidence falls below 0.5, and **stance-organization patterns are
+withheld** in that case.
+
+**Phase metrics** (per step, then aggregated; all on the smoothed series):
+
+```
+loadingCompressionDuration = t_minCOM − t_touchdown
+reboundTime                = t_toeoff − t_minCOM
+compressionFraction        = loadingDuration / GCT
+reboundFraction            = reboundTime / GCT           (sum ≈ 1)
+compressionToReboundRatio  = loadingDuration / reboundTime
+stanceCompression          = COM_touchdown − COM_min      (up-positive)
+reboundRise                = COM_toeoff − COM_min
+loadingHorizontalTravel    = (COM_x(minCOM) − COM_x(TD)) · dirSign
+reboundHorizontalTravel    = (COM_x(TO) − COM_x(minCOM)) · dirSign
+meanReboundVelocity        = reboundRise / reboundTime    "mean COM rise velocity"
+verticalVelocityGain       = v_y(TO) − v_y(minCOM)        (v_y(minCOM) ≈ 0)
+meanVerticalAccelProxy     = velocityGain / reboundTime   (quality-gated, see below)
+```
+
+`meanReboundVelocity` is always worded as a *motion* quantity ("mean COM rise
+velocity during rebound") — never a force. The acceleration proxy is emitted
+**only** when the fitted COM velocity passed its flight cross-check (median
+relative error ≤ 0.35) and the frame rate supports velocities at all; otherwise
+it is `unavailable` with `com_velocity_quality_insufficient`.
+
+**Toe-off velocity: two estimates, never averaged.** `v_y(TO)` exists both as
+the fitted pose derivative (needs a calibration) and as the ballistic
+`g·t_flight/2`. They are cross-checked (`toeoffVelocityAgreement`); the
+flight-derived value leads every user-facing summary
+(`preferredSource: 'ballistic_flight_time'`), and both values plus their
+disagreement are exposed in the admin/research output.
+
+**Joint-angle summaries** (`pgi-phases.js`) at touchdown, minimum COM and
+toe-off, aggregated per phase with change and (frame-rate-gated) mean angular
+velocity:
+
+| Angle | Definition | Positive means |
+| --- | --- | --- |
+| hip | trunk–thigh interior angle at the hip | larger = more extended |
+| knee | thigh–shank interior angle at the knee | larger = straighter |
+| trunk | shoulder-mid→hip-mid lean from vertical | forward lean |
+| shank | knee→ankle inclination from vertical | knee ahead of ankle |
+| support | COM→stance-ankle line from vertical | support point behind COM |
+| ankle | **permanently unavailable** — COCO-17 has no heel/toe/foot landmark, so no foot segment exists to measure plantarflexion against | — |
+| pelvis | **permanently unavailable** — two near-collinear sagittal hip points cannot resolve pelvis orientation | — |
+
+No single joint is credited with creating propulsion; the movement summary
+describes coordinated whole-body movement, descriptively, with no grading
+vocabulary.
+
+**Outcome chain.** One object links the temporal sequence
+`minimum COM → rebound rise → rebound time → v_y(toe-off) → flight →
+aerial rise → stride length` for the UI and export, with an explicit note that
+it is a temporal sequence, not a full causal chain.
+
 ### Flight-time cross-check
 
 Ballistic flight predicts `t_flight ≈ 2·v_toeoff/g`, so pose-derived toe-off
@@ -330,13 +451,13 @@ descriptors: `stepLength/legLength`, `stepLength/height`, and Froude number
 
 ## 5. Output schema
 
-`analysisType: "projection_ground_interaction"`, `schemaVersion: 3`.
+`analysisType: "projection_ground_interaction"`, `schemaVersion: 4`.
 
 ```jsonc
 {
   "analysisType": "projection_ground_interaction",
-  "schemaVersion": 3,
-  "modelVersion": "projection-ground-interaction-v1.0.0",
+  "schemaVersion": 4,
+  "modelVersion": "projection-ground-interaction-v1.1.0",
   "isValidated": false,
   "availability": "available|unavailable|insufficient_quality",
   "conditionLabel": "Post cue",
@@ -371,6 +492,33 @@ descriptors: `stepLength/legLength`, `stepLength/height`, and Froude number
   "verticalProjection": { "overall", "verticalSupport": {...} },
   "comTrajectory":      { "decomposition", "velocity", "flightCrossCheck", "meanPath" },
   "rebound":            { "stanceCompression", "stanceRebound", "comVelocity*", "reversalRate*" },
+
+  // Four-phase model (schema v4). Per side: overall / left / right.
+  "minimumCom": {        // the landmark: vertical COM reversal, NOT force onset
+    "overall": { "stancePercent", "confidence", "flagCounts", "detectionMethod" },
+    "left": {...}, "right": {...}, "reliability": { "medianConfidence", "unreliable" }
+  },
+  "loadingCompression": { // touchdown -> minimum COM
+    "overall": { "durationMs", "fractionOfStance", "compression", "horizontalTravel",
+                 "jointChanges": { "hip", "knee", "trunk", "shank",
+                                   "ankle": "unavailable (no foot landmark)",
+                                   "pelvis": "unavailable" },
+                 "supportGeometry" },
+    "left": {...}, "right": {...}
+  },
+  "reboundProjection": {  // minimum COM -> toe-off
+    "overall": { "durationMs", "fractionOfStance", "comRise", "horizontalTravel",
+                 "meanComRiseVelocity", "comVelocityAtMinimum",
+                 "verticalVelocityAtToeoff": { "poseDerived", "ballisticFromFlightMps",
+                                               "agreement", "preferredSource" },
+                 "meanVerticalAccelerationProxy",   // quality-gated
+                 "compressionToReboundRatio", "jointChanges", "supportGeometry" },
+    "left": {...}, "right": {...},
+    "outcomeChain": { "minimumComStancePercent", "reboundRise*", "reboundDurationMs",
+                      "verticalVelocityAtToeoffMps", "flightSeconds",
+                      "aerialRiseBallisticMeters", "strideLengthMeters" },
+    "movementSummary": { "text", "patternNote" }   // descriptive, stored verbatim
+  },
   "strideOutcome":      { "stepLengthMeters", "flightDistanceMeters", "normalized", "interpretation" },
   "armCarriage":        { "left", "right", "armLegPhase", "asymmetry", "handToMidlineDistance" },
 
@@ -385,21 +533,31 @@ descriptors: `stepLength/legLength`, `stepLength/height`, and Froude number
 }
 ```
 
-### Stored form (~17 KB, budget 20 KB asserted in tests)
+### Stored form (~22 KB, budget 24 KB asserted in tests)
 
-Dropped: per-step and per-contact records, raw/smoothed series, stance sample
-buffers, anything holding keypoints, duplicate-unit metrics (derivable from the
-stored calibration and leg length), and `ci95` on metrics the comparison reads
-as bare scalars.
+Schema **v4** added three stored blocks — `minimumCom`, `loadingCompression`,
+`reboundProjection` (with `outcomeChain` and the verbatim `movementSummary`) —
+which raised the budget from 20 KB. Historical v3 documents are untouched and
+still render; the phase cards simply read as unavailable on them.
+
+Dropped: per-step and per-contact records (including the four-phase
+`stepPhases` joint samples), raw/smoothed series, stance sample buffers,
+anything holding keypoints, duplicate-unit metrics (derivable from the stored
+calibration and leg length), and `ci95` on metrics the comparison reads as bare
+scalars. Per-side phase blocks store only the compact core (duration,
+depth/rise, rise velocity) — side-to-side deltas persist once, in
+`symmetry.stancePhases`.
 
 Stripped and rebuilt by `rehydrateStatic()`: the disclaimer, standing
 limitations, support-geometry vocabulary/sign-convention/window bounds/labels,
 all `note` fields, coupled-pattern interpretation strings, pattern
-`alternatives`.
+`alternatives`, the minimum-COM definition, the ankle/pelvis refusal markers,
+the outcome-chain sequence/note and `preferredSource`.
 
-Kept verbatim: pattern `observations` and `interpretation` — several are built
-from computed values with conditional caveats and could not be faithfully
-reconstructed; they are the record of what the analysis told the user.
+Kept verbatim: pattern `observations` and `interpretation`, and the rebound
+`movementSummary` text — these are built from computed values with conditional
+caveats and could not be faithfully reconstructed; they are the record of what
+the analysis told the user.
 
 Trajectory paths persist as **parallel arrays** downsampled to 13 points, so a
 saved session can still draw its charts.
@@ -410,16 +568,21 @@ saved session can still draw its charts.
 
 ### Independent evidence
 
-Within a step there are only **two** independent timing quantities: contact time
-and flight time. Step time, duty factor, cadence, mean vertical support
-(`1/DF`), take-off velocity (`g·t_f/2`), effective vertical impulse (`g·t_f`)
-and ballistic aerial rise (`g·t_f²/8`) are all algebra on them. Rules therefore
-fire on **GCT and flight time**; the derived quantities appear under
-`supportingMetrics.derivedFromTiming` with a note stating they are not
+Within a step there are only **three** independent timing quantities: contact
+time, flight time, and — since schema v4 — the **minimum-COM timing within
+stance**. Step time, duty factor, cadence, mean vertical support (`1/DF`),
+take-off velocity (`g·t_f/2`), effective vertical impulse (`g·t_f`) and
+ballistic aerial rise (`g·t_f²/8`) are algebra on the first two; compression
+and rebound durations, both phase fractions and the compression:rebound ratio
+are algebra on GCT and the minimum-COM timing, and mean rebound velocity is
+rise over rebound time. Rules therefore fire on the independent quantities; the
+derived ones appear under `supportingMetrics.derivedFromTiming` /
+`supportingMetrics.derivedFromLandmark` with notes stating they are not
 independent evidence. Measured aerial rise (COM) vs ballistic aerial rise
 (flight time) is a genuine cross-check, not two findings.
 
-Evidence classes: `timing`, `com`, `touchdown`, `outcome`.
+Evidence classes: `timing`, `com`, `touchdown`, `outcome`,
+`minimum_com_landmark`.
 
 ### Braking patterns (position × velocity)
 
@@ -440,6 +603,27 @@ alone cannot earn `well_prepared_touchdown`.
 `excessive_vertical_excursion`, `elastic_rapid_rebound`, plus the always-on
 `vertical_oscillation_composition` which names whether the excursion comes
 mainly from aerial rise or stance motion and states that neither is good or bad.
+
+### Stance-organization patterns (four-phase model)
+
+Combinations of compression depth, rebound duration/rise and the resulting
+flight, anchored at the minimum-COM landmark. **All are withheld when
+`minimum_com_unreliable`** — no strong rebound interpretation from a landmark
+that could not be located.
+
+| Pattern | Compression | Rebound | Flight |
+| --- | --- | --- | --- |
+| `rapid_rebound` | contained (< large) | short, rise ≥ meaningful | > short |
+| `slow_rebound` | — | long (≥ 140 ms) | ≤ short |
+| `high_compression_low_rebound` | ≥ large | rise ≤ limited | ≤ short |
+| `high_compression_strong_rebound` | ≥ large | rise ≥ meaningful | > short |
+| `low_compression_rapid_rebound` | ≤ small | short | ≥ short |
+
+**No compression or stiffness strategy is ranked as universally superior** —
+each pattern is a description of how stance is organised, and the
+high-compression/strong-rebound interpretation says so explicitly. The
+compression:rebound ratio is emitted for left/right, pre/post, fatigue and
+within-runner comparison only; no ideal-value thresholds exist for it.
 
 ### Productive vs unproductive vertical oscillation
 
@@ -466,6 +650,9 @@ mostly stance motion.
 | `reversalRapid` / `reversalSlow` (leg lengths/s²) | 8.5 / 5.0 |
 | `offsetModerate` / `offsetElevated` (leg lengths) | 0.28 / 0.38 |
 | `forwardFootGroundMps` | 0.40 |
+| `reboundShortMs` / `reboundLongMs` | 105 / 140 |
+| `compressionSmallLegLengths` | 0.05 |
+| `reboundRiseMeaningful` / `reboundRiseLimited` (leg lengths) | 0.05 / 0.03 |
 
 All carry `isProvisional: true`. **The timing bands must be reachable inside the
 accepted running range**: since `DF = GCT/(GCT+flight)`, requiring long contact
@@ -507,6 +694,13 @@ Flags inherited from KFO (`low_frame_rate`, `sparse_stance_sampling`,
 | `calibration_is_ballistic_implied` | scale implied from flight, not measured |
 | `dense_precontact_sampling_unavailable` | dense pass requested but not used |
 | `speed_mismatch_between_conditions` | comparison is speed-confounded |
+| `minimum_com_unreliable` | minimum COM not reliably located on most steps; phase splits low-confidence, stance-organization patterns withheld |
+
+Per-step minimum-COM flags (`minimum_com_flat_region`,
+`minimum_com_multiple_local_extrema`, `minimum_com_near_touchdown`/`_near_toeoff`,
+`com_trajectory_noisy`, `minimum_com_velocity_inconsistent`,
+`minimum_com_low_confidence`) are carried on each detection and aggregated as
+`flagCounts` per side — see §4.
 
 **No false precision.** Below ~15 Hz effective, pre-contact velocity reports
 *"Pre-contact velocity estimate unavailable: video frame rate insufficient."*
@@ -517,12 +711,21 @@ rather than a degraded number. Speed-unknown reduces every pattern confidence by
 
 ## 8. Comparison mode
 
-`PGICompare.compare(conditionA, conditionB)` over 28 metrics in the four groups
-(touchdown preparation, projection, outcome, ground interaction). Each delta
-carries absolute change, percentage change, both stride distributions, and
-`exceedsVariability` — a **CI-non-overlap** test, falling back to a pooled
-standardised difference ≥ 0.8. A change inside the noise is reported as
-*unchanged* with its numbers still visible.
+`PGICompare.compare(conditionA, conditionB)` over ~40 metrics in six groups
+(touchdown preparation, **loading/compression**, **rebound/projection**,
+projection, outcome, ground interaction). Each delta carries absolute change,
+percentage change, both stride distributions, and `exceedsVariability` — a
+**CI-non-overlap** test, falling back to a pooled standardised difference
+≥ 0.8. A change inside the noise is reported as *unchanged* with its numbers
+still visible.
+
+The four-phase groups prominently compare minimum-COM timing, compression
+duration/fraction/depth, rebound duration/fraction/rise, mean rebound velocity,
+the compression:rebound ratio, and the hip/knee changes during rebound. When
+rebound duration or rise changes meaningfully, `rebound_organization_change`
+describes it ("a faster and larger COM rebound from minimum COM to toe-off,
+followed by greater aerial time") — descriptively, without ranking either
+condition.
 
 Speed is checked first: differences beyond 5% relative or 0.15 m/s set
 `speedComparable: false`, scale every pattern confidence to 0.6×, and render a
@@ -537,7 +740,7 @@ weaker of the two analyses.
 
 ## 9. Tests
 
-`node esformlab/pgi-tests.js` — **105 tests, all passing**. Browser runner at
+`node esformlab/pgi-tests.js` — **143 tests, all passing**. Browser runner at
 `esformlab/pgi-tests.html` (admin-gated). `node esformlab/kfo-tests.js` still
 passes 172/172 after the demotion.
 
@@ -554,6 +757,21 @@ touchdown, ground-bound runner, slow projection, productive projection,
 excessive vertical excursion, collision-heavy, left/right asymmetry, before/after
 comparison, low frame rate, unknown treadmill speed, calibrated overground,
 right-to-left running, mirrored footage.
+
+Four-phase coverage: clean/parabolic minimum, **inverted image-Y coordinates**
+(the visually lowest COM is the detected minimum), broad flat minimum (region +
+centre + reduced confidence), multiple local extrema, edge-adjacent minimum,
+noisy trajectory, non-zero velocity at the minimum, phase-partition identities
+(durations sum to GCT, fractions to 1, velocity = rise/time), deep vs shallow
+compression, forward-positive horizontal travel, per-side compression and
+rebound-timing asymmetry (skewed fixtures), joint deltas with the ankle/pelvis
+refusals, frame-rate gating of angular velocities, the two toe-off velocity
+estimates and their cross-check gate, the outcome chain, the descriptive
+movement summary, all five stance-organization patterns on physically
+constructed fixtures, the unreliable-minimum withholding gate, the rebound
+comparison pattern, storage/rehydration of the v4 blocks, v3-document
+compatibility, and copy audits asserting minimum COM is never described as the
+onset of propulsion and the rebound phase is never named "propulsive phase".
 
 **Copy audits work by negation checking, not word banning.** Words like
 "better", "efficiency" and "measure" appear legitimately — always inside a
@@ -579,6 +797,13 @@ rule. **Do not "fix" a copy-audit failure by deleting the word.**
   below the detector's resolution and will read as unchanged.
 - The ankle is the foot proxy; for a heel-first contact this understates
   foot-to-COM offset.
+- **Minimum COM is a kinematic landmark, not a force event.** Its alignment
+  with the AP GRF zero crossing is unknown until force-plate validation; flat
+  minima limit its temporal precision (disclosed via the region window and
+  reduced confidence); ~5–6 stance samples bound how finely the phase split can
+  be located.
+- Ankle plantarflexion and pelvis orientation are permanently unavailable from
+  COCO-17 sagittal pose; the shank angle carries the distal-segment motion.
 - 2D sagittal only; camera perpendicularity is inferred, not measured.
 - Interpretation thresholds are provisional and speed-dependent.
 - Grade is captured nowhere, so "level surface" remains an assumption.
@@ -595,6 +820,15 @@ relationship between the timing-derived mean vertical support and measured mean
 vertical force. `pgi-export.js` exists to make that study possible: stride-level
 and frame-level rows with raw *and* smoothed trajectories, stance-state and
 event labels, and full provenance.
+
+**Minimum COM vs the force events.** The four-phase model adds a specific
+force-plate question: how closely does the video-detected minimum-COM timing
+align with (a) the AP GRF zero crossing (braking → propulsion), (b) peak
+vertical GRF, (c) peak braking and peak propulsion? The export carries
+`minimumComTimeSeconds`/`minimumComStancePercent` per stride precisely so those
+alignments can be quantified against synchronized force-plate data. Until then,
+minimum COM stays labelled the *vertical COM reversal*, never the
+braking-to-propulsion transition.
 
 ### Recommended next internal validation step
 

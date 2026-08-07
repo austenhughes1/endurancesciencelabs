@@ -317,6 +317,7 @@
             'Projection & Ground Interaction needs the side-view scan data from this session. ' +
             'Re-run the analysis from the upload screen to populate it.');
         }
+        mountFrameInspector();
         if (isEnabled('conditionComparison')) mountConditionControls();
         renderComparison();
         if (isEnabled('researchExport')) mountResearchTools();
@@ -325,8 +326,8 @@
         console.error('[pgi] render failed:', e);
       }
     } else {
-      ['pgi-context', 'pgi-report', 'pgi-conditions', 'pgi-comparison', 'pgi-research-tools']
-        .forEach(removeNode);
+      ['pgi-context', 'pgi-report', 'pgi-frame-inspector', 'pgi-conditions', 'pgi-comparison',
+       'pgi-research-tools'].forEach(removeNode);
     }
 
     // The superseded force-orientation panel, off by default.
@@ -446,6 +447,141 @@
     });
   }
 
+  // ── Frame inspector (touchdown / minimum COM / toe-off) ──────────────────
+  //
+  // Seeks the side video to the three stance landmarks of a representative
+  // step and overlays the COM, the support point and line, and the stance-leg
+  // and trunk segments. Live sessions only: it needs the retained samples and
+  // the per-step event times, neither of which is persisted.
+
+  function representativeStep() {
+    if (!lastResult || !lastResult.comTrajectory || !lastResult.comTrajectory.stepResults) return null;
+    var valid = lastResult.comTrajectory.stepResults.filter(function (s) {
+      return s.valid && s.minimumCom && s.minimumCom.available;
+    });
+    if (!valid.length) return null;
+    // The step whose minimum-COM detection is most confident; ties go to the
+    // middle of the clip.
+    var best = valid[Math.floor(valid.length / 2)];
+    valid.forEach(function (s) {
+      if (s.minimumCom.confidence > best.minimumCom.confidence + 1e-9) best = s;
+    });
+    return best;
+  }
+
+  function nearestSample(t) {
+    var samples = getSamples();
+    if (!samples) return null;
+    var best = null;
+    samples.forEach(function (s) {
+      if (!s || typeof s.t !== 'number' || !s.kps) return;
+      if (!best || Math.abs(s.t - t) < Math.abs(best.t - t)) best = s;
+    });
+    return best;
+  }
+
+  function drawInspectorFrame(canvas, video, sample, step, eventName, t) {
+    var ctx = canvas.getContext('2d');
+    var vw = video.videoWidth || 640, vh = video.videoHeight || 360;
+    var W = canvas.width, H = Math.round(W * vh / vw);
+    canvas.height = H;
+    ctx.drawImage(video, 0, 0, W, H);
+    if (!sample || !sample.kps) return;
+
+    // Samples were posed on the scan canvas; rescale through its frame width.
+    var scale = W / (sample.frameWidth || 400);
+    function P(i) {
+      var k = sample.kps[i];
+      return (k && typeof k.x === 'number' && (k.score || 0) >= 0.25)
+        ? { x: k.x * scale, y: k.y * scale } : null;
+    }
+    function mid(a, b) { return (a && b) ? { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } : null; }
+    function line(a, b, color, width, dash) {
+      if (!a || !b) return;
+      ctx.beginPath();
+      ctx.setLineDash(dash || []);
+      ctx.strokeStyle = color; ctx.lineWidth = width || 2;
+      ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    function dot(p, color, r) {
+      if (!p) return;
+      ctx.beginPath(); ctx.fillStyle = color;
+      ctx.arc(p.x, p.y, r || 5, 0, Math.PI * 2); ctx.fill();
+    }
+
+    var side = step.contactSide;
+    var hip = P(side === 'left' ? 11 : 12);
+    var knee = P(side === 'left' ? 13 : 14);
+    var ankle = P(side === 'left' ? 15 : 16);
+    var shMid = mid(P(5), P(6)), hipMid = mid(P(11), P(12));
+    var comRaw = (typeof KFO !== 'undefined') ? KFO.computeCOM(sample.kps, 'segmental') : null;
+    var com = comRaw ? { x: comRaw.x * scale, y: comRaw.y * scale } : null;
+
+    line(shMid, hipMid, 'rgba(77,163,255,.9)', 3);          // trunk
+    line(hip, knee, 'rgba(61,220,151,.9)', 3);              // thigh
+    line(knee, ankle, 'rgba(61,220,151,.9)', 3);            // shank
+    line(ankle, com, 'rgba(255,176,32,.9)', 2, [6, 4]);     // support line
+    dot(ankle, 'rgba(61,220,151,1)', 5);                    // support point
+    dot(com, 'rgba(255,176,32,1)', 6);                      // COM
+
+    ctx.font = '700 13px system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,.92)';
+    ctx.strokeStyle = 'rgba(0,0,0,.65)'; ctx.lineWidth = 3;
+    var caption = eventName + '  ·  ' + t.toFixed(3) + ' s  ·  ' + side + ' stance';
+    ctx.strokeText(caption, 10, H - 12);
+    ctx.fillText(caption, 10, H - 12);
+  }
+
+  function mountFrameInspector() {
+    if (typeof document === 'undefined') return;
+    var step = representativeStep();
+    var video = document.getElementById('video-side');
+    if (!step || !video) { removeNode('pgi-frame-inspector'); return; }
+    var host = ensureHost('pgi-frame-inspector', 'pgi-report');
+    if (!host) return;
+
+    var minPct = Math.round(step.minimumCom.stancePercent);
+    host.innerHTML =
+      '<div style="margin-top:12px;padding:14px;border:1px solid var(--border2,#2a3550);' +
+      'border-radius:10px;background:var(--panel2,#121724)">' +
+      '<div style="font-size:10px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;' +
+      'color:var(--muted2,#8aa0c0);margin-bottom:8px">Stance landmarks — frame inspector</div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:9px">' +
+      [['touchdown', 'Touchdown'],
+       ['minimumHeight', 'Minimum COM (' + minPct + '% stance)'],
+       ['toeoff', 'Toe-off']].map(function (spec) {
+        return '<button type="button" data-pgi-frame="' + spec[0] + '" style="font:inherit;' +
+          'font-size:11px;padding:6px 12px;border-radius:6px;border:1px solid var(--border2,#2a3550);' +
+          'background:transparent;color:inherit;cursor:pointer">' + spec[1] + '</button>';
+      }).join('') + '</div>' +
+      '<canvas data-pgi="inspector-canvas" width="480" height="270" ' +
+      'style="max-width:100%;border-radius:8px;display:none"></canvas>' +
+      '<div style="font-size:10.5px;color:var(--muted2,#8aa0c0);line-height:1.5;margin-top:8px">' +
+      'Overlays: centre of mass (amber), support point and support line (dashed), stance leg and ' +
+      'trunk. The support line is body geometry, not a force direction, and its length carries no ' +
+      'force magnitude. Minimum COM is the vertical COM reversal point, not the start of force ' +
+      'production.</div></div>';
+
+    var canvas = host.querySelector('[data-pgi="inspector-canvas"]');
+    host.querySelectorAll('button[data-pgi-frame]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var eventKey = btn.getAttribute('data-pgi-frame');
+        var t = step.events[eventKey];
+        if (typeof t !== 'number') return;
+        var labelText = eventKey === 'minimumHeight' ? 'MINIMUM COM'
+          : eventKey === 'touchdown' ? 'TOUCHDOWN' : 'TOE-OFF';
+        var draw = function () {
+          video.removeEventListener('seeked', draw);
+          canvas.style.display = 'block';
+          drawInspectorFrame(canvas, video, nearestSample(t), step, labelText, t);
+        };
+        video.addEventListener('seeked', draw);
+        try { video.currentTime = t; } catch (e) { video.removeEventListener('seeked', draw); }
+      });
+    });
+  }
+
   // ── Persistence ───────────────────────────────────────────────────────────
 
   /**
@@ -478,11 +614,12 @@
    */
   function renderSaved(doc) {
     if (!isAdminUser() || !isEnabled('projectionGroundInteraction')) {
-      ['pgi-context', 'pgi-report', 'pgi-conditions', 'pgi-comparison', 'pgi-research-tools']
-        .forEach(removeNode);
+      ['pgi-context', 'pgi-report', 'pgi-frame-inspector', 'pgi-conditions', 'pgi-comparison',
+       'pgi-research-tools'].forEach(removeNode);
       return;
     }
-    ['pgi-context', 'pgi-conditions', 'pgi-comparison', 'pgi-research-tools'].forEach(removeNode);
+    ['pgi-context', 'pgi-frame-inspector', 'pgi-conditions', 'pgi-comparison',
+     'pgi-research-tools'].forEach(removeNode);
     lastResult = null;
     if (typeof PGIRender === 'undefined' || typeof PGIAnalysis === 'undefined') return;
     var migrated = fromStored(doc);

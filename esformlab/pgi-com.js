@@ -35,6 +35,19 @@
 //  check is a genuine validation; the ballistic-implied calibration is by
 //  construction NOT independent, and the result says so.
 //
+//  MINIMUM COM (four-phase model). The lowest point of the smoothed COM
+//  trajectory within stance is the kinematic landmark separating
+//  loading/compression (touchdown → minimum COM) from rebound/projection
+//  (minimum COM → toe-off). It is the REVERSAL POINT of vertical COM motion —
+//  vertical COM velocity is approximately zero there. It is NOT the onset of
+//  propulsive force: upward force is already being produced before the minimum
+//  in order to decelerate the descending COM, and the fore-aft (braking →
+//  propulsion) force reversal is a separate event this video-only system does
+//  not observe. detectMinimumCom() below never takes the single raw-frame
+//  minimum: it works on the smoothed trajectory, tolerates broad flat minima by
+//  reporting a region and choosing its centre, and carries quality flags plus a
+//  confidence instead of failing silently.
+//
 //  UNITS. Image +y is DOWN; this module works in an up-positive height
 //  h = −y. All lengths are reported normalized to leg length ALWAYS, and in
 //  metres/centimetres only when a spatial calibration exists (with its source).
@@ -79,12 +92,170 @@
     };
   }
 
-  // ── Per-step extraction ────────────────────────────────────────────────────
+  // ── Minimum-COM detection (four-phase model) ───────────────────────────────
 
   function heightAt(points, t) { return PGI.valueAtTime(points, t, 'value'); }
   function velocityAt(points, t) { return PGI.valueAtTime(points, t, 'd1'); }
 
-  function analyzeStep(points, step, legLength) {
+  var MIN_COM_CONFIG = Object.freeze({
+    // Heights within this fraction of the stance excursion range of the global
+    // minimum belong to the "flat" region around it.
+    flatEpsilonFraction: 0.05,
+    // A flat region wider than this share of stance means the minimum is a
+    // REGION: its centre is reported and temporal certainty is reduced. The
+    // bound sits above the width a parabolic (sharp) minimum shows at this
+    // epsilon (2·√0.05 of the half-stance ≈ 22% of stance) so an ordinary
+    // smooth minimum is never mislabelled flat.
+    flatRegionStancePercent: 30,
+    // A minimum this close to a stance edge is suspicious — it usually means an
+    // event-detection or trajectory problem rather than a mid-stance minimum.
+    nearEdgeStancePercent: 12,
+    // |vy| at the detected minimum, as a fraction of the peak |vy| in stance,
+    // above which the minimum and the velocity estimate disagree.
+    velocityInconsistencyFraction: 0.35,
+    // More d1 sign changes than this within stance marks the trajectory noisy
+    // (one genuine down→up reversal is expected).
+    maxVelocitySignChanges: 3,
+    minSamplesInStance: 3
+  });
+
+  /**
+   * Locate the minimum of the SMOOTHED COM height within one stance interval.
+   *
+   * Works in up-positive height (h = −imageY), so the visually lowest COM is
+   * the numerical minimum regardless of the image coordinate system — that
+   * normalization happened in buildComSeries, and every downstream consumer of
+   * this result can reason in "positive = upward".
+   *
+   * Never the single raw-frame minimum: candidates are the smoothed samples
+   * inside the stance plus the interpolated stance endpoints. A broad flat
+   * minimum yields a region whose centre is chosen, with the region bounds
+   * retained; local-extremum multiplicity, edge proximity, trajectory noise and
+   * a non-zero vertical velocity at the minimum each flag the detection and
+   * reduce its confidence rather than being hidden.
+   *
+   * @returns {{available:boolean, reason?:string, t?:number, heightPx?:number,
+   *   stancePercent?:number, window?:{startPercent:number,endPercent:number}|null,
+   *   flatWidthPercent?:number, localMinimaCount?:number, samplesInStance?:number,
+   *   vyAtMinimumPxPerS?:number|null, flags?:string[], confidence?:number,
+   *   detectionMethod?:string}}
+   */
+  function detectMinimumCom(points, tTd, tTo, opts) {
+    var cfg = opts || MIN_COM_CONFIG;
+    var F = PGI.MIN_COM_FLAG;
+    var stanceDur = tTo - tTd;
+    if (!(stanceDur > 0)) return { available: false, reason: 'invalid_stance_interval' };
+
+    var inside = (points || []).filter(function (p) {
+      return p && isNum(p.t) && p.t > tTd && p.t < tTo && isNum(p.value);
+    });
+    var hTd = heightAt(points, tTd);
+    var hTo = heightAt(points, tTo);
+    var cand = [];
+    if (isNum(hTd)) cand.push({ t: tTd, value: hTd });
+    inside.forEach(function (p) { cand.push({ t: p.t, value: p.value, d1: p.d1 }); });
+    if (isNum(hTo)) cand.push({ t: tTo, value: hTo });
+    if (cand.length < cfg.minSamplesInStance) {
+      return { available: false, reason: 'no_stance_samples', samplesInStance: cand.length };
+    }
+
+    var vals = cand.map(function (p) { return p.value; });
+    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+    var range = hi - lo;
+    var eps = Math.max(range * cfg.flatEpsilonFraction, 1e-9);
+    var argmin = 0;
+    cand.forEach(function (p, i) { if (p.value < cand[argmin].value) argmin = i; });
+
+    // Flat region: the contiguous run around the global minimum whose heights
+    // sit within eps of it.
+    var runStart = argmin, runEnd = argmin;
+    while (runStart > 0 && cand[runStart - 1].value <= lo + eps) runStart--;
+    while (runEnd < cand.length - 1 && cand[runEnd + 1].value <= lo + eps) runEnd++;
+    var flatWidthPct = (cand[runEnd].t - cand[runStart].t) / stanceDur * 100;
+    var isFlat = flatWidthPct >= cfg.flatRegionStancePercent;
+
+    var tMin, method;
+    if (isFlat) {
+      // The centre of the flat region is the most defensible single frame; the
+      // region bounds are retained so nothing pretends to a sharper answer.
+      var mid = (cand[runStart].t + cand[runEnd].t) / 2;
+      var best = runStart;
+      for (var i = runStart; i <= runEnd; i++) {
+        if (Math.abs(cand[i].t - mid) < Math.abs(cand[best].t - mid)) best = i;
+      }
+      tMin = cand[best].t;
+      method = 'smoothed_com_flat_region_center';
+    } else {
+      tMin = cand[argmin].t;
+      method = 'smoothed_com_extremum';
+    }
+
+    // Local-minimum multiplicity among interior candidates, counting only dips
+    // that come within 2·eps of the global minimum.
+    var localMinima = 0;
+    for (var j = 1; j < cand.length - 1; j++) {
+      if (cand[j].value < cand[j - 1].value && cand[j].value <= cand[j + 1].value &&
+          cand[j].value <= lo + 2 * eps) localMinima++;
+    }
+    if (localMinima === 0) localMinima = 1; // the global minimum itself
+
+    // Trajectory noise: sign changes of the fitted vertical velocity in stance.
+    var signChanges = 0, prevSign = 0;
+    inside.forEach(function (p) {
+      if (!isNum(p.d1) || p.d1 === 0) return;
+      var s = p.d1 > 0 ? 1 : -1;
+      if (prevSign !== 0 && s !== prevSign) signChanges++;
+      prevSign = s;
+    });
+
+    var pct = (tMin - tTd) / stanceDur * 100;
+    var vyMin = velocityAt(points, tMin);
+    var absVys = inside.map(function (p) { return isNum(p.d1) ? Math.abs(p.d1) : null; }).filter(isNum);
+    var peakAbsVy = absVys.length ? Math.max.apply(null, absVys) : null;
+
+    var flags = [];
+    var confidence = 0.9;
+    if (cand.length < 5) confidence *= 0.75;
+    if (isFlat) { flags.push(F.FLAT_REGION); confidence *= 0.8; }
+    if (localMinima > 1) { flags.push(F.MULTIPLE_LOCAL_EXTREMA); confidence *= 0.8; }
+    if (pct < cfg.nearEdgeStancePercent) { flags.push(F.NEAR_TOUCHDOWN); confidence *= 0.6; }
+    if (pct > 100 - cfg.nearEdgeStancePercent) { flags.push(F.NEAR_TOEOFF); confidence *= 0.6; }
+    if (signChanges > cfg.maxVelocitySignChanges) { flags.push(F.TRAJECTORY_NOISY); confidence *= 0.8; }
+    if (isNum(vyMin) && isNum(peakAbsVy) && peakAbsVy > 0 &&
+        Math.abs(vyMin) > cfg.velocityInconsistencyFraction * peakAbsVy) {
+      flags.push(F.VELOCITY_INCONSISTENT); confidence *= 0.8;
+    }
+    if (confidence < 0.5) flags.push(F.LOW_CONFIDENCE);
+
+    return {
+      available: true,
+      t: tMin,
+      heightPx: heightAt(points, tMin),
+      stancePercent: pct,
+      window: isFlat ? {
+        startPercent: (cand[runStart].t - tTd) / stanceDur * 100,
+        endPercent: (cand[runEnd].t - tTd) / stanceDur * 100
+      } : null,
+      flatWidthPercent: flatWidthPct,
+      localMinimaCount: localMinima,
+      samplesInStance: cand.length,
+      vyAtMinimumPxPerS: isNum(vyMin) ? vyMin : null,
+      flags: flags,
+      confidence: Math.max(0.05, Math.min(1, confidence)),
+      detectionMethod: method
+    };
+  }
+
+  // ── Per-step extraction ────────────────────────────────────────────────────
+
+  /**
+   * @param {Array} points     smoothed COM height series {t,value,d1}
+   * @param {Object} step      {startTime, contactSeconds, flightSeconds, ...}
+   * @param {number|null} legLength
+   * @param {Array} [pointsX]  smoothed COM horizontal series {t,value,d1}
+   * @param {number|null} [dirSign]  +1/−1 so horizontal travel is forward-positive
+   */
+  function analyzeStep(points, step, legLength, pointsX, dirSign) {
     var tTd = step.startTime;
     var tTo = step.startTime + step.contactSeconds;
     var tLand = tTo + step.flightSeconds; // opposite-foot touchdown
@@ -93,11 +264,9 @@
     var hTo = heightAt(points, tTo);
     if (!isNum(hTd) || !isNum(hTo)) return { valid: false, reason: 'com_coverage_incomplete' };
 
-    var minStance = PGI.extremumInWindow(points, tTd, tTo, 'value', 'min');
-    if (!minStance) return { valid: false, reason: 'no_stance_samples' };
-    // Endpoints can undercut the interior samples on sparse stances.
-    if (hTd < minStance.v) minStance = { t: tTd, v: hTd };
-    if (hTo < minStance.v) minStance = { t: tTo, v: hTo };
+    var minCom = detectMinimumCom(points, tTd, tTo);
+    if (!minCom.available) return { valid: false, reason: minCom.reason };
+    var minStance = { t: minCom.t, v: minCom.heightPx };
 
     var apexFlight = PGI.extremumInWindow(points, tTo, tLand, 'value', 'max');
     var hLand = heightAt(points, tLand);
@@ -117,6 +286,43 @@
 
     var reversal = (isNum(vTo) && isNum(vTd)) ? vTo - vTd : null;
     var gct = step.contactSeconds;
+
+    // ── Loading/compression and rebound/projection phase kinematics ──
+    // Horizontal COM positions, forward-positive when a direction is known.
+    var dir = (isNum(dirSign) && dirSign !== 0) ? (dirSign > 0 ? 1 : -1) : null;
+    function xAt(t) { return pointsX ? PGI.valueAtTime(pointsX, t, 'value') : null; }
+    var xTd = xAt(tTd), xMin = xAt(minStance.t), xTo = xAt(tTo);
+    function fwd(a, b) {
+      return (isNum(a) && isNum(b) && dir !== null) ? (b - a) * dir : null;
+    }
+
+    var loadingDur = minStance.t - tTd;
+    var reboundDur = tTo - minStance.t;
+    var risePx = hTo - minStance.v;
+    var loading = {
+      durationSeconds: loadingDur,
+      fractionOfStance: gct > 0 ? loadingDur / gct : null,
+      compressionPx: hTd - minStance.v,
+      horizontalTravelPx: fwd(xTd, xMin)
+    };
+    var reboundPhase = {
+      durationSeconds: reboundDur,
+      fractionOfStance: gct > 0 ? reboundDur / gct : null,
+      risePx: risePx,
+      horizontalTravelPx: fwd(xMin, xTo),
+      // "Mean COM rise velocity during rebound" — a motion quantity, not a force.
+      meanRiseVelocityPxPerS: reboundDur > 0 ? risePx / reboundDur : null,
+      vyAtMinimumPxPerS: minCom.vyAtMinimumPxPerS,
+      vyAtToeoffPxPerS: isNum(vTo) ? vTo : null,
+      // vy at the minimum should be ~0, so this is essentially the upward
+      // velocity created between the reversal point and toe-off.
+      velocityGainPxPerS: (isNum(vTo) && isNum(minCom.vyAtMinimumPxPerS))
+        ? vTo - minCom.vyAtMinimumPxPerS : null,
+      meanVerticalAccelerationProxyPxPerS2:
+        (reboundDur > 0 && isNum(vTo) && isNum(minCom.vyAtMinimumPxPerS))
+          ? (vTo - minCom.vyAtMinimumPxPerS) / reboundDur : null,
+      compressionToReboundRatio: reboundDur > 0 ? loadingDur / reboundDur : null
+    };
 
     // Normalized per-step COM path for the visualization: percent of step vs
     // height above the step minimum, in leg lengths.
@@ -147,6 +353,10 @@
         flightApex: apexFlight ? apexFlight.t : null,
         oppositeTouchdown: tLand
       },
+      // Minimum-COM detection detail and the two stance phases it separates.
+      minimumCom: minCom,
+      loading: loading,
+      reboundPhase: reboundPhase,
       // Heights in px (up-positive), differences are what matter.
       heightsPx: {
         touchdown: hTd, minimum: minStance.v, toeoff: hTo,
@@ -321,12 +531,36 @@
 
   // ── Top level ──────────────────────────────────────────────────────────────
 
+  /** Aggregate the per-step minimum-COM detections for one side (or overall). */
+  function minimumComBlock(stepResults, side) {
+    var dets = stepResults.filter(function (s) {
+      return s.valid && s.minimumCom && s.minimumCom.available &&
+             (!side || s.contactSide === side);
+    }).map(function (s) { return s.minimumCom; });
+    var flagCounts = {};
+    dets.forEach(function (d) {
+      (d.flags || []).forEach(function (f) { flagCounts[f] = (flagCounts[f] || 0) + 1; });
+    });
+    return {
+      side: side || 'overall',
+      n: dets.length,
+      stancePercent: KFO.aggregate(dets.map(function (d) { return d.stancePercent; })),
+      confidence: KFO.aggregate(dets.map(function (d) { return d.confidence; })),
+      flatWidthPercent: KFO.aggregate(dets.map(function (d) { return d.flatWidthPercent; })),
+      flagCounts: flagCounts,
+      detectionMethod: dets.length && dets.every(function (d) {
+        return d.detectionMethod === dets[0].detectionMethod;
+      }) ? dets[0].detectionMethod : (dets.length ? 'mixed' : null)
+    };
+  }
+
   /**
    * @param {Object} input
    * @param {Array} input.samples             retained scan samples (t + kps)
    * @param {Array} input.steps               per-step records from pgi-timing
    * @param {number|null} input.legLengthPx
    * @param {Object|null} input.userHeightCalibration  candidate from PGI.calibrationFromHeight
+   * @param {number|null} [input.directionSign]  +1/−1 for forward-positive travel
    * @param {Object} [input.smoothing]
    */
   function analyze(input) {
@@ -352,7 +586,11 @@
     }
 
     var legLength = isNum(input.legLengthPx) ? input.legLengthPx : null;
-    var stepResults = steps.map(function (st) { return analyzeStep(series.smoothed, st, legLength); });
+    var dirSign = (isNum(input.directionSign) && input.directionSign !== 0)
+      ? (input.directionSign > 0 ? 1 : -1) : null;
+    var stepResults = steps.map(function (st) {
+      return analyzeStep(series.smoothed, st, legLength, series.smoothedX, dirSign);
+    });
     var valid = stepResults.filter(function (s) { return s.valid; });
     if (!valid.length) {
       out.reason = 'com_coverage_incomplete';
@@ -386,6 +624,21 @@
       left: velocityBlock(stepResults, 'left', legLength, calibration),
       right: velocityBlock(stepResults, 'right', legLength, calibration)
     };
+    out.minimumCom = {
+      overall: minimumComBlock(stepResults, null),
+      left: minimumComBlock(stepResults, 'left'),
+      right: minimumComBlock(stepResults, 'right'),
+      note: 'Minimum COM is the kinematic reversal point of vertical COM motion — vertical COM ' +
+        'velocity is approximately zero there. It is not the onset of propulsive force: upward ' +
+        'force is already produced before it to decelerate the descending COM.'
+    };
+    // Reliability gate: strong loading/rebound interpretation is withheld when
+    // the minimum cannot be reliably located on most steps.
+    var medConf = out.minimumCom.overall.confidence;
+    out.minimumComReliability = {
+      medianConfidence: (medConf && isNum(medConf.median)) ? medConf.median : null,
+      unreliable: !(medConf && isNum(medConf.median)) || medConf.median < 0.5
+    };
     out.flightCrossCheck = crossCheck(valid, calibration);
     out.meanPath = meanPath(valid);
     out.stepResults = stepResults;   // runtime/export only; not persisted
@@ -396,7 +649,9 @@
 
   return {
     PATH_POINTS: PATH_POINTS,
+    MIN_COM_CONFIG: MIN_COM_CONFIG,
     buildComSeries: buildComSeries,
+    detectMinimumCom: detectMinimumCom,
     analyzeStep: analyzeStep,
     crossCheck: crossCheck,
     analyze: analyze

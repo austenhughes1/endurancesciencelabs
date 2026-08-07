@@ -35,15 +35,17 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (KFO, KFOEstimators) {
   'use strict';
 
-  // The schemaVersion counts product generations of this analysis surface:
+  // The schemaVersion counts generations of this analysis surface:
   //   1 = pre-KFO force-vector prototype era (nothing stored)
   //   2 = the `kfo` block (kinematic force-orientation)
   //   3 = the `pgi` block (projection & ground interaction)
+  //   4 = the pgi four-phase stride model (minimum-COM landmark)
   // A stored document carries the version INSIDE its own block, so `kfo` v3
-  // (impulse accounting) and `pgi` v3 cannot collide: the block name plus
-  // analysisType disambiguates.
-  var SCHEMA_VERSION = 3;
-  var MODEL_VERSION = 'projection-ground-interaction-v1.0.0';
+  // (impulse accounting) and `pgi` v3/v4 cannot collide: the block name plus
+  // analysisType disambiguates. A v3 pgi document stays renderable — the
+  // four-phase blocks simply read as unavailable.
+  var SCHEMA_VERSION = 4;
+  var MODEL_VERSION = 'projection-ground-interaction-v1.1.0';
   var ANALYSIS_TYPE = 'projection_ground_interaction';
 
   var SCHEMA_HISTORY = Object.freeze({
@@ -52,7 +54,12 @@
     3: 'Projection & Ground Interaction `pgi` block: touchdown preparation, stride ' +
        'timing, vertical projection, COM trajectory decomposition, rebound, stride ' +
        'outcome, pattern interpretation, condition comparison. Support-line angles ' +
-       'retained as secondary descriptive geometry.'
+       'retained as secondary descriptive geometry.',
+    4: 'Four-phase stride model. The minimum-COM point anchors the split of stance ' +
+       'into loading/compression (touchdown → minimum COM) and rebound/projection ' +
+       '(minimum COM → toe-off), each with timing, COM travel and joint-angle ' +
+       'summaries. Minimum COM is the kinematic reversal point of vertical COM ' +
+       'motion, NOT the onset of propulsive force.'
   });
 
   var GRAVITY_MPS2 = 9.80665;
@@ -105,6 +112,33 @@
     INDETERMINATE: 'indeterminate'
   });
 
+  /**
+   * Stance-organization patterns (four-phase model). Descriptive combinations of
+   * compression depth, rebound timing and flight outcome. No compression or
+   * stiffness strategy is ranked as universally superior.
+   */
+  var STANCE_ORGANIZATION_PATTERN = Object.freeze({
+    RAPID_REBOUND: 'rapid_rebound',
+    SLOW_REBOUND: 'slow_rebound',
+    HIGH_COMPRESSION_LOW_REBOUND: 'high_compression_low_rebound',
+    HIGH_COMPRESSION_STRONG_REBOUND: 'high_compression_strong_rebound',
+    LOW_COMPRESSION_RAPID_REBOUND: 'low_compression_rapid_rebound'
+  });
+
+  /**
+   * Per-step minimum-COM detection flags. Clip-level quality flags are raised
+   * (via PGI_FLAG below) when a condition affects the majority of steps.
+   */
+  var MIN_COM_FLAG = Object.freeze({
+    LOW_CONFIDENCE: 'minimum_com_low_confidence',
+    NEAR_TOUCHDOWN: 'minimum_com_near_touchdown',
+    NEAR_TOEOFF: 'minimum_com_near_toeoff',
+    FLAT_REGION: 'minimum_com_flat_region',
+    MULTIPLE_LOCAL_EXTREMA: 'minimum_com_multiple_local_extrema',
+    VELOCITY_INCONSISTENT: 'minimum_com_velocity_inconsistent',
+    TRAJECTORY_NOISY: 'com_trajectory_noisy'
+  });
+
   /** Domain summary ratings (Phase 21). Not a global score. */
   var DOMAIN_RATING = Object.freeze({
     touchdownPreparation: Object.freeze(['good', 'moderate', 'needs_review', 'unknown']),
@@ -122,7 +156,8 @@
     VELOCITY_SAMPLING_INSUFFICIENT: 'velocity_sampling_insufficient',
     CALIBRATION_IS_BALLISTIC: 'calibration_is_ballistic_implied',
     DENSE_PRECONTACT_UNAVAILABLE: 'dense_precontact_sampling_unavailable',
-    SPEED_MISMATCH_BETWEEN_CONDITIONS: 'speed_mismatch_between_conditions'
+    SPEED_MISMATCH_BETWEEN_CONDITIONS: 'speed_mismatch_between_conditions',
+    MINIMUM_COM_UNRELIABLE: 'minimum_com_unreliable'
   });
 
   var PGI_FLAG_LABEL = Object.freeze({
@@ -131,7 +166,16 @@
     velocity_sampling_insufficient: 'Frame rate too low for reliable pre-contact velocity',
     calibration_is_ballistic_implied: 'Scale calibration implied from ballistic flight, not measured',
     dense_precontact_sampling_unavailable: 'Dense pre-contact sampling unavailable — coarse scan used',
-    speed_mismatch_between_conditions: 'Conditions were performed at different speeds'
+    speed_mismatch_between_conditions: 'Conditions were performed at different speeds',
+    minimum_com_unreliable: 'Minimum-COM point could not be reliably located on most steps — ' +
+      'loading/rebound phase splits are low-confidence',
+    minimum_com_low_confidence: 'Minimum-COM detection confidence is low on this step',
+    minimum_com_near_touchdown: 'Minimum COM sits unusually close to touchdown',
+    minimum_com_near_toeoff: 'Minimum COM sits unusually close to toe-off',
+    minimum_com_flat_region: 'COM minimum is a broad flat region rather than a sharp point',
+    minimum_com_multiple_local_extrema: 'Multiple local COM minima detected within stance',
+    minimum_com_velocity_inconsistent: 'Vertical COM velocity at the detected minimum is not near zero',
+    com_trajectory_noisy: 'COM vertical trajectory is noisy within stance'
   });
 
   function flagLabel(f) { return PGI_FLAG_LABEL[f] || KFO.FLAG_LABEL[f] || f; }
@@ -516,6 +560,8 @@
     CALIBRATION_SOURCE: CALIBRATION_SOURCE,
     BRAKING_PATTERN: BRAKING_PATTERN,
     VERTICAL_PATTERN: VERTICAL_PATTERN,
+    STANCE_ORGANIZATION_PATTERN: STANCE_ORGANIZATION_PATTERN,
+    MIN_COM_FLAG: MIN_COM_FLAG,
     DOMAIN_RATING: DOMAIN_RATING,
     PGI_FLAG: PGI_FLAG,
     PGI_FLAG_LABEL: PGI_FLAG_LABEL,
