@@ -1,0 +1,1476 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  PGI — test suite
+//
+//  Runs in node (`node pgi-tests.js`) and in the browser (pgi-tests.html).
+//  No framework: a small assertion harness, matching the existing convention.
+//
+//  FIXTURES ARE PHYSICALLY CONSTRUCTED, not tuned to the expected answer. The
+//  synthetic runner has:
+//
+//    - a COM that falls during stance and rises through flight, following a
+//      ballistic arc whose apex is set by the flight time actually used;
+//    - a swing foot that follows a real trajectory — it reaches forward, then
+//      either retracts before contact or does not, according to the fixture;
+//    - a foot that stays planted at a fixed ground position during stance while
+//      the body translates over it.
+//
+//  So a "retraction" fixture produces retraction because the foot really moves
+//  backward relative to the body before touchdown, not because a number was
+//  chosen. The KFO fixtures could not be reused: they hold the body at constant
+//  height and snap the swing foot to its plant position.
+// ─────────────────────────────────────────────────────────────────────────────
+(function (root, factory) {
+  var isNode = (typeof module === 'object' && module.exports);
+  var deps = isNode ? {
+    KFO: require('./kfo-core.js'),
+    PGI: require('./pgi-core.js'),
+    PGITiming: require('./pgi-timing.js'),
+    PGICom: require('./pgi-com.js'),
+    PGITouchdown: require('./pgi-touchdown.js'),
+    PGIOutcome: require('./pgi-outcome.js'),
+    PGIPatterns: require('./pgi-patterns.js'),
+    PGICompare: require('./pgi-compare.js'),
+    PGIAnalysis: require('./pgi-analysis.js'),
+    PGIRender: require('./pgi-render.js'),
+    PGIExport: require('./pgi-export.js')
+  } : {
+    KFO: root.KFO, PGI: root.PGI, PGITiming: root.PGITiming, PGICom: root.PGICom,
+    PGITouchdown: root.PGITouchdown, PGIOutcome: root.PGIOutcome,
+    PGIPatterns: root.PGIPatterns, PGICompare: root.PGICompare,
+    PGIAnalysis: root.PGIAnalysis, PGIRender: root.PGIRender, PGIExport: root.PGIExport
+  };
+  var api = factory(deps);
+  if (isNode) { module.exports = api; if (require.main === module) api.run(); }
+  if (root) root.PGITests = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (d) {
+  'use strict';
+
+  var KFO = d.KFO, PGI = d.PGI, PGITiming = d.PGITiming, PGICom = d.PGICom,
+      PGITouchdown = d.PGITouchdown, PGIOutcome = d.PGIOutcome, PGIPatterns = d.PGIPatterns,
+      PGICompare = d.PGICompare, PGIAnalysis = d.PGIAnalysis, PGIRender = d.PGIRender,
+      PGIExport = d.PGIExport;
+
+  // ── Harness ────────────────────────────────────────────────────────────────
+  var results = [], currentSuite = '';
+  function suite(name) { currentSuite = name; }
+  function test(name, fn) {
+    try { fn(); results.push({ suite: currentSuite, name: name, pass: true }); }
+    catch (e) { results.push({ suite: currentSuite, name: name, pass: false, error: e.message }); }
+  }
+  function assert(cond, msg) { if (!cond) throw new Error(msg || 'assertion failed'); }
+  function assertClose(a, b, tol, msg) {
+    if (typeof a !== 'number' || !isFinite(a)) throw new Error((msg || 'value') + ': not finite (' + a + ')');
+    if (Math.abs(a - b) > tol) throw new Error((msg || 'value') + ': expected ~' + b + ' ±' + tol + ', got ' + a);
+  }
+  function assertGt(a, b, msg) {
+    if (!(a > b)) throw new Error((msg || 'value') + ': expected > ' + b + ', got ' + a);
+  }
+  function assertLt(a, b, msg) {
+    if (!(a < b)) throw new Error((msg || 'value') + ': expected < ' + b + ', got ' + a);
+  }
+  function isNum(v) { return typeof v === 'number' && isFinite(v); }
+
+  /**
+   * Copy audits work by NEGATION CHECKING, not word banning.
+   *
+   * Words like "better", "efficiency" and "measure" legitimately appear in this
+   * UI — always inside a denial ("a longer stride is not automatically better").
+   * Banning them outright would push the copy into vagueness; requiring the
+   * denial is what actually enforces the rule. Each occurrence is checked
+   * against a window of surrounding text for a negation.
+   */
+  function assertOnlyInDenial(html, pattern, label) {
+    var re = new RegExp(pattern.source || pattern, 'gi');
+    var text = html.replace(/<[^>]*>/g, ' ');
+    var m, checked = 0;
+    while ((m = re.exec(text)) !== null) {
+      var ctx = text.slice(Math.max(0, m.index - 120), m.index + m[0].length + 60);
+      if (!/\b(no|not|never|neither|without|rather than|instead of|cannot|does not|is not|are not)\b/i.test(ctx)) {
+        throw new Error((label || 'phrase') + ' used without a negation nearby: "' +
+          ctx.replace(/\s+/g, ' ').trim() + '"');
+      }
+      checked++;
+      if (re.lastIndex === m.index) re.lastIndex++;
+    }
+    return checked;
+  }
+
+  // ── Synthetic runner ───────────────────────────────────────────────────────
+
+  var TORSO = 60, HIP_ABOVE_GROUND = 95, THIGH = 46, SHANK = 44;
+  var GROUND_Y = 400;
+  var G = 9.80665;
+
+  /**
+   * Build one COCO-17 frame from explicit joint positions.
+   * Image +y is DOWN, so a HIGHER body means a SMALLER hipY.
+   */
+  function frame(o) {
+    var conf = o.conf == null ? 0.85 : o.conf;
+    var dir = o.dirSign;
+    var hipY = o.hipY, bodyX = o.bodyX;
+    var shY = hipY - TORSO;
+    var kps = new Array(17);
+    function set(i, x, y, c) { kps[i] = { x: x, y: y, score: c == null ? conf : c }; }
+
+    set(0, bodyX + 12 * dir, shY - 26);                 // nose, facing travel
+    set(1, bodyX + 10 * dir, shY - 28); set(2, bodyX + 14 * dir, shY - 28);
+    set(3, bodyX + 6 * dir, shY - 26);  set(4, bodyX + 16 * dir, shY - 26);
+    set(5, bodyX - 4, shY);             set(6, bodyX + 4, shY);           // shoulders
+    // Arms swing anti-phase with the legs; amplitude is a fixture input.
+    var armPhase = o.armPhase == null ? 0 : o.armPhase;
+    var armAmp = o.armAmplitude == null ? 26 : o.armAmplitude;
+    set(7, bodyX - 6 + armAmp * Math.sin(armPhase) * dir, shY + 30);
+    set(8, bodyX + 6 - armAmp * Math.sin(armPhase) * dir, shY + 30);
+    set(9, bodyX - 6 + armAmp * 1.6 * Math.sin(armPhase) * dir, shY + 56);
+    set(10, bodyX + 6 - armAmp * 1.6 * Math.sin(armPhase) * dir, shY + 56);
+    set(11, bodyX - 4, hipY); set(12, bodyX + 4, hipY);                   // hips
+
+    // Knees are placed on the hip→ankle line at the thigh fraction, so leg
+    // length stays anatomically consistent as the ankle moves.
+    function knee(ankleX, ankleY) {
+      var dx = ankleX - bodyX, dy = ankleY - hipY;
+      var len = Math.hypot(dx, dy) || 1;
+      var f = Math.min(0.62, THIGH / Math.max(len, THIGH + SHANK));
+      // Bend the knee slightly forward so it is never collinear.
+      return { x: bodyX + dx * f + 5 * dir, y: hipY + dy * f };
+    }
+    var lk = knee(o.lAnkleX, o.lAnkleY), rk = knee(o.rAnkleX, o.rAnkleY);
+    set(13, lk.x, lk.y); set(14, rk.x, rk.y);
+    set(15, o.lAnkleX, o.lAnkleY, o.lAnkleConf);
+    set(16, o.rAnkleX, o.rAnkleY, o.rAnkleConf);
+    return kps;
+  }
+
+  /**
+   * Build a clip.
+   *
+   * @param {Object} o
+   *   sampleRateHz, durationSeconds, stanceSeconds, flightSeconds
+   *   velocityPxPerSec, dirSign
+   *   comDropPx        COM fall from touchdown to mid-stance
+   *   footAheadPx      how far ahead of the hip the foot plants (overstride knob)
+   *   reachAheadPx     furthest forward the swing foot reaches before contact
+   *   retractMs        how long before contact the foot starts coming back
+   *                    (0 = no retraction: the foot reaches and lands there)
+   *   asymmetric       apply a different reach/retract to the right side
+   */
+  function makeClip(o) {
+    var rate = o.sampleRateHz, dur = o.durationSeconds;
+    var stance = o.stanceSeconds, flight = o.flightSeconds;
+    var step = stance + flight;
+    var v = o.velocityPxPerSec, dir = o.dirSign == null ? 1 : o.dirSign;
+    var comDrop = o.comDropPx == null ? 8 : o.comDropPx;
+    var footAhead = o.footAheadPx == null ? 18 : o.footAheadPx;
+    var reachAhead = o.reachAheadPx == null ? 46 : o.reachAheadPx;
+    var retractMs = o.retractMs == null ? 90 : o.retractMs;
+    var startX = dir > 0 ? 140 : 900;
+    var n = Math.round(dur * rate);
+
+    // Contact schedule, alternating sides.
+    var contacts = [];
+    for (var ci = 0; ci * step < dur; ci++) {
+      contacts.push({
+        side: ci % 2 === 0 ? 'left' : 'right',
+        start: ci * step, end: ci * step + stance, index: ci
+      });
+    }
+    function bodyXAt(t) { return startX + v * t * dir; }
+    function plantXFor(c) {
+      // Foot plants `footAhead` ahead of where the hip will be at touchdown.
+      var ahead = (o.asymmetric && c.side === 'right') ? footAhead * 1.9 : footAhead;
+      return bodyXAt(c.start) + ahead * dir;
+    }
+
+    /**
+     * COM height above the ground line. During stance the body falls by comDrop
+     * to mid-stance and recovers; during flight it follows a ballistic arc whose
+     * rise is g*t_f^2/8 in metres, converted with a fixture scale so the
+     * decomposition has a physically coherent shape.
+     */
+    var pxPerMeter = o.pixelsPerMeter == null ? 300 : o.pixelsPerMeter;
+    var aerialRisePx = (G * flight * flight / 8) * pxPerMeter;
+    function hipYAt(t) {
+      var base = GROUND_Y - HIP_ABOVE_GROUND;
+      // Which phase are we in?
+      for (var i = 0; i < contacts.length; i++) {
+        var c = contacts[i];
+        if (t >= c.start && t <= c.end) {
+          // Stance: fall then recover, minimum at mid-stance.
+          var u = (t - c.start) / stance;           // 0..1
+          var fall = comDrop * Math.sin(Math.PI * u);
+          return base + fall;                       // +y is down => lower COM
+        }
+        var nextStart = (i + 1 < contacts.length) ? contacts[i + 1].start : null;
+        if (nextStart != null && t > c.end && t < nextStart) {
+          // Flight: ballistic arc, apex mid-flight.
+          var w = (t - c.end) / (nextStart - c.end);
+          var rise = aerialRisePx * 4 * w * (1 - w);  // parabola, peak at w=0.5
+          return base - rise;
+        }
+      }
+      return base;
+    }
+
+    /**
+     * Swing-foot position. The foot lifts, swings forward to `reachAhead` ahead
+     * of the hip, then — if retractMs > 0 — comes back toward the plant position
+     * over the final retractMs before contact. With retractMs = 0 it simply
+     * arrives at its furthest reach, which is the rushed/scuffing case.
+     */
+    function swingFoot(side, t) {
+      var next = null, prev = null;
+      for (var i = 0; i < contacts.length; i++) {
+        var c = contacts[i];
+        if (c.side !== side) continue;
+        if (c.start > t && (!next || c.start < next.start)) next = c;
+        if (c.end < t && (!prev || c.end > prev.end)) prev = c;
+      }
+      var hipX = bodyXAt(t);
+      if (!next) return { x: hipX - 12 * dir, y: GROUND_Y - 42 };
+
+      var reach = (o.asymmetric && side === 'right') ? reachAhead * 1.35 : reachAhead;
+      var retract = (o.asymmetric && side === 'right') ? 0 : retractMs;
+      var plantX = plantXFor(next);
+      var swingStart = prev ? prev.end : Math.max(0, next.start - (step * 2 - stance));
+      var swingDur = next.start - swingStart;
+      if (!(swingDur > 0)) return { x: plantX, y: GROUND_Y };
+
+      var tRetractStart = next.start - retract / 1000;
+      var maxReachX = bodyXAt(tRetractStart) + reach * dir;
+
+      var x, y;
+      if (retract > 0 && t >= tRetractStart) {
+        // Retraction: move from the max-reach position back to the plant point.
+        var r = (t - tRetractStart) / (next.start - tRetractStart);
+        x = maxReachX + (plantX - maxReachX) * r;
+        y = GROUND_Y - 26 * (1 - r);          // descending onto the ground
+      } else {
+        // Forward swing toward the reach position.
+        var s = Math.max(0, Math.min(1, (t - swingStart) / Math.max(1e-6, tRetractStart - swingStart)));
+        var lift = 52 * Math.sin(Math.PI * s);
+        var fromX = prev ? bodyXAt(prev.end) - 30 * dir : hipX - 40 * dir;
+        x = fromX + (maxReachX - fromX) * s;
+        y = GROUND_Y - 26 - lift;
+        if (retract === 0) {
+          // No retraction: descend straight onto the plant point.
+          y = GROUND_Y - 26 - lift * (1 - s);
+          x = fromX + (plantX - fromX) * s;
+        }
+      }
+      return { x: x, y: y };
+    }
+
+    var samples = [];
+    for (var i2 = 0; i2 < n; i2++) {
+      var t = i2 / rate;
+      var bodyX = bodyXAt(t);
+      var hipY = hipYAt(t);
+      var active = null;
+      for (var j = 0; j < contacts.length; j++) {
+        if (t >= contacts[j].start && t <= contacts[j].end) { active = contacts[j]; break; }
+      }
+      var lFoot, rFoot;
+      if (active && active.side === 'left') {
+        lFoot = { x: plantXFor(active), y: GROUND_Y };
+        rFoot = swingFoot('right', t);
+      } else if (active && active.side === 'right') {
+        rFoot = { x: plantXFor(active), y: GROUND_Y };
+        lFoot = swingFoot('left', t);
+      } else {
+        lFoot = swingFoot('left', t);
+        rFoot = swingFoot('right', t);
+      }
+
+      var conf = o.conf == null ? 0.85 : o.conf;
+      var kps = frame({
+        bodyX: bodyX, hipY: hipY, dirSign: dir, conf: conf,
+        lAnkleX: lFoot.x, lAnkleY: lFoot.y, rAnkleX: rFoot.x, rAnkleY: rFoot.y,
+        armPhase: (t / step) * Math.PI * 2,
+        armAmplitude: o.armAmplitude
+      });
+      if (o.occludeEvery && i2 % o.occludeEvery === 0) {
+        kps[15] = { x: lFoot.x, y: lFoot.y, score: 0.05 };
+      }
+      samples.push({
+        t: t, kps: kps, conf: conf, scale: TORSO, frameWidth: 400,
+        hipMidX: bodyX,
+        lAnkleX: lFoot.x, lAnkleY: lFoot.y, rAnkleX: rFoot.x, rAnkleY: rFoot.y
+      });
+    }
+    return samples;
+  }
+
+  var BASE = {
+    sampleRateHz: 60, durationSeconds: 4.0, stanceSeconds: 0.235,
+    flightSeconds: 0.125, velocityPxPerSec: 300, dirSign: 1,
+    comDropPx: 9, footAheadPx: 18, reachAheadPx: 46, retractMs: 90
+  };
+  function clip(over) {
+    var o = {};
+    Object.keys(BASE).forEach(function (k) { o[k] = BASE[k]; });
+    Object.keys(over || {}).forEach(function (k) { o[k] = over[k]; });
+    return makeClip(o);
+  }
+  function analyze(over, input) {
+    var samples = clip(over);
+    var base = { samples: samples, videoMetadata: { fps: 60 }, userHeightMeters: 1.78,
+                 surfaceType: 'overground' };
+    Object.keys(input || {}).forEach(function (k) { base[k] = input[k]; });
+    return PGIAnalysis.analyze(base);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  Ballistic and timing formulas
+  // ═══════════════════════════════════════════════════════════════════════════
+  suite('Ballistic projection formulas');
+
+  test('take-off velocity is g*t/2 and round-trips through the flight-time prediction', function () {
+    var tf = 0.125;
+    var v = PGI.verticalTakeoffVelocityMps(tf);
+    assertClose(v, 9.80665 * 0.125 / 2, 1e-9, 'takeoff velocity');
+    assertClose(PGI.predictedFlightTimeSeconds(v), tf, 1e-9, 'round trip');
+  });
+
+  test('effective vertical impulse per mass is exactly g*t_flight', function () {
+    assertClose(PGI.effectiveVerticalImpulsePerMass(0.13), 9.80665 * 0.13, 1e-9, 'impulse');
+    assertClose(PGI.effectiveVerticalImpulsePerMass(0.13),
+                2 * PGI.verticalTakeoffVelocityMps(0.13), 1e-9, 'equals 2*v');
+  });
+
+  test('ballistic aerial rise is g*t^2/8', function () {
+    assertClose(PGI.aerialRiseMeters(0.12), 9.80665 * 0.0144 / 8, 1e-9, 'aerial rise');
+  });
+
+  test('negative or missing flight time yields null, never a number', function () {
+    assert(PGI.verticalTakeoffVelocityMps(null) === null, 'null flight');
+    assert(PGI.verticalTakeoffVelocityMps(-0.1) === null, 'negative flight');
+    assert(PGI.aerialRiseMeters(undefined) === null, 'undefined flight');
+  });
+
+  suite('Stride timing');
+
+  test('GCT, flight and duty factor are recovered from detected events', function () {
+    var r = analyze({ stanceSeconds: 0.235, flightSeconds: 0.125 });
+    var o = r.strideTiming.overall;
+    assertClose(o.contactSeconds.median, 0.235, 0.035, 'GCT');
+    assertClose(o.flightSeconds.median, 0.125, 0.035, 'flight');
+    assertClose(o.dutyFactor.median, 0.235 / 0.36, 0.06, 'duty factor');
+  });
+
+  test('duty factor, cadence and step time are consistent with each other', function () {
+    var r = analyze({});
+    var o = r.strideTiming.overall;
+    assertClose(o.dutyFactor.median, o.contactSeconds.median / o.stepSeconds.median, 0.02, 'DF identity');
+    assertClose(o.cadenceSpm.median, 60 / o.stepSeconds.median, 1.5, 'cadence identity');
+    assertClose(o.flightFraction.median, 1 - o.dutyFactor.median, 0.03, 'flight fraction');
+  });
+
+  test('mean vertical support is 1/duty factor', function () {
+    var r = analyze({});
+    var vs = r.verticalProjection.verticalSupport;
+    assert(vs.availability === 'available', 'support available');
+    var df = r.strideTiming.overall.dutyFactor.median;
+    // Per-step then aggregated, so it sits at or above 1/mean(DF) by convexity.
+    assert(vs.meanVerticalSupportBW.median >= 1 / df - 0.02, 'support >= 1/DF');
+    assert(vs.isValidated === false, 'never marked validated');
+    assert(vs.method === 'timing_derived', 'labelled timing-derived');
+  });
+
+  test('the vertical support estimate is withheld when acceleration is detected', function () {
+    var out = PGITiming.analyze({
+      leftStanceIntervals: [{ startTime: 0, endTime: 0.24 }, { startTime: 0.72, endTime: 0.96 }],
+      rightStanceIntervals: [{ startTime: 0.36, endTime: 0.60 }, { startTime: 1.08, endTime: 1.32 }],
+      effectiveSampleRateHz: 60,
+      steadySpeed: { assessable: true, accelerationDetected: true }
+    });
+    assert(out.verticalSupport.availability === 'insufficient_quality', 'withheld under acceleration');
+    assert(/steady_state/.test(out.verticalSupport.reason), 'reason names the assumption');
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  COM trajectory and vertical-oscillation decomposition
+  // ═══════════════════════════════════════════════════════════════════════════
+  suite('COM trajectory');
+
+  test('vertical oscillation is decomposed into compression, rebound and aerial rise', function () {
+    var r = analyze({});
+    var dec = r.comTrajectory.decomposition.overall;
+    ['stanceCompression', 'stanceRebound', 'aerialRiseMeasured', 'verticalOscillation']
+      .forEach(function (k) {
+        assert(dec[k] && isNum(dec[k].medianLegLengths), k + ' present and numeric');
+      });
+    assert(dec.verticalOscillation.medianLegLengths > 0, 'oscillation positive');
+  });
+
+  test('total oscillation is at least as large as any single component', function () {
+    var r = analyze({});
+    var dec = r.comTrajectory.decomposition.overall;
+    var total = dec.verticalOscillation.medianLegLengths;
+    ['stanceCompression', 'stanceRebound', 'aerialRiseMeasured'].forEach(function (k) {
+      assert(total >= dec[k].medianLegLengths - 1e-6, total + ' >= ' + k);
+    });
+  });
+
+  test('a deeper stance collapse increases compression, not aerial rise', function () {
+    var shallow = analyze({ comDropPx: 5 });
+    var deep = analyze({ comDropPx: 20 });
+    var a = shallow.comTrajectory.decomposition.overall;
+    var b = deep.comTrajectory.decomposition.overall;
+    assertGt(b.stanceCompression.medianLegLengths, a.stanceCompression.medianLegLengths,
+      'compression rises with the modelled collapse');
+    // Aerial rise is set by flight time, which is unchanged between the two, so
+    // it must move far less than compression does. It is not asserted to be
+    // perfectly constant: smoothing across the stance/flight boundary smears a
+    // deeper collapse into the toe-off height, and that is real behaviour of the
+    // measurement rather than something to hide.
+    var compRel = (b.stanceCompression.medianLegLengths - a.stanceCompression.medianLegLengths) /
+                  a.stanceCompression.medianLegLengths;
+    var riseRel = Math.abs(b.aerialRiseMeasured.medianLegLengths -
+                           a.aerialRiseMeasured.medianLegLengths) /
+                  a.aerialRiseMeasured.medianLegLengths;
+    assertGt(compRel, riseRel * 2, 'compression responds far more than aerial rise');
+  });
+
+  test('longer flight increases the measured aerial rise', function () {
+    var short = analyze({ flightSeconds: 0.08 });
+    var long = analyze({ flightSeconds: 0.16 });
+    assertGt(long.comTrajectory.decomposition.overall.aerialRiseMeasured.medianLegLengths,
+             short.comTrajectory.decomposition.overall.aerialRiseMeasured.medianLegLengths,
+             'aerial rise grows with flight time');
+  });
+
+  test('COM vertical velocity reverses from negative at touchdown to positive at toe-off', function () {
+    var r = analyze({});
+    var v = r.comTrajectory.velocity.overall;
+    assert(isNum(v.touchdown.medianLegLengthsPerS), 'touchdown velocity numeric');
+    assert(isNum(v.toeoff.medianLegLengthsPerS), 'toe-off velocity numeric');
+    assertGt(v.reversal.medianLegLengthsPerS, 0, 'reversal is positive (downward -> upward)');
+  });
+
+  test('the reversal rate is reported in normalised units and is not called a force', function () {
+    var r = analyze({});
+    var v = r.comTrajectory.velocity.overall;
+    assert(isNum(v.reversalRateLegLengthsPerS2.median), 'normalised reversal rate present');
+    assert(/not a force/i.test(v.note), 'note disclaims force');
+  });
+
+  test('the flight-time cross-check reports whether it is independent of the calibration', function () {
+    var withHeight = analyze({}, { userHeightMeters: 1.78 });
+    var cc = withHeight.comTrajectory.flightCrossCheck;
+    assert(cc.availability === 'available', 'cross-check available with a calibration');
+    assert(cc.isIndependent === true, 'user-height calibration makes it independent');
+
+    var noHeight = analyze({}, { userHeightMeters: null });
+    var cc2 = noHeight.comTrajectory.flightCrossCheck;
+    if (cc2.availability === 'available') {
+      assert(cc2.isIndependent === false, 'ballistic calibration is not independent');
+      assert(cc2.comVelocityConfidence === null, 'no confidence claimed from a circular check');
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  Touchdown preparation
+  // ═══════════════════════════════════════════════════════════════════════════
+  suite('Touchdown preparation');
+
+  test('a retracting foot is detected as retracting', function () {
+    var r = analyze({ retractMs: 110, reachAheadPx: 52, footAheadPx: 16 });
+    var L = r.touchdownPreparation.left;
+    assert(L.availability === 'available', 'left available');
+    assertGt(L.aggregate.retractionTimeMs.median, 40, 'retraction period found');
+    assertGt(L.aggregate.retractionDistanceComLegLengths.median, 0, 'retraction distance positive');
+    assertGt(L.aggregate.clearRetractionFraction, 0.5, 'clear retraction on most contacts');
+  });
+
+  test('a foot that never retracts is NOT reported as retracting', function () {
+    var r = analyze({ retractMs: 0, reachAheadPx: 30, footAheadPx: 30 });
+    var L = r.touchdownPreparation.left;
+    assert(L.availability === 'available', 'left available');
+    assertLt(L.aggregate.clearRetractionFraction, 0.5, 'retraction not claimed');
+  });
+
+  test('max anterior excursion precedes touchdown when the foot retracts', function () {
+    var r = analyze({ retractMs: 110 });
+    var L = r.touchdownPreparation.left;
+    assertGt(L.aggregate.timeFromMaxAnteriorToTouchdownMs.median, 30,
+      'furthest reach happens before contact');
+    assertGt(L.aggregate.maxAnteriorExcursionLegLengths.median,
+             L.aggregate.footComOffsetAtTouchdownLegLengths.median,
+             'reach exceeds the landing offset');
+  });
+
+  test('a foot planted further ahead produces a larger foot-COM offset', function () {
+    var near = analyze({ footAheadPx: 10 });
+    var far = analyze({ footAheadPx: 55 });
+    assertGt(far.touchdownPreparation.left.aggregate.footComOffsetAtTouchdownLegLengths.median,
+             near.touchdownPreparation.left.aggregate.footComOffsetAtTouchdownLegLengths.median,
+             'offset grows with the modelled plant position');
+  });
+
+  test('pre-contact velocity is refused, not estimated, when the frame rate is too low', function () {
+    var w = PGI.velocityWindow(9);
+    assert(w.available === false, 'window refused at 9 Hz');
+    assert(w.reason === 'video_frame_rate_insufficient', 'reason is the frame rate');
+    var r = analyze({ sampleRateHz: 10, durationSeconds: 4 });
+    if (r.touchdownPreparation.availability === 'available') {
+      var L = r.touchdownPreparation.left;
+      if (L && L.availability === 'available') {
+        assert(!isNum(L.aggregate.horizontalFootVelocityMps.median),
+          'no velocity value fabricated at 10 Hz');
+      }
+    }
+    assert(r.quality.flags.indexOf('velocity_sampling_insufficient') !== -1 ||
+           r.availability !== 'available', 'insufficient-velocity flag raised');
+  });
+
+  test('the approach angle uses the stated convention', function () {
+    var r = analyze({});
+    var L = r.touchdownPreparation.left;
+    var contact = L.contacts.filter(function (c) {
+      return c.arrivalVelocity.availability === 'available'; })[0];
+    assert(contact, 'a contact with arrival velocity exists');
+    assert(/0.*forward.*90.*down/i.test(contact.arrivalVelocity.approachAngleConvention),
+      'convention documented on the value');
+    // The foot is descending onto the ground, so the angle is below horizontal.
+    assertGt(contact.arrivalVelocity.approachAngleDegrees, 0, 'descending approach is positive');
+  });
+
+  suite('Braking pattern classification');
+
+  test('positional overstride: foot far ahead but well prepared', function () {
+    var cls = PGITouchdown.classifyBraking({
+      n: 8,
+      footComOffsetAtTouchdownLegLengths: { median: 0.46 },
+      clearRetractionFraction: 0.85,
+      retractionTimeMs: { median: 95 },
+      footGroundVelocityMps: { median: -0.2 }
+    }, {});
+    assert(cls.pattern === PGI.BRAKING_PATTERN.POSITIONAL_OVERSTRIDE, 'got ' + cls.pattern);
+    assert(/far ahead/i.test(cls.interpretation), 'interpretation mentions position');
+  });
+
+  test('velocity mismatch: normal position but the foot is still travelling forward', function () {
+    var cls = PGITouchdown.classifyBraking({
+      n: 8,
+      footComOffsetAtTouchdownLegLengths: { median: 0.22 },
+      clearRetractionFraction: 0.1,
+      retractionTimeMs: { median: 15 },
+      footGroundVelocityMps: { median: 0.9 }
+    }, {});
+    assert(cls.pattern === PGI.BRAKING_PATTERN.VELOCITY_MISMATCH, 'got ' + cls.pattern);
+    assert(/not markedly overextended/i.test(cls.interpretation),
+      'interpretation separates position from arrival');
+  });
+
+  test('combined braking needs BOTH position and velocity evidence', function () {
+    var cls = PGITouchdown.classifyBraking({
+      n: 8,
+      footComOffsetAtTouchdownLegLengths: { median: 0.48 },
+      clearRetractionFraction: 0.05,
+      retractionTimeMs: { median: 10 },
+      footGroundVelocityMps: { median: 1.1 }
+    }, {});
+    assert(cls.pattern === PGI.BRAKING_PATTERN.COMBINED_BRAKING, 'got ' + cls.pattern);
+  });
+
+  test('well-prepared touchdown: moderate position, clear retraction, low mismatch', function () {
+    var cls = PGITouchdown.classifyBraking({
+      n: 9,
+      footComOffsetAtTouchdownLegLengths: { median: 0.20 },
+      clearRetractionFraction: 0.9,
+      retractionTimeMs: { median: 105 },
+      footGroundVelocityMps: { median: -0.35 }
+    }, {});
+    assert(cls.pattern === PGI.BRAKING_PATTERN.WELL_PREPARED, 'got ' + cls.pattern);
+  });
+
+  test('no pattern is assigned from a single metric', function () {
+    var onlyPosition = PGITouchdown.classifyBraking({
+      n: 6, footComOffsetAtTouchdownLegLengths: { median: 0.20 }
+    }, {});
+    assert(onlyPosition.pattern !== PGI.BRAKING_PATTERN.WELL_PREPARED,
+      'a good position alone does not earn "well prepared"');
+    var nothing = PGITouchdown.classifyBraking({ n: 0 }, {});
+    assert(nothing.pattern === PGI.BRAKING_PATTERN.INDETERMINATE, 'no evidence => indeterminate');
+  });
+
+  test('every classification carries alternatives and provisional thresholds', function () {
+    var cls = PGITouchdown.classifyBraking({
+      n: 8, footComOffsetAtTouchdownLegLengths: { median: 0.5 },
+      clearRetractionFraction: 0.1, footGroundVelocityMps: { median: 1.0 }
+    }, {});
+    assert(cls.alternatives.length > 0, 'alternatives listed');
+    assert(cls.thresholds.isProvisional === true, 'thresholds marked provisional');
+    assert(/not validated/i.test(cls.thresholds.note), 'threshold note says unvalidated');
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  Ground-relative velocity and treadmill handling
+  // ═══════════════════════════════════════════════════════════════════════════
+  suite('Ground-relative foot velocity');
+
+  test('overground with a fixed camera: ground velocity is zero', function () {
+    var g = PGI.footGroundVelocity({ worldFootVelocityMps: 0.6, surfaceType: 'overground' });
+    assert(g.availability === 'available', 'available overground');
+    assertClose(g.valueMps, 0.6, 1e-9, 'equals the world velocity');
+  });
+
+  test('treadmill with a known belt speed: the belt speed is added', function () {
+    var g = PGI.footGroundVelocity({
+      worldFootVelocityMps: -3.0, surfaceType: 'treadmill', treadmillSpeedMps: 3.0 });
+    assert(g.availability === 'available', 'available');
+    assertClose(g.valueMps, 0, 1e-9, 'a foot matching belt speed reads zero mismatch');
+  });
+
+  test('treadmill without a belt speed: unavailable, never fabricated', function () {
+    var g = PGI.footGroundVelocity({ worldFootVelocityMps: -3.0, surfaceType: 'treadmill' });
+    assert(g.availability === 'unavailable', 'unavailable');
+    assert(g.reason === 'treadmill_speed_unknown', 'reason names the belt speed');
+    assert(g.valueMps === null, 'value is null, not zero');
+  });
+
+  test('an unknown treadmill speed raises its quality flag and keeps COM-relative metrics', function () {
+    var r = analyze({}, { surfaceType: 'treadmill', treadmillSpeedMps: null });
+    assert(r.quality.flags.indexOf('treadmill_speed_unknown') !== -1, 'flag raised');
+    var L = r.touchdownPreparation.left;
+    assert(isNum(L.aggregate.footVelocityRelativeToComLegLengthsPerS.median),
+      'COM-relative velocity still reported');
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  Direction, mirroring, calibration, speed
+  // ═══════════════════════════════════════════════════════════════════════════
+  suite('Direction and mirroring');
+
+  test('right-to-left running produces the same mechanics as left-to-right', function () {
+    var ltr = analyze({ dirSign: 1 });
+    var rtl = analyze({ dirSign: -1 });
+    assertClose(rtl.strideTiming.overall.contactSeconds.median,
+                ltr.strideTiming.overall.contactSeconds.median, 0.02, 'GCT matches');
+    assertClose(rtl.touchdownPreparation.left.aggregate.footComOffsetAtTouchdownLegLengths.median,
+                ltr.touchdownPreparation.left.aggregate.footComOffsetAtTouchdownLegLengths.median,
+                0.04, 'foot offset sign-normalised');
+    assert(rtl.video.runningDirection === 'right_to_left', 'direction detected');
+  });
+
+  test('mirrored footage is flagged when direction comes from body facing alone', function () {
+    // No translation across the frame => direction falls back to facing.
+    var samples = clip({ velocityPxPerSec: 0 });
+    var dir = KFO.inferRunningDirection(samples);
+    if (dir.source === 'body_facing') {
+      assert(dir.mirroredSuspected === true, 'mirroring suspected without translation evidence');
+    }
+  });
+
+  suite('Calibration and speed');
+
+  test('user height gives a calibration; absence of any source gives none', function () {
+    var withH = analyze({}, { userHeightMeters: 1.78 });
+    assert(withH.video.calibration.source === 'user_height', 'height calibration chosen');
+    assert(withH.video.calibration.isMeasured === false, 'never claimed as measured');
+  });
+
+  test('no calibration means normalised units only, and a quality flag', function () {
+    var r = PGIAnalysis.analyze({
+      samples: clip({ velocityPxPerSec: 0 }), videoMetadata: { fps: 60 },
+      userHeightMeters: null, surfaceType: 'treadmill'
+    });
+    if (r.availability === 'available' && r.comTrajectory.availability === 'available') {
+      var dec = r.comTrajectory.decomposition.overall;
+      if (r.video.calibration.source === 'none') {
+        assert(dec.verticalOscillation.medianCentimeters === null, 'no centimetres without a scale');
+        assert(isNum(dec.verticalOscillation.medianLegLengths), 'leg lengths still available');
+        assert(r.quality.flags.indexOf('no_spatial_calibration') !== -1, 'flag raised');
+      }
+    }
+  });
+
+  test('speed is recovered from translation and tagged with its source', function () {
+    var r = analyze({ velocityPxPerSec: 300 }, { userHeightMeters: 1.78 });
+    assert(r.video.speedSource === 'estimated_translation', 'source tagged');
+    assert(isNum(r.video.speedMps) && r.video.speedMps > 1 && r.video.speedMps < 8, 'plausible speed');
+    assert(isNum(r.video.speedConfidence) && r.video.speedConfidence < 0.9,
+      'estimated speed is not full confidence');
+  });
+
+  test('a user-entered speed wins over the estimate and is confidence-tagged', function () {
+    var r = analyze({}, { userSpeedMps: 3.6 });
+    assertClose(r.video.speedMps, 3.6, 1e-9, 'user speed used');
+    assert(r.video.speedSource === 'user_entered', 'source tagged');
+  });
+
+  test('unknown speed withholds stride-outcome judgement rather than guessing', function () {
+    var r = PGIAnalysis.analyze({
+      samples: clip({ velocityPxPerSec: 0 }), videoMetadata: { fps: 60 },
+      userHeightMeters: null, surfaceType: 'treadmill'
+    });
+    assert(r.domains.strideOutcome.rating === 'unknown', 'rating withheld');
+    assert(r.strideOutcome.availability !== 'available' ||
+           r.strideOutcome.interpretation.rating === 'unknown', 'no short/long claim');
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  Dense-sample merging (the coordinate-space guard)
+  // ═══════════════════════════════════════════════════════════════════════════
+  suite('Dense pre-contact sample merging');
+
+  test('dense samples at a different frame width are rescaled before merging', function () {
+    var coarse = clip({}).slice(0, 40);
+    // Same anatomy at 3x the resolution.
+    var dense = coarse.slice(10, 20).map(function (s) {
+      return {
+        t: s.t + 0.001,
+        kps: s.kps.map(function (k) { return { x: k.x * 3, y: k.y * 3, score: k.score }; }),
+        scale: s.scale * 3, conf: s.conf, frameWidth: 1200
+      };
+    });
+    var merged = PGITouchdown.mergeDenseSamples(coarse, [{ side: 'left', samples: dense }]);
+    assert(merged.denseUsed === true, 'merge accepted after rescaling');
+    assertClose(merged.rescaleFactor, 400 / 1200, 1e-9, 'rescale factor');
+  });
+
+  test('dense samples that still disagree on body scale are REFUSED, not merged', function () {
+    var coarse = clip({}).slice(0, 40);
+    // Declares the same frame width but is actually at a different scale: the
+    // body-scale check must catch what the width declaration missed.
+    var dense = coarse.slice(10, 20).map(function (s) {
+      return {
+        t: s.t + 0.001,
+        kps: s.kps.map(function (k) { return { x: k.x * 2.5, y: k.y * 2.5, score: k.score }; }),
+        scale: s.scale * 2.5, conf: s.conf, frameWidth: 400
+      };
+    });
+    var merged = PGITouchdown.mergeDenseSamples(coarse, [{ side: 'left', samples: dense }]);
+    assert(merged.denseUsed === false, 'merge refused');
+    assert(merged.reason === 'dense_sample_scale_mismatch', 'reason names the mismatch');
+    assert(merged.samples.length === coarse.length, 'falls back to the coarse samples');
+  });
+
+  test('no dense windows is a normal state, not an error', function () {
+    var coarse = clip({}).slice(0, 40);
+    var merged = PGITouchdown.mergeDenseSamples(coarse, null);
+    assert(merged.denseUsed === false && merged.samples.length === coarse.length, 'coarse used');
+    assert(merged.reason === 'no_dense_windows_supplied', 'explicit reason');
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  Pattern interpretation
+  // ═══════════════════════════════════════════════════════════════════════════
+  suite('Pattern interpretation');
+
+  function readingsFor(over) { return PGIPatterns.readings(interpretInput(analyze(over))); }
+  function interpretInput(r) {
+    return {
+      touchdown: r.touchdownPreparation,
+      timing: { timing: r.strideTiming, verticalSupport: r.verticalProjection.verticalSupport,
+                projection: r.verticalProjection, steps: [] },
+      com: r.comTrajectory, outcome: r.strideOutcome, quality: r.quality
+    };
+  }
+
+  test('low projection needs BOTH a long contact and a short flight', function () {
+    var only = PGIPatterns.interpret({
+      timing: { timing: { overall: { contactSeconds: { median: 0.30 },
+                                     flightSeconds: { median: 0.14 },
+                                     dutyFactor: { median: 0.68 } } } }
+    });
+    assert(!only.patterns.some(function (p) { return p.pattern === 'low_projection'; }),
+      'a long contact alone does not make low projection');
+    var both = PGIPatterns.interpret({
+      timing: { timing: { overall: { contactSeconds: { median: 0.30 },
+                                     flightSeconds: { median: 0.06 },
+                                     dutyFactor: { median: 0.83 } } } }
+    });
+    assert(both.patterns.some(function (p) { return p.pattern === 'low_projection'; }),
+      'long contact + short flight = low projection');
+  });
+
+  test('derived timing quantities are labelled as not independent evidence', function () {
+    var out = PGIPatterns.interpret({
+      timing: { timing: { overall: { contactSeconds: { median: 0.30 },
+                                     flightSeconds: { median: 0.06 },
+                                     dutyFactor: { median: 0.83 } } } }
+    });
+    var p = out.patterns.filter(function (x) { return x.pattern === 'low_projection'; })[0];
+    var derived = p.supportingMetrics.derivedFromTiming;
+    assert(derived, 'derived block present');
+    assert(/not independent evidence/i.test(derived.note), 'note states non-independence');
+  });
+
+  test('vertical oscillation is never interpreted alone', function () {
+    // High oscillation with good contact and flight must NOT be called excessive.
+    var out = PGIPatterns.interpret({
+      com: { decomposition: { overall: {
+              verticalOscillation: { medianLegLengths: 0.13 },
+              stanceCompression: { medianLegLengths: 0.05 },
+              stanceRebound: { medianLegLengths: 0.05 },
+              aerialRiseMeasured: { medianLegLengths: 0.08 } } },
+             velocity: { overall: {} } },
+      timing: { timing: { overall: { contactSeconds: { median: 0.21 },
+                                     flightSeconds: { median: 0.14 },
+                                     dutyFactor: { median: 0.60 } } } }
+    });
+    assert(!out.patterns.some(function (p) {
+      return p.pattern === 'excessive_vertical_excursion'; }),
+      'high VO with good flight is not called excessive');
+  });
+
+  test('high oscillation that does not buy flight IS flagged as excessive', function () {
+    var out = PGIPatterns.interpret({
+      com: { decomposition: { overall: {
+              verticalOscillation: { medianLegLengths: 0.13 },
+              stanceCompression: { medianLegLengths: 0.09 },
+              stanceRebound: { medianLegLengths: 0.03 },
+              aerialRiseMeasured: { medianLegLengths: 0.02 } } },
+             velocity: { overall: {} } },
+      timing: { timing: { overall: { contactSeconds: { median: 0.30 },
+                                     flightSeconds: { median: 0.06 },
+                                     dutyFactor: { median: 0.83 } } } }
+    });
+    assert(out.patterns.some(function (p) {
+      return p.pattern === 'excessive_vertical_excursion'; }), 'flagged');
+  });
+
+  test('the oscillation composition pattern names which component dominates', function () {
+    var out = PGIPatterns.interpret({
+      com: { decomposition: { overall: {
+              verticalOscillation: { medianLegLengths: 0.10 },
+              stanceCompression: { medianLegLengths: 0.08 },
+              stanceRebound: { medianLegLengths: 0.07 },
+              aerialRiseMeasured: { medianLegLengths: 0.015 } } },
+             velocity: { overall: {} } }
+    });
+    var p = out.patterns.filter(function (x) {
+      return x.pattern === 'vertical_oscillation_composition'; })[0];
+    assert(p, 'composition pattern emitted');
+    assert(/stance motion/i.test(p.interpretation), 'names stance motion as dominant');
+    assert(/neither is good or bad/i.test(p.interpretation), 'refuses to rank');
+  });
+
+  test('every pattern carries observations, alternatives and a confidence', function () {
+    var r = analyze({});
+    assert(r.patterns.length > 0, 'patterns emitted');
+    r.patterns.forEach(function (p) {
+      assert(p.observations && p.observations.length > 0, p.pattern + ' has observations');
+      assert(p.alternatives && p.alternatives.length > 0, p.pattern + ' has alternatives');
+      assert(isNum(p.confidence) && p.confidence > 0 && p.confidence <= 1, p.pattern + ' confidence');
+      assert(p.isValidated === false, p.pattern + ' not marked validated');
+    });
+  });
+
+  test('speed being unknown lowers pattern confidence', function () {
+    function conf(input) {
+      var out = PGIPatterns.interpret(input);
+      var p = out.patterns.filter(function (x) { return x.pattern === 'low_projection'; })[0];
+      return p ? p.confidence : null;
+    }
+    var timing = { timing: { overall: { contactSeconds: { median: 0.30 },
+                                        flightSeconds: { median: 0.06 },
+                                        dutyFactor: { median: 0.83 } } } };
+    var unknown = conf({ timing: timing });
+    var known = conf({ timing: timing, outcome: { speedMps: 3.2 } });
+    assertGt(known, unknown, 'known speed yields higher confidence');
+  });
+
+  suite('Domain summary');
+
+  test('six domains are reported and none is a combined score', function () {
+    var r = analyze({});
+    ['touchdownPreparation', 'brakingIndicators', 'verticalProjection', 'reboundTiming',
+     'strideOutcome', 'dataConfidence'].forEach(function (k) {
+      assert(r.domains[k] && typeof r.domains[k].rating === 'string', k + ' rated');
+    });
+    assert(!('overall' in r.domains) && !('score' in r.domains), 'no overall score field');
+    assert(/no combined efficiency score/i.test(r.domains.note), 'note says so explicitly');
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  Pre/post comparison — the headline requirement
+  // ═══════════════════════════════════════════════════════════════════════════
+  suite('Condition comparison');
+
+  function deltaOf(a, b) {
+    return { absolute: b - a, percent: a !== 0 ? (b - a) / Math.abs(a) * 100 : null,
+             baseline: a, exceedsVariability: true };
+  }
+
+  test('THE BEFORE/AFTER CASE: VO up, GCT down, flight up, stride up reads as productive', function () {
+    var out = PGIPatterns.interpretComparison({
+      verticalOscillationLegLengths: deltaOf(0.073, 0.087),   // 6.6cm -> 7.9cm
+      gctSeconds: deltaOf(0.238, 0.233),                       // -5 ms
+      flightSeconds: deltaOf(0.095, 0.112),
+      stepLengthMeters: deltaOf(1.02, 1.09),
+      cadenceSpm: deltaOf(184, 178),                           // -6 spm
+      dutyFactor: deltaOf(0.715, 0.675),
+      stanceCompressionLegLengths: deltaOf(0.070, 0.068),
+      retractionTimeMs: deltaOf(52, 74),
+      clearRetractionFraction: deltaOf(0.4, 0.8)
+    }, { speedComparable: true });
+    var names = out.patterns.map(function (p) { return p.pattern; });
+    assert(names.indexOf('productive_projection') !== -1,
+      'productive projection identified, got: ' + names.join(', '));
+    assert(names.indexOf('unproductive_vertical_excursion') === -1,
+      'must NOT also call it unproductive');
+    var p = out.patterns[0];
+    assert(/rather than simply increasing bounce/i.test(p.interpretation),
+      'interpretation states the distinction');
+  });
+
+  test('the inverse case reads as unproductive vertical excursion', function () {
+    var out = PGIPatterns.interpretComparison({
+      verticalOscillationLegLengths: deltaOf(0.073, 0.092),
+      gctSeconds: deltaOf(0.238, 0.252),
+      flightSeconds: deltaOf(0.100, 0.100),
+      stepLengthMeters: deltaOf(1.02, 1.02),
+      stanceCompressionLegLengths: deltaOf(0.068, 0.081)
+    }, { speedComparable: true });
+    var names = out.patterns.map(function (p) { return p.pattern; });
+    assert(names.indexOf('unproductive_vertical_excursion') !== -1, 'flagged unproductive');
+    assert(names.indexOf('productive_projection') === -1, 'not called productive');
+  });
+
+  test('a naive "lower VO is better" rule would prefer the PRE condition — this one does not', function () {
+    // Same numbers as the before/after case. The PRE condition has LOWER
+    // vertical oscillation, so any rule scoring VO downward alone would rank it
+    // higher. The engine must instead describe the POST condition's excursion as
+    // productive.
+    var out = PGIPatterns.interpretComparison({
+      verticalOscillationLegLengths: deltaOf(0.073, 0.087),
+      gctSeconds: deltaOf(0.238, 0.233),
+      flightSeconds: deltaOf(0.095, 0.112),
+      stepLengthMeters: deltaOf(1.02, 1.09),
+      cadenceSpm: deltaOf(184, 178)
+    }, { speedComparable: true });
+    assert(out.directions.verticalOscillation === 'increased', 'VO increased');
+    assert(out.patterns.some(function (p) {
+      return p.pattern === 'productive_projection'; }), 'increase read as productive');
+    var joined = out.patterns.map(function (p) { return p.interpretation; }).join(' ');
+    assert(!/excessive|too much|reduce/i.test(joined), 'no language penalising the increase');
+  });
+
+  test('improved touchdown preparation is detected from retraction changes', function () {
+    var out = PGIPatterns.interpretComparison({
+      retractionTimeMs: deltaOf(40, 85),
+      clearRetractionFraction: deltaOf(0.3, 0.9),
+      footGroundVelocityMps: deltaOf(0.8, 0.2)
+    }, { speedComparable: true });
+    assert(out.patterns.some(function (p) {
+      return p.pattern === 'improved_touchdown_preparation'; }), 'detected');
+  });
+
+  test('a change inside stride-to-stride variability is reported as unchanged', function () {
+    var d = { absolute: 0.002, percent: 0.9, baseline: 0.235, exceedsVariability: false };
+    assert(PGIPatterns.direction(d, 0.02) === 'unchanged', 'noise-level change is unchanged');
+  });
+
+  test('the CI-overlap test drives the variability verdict', function () {
+    var overlapping = PGICompare.exceedsVariability(
+      { value: 0.235, ci95: [0.225, 0.245], sd: 0.01, n: 8 },
+      { value: 0.240, ci95: [0.230, 0.250], sd: 0.01, n: 8 });
+    assert(overlapping === false, 'overlapping intervals => not a real change');
+    var separated = PGICompare.exceedsVariability(
+      { value: 0.200, ci95: [0.195, 0.205], sd: 0.005, n: 8 },
+      { value: 0.260, ci95: [0.255, 0.265], sd: 0.005, n: 8 });
+    assert(separated === true, 'separated intervals => real change');
+  });
+
+  test('differing speeds produce a prominent warning and reduced confidence', function () {
+    var a = analyze({}, { userSpeedMps: 3.0 });
+    var b = analyze({}, { userSpeedMps: 4.2 });
+    var cmp = PGICompare.compare({ result: a, label: 'Pre' }, { result: b, label: 'Post' });
+    assert(cmp.speed.comparable === false, 'flagged as not comparable');
+    assert(/different speeds/i.test(cmp.speed.warning), 'warning text present');
+    assert(cmp.speed.severity === 'warning', 'severity is a warning, not a note');
+    var html = PGIRender.comparisonHtml(cmp);
+    assert(/Speeds differed/.test(html), 'warning is rendered, not hidden');
+  });
+
+  test('matched speeds compare without the mismatch warning', function () {
+    var a = analyze({}, { userSpeedMps: 3.5 });
+    var b = analyze({}, { userSpeedMps: 3.55 });
+    var cmp = PGICompare.compare({ result: a, label: 'Pre' }, { result: b, label: 'Post' });
+    assert(cmp.speed.comparable === true, 'comparable');
+    assert(cmp.speed.warning === null, 'no warning');
+  });
+
+  test('unknown speed in one condition is called out rather than assumed', function () {
+    var a = analyze({}, { userSpeedMps: 3.5 });
+    var b = PGIAnalysis.analyze({
+      samples: clip({ velocityPxPerSec: 0 }), videoMetadata: { fps: 60 }, surfaceType: 'treadmill' });
+    var cmp = PGICompare.compare({ result: a, label: 'Pre' }, { result: b, label: 'Post' });
+    assert(cmp.speed.comparable === null, 'comparability unknown');
+    assert(/unknown/i.test(cmp.speed.warning), 'warning names the unknown speed');
+  });
+
+  test('a legacy analysis cannot be compared against a PGI analysis', function () {
+    var a = analyze({});
+    var cmp = PGICompare.compare(
+      { result: { analysisType: 'kinematic_force_orientation' }, label: 'Old' },
+      { result: a, label: 'New' });
+    assert(cmp.availability === 'unavailable', 'refused');
+    assert(/must_be_projection_ground_interaction/.test(cmp.reason), 'reason is explicit');
+  });
+
+  test('the comparison ranks neither condition', function () {
+    var a = analyze({}, { userSpeedMps: 3.5 });
+    var b = analyze({ flightSeconds: 0.15 }, { userSpeedMps: 3.5 });
+    var cmp = PGICompare.compare({ result: a, label: 'Pre' }, { result: b, label: 'Post' });
+    assert(/Neither condition is ranked/i.test(cmp.note), 'explicitly refuses to rank');
+    var html = PGIRender.comparisonHtml(cmp);
+    // "better" may appear only inside a denial, e.g. "Neither condition is
+    // ranked as better".
+    assertOnlyInDenial(html, /\bbetter\b/, 'ranking language');
+    assert(!/\bworse\b|\bwinner\b|\boverall score\b/i.test(html), 'no verdict vocabulary');
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  Runner-type fixtures (Phase 28 cases)
+  // ═══════════════════════════════════════════════════════════════════════════
+  suite('Runner-type fixtures');
+
+  test('ground-bound runner: long contact, short flight, low projection domain', function () {
+    // Duty factor 0.73 -- ground-bound but still inside the accepted running
+    // range, so the steps are not rejected before the pattern can be read.
+    var r = analyze({ stanceSeconds: 0.275, flightSeconds: 0.100 });
+    assertLt(r.strideTiming.overall.dutyFactor.median, 0.75, 'fixture stays inside the running range');
+    assert(r.domains.verticalProjection.rating === 'low',
+      'projection rated low, got ' + r.domains.verticalProjection.rating);
+    assert(r.patterns.some(function (p) { return p.pattern === 'low_projection'; }),
+      'low projection pattern fires');
+  });
+
+  test('a duty factor above the running range is refused rather than described', function () {
+    var r = analyze({ stanceSeconds: 0.30, flightSeconds: 0.055 });   // DF 0.845
+    assert(r.strideTiming.availability !== 'available' || r.strideTiming.stepsAnalyzed === 0,
+      'steps rejected as outside the running range');
+    assert(r.domains.verticalProjection.rating === 'unknown',
+      'no projection claim made from rejected steps');
+  });
+
+  test('floating runner: short contact, long flight, strong projection domain', function () {
+    var r = analyze({ stanceSeconds: 0.20, flightSeconds: 0.155 });
+    assert(r.domains.verticalProjection.rating === 'strong',
+      'projection rated strong, got ' + r.domains.verticalProjection.rating);
+  });
+
+  test('rushed touchdown fixture: no retraction, braking indicators not "low"', function () {
+    var r = analyze({ retractMs: 0, reachAheadPx: 34, footAheadPx: 34 });
+    assert(r.domains.brakingIndicators.rating !== 'low',
+      'braking not called low when the foot never retracts');
+  });
+
+  test('asymmetric fixture: the two sides differ and the difference is reported', function () {
+    var r = analyze({ asymmetric: true });
+    var asym = r.touchdownPreparation.asymmetry;
+    assert(asym.available === true, 'asymmetry computed');
+    assert(isNum(asym.footComOffsetDifferenceLegLengths), 'offset difference numeric');
+    assert(Math.abs(asym.footComOffsetDifferenceLegLengths) > 0.02,
+      'the modelled asymmetry is detected');
+  });
+
+  test('occluded ankle frames reduce quality without crashing', function () {
+    var r = analyze({ occludeEvery: 4 });
+    assert(r.availability !== undefined, 'analysis completes');
+    assert(Array.isArray(r.quality.flags), 'flags present');
+  });
+
+  test('low frame rate degrades gracefully and says why', function () {
+    var r = analyze({ sampleRateHz: 12, durationSeconds: 4 });
+    assert(r.availability !== undefined, 'completes');
+    var flagged = r.quality.flags.indexOf('velocity_sampling_insufficient') !== -1 ||
+                  r.quality.flags.indexOf('low_frame_rate') !== -1;
+    assert(flagged, 'a frame-rate flag is raised');
+  });
+
+  test('walking (no flight) is refused rather than analysed as running', function () {
+    var samples = makeClip({
+      sampleRateHz: 60, durationSeconds: 3, stanceSeconds: 0.62, flightSeconds: 0.0001,
+      velocityPxPerSec: 120, dirSign: 1, comDropPx: 6, footAheadPx: 20,
+      reachAheadPx: 30, retractMs: 60
+    });
+    var r = PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 } });
+    var st = r.strideTiming;
+    assert(st.availability !== 'available' || st.stepsAnalyzed === 0 ||
+           (st.gaitValidity && st.gaitValidity.isRunning === false),
+      'no running timing reported for a walking clip');
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  Stride outcome and arms
+  // ═══════════════════════════════════════════════════════════════════════════
+  suite('Stride outcome');
+
+  test('step length follows speed x step time, and flight distance from flight time', function () {
+    var r = analyze({}, { userSpeedMps: 3.5 });
+    var so = r.strideOutcome;
+    assert(so.availability === 'available', 'available');
+    var stepT = r.strideTiming.overall.stepSeconds.median;
+    assertClose(so.stepLengthMeters.median, 3.5 * stepT, 0.02, 'step length');
+    assertClose(so.flightDistanceMeters.median,
+                3.5 * r.strideTiming.overall.flightSeconds.median, 0.02, 'flight distance');
+    assertClose(so.strideLengthMeters.median, so.stepLengthMeters.median * 2, 0.02, 'stride = 2 steps');
+  });
+
+  test('stride length is never labelled short or long without a reference distribution', function () {
+    var r = analyze({}, { userSpeedMps: 3.5 });
+    assert(r.strideOutcome.interpretation.rating === 'unknown', 'no rating claimed');
+    assert(/no_speed_matched_reference/.test(r.strideOutcome.interpretation.reason),
+      'reason names the missing reference');
+  });
+
+  test('the two step-length routes are cross-checked when both exist', function () {
+    var r = analyze({}, { userSpeedMps: 3.5, userHeightMeters: 1.78 });
+    var cc = r.strideOutcome.crossCheck;
+    if (cc.availability === 'available') {
+      assert(isNum(cc.relativeDifference), 'relative difference computed');
+      assertLt(cc.relativeDifference, 0.25, 'the two routes broadly agree on the fixture');
+    }
+  });
+
+  suite('Arm carriage');
+
+  test('arm metrics are descriptive and disclaim force generation', function () {
+    var r = analyze({});
+    assert(/not claimed to generate vertical ground-reaction force/i.test(r.armCarriage.note),
+      'force disclaimer present');
+    assert(r.armCarriage.isForceClaim === false, 'flag set');
+  });
+
+  test('hand-to-midline stays unavailable on sagittal video', function () {
+    var r = analyze({});
+    var h = r.armCarriage.handToMidlineDistance;
+    assert(h.availability === 'unavailable', 'unavailable');
+    assert(h.reason === 'requires_frontal_view', 'reason is the view, not a failure');
+  });
+
+  test('arm-leg phase is computed against the CONTRALATERAL leg', function () {
+    var r = analyze({});
+    var ph = r.armCarriage.armLegPhase;
+    if (ph && ph.left && ph.left.availability === 'available') {
+      assert(ph.left.pairedWith === 'right_leg', 'left arm paired with right leg');
+      assert(isNum(ph.left.correlationAtBestLag), 'correlation computed');
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  Support geometry stays secondary
+  // ═══════════════════════════════════════════════════════════════════════════
+  suite('Support geometry demotion');
+
+  test('support angles are retained at the three stance windows', function () {
+    var r = analyze({});
+    assert(r.supportGeometry.availability === 'available', 'available');
+    ['early_stance', 'central_stance', 'late_stance'].forEach(function (p) {
+      var a = r.supportGeometry.left.phases[p];
+      assert(a && a.angle && isNum(a.angle.median), p + ' angle present');
+    });
+  });
+
+  test('geometry is labelled secondary and carries the demoted vocabulary', function () {
+    var r = analyze({});
+    assert(r.supportGeometry.role === 'secondary_descriptive_geometry', 'role tagged');
+    assert(/braking-oriented/.test(r.supportGeometry.vocabulary.early_stance), 'vocabulary used');
+    assert(/not a measured force direction/i.test(r.supportGeometry.note), 'disclaims force');
+    assert(/not scored/i.test(r.supportGeometry.note), 'states it is not scored');
+  });
+
+  test('no elite target or alignment score appears anywhere in the result', function () {
+    var json = JSON.stringify(analyze({}));
+    assert(!/eliteTarget|meanAlignment|alignmentScore|idealAngle/i.test(json),
+      'no target/alignment scoring fields');
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  Schema, storage and migration
+  // ═══════════════════════════════════════════════════════════════════════════
+  suite('Schema and storage');
+
+  test('the envelope carries the declared analysis type and schema version', function () {
+    var r = analyze({});
+    assert(r.analysisType === 'projection_ground_interaction', 'analysis type');
+    assert(r.schemaVersion === 3, 'schema version 3');
+    assert(r.isValidated === false, 'not validated');
+    assert(typeof r.modelVersion === 'string', 'model version present');
+  });
+
+  test('the stored form stays within the document budget', function () {
+    var stored = PGIAnalysis.toStoredForm(analyze({}));
+    var bytes = JSON.stringify(stored).length;
+    assertLt(bytes, 20480, 'stored bytes (' + bytes + ') under 20KB');
+  });
+
+  test('no keypoints, per-step records or raw series reach the stored form', function () {
+    var stored = JSON.stringify(PGIAnalysis.toStoredForm(analyze({})));
+    assert(!/"kps"/.test(stored), 'no keypoints');
+    assert(!/"stepResults"/.test(stored), 'no per-step COM records');
+    assert(!/"contacts"/.test(stored), 'no per-contact records');
+    assert(!/"series"/.test(stored), 'no raw series');
+    assert(!/"smoothed"/.test(stored), 'no smoothed series');
+  });
+
+  test('rehydration restores the stripped static text without altering computed values', function () {
+    var r = analyze({});
+    var stored = PGIAnalysis.toStoredForm(r);
+    var gct = stored.strideTiming.overall.contactSeconds.median;
+    var re = PGIAnalysis.rehydrateStatic(JSON.parse(JSON.stringify(stored)));
+    assert(re.disclaimer === PGI.DISCLAIMER, 'disclaimer restored');
+    assert(re.limitations.length > 0, 'limitations restored');
+    assert(re.supportGeometry.vocabulary, 'vocabulary restored');
+    assert(re.supportGeometry.left.phases.early_stance.label === 'Early stance', 'labels restored');
+    assert(re.patterns.every(function (p) { return p.alternatives && p.alternatives.length; }),
+      'pattern alternatives restored');
+    assert(re.strideTiming.overall.contactSeconds.median === gct, 'computed value untouched');
+  });
+
+  test('a stored analysis still renders, including its trajectory charts', function () {
+    var stored = PGIAnalysis.rehydrateStatic(PGIAnalysis.toStoredForm(analyze({})));
+    var html = PGIRender.buildHtml(stored);
+    assert(html.length > 2000, 'renders substantively');
+    assert(html.indexOf('<svg') !== -1, 'charts render from the stored paths');
+  });
+
+  suite('Migration');
+
+  test('a PGI document is recognised as current', function () {
+    var stored = PGIAnalysis.toStoredForm(analyze({}));
+    var m = PGIAnalysis.migrateAnalysis({ pgi: stored });
+    assert(m.generation === 'pgi', 'generation');
+    assert(m.isLegacy === false, 'not legacy');
+  });
+
+  test('a KFO-era document is legacy and its values are NOT converted', function () {
+    var m = PGIAnalysis.migrateAnalysis({
+      kfo: { schemaVersion: 3, availability: 'available',
+             left: { phases: { early_stance: { median: -8.4 } } } } });
+    assert(m.generation === 'kfo', 'generation');
+    assert(m.isLegacy === true, 'legacy');
+    assert(m.pgi.availability === 'unavailable', 'PGI block unavailable');
+    assert(m.pgi.reason === 'analysis_predates_projection_ground_interaction', 'explicit reason');
+    // The critical assertion: no stored angle became a PGI metric.
+    var json = JSON.stringify(m.pgi);
+    assert(!/-8\.4/.test(json), 'no legacy angle leaked into the PGI block');
+    assert(m.kfo, 'the KFO block is still handed back for the legacy renderer');
+  });
+
+  test('a pre-KFO document is handled without inventing data', function () {
+    var m = PGIAnalysis.migrateAnalysis({ name: 'old session', phases: {} });
+    assert(m.generation === 'pre_kfo', 'generation');
+    assert(m.pgi.availability === 'unavailable', 'unavailable');
+    assert(/cannot be recomputed retroactively/.test(m.pgi.limitations.join(' ')),
+      'says why it cannot be recomputed');
+  });
+
+  test('migration never mutates the stored document', function () {
+    var doc = { kfo: { schemaVersion: 3, availability: 'available' } };
+    var before = JSON.stringify(doc);
+    PGIAnalysis.migrateAnalysis(doc);
+    assert(JSON.stringify(doc) === before, 'input document unchanged');
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  Research export
+  // ═══════════════════════════════════════════════════════════════════════════
+  suite('Research export');
+
+  test('stride and frame rows are produced with the declared columns', function () {
+    var samples = clip({});
+    var r = PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 },
+                                  userHeightMeters: 1.78, surfaceType: 'overground' });
+    var b = PGIExport.buildExport(r, samples, { analysisId: 'T1' });
+    assertGt(b.strideLevel.length, 3, 'stride rows');
+    assertGt(b.frameLevel.length, 100, 'frame rows');
+    assert(b.csv.strides.split('\n').length === b.strideLevel.length + 1, 'stride CSV row count');
+    assert(b.csv.frames.split('\n').length === b.frameLevel.length + 1, 'frame CSV row count');
+  });
+
+  test('unavailable metrics export as empty cells, never as zero', function () {
+    var samples = clip({ velocityPxPerSec: 0 });
+    var r = PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 },
+                                  surfaceType: 'treadmill' });
+    var b = PGIExport.buildExport(r, samples, { analysisId: 'T2' });
+    b.strideLevel.forEach(function (row) {
+      // Speed is unknown here, so every speed-derived cell must be empty.
+      assert(row.speedMps === '' || row.speedMps === null || !isNum(row.speedMps),
+        'speed empty when unknown');
+    });
+    assert(/never a zero/i.test(b.conventions.emptyCells), 'convention documented');
+  });
+
+  test('CSV cells are quoted and formula injection is neutralised', function () {
+    assert(PGIExport.csvCell('=SUM(A1)') === '"\'=SUM(A1)"', 'formula prefixed');
+    assert(PGIExport.csvCell('say "hi"') === '"say ""hi"""', 'quotes doubled');
+    assert(PGIExport.csvCell('') === '""', 'empty stays empty');
+  });
+
+  test('frame rows label stance state and gait events', function () {
+    var samples = clip({});
+    var r = PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 },
+                                  userHeightMeters: 1.78, surfaceType: 'overground' });
+    var b = PGIExport.buildExport(r, samples, { analysisId: 'T3' });
+    assertGt(b.frameLevel.filter(function (f) { return f.stanceState === 'stance'; }).length, 10,
+      'stance frames labelled');
+    assertGt(b.frameLevel.filter(function (f) { return f.eventLabel; }).length, 3,
+      'event frames labelled');
+  });
+
+  test('frame rows carry raw AND smoothed trajectories', function () {
+    var samples = clip({});
+    var r = PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 },
+                                  userHeightMeters: 1.78, surfaceType: 'overground' });
+    var b = PGIExport.buildExport(r, samples, { analysisId: 'T4' });
+    var withBoth = b.frameLevel.filter(function (f) {
+      return isNum(f.comYRaw) && isNum(f.comHeightSmoothed); });
+    assertGt(withBoth.length, 50, 'raw and smoothed both present');
+  });
+
+  test('the export states that nothing in it is validated', function () {
+    var samples = clip({});
+    var r = PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 } });
+    var b = PGIExport.buildExport(r, samples, {});
+    assert(b.isValidated === false, 'bundle not validated');
+    assert(b.validationStatus.forcePlateValidated === false, 'force plate not validated');
+    assert(b.validationStatus.metabolicallyValidated === false, 'economy not validated');
+  });
+
+  test('the export documents which quantities are not independent', function () {
+    var samples = clip({});
+    var b = PGIExport.buildExport(
+      PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 } }), samples, {});
+    assert(b.conventions.independentTimingQuantities.length === 2, 'two independent timing quantities');
+    assert(/must not be treated as independent/i.test(b.conventions.independenceNote),
+      'independence caveat present');
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  Copy audit
+  // ═══════════════════════════════════════════════════════════════════════════
+  suite('Copy audit');
+
+  function html() { return PGIRender.buildHtml(analyze({}, { userSpeedMps: 3.5 })); }
+
+  test('the technical disclaimer is always present', function () {
+    assert(html().indexOf('does not directly measure ground-reaction force') !== -1,
+      'disclaimer rendered');
+  });
+
+  test('the section is named Projection & Ground Interaction with its subtitle', function () {
+    var h = html();
+    assert(h.indexOf('Projection &amp; Ground Interaction') !== -1, 'title');
+    assert(/prepares for contact.*loads the ground.*projects vertically/i.test(h), 'subtitle');
+  });
+
+  test('no single efficiency score is presented anywhere', function () {
+    var h = html();
+    // "efficiency" may appear only inside a denial of having one.
+    var n = assertOnlyInDenial(h, /efficiency/, 'efficiency');
+    assert(n > 0, 'the no-combined-score statement is actually present');
+    assert(!/\b\d{1,3}\s*\/\s*100\b/.test(h), 'no n/100 score');
+    assert(!/Running Efficiency|Overall Score|Form Score/i.test(h), 'no overall score heading');
+  });
+
+  test('every mention of measuring force is a denial', function () {
+    var h = html();
+    var idx = 0;
+    while ((idx = h.toLowerCase().indexOf('measure', idx)) !== -1) {
+      var ctx = h.slice(Math.max(0, idx - 90), idx + 90);
+      assert(/not|never|no |does not|rather than|instead/i.test(ctx),
+        'measurement claim must be negated near: "' + ctx.replace(/<[^>]*>/g, ' ') + '"');
+      idx += 7;
+    }
+  });
+
+  test('vertical oscillation is not labelled good or bad on its own', function () {
+    var h = html();
+    // Find the oscillation copy and confirm it states the combination rule.
+    assert(/never interpreted on its own|not interpreted on its own|is never interpreted/i.test(h) ||
+           /larger value is not treated as a fault/i.test(h),
+      'oscillation copy states it is not judged alone');
+    assert(!/reduce your vertical oscillation|lower oscillation is better/i.test(h),
+      'no advice to reduce oscillation');
+  });
+
+  test('support geometry copy states it is not a force and not scored', function () {
+    var h = html();
+    assert(/not a measured force direction/i.test(h), 'not a force');
+    assert(/not scored/i.test(h), 'not scored');
+    assert(/not compared against a target/i.test(h), 'no target matching');
+  });
+
+  test('the domains are shown separately with the no-combined-score statement', function () {
+    var h = html();
+    ['Touchdown preparation', 'Braking indicators', 'Vertical projection',
+     'Rebound timing', 'Stride outcome', 'Data confidence'].forEach(function (d2) {
+      assert(h.indexOf(d2) !== -1, d2 + ' shown');
+    });
+    assert(/no combined efficiency score/i.test(h), 'explicit statement present');
+  });
+
+  test('the ankle-as-foot limitation is disclosed in the touchdown section', function () {
+    assert(/no heel or toe landmark/i.test(html()), 'limitation disclosed');
+  });
+
+  test('stride length is not called better when longer', function () {
+    var h = html();
+    // "better" appears once, inside the denial "a longer stride is not
+    // automatically better". Negation checking is what enforces this, not a ban.
+    assertOnlyInDenial(h, /\bbetter\b/, 'stride-length judgement');
+    assert(/not automatically better|not labelled short or long/i.test(h),
+      'explicitly refuses the judgement');
+  });
+
+  test('rebound copy does not claim elasticity or force', function () {
+    var h = html();
+    assert(/not forces/i.test(h) || /not a measure of tendon elasticity/i.test(h),
+      'rebound disclaimers present');
+  });
+
+  test('an unavailable analysis renders an explanation rather than an empty panel', function () {
+    var h = PGIRender.buildHtml({
+      availability: 'unavailable', reason: 'insufficient_samples', limitations: [] });
+    assert(h.indexOf('could not be produced') !== -1, 'explains the absence');
+    assert(h.indexOf('insufficient samples') !== -1, 'names the reason');
+  });
+
+  test('rendering never emits NaN or undefined', function () {
+    [analyze({}), analyze({}, { userSpeedMps: null, userHeightMeters: null }),
+     analyze({ sampleRateHz: 14 })].forEach(function (r, i) {
+      var h = PGIRender.buildHtml(r);
+      assert(h.indexOf('NaN') === -1, 'no NaN in render ' + i);
+      assert(h.indexOf('undefined') === -1, 'no undefined in render ' + i);
+      assert(h.indexOf('null') === -1 || !/>null</.test(h), 'no bare null in render ' + i);
+    });
+  });
+
+  // ── Summary ────────────────────────────────────────────────────────────────
+  function summarize(opts) {
+    opts = opts || {};
+    var passed = results.filter(function (r) { return r.pass; }).length;
+    var failed = results.filter(function (r) { return !r.pass; });
+    var lines = [], bySuite = {};
+    results.forEach(function (r) { (bySuite[r.suite] = bySuite[r.suite] || []).push(r); });
+    Object.keys(bySuite).forEach(function (s) {
+      lines.push('\n  ' + s);
+      bySuite[s].forEach(function (r) {
+        lines.push('    ' + (r.pass ? 'PASS' : 'FAIL') + '  ' + r.name +
+          (r.pass ? '' : '\n          ' + r.error));
+      });
+    });
+    var summary = '\n' + results.length + ' tests, ' + passed + ' passed, ' + failed.length + ' failed';
+    if (!opts.quiet && typeof console !== 'undefined') {
+      console.log(lines.join('\n'));
+      console.log(summary);
+    }
+    if (failed.length && typeof process !== 'undefined' && process.exitCode !== undefined && !opts.noExit) {
+      process.exitCode = 1;
+    }
+    return { total: results.length, passed: passed, failed: failed.length,
+             failures: failed, results: results, text: lines.join('\n') + summary };
+  }
+
+  return {
+    run: function (o) { return summarize(o || {}); },
+    results: function () { return results; },
+    fixtures: { makeClip: makeClip, clip: clip, frame: frame, analyze: analyze }
+  };
+});

@@ -55,8 +55,14 @@ async function saveAnalysis() {
     data.phases[def.key] = entry;
   });
 
-  // Attach the admin-only force-orientation block when that feature is active.
-  // Returns {} otherwise, so this save is unchanged for everyone else.
+  // Attach the admin-only mechanics blocks when those features are active. Each
+  // returns {} otherwise, so this save is unchanged for everyone else.
+  if (typeof PGIApp !== 'undefined') {
+    try {
+      var pgiFields = PGIApp.storedFields();
+      Object.keys(pgiFields).forEach(function (k) { data[k] = pgiFields[k]; });
+    } catch (e) { console.warn('pgi save fields skipped:', e.message); }
+  }
   if (typeof KFOApp !== 'undefined') {
     try {
       var kfoFields = KFOApp.storedFields();
@@ -291,10 +297,11 @@ async function viewSavedAnalysis(id) {
   if (reportEl) reportEl.style.display = 'block';
   renderReport(d.issues || {});
 
-  // Version-aware KFO panel. Renders from the stored block only -- a saved
-  // session has no keypoints, so it is never recomputed here.
-  if (typeof KFOApp !== 'undefined') {
-    try { KFOApp.renderSaved(d); } catch (e) { console.error('kfo saved render:', e); }
+  // Version-aware mechanics panel. Renders from the stored block only -- a saved
+  // session has no keypoints, so it is never recomputed here. PGIApp also owns
+  // whether the superseded force-orientation panel appears for a legacy save.
+  if (typeof PGIApp !== 'undefined') {
+    try { PGIApp.renderSaved(d); } catch (e) { console.error('pgi saved render:', e); }
   }
 
   // Show summary table

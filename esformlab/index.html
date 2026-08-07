@@ -649,6 +649,17 @@
 <script src="kfo-render.js"></script>
 <script src="kfo-export.js"></script>
 <script src="kfo-app.js"></script>
+<script src="pgi-core.js"></script>
+<script src="pgi-timing.js"></script>
+<script src="pgi-com.js"></script>
+<script src="pgi-touchdown.js"></script>
+<script src="pgi-outcome.js"></script>
+<script src="pgi-patterns.js"></script>
+<script src="pgi-compare.js"></script>
+<script src="pgi-analysis.js"></script>
+<script src="pgi-render.js"></script>
+<script src="pgi-export.js"></script>
+<script src="pgi-app.js"></script>
 
 <script>
 'use strict';
@@ -1018,8 +1029,10 @@ function completeAnalysis(){
   var summaryEl = document.getElementById('summary-section');
   if(reportEl) reportEl.style.display='block';
   if(summaryEl) summaryEl.style.display='block';
-  // Admin-only Kinematic Force-Orientation panel (no-op for regular users).
-  if(typeof KFOApp!=='undefined'){ try{ KFOApp.render(); }catch(e){ console.error('kfo render:',e); } }
+  // Admin-only Projection & Ground Interaction panel (no-op for regular users).
+  // PGIApp also owns the superseded force-orientation panel, which stays off
+  // unless its legacy flag is set -- so KFOApp is not called directly here.
+  if(typeof PGIApp!=='undefined'){ try{ PGIApp.render(); }catch(e){ console.error('pgi render:',e); } }
   var ccaSH = document.getElementById('coaching-cta-section');
   if(ccaSH) ccaSH.style.display='block';
   var rfnSH = document.getElementById('report-footnotes');
@@ -1302,10 +1315,21 @@ async function autoScanAll(){
     console.log('[scale filter] side: kept',samples.length,'of',before,'(threshold',thresh.toFixed(1)+'px, median',med.toFixed(1)+'px)');
   })();
 
-  // Hand the scale-filtered samples to the admin-only force-orientation feature,
-  // which reuses their keypoints so multi-stride analysis costs no extra pose
-  // inference. Gated so nothing is retained when the feature is off.
+  // Hand the scale-filtered samples to the admin-only mechanics features, which
+  // reuse their keypoints so multi-stride analysis costs no extra pose
+  // inference. Gated so nothing is retained when the features are off.
+  //
+  // The samples carry `frameWidth`: these poses were estimated on the scan
+  // canvas (<=400px wide), NOT at native video resolution. Any denser pass that
+  // uses a different canvas size must record its own width so the coordinates
+  // can be reconciled -- mixing the two spaces would silently scale every
+  // velocity by their ratio.
+  try{
+    var __scanFrameWidth = sc.width;
+    samples.forEach(function(s){ s.frameWidth = __scanFrameWidth; });
+  }catch(e){}
   try{ if(typeof KFOApp!=='undefined' && KFOApp.shouldCapture()) window.__kfoSamples = samples; }catch(e){}
+  try{ if(typeof PGIApp!=='undefined' && PGIApp.shouldCapture()) window.__pgiSamples = samples; }catch(e){}
 
   // Detect side phases
   try{findPhases(samples,sideDur);}catch(e){console.error('findPhases:',e);}
@@ -1317,6 +1341,17 @@ async function autoScanAll(){
   document.getElementById('scan-step').textContent='Side view: refining foot-strike + toe-off edges...';
   try { await refineLegPlateau('left',  sideVid); } catch(e){ console.error('refine L plateau:',e); }
   try { await refineLegPlateau('right', sideVid); } catch(e){ console.error('refine R plateau:',e); }
+
+  // Admin-only: denser pose sampling immediately before each touchdown, so
+  // pre-contact foot velocity is resolvable. The coarse scan runs at ~25Hz,
+  // which is too slow to see a foot retract in the final 150ms. Bounded, gated,
+  // desktop-only, and never allowed to break the main scan.
+  try {
+    if(typeof PGIApp!=='undefined' && PGIApp.shouldDenseScan()){
+      document.getElementById('scan-step').textContent='Side view: sampling pre-contact foot motion...';
+      window.__pgiDenseWindows = await pgiDensePreContactScan(sideVid);
+    }
+  } catch(e){ console.warn('[pgi] dense pre-contact scan skipped:', e && e.message); }
 
   // Update side phase UI items
   var sidePhaseKeys = ['l_foot','r_foot','l_toe','r_toe','mid'];
@@ -1775,7 +1810,48 @@ async function _denseRefinePoseForAnkle(sideVid, det, t, ankleIdx){
   var shMidY = (lSh && rSh) ? (lSh.y + rSh.y)/2 : (lSh ? lSh.y : (rSh ? rSh.y : null));
   var hiMidY = (lHi && rHi) ? (lHi.y + rHi.y)/2 : (lHi ? lHi.y : (rHi ? rHi.y : null));
   var scale = (shMidY != null && hiMidY != null) ? Math.abs(hiMidY - shMidY) : null;
-  return {t:t, ankleY:an.y, scale:scale, kps:kps};
+  // frameWidth records the coordinate space these keypoints live in. This helper
+  // poses at NATIVE video resolution, unlike the coarse scan's <=400px canvas,
+  // so any consumer mixing the two must rescale by the ratio.
+  var conf = kps.reduce(function(sum,k){return sum+(k.score||0);},0)/kps.length;
+  return {t:t, ankleY:an.y, scale:scale, kps:kps, frameWidth:W, conf:conf};
+}
+
+// Denser pre-contact sampling around each detected touchdown, for the
+// admin-only Projection & Ground Interaction analysis. ~30Hz across a window
+// spanning the final ~180ms of swing into the first ~120ms of stance.
+//
+// Cost is bounded deliberately: at most MAX_STANCES touchdowns per side, so the
+// worst case is a few dozen extra inferences rather than a second full scan.
+async function pgiDensePreContactScan(sideVid){
+  var det = detector;
+  if(!det) return [];
+  var STEP = 0.033;          // ~30Hz
+  var PRE  = 0.18, POST = 0.12;
+  var MAX_STANCES = 3;
+  var dur = sideVid.duration || 0;
+  var out = [];
+
+  var targets = [];
+  [['left','l_foot',15], ['right','r_foot',16]].forEach(function(spec){
+    var ph = phases[spec[1]];
+    if(ph && ph.detected && isFinite(ph.t)) targets.push({side:spec[0], t:ph.t, ankleIdx:spec[2]});
+  });
+  if(!targets.length) return [];
+
+  for(var i=0; i<targets.length && i<MAX_STANCES*2; i++){
+    var tg = targets[i];
+    var t0 = Math.max(0.02, tg.t - PRE);
+    var t1 = Math.min(dur - 0.05, tg.t + POST);
+    if(t1 - t0 < 0.06) continue;
+    var samples = [];
+    for(var t = t0; t <= t1; t += STEP){
+      var s = await _denseRefinePoseForAnkle(sideVid, det, t, tg.ankleIdx);
+      if(s) samples.push(s);
+    }
+    if(samples.length >= 3) out.push({side:tg.side, touchdownTime:tg.t, samples:samples});
+  }
+  return out;
 }
 
 async function refineLegPlateau(side, sideVid){
@@ -1925,7 +2001,7 @@ async function analyzeCard(key){
   if (lastIssues !== null) {
     lastIssues = detectIssues();
     renderReport(lastIssues);
-    if(typeof KFOApp!=='undefined'){ try{ KFOApp.render(); }catch(e){ console.error('kfo render:',e); } }
+    if(typeof PGIApp!=='undefined'){ try{ PGIApp.render(); }catch(e){ console.error('pgi render:',e); } }
   }
   checkAllAnalyzed();
 }
