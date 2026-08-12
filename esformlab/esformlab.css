@@ -152,6 +152,12 @@ nav{height:58px;padding:0 32px;display:flex;align-items:center;gap:0;position:st
 
 /* Drop zone (inside card) */
 .drop-zone-inner{padding:28px 32px 32px}
+.upload-musts{margin:0 0 18px;background:rgba(245,166,35,.06);border:1px solid rgba(245,166,35,.3);border-left:4px solid var(--warn);border-radius:12px;padding:16px 20px;text-align:left}
+.upload-musts-title{font-size:13px;font-weight:800;letter-spacing:.4px;color:var(--warn);margin-bottom:10px}
+.upload-must-item{display:flex;align-items:flex-start;gap:10px;font-size:13px;color:var(--muted2);line-height:1.7}
+.upload-must-item + .upload-must-item{margin-top:9px}
+.upload-must-item strong{color:var(--text)}
+.um-icon{flex-shrink:0;margin-top:2px;font-size:13px}
 .drop-zones-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
 .drop-zone{border:1.5px dashed rgba(0,229,200,.22);border-radius:16px;padding:24px 16px;text-align:center;cursor:pointer;background:rgba(0,229,200,.02);transition:border-color .2s,background .2s,box-shadow .2s}
 .drop-zone:hover,.drop-zone.over{border-color:var(--cyan);background:rgba(0,229,200,.06)}
@@ -685,6 +691,8 @@ nav.menu-open .menu-toggle span:nth-child(3){transform:translateY(-6px) rotate(-
   .sex-select-section{padding:20px 18px 0}
   .sex-divider{margin:0 18px}
   .drop-zone-inner{padding:18px}
+  .upload-musts{padding:14px 16px;margin-bottom:14px}
+  .upload-must-item{font-size:12px}
   .drop-zones-row{grid-template-columns:1fr;gap:12px}
   .drop-zone{padding:18px 14px}
   .video-tips{padding:16px 18px;margin-top:14px}
