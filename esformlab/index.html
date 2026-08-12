@@ -66,6 +66,16 @@
     <!-- Drop zones - 3 in a row -->
     <div class="drop-zone-inner">
       <span class="sex-select-label">Step 2 -- Upload videos (all three required)</span>
+
+      <!-- Must-read prep instructions. Kept above the drop zones on purpose:
+           these three points prevent the most common causes of bad scans. -->
+      <div class="upload-musts" role="note" aria-label="Video preparation instructions">
+        <div class="upload-musts-title">&#9888; Read before uploading &mdash; these three things make or break your scan</div>
+        <div class="upload-must-item"><span class="um-icon">&#9201;</span><span><strong>Keep each clip 8 seconds or less.</strong> Longer videos slow the scan down without adding accuracy &mdash; a few seconds of steady running is all the analysis needs.</span></div>
+        <div class="upload-must-item"><span class="um-icon">&#128208;</span><span><strong>The camera must be at the correct angle for the entire clip.</strong> Side view: dead-on perpendicular. Front/back: running straight toward or away from the camera. If only part of your video has the correct angle, <strong>edit the clip down to just that section</strong> before uploading &mdash; frames where the angle is off will skew every measurement.</span></div>
+        <div class="upload-must-item"><span class="um-icon">&#128034;</span><span><strong>Slowing the video to 0.5x speed can improve gait detection.</strong> Exporting your clip at half speed gives the pose model more frames per stride, which often produces cleaner joint tracking &mdash; most phone editors can do this.</span></div>
+      </div>
+
       <div class="drop-zones-row">
 
         <div class="drop-zone" id="drop-zone-side" onclick="document.getElementById('file-input-side').click()" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="handleDrop(event,'side')">
@@ -110,7 +120,7 @@
       <div class="video-tips">
         <div class="video-tips-title">Recording tips for the best results</div>
         <div class="video-tips-grid">
-          <div class="video-tip-item"><span class="vt-icon">&#9201;</span><span><strong>Keep clips short: 3 to 8 seconds.</strong> We only sample 20-40 frames from each video, so longer clips just add unnecessary footage. A few seconds of steady running is ideal.</span></div>
+          <div class="video-tip-item"><span class="vt-icon">&#9201;</span><span><strong>Keep clips 8 seconds or less.</strong> We only sample 20-40 frames from each video, so longer clips just add unnecessary footage. A few seconds of steady running is ideal.</span></div>
           <div class="video-tip-item"><span class="vt-icon">&#128247;</span><span><strong>Stay close to the camera.</strong> The runner should fill most of the frame. If you are too far away, the pose model cannot accurately identify joint positions.</span></div>
           <div class="video-tip-item"><span class="vt-icon">&#9888;</span><span><strong>Nothing should block your body.</strong> Treadmill handrails, other runners, or objects in front of you will hide joints and reduce detection accuracy. If filming on a treadmill, position the camera so the display and handrails are not covering your arms or legs.</span></div>
           <div class="video-tip-item"><span class="vt-icon">&#127939;</span><span><strong>Consider filming both outdoors and on a treadmill.</strong> Treadmill running can change your form -- your stride length, foot strike, and trunk lean may differ from outdoor running. If you want a complete picture, analyze one of each and compare the results.</span></div>
