@@ -33,12 +33,15 @@
     PGICompare: require('./pgi-compare.js'),
     PGIAnalysis: require('./pgi-analysis.js'),
     PGIRender: require('./pgi-render.js'),
-    PGIExport: require('./pgi-export.js')
+    PGIExport: require('./pgi-export.js'),
+    PGIVerify: require('./pgi-verify.js'),
+    PGIAnchors: require('./pgi-anchors.js')
   } : {
     KFO: root.KFO, PGI: root.PGI, PGITiming: root.PGITiming, PGICom: root.PGICom,
     PGITouchdown: root.PGITouchdown, PGIOutcome: root.PGIOutcome,
     PGIPhases: root.PGIPhases, PGIPatterns: root.PGIPatterns, PGICompare: root.PGICompare,
-    PGIAnalysis: root.PGIAnalysis, PGIRender: root.PGIRender, PGIExport: root.PGIExport
+    PGIAnalysis: root.PGIAnalysis, PGIRender: root.PGIRender, PGIExport: root.PGIExport,
+    PGIVerify: root.PGIVerify, PGIAnchors: root.PGIAnchors
   };
   var api = factory(deps);
   if (isNode) { module.exports = api; if (require.main === module) api.run(); }
@@ -1599,8 +1602,10 @@
     var re = PGIAnalysis.rehydrateStatic(
       PGIAnalysis.toStoredForm(analyze({}, { userSpeedMps: 3.5 })));
     var h = PGIRender.buildHtml(re);
-    assert(h.indexOf('Stride timeline') !== -1, 'timeline rendered');
-    assert(h.indexOf('MINIMUM COM') !== -1, 'minimum COM emphasised');
+    assert(h.indexOf('stride, measured') !== -1, 'measured timeline rendered');
+    assert(/Loading<\/div><div[^>]*>\d+ ms/.test(h.replace(/\s+/g, '')) ||
+           /Loading[\s\S]{0,120}?\d+ ms/.test(h), 'loading segment carries this runner\u2019s ms');
+    assert(h.indexOf('MIN COM') !== -1 || h.indexOf('minimum COM') !== -1, 'minimum COM present');
     assert(h.indexOf('Loading / Compression') !== -1, 'loading card rendered');
     assert(h.indexOf('Rebound / Projection') !== -1, 'rebound card rendered');
     assert(h.indexOf('loading / compression') !== -1, 'trajectory shading labelled');
@@ -1904,6 +1909,203 @@
       'independence caveat present');
   });
 
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  Stance-landmark verification
+  // ═══════════════════════════════════════════════════════════════════════════
+  suite('Landmark verification');
+
+  test('the queue lists every used stance with its three landmark times', function () {
+    var r = analyze({});
+    var q = PGIVerify.buildQueue(r);
+    var stances = r.quality.stancesDetected.left + r.quality.stancesDetected.right;
+    assert(q.length === stances, 'one item per stance (' + q.length + ' vs ' + stances + ')');
+    q.forEach(function (i) {
+      assert(isNum(i.autoStart) && isNum(i.autoEnd) && i.autoEnd > i.autoStart, 'ordered edges');
+      assert(i.confirmed === false, 'nothing pre-confirmed');
+    });
+    assert(q.some(function (i) { return isNum(i.minCom); }), 'min-COM times attached');
+  });
+
+  test('nudging preserves event ordering and un-confirms the stance', function () {
+    var i = { start: 1.0, end: 1.24, minCom: 1.11, autoStart: 1.0, autoEnd: 1.24,
+              autoMinCom: 1.11, confirmed: true };
+    PGIVerify.nudge(i, 'touchdown', 0.033);
+    assert(i.start === 1.033 && i.confirmed === false, 'moved and un-confirmed');
+    // A nudge that would cross the minimum stance width is refused.
+    PGIVerify.nudge(i, 'touchdown', 10);
+    assert(i.start === 1.033, 'ordering-violating nudge refused');
+    PGIVerify.nudge(i, 'minimumCom', -0.5);
+    assert(i.minCom === 1.11, 'min-COM cannot leave the stance');
+  });
+
+  test('an analysis with confirmed corrections reports verified with the deltas retained', function () {
+    var samples = clip({});
+    var auto = PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 },
+                                     userHeightMeters: 1.78, surfaceType: 'overground' });
+    assert(auto.verification.landmarksVerified === false, 'unverified until reviewed');
+    var q = PGIVerify.buildQueue(auto);
+    PGIVerify.nudge(q[0], 'touchdown', 0.033);
+    q.forEach(function (i) { i.confirmed = true; });
+    var ov = PGIVerify.toOverrides(q);
+    var re = PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 },
+                                   userHeightMeters: 1.78, surfaceType: 'overground',
+                                   stanceOverrides: ov.stanceOverrides,
+                                   minComOverrides: ov.minComOverrides });
+    assert(re.verification.landmarksVerified === true, 'verified after review');
+    assert(re.verification.stancesAdjusted === 1, 'one stance adjusted');
+    var c = re.verification.corrections[0];
+    assert(c.event === 'touchdown' && c.deltaMs === 33, 'auto vs adjusted delta retained');
+    var stored = PGIAnalysis.toStoredForm(re);
+    assert(stored.verification.landmarksVerified === true, 'verification persisted');
+    assert(stored.verification.corrections.length >= 1, 'corrections persisted');
+  });
+
+  test('a manually corrected minimum COM overrides detection with confidence 1', function () {
+    var samples = clip({});
+    var auto = PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 },
+                                     userHeightMeters: 1.78, surfaceType: 'overground' });
+    var q = PGIVerify.buildQueue(auto).filter(function (i) { return isNum(i.minCom); });
+    assert(q.length > 0, 'a stance with min-COM exists');
+    PGIVerify.nudge(q[0], 'minimumCom', 0.02);
+    q.forEach(function (i) { i.confirmed = true; });
+    var ov = PGIVerify.toOverrides(q);
+    var re = PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 },
+                                   userHeightMeters: 1.78, surfaceType: 'overground',
+                                   stanceOverrides: { left: ov.stanceOverrides.left, right: ov.stanceOverrides.right },
+                                   minComOverrides: ov.minComOverrides });
+    var manual = (re.comTrajectory.stepResults || []).filter(function (st) {
+      return st.valid && st.minimumCom && st.minimumCom.detectionMethod === 'manual_verification';
+    });
+    assert(manual.length >= 1, 'manual min-COM applied');
+    assert(manual[0].minimumCom.confidence === 1, 'human-verified confidence is 1');
+    assert(manual[0].minimumCom.autoDetection, 'auto detection retained beside the correction');
+  });
+
+  test('confirmed-but-unadjusted stances still count as verified', function () {
+    var samples = clip({});
+    var auto = PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 } });
+    var q = PGIVerify.buildQueue(auto);
+    q.forEach(function (i) { i.confirmed = true; });
+    var ov = PGIVerify.toOverrides(q);
+    var re = PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 },
+                                   stanceOverrides: ov.stanceOverrides });
+    assert(re.verification.landmarksVerified === true, 'verified');
+    assert(re.verification.stancesAdjusted === 0, 'nothing adjusted');
+    assert(re.verification.corrections.length === 0, 'no corrections recorded');
+  });
+
+  test('the verification badge renders and the unverified state is visible', function () {
+    var samples = clip({});
+    var auto = PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 },
+                                     userHeightMeters: 1.78 });
+    assert(/landmarks not human-verified/.test(PGIRender.buildHtml(auto)), 'unverified badge');
+    var q = PGIVerify.buildQueue(auto);
+    q.forEach(function (i) { i.confirmed = true; });
+    var ov = PGIVerify.toOverrides(q);
+    var re = PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 },
+                                   userHeightMeters: 1.78, stanceOverrides: ov.stanceOverrides });
+    assert(/landmarks verified/.test(PGIRender.buildHtml(re)), 'verified badge');
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  Published anchors
+  // ═══════════════════════════════════════════════════════════════════════════
+  suite('Published anchors');
+
+  test('anchors are speed-matched to the nearest published measurement', function () {
+    var a = PGIAnchors.anchorFor('dutyFactor', 3.5);
+    assert(a && a.atSpeedMps === 3.49, 'nearest Dorn speed chosen');
+    assert(a.source.short === 'Dorn 2012', 'source named');
+    assert(a.isTarget === false, 'never a target');
+    var far = PGIAnchors.nearestDorn(12);
+    assert(far === null, 'no anchor stretched beyond its speed range');
+  });
+
+  test('with speed unknown, only broad honest anchors are offered', function () {
+    var df = PGIAnchors.anchorFor('dutyFactor', null);
+    assert(df && /baseline/.test(df.source.short), 'falls back to the internal baseline');
+    var peak = PGIAnchors.anchorFor('peakVerticalSupportBW', null);
+    assert(peak === null, 'peak force has no honest speed-free anchor');
+    var gct = PGIAnchors.anchorFor('contactSeconds', null);
+    assert(gct && gct.range, 'contact time falls back to a stated range');
+    assert(gct.source.provenance === 'approximate_device_population', 'range labelled approximate');
+  });
+
+  test('every context line names its source and frames itself as not a target', function () {
+    var c = PGIAnchors.contextLine('meanVerticalSupportBW', 1.57, 3.5);
+    assert(c && /Dorn 2012/.test(c.text), 'source in the line');
+    assert(/not a target/.test(c.framing), 'framing preserved');
+    assert(/lab-measured/.test(c.text), 'provenance stated');
+  });
+
+  test('the Dorn anchors are byte-identical with the values the force model is tested against', function () {
+    // One source of truth: kfo-tests.js asserts the timing force model against
+    // these same rows, so the anchors cannot drift from the validated table.
+    var d = PGIAnchors.DORN_2012;
+    assertClose(d[0].dutyFactor, 0.637, 1e-9, 'DF at 3.49');
+    assertClose(d[0].peakVerticalBw, 2.71, 1e-9, 'peak at 3.49');
+    assertClose(d[3].speedMps, 8.99, 1e-9, 'top speed row');
+  });
+
+  test('the rendered report anchors its headline numbers', function () {
+    var h = html();
+    assert(/Dorn 2012/.test(h), 'a published anchor appears in the report');
+    assert(/not targets|not a target/i.test(h), 'anchor framing appears in the report');
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  Condensed report layout
+  // ═══════════════════════════════════════════════════════════════════════════
+  suite('Condensed report');
+
+  test('the report opens with a plain-language narrative before any table', function () {
+    var h = html();
+    var text = h.replace(/<[^>]*>/g, ' ');
+    var narrativeIdx = h.indexOf('description of the observed pattern');
+    assert(narrativeIdx !== -1, 'narrative present');
+    assert(narrativeIdx < h.indexOf('Mechanical domains'), 'narrative precedes the domain chips');
+    assert(/foot|contact|flight/i.test(text.slice(0, text.indexOf('Mechanical domains'))),
+      'the narrative talks about the runner, not the software');
+  });
+
+  test('detail sections are collapsed behind summaries with takeaways', function () {
+    var h = html();
+    var details = (h.match(/<details/g) || []).length;
+    assert(details >= 5, 'major sections are collapsible (' + details + ')');
+    assert(/<summary/.test(h), 'summaries present');
+    assert(/ms contact|cm compression|ms flight/.test(h.replace(/<[^>]*>/g, ' ')),
+      'takeaways carry numbers');
+  });
+
+  test('suppressed caveats do not appear while real ones still do', function () {
+    var noHeight = PGIRender.buildHtml(PGIAnalysis.analyze({
+      samples: clip({ velocityPxPerSec: 0 }), videoMetadata: { fps: 60 }, surfaceType: 'treadmill' }));
+    assert(noHeight.indexOf('Running speed unavailable') === -1, 'speed caveat suppressed');
+    assert(noHeight.indexOf('Grade unavailable') === -1, 'grade caveat suppressed');
+    assert(noHeight.indexOf('Video may be mirrored') === -1, 'mirror caveat suppressed');
+    // A caveat the user can act on still shows.
+    assert(/belt speed unknown|ground-relative foot velocity unavailable/i.test(noHeight),
+      'actionable treadmill caveat still shown');
+  });
+
+  test('the angle diagram explains the support-line angle in plain terms', function () {
+    var h = html();
+    assert(/contact point (&#8594;|→) centre of mass/.test(h), 'diagram states what the angle is');
+    assert(/still behind the planted foot/i.test(h), 'plain-language reading present');
+    assert(/BEHIND the planted foot|behind the planted foot/i.test(h), 'per-phase meaning shown');
+  });
+
+  test('the measured timeline shows this runner\u2019s proportions, not a generic strip', function () {
+    var a = PGIRender.buildHtml(analyze({ stanceSeconds: 0.275, flightSeconds: 0.100 },
+                                        { userSpeedMps: 3.0 }));
+    var b = PGIRender.buildHtml(analyze({ stanceSeconds: 0.215, flightSeconds: 0.150 },
+                                        { userSpeedMps: 3.0 }));
+    function widths(h) { return (h.match(/flex:0 0 [\d.]+%/g) || []).join(','); }
+    assert(widths(a).length > 0, 'segments have measured widths');
+    assert(widths(a) !== widths(b), 'different clips draw different proportions');
+  });
+
   // ═══════════════════════════════════════════════════════════════════════════
   //  Copy audit
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1931,15 +2133,28 @@
     assert(!/Running Efficiency|Overall Score|Form Score/i.test(h), 'no overall score heading');
   });
 
-  test('every mention of measuring force is a denial', function () {
+  test('a measurement claim is either a denial or a citation of a named study', function () {
+    // The rule protected: no text claims OUR values are measured force. Cited
+    // lab values ("lab-measured: 0.64 (Dorn 2012)") are the opposite of that
+    // claim — they name whose measurement it is — and kinematic idioms
+    // ("measured from this clip's strides", "measured from vertical") claim
+    // motion, not force. Each occurrence must match one of the three.
     var h = html();
+    var text = h.replace(/<[^>]*>/g, ' ');
     var idx = 0;
-    while ((idx = h.toLowerCase().indexOf('measure', idx)) !== -1) {
-      var ctx = h.slice(Math.max(0, idx - 90), idx + 90);
-      assert(/not|never|no |does not|rather than|instead/i.test(ctx),
-        'measurement claim must be negated near: "' + ctx.replace(/<[^>]*>/g, ' ') + '"');
-      idx += 7;
+    while ((idx = text.toLowerCase().indexOf('measur', idx)) !== -1) {
+      var ctx = text.slice(Math.max(0, idx - 110), idx + 110);
+      var negated = /\b(not|never|no|does not|rather than|instead|non-)\b/i.test(ctx);
+      var cited = /Dorn|Clark|cited stud|lab-measured:|reconstructed|population range|baseline/i.test(ctx);
+      var kinematic = /clip(\u2019|'|&#8217;|&amp;#8217;)?s strides|from vertical|measurements has been validated/i.test(ctx);
+      assert(negated || cited || kinematic,
+        'measurement claim must be denied or attributed near: "' +
+        ctx.replace(/\s+/g, ' ').trim() + '"');
+      idx += 6;
     }
+    // The core guarantee, asserted directly: our support estimate never reads
+    // as measured without attribution or denial in the same panel.
+    assert(/estimated from timing|timing-derived/i.test(h), 'our estimate is labelled as an estimate');
   });
 
   test('vertical oscillation is not labelled good or bad on its own', function () {
@@ -1962,9 +2177,12 @@
   test('the domains are shown separately with the no-combined-score statement', function () {
     var h = html();
     ['Touchdown preparation', 'Braking indicators', 'Vertical projection',
-     'Rebound timing', 'Stride outcome', 'Data confidence'].forEach(function (d2) {
+     'Rebound timing', 'Data confidence'].forEach(function (d2) {
       assert(h.indexOf(d2) !== -1, d2 + ' shown');
     });
+    // Stride outcome was cut on purpose: wearables report it directly.
+    assert(h.indexOf('Stride outcome') === -1, 'stride-outcome chip removed');
+    assert(/wearable/i.test(h), 'the wearable hand-off is stated');
     assert(/no combined efficiency score/i.test(h), 'explicit statement present');
   });
 

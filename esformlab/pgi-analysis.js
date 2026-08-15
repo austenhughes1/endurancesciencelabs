@@ -264,8 +264,14 @@
     var surface = PGI.inferSurfaceType(input.surfaceType, direction);
 
     // ── Stance intervals + support geometry (shared with the KFO detector) ──
-    var geomLeft = KFOAnalysis.analyzeSide(samples, 'left', direction, KFOEstimators.GeometryProxyEstimator);
-    var geomRight = KFOAnalysis.analyzeSide(samples, 'right', direction, KFOEstimators.GeometryProxyEstimator);
+    // Manual landmark verification: corrected stance edges replace the detected
+    // ones at the SOURCE, so every consumer — timing, phase windows, COM steps,
+    // touchdown windows — reads the same corrected intervals.
+    var stanceOv = input.stanceOverrides || null;
+    var geomLeft = KFOAnalysis.analyzeSide(samples, 'left', direction,
+      KFOEstimators.GeometryProxyEstimator, undefined, stanceOv ? stanceOv.left : null);
+    var geomRight = KFOAnalysis.analyzeSide(samples, 'right', direction,
+      KFOEstimators.GeometryProxyEstimator, undefined, stanceOv ? stanceOv.right : null);
     var stanceIntervals = { left: geomLeft.stanceIntervals, right: geomRight.stanceIntervals };
 
     var durationSeconds = samples[samples.length - 1].t - samples[0].t;
@@ -302,6 +308,7 @@
       legLengthPx: legLengthPx,
       userHeightCalibration: heightCal,
       directionSign: direction.sign,
+      minComOverrides: input.minComOverrides || null,
       smoothing: input.smoothing
     });
     var calibration = (com.availability === KFO.AVAILABILITY.AVAILABLE && com.calibration)
@@ -559,6 +566,49 @@
     });
     envelope.comparison = null;
 
+    // ── Landmark verification record ──
+    // Assembled from the interval tags so it reflects what was actually applied,
+    // not what the caller intended to apply.
+    var verifiedIvs = [], adjustedIvs = 0, vCorrections = [];
+    [geomLeft, geomRight].forEach(function (sd) {
+      (sd.stanceIntervals || []).forEach(function (iv) {
+        if (iv.verified) verifiedIvs.push(iv);
+        if (iv.manualAdjustment) {
+          adjustedIvs++;
+          if (iv.manualAdjustment.autoStartTime !== iv.startTime) {
+            vCorrections.push({ side: sd.side, event: 'touchdown',
+              autoTimeSeconds: round(iv.manualAdjustment.autoStartTime, 4),
+              adjustedTimeSeconds: round(iv.startTime, 4),
+              deltaMs: Math.round((iv.startTime - iv.manualAdjustment.autoStartTime) * 1000) });
+          }
+          if (iv.manualAdjustment.autoEndTime !== iv.endTime) {
+            vCorrections.push({ side: sd.side, event: 'toeoff',
+              autoTimeSeconds: round(iv.manualAdjustment.autoEndTime, 4),
+              adjustedTimeSeconds: round(iv.endTime, 4),
+              deltaMs: Math.round((iv.endTime - iv.manualAdjustment.autoEndTime) * 1000) });
+          }
+        }
+      });
+    });
+    (input.minComOverrides || []).forEach(function (o) {
+      if (o && isNum(o.time)) {
+        vCorrections.push({ side: o.side, event: 'minimumCom',
+          adjustedTimeSeconds: round(o.time, 4) });
+      }
+    });
+    var totalIvs = (geomLeft.stanceIntervals || []).length + (geomRight.stanceIntervals || []).length;
+    envelope.verification = {
+      landmarksVerified: totalIvs > 0 && verifiedIvs.length === totalIvs,
+      stancesVerified: verifiedIvs.length,
+      stancesTotal: totalIvs,
+      stancesAdjusted: adjustedIvs,
+      corrections: vCorrections,
+      note: verifiedIvs.length
+        ? 'Stance landmarks were reviewed frame-by-frame; automatic times are retained beside ' +
+          'any corrections.'
+        : 'Stance landmarks are automatic and have not been human-verified.'
+    };
+
     var anyDomain = (timing.availability === KFO.AVAILABILITY.AVAILABLE) ||
                     (com.availability === KFO.AVAILABILITY.AVAILABLE) ||
                     (touchdown.availability === KFO.AVAILABILITY.AVAILABLE);
@@ -567,11 +617,6 @@
       : KFO.AVAILABILITY.UNAVAILABLE;
     if (!anyDomain) envelope.reason = 'no_usable_gait_events_detected';
 
-    if (!isNum(speedContext.speedMps)) {
-      envelope.limitations = envelope.limitations.concat([
-        'Running speed unavailable: mechanics are speed-dependent, so absolute judgements are withheld'
-      ]);
-    }
     return envelope;
   }
 
@@ -1069,6 +1114,13 @@
           evidenceClasses: p.evidenceClasses, isValidated: false
         };
       }),
+      verification: result.verification ? {
+        landmarksVerified: !!result.verification.landmarksVerified,
+        stancesVerified: result.verification.stancesVerified,
+        stancesTotal: result.verification.stancesTotal,
+        stancesAdjusted: result.verification.stancesAdjusted,
+        corrections: result.verification.corrections
+      } : null,
       domains: withoutNote(result.domains),
       symmetry: withoutNote(result.symmetry),
       comparison: null
@@ -1085,11 +1137,6 @@
     var out = stored;
     out.disclaimer = PGI.DISCLAIMER;
     out.limitations = LIMITATIONS.slice();
-    if (!isNum(out.video && out.video.speedMps)) {
-      out.limitations = out.limitations.concat([
-        'Running speed unavailable: mechanics are speed-dependent, so absolute judgements are withheld'
-      ]);
-    }
     if (out.supportGeometry) {
       out.supportGeometry.role = 'secondary_descriptive_geometry';
       out.supportGeometry.note = 'Support-line orientation at three normalised stance windows. This ' +
