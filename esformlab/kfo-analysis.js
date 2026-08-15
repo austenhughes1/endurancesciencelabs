@@ -117,6 +117,8 @@
   function applyIntervalOverrides(accepted, overrides, sortedSamples, cfg) {
     if (!overrides || !overrides.length) return accepted;
     var TOL = 0.08; // seconds; auto times identify the interval, not a frame
+    // A dropped interval maps to null and is filtered at the end — every
+    // consumer indexes into this array, so a surviving null is a crash.
     return accepted.map(function (iv) {
       var ov = null;
       overrides.forEach(function (o) {
@@ -126,6 +128,7 @@
                     Math.abs(ov.autoStartTime - iv.startTime))) ov = o;
       });
       if (!ov) return iv;
+      if (ov.drop) return null;
       var start = isNum(ov.startTime) ? ov.startTime : iv.startTime;
       var end = isNum(ov.endTime) ? ov.endTime : iv.endTime;
       if (!(end > start)) return iv; // an inverted correction is refused
@@ -152,7 +155,7 @@
           adjustedBy: ov.source || 'manual_verification'
         } : null
       };
-    });
+    }).filter(function (iv) { return iv !== null; });
   }
 
   /**
