@@ -961,3 +961,32 @@ one-sided anchor leaves the clip honestly unbadged. `pgi-verify.js` and the
 `requireLandmarkVerification` flag are deleted; the override plumbing
 (`applyIntervalOverrides`, `minComOverrides`) remains — it is how the user
 events are injected. Tests: 162 PGI + 172 KFO.
+
+---
+
+## 13. Toe-off refinement + per-landmark frame-scrub cards (2026-08-15)
+
+**Why auto toe-off was "essentially always wrong":** stance was the ankle-Y
+plateau, and the ankle rises at HEEL-OFF while the toes are still planted — the
+plateau edge reads early on every stance. `KFOAnalysis.refineToeOff()` fixes it
+per stance: the ankle's hip-relative forward offset keeps falling through
+heel-off (the body still travels over the planted foot) and reverses at true
+toe-off, so toe-off = the last sample on the offset minimum's flat bottom.
+Surface-independent (constant hold overground, belt drift on a treadmill),
+bounded (never past the next same-side stance, ≤0.30 s), refuses without a
+clear post-minimum rise, and records `toeOffRefinement`
+(`plateauEndTime`/`refinedEndTime`/`extensionMs`). The heel-off fixture knob
+(`heelOffMs`) proves GCT recovers to the clean-clip value.
+
+**Frame-scrub landmark cards** (pgi-app): the review interface is now identical
+to the product's phase-card pattern — a card grid, one navigable card per
+landmark (touchdown + toe-off per stance; lowest-COM stays automatic), each
+opening an expand panel with the familiar ±1s/±5f/±1f scrubber on the ORIGINAL
+video frames, plus Prev/Next to walk the whole set. Two deliberate fixes over
+the abandoned first UI: cards instead of a blob, and the overlay (skeleton,
+COM, support line) is **re-posed on every scrubbed frame** via
+`detector.estimatePoses` on the current frame — never a stale overlay. "Use
+this frame" commits a per-stance edit (`stanceEdits` →
+`source: user_frame_scrub`), which outranks the phase-card anchor and its bias
+propagation, refuses stance inversion, and re-runs the analysis immediately.
+Card badges: auto / refined / edited. Tests: 169 PGI + 172 KFO.
