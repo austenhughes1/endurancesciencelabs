@@ -865,3 +865,66 @@ ideally on a treadmill with a known belt speed so ground-relative foot velocity
 becomes available — that is the single metric most likely to distinguish the
 "scuffing" pre-change contact from the post-change one, and it is exactly the
 metric the current pipeline most often has to withhold.
+
+---
+
+## 11. Report redesign + forced landmark verification (2026-08-15)
+
+Driven by coach feedback: *"way too much going on… good data, no context… slow
+compared to what?… the frames you're auto detecting are awful."*
+
+### Forced stance-landmark verification (`pgi-verify.js` + pgi-app UI)
+
+Flag `requireLandmarkVerification` (admin default **on**): the report is
+withheld until each used stance's **touchdown / minimum-COM / toe-off** frames
+have been reviewed. The panel shows video-frame thumbnails with the COM/support
+overlay per landmark; ±33 ms / ±8 ms nudges reseek and redraw; nudging
+un-confirms the stance; "Confirm all as shown" exists for clips where detection
+was right. Applying re-runs the analysis with corrections applied **at the
+stance-detection source** (`KFOAnalysis.applyIntervalOverrides` rebuilds the
+sample slices — times alone would silently keep the old frames), so timing,
+phase windows, COM steps and touchdown windows all read the corrected
+intervals. A corrected minimum COM carries `detectionMethod:
+'manual_verification'`, confidence 1, with the auto detection retained beside
+it. The envelope and stored form carry `verification`
+(`landmarksVerified/stancesAdjusted/corrections` with auto-vs-adjusted deltas —
+the training signal for improving detection). The header badges *landmarks
+verified · n corrected* or *landmarks not human-verified*.
+
+### Published anchors (`pgi-anchors.js`)
+
+Every headline number renders next to a **published measurement** or the
+runner's own spread — never a bare number, never an invented norm, never a
+target. Sources: Dorn 2012 duty-factor/peak-force speed series (byte-identical
+with the rows kfo-tests validates the force model against — one source of
+truth, asserted), Clark 2012 contact-time reconstruction, the Run Dynamics
+easy-run duty-factor baseline (42408/60000), and two wide
+explicitly-approximate device-population ranges (GCT 240–300 ms, VO 6–13 cm).
+Speed-matched within honest limits (nearest Dorn row ≤1.2 m/s away; nothing
+stretched). Every line names source/n/provenance and the framing "measurements
+…, not targets" renders with them. The estimate label ("estimated from timing,
+not measured") is never displaced by an anchor — a test guards it.
+
+### Condensed, headline-first report
+
+- **Narrative first**: 2–4 plain-language sentences on what the runner is doing
+  (built only from patterns that fired), before any number.
+- **Domain chips carry their numbers + anchors** ("Rebound timing — Moderate ·
+  233 ms contact · lab-measured 0.64 DF at 3.5 m/s (Dorn 2012, n=9)").
+- **Measured timeline**: loading/rebound/flight drawn to this runner's actual
+  proportions with ms values — visibly different per clip (tested).
+- Detail sections collapse behind `<details>` summaries that carry one-line
+  takeaways; pattern cards keep the finding visible and collapse
+  evidence/alternatives.
+- **Stride outcome section cut** (wearables report it; still computed for
+  comparison mode). COM-velocity block merged into Rebound.
+- **Angle diagram**: three stick figures showing the support line at early/
+  central/late stance, with plain-language row descriptions ("how far the body
+  is still BEHIND the planted foot").
+- Caveats `speed_unknown`, `grade_unknown`, `mirrored_video` are no longer
+  displayed (they still feed the internal confidence model).
+- The "measured" copy audit now permits **citations of named studies** and
+  kinematic idioms while still requiring denial-or-attribution everywhere —
+  the guarantee protected is "no text claims OUR values are measured force."
+
+Tests: 160 PGI + 172 KFO, all passing. Stored form ~23.9 KB (24 KB budget).

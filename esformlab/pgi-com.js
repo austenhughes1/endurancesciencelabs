@@ -255,7 +255,7 @@
    * @param {Array} [pointsX]  smoothed COM horizontal series {t,value,d1}
    * @param {number|null} [dirSign]  +1/−1 so horizontal travel is forward-positive
    */
-  function analyzeStep(points, step, legLength, pointsX, dirSign) {
+  function analyzeStep(points, step, legLength, pointsX, dirSign, minComOverrideTime) {
     var tTd = step.startTime;
     var tTo = step.startTime + step.contactSeconds;
     var tLand = tTo + step.flightSeconds; // opposite-foot touchdown
@@ -265,6 +265,31 @@
     if (!isNum(hTd) || !isNum(hTo)) return { valid: false, reason: 'com_coverage_incomplete' };
 
     var minCom = detectMinimumCom(points, tTd, tTo);
+    // A manually verified minimum-COM time replaces the detected one wholesale.
+    // Confidence is 1 by definition of the workflow — a human looked at the
+    // frame — and the detection flags no longer apply; but the AUTO detection is
+    // retained alongside so the correction stays visible as a training signal.
+    if (isNum(minComOverrideTime) && minComOverrideTime > tTd && minComOverrideTime < tTo) {
+      var stanceDur = tTo - tTd;
+      minCom = {
+        available: true,
+        t: minComOverrideTime,
+        heightPx: heightAt(points, minComOverrideTime),
+        stancePercent: (minComOverrideTime - tTd) / stanceDur * 100,
+        window: null,
+        flatWidthPercent: null,
+        localMinimaCount: null,
+        samplesInStance: minCom && minCom.samplesInStance || null,
+        vyAtMinimumPxPerS: velocityAt(points, minComOverrideTime),
+        flags: [],
+        confidence: 1,
+        detectionMethod: 'manual_verification',
+        autoDetection: (minCom && minCom.available) ? {
+          t: minCom.t, stancePercent: minCom.stancePercent,
+          confidence: minCom.confidence, detectionMethod: minCom.detectionMethod
+        } : null
+      };
+    }
     if (!minCom.available) return { valid: false, reason: minCom.reason };
     var minStance = { t: minCom.t, v: minCom.heightPx };
 
@@ -588,8 +613,21 @@
     var legLength = isNum(input.legLengthPx) ? input.legLengthPx : null;
     var dirSign = (isNum(input.directionSign) && input.directionSign !== 0)
       ? (input.directionSign > 0 ? 1 : -1) : null;
+    // Manual minimum-COM corrections, matched to their step by side + the AUTO
+    // touchdown time (which is how the verification UI identifies a stance).
+    var minComOv = input.minComOverrides || [];
+    function overrideFor(st) {
+      var best = null;
+      minComOv.forEach(function (o) {
+        if (!o || o.side !== st.contactSide || !isNum(o.autoStartTime) || !isNum(o.time)) return;
+        if (Math.abs(o.autoStartTime - st.startTime) <= 0.08 &&
+            (!best || Math.abs(o.autoStartTime - st.startTime) <
+                      Math.abs(best.autoStartTime - st.startTime))) best = o;
+      });
+      return best ? best.time : null;
+    }
     var stepResults = steps.map(function (st) {
-      return analyzeStep(series.smoothed, st, legLength, series.smoothedX, dirSign);
+      return analyzeStep(series.smoothed, st, legLength, series.smoothedX, dirSign, overrideFor(st));
     });
     var valid = stepResults.filter(function (s) { return s.valid; });
     if (!valid.length) {

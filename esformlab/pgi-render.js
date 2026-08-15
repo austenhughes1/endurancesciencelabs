@@ -22,10 +22,11 @@
   var isNode = (typeof module === 'object' && module.exports);
   var core = isNode ? require('./kfo-core.js') : root.KFO;
   var pgi = isNode ? require('./pgi-core.js') : root.PGI;
-  var api = factory(core, pgi);
+  var anchors = isNode ? require('./pgi-anchors.js') : root.PGIAnchors;
+  var api = factory(core, pgi, anchors);
   if (isNode) module.exports = api;
   if (root) root.PGIRender = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (KFO, PGI) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (KFO, PGI, PGIAnchors) {
   'use strict';
 
   function isNum(v) { return typeof v === 'number' && isFinite(v); }
@@ -70,6 +71,38 @@
       esc(text) + '</div>';
   }
 
+  /**
+   * Collapsible section: the summary row carries the section name and a one-
+   * line takeaway so the collapsed report still reads as a report. Detail is
+   * one click away instead of all shouting at once.
+   */
+  function collapse(labelText, takeaway, innerHtml, open) {
+    return '<details' + (open ? ' open' : '') + ' style="margin-top:14px;border:1px solid ' +
+      'var(--border2,#2a3550);border-radius:10px;background:var(--panel2,#121724)">' +
+      '<summary style="cursor:pointer;padding:12px 14px;list-style:none;display:flex;' +
+      'justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap">' +
+      '<span style="font-size:10px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;' +
+      'color:var(--muted2,#8aa0c0)">' + labelText +
+      ' <span style="font-weight:400;letter-spacing:0;text-transform:none">&#9662;</span></span>' +
+      (takeaway ? '<span style="font-size:11.5px;line-height:1.5;flex:1 1 260px;text-align:right;' +
+        'min-width:200px">' + takeaway + '</span>' : '') +
+      '</summary><div style="padding:0 14px 14px">' + innerHtml + '</div></details>';
+  }
+
+  /**
+   * The "compared to what?" line under a stat: a published measurement at a
+   * matched speed, or the honest absence of one. Never a target.
+   */
+  function anchorSub(metric, runnerValue, result) {
+    if (typeof PGIAnchors === 'undefined' || !PGIAnchors) return null;
+    var speed = result && result.video ? result.video.speedMps : null;
+    var ctx = PGIAnchors.contextLine(metric, runnerValue, speed);
+    return ctx ? ctx.text : null;
+  }
+
+  var ANCHOR_FRAMING = 'Reference values are measurements from the cited studies or stated ' +
+    'population ranges — not targets.';
+
   function med(a, dp, suffix) {
     if (!a || !isNum(a.median)) return '—';
     return a.median.toFixed(dp == null ? 2 : dp) + (suffix || '');
@@ -99,23 +132,61 @@
     long_for_speed: 'Long for speed', high: 'High', unknown: 'Not established'
   };
 
+  /**
+   * Domain chips: the rating word plus THE NUMBER BEHIND IT plus a published
+   * anchor, so "Slow" is never left to mean slow-compared-to-nothing.
+   */
   function domainSection(result) {
     var d = result.domains;
     if (!d) return '';
-    var order = ['touchdownPreparation', 'brakingIndicators', 'verticalProjection',
-                 'reboundTiming', 'strideOutcome', 'dataConfidence'];
-    var chips = order.map(function (k) {
+    var st = result.strideTiming && result.strideTiming.overall;
+    var td = result.touchdownPreparation || {};
+    var q = result.quality || {};
+
+    function chip(k, valueText, sub) {
       var v = d[k];
       if (!v) return '';
-      var text = RATING_TEXT[v.rating] || v.rating;
-      return stat(DOMAIN_LABEL[k], esc(text), v.rating === 'unknown' && v.reason
-        ? String(v.reason).replace(/_/g, ' ') : null);
-    }).join('');
+      var word = RATING_TEXT[v.rating] || v.rating;
+      var main = esc(word) + (valueText ? ' <span style="font-weight:500;font-size:13px">&middot; ' +
+        valueText + '</span>' : '');
+      return stat(DOMAIN_LABEL[k], main, sub);
+    }
+
+    // Touchdown: the worst side's foot-COM offset.
+    var offs = ['left', 'right'].map(function (side) {
+      var x = td[side];
+      return (x && x.availability === KFO.AVAILABILITY.AVAILABLE &&
+              x.aggregate.footComOffsetAtTouchdownLegLengths)
+        ? x.aggregate.footComOffsetAtTouchdownLegLengths.median : null;
+    }).filter(isNum);
+    var maxOff = offs.length ? Math.max.apply(null, offs) : null;
+
+    var gct = st && st.contactSeconds ? st.contactSeconds.median : null;
+    var flight = st && st.flightSeconds ? st.flightSeconds.median : null;
+    var df = st && st.dutyFactor ? st.dutyFactor.median : null;
+
+    var chips =
+      chip('touchdownPreparation',
+        isNum(maxOff) ? maxOff.toFixed(2) + ' LL reach' : null,
+        'foot ahead of COM at contact, worse side') +
+      chip('brakingIndicators',
+        null,
+        'from placement AND arrival velocity together') +
+      chip('verticalProjection',
+        isNum(flight) ? Math.round(flight * 1000) + ' ms flight' : null,
+        anchorSub('contactSeconds', null, result) ? null : null) +
+      chip('reboundTiming',
+        isNum(gct) ? Math.round(gct * 1000) + ' ms contact' : null,
+        anchorSub('dutyFactor', df, result)) +
+      chip('dataConfidence',
+        isNum(q.stepsAnalyzed) ? q.stepsAnalyzed + ' steps' : null,
+        null);
+
     return panel(
       label('Mechanical domains') + row(chips) +
-      note('These domains are reported separately on purpose. There is no combined efficiency ' +
-           'score, because no combination of these measurements has been validated against ' +
-           'running economy.'));
+      note(ANCHOR_FRAMING + ' These domains are reported separately on purpose. There is no ' +
+           'combined efficiency score, because no combination of these measurements has been ' +
+           'validated against running economy.'));
   }
 
   // ── Trajectory helpers ─────────────────────────────────────────────────────
@@ -312,6 +383,136 @@
                             mc.overall.stancePercent && isNum(mc.overall.stancePercent.median))
         ? mc.overall.stancePercent.median : null
     };
+  }
+
+  // ── Headline narrative ─────────────────────────────────────────────────────
+  //
+  // The report leads with WHAT THE RUNNER IS DOING, in coaching language, before
+  // any number. Built only from findings that actually fired; hedged wording is
+  // preserved because none of this is validated.
+
+  function buildNarrative(result) {
+    var bits = [];
+    var td = result.touchdownPreparation || {};
+    var patterns = (result.patterns || []).map(function (p) { return p.pattern; });
+
+    // 1. How the foot arrives.
+    var sides = ['left', 'right'].map(function (k) { return td[k]; }).filter(function (x) {
+      return x && x.availability === KFO.AVAILABILITY.AVAILABLE && x.brakingPattern;
+    });
+    if (sides.length) {
+      var pats = sides.map(function (x) { return x.brakingPattern.pattern; });
+      if (pats.indexOf(PGI.BRAKING_PATTERN.COMBINED_BRAKING) !== -1) {
+        bits.push('The foot lands well ahead of the body and is still travelling forward when it ' +
+          'gets there — both the placement and the arrival look braking-oriented.');
+      } else if (pats.indexOf(PGI.BRAKING_PATTERN.VELOCITY_MISMATCH) !== -1) {
+        bits.push('Foot placement itself is not overextended, but the foot arrives before it has ' +
+          'finished coming back under the body — contact happens while it is still moving forward.');
+      } else if (pats.indexOf(PGI.BRAKING_PATTERN.POSITIONAL_OVERSTRIDE) !== -1) {
+        bits.push('The foot reaches and plants relatively far ahead of the body, which sets up a ' +
+          'braking-oriented landing even though the leg prepares reasonably on the way in.');
+      } else if (pats.length && pats.every(function (p2) {
+                   return p2 === PGI.BRAKING_PATTERN.WELL_PREPARED; })) {
+        bits.push('The foot gets organised before contact: it reaches, comes back under the body, ' +
+          'and lands without much forward velocity left in it.');
+      }
+    }
+
+    // 2. What happens on the ground.
+    var st = result.strideTiming && result.strideTiming.overall;
+    var gctMs = st && st.contactSeconds && isNum(st.contactSeconds.median)
+      ? Math.round(st.contactSeconds.median * 1000) : null;
+    var flightMs = st && st.flightSeconds && isNum(st.flightSeconds.median)
+      ? Math.round(st.flightSeconds.median * 1000) : null;
+    var mc = result.minimumCom;
+    var minPct = (mc && mc.availability === KFO.AVAILABILITY.AVAILABLE && mc.overall &&
+                  mc.overall.stancePercent && isNum(mc.overall.stancePercent.median))
+      ? Math.round(mc.overall.stancePercent.median) : null;
+    if (isNum(gctMs)) {
+      var ground = 'On the ground, contact lasts ' + gctMs + ' ms';
+      if (isNum(minPct)) {
+        ground += ', reaching its lowest point ' + (minPct < 42 ? 'early' : minPct > 58 ? 'late' : 'near halfway') +
+          ' (' + minPct + '% of stance)';
+      }
+      if (patterns.indexOf('collision_heavy') !== -1) {
+        ground += ' — and early stance looks dominated by absorbing the landing rather than rebounding from it';
+      } else if (patterns.indexOf(PGI.VERTICAL_PATTERN.ELASTIC_RAPID_REBOUND) !== -1) {
+        ground += ' — with downward motion turned around quickly and little collapse';
+      }
+      bits.push(ground + '.');
+    }
+
+    // 3. What that buys in the air.
+    if (isNum(flightMs)) {
+      var air;
+      if (patterns.indexOf(PGI.VERTICAL_PATTERN.PRODUCTIVE_PROJECTION) !== -1) {
+        air = 'That ground work buys real air: ' + flightMs + ' ms of flight per step, and the ' +
+          'vertical motion appears to be doing useful stride-length work.';
+      } else if (patterns.indexOf(PGI.VERTICAL_PATTERN.LOW_PROJECTION) !== -1) {
+        air = 'It buys relatively little air — ' + flightMs + ' ms of flight per step — which is ' +
+          'what makes the stride look ground-bound.';
+      } else if (patterns.indexOf(PGI.VERTICAL_PATTERN.EXCESSIVE_VERTICAL_EXCURSION) !== -1) {
+        air = 'The body moves vertically more than the ' + flightMs + ' ms of flight accounts for — ' +
+          'much of the excursion is stance motion rather than air.';
+      } else {
+        air = 'Each step gets ' + flightMs + ' ms of flight.';
+      }
+      bits.push(air);
+    }
+
+    if (!bits.length) return null;
+    return bits.join(' ');
+  }
+
+  function headlineSection(result) {
+    var text = buildNarrative(result);
+    if (!text) return '';
+    return panel(
+      '<div style="font-size:13px;line-height:1.75;max-width:660px">' + esc(text) + '</div>' +
+      note('A description of the observed pattern, not a verdict — the evidence for each sentence ' +
+           'is in the sections below.'));
+  }
+
+  /**
+   * The stride timeline, MEASURED: this runner's phase durations drawn to
+   * proportion, so it is visibly different from one analysis to the next.
+   * Falls back to nothing (rather than a generic diagram) when the durations
+   * are unavailable.
+   */
+  function measuredTimeline(result) {
+    var lc = result.loadingCompression, rp = result.reboundProjection;
+    var st = result.strideTiming && result.strideTiming.overall;
+    var loadMs = lc && lc.availability === KFO.AVAILABILITY.AVAILABLE && lc.overall &&
+      lc.overall.durationMs && isNum(lc.overall.durationMs.median) ? lc.overall.durationMs.median : null;
+    var rebMs = rp && rp.availability === KFO.AVAILABILITY.AVAILABLE && rp.overall &&
+      rp.overall.durationMs && isNum(rp.overall.durationMs.median) ? rp.overall.durationMs.median : null;
+    var flightMs = st && st.flightSeconds && isNum(st.flightSeconds.median)
+      ? st.flightSeconds.median * 1000 : null;
+    if (!isNum(loadMs) || !isNum(rebMs) || !isNum(flightMs)) return '';
+
+    var total = loadMs + rebMs + flightMs;
+    function seg(ms, color, labelText) {
+      var pct = ms / total * 100;
+      return '<div style="flex:0 0 ' + pct.toFixed(1) + '%;background:' + color +
+        ';padding:7px 4px;text-align:center;min-width:0;overflow:hidden">' +
+        '<div style="font-size:9px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;' +
+        'color:rgba(10,13,20,.85);white-space:nowrap">' + labelText + '</div>' +
+        '<div style="font-size:12px;font-weight:700;color:rgba(10,13,20,.95)">' +
+        Math.round(ms) + ' ms</div></div>';
+    }
+    return panel(
+      label('This runner&#8217;s stride, measured') +
+      '<div style="display:flex;border-radius:8px;overflow:hidden">' +
+      seg(loadMs, 'var(--warn,#ffb020)', 'Loading') +
+      seg(rebMs, 'var(--good,#3ddc97)', 'Rebound') +
+      seg(flightMs, 'var(--accent,#4da3ff)', 'Flight') +
+      '</div>' +
+      '<div style="display:flex;justify-content:space-between;font-size:9.5px;' +
+      'color:var(--muted2,#8aa0c0);margin-top:4px">' +
+      '<span>touchdown</span><span>minimum COM</span><span>toe-off</span><span>next contact</span></div>' +
+      note('Measured from this clip&#8217;s strides — the proportions change between runners and ' +
+           'between conditions. Minimum COM is the vertical reversal point of the body&#8217;s ' +
+           'centre of mass, not the start of force production.'));
   }
 
   // ── Sections ───────────────────────────────────────────────────────────────
@@ -571,15 +772,31 @@
       ? 'estimated from timing, not measured'
       : 'steady-speed assumption not met';
 
+    var gctVal = t && t.contactSeconds ? t.contactSeconds.median : null;
+    var dfVal = t && t.dutyFactor ? t.dutyFactor.median : null;
+    var supVal = (vs && vs.meanVerticalSupportBW) ? vs.meanVerticalSupportBW.median : null;
     var body = row(
-      stat('Ground contact time', t ? med(t.contactSeconds, 3, ' s') : '—', spread(t && t.contactSeconds, 3)) +
+      stat('Ground contact time', t ? med(t.contactSeconds, 3, ' s') : '—',
+           anchorSub('contactSeconds', gctVal, result) || spread(t && t.contactSeconds, 3)) +
       stat('Flight time', t ? med(t.flightSeconds, 3, ' s') : '—', spread(t && t.flightSeconds, 3)) +
-      stat('Duty factor', t ? med(t.dutyFactor, 3) : '—', 'contact &divide; step time') +
-      stat('Mean vertical support', supportValue, supportSub) +
+      stat('Duty factor', t ? med(t.dutyFactor, 3) : '—',
+           anchorSub('dutyFactor', dfVal, result) || 'contact &divide; step time') +
+      // The estimate label is never displaced by the anchor: "ours is an
+      // estimate" and "theirs was measured" must be visible TOGETHER.
+      stat('Mean vertical support', supportValue,
+           (vs && vs.availability === KFO.AVAILABILITY.AVAILABLE &&
+            anchorSub('meanVerticalSupportBW', supVal, result))
+             ? supportSub + ' · ' + anchorSub('meanVerticalSupportBW', supVal, result)
+             : supportSub) +
       stat('Vertical take-off velocity', med(p && p.verticalTakeoffVelocityMps, 2, ' m/s'), 'from flight time') +
       stat('Effective vertical impulse', med(p && p.effectiveVerticalImpulsePerMassNsPerKg, 2, ' N&middot;s/kg'),
-           'per unit body mass')
+           'per unit body mass') +
+      (t && t.cadenceSpm ? stat('Cadence', med(t.cadenceSpm, 0, ' spm'), 'steps per minute') : '')
     );
+    body += note(ANCHOR_FRAMING);
+    body += note('Step and stride length are not repeated here — your wearable reports them ' +
+      'directly, and at a given speed a longer stride is not automatically better. They still feed ' +
+      'the pre/post comparison mode.');
 
     // Vertical oscillation, always decomposed.
     var dec = com && com.decomposition ? com.decomposition.overall : null;
@@ -590,7 +807,10 @@
           stat('Stance compression', lenText(dec.stanceCompression), 'COM drop under load') +
           stat('Stance rebound', lenText(dec.stanceRebound), 'recovered before toe-off') +
           stat('Aerial rise', lenText(dec.aerialRiseMeasured), 'rise during flight') +
-          stat('Total oscillation', lenText(dec.verticalOscillation), 'all three combined')
+          stat('Total oscillation', lenText(dec.verticalOscillation),
+               anchorSub('verticalOscillationCm',
+                 dec.verticalOscillation ? dec.verticalOscillation.medianCentimeters : null,
+                 result) || 'all three combined')
         ) +
         note('The same total excursion can come from a deep stance collapse or from genuine aerial ' +
              'time. Those are different mechanics, so the total is never interpreted on its own — ' +
@@ -620,9 +840,9 @@
       return panel(label('F · Ground interaction') + unavailable('Support geometry is unavailable.'));
     }
     var rows = '';
-    [['early_stance', 'Early stance', 'braking-oriented support geometry'],
-     ['central_stance', 'Central stance', 'vertical support alignment'],
-     ['late_stance', 'Late stance', 'propulsive-oriented support geometry']].forEach(function (spec) {
+    [['early_stance', 'Early stance', 'how far the body is still BEHIND the planted foot'],
+     ['central_stance', 'Central stance', 'how close to stacked over the foot at mid-stance'],
+     ['late_stance', 'Late stance', 'how far the body has travelled PAST the foot by push-off']].forEach(function (spec) {
       var l = sg.left && sg.left.phases ? sg.left.phases[spec[0]] : null;
       var r = sg.right && sg.right.phases ? sg.right.phases[spec[0]] : null;
       function cell(p) {
@@ -690,31 +910,6 @@
            'measurements, not forces, and not a measure of tendon elasticity.'));
   }
 
-  function outcomeSection(result) {
-    var so = result.strideOutcome, st = result.strideTiming;
-    var t = st && st.overall ? st.overall : null;
-    var body = row(
-      stat('Cadence', t ? med(t.cadenceSpm, 0, ' spm') : '—', 'steps per minute') +
-      stat('Step length', so && so.stepLengthMeters ? med(so.stepLengthMeters, 2, ' m') : '—',
-           so && so.method === 'speed_times_step_time' ? 'from speed and step time' : null) +
-      stat('Stride length', so && so.strideLengthMeters ? med(so.strideLengthMeters, 2, ' m') : '—', null) +
-      stat('Flight distance', so && so.flightDistanceMeters ? med(so.flightDistanceMeters, 2, ' m') : '—',
-           'distance covered airborne') +
-      stat('Speed', so && isNum(so.speedMps) ? so.speedMps.toFixed(2) + ' m/s' : 'unknown',
-           so && so.speedSource ? String(so.speedSource).replace(/_/g, ' ') : null)
-    );
-    var interp = so && so.interpretation;
-    if (interp) {
-      body += note(interp.speedKnown
-        ? 'Stride length is reported with the speed it was produced at. It is not labelled short or ' +
-          'long: no speed-matched reference distribution is loaded, and a longer stride is not ' +
-          'automatically better. Comparing the same runner at the same speed is the meaningful use.'
-        : 'Running speed is unavailable, so stride length cannot be called short or long — the same ' +
-          'stride length means different things at different speeds.');
-    }
-    return panel(label('E · Stride outcome') + body);
-  }
-
   function patternsSection(result) {
     var ps = result.patterns || [];
     if (!ps.length) {
@@ -727,6 +922,9 @@
       }).join('');
       var alts = (p.alternatives || []).map(function (a) { return esc(a); }).join(' &middot; ');
       var confPct = isNum(p.confidence) ? Math.round(p.confidence * 100) : null;
+      // The finding and its interpretation stay visible; the evidence list and
+      // alternative explanations sit one click away so the section reads at a
+      // glance without losing its audit trail.
       return '<div style="margin-top:10px;padding:11px;border-radius:8px;' +
         'border:1px solid var(--border2,#2a3550)">' +
         '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">' +
@@ -735,19 +933,30 @@
         (confPct != null ? '<div style="font-size:10px;color:var(--muted2,#8aa0c0)">confidence ' +
           confPct + '%</div>' : '') + '</div>' +
         '<div style="font-size:11.5px;line-height:1.6;margin-top:5px">' + esc(p.interpretation) + '</div>' +
-        (obs ? '<ul style="font-size:11px;color:var(--muted2,#8aa0c0);line-height:1.55;' +
-          'margin:7px 0 0 16px;padding:0">' + obs + '</ul>' : '') +
-        (alts ? '<div style="font-size:10.5px;color:var(--muted2,#8aa0c0);margin-top:7px;line-height:1.5">' +
-          '<strong>Could also be:</strong> ' + alts + '</div>' : '') +
+        ((obs || alts) ? '<details style="margin-top:6px"><summary style="cursor:pointer;font-size:10.5px;' +
+          'color:var(--muted2,#8aa0c0);list-style:none">evidence &amp; alternatives &#9662;</summary>' +
+          (obs ? '<ul style="font-size:11px;color:var(--muted2,#8aa0c0);line-height:1.55;' +
+            'margin:7px 0 0 16px;padding:0">' + obs + '</ul>' : '') +
+          (alts ? '<div style="font-size:10.5px;color:var(--muted2,#8aa0c0);margin-top:7px;line-height:1.5">' +
+            '<strong>Could also be:</strong> ' + alts + '</div>' : '') +
+          '</details>' : '') +
         '</div>';
     }).join('');
     return panel(label('What the combination suggests') + cards);
   }
 
+  // Flags that are true of essentially every upload and tell the reviewer
+  // nothing actionable. They still feed the internal confidence model; they are
+  // just not shouted in the caveat list.
+  var SUPPRESSED_FLAGS = ['speed_unknown', 'grade_unknown', 'mirrored_video'];
+  function displayedFlags(flags) {
+    return (flags || []).filter(function (f) { return SUPPRESSED_FLAGS.indexOf(f) === -1; });
+  }
+
   function qualitySection(result) {
     var q = result.quality;
     if (!q) return '';
-    var flags = (q.flags || []).map(function (f) {
+    var flags = displayedFlags(q.flags).map(function (f) {
       return '<li style="margin-bottom:2px">' + esc(PGI.flagLabel(f)) + '</li>';
     }).join('');
     var lim = (result.limitations || []).map(function (l) {
@@ -772,13 +981,123 @@
     var legacyBadge = result.isLegacyView
       ? '<span style="font-size:10px;padding:2px 7px;border-radius:99px;background:rgba(255,176,32,.14);' +
         'color:var(--warn,#ffb020);margin-left:8px">legacy session</span>' : '';
+    var v = result.verification;
+    var verifyBadge = '';
+    if (v && v.landmarksVerified) {
+      verifyBadge = '<span style="font-size:10px;padding:2px 7px;border-radius:99px;' +
+        'background:rgba(61,220,151,.14);color:var(--good,#3ddc97);margin-left:8px">' +
+        'landmarks verified' + (v.stancesAdjusted ? ' &middot; ' + v.stancesAdjusted + ' corrected' : '') +
+        '</span>';
+    } else if (v && !result.isLegacyView) {
+      verifyBadge = '<span style="font-size:10px;padding:2px 7px;border-radius:99px;' +
+        'background:rgba(255,176,32,.14);color:var(--warn,#ffb020);margin-left:8px">' +
+        'landmarks not human-verified</span>';
+    }
     return '<div style="margin-top:22px">' +
-      '<div style="font-size:15px;font-weight:800;letter-spacing:.2px">' + TITLE + legacyBadge + '</div>' +
+      '<div style="font-size:15px;font-weight:800;letter-spacing:.2px">' + TITLE + legacyBadge + verifyBadge + '</div>' +
       '<div style="font-size:11.5px;color:var(--muted2,#8aa0c0);line-height:1.6;margin-top:4px;' +
       'max-width:620px">' + esc(SUBTITLE) + '</div>' +
       '<div style="font-size:11px;color:var(--muted2,#8aa0c0);line-height:1.6;margin-top:7px;' +
       'padding:7px 10px;border-left:3px solid var(--border2,#2a3550);background:rgba(125,150,190,.06);' +
       'border-radius:0 6px 6px 0;max-width:620px">' + esc(PGI.DISCLAIMER) + '</div></div>';
+  }
+
+  /** Unwrap a section's own panel so it can live inside a collapse block. */
+  function stripPanel(html) {
+    if (!html) return '';
+    return html
+      .replace(/^<div style="margin-top:14px;padding:14px;border:1px solid var\(--border2,#2a3550\);border-radius:10px;background:var\(--panel2,#121724\);">/, '<div>')
+      .replace(/<\/div>$/, '</div>');
+  }
+
+  // One-line takeaways for the collapsed summaries: the number + its meaning.
+  function takeawayTouchdown(result) {
+    var td = result.touchdownPreparation || {};
+    var sides = ['left', 'right'].map(function (k) { return td[k]; }).filter(function (x) {
+      return x && x.availability === KFO.AVAILABILITY.AVAILABLE; });
+    if (!sides.length) return 'unavailable';
+    var retr = sides.map(function (x) { return x.aggregate.clearRetractionFraction; }).filter(isNum);
+    var mean = retr.length ? retr.reduce(function (a, b) { return a + b; }, 0) / retr.length : null;
+    return isNum(mean)
+      ? 'clear pre-contact retraction on ' + Math.round(mean * 100) + '% of contacts'
+      : sides.length + ' side(s) analysed';
+  }
+  function takeawayLoading(result) {
+    var lc = result.loadingCompression;
+    if (!lc || lc.availability !== KFO.AVAILABILITY.AVAILABLE || !lc.overall) return 'unavailable';
+    var dep = lc.overall.compression;
+    var dur = lc.overall.durationMs;
+    var parts = [];
+    if (dep && isNum(dep.medianCentimeters)) parts.push(dep.medianCentimeters.toFixed(1) + ' cm compression');
+    else if (dep && isNum(dep.medianLegLengths)) parts.push(dep.medianLegLengths.toFixed(3) + ' LL compression');
+    if (dur && isNum(dur.median)) parts.push('over ' + Math.round(dur.median) + ' ms');
+    return parts.join(' ') || null;
+  }
+  function takeawayRebound(result) {
+    var rp = result.reboundProjection;
+    if (!rp || rp.availability !== KFO.AVAILABILITY.AVAILABLE || !rp.overall) return 'unavailable';
+    var dur = rp.overall.durationMs;
+    var rise = rp.overall.comRise;
+    var parts = [];
+    if (rise && isNum(rise.medianCentimeters)) parts.push('+' + rise.medianCentimeters.toFixed(1) + ' cm rise');
+    if (dur && isNum(dur.median)) parts.push('in ' + Math.round(dur.median) + ' ms');
+    return parts.join(' ') || null;
+  }
+  function takeawayFlight(result) {
+    var st = result.strideTiming && result.strideTiming.overall;
+    if (!st || !st.flightSeconds || !isNum(st.flightSeconds.median)) return 'unavailable';
+    var out = Math.round(st.flightSeconds.median * 1000) + ' ms flight';
+    var vs = result.verticalProjection && result.verticalProjection.verticalSupport;
+    if (vs && vs.meanVerticalSupportBW && isNum(vs.meanVerticalSupportBW.median)) {
+      out += ' &middot; ' + vs.meanVerticalSupportBW.median.toFixed(2) + ' BW mean support';
+    }
+    return out;
+  }
+  function qualityTakeaway(result) {
+    var q = result.quality || {};
+    var shown = displayedFlags(q.flags || []);
+    return esc(q.confidenceBand || 'unknown') + ' confidence &middot; ' + shown.length +
+      ' caveat' + (shown.length === 1 ? '' : 's');
+  }
+
+  /**
+   * A small diagram of what the support-line angle IS, so the angle table
+   * beneath it reads as geometry instead of jargon: the line from the contact
+   * point through the centre of mass, measured from vertical.
+   */
+  function angleDiagram() {
+    var W = 340, H = 150, groundY = 128;
+    function figure(cx, angleDeg, labelText, color) {
+      var rad = angleDeg * Math.PI / 180;
+      var comX = cx + Math.sin(rad) * 76, comY = groundY - Math.cos(rad) * 76;
+      var out = '';
+      // vertical reference
+      out += '<line x1="' + cx + '" y1="' + groundY + '" x2="' + cx + '" y2="' + (groundY - 84) +
+        '" stroke="var(--muted2,#8aa0c0)" stroke-width="1" stroke-dasharray="3 3" opacity=".5"/>';
+      // support line: contact point -> COM
+      out += '<line x1="' + cx + '" y1="' + groundY + '" x2="' + comX.toFixed(1) + '" y2="' +
+        comY.toFixed(1) + '" stroke="' + color + '" stroke-width="2.4"/>';
+      out += '<circle cx="' + comX.toFixed(1) + '" cy="' + comY.toFixed(1) +
+        '" r="6" fill="' + color + '"/>';
+      out += '<circle cx="' + cx + '" cy="' + groundY + '" r="3.5" fill="var(--muted2,#8aa0c0)"/>';
+      out += '<text x="' + cx + '" y="' + (groundY + 13) + '" font-size="9" text-anchor="middle" ' +
+        'fill="var(--muted2,#8aa0c0)">' + labelText + '</text>';
+      return out;
+    }
+    var inner =
+      '<line x1="8" y1="' + groundY + '" x2="' + (W - 8) + '" y2="' + groundY +
+      '" stroke="var(--muted2,#8aa0c0)" stroke-width="1" opacity=".4"/>' +
+      figure(64, -14, 'early: COM behind foot (&#8722;)', 'var(--warn,#ffb020)') +
+      figure(170, 0, 'central: stacked (~0&deg;)', 'var(--accent,#4da3ff)') +
+      figure(276, 14, 'late: COM past foot (+)', 'var(--good,#3ddc97)') +
+      '<text x="10" y="14" font-size="9.5" fill="var(--muted2,#8aa0c0)">the angle = contact point ' +
+      '&#8594; centre of mass, measured from vertical</text>';
+    return '<div style="margin-top:10px">' + svgFrame(W, H, inner) +
+      '<div style="font-size:10.5px;color:var(--muted2,#8aa0c0);line-height:1.6;margin-top:2px">' +
+      'Early in stance the body is still behind the planted foot, so the line tilts back (negative). ' +
+      'It passes vertical near mid-stance and tilts forward (positive) as the body travels over and ' +
+      'past the foot. How far it tilts each way describes how much of stance is spent behind vs ' +
+      'ahead of the contact point &mdash; body geometry, not a force direction.</div></div>';
   }
 
   // ── Entry points ───────────────────────────────────────────────────────────
@@ -792,18 +1111,26 @@
         (result.reason ? ': ' + String(result.reason).replace(/_/g, ' ') : '') + '.' +
         (result.note ? ' ' + result.note : '')));
     }
+    // Order: what it means first, evidence collapsed underneath. Step and
+    // stride length are deliberately NOT a section — wearables report them
+    // directly; they still feed the comparison mode.
     return header(result) +
-      timelineSection(result) +
+      headlineSection(result) +
       domainSection(result) +
-      touchdownSection(result) +
-      loadingSection(result) +
-      reboundProjectionSection(result) +
-      projectionSection(result) +
-      outcomeSection(result) +
-      groundInteractionSection(result) +
-      reboundVelocitySection(result) +
+      measuredTimeline(result) +
       patternsSection(result) +
-      (opts.hideQuality ? '' : qualitySection(result));
+      collapse('A &middot; Touchdown preparation', takeawayTouchdown(result),
+        stripPanel(touchdownSection(result))) +
+      collapse('B &middot; Loading / compression', takeawayLoading(result),
+        stripPanel(loadingSection(result))) +
+      collapse('C &middot; Rebound / projection', takeawayRebound(result),
+        stripPanel(reboundProjectionSection(result)) + stripPanel(reboundVelocitySection(result))) +
+      collapse('D &middot; Flight &amp; projection', takeawayFlight(result),
+        stripPanel(projectionSection(result))) +
+      collapse('E &middot; Ground interaction (support angles)', null,
+        angleDiagram() + stripPanel(groundInteractionSection(result))) +
+      (opts.hideQuality ? '' : collapse('Data quality and limits', qualityTakeaway(result),
+        stripPanel(qualitySection(result))));
   }
 
   // ── Comparison view ────────────────────────────────────────────────────────

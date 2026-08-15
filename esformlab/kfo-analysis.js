@@ -104,10 +104,63 @@
   }
 
   /**
+   * Apply manual landmark corrections to detected stance intervals.
+   *
+   * Each override is matched to the interval whose AUTO start time it names
+   * (within a tolerance), and may move the start and/or end. The sample slice
+   * is REBUILT from the full sample set for the corrected window — every
+   * downstream quantity (phase windows, timing, COM steps) reads the slice, so
+   * a correction that only changed the times would silently keep the old
+   * frames. The automatic times are retained alongside: the difference between
+   * auto and adjusted is the training signal for improving detection.
+   */
+  function applyIntervalOverrides(accepted, overrides, sortedSamples, cfg) {
+    if (!overrides || !overrides.length) return accepted;
+    var TOL = 0.08; // seconds; auto times identify the interval, not a frame
+    return accepted.map(function (iv) {
+      var ov = null;
+      overrides.forEach(function (o) {
+        if (!o || !isNum(o.autoStartTime)) return;
+        if (Math.abs(o.autoStartTime - iv.startTime) <= TOL &&
+            (!ov || Math.abs(o.autoStartTime - iv.startTime) <
+                    Math.abs(ov.autoStartTime - iv.startTime))) ov = o;
+      });
+      if (!ov) return iv;
+      var start = isNum(ov.startTime) ? ov.startTime : iv.startTime;
+      var end = isNum(ov.endTime) ? ov.endTime : iv.endTime;
+      if (!(end > start)) return iv; // an inverted correction is refused
+      var slice = sortedSamples.filter(function (s) { return s.t >= start && s.t <= end; });
+      if (slice.length < (cfg.minSamplesPerStance || 3)) {
+        // The corrected window holds too few samples to analyse; keep the
+        // detected interval but record that verification confirmed it exists.
+        return Object.assign({}, iv, { verified: true, adjustmentRefused: 'too_few_samples_in_window' });
+      }
+      var confs = slice.map(function (s) { return s.conf; }).filter(isNum);
+      return {
+        side: iv.side,
+        startTime: start,
+        endTime: end,
+        durationSeconds: end - start,
+        samples: slice,
+        sampleCount: slice.length,
+        poseConfidence: confs.length ? confs.reduce(function (a, b) { return a + b; }, 0) / confs.length : iv.poseConfidence,
+        peakTime: iv.peakTime,
+        verified: true,
+        manualAdjustment: (start !== iv.startTime || end !== iv.endTime) ? {
+          autoStartTime: iv.startTime,
+          autoEndTime: iv.endTime,
+          adjustedBy: 'manual_verification'
+        } : null
+      };
+    });
+  }
+
+  /**
    * All plausible stance intervals for one side.
+   * @param {Array} [overrides]  manual corrections: [{autoStartTime, startTime?, endTime?}]
    * @returns {{accepted:Array, rejected:Array, plateauTolerance:number}}
    */
-  function detectStanceIntervals(samples, side, cfg) {
+  function detectStanceIntervals(samples, side, cfg, overrides) {
     cfg = cfg || CONFIG;
     var key = side === 'left' ? 'lAnkleY' : 'rAnkleY';
     var sorted = samples.slice().sort(function (a, b) { return a.t - b.t; });
@@ -158,6 +211,7 @@
 
     accepted.sort(function (a, b) { return a.startTime - b.startTime; });
     if (accepted.length > cfg.maxStrides) accepted = accepted.slice(0, cfg.maxStrides);
+    accepted = applyIntervalOverrides(accepted, overrides, sorted, cfg);
     return { accepted: accepted, rejected: rejected, plateauTolerance: tol };
   }
 
@@ -319,9 +373,9 @@
   }
 
   // ── Side aggregation ──────────────────────────────────────────────────────
-  function analyzeSide(samples, side, directionInfo, estimator, cfg) {
+  function analyzeSide(samples, side, directionInfo, estimator, cfg, overrides) {
     cfg = cfg || CONFIG;
-    var detection = detectStanceIntervals(samples, side, cfg);
+    var detection = detectStanceIntervals(samples, side, cfg, overrides);
     var strides = detection.accepted.map(function (st, i) {
       return analyzeStride(st, directionInfo.sign, estimator, i);
     });
@@ -362,7 +416,9 @@
       phases: phases,
       strides: strides,
       stanceIntervals: detection.accepted.map(function (s) {
-        return { startTime: s.startTime, endTime: s.endTime, durationSeconds: s.durationSeconds, sampleCount: s.sampleCount };
+        return { startTime: s.startTime, endTime: s.endTime, durationSeconds: s.durationSeconds,
+                 sampleCount: s.sampleCount, verified: !!s.verified,
+                 manualAdjustment: s.manualAdjustment || null };
       })
     };
   }
@@ -1084,6 +1140,7 @@
     buildImpulseMetrics: buildImpulseMetrics,
     buildMomentumProxies: buildMomentumProxies,
     detectStanceIntervals: detectStanceIntervals,
+    applyIntervalOverrides: applyIntervalOverrides,
     analyzeStride: analyzeStride,
     analyzeSide: analyzeSide,
     assessPerpendicularity: assessPerpendicularity,
