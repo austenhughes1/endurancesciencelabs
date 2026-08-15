@@ -15,6 +15,25 @@
 //  SAVE / LOAD / COMPARE
 // ==============================================================
 
+// Firestore rejects any document containing undefined. The analysis payload is
+// assembled from many optional blocks (phases, PGI, KFO), so one missed field
+// must not break every save: drop undefined object fields, null them in arrays.
+// Only plain objects are walked — Firestore sentinels like serverTimestamp()
+// pass through untouched.
+function stripUndefinedDeep(v) {
+  if (Array.isArray(v)) {
+    return v.map(function(x) { return x === undefined ? null : stripUndefinedDeep(x); });
+  }
+  if (v && typeof v === 'object' && v.constructor === Object) {
+    var out = {};
+    Object.keys(v).forEach(function(k) {
+      if (v[k] !== undefined) out[k] = stripUndefinedDeep(v[k]);
+    });
+    return out;
+  }
+  return v;
+}
+
 async function saveAnalysis() {
   if (!currentUser) { signInWithGoogle(); return; }
   var nameVal = document.getElementById('save-name').value.trim();
@@ -72,7 +91,7 @@ async function saveAnalysis() {
 
   try {
     var db = firebase.firestore();
-    await db.collection('users').doc(currentUser.uid).collection('analyses').add(data);
+    await db.collection('users').doc(currentUser.uid).collection('analyses').add(stripUndefinedDeep(data));
     statusEl.textContent = 'Saved successfully!';
     statusEl.style.color = 'var(--good)';
     btn.textContent = 'Saved';

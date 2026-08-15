@@ -959,9 +959,9 @@
           isValidated: false,
           meanVerticalSupportBW: aggLite(vp.verticalSupport.meanVerticalSupportBW),
           peakVerticalSupportBW: aggLite(vp.verticalSupport.peakVerticalSupportBW),
-          conditions: vp.verticalSupport.conditions,
+          conditions: vp.verticalSupport.conditions || null,
           relativeUncertainty: round(vp.verticalSupport.relativeUncertainty, 4),
-          caveats: vp.verticalSupport.caveats
+          caveats: vp.verticalSupport.caveats || null
         } : null
       },
       comTrajectory: {
@@ -978,7 +978,9 @@
           n: com.flightCrossCheck.n || null,
           medianRelativeError: round(com.flightCrossCheck.medianRelativeError, 4),
           comVelocityConfidence: round(com.flightCrossCheck.comVelocityConfidence, 3),
-          isIndependent: com.flightCrossCheck.isIndependent
+          // Absent on the unavailable branches; Firestore rejects undefined.
+          isIndependent: com.flightCrossCheck.isIndependent == null
+            ? null : com.flightCrossCheck.isIndependent
         } : null,
         meanPath: pathLite(com.meanPath ? { unit: 'leg_lengths', referencedTo: 'step_minimum',
                                             points: com.meanPath } : null)

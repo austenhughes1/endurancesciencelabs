@@ -487,6 +487,42 @@
     }
   });
 
+  test('the stored form never contains undefined, which Firestore rejects outright', function () {
+    function findUndefined(v, path) {
+      if (v === undefined) return path;
+      if (Array.isArray(v)) {
+        for (var i = 0; i < v.length; i++) {
+          var p = findUndefined(v[i], path + '[' + i + ']');
+          if (p) return p;
+        }
+        return null;
+      }
+      if (v && typeof v === 'object') {
+        var keys = Object.keys(v);
+        for (var j = 0; j < keys.length; j++) {
+          var q = findUndefined(v[keys[j]], path + '.' + keys[j]);
+          if (q) return q;
+        }
+      }
+      return null;
+    }
+    var full = analyze({});
+    var bad = findUndefined(PGIAnalysis.toStoredForm(full), 'pgi');
+    assert(bad === null, 'undefined at ' + bad);
+
+    // The unavailable branches omit fields the stored form reads: crossCheck()
+    // without a calibration has no isIndependent, and timing-unavailable
+    // verticalSupport has no conditions/caveats. Both shapes must still store.
+    var degraded = analyze({});
+    degraded.comTrajectory.flightCrossCheck =
+      { availability: 'unavailable', reason: 'no_spatial_calibration' };
+    degraded.verticalProjection.verticalSupport =
+      { availability: 'unavailable', reason: 'no_usable_steps',
+        method: 'timing_derived', isValidated: false };
+    bad = findUndefined(PGIAnalysis.toStoredForm(degraded), 'pgi');
+    assert(bad === null, 'undefined at ' + bad);
+  });
+
   // ═══════════════════════════════════════════════════════════════════════════
   //  Touchdown preparation
   // ═══════════════════════════════════════════════════════════════════════════
