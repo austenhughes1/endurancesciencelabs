@@ -928,3 +928,36 @@ not measured") is never displaced by an anchor — a test guards it.
   the guarantee protected is "no text claims OUR values are measured force."
 
 Tests: 160 PGI + 172 KFO, all passing. Stored form ~23.9 KB (24 KB budget).
+
+---
+
+## 12. User-anchored stance edges replace the verification UI (2026-08-15)
+
+The separate landmark-verification panel (§11) was removed the same day on
+coach feedback: the product **already has** a frame-review workflow the user
+trusts — the L/R initial-contact and toe-off phase cards with the scrubber and
+"Analyze this frame". Duplicating that in a second UI was noise.
+
+Now: `PGIApp.readUserStanceEvents()` reads `phases.{l_foot,l_toe,r_foot,r_toe}`
+and passes them as `userStanceEvents`; `PGIAnalysis.buildUserAnchors()`:
+
+1. matches each side's user window to the overlapping auto-detected stance and
+   replaces it with the user's **exact** times (`source: user_phase_selection`);
+2. measures the auto-vs-user edge delta on that stance — the clip's systematic
+   plateau-edge bias for that side — and applies the same correction to the
+   side's sibling stances (`source: user_bias_corrected`), so multi-stride
+   timing keeps its sample size without keeping the bias.
+
+Minimum COM stays **auto-detected** within the corrected edges (its detection
+was judged good). `verification` records the source, per-side anchors with
+`startBiasMs`/`endBiasMs`, and `siblingStancesCorrected`; the header badges
+*anchored to your selected frames* or *stance frames not confirmed on the
+phase cards*. A scrubber correction re-runs the analysis automatically
+(`epReanalyze → analyzeCard → PGIApp.render`).
+
+Refusals: inverted picks and picks matching no detected stance (no overlap and
+> 0.5 s from every stance midpoint) are ignored rather than applied; a
+one-sided anchor leaves the clip honestly unbadged. `pgi-verify.js` and the
+`requireLandmarkVerification` flag are deleted; the override plumbing
+(`applyIntervalOverrides`, `minComOverrides`) remains — it is how the user
+events are injected. Tests: 162 PGI + 172 KFO.

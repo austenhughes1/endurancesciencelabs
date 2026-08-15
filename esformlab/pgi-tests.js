@@ -34,14 +34,13 @@
     PGIAnalysis: require('./pgi-analysis.js'),
     PGIRender: require('./pgi-render.js'),
     PGIExport: require('./pgi-export.js'),
-    PGIVerify: require('./pgi-verify.js'),
     PGIAnchors: require('./pgi-anchors.js')
   } : {
     KFO: root.KFO, PGI: root.PGI, PGITiming: root.PGITiming, PGICom: root.PGICom,
     PGITouchdown: root.PGITouchdown, PGIOutcome: root.PGIOutcome,
     PGIPhases: root.PGIPhases, PGIPatterns: root.PGIPatterns, PGICompare: root.PGICompare,
     PGIAnalysis: root.PGIAnalysis, PGIRender: root.PGIRender, PGIExport: root.PGIExport,
-    PGIVerify: root.PGIVerify, PGIAnchors: root.PGIAnchors
+    PGIAnchors: root.PGIAnchors
   };
   var api = factory(deps);
   if (isNode) { module.exports = api; if (require.main === module) api.run(); }
@@ -1913,103 +1912,104 @@
   // ═══════════════════════════════════════════════════════════════════════════
   //  Stance-landmark verification
   // ═══════════════════════════════════════════════════════════════════════════
-  suite('Landmark verification');
+  //  User-anchored stance edges (phase-card selections lead)
+  // ═══════════════════════════════════════════════════════════════════════════
+  suite('User-anchored stance edges');
 
-  test('the queue lists every used stance with its three landmark times', function () {
-    var r = analyze({});
-    var q = PGIVerify.buildQueue(r);
-    var stances = r.quality.stancesDetected.left + r.quality.stancesDetected.right;
-    assert(q.length === stances, 'one item per stance (' + q.length + ' vs ' + stances + ')');
-    q.forEach(function (i) {
-      assert(isNum(i.autoStart) && isNum(i.autoEnd) && i.autoEnd > i.autoStart, 'ordered edges');
-      assert(i.confirmed === false, 'nothing pre-confirmed');
+  // The fixture's true left stance is [0, 0.235]; pretend the user scrubbed to
+  // slightly different frames, as they would on the phase cards.
+  function userEvents(over) {
+    var base = { left: { footStrikeTime: 0.033, toeOffTime: 0.250 },
+                 right: { footStrikeTime: 0.360, toeOffTime: 0.595 } };
+    return Object.assign(base, over || {});
+  }
+  function analyzeAnchored(ev) {
+    return PGIAnalysis.analyze({
+      samples: clip({}), videoMetadata: { fps: 60 }, userHeightMeters: 1.78,
+      surfaceType: 'overground', userStanceEvents: ev === undefined ? userEvents() : ev });
+  }
+
+  test('the overlapping stance takes the user\u2019s exact times', function () {
+    var r = analyzeAnchored();
+    var left = r.supportGeometry.left.stanceIntervals;
+    var anchored = left.filter(function (iv) {
+      return iv.manualAdjustment && iv.manualAdjustment.adjustedBy === 'user_phase_selection';
     });
-    assert(q.some(function (i) { return isNum(i.minCom); }), 'min-COM times attached');
+    assert(anchored.length === 1, 'exactly one user-anchored stance per side');
+    assertClose(anchored[0].startTime, 0.033, 1e-9, 'user initial contact used verbatim');
+    assertClose(anchored[0].endTime, 0.250, 1e-9, 'user toe-off used verbatim');
   });
 
-  test('nudging preserves event ordering and un-confirms the stance', function () {
-    var i = { start: 1.0, end: 1.24, minCom: 1.11, autoStart: 1.0, autoEnd: 1.24,
-              autoMinCom: 1.11, confirmed: true };
-    PGIVerify.nudge(i, 'touchdown', 0.033);
-    assert(i.start === 1.033 && i.confirmed === false, 'moved and un-confirmed');
-    // A nudge that would cross the minimum stance width is refused.
-    PGIVerify.nudge(i, 'touchdown', 10);
-    assert(i.start === 1.033, 'ordering-violating nudge refused');
-    PGIVerify.nudge(i, 'minimumCom', -0.5);
-    assert(i.minCom === 1.11, 'min-COM cannot leave the stance');
+  test('sibling stances carry the measured per-side edge correction', function () {
+    var r = analyzeAnchored();
+    var a = r.verification.anchors.left;
+    assert(isNum(a.startBiasMs) && a.startBiasMs === 33, 'start bias measured (33 ms)');
+    assert(a.siblingStancesCorrected >= 1, 'siblings corrected');
+    var siblings = r.supportGeometry.left.stanceIntervals.filter(function (iv) {
+      return iv.manualAdjustment && iv.manualAdjustment.adjustedBy === 'user_bias_corrected';
+    });
+    assert(siblings.length === a.siblingStancesCorrected, 'sibling count matches');
+    siblings.forEach(function (iv) {
+      var d = Math.round((iv.startTime - iv.manualAdjustment.autoStartTime) * 1000);
+      assert(d === 33, 'same start correction applied to sibling (' + d + ' ms)');
+    });
   });
 
-  test('an analysis with confirmed corrections reports verified with the deltas retained', function () {
-    var samples = clip({});
-    var auto = PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 },
-                                     userHeightMeters: 1.78, surfaceType: 'overground' });
-    assert(auto.verification.landmarksVerified === false, 'unverified until reviewed');
-    var q = PGIVerify.buildQueue(auto);
-    PGIVerify.nudge(q[0], 'touchdown', 0.033);
-    q.forEach(function (i) { i.confirmed = true; });
-    var ov = PGIVerify.toOverrides(q);
-    var re = PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 },
-                                   userHeightMeters: 1.78, surfaceType: 'overground',
-                                   stanceOverrides: ov.stanceOverrides,
-                                   minComOverrides: ov.minComOverrides });
-    assert(re.verification.landmarksVerified === true, 'verified after review');
-    assert(re.verification.stancesAdjusted === 1, 'one stance adjusted');
-    var c = re.verification.corrections[0];
-    assert(c.event === 'touchdown' && c.deltaMs === 33, 'auto vs adjusted delta retained');
-    var stored = PGIAnalysis.toStoredForm(re);
-    assert(stored.verification.landmarksVerified === true, 'verification persisted');
-    assert(stored.verification.corrections.length >= 1, 'corrections persisted');
+  test('the analysis reports itself anchored to the user\u2019s selections', function () {
+    var r = analyzeAnchored();
+    assert(r.verification.landmarksVerified === true, 'verified');
+    assert(r.verification.source === 'user_phase_selection', 'source recorded');
+    assert(r.verification.anchors.left && r.verification.anchors.right, 'both sides anchored');
+    var stored = PGIAnalysis.toStoredForm(r);
+    assert(stored.verification.source === 'user_phase_selection', 'source persisted');
+    assert(stored.verification.anchors.left.startBiasMs === 33, 'bias persisted');
+    assert(/anchored to your selected frames/.test(PGIRender.buildHtml(r)), 'badge rendered');
   });
 
-  test('a manually corrected minimum COM overrides detection with confidence 1', function () {
-    var samples = clip({});
-    var auto = PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 },
-                                     userHeightMeters: 1.78, surfaceType: 'overground' });
-    var q = PGIVerify.buildQueue(auto).filter(function (i) { return isNum(i.minCom); });
-    assert(q.length > 0, 'a stance with min-COM exists');
-    PGIVerify.nudge(q[0], 'minimumCom', 0.02);
-    q.forEach(function (i) { i.confirmed = true; });
-    var ov = PGIVerify.toOverrides(q);
-    var re = PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 },
-                                   userHeightMeters: 1.78, surfaceType: 'overground',
-                                   stanceOverrides: { left: ov.stanceOverrides.left, right: ov.stanceOverrides.right },
-                                   minComOverrides: ov.minComOverrides });
-    var manual = (re.comTrajectory.stepResults || []).filter(function (st) {
+  test('minimum COM stays auto-detected inside the user-anchored stance', function () {
+    var r = analyzeAnchored();
+    var manual = (r.comTrajectory.stepResults || []).filter(function (st) {
       return st.valid && st.minimumCom && st.minimumCom.detectionMethod === 'manual_verification';
     });
-    assert(manual.length >= 1, 'manual min-COM applied');
-    assert(manual[0].minimumCom.confidence === 1, 'human-verified confidence is 1');
-    assert(manual[0].minimumCom.autoDetection, 'auto detection retained beside the correction');
+    assert(manual.length === 0, 'no manual min-COM — detection is trusted');
+    var auto = (r.comTrajectory.stepResults || []).filter(function (st) {
+      return st.valid && st.minimumCom && st.minimumCom.available;
+    });
+    assert(auto.length > 0, 'auto min-COM present');
   });
 
-  test('confirmed-but-unadjusted stances still count as verified', function () {
-    var samples = clip({});
-    var auto = PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 } });
-    var q = PGIVerify.buildQueue(auto);
-    q.forEach(function (i) { i.confirmed = true; });
-    var ov = PGIVerify.toOverrides(q);
-    var re = PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 },
-                                   stanceOverrides: ov.stanceOverrides });
-    assert(re.verification.landmarksVerified === true, 'verified');
-    assert(re.verification.stancesAdjusted === 0, 'nothing adjusted');
-    assert(re.verification.corrections.length === 0, 'no corrections recorded');
+  test('one side missing leaves the other anchored and the whole clip unbadged', function () {
+    var r = analyzeAnchored(userEvents({ right: null }));
+    assert(r.verification.anchors.left, 'left anchored');
+    assert(!r.verification.anchors.right, 'right not anchored');
+    assert(r.verification.landmarksVerified === false, 'not fully verified');
+    assert(/stance frames not confirmed/.test(PGIRender.buildHtml(r)), 'honest badge');
   });
 
-  test('the verification badge renders and the unverified state is visible', function () {
-    var samples = clip({});
-    var auto = PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 },
-                                     userHeightMeters: 1.78 });
-    assert(/landmarks not human-verified/.test(PGIRender.buildHtml(auto)), 'unverified badge');
-    var q = PGIVerify.buildQueue(auto);
-    q.forEach(function (i) { i.confirmed = true; });
-    var ov = PGIVerify.toOverrides(q);
-    var re = PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 },
-                                   userHeightMeters: 1.78, stanceOverrides: ov.stanceOverrides });
-    assert(/landmarks verified/.test(PGIRender.buildHtml(re)), 'verified badge');
+  test('no user events at all still analyses, marked unverified', function () {
+    var r = analyzeAnchored(null);
+    assert(r.availability === 'available', 'analysis proceeds');
+    assert(r.verification.landmarksVerified === false, 'unverified');
+    assert(r.verification.source === null, 'no source claimed');
   });
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  //  Published anchors
+  test('an inverted or unmatchable user selection is refused, not applied', function () {
+    var r = analyzeAnchored({ left: { footStrikeTime: 0.25, toeOffTime: 0.10 }, right: null });
+    assert(!(r.verification.anchors && r.verification.anchors.left), 'inverted pick refused');
+    var r2 = analyzeAnchored({ left: { footStrikeTime: 30.0, toeOffTime: 30.2 }, right: null });
+    assert(!(r2.verification.anchors && r2.verification.anchors.left),
+      'pick beyond the clip matches no stance');
+  });
+
+  test('corrected edges change the timing the report is built on', function () {
+    var auto = analyzeAnchored(null);
+    var anchored = analyzeAnchored();
+    var a = auto.strideTiming.overall.contactSeconds.median;
+    var b = anchored.strideTiming.overall.contactSeconds.median;
+    assert(Math.abs(a - b) > 0.001, 'GCT reflects the corrected edges (' +
+      a.toFixed(4) + ' vs ' + b.toFixed(4) + ')');
+  });
+
   // ═══════════════════════════════════════════════════════════════════════════
   suite('Published anchors');
 
