@@ -2001,6 +2001,45 @@
       'pick beyond the clip matches no stance');
   });
 
+  test('REGRESSION: widened picks must never take down the report', function () {
+    // The bug: user picks wider than the auto plateau propagated the widening
+    // to every sibling stance; on short-flight clips consecutive stances then
+    // overlapped, the step builder read the clip as walking, and timing,
+    // projection, COM and rebound all reported unavailable at once.
+    var samples = makeClip({ sampleRateHz: 60, durationSeconds: 4.0, stanceSeconds: 0.25,
+      flightSeconds: 0.085, velocityPxPerSec: 300, dirSign: 1, comDropPx: 9,
+      footAheadPx: 18, reachAheadPx: 46, retractMs: 90 });
+    var r = PGIAnalysis.analyze({
+      samples: samples, videoMetadata: { fps: 60 }, userHeightMeters: 1.78,
+      surfaceType: 'overground',
+      userStanceEvents: { left: { footStrikeTime: 0.0, toeOffTime: 0.295 },
+                          right: { footStrikeTime: 0.29, toeOffTime: 0.63 } } });
+    assert(r.strideTiming.availability === 'available', 'timing survives widened picks');
+    assert(r.strideTiming.stepsAnalyzed >= 3, 'steps survive (' + r.strideTiming.stepsAnalyzed + ')');
+    assert(r.verticalProjection.availability === 'available', 'projection survives');
+    assert(r.comTrajectory.availability === 'available', 'COM survives');
+    assert(r.rebound.availability === 'available', 'rebound survives');
+    assert(r.verification.propagationMode !== 'full',
+      'propagation degraded rather than breaking the clip (' + r.verification.propagationMode + ')');
+    var stored = PGIAnalysis.toStoredForm(r);
+    assert(stored.verification.propagationMode === r.verification.propagationMode, 'mode persisted');
+  });
+
+  test('a user window spanning two detector fragments absorbs the extra fragment', function () {
+    var samples = clip({});
+    var auto = PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 } });
+    var det = auto.supportGeometry.left.stanceIntervals;
+    assert(det.length >= 2, 'needs at least two left stances');
+    // A pick spanning stance 0 through the START of stance 1 overlaps both.
+    var ev = { left: { footStrikeTime: det[0].startTime,
+                       toeOffTime: det[1].startTime + 0.02 }, right: null };
+    var r = PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 },
+                                  userStanceEvents: ev });
+    var after = r.supportGeometry.left.stanceIntervals;
+    assert(after.length === det.length - 1, 'fragment absorbed (' + det.length + ' -> ' + after.length + ')');
+    assert(r.verification.anchors.left.absorbedFragments === 1, 'absorption recorded');
+  });
+
   test('corrected edges change the timing the report is built on', function () {
     var auto = analyzeAnchored(null);
     var anchored = analyzeAnchored();

@@ -36,6 +36,7 @@
     KFO: require('./kfo-core.js'),
     KFOAnalysis: require('./kfo-analysis.js'),
     KFOEstimators: require('./kfo-estimators.js'),
+    KFOVerticalForce: require('./kfo-vertical-force.js'),
     PGI: require('./pgi-core.js'),
     PGITiming: require('./pgi-timing.js'),
     PGICom: require('./pgi-com.js'),
@@ -45,6 +46,7 @@
     PGIPatterns: require('./pgi-patterns.js')
   } : {
     KFO: root.KFO, KFOAnalysis: root.KFOAnalysis, KFOEstimators: root.KFOEstimators,
+    KFOVerticalForce: root.KFOVerticalForce,
     PGI: root.PGI, PGITiming: root.PGITiming, PGICom: root.PGICom,
     PGITouchdown: root.PGITouchdown, PGIOutcome: root.PGIOutcome,
     PGIPhases: root.PGIPhases, PGIPatterns: root.PGIPatterns
@@ -56,6 +58,7 @@
   'use strict';
 
   var KFO = d.KFO, KFOAnalysis = d.KFOAnalysis, KFOEstimators = d.KFOEstimators,
+      KFOVerticalForce = d.KFOVerticalForce,
       PGI = d.PGI, PGITiming = d.PGITiming, PGICom = d.PGICom,
       PGITouchdown = d.PGITouchdown, PGIOutcome = d.PGIOutcome,
       PGIPhases = d.PGIPhases, PGIPatterns = d.PGIPatterns;
@@ -217,27 +220,48 @@
 
   /**
    * Build per-side stance overrides from the user's phase-card selections.
+   *
+   * The stance overlapping each side's picks ALWAYS takes the user's exact
+   * times. What varies is how the measured auto-vs-user edge delta is carried
+   * to the side's sibling stances — a correction that must never break the
+   * clip it is meant to fix. Candidate modes, tried in order:
+   *
+   *   full        shift AND resize every sibling by (dStart, dEnd)
+   *   shift_only  move every sibling by the midpoint shift, keep its duration
+   *   anchor_only leave siblings on their detected edges
+   *
+   * Each candidate's interval set is validated with the SAME step builder the
+   * timing analysis uses; the first mode that yields at least as many accepted
+   * steps as the uncorrected set — and no new double-support overlaps — wins.
+   * Widened picks on short-flight clips can otherwise overlap consecutive
+   * stances and take down every downstream section at once.
+   *
+   * Same-side auto stances that overlap the user's window are detector
+   * fragments of the same true stance and are absorbed (dropped) in every mode.
+   *
    * @param {Object|null} events {left:{footStrikeTime,toeOffTime}, right:{...}}
    */
   function buildUserAnchors(samples, events) {
-    var out = { any: false, overrides: { left: null, right: null }, anchors: { left: null, right: null } };
+    var out = { any: false, overrides: { left: null, right: null },
+                anchors: { left: null, right: null }, propagationMode: null };
     if (!events) return out;
+
+    // Per-side raw material.
+    var sides = {};
     ['left', 'right'].forEach(function (side) {
       var ev = events[side];
-      if (!ev || !isNum(ev.footStrikeTime) || !isNum(ev.toeOffTime) ||
-          !(ev.toeOffTime > ev.footStrikeTime)) return;
       var det = KFOAnalysis.detectStanceIntervals(samples, side).accepted;
-      if (!det.length) return;
-      // Match by OVERLAP with the user's window (auto edges may be badly off,
-      // which is the whole reason the user's picks lead).
+      var entry = { det: det, ev: null, best: null, dStart: 0, dEnd: 0, absorbed: [] };
+      sides[side] = entry;
+      if (!ev || !isNum(ev.footStrikeTime) || !isNum(ev.toeOffTime) ||
+          !(ev.toeOffTime > ev.footStrikeTime) || !det.length) return;
+
       var best = null, bestOverlap = 0;
       det.forEach(function (iv) {
         var overlap = Math.min(iv.endTime, ev.toeOffTime) - Math.max(iv.startTime, ev.footStrikeTime);
         if (overlap > bestOverlap) { bestOverlap = overlap; best = iv; }
       });
       if (!best) {
-        // No overlap at all: fall back to the nearest stance by midpoint, within
-        // half a second — beyond that the pick belongs to no detected stance.
         var mid = (ev.footStrikeTime + ev.toeOffTime) / 2;
         det.forEach(function (iv) {
           var d2 = Math.abs((iv.startTime + iv.endTime) / 2 - mid);
@@ -245,25 +269,89 @@
         });
       }
       if (!best) return;
-      var dStart = ev.footStrikeTime - best.startTime;
-      var dEnd = ev.toeOffTime - best.endTime;
-      out.overrides[side] = det.map(function (iv) {
-        return iv === best
-          ? { autoStartTime: iv.startTime, startTime: ev.footStrikeTime,
-              endTime: ev.toeOffTime, source: 'user_phase_selection' }
-          : { autoStartTime: iv.startTime, startTime: iv.startTime + dStart,
-              endTime: iv.endTime + dEnd, source: 'user_bias_corrected' };
+      entry.ev = ev;
+      entry.best = best;
+      entry.dStart = ev.footStrikeTime - best.startTime;
+      entry.dEnd = ev.toeOffTime - best.endTime;
+      // Fragments of the same true stance: any OTHER same-side interval that
+      // overlaps the user's window is absorbed by the anchor.
+      entry.absorbed = det.filter(function (iv) {
+        return iv !== best &&
+          Math.min(iv.endTime, ev.toeOffTime) - Math.max(iv.startTime, ev.footStrikeTime) > 0;
       });
+    });
+    if (!sides.left.ev && !sides.right.ev) return out;
+
+    function overridesFor(mode) {
+      var o = { left: null, right: null };
+      ['left', 'right'].forEach(function (side) {
+        var e = sides[side];
+        if (!e.det.length || !e.ev) return;
+        o[side] = e.det.map(function (iv) {
+          if (iv === e.best) {
+            return { autoStartTime: iv.startTime, startTime: e.ev.footStrikeTime,
+                     endTime: e.ev.toeOffTime, source: 'user_phase_selection' };
+          }
+          if (e.absorbed.indexOf(iv) !== -1) {
+            return { autoStartTime: iv.startTime, drop: true, source: 'absorbed_into_user_stance' };
+          }
+          if (mode === 'anchor_only') return { autoStartTime: iv.startTime };
+          var shift = (e.dStart + e.dEnd) / 2;
+          var ds = mode === 'full' ? e.dStart : shift;
+          var de = mode === 'full' ? e.dEnd : shift;
+          return { autoStartTime: iv.startTime, startTime: iv.startTime + ds,
+                   endTime: iv.endTime + de, source: 'user_bias_corrected' };
+        });
+      });
+      return o;
+    }
+
+    /** Accepted-step count and double-support count for a candidate. */
+    function evaluate(ov) {
+      function corrected(side) {
+        return KFOAnalysis.detectStanceIntervals(samples, side, undefined,
+          ov ? ov[side] : null).accepted.map(function (iv) {
+            return { startTime: iv.startTime, endTime: iv.endTime };
+          });
+      }
+      var built = KFOVerticalForce.buildSteps(corrected('left'), corrected('right'));
+      return { steps: built.steps.length, doubleSupport: built.doubleSupportCount };
+    }
+
+    var baseline = evaluate(null);
+    var modes = ['full', 'shift_only', 'anchor_only'];
+    var chosen = null, chosenOv = null, chosenScore = null;
+    for (var m = 0; m < modes.length; m++) {
+      var ov = overridesFor(modes[m]);
+      var score = evaluate(ov);
+      if (score.steps >= baseline.steps && score.doubleSupport <= baseline.doubleSupport) {
+        chosen = modes[m]; chosenOv = ov; chosenScore = score;
+        break;
+      }
+      // Remember the least-bad candidate in case none clears the baseline —
+      // the user's own stance leads by definition even when it costs steps.
+      if (!chosenScore || score.steps > chosenScore.steps) {
+        chosen = modes[m]; chosenOv = ov; chosenScore = score;
+      }
+    }
+
+    out.any = true;
+    out.propagationMode = chosen;
+    out.overrides = chosenOv;
+    ['left', 'right'].forEach(function (side) {
+      var e = sides[side];
+      if (!e.ev) return;
       out.anchors[side] = {
-        userFootStrikeTime: round(ev.footStrikeTime, 4),
-        userToeOffTime: round(ev.toeOffTime, 4),
-        autoStartTime: round(best.startTime, 4),
-        autoEndTime: round(best.endTime, 4),
-        startBiasMs: Math.round(dStart * 1000),
-        endBiasMs: Math.round(dEnd * 1000),
-        siblingStancesCorrected: det.length - 1
+        userFootStrikeTime: round(e.ev.footStrikeTime, 4),
+        userToeOffTime: round(e.ev.toeOffTime, 4),
+        autoStartTime: round(e.best.startTime, 4),
+        autoEndTime: round(e.best.endTime, 4),
+        startBiasMs: Math.round(e.dStart * 1000),
+        endBiasMs: Math.round(e.dEnd * 1000),
+        absorbedFragments: e.absorbed.length,
+        siblingStancesCorrected: chosen === 'anchor_only'
+          ? 0 : e.det.length - 1 - e.absorbed.length
       };
-      out.any = true;
     });
     return out;
   }
@@ -675,10 +763,19 @@
       stancesTotal: totalIvs,
       stancesAdjusted: adjustedIvs,
       corrections: vCorrections,
+      propagationMode: userAnchors.any ? userAnchors.propagationMode : null,
       note: userAnchors.any
-        ? 'Stance edges are anchored to the initial-contact and toe-off frames selected on the ' +
-          'phase cards; sibling stances carry the same measured edge correction. Minimum COM ' +
-          'remains auto-detected within those edges.'
+        ? (userAnchors.propagationMode === 'full'
+            ? 'Stance edges are anchored to the initial-contact and toe-off frames selected on the ' +
+              'phase cards; sibling stances carry the same measured edge correction. Minimum COM ' +
+              'remains auto-detected within those edges.'
+            : userAnchors.propagationMode === 'shift_only'
+              ? 'Stance edges are anchored to the frames selected on the phase cards. The full edge ' +
+                'correction would have made neighbouring stances overlap, so sibling stances carry ' +
+                'only the timing shift, not the width change.'
+              : 'Stance edges are anchored to the frames selected on the phase cards. The measured ' +
+                'edge correction could not be applied to sibling stances without breaking step ' +
+                'detection, so they remain on their automatic edges.')
         : verifiedIvs.length
           ? 'Stance landmarks were reviewed; automatic times are retained beside any corrections.'
           : 'Stance landmarks are automatic and have not been human-verified.'
@@ -1192,6 +1289,7 @@
       verification: result.verification ? {
         landmarksVerified: !!result.verification.landmarksVerified,
         source: result.verification.source || null,
+        propagationMode: result.verification.propagationMode || null,
         anchors: result.verification.anchors || null,
         stancesVerified: result.verification.stancesVerified,
         stancesTotal: result.verification.stancesTotal,
