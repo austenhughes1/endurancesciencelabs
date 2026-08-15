@@ -215,6 +215,59 @@
     return out;
   }
 
+  /**
+   * Build per-side stance overrides from the user's phase-card selections.
+   * @param {Object|null} events {left:{footStrikeTime,toeOffTime}, right:{...}}
+   */
+  function buildUserAnchors(samples, events) {
+    var out = { any: false, overrides: { left: null, right: null }, anchors: { left: null, right: null } };
+    if (!events) return out;
+    ['left', 'right'].forEach(function (side) {
+      var ev = events[side];
+      if (!ev || !isNum(ev.footStrikeTime) || !isNum(ev.toeOffTime) ||
+          !(ev.toeOffTime > ev.footStrikeTime)) return;
+      var det = KFOAnalysis.detectStanceIntervals(samples, side).accepted;
+      if (!det.length) return;
+      // Match by OVERLAP with the user's window (auto edges may be badly off,
+      // which is the whole reason the user's picks lead).
+      var best = null, bestOverlap = 0;
+      det.forEach(function (iv) {
+        var overlap = Math.min(iv.endTime, ev.toeOffTime) - Math.max(iv.startTime, ev.footStrikeTime);
+        if (overlap > bestOverlap) { bestOverlap = overlap; best = iv; }
+      });
+      if (!best) {
+        // No overlap at all: fall back to the nearest stance by midpoint, within
+        // half a second — beyond that the pick belongs to no detected stance.
+        var mid = (ev.footStrikeTime + ev.toeOffTime) / 2;
+        det.forEach(function (iv) {
+          var d2 = Math.abs((iv.startTime + iv.endTime) / 2 - mid);
+          if (d2 <= 0.5 && (!best || d2 < Math.abs((best.startTime + best.endTime) / 2 - mid))) best = iv;
+        });
+      }
+      if (!best) return;
+      var dStart = ev.footStrikeTime - best.startTime;
+      var dEnd = ev.toeOffTime - best.endTime;
+      out.overrides[side] = det.map(function (iv) {
+        return iv === best
+          ? { autoStartTime: iv.startTime, startTime: ev.footStrikeTime,
+              endTime: ev.toeOffTime, source: 'user_phase_selection' }
+          : { autoStartTime: iv.startTime, startTime: iv.startTime + dStart,
+              endTime: iv.endTime + dEnd, source: 'user_bias_corrected' };
+      });
+      out.anchors[side] = {
+        userFootStrikeTime: round(ev.footStrikeTime, 4),
+        userToeOffTime: round(ev.toeOffTime, 4),
+        autoStartTime: round(best.startTime, 4),
+        autoEndTime: round(best.endTime, 4),
+        startBiasMs: Math.round(dStart * 1000),
+        endBiasMs: Math.round(dEnd * 1000),
+        siblingStancesCorrected: det.length - 1
+      };
+      out.any = true;
+    });
+    return out;
+  }
+
   // ── Main ───────────────────────────────────────────────────────────────────
 
   /**
@@ -264,10 +317,26 @@
     var surface = PGI.inferSurfaceType(input.surfaceType, direction);
 
     // ── Stance intervals + support geometry (shared with the KFO detector) ──
-    // Manual landmark verification: corrected stance edges replace the detected
-    // ones at the SOURCE, so every consumer — timing, phase windows, COM steps,
-    // touchdown windows — reads the same corrected intervals.
-    var stanceOv = input.stanceOverrides || null;
+    // ── Stance edges anchored to the USER'S phase selections ──
+    //
+    // The product flow already makes the user review L/R initial-contact and
+    // toe-off frames on the phase cards (scrubber, "Analyze this frame"). Those
+    // picks are the ground truth here:
+    //
+    //   1. The auto-detected stance that overlaps a side's picks is replaced by
+    //      the EXACT user times (source: user_phase_selection).
+    //   2. The measured auto-vs-user delta on that stance is the clip's
+    //      systematic plateau-edge bias for that side, so the same correction is
+    //      applied to the side's OTHER stances (source: user_bias_corrected) —
+    //      multi-stride timing keeps its sample size without keeping the bias.
+    //
+    // Corrections land at the stance-detection source, so every consumer —
+    // timing, phase windows, COM steps, touchdown windows — reads the same
+    // corrected intervals. Minimum COM stays auto-detected within them.
+    var userAnchors = buildUserAnchors(samples, input.userStanceEvents);
+    var stanceOv = userAnchors.any
+      ? userAnchors.overrides
+      : (input.stanceOverrides || null);
     var geomLeft = KFOAnalysis.analyzeSide(samples, 'left', direction,
       KFOEstimators.GeometryProxyEstimator, undefined, stanceOv ? stanceOv.left : null);
     var geomRight = KFOAnalysis.analyzeSide(samples, 'right', direction,
@@ -575,6 +644,7 @@
         if (iv.verified) verifiedIvs.push(iv);
         if (iv.manualAdjustment) {
           adjustedIvs++;
+          if (iv.manualAdjustment.adjustedBy === 'user_bias_corrected') return;
           if (iv.manualAdjustment.autoStartTime !== iv.startTime) {
             vCorrections.push({ side: sd.side, event: 'touchdown',
               autoTimeSeconds: round(iv.manualAdjustment.autoStartTime, 4),
@@ -599,14 +669,19 @@
     var totalIvs = (geomLeft.stanceIntervals || []).length + (geomRight.stanceIntervals || []).length;
     envelope.verification = {
       landmarksVerified: totalIvs > 0 && verifiedIvs.length === totalIvs,
+      source: userAnchors.any ? 'user_phase_selection' : (input.stanceOverrides ? 'manual_verification' : null),
+      anchors: userAnchors.any ? userAnchors.anchors : null,
       stancesVerified: verifiedIvs.length,
       stancesTotal: totalIvs,
       stancesAdjusted: adjustedIvs,
       corrections: vCorrections,
-      note: verifiedIvs.length
-        ? 'Stance landmarks were reviewed frame-by-frame; automatic times are retained beside ' +
-          'any corrections.'
-        : 'Stance landmarks are automatic and have not been human-verified.'
+      note: userAnchors.any
+        ? 'Stance edges are anchored to the initial-contact and toe-off frames selected on the ' +
+          'phase cards; sibling stances carry the same measured edge correction. Minimum COM ' +
+          'remains auto-detected within those edges.'
+        : verifiedIvs.length
+          ? 'Stance landmarks were reviewed; automatic times are retained beside any corrections.'
+          : 'Stance landmarks are automatic and have not been human-verified.'
     };
 
     var anyDomain = (timing.availability === KFO.AVAILABILITY.AVAILABLE) ||
@@ -1116,6 +1191,8 @@
       }),
       verification: result.verification ? {
         landmarksVerified: !!result.verification.landmarksVerified,
+        source: result.verification.source || null,
+        anchors: result.verification.anchors || null,
         stancesVerified: result.verification.stancesVerified,
         stancesTotal: result.verification.stancesTotal,
         stancesAdjusted: result.verification.stancesAdjusted,

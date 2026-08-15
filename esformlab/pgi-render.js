@@ -983,7 +983,11 @@
         'color:var(--warn,#ffb020);margin-left:8px">legacy session</span>' : '';
     var v = result.verification;
     var verifyBadge = '';
-    if (v && v.landmarksVerified) {
+    if (v && v.landmarksVerified && v.source === 'user_phase_selection') {
+      verifyBadge = '<span style="font-size:10px;padding:2px 7px;border-radius:99px;' +
+        'background:rgba(61,220,151,.14);color:var(--good,#3ddc97);margin-left:8px">' +
+        'anchored to your selected frames</span>';
+    } else if (v && v.landmarksVerified) {
       verifyBadge = '<span style="font-size:10px;padding:2px 7px;border-radius:99px;' +
         'background:rgba(61,220,151,.14);color:var(--good,#3ddc97);margin-left:8px">' +
         'landmarks verified' + (v.stancesAdjusted ? ' &middot; ' + v.stancesAdjusted + ' corrected' : '') +
@@ -991,7 +995,7 @@
     } else if (v && !result.isLegacyView) {
       verifyBadge = '<span style="font-size:10px;padding:2px 7px;border-radius:99px;' +
         'background:rgba(255,176,32,.14);color:var(--warn,#ffb020);margin-left:8px">' +
-        'landmarks not human-verified</span>';
+        'stance frames not confirmed on the phase cards</span>';
     }
     return '<div style="margin-top:22px">' +
       '<div style="font-size:15px;font-weight:800;letter-spacing:.2px">' + TITLE + legacyBadge + verifyBadge + '</div>' +

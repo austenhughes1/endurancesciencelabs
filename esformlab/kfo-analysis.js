@@ -149,7 +149,7 @@
         manualAdjustment: (start !== iv.startTime || end !== iv.endTime) ? {
           autoStartTime: iv.startTime,
           autoEndTime: iv.endTime,
-          adjustedBy: 'manual_verification'
+          adjustedBy: ov.source || 'manual_verification'
         } : null
       };
     });

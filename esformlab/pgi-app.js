@@ -26,12 +26,6 @@
       description: 'The mechanics analysis: touchdown preparation, projection, ground interaction, ' +
         'rebound and stride outcome.'
     },
-    requireLandmarkVerification: {
-      label: 'Require stance-landmark verification',
-      adminDefault: true, userDefault: false,
-      description: 'The report is withheld until each used stance\u2019s touchdown, minimum-COM and ' +
-        'toe-off frames have been reviewed and confirmed or corrected.'
-    },
     densePreContactScan: {
       label: 'Dense pre-contact rescan',
       adminDefault: true, userDefault: false,
@@ -161,12 +155,13 @@
     var vid = (typeof document !== 'undefined') ? document.getElementById('video-side') : null;
     var meta = {};
     if (vid) { meta.width = vid.videoWidth || null; meta.height = vid.videoHeight || null; }
-    var ov = (verifyState.applied && verifyState.overrides) ? verifyState.overrides : null;
     lastResult = PGIAnalysis.analyze({
       samples: samples,
       denseWindows: getDenseWindows(),
-      stanceOverrides: ov ? ov.stanceOverrides : null,
-      minComOverrides: ov ? ov.minComOverrides : null,
+      // The stance edges the user selected and submitted on the phase cards
+      // (initial contact + toe-off per side, adjustable via the scrubber) are
+      // the ground truth for stance detection. Minimum COM stays auto-detected.
+      userStanceEvents: readUserStanceEvents(),
       videoMetadata: meta,
       userHeightMeters: numOrNull(ctx.heightMeters),
       userSpeedMps: numOrNull(ctx.speedMps),
@@ -180,6 +175,27 @@
   function numOrNull(v) {
     var n = typeof v === 'string' ? parseFloat(v) : v;
     return (typeof n === 'number' && isFinite(n)) ? n : null;
+  }
+
+  /**
+   * The user-reviewed stance events from the main product flow: the l_foot /
+   * l_toe / r_foot / r_toe phase cards, auto-detected then adjusted by the user
+   * with the frame scrubber. Re-analysing a card re-renders this feature, so a
+   * scrubber correction flows straight through.
+   */
+  function readUserStanceEvents() {
+    try {
+      if (typeof phases === 'undefined' || !phases) return null;
+      function side(footKey, toeKey) {
+        var f = phases[footKey], t = phases[toeKey];
+        if (!f || !t || !f.detected || !t.detected) return null;
+        var fs = numOrNull(f.t), to = numOrNull(t.t);
+        if (fs == null || to == null || !(to > fs)) return null;
+        return { footStrikeTime: fs, toeOffTime: to };
+      }
+      var out = { left: side('l_foot', 'l_toe'), right: side('r_foot', 'r_toe') };
+      return (out.left || out.right) ? out : null;
+    } catch (e) { return null; }
   }
 
   // ── Condition capture (pre/post comparison) ───────────────────────────────
@@ -320,24 +336,14 @@
       try {
         mountContextInputs();
         var result = analyze();
-        if (!result) {
+        if (result) {
+          if (typeof PGIRender !== 'undefined') PGIRender.mount(result, 'pgi-report');
+        } else {
           mountMessage('pgi-report',
             'Projection & Ground Interaction needs the side-view scan data from this session. ' +
             'Re-run the analysis from the upload screen to populate it.');
-          removeNode('pgi-verify');
-        } else if (isEnabled('requireLandmarkVerification') && !verificationComplete(result)) {
-          // FORCED verification: the report is not shown until every used
-          // stance's landmark frames have been confirmed or corrected. The
-          // automatic picks are coarse enough to be visibly wrong, and every
-          // downstream number reads them.
-          mountVerificationPanel(result);
-          mountMessage('pgi-report',
-            'Report withheld until the stance landmarks below are verified. Confirm each ' +
-            'stance\u2019s frames \u2014 or correct them \u2014 then apply.');
-        } else {
-          removeNode('pgi-verify');
-          if (typeof PGIRender !== 'undefined') PGIRender.mount(result, 'pgi-report');
         }
+        removeNode('pgi-verify');
         if (isEnabled('conditionComparison')) mountConditionControls();
         renderComparison();
         if (isEnabled('researchExport')) mountResearchTools();
@@ -463,250 +469,6 @@
           out.textContent = 'Exported ' + b.strideLevel.length + ' stride rows and ' +
             b.frameLevel.length + ' frame rows.';
         } catch (e) { out.textContent = 'Export failed: ' + e.message; }
-      });
-    });
-  }
-
-  // ── Stance-landmark verification ──────────────────────────────────────────
-  //
-  // FORCED workflow (flag `requireLandmarkVerification`, default on): the
-  // report is withheld until each used stance's touchdown, minimum-COM and
-  // toe-off frames have been reviewed. Nudging an event reseeks the video and
-  // redraws; confirming all stances enables re-analysis with the corrections
-  // applied at the stance-detection source. Queue/override logic lives in
-  // pgi-verify.js (node-tested); this is the DOM/video half.
-
-  var verifyState = { samplesRef: null, items: null, applied: false, overrides: null };
-
-  function verificationComplete(result) {
-    ensureVerifyQueue(result);
-    if (!verifyState.items || !verifyState.items.length) return true; // nothing to verify
-    return verifyState.applied;
-  }
-
-  function ensureVerifyQueue(result) {
-    var samples = getSamples();
-    if (verifyState.samplesRef !== samples) {
-      // New clip: any previous verification belonged to different footage.
-      verifyState = { samplesRef: samples, items: null, applied: false, overrides: null };
-    }
-    if (!verifyState.items && typeof PGIVerify !== 'undefined' && result) {
-      verifyState.items = PGIVerify.buildQueue(result);
-    }
-  }
-
-  function nearestSample(t) {
-    var samples = getSamples();
-    if (!samples) return null;
-    var best = null;
-    samples.forEach(function (s) {
-      if (!s || typeof s.t !== 'number' || !s.kps) return;
-      if (!best || Math.abs(s.t - t) < Math.abs(best.t - t)) best = s;
-    });
-    return best;
-  }
-
-  function drawInspectorFrame(canvas, video, sample, side, eventName, t) {
-    var ctx = canvas.getContext('2d');
-    var vw = video.videoWidth || 640, vh = video.videoHeight || 360;
-    var W = canvas.width, H = Math.round(W * vh / vw);
-    canvas.height = H;
-    ctx.drawImage(video, 0, 0, W, H);
-    if (!sample || !sample.kps) return;
-
-    // Samples were posed on the scan canvas; rescale through its frame width.
-    var scale = W / (sample.frameWidth || 400);
-    function P(i) {
-      var k = sample.kps[i];
-      return (k && typeof k.x === 'number' && (k.score || 0) >= 0.25)
-        ? { x: k.x * scale, y: k.y * scale } : null;
-    }
-    function mid(a, b) { return (a && b) ? { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } : null; }
-    function line(a, b, color, width, dash) {
-      if (!a || !b) return;
-      ctx.beginPath();
-      ctx.setLineDash(dash || []);
-      ctx.strokeStyle = color; ctx.lineWidth = width || 2;
-      ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-      ctx.setLineDash([]);
-    }
-    function dot(p, color, r) {
-      if (!p) return;
-      ctx.beginPath(); ctx.fillStyle = color;
-      ctx.arc(p.x, p.y, r || 5, 0, Math.PI * 2); ctx.fill();
-    }
-
-    var hip = P(side === 'left' ? 11 : 12);
-    var knee = P(side === 'left' ? 13 : 14);
-    var ankle = P(side === 'left' ? 15 : 16);
-    var shMid = mid(P(5), P(6)), hipMid = mid(P(11), P(12));
-    var comRaw = (typeof KFO !== 'undefined') ? KFO.computeCOM(sample.kps, 'segmental') : null;
-    var com = comRaw ? { x: comRaw.x * scale, y: comRaw.y * scale } : null;
-
-    line(shMid, hipMid, 'rgba(77,163,255,.9)', 3);          // trunk
-    line(hip, knee, 'rgba(61,220,151,.9)', 3);              // thigh
-    line(knee, ankle, 'rgba(61,220,151,.9)', 3);            // shank
-    line(ankle, com, 'rgba(255,176,32,.9)', 2, [6, 4]);     // support line
-    dot(ankle, 'rgba(61,220,151,1)', 5);                    // support point
-    dot(com, 'rgba(255,176,32,1)', 6);                      // COM
-
-    ctx.font = '700 13px system-ui, sans-serif';
-    ctx.fillStyle = 'rgba(255,255,255,.92)';
-    ctx.strokeStyle = 'rgba(0,0,0,.65)'; ctx.lineWidth = 3;
-    var caption = eventName + '  ·  ' + t.toFixed(3) + ' s  ·  ' + side + ' stance';
-    ctx.strokeText(caption, 10, H - 12);
-    ctx.fillText(caption, 10, H - 12);
-  }
-
-
-  function verifyThumb(itemId, eventKey) {
-    return '<div style="flex:1 1 150px;min-width:140px">' +
-      '<div style="font-size:9.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;' +
-      'color:var(--muted2,#8aa0c0);margin-bottom:3px">' + PGIVerify.EVENT_LABEL[eventKey] + '</div>' +
-      '<canvas data-verify-canvas="' + itemId + ':' + eventKey + '" width="220" height="124" ' +
-      'style="width:100%;border-radius:6px;background:#000"></canvas>' +
-      '<div style="display:flex;gap:3px;margin-top:4px;align-items:center;flex-wrap:wrap">' +
-      [['-33', '\u25c0\u25c0'], ['-8', '\u25c0'], ['8', '\u25b6'], ['33', '\u25b6\u25b6']].map(function (b) {
-        return '<button type="button" data-verify-nudge="' + itemId + ':' + eventKey + ':' + b[0] +
-          '" style="font:inherit;font-size:10px;padding:3px 7px;border-radius:5px;' +
-          'border:1px solid var(--border2,#2a3550);background:transparent;color:inherit;' +
-          'cursor:pointer" title="' + b[0] + ' ms">' + b[1] + '</button>';
-      }).join('') +
-      '<span data-verify-time="' + itemId + ':' + eventKey + '" style="font-size:10px;' +
-      'color:var(--muted2,#8aa0c0);margin-left:3px"></span>' +
-      '</div></div>';
-  }
-
-  function mountVerificationPanel(result) {
-    ensureVerifyQueue(result);
-    var items = verifyState.items || [];
-    var video = (typeof document !== 'undefined') ? document.getElementById('video-side') : null;
-    if (!items.length || !video || typeof PGIVerify === 'undefined') { removeNode('pgi-verify'); return; }
-    var host = ensureHost('pgi-verify', 'pgi-context');
-    if (!host) return;
-
-    var confirmed = items.filter(function (i) { return i.confirmed; }).length;
-    var rows = items.map(function (i, idx) {
-      var mcConf = (typeof i.minComConfidence === 'number')
-        ? ' \u00b7 auto confidence ' + Math.round(i.minComConfidence * 100) + '%' : '';
-      return '<div data-verify-row="' + i.id + '" style="margin-top:12px;padding:11px;border-radius:8px;' +
-        'border:1px solid ' + (i.confirmed ? 'var(--good,#3ddc97)' : 'var(--border2,#2a3550)') + '">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">' +
-        '<div style="font-size:11.5px;font-weight:700">' + (idx + 1) + ' \u00b7 ' +
-        (i.side === 'left' ? 'Left' : 'Right') + ' stance at ' + i.autoStart.toFixed(2) + ' s' +
-        '<span style="font-weight:400;color:var(--muted2,#8aa0c0)">' + mcConf + '</span></div>' +
-        '<button type="button" data-verify-confirm="' + i.id + '" style="font:inherit;font-size:11px;' +
-        'padding:5px 12px;border-radius:6px;border:1px solid ' +
-        (i.confirmed ? 'var(--good,#3ddc97)' : 'var(--border2,#2a3550)') + ';background:transparent;' +
-        'color:' + (i.confirmed ? 'var(--good,#3ddc97)' : 'inherit') + ';cursor:pointer">' +
-        (i.confirmed ? '\u2713 Confirmed' : 'Confirm frames') + '</button></div>' +
-        '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">' +
-        PGIVerify.EVENTS.map(function (ev) {
-          return (ev === 'minimumCom' && typeof i.minCom !== 'number') ? '' : verifyThumb(i.id, ev);
-        }).join('') + '</div></div>';
-    }).join('');
-
-    host.innerHTML =
-      '<div style="margin-top:14px;padding:14px;border:1.5px solid var(--warn,#ffb020);' +
-      'border-radius:10px;background:var(--panel2,#121724)">' +
-      '<div style="font-size:10px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;' +
-      'color:var(--warn,#ffb020);margin-bottom:6px">Verify stance landmarks \u2014 required</div>' +
-      '<div style="font-size:11.5px;line-height:1.6;max-width:640px">Check that each frame shows what ' +
-      'its label claims: <strong>touchdown</strong> \u2014 first frame the foot is on the ground; ' +
-      '<strong>minimum COM</strong> \u2014 the body\u2019s lowest point (amber dot at its lowest); ' +
-      '<strong>toe-off</strong> \u2014 last frame of contact. Nudge with the arrows if a frame is ' +
-      'wrong, then confirm each stance. The analysis re-runs with your corrections.</div>' +
-      '<div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">' +
-      '<button type="button" data-verify="confirm-all" style="font:inherit;font-size:11px;' +
-      'padding:6px 12px;border-radius:6px;border:1px solid var(--border2,#2a3550);' +
-      'background:transparent;color:inherit;cursor:pointer">Confirm all as shown</button>' +
-      '<button type="button" data-verify="apply" ' + (confirmed === items.length ? '' : 'disabled ') +
-      'style="font:inherit;font-size:11px;font-weight:700;padding:6px 14px;border-radius:6px;' +
-      'border:1px solid var(--gold,#f5c451);background:' +
-      (confirmed === items.length ? 'var(--gold,#f5c451)' : 'transparent') + ';color:' +
-      (confirmed === items.length ? '#1a1400' : 'var(--muted2,#8aa0c0)') + ';cursor:pointer">' +
-      'Apply &amp; analyze</button>' +
-      '<span style="font-size:11px;color:var(--muted2,#8aa0c0)">' + confirmed + '/' + items.length +
-      ' stances confirmed</span></div>' +
-      rows + '</div>';
-
-    // ── Wiring ──
-    function itemById(id) {
-      for (var k = 0; k < items.length; k++) if (items[k].id === id) return items[k];
-      return null;
-    }
-
-    // Thumbnails are drawn through one serial seek queue: a <video> can only be
-    // at one time at once, so parallel seeks would race each other.
-    var drawQueue = [];
-    var drawing = false;
-    function enqueueDraw(itemId, eventKey) {
-      drawQueue.push([itemId, eventKey]);
-      if (!drawing) drawNext();
-    }
-    function drawNext() {
-      var job = drawQueue.shift();
-      if (!job) { drawing = false; return; }
-      drawing = true;
-      var item = itemById(job[0]);
-      var canvas = host.querySelector('[data-verify-canvas="' + job[0] + ':' + job[1] + '"]');
-      if (!item || !canvas) { drawNext(); return; }
-      var t = PGIVerify.timeOf(item, job[1]);
-      if (typeof t !== 'number') { drawNext(); return; }
-      var timeEl = host.querySelector('[data-verify-time="' + job[0] + ':' + job[1] + '"]');
-      if (timeEl) timeEl.textContent = t.toFixed(3) + ' s';
-      var done = false;
-      var finish = function () {
-        if (done) return; done = true;
-        video.removeEventListener('seeked', finish);
-        try {
-          drawInspectorFrame(canvas, video, nearestSample(t), item.side,
-            PGIVerify.EVENT_LABEL[job[1]].toUpperCase(), t);
-        } catch (e) { /* a failed thumbnail must not stall the queue */ }
-        setTimeout(drawNext, 30);
-      };
-      video.addEventListener('seeked', finish);
-      setTimeout(finish, 900); // seek watchdog
-      try { video.currentTime = t; } catch (e) { finish(); }
-    }
-
-    host.querySelectorAll('[data-verify-nudge]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var parts = btn.getAttribute('data-verify-nudge').split(':');
-        var item = itemById(parts[0]);
-        if (!item) return;
-        PGIVerify.nudge(item, parts[1], parseInt(parts[2], 10) / 1000, video.duration || null);
-        // A nudge un-confirms the stance; rebuild so the row state shows it,
-        // then redraw the affected thumbnails.
-        mountVerificationPanel(result);
-      });
-    });
-    host.querySelectorAll('[data-verify-confirm]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var item = itemById(btn.getAttribute('data-verify-confirm'));
-        if (!item) return;
-        item.confirmed = !item.confirmed;
-        mountVerificationPanel(result);
-      });
-    });
-    var allBtn = host.querySelector('[data-verify="confirm-all"]');
-    if (allBtn) allBtn.addEventListener('click', function () {
-      items.forEach(function (i) { i.confirmed = true; });
-      mountVerificationPanel(result);
-    });
-    var applyBtn = host.querySelector('[data-verify="apply"]');
-    if (applyBtn) applyBtn.addEventListener('click', function () {
-      if (!PGIVerify.allConfirmed(items)) return;
-      verifyState.overrides = PGIVerify.toOverrides(items);
-      verifyState.applied = true;
-      render();
-    });
-
-    // Draw every visible thumbnail, serially.
-    items.forEach(function (i) {
-      PGIVerify.EVENTS.forEach(function (ev) {
-        if (ev === 'minimumCom' && typeof i.minCom !== 'number') return;
-        enqueueDraw(i.id, ev);
       });
     });
   }
