@@ -290,12 +290,23 @@
       for (var j = 0; j < contacts.length; j++) {
         if (t >= contacts[j].start && t <= contacts[j].end) { active = contacts[j]; break; }
       }
+      // Heel-off: in the final `heelOffMs` of stance the HEEL rises, so the
+      // ankle keypoint rises while the foot stays planted in X — the mechanism
+      // that makes the ankle-Y plateau end early on real runners.
+      function plantedY(c) {
+        var h = o.heelOffMs == null ? 0 : o.heelOffMs;
+        if (!h) return GROUND_Y;
+        var lead = c.end - h / 1000;
+        if (t <= lead) return GROUND_Y;
+        var prog = (t - lead) / (h / 1000);
+        return GROUND_Y - 16 * Math.min(1, prog);
+      }
       var lFoot, rFoot;
       if (active && active.side === 'left') {
-        lFoot = { x: plantXFor(active), y: GROUND_Y };
+        lFoot = { x: plantXFor(active), y: plantedY(active) };
         rFoot = swingFoot('right', t);
       } else if (active && active.side === 'right') {
-        rFoot = { x: plantXFor(active), y: GROUND_Y };
+        rFoot = { x: plantXFor(active), y: plantedY(active) };
         lFoot = swingFoot('left', t);
       } else {
         lFoot = swingFoot('left', t);
@@ -808,6 +819,93 @@
     var merged = PGITouchdown.mergeDenseSamples(coarse, null);
     assert(merged.denseUsed === false && merged.samples.length === coarse.length, 'coarse used');
     assert(merged.reason === 'no_dense_windows_supplied', 'explicit reason');
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  Toe-off refinement
+  // ═══════════════════════════════════════════════════════════════════════════
+  suite('Toe-off refinement');
+
+  test('heel-off no longer truncates stance: the refined edge recovers true toe-off', function () {
+    // With 70 ms of heel rise, the ankle-Y plateau ends ~70 ms early. The
+    // refinement reads the ankle\u2019s hip-relative forward offset, which keeps
+    // falling until the foot actually leaves, and recovers the true edge.
+    var KFOAnalysis = require ? null : null;
+    var withHeel = analyze({ heelOffMs: 70 });
+    var without = analyze({});
+    var a = withHeel.strideTiming.overall.contactSeconds.median;
+    var b = without.strideTiming.overall.contactSeconds.median;
+    assertClose(a, b, 0.03, 'GCT with heel-off matches the clean clip (' +
+      (a * 1000).toFixed(0) + ' vs ' + (b * 1000).toFixed(0) + ' ms)');
+    assert(withHeel.strideTiming.availability === 'available', 'timing intact');
+  });
+
+  test('refinement records what it did and by how much', function () {
+    var r = analyze({ heelOffMs: 70 });
+    var refined = [];
+    ['left', 'right'].forEach(function (side) {
+      (r.supportGeometry[side].stanceIntervals || []).forEach(function (iv) {
+        if (iv.toeOffRefinement) refined.push(iv.toeOffRefinement);
+      });
+    });
+    assert(refined.length > 0, 'refinements recorded');
+    refined.forEach(function (tr) {
+      assert(tr.method === 'ankle_offset_minimum', 'method named');
+      assert(isNum(tr.extensionMs) && tr.extensionMs > 20, 'meaningful extension (' + tr.extensionMs + ' ms)');
+      assert(isNum(tr.plateauEndTime), 'plateau edge retained beside the refined one');
+    });
+  });
+
+  test('a clean clip is left alone — refinement refuses without a real heel-off gap', function () {
+    var r = analyze({});
+    var extended = [];
+    ['left', 'right'].forEach(function (side) {
+      (r.supportGeometry[side].stanceIntervals || []).forEach(function (iv) {
+        if (iv.toeOffRefinement && iv.toeOffRefinement.extensionMs > 25) extended.push(iv);
+      });
+    });
+    assert(extended.length === 0, 'no stance extended by more than one sample on a clean clip');
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  Per-stance frame-scrub edits
+  // ═══════════════════════════════════════════════════════════════════════════
+  suite('Per-stance frame edits');
+
+  test('an explicit scrubbed edit overrides one stance exactly, and outranks the anchor bias', function () {
+    var samples = clip({});
+    var auto = PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 } });
+    var det = auto.supportGeometry.left.stanceIntervals;
+    var target = det[1];
+    var edit = { side: 'left', autoStartTime: target.startTime,
+                 startTime: target.startTime + 0.02, endTime: target.endTime + 0.03 };
+    var r = PGIAnalysis.analyze({
+      samples: samples, videoMetadata: { fps: 60 },
+      userStanceEvents: { left: { footStrikeTime: det[0].startTime + 0.01,
+                                  toeOffTime: det[0].endTime + 0.01 }, right: null },
+      stanceEdits: [edit] });
+    var edited = r.supportGeometry.left.stanceIntervals.filter(function (iv) {
+      return iv.manualAdjustment && iv.manualAdjustment.adjustedBy === 'user_frame_scrub';
+    });
+    assert(edited.length === 1, 'one scrubbed stance');
+    assertClose(edited[0].startTime, target.startTime + 0.02, 1e-6, 'scrubbed start verbatim');
+    assertClose(edited[0].endTime, target.endTime + 0.03, 1e-6, 'scrubbed end verbatim');
+    assert(r.verification.corrections.some(function (c) {
+      return isNum(c.deltaMs); }), 'edit recorded in corrections');
+  });
+
+  test('edits apply even when no phase-card anchor exists', function () {
+    var samples = clip({});
+    var auto = PGIAnalysis.analyze({ samples: samples, videoMetadata: { fps: 60 } });
+    var target = auto.supportGeometry.right.stanceIntervals[0];
+    var r = PGIAnalysis.analyze({
+      samples: samples, videoMetadata: { fps: 60 },
+      stanceEdits: [{ side: 'right', autoStartTime: target.startTime,
+                      startTime: target.startTime, endTime: target.endTime + 0.04 }] });
+    var edited = r.supportGeometry.right.stanceIntervals.filter(function (iv) {
+      return iv.manualAdjustment && iv.manualAdjustment.adjustedBy === 'user_frame_scrub';
+    });
+    assert(edited.length === 1, 'edit applied without anchors');
   });
 
   // ═══════════════════════════════════════════════════════════════════════════

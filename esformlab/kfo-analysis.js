@@ -104,6 +104,103 @@
   }
 
   /**
+   * Per-stance toe-off refinement.
+   *
+   * The ankle-Y plateau systematically ends at HEEL-OFF, not toe-off: the ankle
+   * rises as the heel lifts while the toes are still planted, so the plateau
+   * edge reads early on essentially every stance — the one edge users always
+   * correct. The ankle's HORIZONTAL track does not have that flaw: the foot
+   * holds its ground position (constant overground, a steady belt-drift on a
+   * treadmill) until the toes actually leave, and only then swings forward.
+   * In hip-relative terms the ankle's forward offset keeps FALLING through
+   * heel-off (the body keeps travelling over the planted foot) and reverses at
+   * toe-off — so toe-off is the last sample of the offset minimum's flat
+   * bottom, on either surface.
+   *
+   * Refinement is bounded (never past the next same-side stance, never more
+   * than `maxExtendSeconds`) and refuses when no clear post-minimum rise
+   * exists; a stance it cannot refine keeps its plateau edge.
+   */
+  var TOE_OFF_REFINEMENT = Object.freeze({
+    method: 'ankle_offset_minimum',
+    searchBackSeconds: 0.10,
+    maxExtendSeconds: 0.30,
+    minRiseFractionOfScale: 0.08,
+    interStanceGapSeconds: 0.02
+  });
+
+  function refineToeOff(accepted, sortedSamples, side, cfg) {
+    if (!accepted.length) return accepted;
+    var R = TOE_OFF_REFINEMENT;
+    var ankleKey = side === 'left' ? 'lAnkleX' : 'rAnkleX';
+    var dir = KFO.inferRunningDirection(sortedSamples);
+    if (!dir || !isNum(dir.sign) || dir.sign === 0) return accepted;
+    var scales = sortedSamples.map(function (s) { return s.scale; }).filter(isNum);
+    var scaleMed = median(scales) || 60;
+    var riseTol = Math.max(4, scaleMed * R.minRiseFractionOfScale);
+
+    return accepted.map(function (iv, idx) {
+      var next = accepted[idx + 1] || null;
+      var lo = iv.endTime - R.searchBackSeconds;
+      var hi = iv.endTime + R.maxExtendSeconds;
+      if (next) hi = Math.min(hi, next.startTime - R.interStanceGapSeconds);
+      if (!(hi > lo)) return iv;
+
+      var pts = [];
+      sortedSamples.forEach(function (smp) {
+        if (smp.t < lo || smp.t > hi) return;
+        if (!isNum(smp[ankleKey]) || !isNum(smp.hipMidX)) return;
+        pts.push({ t: smp.t, o: (smp[ankleKey] - smp.hipMidX) * dir.sign });
+      });
+      if (pts.length < 3) return iv;
+
+      var vmin = Infinity;
+      pts.forEach(function (pnt) { if (pnt.o < vmin) vmin = pnt.o; });
+      // Toe-off = the LAST sample still on the minimum's flat bottom: the point
+      // the foot stops holding its ground position and swings forward.
+      var tStar = null, kStar = -1;
+      for (var k = 0; k < pts.length; k++) {
+        if (pts[k].o <= vmin + riseTol) { tStar = pts[k].t; kStar = k; }
+      }
+      if (tStar == null) return iv;
+      // Require a genuine post-minimum rise; without one (clip ends in stance,
+      // occluded swing) the plateau edge stands.
+      var risen = false;
+      for (var k2 = kStar + 1; k2 < pts.length; k2++) {
+        if (pts[k2].o > vmin + riseTol * 2) { risen = true; break; }
+      }
+      if (!risen) return iv;
+      // Only meaningful forward extensions; the plateau start side is trusted.
+      if (!(tStar > iv.endTime + 1e-6)) return iv;
+
+      var slice = sortedSamples.filter(function (smp) {
+        return smp.t >= iv.startTime && smp.t <= tStar;
+      });
+      if (slice.length < (cfg.minSamplesPerStance || 3)) return iv;
+      var confs = slice.map(function (smp) { return smp.conf; }).filter(isNum);
+      return {
+        side: iv.side,
+        startTime: iv.startTime,
+        endTime: tStar,
+        durationSeconds: tStar - iv.startTime,
+        samples: slice,
+        sampleCount: slice.length,
+        poseConfidence: confs.length
+          ? confs.reduce(function (a, b) { return a + b; }, 0) / confs.length : iv.poseConfidence,
+        peakTime: iv.peakTime,
+        verified: !!iv.verified,
+        manualAdjustment: iv.manualAdjustment || null,
+        toeOffRefinement: {
+          method: R.method,
+          plateauEndTime: iv.endTime,
+          refinedEndTime: tStar,
+          extensionMs: Math.round((tStar - iv.endTime) * 1000)
+        }
+      };
+    });
+  }
+
+  /**
    * Apply manual landmark corrections to detected stance intervals.
    *
    * Each override is matched to the interval whose AUTO start time it names
@@ -214,6 +311,7 @@
 
     accepted.sort(function (a, b) { return a.startTime - b.startTime; });
     if (accepted.length > cfg.maxStrides) accepted = accepted.slice(0, cfg.maxStrides);
+    accepted = refineToeOff(accepted, sorted, side, cfg);
     accepted = applyIntervalOverrides(accepted, overrides, sorted, cfg);
     return { accepted: accepted, rejected: rejected, plateauTolerance: tol };
   }
@@ -421,7 +519,8 @@
       stanceIntervals: detection.accepted.map(function (s) {
         return { startTime: s.startTime, endTime: s.endTime, durationSeconds: s.durationSeconds,
                  sampleCount: s.sampleCount, verified: !!s.verified,
-                 manualAdjustment: s.manualAdjustment || null };
+                 manualAdjustment: s.manualAdjustment || null,
+                 toeOffRefinement: s.toeOffRefinement || null };
       })
     };
   }
@@ -1144,6 +1243,8 @@
     buildMomentumProxies: buildMomentumProxies,
     detectStanceIntervals: detectStanceIntervals,
     applyIntervalOverrides: applyIntervalOverrides,
+    refineToeOff: refineToeOff,
+    TOE_OFF_REFINEMENT: TOE_OFF_REFINEMENT,
     analyzeStride: analyzeStride,
     analyzeSide: analyzeSide,
     assessPerpendicularity: assessPerpendicularity,

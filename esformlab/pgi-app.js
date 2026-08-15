@@ -162,6 +162,7 @@
       // (initial contact + toe-off per side, adjustable via the scrubber) are
       // the ground truth for stance detection. Minimum COM stays auto-detected.
       userStanceEvents: readUserStanceEvents(),
+      stanceEdits: stanceEditsForAnalysis(),
       videoMetadata: meta,
       userHeightMeters: numOrNull(ctx.heightMeters),
       userSpeedMps: numOrNull(ctx.speedMps),
@@ -327,6 +328,373 @@
     if (btn) btn.addEventListener('click', function () { render(); });
   }
 
+  // ── Stance-landmark cards (frame-scrub review) ─────────────────────────────
+  //
+  // The same interface the product already uses for phase frames: a card grid
+  // (one card per landmark — touchdown and toe-off for every used stance) and
+  // the familiar expand panel with the frame scrubber, working on the ORIGINAL
+  // video frames. Two deliberate differences from the first, abandoned
+  // verification UI:
+  //
+  //   1. Cards, not a blob: each landmark is its own navigable card, and the
+  //      expand panel has Prev/Next so the whole set can be walked without
+  //      closing it.
+  //   2. The overlay is re-posed on EVERY scrubbed frame (detector.estimatePoses
+  //      on the current frame, like "Analyze this frame") — never a stale
+  //      overlay that stays put while the video moves.
+  //
+  // Lowest-COM stays automatic; only touchdown and toe-off are editable here.
+  // Edits apply per stance, verbatim, through the same override path as the
+  // phase-card anchors, and outrank them.
+
+  var landmarkState = { samplesRef: null, stances: null, edits: {} };
+
+  function editKey(side, autoStart) { return side + ':' + Math.round(autoStart * 1000); }
+
+  /** Detected stances (with toe-off refinement, before any user overrides). */
+  function rawStances() {
+    var samples = getSamples();
+    if (!samples) return null;
+    if (landmarkState.samplesRef !== samples) {
+      landmarkState = { samplesRef: samples, stances: null, edits: {} };
+    }
+    if (!landmarkState.stances && typeof KFOAnalysis !== 'undefined') {
+      var list = [];
+      ['left', 'right'].forEach(function (side) {
+        KFOAnalysis.detectStanceIntervals(samples, side).accepted.forEach(function (iv) {
+          list.push({ side: side, autoStart: iv.startTime, autoEnd: iv.endTime,
+                      refined: !!iv.toeOffRefinement });
+        });
+      });
+      list.sort(function (a, b) { return a.autoStart - b.autoStart; });
+      var counters = { left: 0, right: 0 };
+      list.forEach(function (st) {
+        counters[st.side]++;
+        st.label = (st.side === 'left' ? 'L' : 'R') + counters[st.side];
+        st.key = editKey(st.side, st.autoStart);
+      });
+      landmarkState.stances = list;
+    }
+    return landmarkState.stances;
+  }
+
+  function stanceEditsForAnalysis() {
+    var out = [];
+    var stances = landmarkState.stances || [];
+    stances.forEach(function (st) {
+      var ed = landmarkState.edits[st.key];
+      if (!ed) return;
+      out.push({ side: st.side, autoStartTime: st.autoStart,
+                 startTime: ed.startTime, endTime: ed.endTime });
+    });
+    return out;
+  }
+
+  /** The time a landmark currently uses: the edit if present, else detection. */
+  function landmarkTime(st, eventKey) {
+    var ed = landmarkState.edits[st.key] || {};
+    if (eventKey === 'touchdown') {
+      return typeof ed.startTime === 'number' ? ed.startTime : st.autoStart;
+    }
+    return typeof ed.endTime === 'number' ? ed.endTime : st.autoEnd;
+  }
+  function landmarkEdited(st, eventKey) {
+    var ed = landmarkState.edits[st.key] || {};
+    return eventKey === 'touchdown'
+      ? typeof ed.startTime === 'number' : typeof ed.endTime === 'number';
+  }
+
+  /** Flat, ordered landmark list — the navigation order for cards and Prev/Next. */
+  function landmarkList() {
+    var stances = rawStances() || [];
+    var out = [];
+    stances.forEach(function (st) {
+      out.push({ stance: st, event: 'touchdown', name: st.label + ' \u00b7 Touchdown',
+                 desc: 'First frame the foot is on the ground' });
+      out.push({ stance: st, event: 'toeoff', name: st.label + ' \u00b7 Toe-off',
+                 desc: 'Last frame of contact \u2014 toes leaving, not heel rising' });
+    });
+    return out;
+  }
+
+  // ── Overlay drawing (shared by cards and the expand panel) ────────────────
+
+  function nearestSample(t) {
+    var samples = getSamples();
+    if (!samples) return null;
+    var best = null;
+    samples.forEach(function (s) {
+      if (!s || typeof s.t !== 'number' || !s.kps) return;
+      if (!best || Math.abs(s.t - t) < Math.abs(best.t - t)) best = s;
+    });
+    return best;
+  }
+
+  /**
+   * Skeleton + COM + support line for one frame. `kps` and `kpsFrameWidth`
+   * define the coordinate space the keypoints live in; they are rescaled to the
+   * canvas. Live-pose callers pass keypoints estimated on the canvas itself
+   * (kpsFrameWidth = canvas width); card thumbnails pass a retained scan sample.
+   */
+  function drawLandmarkOverlay(canvas, kps, kpsFrameWidth, side) {
+    if (!kps) return;
+    var ctx = canvas.getContext('2d');
+    var scale = canvas.width / (kpsFrameWidth || canvas.width);
+    if (typeof drawPose === 'function' && scale === 1) {
+      try { drawPose(ctx, kps, canvas.width, canvas.height); } catch (e) { /* overlay only */ }
+    }
+    function P(i) {
+      var k = kps[i];
+      return (k && typeof k.x === 'number' && (k.score || 0) >= 0.25)
+        ? { x: k.x * scale, y: k.y * scale } : null;
+    }
+    var ankle = P(side === 'left' ? 15 : 16);
+    var comRaw = (typeof KFO !== 'undefined') ? KFO.computeCOM(kps, 'segmental') : null;
+    var com = comRaw ? { x: comRaw.x * scale, y: comRaw.y * scale } : null;
+    if (ankle && com) {
+      ctx.beginPath(); ctx.setLineDash([6, 4]);
+      ctx.strokeStyle = 'rgba(255,176,32,.9)'; ctx.lineWidth = 2;
+      ctx.moveTo(ankle.x, ankle.y); ctx.lineTo(com.x, com.y); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    if (ankle) { ctx.beginPath(); ctx.fillStyle = 'rgba(61,220,151,1)'; ctx.arc(ankle.x, ankle.y, 5, 0, Math.PI * 2); ctx.fill(); }
+    if (com) { ctx.beginPath(); ctx.fillStyle = 'rgba(255,176,32,1)'; ctx.arc(com.x, com.y, 6, 0, Math.PI * 2); ctx.fill(); }
+  }
+
+  // ── Card grid ──────────────────────────────────────────────────────────────
+
+  var thumbQueue = [], thumbBusy = false;
+  function queueThumb(idx) {
+    if (thumbQueue.indexOf(idx) === -1) thumbQueue.push(idx);
+    if (!thumbBusy) nextThumb();
+  }
+  function nextThumb() {
+    var idx = thumbQueue.shift();
+    if (idx == null) { thumbBusy = false; return; }
+    thumbBusy = true;
+    var video = document.getElementById('video-side');
+    var host = document.getElementById('pgi-landmark-cards');
+    var canvas = host && host.querySelector('[data-pgi-lm-canvas="' + idx + '"]');
+    var lm = landmarkList()[idx];
+    if (!video || !canvas || !lm) { nextThumb(); return; }
+    var t = landmarkTime(lm.stance, lm.event);
+    var done = false;
+    var finish = function () {
+      if (done) return; done = true;
+      video.removeEventListener('seeked', finish);
+      try {
+        var vw = video.videoWidth || 640, vh = video.videoHeight || 360;
+        canvas.width = 320; canvas.height = Math.round(320 * vh / vw);
+        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+        // Thumbnails use the nearest retained sample for the overlay — cheap
+        // and close enough at card size. The expand panel re-poses live.
+        var smp = nearestSample(t);
+        if (smp) drawLandmarkOverlay(canvas, smp.kps, smp.frameWidth || null, lm.stance.side);
+      } catch (e) { /* thumbnail only */ }
+      setTimeout(nextThumb, 25);
+    };
+    video.addEventListener('seeked', finish);
+    setTimeout(finish, 900);
+    try { video.currentTime = t; } catch (e) { finish(); }
+  }
+
+  function refreshLandmarkCardMeta(idx) {
+    var host = document.getElementById('pgi-landmark-cards');
+    if (!host) return;
+    var lm = landmarkList()[idx];
+    if (!lm) return;
+    var timeEl = host.querySelector('[data-pgi-lm-time="' + idx + '"]');
+    if (timeEl) timeEl.textContent = landmarkTime(lm.stance, lm.event).toFixed(2) + 's';
+    var badge = host.querySelector('[data-pgi-lm-badge="' + idx + '"]');
+    if (badge) {
+      var edited = landmarkEdited(lm.stance, lm.event);
+      var refined = lm.event === 'toeoff' && lm.stance.refined;
+      badge.className = 'pc-badge ' + (edited ? 'ok' : refined ? 'ok' : 'pending');
+      badge.textContent = edited ? 'edited' : refined ? 'refined' : 'auto';
+    }
+  }
+
+  function mountLandmarkCards() {
+    var list = landmarkList();
+    var video = document.getElementById('video-side');
+    if (!list.length || !video) { removeNode('pgi-landmark-cards'); return; }
+    var host = document.getElementById('pgi-landmark-cards');
+    var rebuilt = false;
+    if (!host || host.getAttribute('data-count') !== String(list.length)) {
+      host = ensureHost('pgi-landmark-cards', 'pgi-context');
+      if (!host) return;
+      host.setAttribute('data-count', String(list.length));
+      rebuilt = true;
+      host.innerHTML =
+        '<div class="phase-group" style="margin-top:14px">' +
+        '<div class="phase-group-label">Stance landmarks \u2014 tap a card to check the exact frame</div>' +
+        '<div style="font-size:11px;color:var(--muted2,#8aa0c0);line-height:1.5;margin:2px 0 8px">' +
+        'Touchdown and toe-off drive every timing number below. Scrub any card that looks wrong; ' +
+        'lowest-COM stays automatic.</div>' +
+        '<div class="phase-group-cards">' +
+        list.map(function (lm, idx) {
+          return '<div class="phase-card" data-pgi-lm-card="' + idx + '">' +
+            '<div class="pc-hdr"><div class="pc-num">' + (idx + 1) + '</div>' +
+            '<div class="pc-name-wrap"><div class="pc-name">' + lm.name + '</div>' +
+            '<div class="pc-desc">' + lm.desc + '</div></div>' +
+            '<div class="pc-badge pending" data-pgi-lm-badge="' + idx + '">auto</div></div>' +
+            '<div class="pc-canvas-wrap"><canvas class="pc-canvas" data-pgi-lm-canvas="' + idx + '"></canvas></div>' +
+            '<div class="pc-footer"><span class="pc-time-display" data-pgi-lm-time="' + idx + '"></span>' +
+            '<span class="pc-expand-hint">&#8599; Click to adjust</span></div>' +
+            '</div>';
+        }).join('') + '</div></div>';
+      host.querySelectorAll('[data-pgi-lm-card]').forEach(function (card) {
+        card.addEventListener('click', function () {
+          openPgiExpand(parseInt(card.getAttribute('data-pgi-lm-card'), 10));
+        });
+      });
+    }
+    list.forEach(function (lm, idx) {
+      refreshLandmarkCardMeta(idx);
+      if (rebuilt) queueThumb(idx);
+    });
+  }
+
+  // ── Expand panel (identical interface to the phase-card scrubber) ─────────
+
+  var pgiEp = { idx: -1, t: 0, poseToken: 0 };
+
+  function ensurePgiExpand() {
+    if (document.getElementById('pgi-expand-overlay')) return;
+    if (!document.getElementById('pgi-expand-style')) {
+      var st = document.createElement('style');
+      st.id = 'pgi-expand-style';
+      st.textContent =
+        '#pgi-expand-overlay{position:fixed;inset:0;background:rgba(6,8,13,.9);z-index:400;' +
+        'display:none;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}' +
+        '#pgi-expand-overlay.open{display:flex}';
+      document.head.appendChild(st);
+    }
+    var ov = document.createElement('div');
+    ov.id = 'pgi-expand-overlay';
+    ov.innerHTML =
+      '<div class="expand-panel">' +
+      '<div class="ep-hdr"><div class="ep-num" id="pgi-ep-num">1</div>' +
+      '<div style="flex:1"><div class="ep-name" id="pgi-ep-name"></div>' +
+      '<div class="ep-desc" id="pgi-ep-desc"></div></div>' +
+      '<button class="ep-close" onclick="PGIApp._epClose()">&#10005;</button></div>' +
+      '<div class="ep-body"><div class="ep-canvas-side">' +
+      '<div class="ep-canvas-wrap"><canvas class="ep-canvas" id="pgi-ep-canvas"></canvas>' +
+      '<div class="ep-loading" id="pgi-ep-loading"><div class="ep-spinner"></div></div></div>' +
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px">' +
+      '<button class="step-btn-big" onclick="PGIApp._epStep(-25)" title="Back ~1 second">&#8722;1s</button>' +
+      '<button class="step-btn-big" onclick="PGIApp._epStep(-5)">&#8722;5f</button>' +
+      '<button class="step-btn-big" onclick="PGIApp._epStep(-1)">&#8722;1f</button>' +
+      '<span class="ep-time" id="pgi-ep-time">0.00s</span>' +
+      '<button class="step-btn-big" onclick="PGIApp._epStep(1)">+1f</button>' +
+      '<button class="step-btn-big" onclick="PGIApp._epStep(5)">+5f</button>' +
+      '<button class="step-btn-big" onclick="PGIApp._epStep(25)" title="Forward ~1 second">+1s</button>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px">' +
+      '<button class="re-btn" id="pgi-ep-use" onclick="PGIApp._epUse()">&#10003; Use this frame</button>' +
+      '<button class="step-btn-big" onclick="PGIApp._epNav(-1)">&#8249; Prev</button>' +
+      '<button class="step-btn-big" onclick="PGIApp._epNav(1)">Next &#8250;</button>' +
+      '<span id="pgi-ep-status" style="font-size:11px;color:var(--muted2,#8aa0c0)"></span>' +
+      '</div>' +
+      '<div style="font-size:10.5px;color:var(--muted2,#8aa0c0);line-height:1.5;margin-top:8px">' +
+      'The overlay (skeleton, centre of mass, support line) is re-detected on every frame you ' +
+      'scrub to. It is body geometry, not a force direction.</div>' +
+      '</div></div></div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', function (ev) { if (ev.target === ov) epClose(); });
+  }
+
+  function openPgiExpand(idx) {
+    var list = landmarkList();
+    var lm = list[idx];
+    if (!lm) return;
+    ensurePgiExpand();
+    pgiEp.idx = idx;
+    document.getElementById('pgi-ep-num').textContent = String(idx + 1);
+    document.getElementById('pgi-ep-name').textContent =
+      lm.name.replace(/\u00b7/g, '\u00b7');
+    document.getElementById('pgi-ep-desc').textContent = lm.desc +
+      ' \u2014 ' + (lm.stance.side === 'left' ? 'left' : 'right') + ' foot';
+    document.getElementById('pgi-expand-overlay').classList.add('open');
+    epScrubTo(landmarkTime(lm.stance, lm.event));
+  }
+  function epClose() {
+    var ov = document.getElementById('pgi-expand-overlay');
+    if (ov) ov.classList.remove('open');
+    pgiEp.idx = -1;
+  }
+  function epNav(dir) {
+    var list = landmarkList();
+    if (pgiEp.idx < 0 || !list.length) return;
+    openPgiExpand((pgiEp.idx + dir + list.length) % list.length);
+  }
+  function epStep(frames) {
+    var video = document.getElementById('video-side');
+    if (!video) return;
+    var t = Math.max(0, Math.min(video.duration || 0, pgiEp.t + frames * 0.04));
+    epScrubTo(t);
+  }
+
+  /**
+   * Seek, draw the ORIGINAL video frame, then re-pose THAT frame and draw the
+   * overlay — the overlay always moves with the scrub. A token discards any
+   * pose result that lands after the user has scrubbed again.
+   */
+  function epScrubTo(t) {
+    var video = document.getElementById('video-side');
+    var canvas = document.getElementById('pgi-ep-canvas');
+    if (!video || !canvas || pgiEp.idx < 0) return;
+    pgiEp.t = t;
+    var token = ++pgiEp.poseToken;
+    document.getElementById('pgi-ep-time').textContent = t.toFixed(2) + 's';
+    var done = false;
+    var onSeek = function () {
+      if (done) return; done = true;
+      video.removeEventListener('seeked', onSeek);
+      if (token !== pgiEp.poseToken) return;
+      var W = video.videoWidth || 640, H = video.videoHeight || 360;
+      canvas.width = W; canvas.height = H;
+      try { canvas.getContext('2d').drawImage(video, 0, 0, W, H); } catch (e) { return; }
+      // Live pose on the frame just drawn.
+      if (typeof detector === 'undefined' || !detector) return;
+      var loading = document.getElementById('pgi-ep-loading');
+      if (loading) loading.classList.add('show');
+      detector.estimatePoses(canvas).then(function (poses) {
+        if (loading) loading.classList.remove('show');
+        if (token !== pgiEp.poseToken) return;
+        var lm = landmarkList()[pgiEp.idx];
+        if (poses && poses.length && lm) {
+          drawLandmarkOverlay(canvas, poses[0].keypoints, W, lm.stance.side);
+        }
+      }).catch(function () { if (loading) loading.classList.remove('show'); });
+    };
+    video.addEventListener('seeked', onSeek);
+    setTimeout(onSeek, 900);
+    try { video.currentTime = t; } catch (e) { onSeek(); }
+  }
+
+  /** Commit the scrubbed frame as this landmark's time and re-analyse. */
+  function epUse() {
+    var lm = landmarkList()[pgiEp.idx];
+    if (!lm) return;
+    var ed = landmarkState.edits[lm.stance.key] || {};
+    if (lm.event === 'touchdown') ed.startTime = pgiEp.t;
+    else ed.endTime = pgiEp.t;
+    // Ordering guard: an edit may not invert the stance.
+    var startT = typeof ed.startTime === 'number' ? ed.startTime : lm.stance.autoStart;
+    var endT = typeof ed.endTime === 'number' ? ed.endTime : lm.stance.autoEnd;
+    var status = document.getElementById('pgi-ep-status');
+    if (!(endT > startT + 0.04)) {
+      if (status) status.textContent = 'Refused: toe-off must come after touchdown.';
+      return;
+    }
+    landmarkState.edits[lm.stance.key] = ed;
+    if (status) status.textContent = 'Saved \u2014 analysis updated with this frame.';
+    refreshLandmarkCardMeta(pgiEp.idx);
+    queueThumb(pgiEp.idx);
+    render();
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   function render() {
@@ -335,7 +703,9 @@
     if (isEnabled('projectionGroundInteraction')) {
       try {
         mountContextInputs();
+        rawStances();
         var result = analyze();
+        mountLandmarkCards();
         if (result) {
           if (typeof PGIRender !== 'undefined') PGIRender.mount(result, 'pgi-report');
         } else {
@@ -352,8 +722,8 @@
         console.error('[pgi] render failed:', e);
       }
     } else {
-      ['pgi-context', 'pgi-report', 'pgi-verify', 'pgi-conditions', 'pgi-comparison',
-       'pgi-research-tools'].forEach(removeNode);
+      ['pgi-context', 'pgi-report', 'pgi-verify', 'pgi-landmark-cards', 'pgi-conditions',
+       'pgi-comparison', 'pgi-research-tools'].forEach(removeNode);
     }
 
     // The superseded force-orientation panel, off by default.
@@ -505,11 +875,11 @@
    */
   function renderSaved(doc) {
     if (!isAdminUser() || !isEnabled('projectionGroundInteraction')) {
-      ['pgi-context', 'pgi-report', 'pgi-verify', 'pgi-conditions', 'pgi-comparison',
-       'pgi-research-tools'].forEach(removeNode);
+      ['pgi-context', 'pgi-report', 'pgi-verify', 'pgi-landmark-cards', 'pgi-conditions',
+       'pgi-comparison', 'pgi-research-tools'].forEach(removeNode);
       return;
     }
-    ['pgi-context', 'pgi-verify', 'pgi-conditions', 'pgi-comparison',
+    ['pgi-context', 'pgi-verify', 'pgi-landmark-cards', 'pgi-conditions', 'pgi-comparison',
      'pgi-research-tools'].forEach(removeNode);
     lastResult = null;
     if (typeof PGIRender === 'undefined' || typeof PGIAnalysis === 'undefined') return;
@@ -578,6 +948,11 @@
     renderSaved: renderSaved,
     storedFields: storedFields,
     fromStored: fromStored,
-    help: help
+    help: help,
+    // Expand-panel handlers (bound from the injected markup).
+    _epStep: epStep,
+    _epNav: epNav,
+    _epUse: epUse,
+    _epClose: epClose
   };
 })();

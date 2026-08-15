@@ -425,6 +425,31 @@
     var stanceOv = userAnchors.any
       ? userAnchors.overrides
       : (input.stanceOverrides || null);
+    // Explicit per-stance frame-scrub edits outrank everything: the user looked
+    // at THAT stance's frames and said so. Each edit names the detected (auto)
+    // start time of the stance it corrects.
+    if (input.stanceEdits && input.stanceEdits.length) {
+      stanceOv = stanceOv || { left: null, right: null };
+      input.stanceEdits.forEach(function (ed) {
+        if (!ed || (ed.side !== 'left' && ed.side !== 'right') || !isNum(ed.autoStartTime)) return;
+        var list = stanceOv[ed.side] ? stanceOv[ed.side].slice() : [];
+        var entry = { autoStartTime: ed.autoStartTime, source: 'user_frame_scrub' };
+        if (isNum(ed.startTime)) entry.startTime = ed.startTime;
+        if (isNum(ed.endTime)) entry.endTime = ed.endTime;
+        var replaced = false;
+        for (var i2 = 0; i2 < list.length; i2++) {
+          if (isNum(list[i2].autoStartTime) &&
+              Math.abs(list[i2].autoStartTime - ed.autoStartTime) < 0.04) {
+            // Preserve whichever edge the edit did not touch from the anchor set.
+            if (!isNum(entry.startTime) && isNum(list[i2].startTime)) entry.startTime = list[i2].startTime;
+            if (!isNum(entry.endTime) && isNum(list[i2].endTime)) entry.endTime = list[i2].endTime;
+            list[i2] = entry; replaced = true; break;
+          }
+        }
+        if (!replaced) list.push(entry);
+        stanceOv[ed.side] = list;
+      });
+    }
     var geomLeft = KFOAnalysis.analyzeSide(samples, 'left', direction,
       KFOEstimators.GeometryProxyEstimator, undefined, stanceOv ? stanceOv.left : null);
     var geomRight = KFOAnalysis.analyzeSide(samples, 'right', direction,
