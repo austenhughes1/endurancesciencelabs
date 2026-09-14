@@ -1,20 +1,22 @@
-# Strava API Compliance — Extended Access Tier Request
+# Strava API Compliance — Standard Tier
+
+Status: **Extended Access was denied** (Sept 2026). We operate on **Standard** — capped at 10 connected athletes, developer Strava subscription active — and run the full coach-facing dashboards within that cap.
 
 Audit date: **July 9, 2026**, against the **June 1, 2026** [API Agreement](https://www.strava.com/legal/api), the [API Policy](https://www.strava.com/legal/api_policy), and the [Brand Guidelines](https://developers.strava.com/guidelines/).
 
 ## What changed in Strava's June 2026 developer program
 
-- Two tiers: **Standard** (self-service, max **10 athletes**, requires an active Strava subscription on the developer's account from June 30, 2026) and **Extended Access** (case-by-case approval, higher limits, no subscription requirement). Growing past 10 athletes requires Extended — that is this request.
+- Two tiers: **Standard** (self-service, max **10 athletes**, requires an active Strava subscription on the developer's account from June 30, 2026) and **Extended Access** (case-by-case approval, higher limits, no subscription requirement). Our Extended Access request was **denied**, so athlete connections have to stay at or under 10.
 - Deprecations on **September 1, 2026**: Club Activities / Club Admins / Club Members and Segments Explore endpoints. *(We use none of these — only `/athlete/activities` and `/activities/{id}`.)*
 - Coming **June 1, 2027**: tokens must move to request headers (we already send `Authorization: Bearer` headers) and base URL changes to `https://www.api-v3.strava.com` (**TODO when Strava opens the new host**: update `STRAVA_*_URL` constants in `functions/index.js`).
 - Apps routing data through intermediary platforms are not supported. *(We integrate directly.)*
 
 ## Our use case (what to write on the form)
 
-Endurance running coaching platform. An athlete explicitly authorizes the app via OAuth (`activity:read_all`) to see their **own** training load and impact metrics. Strava data is shown **only to the authorizing athlete** — coaches see a link out to strava.com, never the athlete's Strava-sourced data. It appears in two places, both athlete-only:
+Private 1-coach coaching platform. An athlete explicitly authorizes the app via OAuth (`activity:read_all`) so their own coach can see their training — the consented coaching use case Strava's FAQ allows. Strava data is shown **only to the athlete themself and their assigned coach**, in two places:
 
-- **Athlete dashboard feed** — last ~120 days of the athlete's own activities (name, type, date, distance, time, elevation, HR, pace, recent descriptions).
-- **Run Dynamics** (the athlete's own training-load view) — last **2 years** of the athlete's runs (summary fields only: name, type, date, distance, moving time, elevation gain, HR, cadence), used solely to fill days the athlete hasn't covered with a manual Garmin/Coros file upload. Watch uploads always take precedence, and the derived load metric is computed against the athlete's own baseline — never compared across athletes.
+- **Coach dashboard feed** — last ~120 days of activities (name, type, date, distance, time, elevation, HR, pace, recent descriptions), stored per training plan.
+- **Run Dynamics** (training-load view for the same athlete + coach) — last **2 years** of the athlete's runs (summary fields only: name, type, date, distance, moving time, elevation gain, HR, cadence), used solely to fill days the athlete hasn't covered with a manual Garmin/Coros file upload. Watch uploads always take precedence, and the derived load metric is computed per-athlete against the athlete's own baseline — never compared across athletes.
 
 No leaderboards, no cross-athlete visibility, no public display, no analytics products, no AI/ML, no data resale.
 
@@ -22,7 +24,7 @@ No leaderboards, no cross-athlete visibility, no public display, no analytics pr
 
 | Requirement | Status |
 |---|---|
-| Data shown only to the authorizing user | ✅ The coaching view shows coaches only a link out to strava.com — no Strava-sourced athlete data is rendered to a coach. **TODO before submitting:** tighten the Firestore rules for `stravaActivities` / `users/{uid}/garminActivities` to drop `coachUid` read access so the rules match the UI |
+| Data shown only to the authorizing user (+ their coach, the consented coaching use case Strava's FAQ allows) | ✅ Firestore rules scope `stravaActivities` reads to the plan's `athleteUid`, `coachUid`, and admin only |
 | No leaderboards / cross-athlete sharing | ✅ None anywhere in the app |
 | No analytics products / aggregated insights from Strava data (API Policy §5.4) | ✅ esFormLab and esMetabolicLab do not touch Strava data; Run Dynamics uses the authorizing athlete's own runs to show that same athlete (+ their coach) their individual training load — no aggregation across athletes, no comparison to other athletes' data |
 | No AI/ML use of Strava data (API Policy §5.3) | ✅ None |
@@ -39,9 +41,9 @@ No leaderboards, no cross-athlete visibility, no public display, no analytics pr
 
 ## One-time setup still required (not code)
 
-0. **Fix the app description in the Strava API settings** (https://www.strava.com/settings/api) — this string renders on the OAuth consent screen and is the first thing a reviewer sees. It must not advertise coach access to athlete data. Set it to:
+0. **Keep the app description in the Strava API settings accurate** (https://www.strava.com/settings/api) — this string renders on the OAuth consent screen, so it has to match what the app actually does with the data. With the coach dashboards live:
 
-   > Evidence-based endurance running coaching platform. Athletes sync their Strava activities to view their own training load and impact metrics.
+   > Evidence-based endurance running coaching platform. Athletes sync their Strava activities so they and their own coach can review their training load and impact metrics.
 
 1. **Deploy functions** (`firebase deploy --only functions`) — adds `stravaWebhook`.
 2. **Set `STRAVA_VERIFY_TOKEN`** in `functions/.env` (any random string).
