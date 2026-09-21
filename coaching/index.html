@@ -151,7 +151,8 @@ header{display:none}
 /* ── Week nav ───────────────────────────────────────── */
 .week-nav{display:flex;align-items:center;gap:12px}
 .week-nav-btn{width:36px;height:36px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--muted2);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
-.week-nav-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.week-nav-btn:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan)}
+.week-nav-btn:disabled{opacity:.3;cursor:default}
 .week-nav-label{font-size:15px;font-weight:700;min-width:220px;text-align:center}
 .week-today-btn{font-size:11px;font-weight:600;font-family:var(--mono);color:var(--cyan);cursor:pointer;background:none;border:1px solid rgba(0,229,200,.25);border-radius:6px;padding:4px 10px;transition:all .15s}
 .week-today-btn:hover{background:rgba(0,229,200,.08)}
@@ -170,6 +171,7 @@ header{display:none}
 .plan-overview-wrap{background:var(--panel);border:1px solid var(--border2);border-radius:14px;overflow:hidden;animation:fadeIn .3s ease}
 .plan-overview-header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .plan-overview-title{font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;font-family:var(--mono);color:var(--cyan)}
+.po-range{color:var(--muted2);text-transform:none;letter-spacing:.2px;font-weight:600;margin-left:8px}
 .plan-overview-sub{font-size:11px;color:var(--muted2);font-family:var(--mono)}
 .plan-overview-scroll{max-height:78vh;overflow:auto}
 .plan-overview-table{width:100%;border-collapse:collapse;font-size:12px}
@@ -966,6 +968,7 @@ let stravaCache = {};
 let savingWeeks = {};
 let currentTab = 'training'; // 'training' or 'lifting'
 let viewMode = 'week'; // 'week' (single-week editor) or 'overview' (16-week table)
+let overviewPage = 0; // 0 = most recent 16 weeks, 1 = the 16 before that, …
 let liftingCache = {}; // weekStart -> lifting data
 let expandedCategories = {}; // categoryName -> bool
 
@@ -1528,6 +1531,7 @@ async function selectAthlete(uid, data, el) {
   weekOffset = 0;
   currentTab = 'training';
   viewMode = 'week';
+  overviewPage = 0;
   expandedCategories = {};
 
   document.querySelectorAll('.athlete-item').forEach(e => e.classList.remove('active'));
@@ -1703,6 +1707,23 @@ function getWeekMonday(offset) {
   const today = new Date();
   const thisMonday = getMonday(today);
   return addDays(thisMonday, offset * 7);
+}
+
+// ── 16-week overview paging ────────────────────────────────
+// Page 0 is the most recent block (week offsets -15..0), page 1 the 16 weeks
+// before that (-31..-16), and so on. Paging forward past page 0 is not allowed.
+function overviewRange(page = overviewPage) {
+  const to = -16 * page;           // newest week offset in the block
+  return { from: to - 15, to };
+}
+
+function overviewRangeLabel(page = overviewPage) {
+  const { from, to } = overviewRange(page);
+  const start = getWeekMonday(from);
+  const end = addDays(getWeekMonday(to), 6);
+  const startStr = `${MONTHS[start.getMonth()]} ${start.getDate()}`
+    + (start.getFullYear() !== end.getFullYear() ? `, ${start.getFullYear()}` : '');
+  return `${startStr} – ${MONTHS[end.getMonth()]} ${end.getDate()}, ${end.getFullYear()}`;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1994,9 +2015,10 @@ function renderPlanOverview(role) {
   const todayMon = getMonday(new Date());
   const todayMonStr = dateToStr(todayMon);
 
-  // Build rows for offsets -15 .. 0 (16 weeks), most recent first
+  // Build rows for the current 16-week page, most recent first
+  const { from: pageFrom, to: pageTo } = overviewRange();
   const rows = [];
-  for (let off = 0; off >= -15; off--) {
+  for (let off = pageTo; off >= pageFrom; off--) {
     const mon = getWeekMonday(off);
     const monStr = dateToStr(mon);
     const w = workoutsCache[monStr] || {};
@@ -2026,13 +2048,14 @@ function renderPlanOverview(role) {
     return `<td><div class="po-cell-text" title="${esc(text)}">${esc(text)}</div></td>`;
   }
 
+  const rangeLabel = overviewRangeLabel();
   const headerSub = anyData
     ? `${rows.filter(r => r.w.milesPerWeek || r.w.midweekSession || r.w.weekendSession || r.w.longRun || hasSupporting(r.w) || r.w.notes).length} of 16 weeks have entries · click any row to edit`
-    : 'No workouts written yet for the last 16 weeks';
+    : `No workouts written yet for ${overviewPage === 0 ? 'the last 16 weeks' : rangeLabel}`;
 
   let html = `<div class="plan-overview-wrap">
     <div class="plan-overview-header">
-      <div class="plan-overview-title">16-week plan overview</div>
+      <div class="plan-overview-title">16-week plan overview <span class="po-range">${rangeLabel}</span></div>
       <div class="plan-overview-sub">${headerSub}</div>
     </div>
     <div class="plan-overview-scroll">
@@ -2085,16 +2108,41 @@ async function setViewMode(mode) {
   if (mode === viewMode) return;
   viewMode = mode;
   if (mode === 'overview') {
-    // Pre-load 16 weeks of workouts + strava (some weeks may already be cached)
+    // Open on the 16-week block containing the week that was being edited.
+    overviewPage = Math.max(0, Math.floor(-weekOffset / 16));
+    const { from, to } = overviewRange();
+    // Pre-load the block's workouts + strava (some weeks may already be cached)
     await Promise.all([
-      loadWorkoutsRange(-15, 0),
-      loadStravaRange(-15, 0)
+      loadWorkoutsRange(from, to),
+      loadStravaRange(from, to)
     ]);
   }
   const role = isCoach ? 'coach' : 'athlete';
   const weekId = isCoach ? 'coach-week-container' : 'athlete-week-container';
   const dashId = isCoach ? 'coach-dashboard' : 'athlete-dashboard';
   renderSingleWeek(weekId, dashId, role);
+}
+
+// Page the overview table back/forward in 16-week blocks. delta of +1 goes
+// further into the past; page 0 (the most recent block) is the forward limit.
+async function navOverview(delta) {
+  const next = overviewPage + delta;
+  if (next < 0) return;
+  overviewPage = next;
+  const { from, to } = overviewRange();
+  await Promise.all([
+    loadWorkoutsRange(from, to),
+    loadStravaRange(from, to)
+  ]);
+  const role = isCoach ? 'coach' : 'athlete';
+  const weekId = isCoach ? 'coach-week-container' : 'athlete-week-container';
+  const dashId = isCoach ? 'coach-dashboard' : 'athlete-dashboard';
+  renderSingleWeek(weekId, dashId, role);
+}
+
+async function navOverviewRecent() {
+  if (overviewPage === 0) return;
+  await navOverview(-overviewPage);
 }
 
 async function openWeekFromOverview(weekStr) {
@@ -2180,7 +2228,12 @@ function renderSingleWeek(weekContainerId, dashContainerId, role) {
   if (currentTab !== 'rundynamics') {
   html += `<div class="week-nav">`;
   if (overviewActive) {
-    html += `<div class="week-nav-label" style="min-width:auto">Last 16 weeks</div>`;
+    const blocksBack = overviewPage;
+    html += `<button class="week-nav-btn" onclick="navOverview(1)" title="Previous 16 weeks">‹</button>
+      <div class="week-nav-label">${overviewRangeLabel()}</div>
+      <button class="week-nav-btn" onclick="navOverview(-1)" title="Next 16 weeks"${blocksBack === 0 ? ' disabled' : ''}>›</button>
+      ${blocksBack > 0 ? `<span class="wk-weeks-out">${blocksBack * 16} weeks back</span>
+      <button class="week-today-btn" onclick="navOverviewRecent()">Most recent</button>` : ''}`;
   } else {
     html += `<button class="week-nav-btn" onclick="navWeek(-1)">‹</button>
       <div class="week-nav-label">${formatDateRange(monday)}</div>
