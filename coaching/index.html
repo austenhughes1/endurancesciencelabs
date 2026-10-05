@@ -890,7 +890,7 @@ header{display:none}
       <option value="female">Female</option>
     </select>
     <input class="modal-field" id="pm-dob" type="date" autocomplete="off" style="color:var(--muted)" onfocus="this.style.color='var(--text)'" onchange="this.style.color=this.value?'var(--text)':'var(--muted)'">
-    <label for="pm-dob" style="font-size:10px;color:var(--muted2);font-family:var(--mono);margin-top:-6px;margin-bottom:10px;display:block">Date of birth</label>
+    <label for="pm-dob" style="font-size:10px;color:var(--muted2);font-family:var(--mono);margin-top:-6px;margin-bottom:10px;display:block">Date of birth (optional) — used to estimate max HR if you leave it blank below.</label>
     <input class="modal-field" id="pm-maxhr" type="number" min="120" max="230" inputmode="numeric" placeholder="Max heart rate (optional)" autocomplete="off">
     <label for="pm-maxhr" style="font-size:10px;color:var(--muted2);font-family:var(--mono);margin-top:-6px;margin-bottom:10px;display:block">Max HR in bpm — improves training-load accuracy. Leave blank to estimate from age.</label>
     <div class="modal-error" id="pm-error"></div>
@@ -3512,7 +3512,7 @@ async function addAthlete() {
 //  COMPLETE PROFILE (athlete first login)
 // ══════════════════════════════════════════════════════════
 function checkProfileComplete() {
-  if (!isCoach && userDoc && !userDoc.profileComplete && (!userDoc.gender || !userDoc.dob)) {
+  if (!isCoach && userDoc && !userDoc.profileComplete && !userDoc.gender) {
     document.getElementById('profile-modal').classList.add('open');
   }
 }
@@ -3521,11 +3521,13 @@ async function saveProfile() {
   const errEl = document.getElementById('pm-error');
   const btn = document.getElementById('pm-btn');
   const gender = document.getElementById('pm-gender').value;
-  const dob = document.getElementById('pm-dob').value;
+  const dob = document.getElementById('pm-dob').value || null;
   const maxHrRaw = document.getElementById('pm-maxhr').value;
 
   if (!gender) { errEl.textContent = 'Please select a gender.'; return; }
-  if (!dob) { errEl.textContent = 'Please enter your date of birth.'; return; }
+  if (dob && new Date(dob + 'T00:00:00').getTime() > Date.now()) {
+    errEl.textContent = 'Date of birth cannot be in the future.'; return;
+  }
 
   let maxHr = null;
   if (maxHrRaw) {
