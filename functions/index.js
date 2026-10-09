@@ -17,7 +17,7 @@ const ADMIN_UID = "2z9Z3K5ZwShvadUuqZmwMv0s1Od2";
 // Pass-duration / price-id constants mirror the client-side esformlab logic.
 // Keep these in sync with the same constants at the top of esformlab/index.html.
 const PASS_DURATION_SEC = 90 * 24 * 60 * 60;
-const COACHING_PREMIUM_PRICE_ID = "price_1TVJJuIFO8pppwnF5uECviT3";
+const COACHING_PREMIUM_PRICE_ID = "price_1UOlXBIFO8pppwnFMym4W83P";
 
 // ═══════════════════════════════════════════════════════════
 //  stravaCallback — HTTPS endpoint that Strava redirects to
@@ -702,11 +702,11 @@ exports.deauthorizeStrava = onCall({ cors: true }, async (request) => {
 // ═══════════════════════════════════════════════════════════
 const COACHING_PRICE_IDS = {
   "price_1TVIadIFO8pppwnFuj3vYy9S": "Standard",
-  "price_1TVJJuIFO8pppwnF5uECviT3": "Full Access",
+  "price_1UOlXBIFO8pppwnFMym4W83P": "Full Access",
 };
 const COACHING_PRICE_AMOUNTS = {
-  "Standard": 145,
-  "Full Access": 245,
+  "Standard": 175,
+  "Full Access": 275,
 };
 
 function extractSubscriptionPriceIds(sub) {
