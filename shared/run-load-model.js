@@ -30,7 +30,13 @@ var DEFAULTS = {
   // is not pinned down well enough to tune from. Mirrors the Lever IQ model (commit 28f0dd6).
   kPace:      0.5,
   kImpact:    1.0,   // per-step impact exponent — peak vGRF ∝ 1/duty factor (Morin 2005; Patoz 2023)
-  useGrade:   false, // enable grade surcharge (needs ascent/descent metres)
+  // Grade surcharge ON by default. It used to ship false with the only call site
+  // (run-dynamics.js computeLoadParams) flipping it true; the Lever IQ port copied the
+  // defaults, lost the override, and the whole grade term was dead in production for
+  // months. Runs with no elevation degrade to a neutral 1.0 on their own and indoor runs
+  // are excluded by impactLoad regardless, so the only reason to turn it off is to
+  // isolate the other terms in a test.
+  useGrade:   true,
   acuteN:     7,     // acute EWMA window (days)
   chronicN:   28,    // chronic EWMA window (days)
   refWeight:  1.0,   // reference weight; = athlete weight for clean eq-miles
@@ -77,6 +83,38 @@ var DEFAULTS = {
   kOffload:   0.85
 };
 
+// Indoor run: a belt never descends, and its ascent is an incline setting, not a hill.
+// ESL writes 'Treadmill Running' for Strava trainer/VirtualRun activities and Garmin CSV
+// carries the same label; Coros FIT and other sources may say 'Virtual Run' / 'Indoor'.
+function isIndoor(r) { return /treadmill|virtual|indoor/i.test((r && r.type) || ''); }
+
+// Ascent and descent in metres for the grade terms, resolved at READ time, with an ABSENT
+// descent mirrored from the ascent on outdoor runs.
+//
+// Strava's activity summary reports total elevation GAIN and no loss, so a hilly Strava run
+// would otherwise be priced as though the athlete climbed and never came back down. That is
+// the expensive half to lose: descent is weighted 3× ascent (kDescent) because eccentric
+// downhill loading is what actually damages tissue. An outdoor run ends near where it
+// started often enough that "you came down what you went up" is the honest prior, and it is
+// what real Garmin records show (descent within ~10% of ascent). A RECORDED descent always
+// wins, including a recorded 0 — that is a point-to-point climb, not missing data.
+//
+// A Strava doc's descentM is treated as ABSENT: Strava never sends descent, so whatever the
+// doc holds was written as a sync-time mirror (older syncs) or null (current syncs), never
+// measured. Reading it as absent means existing outdoor Strava docs resolve to the same
+// number they held, treadmill Strava docs stop being surcharged, and no migration is needed.
+// A later Garmin/FIT import that replaces the doc (source !== 'strava') still wins.
+//
+// Nothing is mirrored for an indoor run: a belt never descends. Its ascent is still returned
+// honestly, because an incline does legitimately slow the pace that calibPace adjusts.
+// Mirrors Lever IQ ImpactLoadModel.elevation (PR #93 e32e478, PR #96 f545a4c).
+function elevation(run) {
+  var ascent = run.ascentM > 0 ? run.ascentM : 0;
+  var recorded = run.source === 'strava' ? null : run.descentM;
+  if (recorded != null) return { ascent: ascent, descent: recorded > 0 ? recorded : 0 };
+  return { ascent: ascent, descent: isIndoor(run) ? 0 : ascent };
+}
+
 function median(arr) {
   if (!arr.length) return null;
   var s = arr.slice().sort(function (a, b) { return a - b; });
@@ -93,14 +131,15 @@ function calibPace(r, p) {
   if (r.paceSec == null || r.paceSec <= 0) return null;
   if (r.gapSec > 0) return r.gapSec;
   if (!(r.distMi > 0)) return r.paceSec;
-  var dM = r.distMi * 1609.34;
-  var ag = (r.ascentM  > 0 ? r.ascentM  : 0) / dM;
-  var dg = (r.descentM > 0 ? r.descentM : 0) / dM;
+  var dM = r.distMi * 1609.34, el = elevation(r);
+  var ag = el.ascent / dM;
+  var dg = el.descent / dM;
   return r.paceSec / Math.max(1 + p.gapUp * ag - p.gapDown * dg, 0.7);
 }
 function meanTotalGrade(r) {
   if (!(r.distMi > 0)) return 0;
-  return ((r.ascentM > 0 ? r.ascentM : 0) + (r.descentM > 0 ? r.descentM : 0)) / (r.distMi * 1609.34);
+  var el = elevation(r);
+  return (el.ascent + el.descent) / (r.distMi * 1609.34);
 }
 
 // Per-athlete, per-device baseline from their easy-run history (grade-adjusted pace at
@@ -158,10 +197,16 @@ function impactLoad(run, p) {
   // negative load; missing/zero falls back to refWeight (→ 1). Matches the lever-iq port.
   var wF    = ((run.weight > 0 ? run.weight : p.refWeight)) / p.refWeight;
   var mods = paceF * dfF * wF;
-  if (p.useGrade && run.distMi) {
-    var distM = run.distMi * 1609.34;
-    var dg = (run.descentM || 0) / distM;   // mean descent grade (fraction)
-    var ag = (run.ascentM  || 0) / distM;   // mean ascent grade (fraction)
+  // Indoor runs are excluded outright: an inclined treadmill reports ascent, and with the
+  // descent mirrored (or, on older Strava syncs, written) to match, a belt that never produced
+  // a single eccentric downhill step was surcharged for the full hill — 11.58 vs the correct
+  // 10.00 on a 10 mi / 1000 ft session. ESL has no source that records a signed treadmill
+  // grade, so there is no "both directions measured" exception here (Lever IQ has one for its
+  // in-app tracker only). The ascent still feeds calibPace, where an incline slows the pace.
+  if (p.useGrade && run.distMi && !isIndoor(run)) {
+    var distM = run.distMi * 1609.34, el = elevation(run);
+    var dg = el.descent / distM;   // mean descent grade (fraction)
+    var ag = el.ascent  / distM;   // mean ascent grade (fraction)
     mods *= Math.min(1 + p.kDescent * dg * dg + p.kAscent * ag * ag, p.gradeCap);
   }
   // FLOOR: at full bodyweight, a mile is never less than a mile of impact. Slower-than-
@@ -328,7 +373,7 @@ Acute : Chronic = recent load vs the base you have built</pre>`
 + `<div style="${V}"><span style="${K}">DF, DF₀</span> — duty factor = cadence × ground-contact time, vs your easy baseline (median of <b>flat</b> easy runs only, ≤2% mean total grade when enough exist — slow long-contact trail steps would otherwise inflate the form baseline and surcharge normal flat running). Cadence from the wrist; GCT from a chest strap, foot/waist pod, or wrist running-dynamics. Lower duty factor (shorter contact, more flight) loads each step harder. Caveats: needs a running-dynamics-capable device; GCT is an estimate; duty factor changes with speed, so we only ever compare you to <i>your own</i> baseline.</div>`
 + `<div style="${V}"><span style="${K}">W, W₀</span> — body weight ÷ a reference weight, from the profile. Equals 1 for a single athlete (drops out); only matters when comparing across athletes.</div>`
 + `<div style="${V}"><span style="${K}">O</span> — Lever body-weight offload: on a Lever run part of bodyweight is supported, and the run is discounted by (1 − 0.85·O), not (1 − O). Taking weight off does not take force off one-for-one: on the Lever, peak vertical force falls ~0.7× the offload (−9% at 90% body weight, −14% at 80%; Paquette 2021, N = 16) while loading rate and vertical impulse fall ~1.0×, so 0.85 is the midpoint of the two slopes — the same tissue-load definition the 0.5 pace exponent uses. O = 0 for normal runs. Known limits: the measured slope is not constant (steeper over the first 10% of support than the next), individual runners ranged −3% to −26% at 80% body weight, and there is no Lever data above ~27% offload. Default is <b>85% bodyweight</b> (O = 0.15), set in the profile. Lever runs are detected automatically — a <b>treadmill</b> activity whose <b>HR is lower than expected for its pace</b> (the offload signature) — or by an activity title containing “lever.” Caveat: treadmill pace can be miscalibrated; a dedicated per-run Lever source (tag / device import) can be wired in later for exact offloads.</div>`
-+ `<div style="${V}"><span style="${K}">G</span> — hill surcharge from total ascent &amp; descent ÷ distance (mean grade), descent weighted ~3× ascent, capped at 2.5. Caveat: only the totals are recorded, so this is <i>mean</i> grade — it can’t tell one steep descent from rolling terrain with the same total, and under-counts concentrated descents. Per-segment grade (from FIT files) would fix this.</div>`
++ `<div style="${V}"><span style="${K}">G</span> — hill surcharge from total ascent &amp; descent ÷ distance (mean grade), descent weighted ~3× ascent, capped at 2.5. When a source records no descent (Strava reports only gain), descent is assumed equal to ascent for outdoor runs — runs almost always end where they started — while a recorded descent, including 0, is used as is. Treadmill / indoor runs take no hill surcharge at all: a belt never descends, so an incline's reported ascent would otherwise price a downhill that never happened. Caveat: only the totals are recorded, so this is <i>mean</i> grade — it can’t tell one steep descent from rolling terrain with the same total, and under-counts concentrated descents. Per-segment grade (from FIT files) would fix this.</div>`
 + `<div style="${V}"><span style="${K}">Acute / Chronic / ACWR</span> — exponentially-weighted 7- and 28-day averages of daily load; the ratio sits in a 0.8–1.3 “safe band,” and &gt;1.5 flags a spike.</div>`
 + `<span style="${H}">d · why each piece is defensible (sources)</span>`
 + `<div style="${V}"><span style="${K}">Duty factor (impact term)</span> — the strongest spatiotemporal predictor of peak vertical force between runners (R²≈0.59; ${A('https://pmc.ncbi.nlm.nih.gov/articles/PMC7931753/','van Oeveren et al. 2021')}, <i>Scand J Med Sci Sports</i>; ${A('https://pubmed.ncbi.nlm.nih.gov/40197436/','“Duty Factor Dominates Stride Frequency”')}, <i>MSSE</i> 2025), and peak vGRF ∝ 1/duty factor in the ${A('https://doi.org/10.1123/jab.21.2.167','spring-mass model')} (Morin et al. 2005). Cadence <i>alone</i> does not predict peak force — so the model uses the cadence × GCT product, not cadence.</div>`
@@ -416,7 +461,7 @@ function maxEffortIds(runs, opts) {
   return ids;
 }
 
-function isTreadmill(r) { return /treadmill|indoor/i.test(r.type || ''); }
+var isTreadmill = isIndoor;
 
 // Heuristic detection of Lever (body-weight-support) runs. A Lever run is on a treadmill AND shows
 // the offload signature: avg HR notably lower than expected for its pace, because supporting part of
@@ -451,6 +496,10 @@ window.RunLoad = {
   maxEffortIds: maxEffortIds,
   median: median,
   calibrateBaseline: calibrateBaseline,
+  calibPace: calibPace,
+  meanTotalGrade: meanTotalGrade,
+  elevation: elevation,
+  isIndoor: isIndoor,
   impactLoad: impactLoad,
   offloadFactor: offloadFactor,
   impactPerMileAtLoad: impactPerMileAtLoad,

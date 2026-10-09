@@ -109,9 +109,14 @@ const STRAVA_MIRROR_DAYS = 120;
 // under users/{uid}/garminActivities. Strava's API never exposes running
 // dynamics (GCT, vertical oscillation, stride), so those stay null and the
 // load model falls back to its no-dynamics path. It also omits total
-// descent — but nearly every run starts and ends at the same point, so
-// descent is assumed equal to ascent (a point-to-point net-downhill race is
-// the rare exception, and a later watch import replaces the doc anyway).
+// descent, so descentM is written as null and the model resolves it at
+// READ time (shared/run-load-model.js `elevation`): an outdoor run mirrors
+// its ascent (nearly every run ends where it started), a treadmill run gets
+// 0 (a belt never descends). Writing the mirror here used to surcharge
+// treadmill runs for a descent that never happened, and made a mirrored
+// value indistinguishable from a measured one; the model therefore treats
+// ANY Strava doc's descentM as absent, so older docs that still carry the
+// mirror need no migration. A later watch import replaces the doc anyway.
 // Cadence is per-leg -> ×2 for spm. Returns null for non-runs.
 function stravaRunDoc(act) {
   const sport = String(act.sport_type || act.type || "");
@@ -145,8 +150,7 @@ function stravaRunDoc(act) {
     gapSec: null,
     ascentM: (typeof act.total_elevation_gain === "number" && isFinite(act.total_elevation_gain))
       ? act.total_elevation_gain : null,
-    descentM: (typeof act.total_elevation_gain === "number" && isFinite(act.total_elevation_gain))
-      ? act.total_elevation_gain : null,
+    descentM: null,
     steps: null,
     source: "strava",
     stravaId: act.id,

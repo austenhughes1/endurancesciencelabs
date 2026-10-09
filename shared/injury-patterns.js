@@ -119,7 +119,11 @@ function prep(runs, params, o){
     if(il>d.maxRunIL) d.maxRunIL=il;
     var hard=(r.distMi>0.5 && il/r.distMi>=o.hardRatio) || maxIds.has(r.id) || (estMax!=null && r.avgHr!=null && r.avgHr>=o.hardHrFrac*estMax);
     if(hard) d.hardLoad+=il;
-    if(r.descentM!=null){ d.descentM+=r.descentM; d.hasDesc=true; }
+    // Same read-time elevation rule as the load model: a recorded descent wins, an absent
+    // outdoor descent mirrors the ascent, a treadmill never descends, and a Strava doc's
+    // descentM is never a measurement.
+    var el=RL.elevation(r);
+    if(r.descentM!=null || el.descent>0){ d.descentM+=el.descent; d.hasDesc=true; }
     if(maxIds.has(r.id)) hardDays.push(k);
   });
   var anyDesc=false, idx={};
