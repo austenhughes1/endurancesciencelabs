@@ -707,7 +707,17 @@ function stravaLever(r){
 }
 function annotateLever(){ var ids=RunLoad.detectLeverIds(RAW); RAW.forEach(function(r){ r.lever = !!r.leverTitle || stravaLever(r) || ids.has(r.id); }); }
 function effType(r){ return r.lever ? 'Lever' : r.type; }
-function computeLoadParams(){ var it=intensityState(); return Object.assign({}, RunLoad.DEFAULTS, RunLoad.calibrateBaseline(typeRuns(), it.cutoff), { useGrade:true, offload:offloadFrac() }); }
+// Runner-entered easy pace (s/mi, 240–1200) from the profile: the middle rung of the baseline
+// chain calibrated median → recorded easy pace → neutral. Null when unset or out of range.
+function easyPaceSec(){ var v=parseFloat(STD_PROFILE.runEasyPaceSec); return (v>=240&&v<=1200)?v:null; }
+// Baseline chain: the median of the athlete's own easy runs wins; a recorded easy pace from the
+// profile fills in until there are runs to calibrate from; otherwise the pace term is neutral
+// (no guessed constant). basePaceSource records which rung is in force for the hero tile.
+function computeLoadParams(){
+  var it=intensityState(), cal=RunLoad.calibrateBaseline(typeRuns(), it.cutoff), profile=easyPaceSec();
+  var src = cal.basePaceSec!=null ? 'calibrated' : (profile!=null ? 'profile' : null);
+  return Object.assign({}, RunLoad.DEFAULTS, cal, { basePaceSec: cal.basePaceSec!=null?cal.basePaceSec:profile, basePaceSource: src, useGrade:true, offload:offloadFrac() });
+}
 
 /* ---------- profile (weight + device), stored on the user doc ---------- */
 function weightKg(){ var lb=STD_PROFILE.weightLb; return lb ? lb*0.453592 : null; }
@@ -727,7 +737,7 @@ function saveProfile(patch){
       if(!ok) console.warn('RunDynamics: profile did not persist',{uid:UID,key:key,got:data[key],sent:patch[key]}); })
     .catch(function(e){ console.error('profile save',e); show('⚠ '+(e&&e.code||'save failed'),false); });
 }
-function loadProfile(){ if(!UID) return Promise.resolve(); return DB.collection('users').doc(UID).get().then(function(d){ var x=d.exists?d.data():{}; STD_PROFILE={ weightLb:x.weightLb, runDevice:x.runDevice, runHasAccessory:x.runHasAccessory, runLeverPctBW:x.runLeverPctBW, runEvents:Array.isArray(x.runEvents)?x.runEvents:[] }; STRAVA_SYNC={ connected:!!x.stravaConnected, last:x.stravaLastSyncedAt||null }; }).catch(function(){ STD_PROFILE={}; STRAVA_SYNC={}; }); }
+function loadProfile(){ if(!UID) return Promise.resolve(); return DB.collection('users').doc(UID).get().then(function(d){ var x=d.exists?d.data():{}; STD_PROFILE={ weightLb:x.weightLb, runDevice:x.runDevice, runHasAccessory:x.runHasAccessory, runLeverPctBW:x.runLeverPctBW, runEasyPaceSec:x.runEasyPaceSec, runEvents:Array.isArray(x.runEvents)?x.runEvents:[] }; STRAVA_SYNC={ connected:!!x.stravaConnected, last:x.stravaLastSyncedAt||null }; }).catch(function(){ STD_PROFILE={}; STRAVA_SYNC={}; }); }
 
 /* ---------- performance/injury/downtime history events ---------- */
 // runEvents[] entry: { id, type:'race'|'injury'|'illness'|'nonrun'|'timeoff', ts, endTs?, note }.
@@ -934,12 +944,16 @@ function renderHero(){
   var rampCol = rampPerWk==null ? 'var(--muted2)' : rampPerWk>=0.20 ? 'var(--bad)' : rampPerWk>=0.10 ? 'var(--gold)' : rampPerWk<=-0.05 ? 'var(--good)' : 'var(--muted2)';
   var rampTile='<div class="rdx-hero-stat"><div class="k">Acute trend</div><div class="v" style="color:'+rampCol+';font-size:16px">'+rampTxt+'</div><div class="x" style="color:'+rampCol+'">per week</div></div>';
   // Easy-baseline-pace tile: the P₀ every run's Impact Load pace term is scored against —
-  // NOT an average of recent runs. Median grade-adjusted (flat-equivalent) easy-run pace.
-  var baseTile=LOAD_PARAMS&&LOAD_PARAMS.basePaceSec?
-    '<div class="rdx-hero-stat" title="Your Impact Load baseline: the median grade-adjusted (flat-equivalent) pace of your easy runs. Every run’s pace is compared against this in the load equation — it is a calibration anchor, not your recent average pace.">'+
+  // NOT an average of recent runs. Shows whichever rung is in force (median grade-adjusted
+  // easy-run pace, or the easy pace entered in the profile) and hides when neutral.
+  var baseSrc=LOAD_PARAMS&&LOAD_PARAMS.basePaceSource;
+  var baseTile=(LOAD_PARAMS&&LOAD_PARAMS.basePaceSec>0&&baseSrc)?
+    '<div class="rdx-hero-stat" title="'+(baseSrc==='profile'
+      ?'Your Impact Load baseline: the easy pace entered in your profile, used until there are enough of your own easy runs to calibrate from. Every run’s pace is compared against this in the load equation.'
+      :'Your Impact Load baseline: the median grade-adjusted (flat-equivalent) pace of your easy runs. Every run’s pace is compared against this in the load equation — it is a calibration anchor, not your recent average pace.')+'">'+
       '<div class="k">Easy base pace</div>'+
       '<div class="v" style="color:var(--cyan)">'+fmtPace(LOAD_PARAMS.basePaceSec)+'</div>'+
-      '<div class="x" style="color:var(--muted2)">/mi · grade-adj · load baseline</div>'+
+      '<div class="x" style="color:var(--muted2)">'+(baseSrc==='profile'?'/mi · from profile · load baseline':'/mi · grade-adj · load baseline')+'</div>'+
     '</div>':'';
   el.style.borderLeftColor=accent;
   el.innerHTML=
@@ -1393,6 +1407,7 @@ function renderLoaded(){
   $('device').innerHTML='<option value="">Device: all metrics</option>'+Object.keys(byBrand).map(function(b){return '<optgroup label="'+b+'">'+byBrand[b].map(function(d){return '<option value="'+d.id+'"'+(d.id===deviceId()?' selected':'')+'>'+d.label+'</option>';}).join('')+'</optgroup>';}).join('');
   $('weight').value=STD_PROFILE.weightLb||'';
   $('offload').value=STD_PROFILE.runLeverPctBW||'';
+  $('easypace').value=easyPaceSec()!=null?fmtPace(easyPaceSec()):'';
   $('accessory').classList.toggle('on', hasAccessory());
   $('evDate').value=ymd(max);
   renderEventsList();
@@ -1521,6 +1536,7 @@ function shellHTML(opts){
           '<div class="rdx-ctl"><label>Strap / pod</label><div class="rdx-types"><span class="rdx-chip" id="accessory">chest strap / pod</span></div></div>'+
           '<div class="rdx-ctl"><label>Body weight</label><div class="rdx-inunit"><input type="text" id="weight" placeholder="—" style="width:54px"><span>lb</span></div></div>'+
           '<div class="rdx-ctl"><label>Lever support</label><div class="rdx-inunit"><input type="text" id="offload" placeholder="85" style="width:42px"><span>% BW</span></div></div>'+
+          '<div class="rdx-ctl" title="Your easy-day pace. Used as the Impact Load baseline until there are enough of your own easy runs to calibrate from."><label>Easy pace</label><div class="rdx-inunit"><input type="text" id="easypace" placeholder="9:00" style="width:54px"><span>/mi</span></div></div>'+
         '</div>'+
       '</div>'+
       '<div class="rdx-group rdx-group-grow">'+
@@ -1623,6 +1639,7 @@ function wire(){
   $('accessory').onclick=function(){ this.classList.toggle('on'); saveProfile({ runHasAccessory:this.classList.contains('on') }); populateMetricSelects(); refresh(); };
   $('weight').onchange=function(e){ var lb=parseFloat(String(e.target.value).replace(/[^0-9.]/g,'')); saveProfile({ weightLb:(lb&&lb>0)?lb:null }); refresh(); };
   $('offload').onchange=function(e){ var pct=parseFloat(String(e.target.value).replace(/[^0-9.]/g,'')); saveProfile({ runLeverPctBW:(pct>0&&pct<100)?pct:null }); refresh(); };
+  $('easypace').onchange=function(e){ var sec=hmsToSec(e.target.value); var ok=sec>=240&&sec<=1200; saveProfile({ runEasyPaceSec: ok?sec:null }); e.target.value=ok?fmtPace(sec):''; refresh(); };
   $('evAdd').onclick=evAdd;
   $('evType').onchange=function(){ $('evEndCtl').style.display=this.value==='race'?'none':''; if(this.value==='race') $('evEndDate').value=''; };
   $('evNote').onkeydown=function(e){ if(e.key==='Enter') evAdd(); };

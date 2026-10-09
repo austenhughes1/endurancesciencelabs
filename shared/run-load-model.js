@@ -39,8 +39,21 @@ var DEFAULTS = {
   useGrade:   true,
   acuteN:     7,     // acute EWMA window (days)
   chronicN:   28,    // chronic EWMA window (days)
-  refWeight:  1.0,   // reference weight; = athlete weight for clean eq-miles
-  basePaceSec: 420,  // easy-run baseline pace (s/mi) — fallback
+  // Per-athlete reference weight, in the SAME UNIT as run.weight. null (the default) means
+  // unconfigured: the weight term stays neutral (1.0) and any stored run weight is IGNORED.
+  // The old default of 1.0 meant any run doc that ever carried a `weight` field scored
+  // weight× (a 70 kg runner at 70×, which poisoned Lever IQ's ACWR curve once). No ESL
+  // importer (parseExport, runFromFitSession, stravaRunDoc) writes a run weight today.
+  refWeight:  null,
+  // The athlete's baseline easy pace (s/mi) that the pace term scores each run against.
+  // null (the default) means unconfigured: the pace factor stays neutral (1.0) and a run
+  // scores its distance, exactly as an unset refWeight neutralises the weight term. There is
+  // deliberately NO default number: the 420 (7:00/mi) constant this replaced was level-blind,
+  // so it silently surcharged every runner faster than it and went inert for everyone
+  // slower — raised to an exponent, a guessed baseline is a wrong one, not a conservative
+  // one. calibrateBaseline() fills it from the athlete's own easy runs; a caller may seed it
+  // (e.g. from a runner-entered easy pace on the profile) before calibration overwrites it.
+  basePaceSec: null,
   baseDF:     42408, // easy-run baseline duty-factor proxy = cadence(spm) × GCT(ms) — fallback (~186×228)
   // Grade surcharge: convex (quadratic) in MEAN grade, descent weighted ~3× ascent, capped.
   // Load rises super-linearly with downhill steepness (Gottschall & Kram 2005; descent drives
@@ -143,8 +156,10 @@ function meanTotalGrade(r) {
 }
 
 // Per-athlete, per-device baseline from their easy-run history (grade-adjusted pace at
-// or slower than the easy/workout cutoff). Falls back to all runs, then to DEFAULTS,
-// when there aren't enough easy runs. Normalising every factor to this baseline makes
+// or slower than the easy/workout cutoff). Falls back to all runs when there aren't
+// enough easy runs; when no pace median can be computed at all, basePaceSec falls back
+// to whatever params.basePaceSec the caller seeded (a recorded easy pace) and otherwise
+// to null — a neutral pace term, never a guessed constant. baseDF keeps its fallback. Normalising every factor to this baseline makes
 // the model self-calibrating and cancels most of the cross-device absolute offset in
 // VO/GCT. Trail-heavy athletes: easy pace is calibrated on grade-ADJUSTED pace (so
 // slow honest climbing doesn't drag the baseline slower), and easy form (baseDF) on
@@ -160,7 +175,7 @@ function calibrateBaseline(runs, cutoffSec, params) {
   var dfPool = flat.length >= 5 ? flat : pool;
   var baseDF = median(dfPool.map(dfOf).filter(function (v) { return v != null; }));
   return {
-    basePaceSec: basePace || DEFAULTS.basePaceSec,
+    basePaceSec: basePace > 0 ? basePace : (p.basePaceSec > 0 ? p.basePaceSec : null),
     baseDF:      baseDF   || DEFAULTS.baseDF
   };
 }
@@ -181,8 +196,10 @@ function impactLoad(run, p) {
   var off   = run.offload != null ? run.offload : (run.lever ? (p.offload || 0) : 0);
   // Pace term scores the pace the run ACTUALLY held, Lever or not. There is no road-equivalent
   // conversion for a supported run: forces follow the belt speed, so a fast Lever run is priced
-  // as fast (see DEFAULTS.kOffload).
-  var paceF = Math.pow(p.basePaceSec / run.paceSec, p.kPace);
+  // as fast (see DEFAULTS.kOffload). Neutral (1.0) until this athlete HAS a baseline easy pace:
+  // the factor is a ratio against the athlete's own normal, so with no normal to compare to
+  // there is nothing to compare — the run scores its distance and waits for real data.
+  var paceF = (p.basePaceSec > 0) ? Math.pow(p.basePaceSec / run.paceSec, p.kPace) : 1;
   // Per-step impact from duty factor (cadence × GCT), normalized to the athlete's easy-run
   // baseline. Peak vGRF ∝ 1/duty factor (Morin 2005; Patoz 2023), so a lower duty factor —
   // shorter contact / more flight — loads each step harder ⇒ factor > 1. This is a load term,
@@ -193,9 +210,11 @@ function impactLoad(run, p) {
   // device that never reports them.
   var dfF   = (run.cadence > 0 && run.gct > 0)
     ? Math.pow(p.baseDF / (run.cadence * run.gct), p.kImpact) : 1;
-  // Require weight > 0: a negative weight (garbage) would otherwise flow through as a
-  // negative load; missing/zero falls back to refWeight (→ 1). Matches the lever-iq port.
-  var wF    = ((run.weight > 0 ? run.weight : p.refWeight)) / p.refWeight;
+  // Weight term: neutral unless a per-athlete refWeight is configured (same unit as
+  // run.weight) AND the run carries a positive weight. Within one athlete the ratio is meant
+  // to cancel to ~1 — dividing a stored raw weight by the old default refWeight of 1.0 scored
+  // a 70 kg runner 70×. Unconfigured must mean "ignore run.weight". Matches the lever-iq port.
+  var wF    = (p.refWeight > 0 && run.weight > 0) ? run.weight / p.refWeight : 1;
   var mods = paceF * dfF * wF;
   // Indoor runs are excluded outright: an inclined treadmill reports ascent, and with the
   // descent mirrored (or, on older Strava syncs, written) to match, a belt that never produced
@@ -369,9 +388,9 @@ Chronic = 28-day rolling average
 Acute : Chronic = recent load vs the base you have built</pre>`
 + `<span style="${H}">c · each variable — meaning, measurement, caveats</span>`
 + `<div style="${V}"><span style="${K}">D</span> — run distance (mi), from GPS or foot-pod / treadmill. Track distances arrive in metres and are converted.</div>`
-+ `<div style="${V}"><span style="${K}">P, P₀</span> — average pace and your easy-run baseline pace (s/mi), from GPS. Baseline = median <b>grade-adjusted</b> pace of your easy runs (at or slower than the workout-pace cutoff on adjusted pace): each run's pace is first converted to its flat-equivalent (~3.5% per 1% mean ascent grade, downhill credits about half; a device-reported Avg GAP is used directly when present) so honest slow climbing on trail runs doesn't drag the easy baseline slower and inflate flat runs' scores. Only the baseline uses adjusted pace — each run is still scored on its raw pace, since the hill surcharge G already prices the grade. The 0.5 power prices <b>tissue load</b>, not training stress: measured peak vertical ground-reaction force rises only ~1.17× from easy pace to 5K pace (an exponent of ~0.4), while loading rate — the better bone-stress predictor — climbs about linearly (~1.0); 0.5 sits between, so a 5K-pace mile costs ~1.21 IAD miles and a mile-race mile ~1.27. On a <b>Lever run</b> P is the <b>belt pace</b>, with no road-equivalent conversion: support lets you hold a faster pace at the same effort, but tissue does not see effort, it sees the belt — at 80% body weight a 7:00 mile still produces more peak force and ~23% more loading rate than a 9:00 mile (Paquette 2021), so crediting the speedup back would discount a fast Lever run twice. Caveat: pace under-rates uphill effort (hard but slow) — the hill term offsets this.</div>`
++ `<div style="${V}"><span style="${K}">P, P₀</span> — average pace and your easy-run baseline pace (s/mi), from GPS. Baseline = median <b>grade-adjusted</b> pace of your easy runs (at or slower than the workout-pace cutoff on adjusted pace): each run's pace is first converted to its flat-equivalent (~3.5% per 1% mean ascent grade, downhill credits about half; a device-reported Avg GAP is used directly when present) so honest slow climbing on trail runs doesn't drag the easy baseline slower and inflate flat runs' scores. Only the baseline uses adjusted pace — each run is still scored on its raw pace, since the hill surcharge G already prices the grade. Until a baseline exists (no easy runs to take a median from and no easy pace entered in the profile) the pace term is neutral and a run scores its distance — there is no guessed default pace, because a level-blind constant surcharges every faster runner and goes inert for every slower one. The 0.5 power prices <b>tissue load</b>, not training stress: measured peak vertical ground-reaction force rises only ~1.17× from easy pace to 5K pace (an exponent of ~0.4), while loading rate — the better bone-stress predictor — climbs about linearly (~1.0); 0.5 sits between, so a 5K-pace mile costs ~1.21 IAD miles and a mile-race mile ~1.27. On a <b>Lever run</b> P is the <b>belt pace</b>, with no road-equivalent conversion: support lets you hold a faster pace at the same effort, but tissue does not see effort, it sees the belt — at 80% body weight a 7:00 mile still produces more peak force and ~23% more loading rate than a 9:00 mile (Paquette 2021), so crediting the speedup back would discount a fast Lever run twice. Caveat: pace under-rates uphill effort (hard but slow) — the hill term offsets this.</div>`
 + `<div style="${V}"><span style="${K}">DF, DF₀</span> — duty factor = cadence × ground-contact time, vs your easy baseline (median of <b>flat</b> easy runs only, ≤2% mean total grade when enough exist — slow long-contact trail steps would otherwise inflate the form baseline and surcharge normal flat running). Cadence from the wrist; GCT from a chest strap, foot/waist pod, or wrist running-dynamics. Lower duty factor (shorter contact, more flight) loads each step harder. Caveats: needs a running-dynamics-capable device; GCT is an estimate; duty factor changes with speed, so we only ever compare you to <i>your own</i> baseline.</div>`
-+ `<div style="${V}"><span style="${K}">W, W₀</span> — body weight ÷ a reference weight, from the profile. Equals 1 for a single athlete (drops out); only matters when comparing across athletes.</div>`
++ `<div style="${V}"><span style="${K}">W, W₀</span> — body weight ÷ a reference weight. Neutral (1) unless a per-athlete reference weight is configured; for a single athlete it drops out, and only matters when comparing across athletes.</div>`
 + `<div style="${V}"><span style="${K}">O</span> — Lever body-weight offload: on a Lever run part of bodyweight is supported, and the run is discounted by (1 − 0.85·O), not (1 − O). Taking weight off does not take force off one-for-one: on the Lever, peak vertical force falls ~0.7× the offload (−9% at 90% body weight, −14% at 80%; Paquette 2021, N = 16) while loading rate and vertical impulse fall ~1.0×, so 0.85 is the midpoint of the two slopes — the same tissue-load definition the 0.5 pace exponent uses. O = 0 for normal runs. Known limits: the measured slope is not constant (steeper over the first 10% of support than the next), individual runners ranged −3% to −26% at 80% body weight, and there is no Lever data above ~27% offload. Default is <b>85% bodyweight</b> (O = 0.15), set in the profile. Lever runs are detected automatically — a <b>treadmill</b> activity whose <b>HR is lower than expected for its pace</b> (the offload signature) — or by an activity title containing “lever.” Caveat: treadmill pace can be miscalibrated; a dedicated per-run Lever source (tag / device import) can be wired in later for exact offloads.</div>`
 + `<div style="${V}"><span style="${K}">G</span> — hill surcharge from total ascent &amp; descent ÷ distance (mean grade), descent weighted ~3× ascent, capped at 2.5. When a source records no descent (Strava reports only gain), descent is assumed equal to ascent for outdoor runs — runs almost always end where they started — while a recorded descent, including 0, is used as is. Treadmill / indoor runs take no hill surcharge at all: a belt never descends, so an incline's reported ascent would otherwise price a downhill that never happened. Caveat: only the totals are recorded, so this is <i>mean</i> grade — it can’t tell one steep descent from rolling terrain with the same total, and under-counts concentrated descents. Per-segment grade (from FIT files) would fix this.</div>`
 + `<div style="${V}"><span style="${K}">Acute / Chronic / ACWR</span> — exponentially-weighted 7- and 28-day averages of daily load; the ratio sits in a 0.8–1.3 “safe band,” and &gt;1.5 flags a spike.</div>`

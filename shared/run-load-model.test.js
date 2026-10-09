@@ -136,5 +136,29 @@ section('§3 grade: indoor exclusion, read-time descent mirroring, useGrade defa
   close('legacy Strava treadmill doc with mirrored descentM is no longer surcharged', RL.impactLoad(legacyTm, P), 10, 1e-12);
 });
 
+section('§4 no guessed baselines: nullable basePaceSec, neutral weight term', function () {
+  eq('DEFAULTS.basePaceSec is null', RL.DEFAULTS.basePaceSec, null);
+  eq('DEFAULTS.refWeight is null', RL.DEFAULTS.refWeight, null);
+  var cal = RL.calibrateBaseline([], 400);
+  eq('no runs → basePaceSec null', cal.basePaceSec, null);
+  eq('no runs → baseDF keeps its fallback', cal.baseDF, 42408);
+  eq('no pace median → seeded easy pace is kept', RL.calibrateBaseline([{ distMi: 3 }], 400, { basePaceSec: 500 }).basePaceSec, 500);
+  var cal2 = RL.calibrateBaseline([run({ paceSec: 560 }), run({ paceSec: 580 }), run({ paceSec: 600 })], 400, { basePaceSec: 500 });
+  close('a computable median overrides the seed', cal2.basePaceSec, 580, 1e-12);
+  // With no baseline every run scores dist × offloadFactor × max(dfF·G, 1).
+  var N = Object.assign({}, RL.DEFAULTS, { useGrade: true, baseDF: 42408 });
+  close('neutral: fast flat run scores its distance', il({ paceSec: 300 }, N), 10, 1e-12);
+  close('neutral: easy run scores its distance', il({ paceSec: 700 }, N), 10, 1e-12);
+  close('neutral + offload', il({ paceSec: 300, offload: 0.2 }, N), 8.3, 1e-12);
+  var g = 1 + 440 * Math.pow(304.8 / 16093.4, 2);
+  close('neutral + hills = dist × G', il({ paceSec: 300, ascentM: 304.8, descentM: 304.8 }, N), 10 * g, 1e-9);
+  close('neutral + springy form = dist × dfF', il({ paceSec: 300, cadence: 190, gct: 200 }, N), 10 * 42408 / 38000, 1e-9);
+  // A weight field on a run doc is ignored unless a same-unit refWeight is configured.
+  close('run.weight 70, no refWeight → same as no weight', il({ weight: 70 }), il({}), 1e-12);
+  close('run.weight 70, no refWeight, fast → same as no weight', il({ weight: 70, paceSec: 420 }), il({ paceSec: 420 }), 1e-12);
+  close('refWeight configured → ratio applies', il({ weight: 77, paceSec: 420 }, Object.assign({}, P, { refWeight: 70 })), 10 * (77 / 70) * Math.pow(540 / 420, 0.5), 1e-9);
+  close('refWeight configured, run weight missing → neutral', il({ paceSec: 420 }, Object.assign({}, P, { refWeight: 70 })), 10 * Math.pow(540 / 420, 0.5), 1e-9);
+});
+
 console.log(checks + ' checks, ' + failures + ' failures');
 process.exit(failures ? 1 : 0);
