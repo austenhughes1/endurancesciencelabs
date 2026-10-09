@@ -910,8 +910,11 @@ function renderHero(){
     var lo=typical*loMult, hi=typical*hiMult;
     // Translate the top-end budget (hi, in IAD miles) into concrete run options:
     //   flat easy outside ≈ 1 impact mi/mi · rolling/hilly inflates ~25% · Lever offloads, so more
-    //   actual miles fit under the same impact budget (lever mi = budget ÷ %BW-on-legs).
-    var flat=hi, hilly=hi/1.25, lever=hi/(pct/100);
+    //   actual miles fit under the same impact budget. The Lever conversion MUST go through
+    //   RunLoad.impactPerMileAtLoad (lever mi = budget ÷ (1 − 0.85·offload)) — the same discount
+    //   impactLoad scores with — otherwise a prescribed Lever distance no longer earns back its
+    //   own budget.
+    var flat=hi, hilly=hi/1.25, lever=hi/RunLoad.impactPerMileAtLoad(pct, LOAD_PARAMS);
     doHtml='<div class="rdx-do-line">'+intensity+'</div>'+
       '<div class="rdx-do-vol">Aim for <b>'+fmtMi(lo)+'–'+fmtMi(hi)+' impact-adjusted miles</b> today. At the top end, that’s about:</div>'+
       '<ul class="rdx-do-opts">'+

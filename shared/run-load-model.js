@@ -58,11 +58,23 @@ var DEFAULTS = {
   // a real 77%-trail athlete). Falls back to all runs when < 5 flat samples exist.
   dfFlatGrade: 0.02,
   offload:    0,     // Lever body-weight-support offload fraction (0–1) applied to Lever runs
-  // Pace speedup per unit body-weight offload: a Lever run holds a faster pace at the same effort,
-  // so we convert its pace to a road-equivalent P/(1−offloadPaceK·offload) before the pace term.
-  // Calibrated at easy pace (~11.4% speedup at 15% offload); ~effort-independent so one coefficient
-  // is correct from easy to threshold. Tunable.
-  offloadPaceK: 0.76
+  // How much impact each unit of Lever offload removes: a run at offload O is discounted by
+  // (1 − kOffload·O), not by (1 − O). 0.85 means a mile at 80% body weight counts 0.83 IAD miles.
+  // Taking weight off the runner does not take force off one-for-one. On the Lever, peak vertical
+  // GRF falls ~0.7× the offload (University of Memphis, Paquette 2021, N=16, 7–9 min/mi: −9.1% at
+  // 90% BW, −13.7% at 80%; CU Boulder pilot, Penasso & Grabowski: −6.9% per 10% removed), while
+  // loading rate (−12.7% / −19.0%) and vertical impulse fall ~1.0× (impulse is a physics identity:
+  // averaged over a stride, vertical force equals the weight left on the runner). 0.85 is the
+  // midpoint of the peak-force and loading-rate slopes, so speed (kPace 0.5) and support are
+  // priced on one definition of load. There is deliberately NO road-equivalent pace conversion
+  // for Lever runs any more (the old offloadPaceK = 0.76): that is an effort idea that belongs
+  // to a training-stress score, and tissue sees the belt — Memphis shows a 7:00 mile at 80% BW
+  // still hits 2.10 BW peak force vs 2.01 at 9:00, with loading rate up 23%, so converting the
+  // pace discounted a fast Lever run twice. Known limits of one linear slope: the measured slope
+  // is not constant (Memphis 0.91 over the first 10% of support, 0.46 over the next), the belt
+  // scale showed ~3.4% more support than the dial, individual runners ranged −3% to −26% at 80%
+  // BW, and there is no Lever data above ~27% offload. Mirrors Lever IQ PR #130 (67162d7).
+  kOffload:   0.85
 };
 
 function median(arr) {
@@ -126,17 +138,12 @@ function impactLoad(run, p) {
   if (run.distMi == null || run.paceSec == null || run.distMi < 0 || run.paceSec <= 0) return null;
   // Lever body-weight support: a fraction of bodyweight is offloaded on the device. Per-run
   // run.offload wins; otherwise a run flagged run.lever uses the profile-level p.offload; 0 for
-  // normal runs. Clamped to 95% so load can't go to zero.
+  // normal runs. offloadFactor() clamps it (negatives → 0, cap 0.95 so load can't go to zero).
   var off   = run.offload != null ? run.offload : (run.lever ? (p.offload || 0) : 0);
-  off = off > 0 ? Math.min(off, 0.95) : 0;
-  // The offload enters in TWO places, because bodyweight support both (a) lets a given effort hold a
-  // faster pace AND (b) cuts ground reaction force. For (a) we convert the Lever run's pace to its
-  // ROAD-equivalent — P / (1 − offloadPaceK·O) — before the pace term, rather than shifting the
-  // baseline. The speedup coefficient is ~effort-independent (≈11% at 15% offload, easy AND
-  // threshold), so this one correction is right across the whole intensity range; shifting the
-  // baseline only worked at easy pace. E.g. a 6:30 Lever mile at 15% offload → ~7:20 road-equivalent.
-  var eqPace = off > 0 ? run.paceSec / (1 - p.offloadPaceK * off) : run.paceSec;
-  var paceF = Math.pow(p.basePaceSec / eqPace, p.kPace);
+  // Pace term scores the pace the run ACTUALLY held, Lever or not. There is no road-equivalent
+  // conversion for a supported run: forces follow the belt speed, so a fast Lever run is priced
+  // as fast (see DEFAULTS.kOffload).
+  var paceF = Math.pow(p.basePaceSec / run.paceSec, p.kPace);
   // Per-step impact from duty factor (cadence × GCT), normalized to the athlete's easy-run
   // baseline. Peak vGRF ∝ 1/duty factor (Morin 2005; Patoz 2023), so a lower duty factor —
   // shorter contact / more flight — loads each step harder ⇒ factor > 1. This is a load term,
@@ -147,7 +154,6 @@ function impactLoad(run, p) {
   // device that never reports them.
   var dfF   = (run.cadence > 0 && run.gct > 0)
     ? Math.pow(p.baseDF / (run.cadence * run.gct), p.kImpact) : 1;
-  // (b) less ground reaction force → the weight term is also multiplied by (1 − O).
   // Require weight > 0: a negative weight (garbage) would otherwise flow through as a
   // negative load; missing/zero falls back to refWeight (→ 1). Matches the lever-iq port.
   var wF    = ((run.weight > 0 ? run.weight : p.refWeight)) / p.refWeight;
@@ -163,10 +169,33 @@ function impactLoad(run, p) {
   // but you take more steps per mile — the distance itself is the irreducible impact,
   // so the pace × form × weight × grade modifier product can't discount below 1. ONLY
   // the Lever offload sits outside the floor: body-weight support genuinely removes
-  // ground reaction force, so a Lever run's floor is distance × (1 − O), not distance.
-  var il = run.distMi * (off > 0 ? 1 - off : 1) * Math.max(mods, 1);
+  // ground reaction force, so a Lever run's floor is distance × (1 − kOffload·O), not distance.
+  var il = run.distMi * offloadFactor(off, p) * Math.max(mods, 1);
   // Final belt-and-braces: never let a non-finite value escape into the load series.
   return Number.isFinite(il) ? il : null;
+}
+
+// The highest offload the model credits. Anything above clamps here.
+var MAX_OFFLOAD = 0.95;
+
+// The share of a mile's impact left after Lever support removes `offload` (a 0–1 fraction of
+// body weight): 1 − kOffload·offload. 1.0 with no support; 0.83 at 20% offload with the
+// default slope. This is the ONE place the offload discount is defined: impactLoad scores
+// with it, and everything that turns IAD miles back into Lever miles (the hero's lever-mile
+// option) must use it too, or a prescription and the score it earns stop agreeing.
+// Negatives coerce to 0 and values above MAX_OFFLOAD clamp to it.
+function offloadFactor(offload, p) {
+  p = p || DEFAULTS;
+  var off = offload > 0 ? Math.min(offload, MAX_OFFLOAD) : 0;
+  return 1 - p.kOffload * off;
+}
+
+// IAD miles earned by one flat, easy-pace mile carried at `loadPercent` of body weight
+// (100 = full body weight, no support): offloadFactor in the load-percent terms the hero and
+// the Lever profile setting speak. Dividing an IAD-mile budget by this gives the Lever miles
+// that deliver it; running that distance faster than easy pace scores more.
+function impactPerMileAtLoad(loadPercent, p) {
+  return offloadFactor(1 - loadPercent / 100, p);
 }
 
 // Collapse runs into a dense per-day Impact Load series (0 on rest days).
@@ -249,20 +278,20 @@ function methodologyHTML() {
   return `<span style="${H}">a · the equation</span>`
 + `<pre style="${EQ}">Impact Load (per run) — measured in Impact Adjusted Distance (IAD miles):
 
-  IL = D · (1−O) · max( (W ⁄ W₀) · (P₀ ⁄ Pᵉ)^0.5 · (DF₀ ⁄ DF)^1.0 · G , 1 )
+  IL = D · (1−0.85·O) · max( (W ⁄ W₀) · (P₀ ⁄ P)^0.5 · (DF₀ ⁄ DF)^1.0 · G , 1 )
 
        The max(…, 1) floor: at full bodyweight a mile is never less
               than a mile of impact — easy pace, soft form, and the
               weight ratio can't discount the distance itself. ONLY
-              the Lever offload (1−O), outside the floor, can take
-              IL below actual distance.
+              the Lever offload (1−0.85·O), outside the floor, can
+              take IL below actual distance.
        DF = cadence × GCT
        O  = Lever body-weight offload (0 when not on the Lever)
-       Pᵉ = P ⁄ (1 − 0.76·O)   ← Lever pace → road-equivalent
-       The offload enters twice: it speeds the run's pace back to
-              its road-equivalent Pᵉ (support lets you hold a faster
-              pace) AND discounts the weight term W (support cuts
-              ground reaction force). Off the Lever, Pᵉ = P.
+       P  = the pace the run actually held — on the Lever, the
+              belt pace. Support is priced ONLY through (1−0.85·O):
+              each unit of body weight removed takes ~0.85 of its
+              share of impact off (peak force falls ~0.7×, loading
+              rate ~1.0×).
        G  = min( 1 + 330·(desc ⁄ L)² + 110·(asc ⁄ L)² , 2.5 )
 
 Load over time:
@@ -274,30 +303,31 @@ Load over time:
 + `<pre style="${EQ}">Impact Adjusted Distance (IAD miles) = distance
    × (how much faster than your easy pace)^0.5
    × (how much springier than your easy form)
-   × (body-weight scale, minus any Lever offload)
+   × (body-weight scale)
    × (hill surcharge)
+   × (1 − 0.85 × Lever offload)
 
-On the Lever, the body-weight support both softens each step AND
-lets you hold a faster pace at the same effort — so we first convert
-the Lever pace back to the road pace that effort would have been
-(e.g. a 6:30 mile at 15% support ≈ a 7:20 road mile), then score it
-normally. This works at any intensity, easy through threshold.
+On the Lever, body-weight support takes force off each step — but
+not one-for-one: removing 15% of your weight removes about 13% of
+the impact (0.85 × 15%). The pace is scored as the belt ran it; a
+fast Lever mile is still a fast mile to your tissue.
 
 One easy flat mile = 1 IAD mile; a hard or hilly mile counts as
 more. A full-bodyweight mile never counts as LESS than one IAD
 mile — running slower softens each step but adds steps per mile, so
 the distance itself is the floor. Only Lever body-weight support
-(which removes ground reaction force) can score below distance.
+(which removes ground reaction force) can score below distance:
+a Lever mile at offload O scores (1 − 0.85·O) IAD miles at easy pace.
 
 Acute   = 7-day rolling average of daily IAD miles
 Chronic = 28-day rolling average
 Acute : Chronic = recent load vs the base you have built</pre>`
 + `<span style="${H}">c · each variable — meaning, measurement, caveats</span>`
 + `<div style="${V}"><span style="${K}">D</span> — run distance (mi), from GPS or foot-pod / treadmill. Track distances arrive in metres and are converted.</div>`
-+ `<div style="${V}"><span style="${K}">P, P₀</span> — average pace and your easy-run baseline pace (s/mi), from GPS. Baseline = median <b>grade-adjusted</b> pace of your easy runs (at or slower than the workout-pace cutoff on adjusted pace): each run's pace is first converted to its flat-equivalent (~3.5% per 1% mean ascent grade, downhill credits about half; a device-reported Avg GAP is used directly when present) so honest slow climbing on trail runs doesn't drag the easy baseline slower and inflate flat runs' scores. Only the baseline uses adjusted pace — each run is still scored on its raw pace, since the hill surcharge G already prices the grade. The 0.5 power prices <b>tissue load</b>, not training stress: measured peak vertical ground-reaction force rises only ~1.17× from easy pace to 5K pace (an exponent of ~0.4), while loading rate — the better bone-stress predictor — climbs about linearly (~1.0); 0.5 sits between, so a 5K-pace mile costs ~1.21 IAD miles and a mile-race mile ~1.27. On a <b>Lever run</b> the pace P is first converted to its <b>road-equivalent</b> Pᵉ = P ⁄ (1 − 0.76·O) — body-weight support lets you hold a faster pace at the same effort, so we credit that speedup back before comparing to baseline (e.g. a 6:30 mile at 15% support ≈ a 7:20 road mile). The 0.76 coefficient is roughly effort-independent, so it holds from easy to threshold pace. Caveat: pace under-rates uphill effort (hard but slow) — the hill term offsets this.</div>`
++ `<div style="${V}"><span style="${K}">P, P₀</span> — average pace and your easy-run baseline pace (s/mi), from GPS. Baseline = median <b>grade-adjusted</b> pace of your easy runs (at or slower than the workout-pace cutoff on adjusted pace): each run's pace is first converted to its flat-equivalent (~3.5% per 1% mean ascent grade, downhill credits about half; a device-reported Avg GAP is used directly when present) so honest slow climbing on trail runs doesn't drag the easy baseline slower and inflate flat runs' scores. Only the baseline uses adjusted pace — each run is still scored on its raw pace, since the hill surcharge G already prices the grade. The 0.5 power prices <b>tissue load</b>, not training stress: measured peak vertical ground-reaction force rises only ~1.17× from easy pace to 5K pace (an exponent of ~0.4), while loading rate — the better bone-stress predictor — climbs about linearly (~1.0); 0.5 sits between, so a 5K-pace mile costs ~1.21 IAD miles and a mile-race mile ~1.27. On a <b>Lever run</b> P is the <b>belt pace</b>, with no road-equivalent conversion: support lets you hold a faster pace at the same effort, but tissue does not see effort, it sees the belt — at 80% body weight a 7:00 mile still produces more peak force and ~23% more loading rate than a 9:00 mile (Paquette 2021), so crediting the speedup back would discount a fast Lever run twice. Caveat: pace under-rates uphill effort (hard but slow) — the hill term offsets this.</div>`
 + `<div style="${V}"><span style="${K}">DF, DF₀</span> — duty factor = cadence × ground-contact time, vs your easy baseline (median of <b>flat</b> easy runs only, ≤2% mean total grade when enough exist — slow long-contact trail steps would otherwise inflate the form baseline and surcharge normal flat running). Cadence from the wrist; GCT from a chest strap, foot/waist pod, or wrist running-dynamics. Lower duty factor (shorter contact, more flight) loads each step harder. Caveats: needs a running-dynamics-capable device; GCT is an estimate; duty factor changes with speed, so we only ever compare you to <i>your own</i> baseline.</div>`
 + `<div style="${V}"><span style="${K}">W, W₀</span> — body weight ÷ a reference weight, from the profile. Equals 1 for a single athlete (drops out); only matters when comparing across athletes.</div>`
-+ `<div style="${V}"><span style="${K}">O</span> — Lever body-weight offload: on a Lever run part of bodyweight is supported. This enters the load in two places — it speeds the run's pace back to its road-equivalent Pᵉ = P ⁄ (1 − 0.76·O) (support lets you run faster at the same effort) <i>and</i> discounts the weight term by (1 − O) (support cuts ground reaction force); O = 0 for normal runs. Default is <b>85% bodyweight</b> (O = 0.15), set in the profile. Lever runs are detected automatically — a <b>treadmill</b> activity whose <b>HR is lower than expected for its pace</b> (the offload signature) — or by an activity title containing “lever.” Caveat: treadmill pace can be miscalibrated; a dedicated per-run Lever source (tag / device import) can be wired in later for exact offloads.</div>`
++ `<div style="${V}"><span style="${K}">O</span> — Lever body-weight offload: on a Lever run part of bodyweight is supported, and the run is discounted by (1 − 0.85·O), not (1 − O). Taking weight off does not take force off one-for-one: on the Lever, peak vertical force falls ~0.7× the offload (−9% at 90% body weight, −14% at 80%; Paquette 2021, N = 16) while loading rate and vertical impulse fall ~1.0×, so 0.85 is the midpoint of the two slopes — the same tissue-load definition the 0.5 pace exponent uses. O = 0 for normal runs. Known limits: the measured slope is not constant (steeper over the first 10% of support than the next), individual runners ranged −3% to −26% at 80% body weight, and there is no Lever data above ~27% offload. Default is <b>85% bodyweight</b> (O = 0.15), set in the profile. Lever runs are detected automatically — a <b>treadmill</b> activity whose <b>HR is lower than expected for its pace</b> (the offload signature) — or by an activity title containing “lever.” Caveat: treadmill pace can be miscalibrated; a dedicated per-run Lever source (tag / device import) can be wired in later for exact offloads.</div>`
 + `<div style="${V}"><span style="${K}">G</span> — hill surcharge from total ascent &amp; descent ÷ distance (mean grade), descent weighted ~3× ascent, capped at 2.5. Caveat: only the totals are recorded, so this is <i>mean</i> grade — it can’t tell one steep descent from rolling terrain with the same total, and under-counts concentrated descents. Per-segment grade (from FIT files) would fix this.</div>`
 + `<div style="${V}"><span style="${K}">Acute / Chronic / ACWR</span> — exponentially-weighted 7- and 28-day averages of daily load; the ratio sits in a 0.8–1.3 “safe band,” and &gt;1.5 flags a spike.</div>`
 + `<span style="${H}">d · why each piece is defensible (sources)</span>`
@@ -422,6 +452,8 @@ window.RunLoad = {
   median: median,
   calibrateBaseline: calibrateBaseline,
   impactLoad: impactLoad,
+  offloadFactor: offloadFactor,
+  impactPerMileAtLoad: impactPerMileAtLoad,
   vgrfBW: vgrfBW,
   vgrfN: vgrfN,
   dailyLoads: dailyLoads,
