@@ -646,6 +646,32 @@ exports.stravaWebhook = onRequest({ cors: false }, async (req, res) => {
 //  already-revoked, etc.), we still complete local cleanup so
 //  the user is never left in a half-disconnected state.
 // ═══════════════════════════════════════════════════════════
+// Best-effort revoke of a user's Strava token with Strava itself.
+// Returns a warning string if the revoke failed, else null. Never
+// throws, so callers can always continue with local cleanup.
+async function revokeStravaToken(uid) {
+  const tokenDoc = await db.collection("users").doc(uid).collection("private").doc("strava").get();
+  if (!tokenDoc.exists) return null;
+  const { accessToken } = tokenDoc.data();
+  if (!accessToken) return null;
+  try {
+    const revokeRes = await fetch(STRAVA_DEAUTHORIZE_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!revokeRes.ok) {
+      const warning = `Strava deauthorize returned HTTP ${revokeRes.status}`;
+      console.warn(warning, await revokeRes.text());
+      return warning;
+    }
+  } catch (e) {
+    const warning = `Strava deauthorize request error: ${e.message}`;
+    console.error(warning);
+    return warning;
+  }
+  return null;
+}
+
 exports.deauthorizeStrava = onCall({ cors: true }, async (request) => {
   const callerUid = request.auth?.uid;
   if (!callerUid) {
@@ -658,30 +684,8 @@ exports.deauthorizeStrava = onCall({ cors: true }, async (request) => {
     uid = request.data.athleteUid;
   }
 
-  const tokenDocRef = db.collection("users").doc(uid).collection("private").doc("strava");
-  const tokenDoc = await tokenDocRef.get();
-
-  let revokeWarning = null;
-
   // Step 1: Revoke token with Strava (best effort)
-  if (tokenDoc.exists) {
-    const { accessToken } = tokenDoc.data();
-    if (accessToken) {
-      try {
-        const revokeRes = await fetch(STRAVA_DEAUTHORIZE_URL, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        if (!revokeRes.ok) {
-          revokeWarning = `Strava deauthorize returned HTTP ${revokeRes.status}`;
-          console.warn(revokeWarning, await revokeRes.text());
-        }
-      } catch (e) {
-        revokeWarning = `Strava deauthorize request error: ${e.message}`;
-        console.error(revokeWarning);
-      }
-    }
-  }
+  const revokeWarning = await revokeStravaToken(uid);
 
   // Steps 2-4: delete tokens, clear flags, delete synced activities
   const deletedActivities = await purgeStravaData(uid);
@@ -1199,4 +1203,86 @@ exports.listAllUsers = onCall({ cors: true }, async (request) => {
   });
 
   return { users };
+});
+
+// ═══════════════════════════════════════════════════════════
+//  adminDeleteUser — admin-only, permanent account deletion
+//  for the Manage Users page. Removes everything stored for
+//  the user, then the Firebase Auth account itself:
+//    - Strava token revoked with Strava (best effort)
+//    - users/{uid} and all its subcollections
+//    - training plans where they are the athlete (+ workouts,
+//      lifting weeks, synced activities)
+//    - notifications addressed to them
+//    - coaching requests they sent or received
+//    - customers/{uid} (Stripe extension mirror)
+//    - the Firebase Auth account
+//  Athletes coached by a deleted coach are unassigned.
+//  Refuses while the user has an active Stripe subscription,
+//  since deleting the account would not stop Stripe billing.
+// ═══════════════════════════════════════════════════════════
+exports.adminDeleteUser = onCall({ cors: true, timeoutSeconds: 300 }, async (request) => {
+  const callerUid = request.auth?.uid;
+  if (!callerUid) {
+    throw new HttpsError("unauthenticated", "Must be signed in.");
+  }
+  if (callerUid !== ADMIN_UID) {
+    throw new HttpsError("permission-denied", "Admin access required.");
+  }
+  const uid = request.data?.uid;
+  if (typeof uid !== "string" || !uid) {
+    throw new HttpsError("invalid-argument", "A user id is required.");
+  }
+  if (uid === ADMIN_UID) {
+    throw new HttpsError("failed-precondition", "The admin account cannot be deleted.");
+  }
+
+  // Block while Stripe would keep charging them.
+  const subsSnap = await db.collection("customers").doc(uid)
+    .collection("subscriptions")
+    .where("status", "in", ["active", "trialing", "past_due"])
+    .get();
+  if (!subsSnap.empty) {
+    throw new HttpsError(
+      "failed-precondition",
+      "This user has an active Stripe subscription. Cancel it in Stripe first, then delete the user."
+    );
+  }
+
+  const stravaWarning = await revokeStravaToken(uid);
+
+  // Coach being deleted: unassign their athletes.
+  const athletesSnap = await db.collection("users").where("coachUid", "==", uid).get();
+  for (const doc of athletesSnap.docs) {
+    await doc.ref.update({ coachUid: null });
+  }
+
+  const queryRefs = async (q) => (await q.get()).docs.map((d) => d.ref);
+  const topLevelRefs = [
+    ...await queryRefs(db.collection("trainingPlans").where("athleteUid", "==", uid)),
+    ...await queryRefs(db.collection("notifications").where("recipientUid", "==", uid)),
+    ...await queryRefs(db.collection("coachingRequests").where("athleteUid", "==", uid)),
+    ...await queryRefs(db.collection("coachingRequests").where("coachUid", "==", uid)),
+  ];
+  // recursiveDelete also removes each doc's subcollections.
+  for (const ref of topLevelRefs) {
+    await db.recursiveDelete(ref);
+  }
+  await db.recursiveDelete(db.collection("users").doc(uid));
+  await db.recursiveDelete(db.collection("customers").doc(uid));
+
+  let authDeleted = true;
+  try {
+    await admin.auth().deleteUser(uid);
+  } catch (e) {
+    if (e.code !== "auth/user-not-found") throw new HttpsError("internal", `Data deleted, but the sign-in account could not be: ${e.message}`);
+    authDeleted = false;
+  }
+
+  console.log(`adminDeleteUser: deleted ${uid} (docs=${topLevelRefs.length}, athletesUnassigned=${athletesSnap.size}, auth=${authDeleted})`);
+  return {
+    success: true,
+    athletesUnassigned: athletesSnap.size,
+    stravaWarning,
+  };
 });

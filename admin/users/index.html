@@ -63,6 +63,9 @@
   .mu-flag-tag.disabled { color:var(--bad);background:rgba(245,80,80,.12);border:1px solid rgba(245,80,80,.3) }
   .mu-actas-btn { display:inline-block;margin-top:4px;font-size:9.5px;font-weight:700;letter-spacing:.4px;font-family:var(--mono);color:var(--warn);background:transparent;border:1px solid rgba(245,166,35,.4);border-radius:5px;padding:2px 8px;cursor:pointer;transition:all .15s }
   .mu-actas-btn:hover { background:rgba(245,166,35,.14);border-color:var(--warn) }
+  .mu-delete-btn { display:inline-block;margin-top:4px;margin-left:6px;font-size:9.5px;font-weight:700;letter-spacing:.4px;font-family:var(--mono);color:var(--bad);background:transparent;border:1px solid rgba(245,80,80,.4);border-radius:5px;padding:2px 8px;cursor:pointer;transition:all .15s }
+  .mu-delete-btn:hover { background:rgba(245,80,80,.14);border-color:var(--bad) }
+  .mu-delete-btn[disabled] { opacity:.5;cursor:wait }
 
   /* Role pill */
   .mu-role-pill { display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:7px;font-size:10px;font-weight:700;font-family:var(--mono);letter-spacing:.5px;cursor:pointer;transition:all .15s;user-select:none;text-transform:uppercase;white-space:nowrap }
@@ -129,7 +132,7 @@
   <div class="mu-wrap">
     <div class="mu-eyebrow">&#9673; Admin</div>
     <h1 class="mu-title">Manage Users</h1>
-    <p class="mu-sub">Search and filter every Endurance Science Labs account. Assign athletes to coaches, switch roles, and toggle which features each user can access. Changes save instantly.</p>
+    <p class="mu-sub">Search and filter every Endurance Science Labs account. Assign athletes to coaches, switch roles, and toggle which features each user can access, or delete an account. Changes save instantly.</p>
 
     <div class="mu-stats" id="mu-stats"></div>
 

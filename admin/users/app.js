@@ -9,6 +9,8 @@
 //   - toggle feature access (users/{uid}.features.{feature})
 //   - disconnect a user's Strava (deauthorizeStrava with athleteUid —
 //     the function only honors athleteUid when the caller is the admin)
+//   - permanently delete a user (adminDeleteUser — removes their data
+//     and their sign-in account; refused while a Stripe sub is active)
 //
 // Access is gated two ways:
 //   1. The shared sign-in gate is mounted with requireAdmin:true, so a
@@ -284,12 +286,14 @@ function renderBody() {
     var actAsBtn = isSelf ? '' : '<button class="mu-actas-btn" data-uid="' + esc(uid) + '" '
       + 'data-name="' + esc(d.displayName || '') + '" data-email="' + esc(d.email || '') + '" '
       + 'onclick="muActAs(this)" title="Browse the site as this user to enter data on their behalf">Act as &rarr;</button>';
+    var deleteBtn = isSelf ? '' : '<button class="mu-delete-btn" data-uid="' + esc(uid) + '" '
+      + 'onclick="muDeleteUser(this)" title="Permanently delete this user and all their data">Delete</button>';
     var userCell = '<div class="mu-user">'
       + '<div class="mu-avatar">' + esc(initials) + '</div>'
       + '<div style="min-width:0">'
       + '<div class="mu-user-name">' + esc(d.displayName || d.email || '(no name)') + tags + '</div>'
       + '<div class="mu-user-email">' + esc(d.email || '') + '</div>'
-      + actAsBtn
+      + actAsBtn + deleteBtn
       + '</div></div>';
 
     // Role cell — pill toggles athlete <-> coach
@@ -475,6 +479,55 @@ function muUnlinkStrava(el) {
   });
 }
 window.muUnlinkStrava = muUnlinkStrava;
+
+// Permanent delete via the admin-only adminDeleteUser function. The admin
+// must type the user's email (or name, if there is no email) to confirm.
+function muDeleteUser(el) {
+  var uid = el.dataset.uid;
+  var u = localUser(uid);
+  if (!u) return;
+  var name = d_name(u);
+  var expected = (u.data.email || u.data.displayName || uid).trim();
+  var typed = prompt(
+    'Permanently delete ' + name + '?\n\n'
+    + 'This will delete:\n'
+    + '  • Their sign-in account\n'
+    + '  • Their profile, saved analyses, and run history\n'
+    + '  • Their training plans, workouts, and lifting weeks\n'
+    + '  • Their notifications and coaching requests\n'
+    + '  • Their Strava connection (access is revoked)\n'
+    + (u.data.role === 'coach' ? '  • Their athletes will become unassigned\n' : '')
+    + '\nThis cannot be undone. Type ' + expected + ' to confirm.'
+  );
+  if (typed === null) return;
+  if (typed.trim().toLowerCase() !== expected.toLowerCase()) {
+    toast('Confirmation did not match — user not deleted.', 'error');
+    return;
+  }
+
+  el.setAttribute('disabled', 'true');
+  el.textContent = 'Deleting…';
+  var fns = esLabs.firebase.app().functions('us-central1');
+  fns.httpsCallable('adminDeleteUser')({ uid: uid }).then(function (res) {
+    var warn = res && res.data && res.data.stravaWarning;
+    if (warn) console.warn('Strava revoke warning:', warn);
+    allUsers = allUsers.filter(function (x) { return x.id !== uid; });
+    allUsers.forEach(function (x) { if (x.data.coachUid === uid) x.data.coachUid = null; });
+    rebuildCoachMap();
+    populateCoachFilter();
+    render();
+    toast(name + ' deleted', 'success');
+    // Acting as the deleted user would leave the session pointing at nothing.
+    var act = esLabs.getActAs();
+    if (act && act.uid === uid) esLabs.stopActAs();
+  }).catch(function (e) {
+    console.error('Delete user failed:', e);
+    el.removeAttribute('disabled');
+    el.textContent = 'Delete';
+    toast('Failed to delete user: ' + (e.message || e), 'error');
+  });
+}
+window.muDeleteUser = muDeleteUser;
 
 // Start an act-as session (site.js layer) and jump to the user's
 // account page. Firestore rules — not this button — are what let the
