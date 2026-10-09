@@ -187,7 +187,7 @@ export function showInPersonRequestModal() {
       statusEl.style.background = 'rgba(34,199,138,.10)';
       statusEl.style.border = '1px solid rgba(34,199,138,.30)';
       statusEl.style.color = 'var(--good)';
-      statusEl.innerHTML = '<strong>Request sent.</strong> Your coach will reach out by email within a few days. If you don\'t hear back, send a follow-up to <a href="mailto:austen.hughes@finalforms.com" style="color:inherit;text-decoration:underline">austen.hughes@finalforms.com</a>.';
+      statusEl.innerHTML = '<strong>Request sent.</strong> Your coach will reach out by email within a few days. If you don\'t hear back, send a follow-up to <a href="mailto:austen@endurancesciencelabs.com" style="color:inherit;text-decoration:underline">austen@endurancesciencelabs.com</a>.';
       form.reset();
       btn.textContent = 'Sent ✓';
       setTimeout(() => teardown(root, onKey, prevOverflow), 4000);
