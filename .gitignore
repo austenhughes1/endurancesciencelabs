@@ -1,2 +1,5 @@
 functions/node_modules/
 functions/.env
+
+# VS Code Local History extension snapshots -- may capture secrets (.env)
+.history/

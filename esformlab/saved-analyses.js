@@ -15,6 +15,14 @@
 //  SAVE / LOAD / COMPARE
 // ==============================================================
 
+// Saved-analysis names/dates/ids are free text from the user's own doc, and
+// the admin views them too when acting as that user -- escape before any
+// innerHTML (text or quoted attribute).
+function escSaved(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 // Firestore rejects any document containing undefined. The analysis payload is
 // assembled from many optional blocks (phases, PGI, KFO), so one missed field
 // must not break every save: drop undefined object fields, null them in arrays.
@@ -177,15 +185,15 @@ async function loadAnalysesList() {
       }
       var issueSummary = issueCount > 0 ? issueCount + ' issue' + (issueCount > 1 ? 's' : '') + ' detected' : 'No issues detected';
       return '<div class="ma-item" style="display:flex;align-items:center;gap:12px">' +
-        '<input type="checkbox" class="ma-compare-check" data-id="' + item.id + '" style="width:18px;height:18px;accent-color:#00e5c8;cursor:pointer;flex-shrink:0" onchange="updateCompareSelection()">' +
+        '<input type="checkbox" class="ma-compare-check" data-id="' + escSaved(item.id) + '" style="width:18px;height:18px;accent-color:#00e5c8;cursor:pointer;flex-shrink:0" onchange="updateCompareSelection()">' +
         '<div class="ma-item-info" style="flex:1;min-width:0">' +
-          '<div class="ma-item-name">' + (d.name || 'Untitled') + '</div>' +
-          '<div class="ma-item-date">' + (d.date || '') + (d.sex ? ' -- ' + d.sex : '') + '</div>' +
+          '<div class="ma-item-name">' + escSaved(d.name || 'Untitled') + '</div>' +
+          '<div class="ma-item-date">' + escSaved(d.date || '') + (d.sex ? ' -- ' + escSaved(d.sex) : '') + '</div>' +
           '<div class="ma-item-issues">' + issueSummary + '</div>' +
         '</div>' +
         '<div style="display:flex;gap:6px;flex-shrink:0">' +
-          '<button class="ma-action-btn" data-action="view" data-id="' + item.id + '" style="padding:8px 18px;font-size:13px;font-weight:700;border-radius:8px;border:1px solid rgba(0,229,200,.35);background:rgba(0,229,200,.1);color:#00e5c8;cursor:pointer">View</button>' +
-          '<button class="ma-action-btn" data-action="delete" data-id="' + item.id + '" style="padding:8px 18px;font-size:13px;font-weight:700;border-radius:8px;border:1px solid rgba(245,80,80,.3);background:rgba(245,80,80,.06);color:#f55050;cursor:pointer">Delete</button>' +
+          '<button class="ma-action-btn" data-action="view" data-id="' + escSaved(item.id) + '" style="padding:8px 18px;font-size:13px;font-weight:700;border-radius:8px;border:1px solid rgba(0,229,200,.35);background:rgba(0,229,200,.1);color:#00e5c8;cursor:pointer">View</button>' +
+          '<button class="ma-action-btn" data-action="delete" data-id="' + escSaved(item.id) + '" style="padding:8px 18px;font-size:13px;font-weight:700;border-radius:8px;border:1px solid rgba(245,80,80,.3);background:rgba(245,80,80,.06);color:#f55050;cursor:pointer">Delete</button>' +
         '</div>' +
       '</div>';
     }).join('');
@@ -355,7 +363,7 @@ function openCompare(idA, idB) {
   }
 
   var optionsHtml = savedAnalysesList.map(function(item) {
-    return '<option value="' + item.id + '">' + (item.data.name || 'Untitled') + ' (' + (item.data.date || '') + ')</option>';
+    return '<option value="' + escSaved(item.id) + '">' + escSaved(item.data.name || 'Untitled') + ' (' + escSaved(item.data.date || '') + ')</option>';
   }).join('');
 
   picker.innerHTML = '<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">' +
@@ -456,9 +464,9 @@ function runCompare() {
     var dirClass = 'direction-' + dir;
 
     html += '<div class="compare-issue-row">' +
-      '<div class="compare-issue-card"><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:4px">' + (dA.name || 'A') + '</div>' + sevLabel(a) + '</div>' +
+      '<div class="compare-issue-card"><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:4px">' + escSaved(dA.name || 'A') + '</div>' + sevLabel(a) + '</div>' +
       '<div class="compare-direction"><div class="' + dirClass + '">' + dirLabel + '</div><div style="font-size:10px;color:var(--muted);margin-top:2px">' + ik.title + '</div></div>' +
-      '<div class="compare-issue-card"><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:4px">' + (dB.name || 'B') + '</div>' + sevLabel(b) + '</div>' +
+      '<div class="compare-issue-card"><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:4px">' + escSaved(dB.name || 'B') + '</div>' + sevLabel(b) + '</div>' +
     '</div>';
   });
 
@@ -469,7 +477,7 @@ function runCompare() {
   html += '<div class="compare-details-table" id="compare-detail-table">';
 
   var sidePhases = ['l_foot','r_foot','l_toe','r_toe','mid'];
-  html += '<table class="stbl" style="min-width:500px"><thead><tr><th>Phase</th><th>Metric</th><th>' + (dA.name || 'A') + '</th><th>' + (dB.name || 'B') + '</th><th>Change</th></tr></thead><tbody>';
+  html += '<table class="stbl" style="min-width:500px"><thead><tr><th>Phase</th><th>Metric</th><th>' + escSaved(dA.name || 'A') + '</th><th>' + escSaved(dB.name || 'B') + '</th><th>Change</th></tr></thead><tbody>';
 
   sidePhases.forEach(function(pk) {
     var phA = dA.phases ? dA.phases[pk] : null;

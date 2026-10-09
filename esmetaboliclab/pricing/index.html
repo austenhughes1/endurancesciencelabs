@@ -371,6 +371,7 @@
                  : m.source === 'yearly'       ? 'Active yearly subscription'
                  : m.source === 'single'       ? 'Single-session access (until ' + fmtDate(m.until) + ')'
                  : m.source === 'admin-grant'  ? 'Admin grant — lifetime access'
+                 : m.source === 'coaching-bundle' ? 'Included with Full Access coaching'
                  : 'Active';
       statusHtml = '<span class="ok-icon">✓</span> '
                  + '<strong>' + label + '</strong> &middot; you can run the '

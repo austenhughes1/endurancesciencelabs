@@ -3038,16 +3038,20 @@ function renderNotifList() {
     return;
   }
 
+  // Ids go in escaped data-* attributes and clicks are delegated below --
+  // never interpolate Firestore values into an inline onclick: HTML
+  // escaping doesn't protect a JS string context, and anyone signed in can
+  // create a notification addressed to the admin.
   list.innerHTML = notificationsCache.map(n => {
     const time = n.createdAt?.toDate ? timeAgo(n.createdAt.toDate()) : '';
     let actions = '';
     if (n.type === 'coaching_request' && n.status === 'pending' && isCoach) {
       actions = `<div class="notif-actions">
-        <button class="notif-action accept" onclick="acceptCoachingRequest('${n.requestId}','${n.id}')">Accept</button>
-        <button class="notif-action decline" onclick="declineCoachingRequest('${n.requestId}','${n.id}')">Decline</button>
+        <button class="notif-action accept" data-notif-action="accept">Accept</button>
+        <button class="notif-action decline" data-notif-action="decline">Decline</button>
       </div>`;
     }
-    return `<div class="notif-item${n.read ? '' : ' unread'}" onclick="markNotifRead('${n.id}')">
+    return `<div class="notif-item${n.read ? '' : ' unread'}" data-notif-id="${esc(n.id)}" data-request-id="${esc(n.requestId)}">
       <div class="notif-msg">${esc(n.message)}</div>
       <div class="notif-time">${time}</div>
       ${actions}
@@ -3077,6 +3081,17 @@ function timeAgo(date) {
   if (sec < 86400) return Math.floor(sec / 3600) + 'h ago';
   return Math.floor(sec / 86400) + 'd ago';
 }
+
+// Notification item / Accept / Decline clicks (see renderNotifList).
+document.addEventListener('click', e => {
+  const item = e.target.closest('#notif-list .notif-item');
+  if (!item) return;
+  const { notifId, requestId } = item.dataset;
+  const action = e.target.closest('[data-notif-action]')?.dataset.notifAction;
+  if (action === 'accept') acceptCoachingRequest(requestId, notifId);
+  else if (action === 'decline') declineCoachingRequest(requestId, notifId);
+  markNotifRead(notifId);
+});
 
 // Close panel when clicking outside
 document.addEventListener('click', e => {
@@ -3811,10 +3826,10 @@ function renderLiftingWeek(mondayStr, role) {
         const allSameReps = catState.setLog.every(s => s.reps === catState.setLog[0].reps);
         const allSameWeight = catState.setLog.every(s => s.weight === catState.setLog[0].weight);
         if (allSameReps && allSameWeight && catState.setLog[0].reps) {
-          summary += ` (${catState.setLog.length}×${catState.setLog[0].reps}${catState.setLog[0].weight ? ' @ ' + esc(catState.setLog[0].weight) : ''})`;
+          summary += ` (${catState.setLog.length}×${esc(catState.setLog[0].reps)}${catState.setLog[0].weight ? ' @ ' + esc(catState.setLog[0].weight) : ''})`;
         }
       } else if (catState.sets || catState.reps) {
-        summary += ` — ${catState.sets || '?'}×${catState.reps || '?'}`;
+        summary += ` — ${esc(catState.sets) || '?'}×${esc(catState.reps) || '?'}`;
         if (catState.weight) summary += ` @ ${esc(catState.weight)}`;
       }
     }
@@ -4116,11 +4131,12 @@ async function undoLiftCat(weekKey, catName) {
 // ══════════════════════════════════════════════════════════
 //  UTILITIES
 // ══════════════════════════════════════════════════════════
+// Safe for text and quoted attribute values (several callers build
+// value="${esc(...)}" from athlete-writable data). Not for JS strings.
 function esc(s) {
   if (!s) return '';
-  const d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function formatDuration(seconds) {

@@ -12,6 +12,35 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function isAdmin() {
+      return request.auth != null
+          && request.auth.uid == "2z9Z3K5ZwShvadUuqZmwMv0s1Od2";
+    }
+
+    function userDoc(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
+    }
+
+    // users/{uid} fields that grant access or identity. Only the admin
+    // (Manage Users console) and Cloud Functions (admin SDK) may change
+    // them: the esFormLab / esMetabolicLab / coaching paywalls and
+    // verifyActivePass() trust features + formAnalyzerPassUntil, the
+    // coaching dashboard keys off role, coachUid decides who can read the
+    // athlete, and the Strava webhook resolves users by stravaAthleteId.
+    function protectedUserFields() {
+      return ['role', 'features', 'formAnalyzerPassUntil', 'coachUid',
+              'stravaAthleteId', 'stravaConnected'];
+    }
+
+    // A user doc created by anyone but the admin starts with no
+    // entitlements, the default role and no Strava link.
+    function isPlainNewUser(data) {
+      return !data.keys().hasAny(['features', 'formAnalyzerPassUntil'])
+          && data.get('role', 'athlete') == 'athlete'
+          && data.get('stravaAthleteId', null) == null
+          && data.get('stravaConnected', false) == false;
+    }
+
     // ── Computed ranges (male + female) ──────────────────────
     // Anyone can READ — the public esFormLab analyzer fetches
     // computed_ranges/male and computed_ranges/female on load.
@@ -39,18 +68,30 @@ service cloud.firestore {
     }
 
     // ── User profiles ────────────────────────────────────────
-    // Users can read/write their own profile.
-    // Coach (admin) can read profiles of athletes assigned to them.
+    // Users can read/write their own profile, except the protected
+    // fields above. Coach can read/edit profiles of athletes assigned to
+    // them (same restriction). Admin can do anything.
     match /users/{userId} {
       allow read: if request.auth != null
                   && (request.auth.uid == userId
                       || resource.data.coachUid == request.auth.uid
                       || request.auth.uid == "2z9Z3K5ZwShvadUuqZmwMv0s1Od2");
-      allow create: if request.auth != null;
-      allow update: if request.auth != null
-                    && (request.auth.uid == userId
-                        || request.auth.uid == resource.data.coachUid
-                        || request.auth.uid == "2z9Z3K5ZwShvadUuqZmwMv0s1Od2");
+      // Your own doc (first sign-in, or any set-merge on a missing doc),
+      // or -- as a coach -- an athlete account you're adding to your own
+      // roster (coaching dashboard "Add athlete").
+      allow create: if isAdmin()
+                    || (request.auth != null
+                        && isPlainNewUser(request.resource.data)
+                        && ((request.auth.uid == userId
+                             && request.resource.data.get('coachUid', null) == null)
+                            || (request.resource.data.get('coachUid', null) == request.auth.uid
+                                && userDoc(request.auth.uid).get('role', '') == 'coach')));
+      allow update: if isAdmin()
+                    || (request.auth != null
+                        && (request.auth.uid == userId
+                            || request.auth.uid == resource.data.get('coachUid', null))
+                        && !request.resource.data.diff(resource.data).affectedKeys()
+                              .hasAny(protectedUserFields()));
 
       // ── Saved analyses subcollection ─────────────────────────
       match /analyses/{analysisId} {
@@ -89,9 +130,18 @@ service cloud.firestore {
                   && (resource.data.coachUid == request.auth.uid
                       || resource.data.athleteUid == request.auth.uid
                       || request.auth.uid == "2z9Z3K5ZwShvadUuqZmwMv0s1Od2");
-      allow create: if request.auth != null;
+      // Only a coach for an athlete already assigned to them (or the
+      // admin). The Strava sync and webhook attach activities to the
+      // athlete's first plan (athleteUid == uid, limit 1), so a plan that
+      // names someone else as athlete would capture their Strava data.
+      allow create: if isAdmin()
+                    || (request.auth != null
+                        && request.resource.data.coachUid == request.auth.uid
+                        && userDoc(request.resource.data.athleteUid).get('coachUid', null) == request.auth.uid);
       allow update: if request.auth != null
-                    && resource.data.coachUid == request.auth.uid;
+                    && resource.data.coachUid == request.auth.uid
+                    && !request.resource.data.diff(resource.data).affectedKeys()
+                          .hasAny(['athleteUid', 'coachUid']);
 
       // ── Workouts subcollection ─────────────────────────────
       match /workouts/{workoutId} {
@@ -131,13 +181,32 @@ service cloud.firestore {
 
     // ── Notifications ──────────────────────────────────────
     match /notifications/{notifId} {
-      // Users can read and update (mark read) their own notifications
+      // Users can read their own notifications
       allow read: if request.auth != null
                   && resource.data.recipientUid == request.auth.uid;
+      // ...and mark them read. Accept/decline also rewrites status +
+      // message. Nothing can be re-addressed or re-typed.
       allow update: if request.auth != null
-                    && resource.data.recipientUid == request.auth.uid;
-      // Any authenticated user can create notifications
-      allow create: if request.auth != null;
+                    && resource.data.recipientUid == request.auth.uid
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['read', 'status', 'message']);
+      // Only the notifications the site actually sends: feedback and
+      // in-person requests to the admin (from yourself), a coaching
+      // request for a request you filed, and coach -> their own athlete.
+      // Admin can send anything; Cloud Functions use the admin SDK.
+      // Client ids come from .add() (20 alphanumerics) -- reject any other
+      // doc id so a crafted one can't reach the admin's notification list.
+      allow create: if isAdmin()
+                    || (request.auth != null
+                        && notifId.matches('^[A-Za-z0-9]{20}$')
+                        && ((request.resource.data.recipientUid == "2z9Z3K5ZwShvadUuqZmwMv0s1Od2"
+                             && request.resource.data.type in ['bug_report', 'contact', 'in_person_request']
+                             && request.resource.data.get('senderUid', null) == request.auth.uid)
+                            || (request.resource.data.recipientUid == "2z9Z3K5ZwShvadUuqZmwMv0s1Od2"
+                                && request.resource.data.type == 'coaching_request'
+                                && get(/databases/$(database)/documents/coachingRequests/$(request.resource.data.requestId)).data.athleteUid == request.auth.uid)
+                            || (request.resource.data.type in ['workout_updated', 'coaching_accepted', 'coaching_declined']
+                                && userDoc(request.resource.data.recipientUid).get('coachUid', null) == request.auth.uid)));
     }
 
     // ── Coaching requests ────────────────────────────────────
@@ -146,7 +215,9 @@ service cloud.firestore {
       allow read: if request.auth != null
                   && (resource.data.athleteUid == request.auth.uid
                       || resource.data.coachUid == request.auth.uid);
-      allow create: if request.auth != null;
+      allow create: if isAdmin()
+                    || (request.auth != null
+                        && request.resource.data.athleteUid == request.auth.uid);
       // Coach can update (accept/decline)
       allow update: if request.auth != null
                     && resource.data.coachUid == request.auth.uid;

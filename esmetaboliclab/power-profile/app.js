@@ -24,6 +24,13 @@ import { minPerKmToPaceString, paceStringToMinPerKm, speedToPaceString } from '.
 import { distanceInputHTML, wireDistanceInputs, readDistanceMeters, metersToDistanceString, getDefaultDistanceUnit } from '../js/ui/distance-input.js';
 import { getDefaultPaceUnit, setDefaultPaceUnit } from '../js/ui/pace-input.js';
 import { showConfirmModal } from '../js/ui/confirm-modal.js';
+
+// Saved sessions come from the user's own doc, and the admin renders them
+// too when acting as that user -- escape before putting them in markup.
+function escAttr(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 import { profileGuideHtml } from '../js/ui/profile-guide.js';
 
 const $   = (sel) => document.querySelector(sel);
@@ -288,7 +295,7 @@ function newFormHTML() {
     return `
       <div class="pace-input">
         <input type="text" class="pace-text" id="ps-${idSuffix}" inputmode="decimal" autocomplete="off"
-               placeholder="${cyclingPlaceholder(key)}" value="${prefill.efforts && prefill.efforts[key] || ''}">
+               placeholder="${cyclingPlaceholder(key)}" value="${escAttr(prefill.efforts && prefill.efforts[key] || '')}">
         <div class="unit-static">W</div>
       </div>`;
   };
@@ -626,7 +633,7 @@ function sessionCardHTML(s, isLatest) {
   const derived = s.derived || {};
   return `
     <div class="sess-card ${isLatest ? 'latest' : ''}">
-      <button type="button" class="sess-delete" data-session-delete="${s.id}" title="Delete this session" aria-label="Delete this session">Delete</button>
+      <button type="button" class="sess-delete" data-session-delete="${escAttr(s.id)}" title="Delete this session" aria-label="Delete this session">Delete</button>
       <div>
         <div class="sess-card-date">${fmtDate(s.measured_at)} ${latestPill}</div>
       </div>

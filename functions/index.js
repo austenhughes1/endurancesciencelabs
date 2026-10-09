@@ -14,10 +14,18 @@ const STRAVA_ACTIVITIES_URL = "https://www.strava.com/api/v3/athlete/activities"
 const SITE_URL = "https://endurancesciencelabs.com/coaching/";
 const ADMIN_UID = "2z9Z3K5ZwShvadUuqZmwMv0s1Od2";
 
-// Pass-duration / price-id constants mirror the client-side esformlab logic.
-// Keep these in sync with the same constants at the top of esformlab/index.html.
+// Pass-duration / price-id constants mirror the client-side pass logic.
+// Keep these in sync with the same constants at the top of shared/site.js.
 const PASS_DURATION_SEC = 90 * 24 * 60 * 60;
 const COACHING_PREMIUM_PRICE_ID = "price_1UOlXBIFO8pppwnFMym4W83P";
+// Every price the esFormLab 90-day pass has sold under. Metabolic and
+// coaching payments land in the same customers/{uid}/payments collection,
+// so a payment only counts as a pass if it was for one of these.
+const ESFORMLAB_PASS_PRICE_IDS = [
+  "price_1TVIadIFO8pppwnFTfqv3CCh",
+  "price_1TSjv3IpQrSCpWBRsrDgplXd", // original pass price (May 2026)
+  "price_1TVHAtIpQrSCpWBRLx1baI59", // "ESFormLabs 90 Day Access" product
+];
 
 // ═══════════════════════════════════════════════════════════
 //  stravaCallback — HTTPS endpoint that Strava redirects to
@@ -713,16 +721,18 @@ const COACHING_PRICE_AMOUNTS = {
   "Full Access": 275,
 };
 
-function extractSubscriptionPriceIds(sub) {
+// Price IDs on a Stripe-extension subscription or payment doc: `items[].price`
+// (line items) and/or `prices[]` (DocumentReferences to products/{p}/prices/{id}).
+function extractPriceIds(doc) {
   const ids = [];
-  if (Array.isArray(sub.items)) {
-    for (const item of sub.items) {
-      if (item.price && typeof item.price.id === "string") ids.push(item.price.id);
-      else if (typeof item.price === "string") ids.push(item.price);
+  if (Array.isArray(doc.items)) {
+    for (const item of doc.items) {
+      if (item && item.price && typeof item.price.id === "string") ids.push(item.price.id);
+      else if (item && typeof item.price === "string") ids.push(item.price);
     }
   }
-  if (Array.isArray(sub.prices)) {
-    for (const p of sub.prices) {
+  if (Array.isArray(doc.prices)) {
+    for (const p of doc.prices) {
       if (p && typeof p.id === "string") ids.push(p.id);
     }
   }
@@ -736,7 +746,7 @@ exports.onCoachingSubscription = onDocumentWritten(
     if (!after) return;
     if (after.status !== "active" && after.status !== "trialing") return;
 
-    const priceIds = extractSubscriptionPriceIds(after);
+    const priceIds = extractPriceIds(after);
     const matchedPriceId = priceIds.find((id) => COACHING_PRICE_IDS[id]);
     if (!matchedPriceId) return;
 
@@ -903,12 +913,13 @@ async function verifyActivePass(uid) {
 
   const nowSec = Math.floor(Date.now() / 1000);
 
-  // 1. Paid pass: any succeeded payment within PASS_DURATION_SEC.
+  // 1. Paid pass: a succeeded esFormLab pass payment within PASS_DURATION_SEC.
   try {
     const paymentsSnap = await db.collection("customers").doc(uid).collection("payments").get();
     for (const doc of paymentsSnap.docs) {
       const p = doc.data();
       if (p.status !== "succeeded") continue;
+      if (!extractPriceIds(p).some((id) => ESFORMLAB_PASS_PRICE_IDS.includes(id))) continue;
       const c = p.created;
       const createdSec = typeof c === "number" ? c : c && typeof c.seconds === "number" ? c.seconds : null;
       if (createdSec === null) continue;
@@ -919,6 +930,7 @@ async function verifyActivePass(uid) {
   }
 
   // 2. Admin grant: users/{uid}.features.esFormLab === true OR formAnalyzerPassUntil > now.
+  //    Firestore rules only let the admin set these fields (protectedUserFields).
   try {
     const userSnap = await db.collection("users").doc(uid).get();
     if (userSnap.exists) {
@@ -938,19 +950,7 @@ async function verifyActivePass(uid) {
     for (const doc of subsSnap.docs) {
       const sub = doc.data();
       if (sub.status !== "active" && sub.status !== "trialing") continue;
-      const ids = [];
-      if (Array.isArray(sub.items)) {
-        for (const it of sub.items) {
-          if (it.price && typeof it.price.id === "string") ids.push(it.price.id);
-          else if (typeof it.price === "string") ids.push(it.price);
-        }
-      }
-      if (Array.isArray(sub.prices)) {
-        for (const p of sub.prices) {
-          if (p && typeof p.id === "string") ids.push(p.id);
-        }
-      }
-      if (ids.includes(COACHING_PREMIUM_PRICE_ID)) return true;
+      if (extractPriceIds(sub).includes(COACHING_PREMIUM_PRICE_ID)) return true;
     }
   } catch (e) {
     console.warn("verifyActivePass subscription check failed:", e && e.message);

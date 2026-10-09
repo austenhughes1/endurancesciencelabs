@@ -49,6 +49,15 @@ var FIREBASE_CONFIG = {
 
 var ADMIN_UID = '2z9Z3K5ZwShvadUuqZmwMv0s1Od2';
 var STRIPE_PASS_PRICE_ID = 'price_1TVIadIFO8pppwnFTfqv3CCh';
+// Every price the esFormLab 90-day pass has sold under. Only a payment for
+// one of these unlocks esFormLab -- metabolic and coaching payments land in
+// the same customers/{uid}/payments collection and must not.
+// Keep in sync with ESFORMLAB_PASS_PRICE_IDS in functions/index.js.
+var ESFORMLAB_PASS_PRICE_IDS = [
+  STRIPE_PASS_PRICE_ID,
+  'price_1TSjv3IpQrSCpWBRsrDgplXd',  // original pass price (May 2026)
+  'price_1TVHAtIpQrSCpWBRLx1baI59'   // "ESFormLabs 90 Day Access" product
+];
 var COACHING_PREMIUM_PRICE_ID = 'price_1UOlXBIFO8pppwnFMym4W83P';
 var COACHING_STANDARD_PRICE_ID = 'price_1TVIadIFO8pppwnFuj3vYy9S';
 var PASS_DURATION_SEC = 90 * 24 * 60 * 60;
@@ -286,8 +295,11 @@ function passSnapshot() {
   }
 
   // esMetabolicLab upload access — any of: admin grant / lifetime / active
-  // yearly / unexpired single. Admin grant (users/{uid}.features.esMetabolicLab)
-  // acts as a lifetime grant for coaches/beta testers without a Stripe purchase.
+  // yearly / Full Access coaching / unexpired single. Admin grant
+  // (users/{uid}.features.esMetabolicLab) acts as a lifetime grant for
+  // coaches/beta testers without a Stripe purchase. Full Access coaching
+  // advertises "Access to ESLabs Metabolic Testing", so it bundles upload
+  // access for as long as the subscription is active.
   var metlabUpload = false, metlabSource = null, metlabUntil = null;
   if (state.metlabAdminGranted) {
     metlabUpload = true; metlabSource = 'admin-grant';
@@ -295,6 +307,8 @@ function passSnapshot() {
     metlabUpload = true; metlabSource = 'lifetime';
   } else if (state.metlabYearlyActive) {
     metlabUpload = true; metlabSource = 'yearly'; metlabUntil = state.metlabYearlyPeriodEnd;
+  } else if (state.hasPremiumCoach) {
+    metlabUpload = true; metlabSource = 'coaching-bundle'; metlabUntil = state.premiumCoachPeriodEnd || null;
   } else if (state.metlabSingleUntil && state.metlabSingleUntil > now) {
     metlabUpload = true; metlabSource = 'single'; metlabUntil = state.metlabSingleUntil;
   }
@@ -351,14 +365,17 @@ function attachPassWatchers(uid) {
         if (p.status !== 'succeeded') return;
         var sec = toSeconds(p.created);
         if (sec === null) return;
+        // Per-price detection. Look at line_items + price metadata recorded by the extension.
+        var paidPriceIds = paymentPriceIds(p);
         // esFormLab 90-day pass
-        if (now - sec < PASS_DURATION_SEC) {
+        var isPassPayment = paidPriceIds.some(function (id) {
+          return ESFORMLAB_PASS_PRICE_IDS.indexOf(id) !== -1;
+        });
+        if (isPassPayment && now - sec < PASS_DURATION_SEC) {
           active = true;
           var u = sec + PASS_DURATION_SEC;
           if (until === null || u > until) until = u;
         }
-        // Per-price detection. Look at line_items + price metadata recorded by the extension.
-        var paidPriceIds = paymentPriceIds(p);
         if (paidPriceIds.indexOf(METLAB_LIFETIME_PRICE_ID) !== -1) {
           hasLifetime = true;
         }

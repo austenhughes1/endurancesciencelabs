@@ -23,6 +23,13 @@ import { downloadStepTestReport } from '../js/ui/pdf-report.js';
 import { profileGuideHtml } from '../js/ui/profile-guide.js';
 import { showConfirmModal } from '../js/ui/confirm-modal.js';
 
+// Saved sessions come from the user's own doc, and the admin renders them
+// too when acting as that user -- escape before putting them in markup.
+function escAttr(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 // Wire the page-level protocol buttons.
 wireHowToMeasureTriggers();
 wireStepTestTriggers();
@@ -125,11 +132,11 @@ function renderVLamaxStep() {
     savedSummary +
     '<div class="grid-3">' +
       '<label class="field"><span class="lab">Pre-sprint La (mmol/L)</span>' +
-        '<input type="number" id="vlc-la-pre" step="0.1" min="0" max="5" value="' + inp.La_pre + '"></label>' +
+        '<input type="number" id="vlc-la-pre" step="0.1" min="0" max="5" value="' + escAttr(inp.La_pre) + '"></label>' +
       '<label class="field"><span class="lab">Peak post-sprint La (mmol/L)</span>' +
-        '<input type="number" id="vlc-la-post" step="0.1" min="2" max="30" value="' + inp.La_peak_post + '"></label>' +
+        '<input type="number" id="vlc-la-post" step="0.1" min="2" max="30" value="' + escAttr(inp.La_peak_post) + '"></label>' +
       '<label class="field"><span class="lab">Sprint duration (s)</span>' +
-        '<input type="number" id="vlc-dur" step="1" min="10" max="30" value="' + inp.duration_s + '"></label>' +
+        '<input type="number" id="vlc-dur" step="1" min="10" max="30" value="' + escAttr(inp.duration_s) + '"></label>' +
     '</div>' +
     '<div class="vlc-result" id="vlc-result"></div>';
 
@@ -323,11 +330,11 @@ function renderStages() {
       <td>${
         state.sport === 'running'
           ? paceInputHTML({ id: 'stage-intensity-' + i, mps: s.intensity, placeholder: intensityPlaceholder(), extraAttrs: 'data-i="' + i + '" data-k="intensity"' })
-          : '<input type="text" data-i="' + i + '" data-k="intensity" value="' + (s.intensity || '') + '" placeholder="' + intensityPlaceholder() + '">'
+          : '<input type="text" data-i="' + i + '" data-k="intensity" value="' + escAttr(s.intensity || '') + '" placeholder="' + intensityPlaceholder() + '">'
       }</td>
-      <td><input type="number" step="0.5" min="2" max="10" data-i="${i}" data-k="durationMin" value="${s.durationMin}"></td>
-      <td><input type="number" step="0.1" min="0"  max="25" data-i="${i}" data-k="lactate" value="${s.lactate}"></td>
-      <td><input type="number" step="1"   min="50" max="220" data-i="${i}" data-k="hr"      value="${s.hr}"></td>
+      <td><input type="number" step="0.5" min="2" max="10" data-i="${i}" data-k="durationMin" value="${escAttr(s.durationMin)}"></td>
+      <td><input type="number" step="0.1" min="0"  max="25" data-i="${i}" data-k="lactate" value="${escAttr(s.lactate)}"></td>
+      <td><input type="number" step="1"   min="50" max="220" data-i="${i}" data-k="hr"      value="${escAttr(s.hr)}"></td>
       <td>${state.stages.length > 3 ? '<button class="row-remove" data-rm="' + i + '">×</button>' : ''}</td>
     </tr>
   `).join('');
@@ -626,8 +633,8 @@ function sessionCardHTML(s) {
   const nStages = (inp.stages || []).length;
   const meta = (sport === 'cycling' ? 'Cycling' : 'Running') + ' · ' + nStages + ' stages'
     + (inp.altitude_m > 0 ? ' · ' + Math.round(inp.altitude_m) + ' m' : '');
-  return '<div class="sess-card ' + (isActive ? 'latest' : '') + '" data-session-load="' + s.id + '" style="cursor:pointer">' +
-    '<button type="button" class="sess-delete" data-session-delete="' + s.id + '" title="Delete this test" aria-label="Delete this test">Delete</button>' +
+  return '<div class="sess-card ' + (isActive ? 'latest' : '') + '" data-session-load="' + escAttr(s.id) + '" style="cursor:pointer">' +
+    '<button type="button" class="sess-delete" data-session-delete="' + escAttr(s.id) + '" title="Delete this test" aria-label="Delete this test">Delete</button>' +
     '<div><div class="sess-card-date">' + fmtDate(s.measured_at) + ' ' + activePill + '</div></div>' +
     '<div style="text-align:right">' +
       '<div style="font-family:var(--display);font-size:18px;font-weight:700;color:var(--text);line-height:1.1">VO₂max ' +

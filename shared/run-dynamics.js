@@ -665,7 +665,7 @@ function deltaHTML(cur,prev,m){
 function ymd(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
 // Inclusive end bound for a date-input "To" value: the whole local day, not its midnight.
 function dayEnd(d){ var e=new Date(d); e.setHours(23,59,59,999); return e; }
-function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
 /* ---------- rendering helpers ---------- */
 function summaryCard(label,s){
@@ -790,7 +790,7 @@ function renderEventsList(){
   if(!evs.length){ el.innerHTML='<span class="rdx-ev-empty">No events logged yet — add one to overlay it on the chart.</span>'; return; }
   el.innerHTML=evs.map(function(e){ var m=EV_META[e.type]||EV_META.race, col=m[1];
     var when=ymd(new Date(e.ts))+(e.endTs?' → '+ymd(new Date(e.endTs)):'');
-    return '<span class="rdx-ev-chip"><span class="rdx-ev-dot" style="background:'+col+'"></span><b style="color:'+col+'">'+m[0]+'</b><span class="rdx-ev-date">'+when+'</span>'+(e.note?'<span class="rdx-ev-note">'+esc(e.note)+'</span>':'')+'<button class="rdx-ev-del" data-id="'+e.id+'" title="Remove">✕</button></span>';
+    return '<span class="rdx-ev-chip"><span class="rdx-ev-dot" style="background:'+col+'"></span><b style="color:'+col+'">'+m[0]+'</b><span class="rdx-ev-date">'+when+'</span>'+(e.note?'<span class="rdx-ev-note">'+esc(e.note)+'</span>':'')+'<button class="rdx-ev-del" data-id="'+esc(e.id)+'" title="Remove">✕</button></span>';
   }).join('');
   Array.prototype.forEach.call(el.querySelectorAll('.rdx-ev-del'),function(b){ b.onclick=function(){ evDelete(+this.getAttribute('data-id')); }; });
 }
