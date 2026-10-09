@@ -160,5 +160,74 @@ section('§4 no guessed baselines: nullable basePaceSec, neutral weight term', f
   close('refWeight configured, run weight missing → neutral', il({ paceSec: 420 }, Object.assign({}, P, { refWeight: 70 })), 10 * Math.pow(540 / 420, 0.5), 1e-9);
 });
 
+// ── Hero fixtures (mirror lever-iq guidance_engine_test.dart) ──────────────
+// Neutral runs: no baseline pace, no dynamics, flat → impactLoad == distMi == `load`.
+var NEUTRAL = Object.assign({}, RL.DEFAULTS, { useGrade: true });
+function neutralRun(load, d) { return { distMi: load, paceSec: 540, type: 'Running', ts: d.getTime() }; }
+// Calendar anchor: week 0 Monday is 2026-01-05 (local time). weekday: Mon = 1 … Sun = 7.
+function weekDate(week, weekday, hour) { return new Date(2026, 0, 5 + week * 7 + (weekday - 1), hour == null ? 10 : hour); }
+// One neutral run of `load` on each of `weekdays` for `weeks` consecutive weeks.
+function weeklyRuns(weekdays, load, weeks) {
+  var out = [];
+  for (var w = 0; w < (weeks == null ? 8 : weeks); w++) weekdays.forEach(function (d) { out.push(neutralRun(load, weekDate(w, d))); });
+  return out;
+}
+// One neutral run per consecutive calendar day starting 2026-01-01.
+function dailyRuns(loads) { return loads.map(function (l, i) { return neutralRun(l, new Date(2026, 0, 1 + i, 10)); }); }
+function windowsFor(runs) { return RL.loadWindows(RL.loadTimeline(runs, NEUTRAL)); }
+// The old calendar-base ratios, for the "unchanged" comparisons.
+function oldWindows(tl) {
+  var d1 = RL.avgLast(tl, 1), d3 = RL.avgLast(tl, 3), d7 = RL.avgLast(tl, 7), d28 = RL.avgLast(tl, 28), base = d28 > 0 ? d28 : null;
+  return { r1: base ? d1 / base : null, r3: base ? d3 / base : null, r7: base ? d7 / base : null };
+}
+function maxR(w) { return Math.max(w.r1, w.r3, w.r7); }
+
+section('§5 hero: peak-relative short windows (r1, r3)', function () {
+  var schedules = { 2: [2, 6], 3: [1, 3, 5], 4: [1, 2, 4, 6], 5: [1, 2, 3, 5, 6], 6: [1, 2, 3, 4, 5, 6], 7: [1, 2, 3, 4, 5, 6, 7] };
+  var oldR1 = { 2: 3.5, 3: 2.333, 4: 1.75, 5: 1.4, 6: 1.167, 7: 1.0 };
+  Object.keys(schedules).forEach(function (n) {
+    var runs = weeklyRuns(schedules[n], 3.0), tl = RL.loadTimeline(runs, NEUTRAL), w = RL.loadWindows(tl);
+    close(n + '/wk, run day: old calendar r1 was ' + oldR1[n], oldWindows(tl).r1, oldR1[n], 2e-3);
+    close(n + '/wk, run day: r1 ≈ 1.0', w.r1, 1.0, 0.05);
+    close(n + '/wk, run day: r3 ≤ 1.0', Math.min(w.r3, 1.0), w.r3, 1e-9);
+    close(n + '/wk, run day: maxR ≈ 1.0 (safe band)', maxR(w), 1.0, 0.05);
+  });
+  // The 7/wk runner is unchanged at every window.
+  var seven = RL.loadTimeline(weeklyRuns([1, 2, 3, 4, 5, 6, 7], 3.0), NEUTRAL), w7 = RL.loadWindows(seven), o7 = oldWindows(seven);
+  close('7/wk r1 unchanged', w7.r1, o7.r1, 1e-12);
+  close('7/wk r3 unchanged', w7.r3, o7.r3, 1e-12);
+  close('7/wk r7 unchanged', w7.r7, o7.r7, 1e-12);
+  // r7 is untouched for everyone.
+  Object.keys(schedules).forEach(function (n) {
+    var tl = RL.loadTimeline(weeklyRuns(schedules[n], 3.0), NEUTRAL);
+    close(n + '/wk r7 == d7/d28', RL.loadWindows(tl).r7, oldWindows(tl).r7, 1e-12);
+  });
+  // A 9.0 day for the 4/wk 3.0 runner reads r1 = 3.0 → overreaching.
+  var four = weeklyRuns([1, 2, 4, 6], 3.0);
+  var big = windowsFor(four.concat([neutralRun(9, weekDate(8, 1))]));
+  close('4/wk, 9.0 IAD day: r1 = 3.0', big.r1, 3.0, 1e-9);
+  close('4/wk, 4.5 IAD day: r1 = 1.5 (the edge)', windowsFor(four.concat([neutralRun(4.5, weekDate(8, 1))])).r1, 1.5, 1e-9);
+  // A weekly long run is not a spike (3, 3, 3, 8 every week): max self-normalises, a median would not.
+  var longRuns = [];
+  for (var w = 0; w < 8; w++) { longRuns.push(neutralRun(3, weekDate(w, 2)), neutralRun(3, weekDate(w, 4)), neutralRun(3, weekDate(w, 6)), neutralRun(8, weekDate(w, 7))); }
+  close('3/3/3/8 runner, Sunday long run: maxR ≈ 1.0', maxR(windowsFor(longRuns)), 1.0, 0.05);
+  // Known edge, deliberately left: 3 run days in a row for the 4/wk runner → r3 = 9/6 = 1.5.
+  var extraFri = four.concat([neutralRun(3, weekDate(7, 5))]).sort(function (a, b) { return a.ts - b.ts; });
+  close('4/wk + extra Friday: r3 = 1.5', windowsFor(extraFri).r3, 1.5, 1e-9);
+  // Cold start: fewer than 3 comparable prior windows keeps the calendar base.
+  var cold = RL.loadTimeline(dailyRuns([2, 2, 3]), NEUTRAL);
+  close('3 days of history: r1 = d1/base (3 ÷ 7/3)', RL.loadWindows(cold).r1, 3 / (7 / 3), 1e-9);
+  close('3 days of history: same as the old code', RL.loadWindows(cold).r1, oldWindows(cold).r1, 1e-12);
+  // Fewer than 3 weeks of history must produce the same ratios as the old code (2/wk, 2 weeks →
+  // only 2–4 prior day windows; 3-day windows: 2 loaded blocks… check all three agree).
+  var short2 = RL.loadTimeline(weeklyRuns([2, 6], 3.0, 1), NEUTRAL);
+  close('1 week of 2/wk: r1 unchanged', RL.loadWindows(short2).r1, oldWindows(short2).r1, 1e-12);
+  close('1 week of 2/wk: r3 unchanged', RL.loadWindows(short2).r3, oldWindows(short2).r3, 1e-12);
+  // peakWindow never uses today's own window as its yardstick.
+  var pw = RL.peakWindow(RL.loadTimeline(dailyRuns([1, 1, 1, 1, 9]), NEUTRAL), 1);
+  close('peakWindow excludes today', pw.peak, 1, 1e-12);
+  eq('peakWindow counts loaded prior windows', pw.nonZero, 4);
+});
+
 console.log(checks + ' checks, ' + failures + ' failures');
 process.exit(failures ? 1 : 0);

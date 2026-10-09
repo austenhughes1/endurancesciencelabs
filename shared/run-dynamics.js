@@ -289,9 +289,13 @@ var RAW=[], ACTIVE_TYPES=new Set(), KNOWN_TYPES=new Set();
 var ANCHOR=null, LOAD_PARAMS=null, STD_PROFILE={}, STRAVA_LEVER=[];
 var DAY=864e5;
 
-/* Admin-only demo switcher: forces the hero's 1/3/7-day-vs-28 ratios to a fixed
-   scenario so each recommendation card can be shown on demand. DEMO=null = live.
-   Real run data is never touched — only the hero's displayed windows are overridden. */
+/* Admin-only demo switcher: forces the hero's r1/r3/r7 ratios to a fixed scenario so each
+   recommendation card can be shown on demand. DEMO=null = live. Real run data is never
+   touched — only the hero's displayed windows are overridden. The presets feed the ratios
+   directly and bypass the window math, so read them as the hero does: r1 and r3 are
+   PEAK-relative (today vs the biggest single day / biggest 3-day block of the prior 28), r7
+   is the 7-day mean vs the 28-day mean day; d1/d3/d7 are derived as r × base for the tiles
+   only and are not what the live math would produce for those ratios. */
 var DEMO=null;
 var DEMO_LIST=[
   {key:'bigday',   label:'Big day'},
@@ -829,9 +833,9 @@ function quantile(sorted,q){ var pos=(sorted.length-1)*q, base=Math.floor(pos), 
 function smoothPts(pts){ var w=Math.max(3,Math.min(21,Math.round(pts.length/8))), half=Math.floor(w/2); return pts.map(function(p,i){ var s=0,c=0; for(var j=Math.max(0,i-half);j<=Math.min(pts.length-1,i+half);j++){ s+=pts[j].v; c++; } return {ts:p.ts,v:s/c}; }); }
 
 /* ---------- hero recommendation ---------- */
-// Mean daily load over the last n calendar days (rest days count as 0).
-// loadTimeline exposes each day's load as `.daily`.
-function avgLast(tl,n){ var s=tl.slice(-n); if(!s.length) return 0; var sum=0; for(var i=0;i<s.length;i++) sum+=s[i].daily; return sum/s.length; }
+// Mean daily load over the last n calendar days (rest days count as 0). Lives in
+// run-load-model.js next to the window math so the node harness pins the same numbers.
+function avgLast(tl,n){ return RunLoad.avgLast(tl,n); }
 // Round to a clean mileage (nearest 0.5), no trailing .0.
 function fmtMi(x){ var r=Math.round(x*2)/2; return (r%1===0)?String(r):r.toFixed(1); }
 function renderHero(){
@@ -844,12 +848,14 @@ function renderHero(){
     return;
   }
   var pct=leverPct();
-  // 1-, 3-, 7-day load averages vs the 28-day baseline. The short windows weight
-  // the recent days heavily: one big day spikes the 1-day, a hard block the
-  // 3-day, a sustained ramp the 7-day — each compared to the 28-day base rate.
-  var d1=avgLast(tl,1), d3=avgLast(tl,3), d7=avgLast(tl,7), d28=avgLast(tl,28);
-  var base = d28>0 ? d28 : null;
-  var r1=base?d1/base:null, r3=base?d3/base:null, r7=base?d7/base:null;
+  // 1-, 3-, 7-day load windows. The two short windows are PEAK-relative: r1 = today's load ÷
+  // the biggest single day of the prior 28, r3 = the last 3 days ÷ the biggest prior 3-day
+  // block (RunLoad.shortRatio). r7 = 7-day mean ÷ 28-day mean day, as before — a 7-day window
+  // always holds a full week of anyone's schedule, so it is already schedule-neutral.
+  // Dividing d1/d3 by the 28-day mean CALENDAR day (which counts rest days as zero) measured
+  // run frequency, not load: a 4-day-a-week runner read 1.75× on every ordinary run.
+  var W=RunLoad.loadWindows(tl);
+  var d1=W.d1, d3=W.d3, d7=W.d7, d28=W.d28, base=W.base, r1=W.r1, r3=W.r3, r7=W.r7;
   var demoOn=false;
   // Admin demo override: swap in a fixed scenario's windows (real data untouched).
   if(DEMO && DEMO_PRESETS[DEMO]){
@@ -857,7 +863,11 @@ function renderHero(){
     if(sc.nullBase){ base=null; d1=d3=d7=d28=0; r1=r3=r7=null; }
     else { base=sc.base; d28=sc.base; r1=sc.r1; r3=sc.r3; r7=sc.r7; d1=r1*base; d3=r3*base; d7=r7*base; }
   }
-  var col1=acwrColor(r1), col3=acwrColor(r3), col7=acwrColor(r7);
+  // Tile tints: the detraining (< 0.8 → warn) branch only means something against an average.
+  // A peak-relative ratio sits below 0.8 on every ordinary weekday — that is what having a
+  // biggest day means, not a sign of detraining — so the 1- and 3-day tiles skip it.
+  var peakColor=function(r){ return (r!=null && r<0.8) ? 'var(--good)' : acwrColor(r); };
+  var col1=peakColor(r1), col3=peakColor(r3), col7=acwrColor(r7);
 
   // Typical single-run Impact Load (median of the last ~6 weeks of runs) — used to turn the daily
   // load budget into a concrete session size. Falls back to the 28-day daily base × 1.4 (a rough
@@ -889,6 +899,9 @@ function renderHero(){
     // call, and how hard we lean on the Lever. Driven by the MAX of the 1/3/7-day ratios so a loaded
     // recent block counts even when the weekly average looks flat. Volume band is anchored to the
     // chronic base (the 0.8–1.3 safe band) and shifted by how loaded the last few days have been.
+    // maxR's three inputs no longer share a denominator: 1.0 means "level with your biggest recent
+    // block" when r1/r3 leads and "level with your average day" when r7 leads; the 1.15/1.3/1.5
+    // thresholds read as 15/30/50% beyond whichever that is.
     var loMult, hiMult, intensity, leverNote;
     var maxR=Math.max(r1,r3,r7);
     var rampWkTxt = rampPerWk!=null ? Math.round(rampPerWk*100)+'%' : '';
@@ -935,8 +948,10 @@ function renderHero(){
       '<div class="rdx-do-lever">'+leverNote+'</div>';
   }
 
-  // The four tiles carry the numbers (1-/3-/7-day load vs the 28-day base, each
-  // tinted by how it compares); the recommendation below weighs all three.
+  // The four tiles carry the numbers (1-/3-day load vs the biggest comparable block of the
+  // prior 28 days, 7-day load vs the 28-day base, each tinted by how it compares); the
+  // recommendation below weighs all three. The ratio of sums equals the ratio of means, so
+  // "× biggest 3-day avg" is the same number as the 3-day block ratio.
   var statTile=function(k,val,c,sub){ return '<div class="rdx-hero-stat"><div class="k">'+k+'</div><div class="v" style="color:'+c+'">'+val.toFixed(1)+'</div>'+(sub?'<div class="x" style="color:'+c+'">'+sub+'</div>':'')+'</div>'; };
   // Acute-trend tile: weekly rate of rise of the acute curve, tinted by how steep (rising fast is a
   // leading risk even when the ratio is still in band). '—' when there isn't enough history.
@@ -959,8 +974,8 @@ function renderHero(){
   el.innerHTML=
     '<div class="rdx-hero-badge" style="color:'+accent+'"><span class="rdx-hero-dot" style="background:'+accent+'"></span>'+head+'</div>'+
     '<div class="rdx-hero-stats">'+
-      statTile('Last day', d1, col1, r1!=null?r1.toFixed(1)+'× base':'')+
-      statTile('3-day avg', d3, col3, r3!=null?r3.toFixed(1)+'× base':'')+
+      statTile('Last day', d1, col1, r1!=null?r1.toFixed(1)+'× biggest day (28d)':'')+
+      statTile('3-day avg', d3, col3, r3!=null?r3.toFixed(1)+'× biggest 3-day avg (28d)':'')+
       statTile('7-day avg', d7, col7, r7!=null?r7.toFixed(1)+'× base':'')+
       statTile('28-day base', d28, 'var(--muted2)', 'IAD mi/day')+
       rampTile+

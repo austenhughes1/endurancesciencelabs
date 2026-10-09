@@ -329,6 +329,73 @@ function loadTimeline(runs, params) {
   });
 }
 
+// ── Hero windows: 1-, 3-, 7-day load vs the 28-day base ─────────────
+// Mean daily load over the last n timeline days (rest days count as 0).
+function avgLast(tl, n) {
+  if (!tl.length) return 0;
+  var s = tl.slice(-n), sum = 0;
+  for (var i = 0; i < s.length; i++) sum += s[i].daily;
+  return sum / s.length;
+}
+
+// The largest n-day window sum among windows that END BEFORE today (the last timeline
+// day), within the trailing 28 days, and how many of those windows carried any load.
+// The loop stops one day short of today because today's own window is the one being
+// judged — nothing may be its own yardstick. Earlier windows may still OVERLAP today's
+// span (the 3-day window ending yesterday shares two days with it), and that is intended:
+// the question is "what is the biggest block you finished before today?", not "what
+// disjoint blocks have you done?". Mirrors Lever IQ GuidanceEngine._peakWindow.
+function peakWindow(tl, n) {
+  var firstStart = Math.max(0, tl.length - 1 - 28), peak = 0, nonZero = 0;
+  for (var end = tl.length - 2; end - n + 1 >= firstStart; end--) {
+    var sum = 0;
+    for (var i = end - n + 1; i <= end; i++) sum += tl[i].daily;
+    if (sum > 0) nonZero++;
+    if (sum > peak) peak = sum;
+  }
+  return { peak: peak, nonZero: nonZero };
+}
+
+// A short-window ratio: the last n days' load against the biggest comparable block the
+// runner has actually done in the prior 28 days. 1.0 means "matching your biggest"; the
+// hero's thresholds then read as 15 / 30 / 50% beyond it.
+//
+// Why not n × (28-day mean day): that denominator counts rest days as zero, so dividing a
+// run-day quantity by it measures run FREQUENCY, not load — a runner going 4 of 7 days read
+// r1 ≈ 1.75 on every ordinary run (3/wk 2.33, 2/wk 3.50) and her genuine 3× spike read the
+// same 1.75. Not a median either: a 3/3/3/8 runner has a median run of 3, so her weekly long
+// run would read 2.67× and say "recover" every Sunday — the same bug in disguise. Max
+// self-normalises to her own schedule; sustained ramps are r7's and climbingHot's job.
+//
+// Fewer than three comparable prior windows is not a pattern yet, so the ratio falls back
+// to the old calendar base (n × base) — cold start is unchanged.
+// Mirrors Lever IQ GuidanceEngine._shortRatio (PR #112, b4aefa6).
+function shortRatio(tl, n, base) {
+  var span = Math.min(n, tl.length), sum = 0;
+  for (var i = tl.length - span; i < tl.length; i++) sum += tl[i].daily;
+  var prior = peakWindow(tl, n);
+  var denom = (prior.nonZero >= 3 && prior.peak > 0) ? prior.peak : span * base;
+  return denom > 0 ? sum / denom : 0;
+}
+
+// The hero's windows in one place so the page and the tests read the same numbers:
+// d1/d3/d7/d28 are mean daily loads over the trailing 1/3/7/28 days; base is d28 (null
+// while it is 0); r1 and r3 are PEAK-relative (shortRatio), r7 is d7 ÷ base (a 7-day window
+// always holds a full week of anyone's schedule, so it is already schedule-neutral).
+// NOTE maxR = max(r1, r3, r7) no longer shares a denominator across the three: 1.0 means
+// "level with your biggest recent block" when r1/r3 leads and "level with your average
+// day" when r7 leads.
+function loadWindows(tl) {
+  var d1 = avgLast(tl, 1), d3 = avgLast(tl, 3), d7 = avgLast(tl, 7), d28 = avgLast(tl, 28);
+  var base = d28 > 0 ? d28 : null;
+  return {
+    d1: d1, d3: d3, d7: d7, d28: d28, base: base,
+    r1: base ? shortRatio(tl, 1, base) : null,
+    r3: base ? shortRatio(tl, 3, base) : null,
+    r7: base ? d7 / base : null
+  };
+}
+
 // Inner HTML for the "How Impact Load is calculated" methodology panel (equation, plain-language
 // equation, per-variable explanation + caveats, and cited literature). Inline-styled with the
 // pages' CSS vars so it renders on both the dashboard tab and the standalone page. Drop inside a
@@ -527,6 +594,10 @@ window.RunLoad = {
   dailyLoads: dailyLoads,
   ewma: ewma,
   loadTimeline: loadTimeline,
+  avgLast: avgLast,
+  peakWindow: peakWindow,
+  shortRatio: shortRatio,
+  loadWindows: loadWindows,
   methodologyHTML: methodologyHTML
 };
 
