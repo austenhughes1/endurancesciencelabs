@@ -329,6 +329,29 @@ function loadTimeline(runs, params) {
   });
 }
 
+// Extend a timeline with zero-load days through `through` (a Date; calendar days, local
+// midnight), decaying the acute/chronic EWMAs by (1 − λ) per padded day — identical to
+// rebuilding the timeline from a zero-padded daily series. Days an athlete didn't run still
+// move their load state, so anything anchored on "today" must not read a stale last-run day
+// as current. No-op when the timeline is empty or already reaches `through`.
+// Mirrors Lever IQ ImpactLoadModel.extendTimeline.
+function extendTimeline(tl, through, params) {
+  if (!tl || !tl.length) return tl;
+  var p = Object.assign({}, DEFAULTS, params || {});
+  var target = new Date(through); target.setHours(0, 0, 0, 0);
+  var lamA = 2 / (p.acuteN + 1), lamC = 2 / (p.chronicN + 1);
+  var out = tl.slice(), prev = out[out.length - 1];
+  var cur = new Date(prev.ts); cur.setHours(0, 0, 0, 0);
+  while (cur.getTime() < target.getTime()) {
+    cur.setDate(cur.getDate() + 1); cur.setHours(0, 0, 0, 0);   // DST-safe, as dailyLoads
+    var a = prev.acute * (1 - lamA), c = prev.chronic * (1 - lamC), r = c > 0 ? a / c : null;
+    prev = { ts: cur.getTime(), daily: 0, acute: a, chronic: c, acwr: r,
+             flag: c > 0 ? (r > 1.5 ? 'spike' : r < 0.8 ? 'low' : 'ok') : null };
+    out.push(prev);
+  }
+  return out;
+}
+
 // ── Hero windows: 1-, 3-, 7-day load vs the 28-day base ─────────────
 // Mean daily load over the last n timeline days (rest days count as 0).
 function avgLast(tl, n) {
@@ -594,6 +617,7 @@ window.RunLoad = {
   dailyLoads: dailyLoads,
   ewma: ewma,
   loadTimeline: loadTimeline,
+  extendTimeline: extendTimeline,
   avgLast: avgLast,
   peakWindow: peakWindow,
   shortRatio: shortRatio,

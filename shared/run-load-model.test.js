@@ -229,5 +229,43 @@ section('§5 hero: peak-relative short windows (r1, r3)', function () {
   eq('peakWindow counts loaded prior windows', pw.nonZero, 4);
 });
 
+section('§6 hero: anchor on today (extendTimeline)', function () {
+  eq('empty timeline is a no-op', RL.extendTimeline([], new Date(2026, 6, 1)).length, 0);
+  var twenty = RL.loadTimeline(dailyRuns(Array(20).fill(3.0)), NEUTRAL);
+  eq('already-current timeline is a no-op', RL.extendTimeline(twenty, new Date(twenty[twenty.length - 1].ts)).length, 20);
+  eq('a target before the end is a no-op', RL.extendTimeline(twenty, new Date(2026, 0, 3)).length, 20);
+  // A timeline ending 5 days ago evaluated "today" (2026-01-25): acute decays by (1 − 2/8)^5,
+  // chronic by (1 − 2/29)^5, d1 = 0 — and matches the same runs plus five explicit zero days.
+  var ext = RL.extendTimeline(twenty, new Date(2026, 0, 25, 15), NEUTRAL), lastReal = twenty[twenty.length - 1], lastExt = ext[ext.length - 1];
+  eq('padded to 25 days', ext.length, 25);
+  close('acute = acute_last × (1 − 2/8)^5', lastExt.acute, lastReal.acute * Math.pow(1 - 2 / 8, 5), 1e-12);
+  close('chronic = chronic_last × (1 − 2/29)^5', lastExt.chronic, lastReal.chronic * Math.pow(1 - 2 / 29, 5), 1e-12);
+  close('d1 = 0', RL.avgLast(ext, 1), 0, 0);
+  var ref = RL.loadTimeline(dailyRuns(Array(20).fill(3.0).concat([0, 0, 0, 0, 0])), NEUTRAL);
+  eq('same length as the explicit zero-day rebuild', ext.length, ref.length);
+  for (var i = 0; i < ref.length; i++) {
+    close('day ' + i + ' ts', ext[i].ts, ref[i].ts, 0);
+    close('day ' + i + ' daily', ext[i].daily, ref[i].daily, 1e-12);
+    close('day ' + i + ' acute', ext[i].acute, ref[i].acute, 1e-12);
+    close('day ' + i + ' chronic', ext[i].chronic, ref[i].chronic, 1e-12);
+    eq('day ' + i + ' flag', ext[i].flag, ref[i].flag);
+  }
+  var we = RL.loadWindows(ext), wr = RL.loadWindows(ref);
+  close('same r1 as the rebuild', we.r1, wr.r1, 1e-12);
+  close('same r3 as the rebuild', we.r3, wr.r3, 1e-12);
+  close('same r7 as the rebuild', we.r7, wr.r7, 1e-12);
+  close('same maxR (same verdict) as the rebuild', maxR(we), maxR(wr), 1e-12);
+  // The morning after an ordinary run is still the safe band at every frequency.
+  var schedules = { 2: [2, 6], 3: [1, 3, 5], 4: [1, 2, 4, 6], 5: [1, 2, 3, 5, 6], 6: [1, 2, 3, 4, 5, 6], 7: [1, 2, 3, 4, 5, 6, 7] };
+  Object.keys(schedules).forEach(function (n) {
+    var runs = weeklyRuns(schedules[n], 3.0), last = runs[runs.length - 1];
+    var morning = new Date(last.ts); morning.setDate(morning.getDate() + 1); morning.setHours(7);
+    var w = RL.loadWindows(RL.extendTimeline(RL.loadTimeline(runs, NEUTRAL), morning, NEUTRAL));
+    close(n + '/wk, morning after: d1 = 0', w.d1, 0, 0);
+    close(n + '/wk, morning after: maxR < 1.15', Math.min(maxR(w), 1.149), maxR(w), 1e-9);
+    close(n + '/wk, morning after: r7 ≥ 0.8 (not "room to build")', Math.max(w.r7, 0.8), w.r7, 1e-9);
+  });
+});
+
 console.log(checks + ' checks, ' + failures + ' failures');
 process.exit(failures ? 1 : 0);

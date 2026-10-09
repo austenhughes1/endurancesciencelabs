@@ -840,7 +840,14 @@ function avgLast(tl,n){ return RunLoad.avgLast(tl,n); }
 function fmtMi(x){ var r=Math.round(x*2)/2; return (r%1===0)?String(r):r.toFixed(1); }
 function renderHero(){
   var el=$('hero'); if(!el) return;
-  var tl=RunLoad.loadTimeline(typeRuns(), LOAD_PARAMS);
+  // Anchor on TODAY, not on the athlete's last run day. loadTimeline ends on the last run, so
+  // a runner who has not run for five days would otherwise read their last-run-day state: the
+  // acute EWMA has decayed in reality but not on screen. extendTimeline zero-pads through today
+  // (decaying acute/chronic per padded day, identical to rebuilding from a zero-padded series),
+  // so d1 is 0 on a rest day and the acute-trend lookback sees the real calendar. Chart ranges
+  // already include today; this is the hero's equivalent.
+  var today=new Date();
+  var tl=RunLoad.extendTimeline(RunLoad.loadTimeline(typeRuns(), LOAD_PARAMS), today, LOAD_PARAMS);
   if(tl.length<2){
     el.style.borderLeftColor='var(--muted2)';
     el.innerHTML='<div class="rdx-hero-badge" style="color:var(--muted2)"><span class="rdx-hero-dot" style="background:var(--muted2)"></span>Building your baseline</div>'+
@@ -869,11 +876,12 @@ function renderHero(){
   var peakColor=function(r){ return (r!=null && r<0.8) ? 'var(--good)' : acwrColor(r); };
   var col1=peakColor(r1), col3=peakColor(r3), col7=acwrColor(r7);
 
-  // Typical single-run Impact Load (median of the last ~6 weeks of runs) — used to turn the daily
-  // load budget into a concrete session size. Falls back to the 28-day daily base × 1.4 (a rough
-  // per-run figure) when there isn't enough per-run data or a demo scenario is forcing the windows.
-  var lastTs=tl[tl.length-1].ts;
-  var loads = demoOn ? [] : typeRuns().filter(function(r){ return r.ts>=lastTs-42*864e5; })
+  // Typical single-run Impact Load (median of the last ~6 weeks of runs, anchored at today) — used
+  // to turn the daily load budget into a concrete session size. Falls back to the 28-day daily
+  // base × 1.4 (a rough per-run figure) when there isn't enough per-run data or a demo scenario
+  // is forcing the windows.
+  var todayTs=tl[tl.length-1].ts;
+  var loads = demoOn ? [] : typeRuns().filter(function(r){ return r.ts>=todayTs-42*864e5; })
     .map(function(r){ return RunLoad.impactLoad(r, LOAD_PARAMS); }).filter(function(v){ return v!=null && v>0; });
   var typical = loads.length>=3 ? RunLoad.median(loads) : (base?base*1.4:6);
 
@@ -1009,7 +1017,9 @@ function renderLoadChart(){
   var legEl=$('chartLegend'), chartEl=$('chartBox'), hintEl=$('chartHint');
   if(!chartEl) return;
   if(hintEl) hintEl.innerHTML=LOAD_HINT;
-  var full=RunLoad.loadTimeline(typeRuns(), LOAD_PARAMS);
+  // Padded through today like the hero, so the acute curve decays across rest days since the
+  // last run instead of stopping on it; the To-date filter below still trims it to the range.
+  var full=RunLoad.extendTimeline(RunLoad.loadTimeline(typeRuns(), LOAD_PARAMS), new Date(), LOAD_PARAMS);
   if(full.length<2){ legEl.innerHTML=''; chartEl.innerHTML='<div class="rdx-chart-empty">Not enough history to model load yet.</div>'; return; }
   var from=parseDate($('tFrom').value), to=parseDate($('tTo').value);
   var f0=from?from.getTime():full[0].ts, f1=to?dayEnd(to).getTime():full[full.length-1].ts;
