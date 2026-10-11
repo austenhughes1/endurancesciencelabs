@@ -74,6 +74,14 @@ var METLAB_SINGLE_PRICE_ID   = 'price_1TahDbIFO8pppwnFDD8rkJWP';
 var METLAB_INPERSON_PRICE_ID = 'price_1TahCGIFO8pppwnFHqaaKbwW';
 var METLAB_SINGLE_WINDOW_SEC = 7 * 24 * 60 * 60;
 
+// Shockwave + EMTT session price IDs (one-time, in person).
+// - Standard: $150 per session.
+// - Member:   $50 per session for any active coaching subscriber.
+// Full Access's free monthly session skips checkout entirely.
+var SHOCKWAVE_PRICE_ID        = 'price_1UPT2VIFO8pppwnFl0eiEFAL';
+var SHOCKWAVE_MEMBER_PRICE_ID = 'price_1UPT3oIFO8pppwnFibQ5DIq9';
+var SHOCKWAVE_PRICE_IDS = [SHOCKWAVE_PRICE_ID, SHOCKWAVE_MEMBER_PRICE_ID];
+
 if (typeof firebase === 'undefined') {
   console.error('esLabs/site.js: firebase compat SDK must be loaded first');
   return;
@@ -94,6 +102,8 @@ var state = {
   hasPremiumCoach: false,
   hasStandardCoach: false,
   premiumCoachPeriodEnd: null,
+  subsLoaded: false,              // first subscriptions snapshot has arrived
+  shockwaveLatestPaid: null,      // unix seconds of most recent Shockwave + EMTT payment
   // esMetabolicLab entitlements (client-derived from payments + subs docs)
   metlabHasLifetime: false,
   metlabYearlyActive: false,
@@ -254,6 +264,8 @@ auth.onAuthStateChanged(function (user) {
   state.hasPremiumCoach = false;
   state.hasStandardCoach = false;
   state.premiumCoachPeriodEnd = null;
+  state.subsLoaded = false;
+  state.shockwaveLatestPaid = null;
   state.metlabHasLifetime = false;
   state.metlabYearlyActive = false;
   state.metlabYearlyPeriodEnd = null;
@@ -324,6 +336,10 @@ function passSnapshot() {
     hasPremiumCoach: state.hasPremiumCoach,
     hasStandardCoach: state.hasStandardCoach,
     premiumCoachPeriodEnd: state.premiumCoachPeriodEnd,
+    // False until the coaching subscription state is known -- pages that
+    // price by membership should wait for it rather than flash list price.
+    subscriptionsLoaded: state.subsLoaded,
+    shockwaveLatestPaid: state.shockwaveLatestPaid,
     metlab: {
       uploadAccess: metlabUpload,
       source: metlabSource,
@@ -360,6 +376,7 @@ function attachPassWatchers(uid) {
       var hasLifetime = false;
       var latestSingleSec = null;
       var latestInPersonSec = null;
+      var latestShockwaveSec = null;
       snap.docs.forEach(function (d) {
         var p = d.data();
         if (p.status !== 'succeeded') return;
@@ -385,12 +402,19 @@ function attachPassWatchers(uid) {
         if (paidPriceIds.indexOf(METLAB_INPERSON_PRICE_ID) !== -1) {
           if (latestInPersonSec === null || sec > latestInPersonSec) latestInPersonSec = sec;
         }
+        var isShockwave = paidPriceIds.some(function (id) {
+          return SHOCKWAVE_PRICE_IDS.indexOf(id) !== -1;
+        });
+        if (isShockwave && (latestShockwaveSec === null || sec > latestShockwaveSec)) {
+          latestShockwaveSec = sec;
+        }
       });
       state.hasPaidPass = active;
       state.paidPassUntil = until;
       state.metlabHasLifetime = hasLifetime;
       state.metlabSingleUntil = latestSingleSec ? (latestSingleSec + METLAB_SINGLE_WINDOW_SEC) : null;
       state.metlabInPersonLatest = latestInPersonSec;
+      state.shockwaveLatestPaid = latestShockwaveSec;
       notifyPassListeners();
     }, function (err) { console.warn('payments snapshot:', err.message); });
 
@@ -412,8 +436,14 @@ function attachPassWatchers(uid) {
       state.premiumCoachPeriodEnd = foundPremium ? toSeconds(foundPremium.current_period_end) : null;
       state.metlabYearlyActive = !!foundMetlabYearly;
       state.metlabYearlyPeriodEnd = foundMetlabYearly ? toSeconds(foundMetlabYearly.current_period_end) : null;
+      state.subsLoaded = true;
       notifyPassListeners();
-    }, function (err) { console.warn('subs snapshot:', err.message); });
+    }, function (err) {
+      console.warn('subs snapshot:', err.message);
+      // Unknown membership prices at list rate rather than blocking checkout.
+      state.subsLoaded = true;
+      notifyPassListeners();
+    });
 }
 
 // Extract the price IDs that a Stripe payment doc was for. The extension writes
@@ -493,15 +523,15 @@ function openCustomerPortal() {
   });
 }
 
-function startPassCheckout(opts) {
-  opts = opts || {};
-  if (!state.user) return signInGoogle();
+// Write a checkout_sessions doc for the signed-in user; the Stripe
+// extension fills in the hosted URL (or an error) and we redirect to it.
+function startCheckout(priceId, mode, successUrl, cancelUrl) {
   return db.collection('customers').doc(state.user.uid)
     .collection('checkout_sessions').add({
-      mode: 'payment',
-      price: STRIPE_PASS_PRICE_ID,
-      success_url: opts.successUrl || (window.location.origin + '/esformlab/?paid=1'),
-      cancel_url: opts.cancelUrl || window.location.href,
+      mode: mode,
+      price: priceId,
+      success_url: successUrl,
+      cancel_url: cancelUrl || window.location.href,
       allow_promotion_codes: true
     }).then(function (ref) {
       return new Promise(function (resolve, reject) {
@@ -513,6 +543,13 @@ function startPassCheckout(opts) {
         });
       });
     });
+}
+
+function startPassCheckout(opts) {
+  opts = opts || {};
+  if (!state.user) return signInGoogle();
+  return startCheckout(STRIPE_PASS_PRICE_ID, 'payment',
+    opts.successUrl || (window.location.origin + '/esformlab/?paid=1'), opts.cancelUrl);
 }
 
 // Generic checkout starter for esMetabolicLab purchases.
@@ -530,23 +567,26 @@ function startMetlabCheckout(tier, opts) {
   else return Promise.reject(new Error('Unknown esMetabolicLab tier: ' + tier));
 
   var defaultSuccess = window.location.origin + window.location.pathname + '?paid=1';
-  return db.collection('customers').doc(state.user.uid)
-    .collection('checkout_sessions').add({
-      mode: mode,
-      price: priceId,
-      success_url: opts.successUrl || defaultSuccess,
-      cancel_url: opts.cancelUrl || window.location.href,
-      allow_promotion_codes: true
-    }).then(function (ref) {
-      return new Promise(function (resolve, reject) {
-        ref.onSnapshot(function (snap) {
-          var data = snap.data();
-          if (!data) return;
-          if (data.error) { reject(new Error(data.error.message)); return; }
-          if (data.url) { window.location.assign(data.url); resolve(); }
-        });
-      });
-    });
+  return startCheckout(priceId, mode, opts.successUrl || defaultSuccess, opts.cancelUrl);
+}
+
+// Checkout for one Shockwave + EMTT session.
+//   rate: 'standard' ($150) | 'member' ($50, active coaching subscribers only)
+// On success Stripe redirects back to /shockwave/?paid=1 to pick a time.
+function startShockwaveCheckout(rate, opts) {
+  opts = opts || {};
+  if (!state.user) return signInGoogle();
+  var priceId;
+  if (rate === 'standard') priceId = SHOCKWAVE_PRICE_ID;
+  else if (rate === 'member') {
+    if (!state.hasPremiumCoach && !state.hasStandardCoach) {
+      return Promise.reject(new Error('The member rate is for active coaching athletes.'));
+    }
+    priceId = SHOCKWAVE_MEMBER_PRICE_ID;
+  }
+  else return Promise.reject(new Error('Unknown Shockwave rate: ' + rate));
+  return startCheckout(priceId, 'payment',
+    opts.successUrl || (window.location.origin + '/shockwave/?paid=1'), opts.cancelUrl);
 }
 
 // ── Nav mounting ─────────────────────────────────────────────────
@@ -556,7 +596,8 @@ var NAV_LINKS = [
   { key: 'home',        label: 'Home',              href: '/' },
   { key: 'esformlab',   label: 'Form analysis',     href: '/esformlab/' },
   { key: 'coaching',    label: 'Coaching',          href: '/coaching/' },
-  { key: 'esmetlab',    label: 'Metabolic Testing', href: '/esmetaboliclab/' }
+  { key: 'esmetlab',    label: 'Metabolic Testing', href: '/esmetaboliclab/' },
+  { key: 'shockwave',   label: 'Shockwave',         href: '/shockwave/' }
 ];
 
 var mountedNavs = [];   // [{ el, opts }]
@@ -1051,6 +1092,7 @@ window.esLabs = {
   openCustomerPortal: openCustomerPortal,
   startPassCheckout: startPassCheckout,
   startMetlabCheckout: startMetlabCheckout,
+  startShockwaveCheckout: startShockwaveCheckout,
   STRIPE_PASS_PRICE_ID: STRIPE_PASS_PRICE_ID,
   COACHING_PREMIUM_PRICE_ID: COACHING_PREMIUM_PRICE_ID,
   METLAB_LIFETIME_PRICE_ID: METLAB_LIFETIME_PRICE_ID,

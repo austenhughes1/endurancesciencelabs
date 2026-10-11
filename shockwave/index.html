@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script>try{if(localStorage.getItem('esl-theme')==='light')document.documentElement.setAttribute('data-theme','light')}catch(e){}</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shockwave + EMTT — Endurance Science Labs</title>
+<meta name="description" content="Shockwave (ESWT) + EMTT sessions for chronic running injuries, delivered in person in the Boulder/Denver area by Endurance Science Labs. $150 per session; $50 for coaching athletes.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/site.css">
+<style>
+:root {
+  --gold:    #f5c842;
+  --coral:   #ff6b35;
+  --display: 'Fraunces', Georgia, serif;
+  --body:    'DM Sans', system-ui, sans-serif;
+  /* Accents used as TEXT need deeper ink on light (see --accent-ink) */
+  --gold-ink:   var(--gold);
+  --purple-ink: var(--purple);
+}
+html[data-theme="light"] {
+  --gold-ink:   #8a6a00;
+  --purple-ink: #5a49d6;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--body); background: var(--bg); color: var(--text);
+  min-height: 100vh; font-size: 17px; line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent-ink); }
+
+/* ── Hero ────────────────────────────────────────────── */
+.hero {
+  padding: 100px 40px 80px;
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center; position: relative; overflow: hidden;
+}
+.hero::before {
+  content: ''; position: absolute; top: -20%; left: 50%; transform: translateX(-50%);
+  width: 800px; height: 600px;
+  background: radial-gradient(ellipse, rgba(0,229,200,.055) 0%, transparent 68%);
+  pointer-events: none;
+}
+.hero::after {
+  content: ''; position: absolute; inset: 0;
+  background-image: radial-gradient(var(--border) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, black, transparent);
+  pointer-events: none;
+}
+.hero > * { position: relative; z-index: 1; }
+.hero-label {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12px; font-weight: 600; letter-spacing: .7px; text-transform: uppercase;
+  color: var(--accent-ink); font-family: var(--mono);
+  background: rgba(0,229,200,.08); border: 1px solid rgba(0,229,200,.18);
+  border-radius: 20px; padding: 5px 14px; margin-bottom: 30px;
+}
+.hero-title {
+  font-family: var(--display); font-size: clamp(42px, 6.4vw, 80px);
+  font-weight: 700; line-height: 1.05; letter-spacing: -2px;
+  max-width: 860px; margin-bottom: 24px;
+}
+.hero-title em { font-style: italic; color: var(--accent-ink); }
+.hero-sub {
+  font-size: 19px; color: var(--muted2); line-height: 1.8;
+  max-width: 600px; margin-bottom: 40px;
+}
+.hero-actions {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  justify-content: center; margin-bottom: 60px;
+}
+.btn-primary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 15px 30px; background: var(--cyan); color: #000;
+  font-weight: 600; font-size: 16px; font-family: var(--body);
+  border: none; border-radius: 12px; cursor: pointer;
+  text-decoration: none; transition: opacity .15s;
+}
+.btn-primary:hover { opacity: .85; }
+.btn-primary:disabled { opacity: .55; cursor: wait; }
+.btn-secondary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 15px 30px; color: var(--muted2); font-size: 16px;
+  font-weight: 500; font-family: var(--body);
+  border: 1px solid var(--border2); border-radius: 12px; background: transparent;
+  cursor: pointer; text-decoration: none; transition: color .15s, border-color .15s;
+}
+.btn-secondary:hover { color: var(--text); border-color: var(--accent-ink); }
+.btn-secondary:disabled { opacity: .55; cursor: wait; }
+.hero-stats {
+  display: flex; align-items: center; gap: 44px; flex-wrap: wrap; justify-content: center;
+}
+.hero-stat-val {
+  font-family: var(--display); font-size: 32px; font-weight: 700;
+  letter-spacing: -1px; line-height: 1;
+}
+.hero-stat-val em { font-style: normal; color: var(--accent-ink); }
+.hero-stat-label { font-size: 13px; color: var(--muted2); margin-top: 6px; }
+.stat-divider { width: 1px; height: 44px; background: var(--border2); }
+
+/* ── Sections ────────────────────────────────────────── */
+section { padding: 88px 40px; max-width: 1200px; margin: 0 auto; }
+.divider { border: none; border-top: 1px solid var(--border); margin: 0 40px; }
+.section-label {
+  font-size: 11px; font-weight: 600; letter-spacing: .9px; text-transform: uppercase;
+  color: var(--accent-ink); font-family: var(--mono); margin-bottom: 14px;
+}
+.section-title {
+  font-family: var(--display); font-size: clamp(30px, 3.5vw, 44px);
+  font-weight: 700; letter-spacing: -.8px; margin-bottom: 16px; line-height: 1.12;
+}
+.section-sub { font-size: 18px; color: var(--muted2); line-height: 1.8; max-width: 640px; }
+.section-head { margin-bottom: 44px; }
+
+/* ── Treatment cards ─────────────────────────────────── */
+.tx-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.tx-card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 18px; padding: 32px; display: flex; flex-direction: column;
+  position: relative; overflow: hidden;
+}
+.tx-card::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse at top left, var(--tx-glow), transparent 55%);
+}
+.tx-card.sw { --tx-glow: rgba(0,229,200,.06); border-color: rgba(0,229,200,.2); }
+.tx-card.em { --tx-glow: rgba(139,124,248,.07); border-color: rgba(139,124,248,.24); }
+.tx-card > * { position: relative; }
+.tx-icon {
+  width: 48px; height: 48px; border-radius: 13px; margin-bottom: 18px;
+  display: flex; align-items: center; justify-content: center; font-size: 22px;
+}
+.tx-card.sw .tx-icon { background: rgba(0,229,200,.11); color: var(--accent-ink); }
+.tx-card.em .tx-icon { background: rgba(139,124,248,.12); color: var(--purple-ink); }
+.tx-kicker {
+  font-size: 10px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase;
+  font-family: var(--mono); color: var(--muted2); margin-bottom: 6px;
+}
+.tx-title { font-family: var(--display); font-size: 26px; font-weight: 700; letter-spacing: -.4px; margin-bottom: 12px; line-height: 1.2; }
+.tx-desc { font-size: 16px; color: var(--muted2); line-height: 1.8; }
+.tx-desc strong { color: var(--text); font-weight: 600; }
+.tx-facts { list-style: none; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+.tx-facts li { display: flex; gap: 12px; font-size: 14.5px; line-height: 1.6; color: var(--muted2); }
+.tx-facts li strong { color: var(--text); font-weight: 600; flex-shrink: 0; min-width: 92px; }
+
+.together {
+  margin-top: 18px; padding: 24px 28px; border-radius: 16px;
+  background: linear-gradient(135deg, rgba(0,229,200,.06), rgba(139,124,248,.06));
+  border: 1px solid var(--border2);
+  display: flex; gap: 18px; align-items: flex-start;
+}
+.together-mark { font-family: var(--display); font-size: 30px; line-height: 1; color: var(--accent-ink); flex-shrink: 0; }
+.together p { font-size: 16px; color: var(--muted2); line-height: 1.75; }
+.together p strong { color: var(--text); font-weight: 600; }
+
+/* ── Evidence table ──────────────────────────────────── */
+.ev-list { border: 1px solid var(--border); border-radius: 16px; overflow: hidden; background: var(--panel); }
+.ev-row {
+  display: grid; grid-template-columns: minmax(200px, 1.1fr) 140px 2fr;
+  gap: 20px; align-items: center; padding: 18px 24px;
+  border-top: 1px solid var(--border);
+}
+.ev-row:first-child { border-top: none; }
+.ev-row.ev-head {
+  padding-top: 12px; padding-bottom: 12px; background: var(--panel2);
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: .8px; text-transform: uppercase; color: var(--muted2);
+}
+.ev-cond { font-weight: 600; font-size: 16px; line-height: 1.35; }
+.ev-cond span { display: block; font-weight: 400; font-size: 13px; color: var(--muted2); margin-top: 2px; }
+.ev-note { font-size: 14.5px; color: var(--muted2); line-height: 1.65; }
+.ev-badge {
+  display: inline-flex; align-items: center; gap: 6px; width: fit-content;
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: .5px; text-transform: uppercase;
+  padding: 4px 9px; border-radius: 6px; border: 1px solid; white-space: nowrap;
+}
+.ev-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.ev-badge.strong   { color: var(--accent-ink); background: rgba(0,229,200,.08);   border-color: rgba(0,229,200,.25); }
+.ev-badge.support  { color: var(--purple-ink); background: rgba(139,124,248,.09); border-color: rgba(139,124,248,.28); }
+.ev-badge.early    { color: var(--muted2);     background: var(--hover);          border-color: var(--border2); }
+.ev-badge.mixed    { color: var(--gold-ink);   background: rgba(245,200,66,.08);  border-color: rgba(245,200,66,.28); }
+.ev-foot { margin-top: 14px; font-size: 13px; color: var(--muted2); font-family: var(--mono); line-height: 1.7; }
+
+/* ── Photo break ─────────────────────────────────────── */
+.photo-break { position: relative; height: 480px; overflow: hidden; }
+.photo-break img {
+  width: 100%; height: 100%; object-fit: cover; object-position: 68% 35%;
+  display: block; filter: brightness(.5) saturate(1.05);
+}
+.photo-break::before, .photo-break::after {
+  content: ''; position: absolute; left: 0; right: 0; z-index: 2; pointer-events: none;
+}
+.photo-break::before { top: 0; height: 100px; background: linear-gradient(to bottom, var(--bg), transparent); }
+.photo-break::after { bottom: 0; height: 120px; background: linear-gradient(to top, var(--bg), transparent); }
+.photo-break-overlay {
+  position: absolute; inset: 0; z-index: 3; padding: 40px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+}
+/* Fixed light text: it always sits on the darkened photo */
+.photo-break-quote {
+  font-family: var(--display); font-size: clamp(24px, 3.6vw, 42px);
+  font-weight: 600; color: #f2f4fb; line-height: 1.3; max-width: 760px; letter-spacing: -.3px;
+}
+.photo-break-quote em { font-style: italic; color: var(--cyan); }
+.photo-break-sub { font-size: 16px; color: rgba(242,244,251,.75); max-width: 600px; margin-top: 18px; line-height: 1.75; }
+.photo-break-sub a { color: var(--cyan); }
+
+/* ── Visit steps ─────────────────────────────────────── */
+.steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px; }
+.step { display: flex; flex-direction: column; gap: 12px; }
+.step-num {
+  width: 40px; height: 40px; border-radius: 11px;
+  background: rgba(0,229,200,.09); border: 1px solid rgba(0,229,200,.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: var(--accent-ink); font-family: var(--mono);
+}
+.step-title { font-family: var(--display); font-size: 19px; font-weight: 600; letter-spacing: -.2px; }
+.step-desc { font-size: 15px; color: var(--muted2); line-height: 1.75; }
+.protocol-note {
+  margin-top: 36px; font-size: 14px; color: var(--muted2); font-family: var(--mono);
+  line-height: 1.7; padding-left: 14px; border-left: 2px solid var(--border2);
+}
+.protocol-note strong { color: var(--text); }
+
+/* ── Fit / contraindications ─────────────────────────── */
+.fit-grid { display: grid; grid-template-columns: 1fr 1.25fr; gap: 18px; }
+.fit-card { background: var(--panel); border: 1px solid var(--border); border-radius: 18px; padding: 30px; }
+.fit-card.caution { border-color: rgba(245,166,35,.28); }
+.fit-h { font-family: var(--display); font-size: 21px; font-weight: 600; margin-bottom: 6px; letter-spacing: -.2px; }
+.fit-sub { font-size: 14.5px; color: var(--muted2); line-height: 1.65; margin-bottom: 18px; }
+.fit-list { list-style: none; display: flex; flex-direction: column; gap: 11px; }
+.fit-list.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 11px 22px; }
+.fit-list li { display: flex; gap: 11px; font-size: 15px; line-height: 1.55; }
+.fit-list li::before {
+  content: '✓'; flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%; margin-top: 2px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 800;
+  background: rgba(0,229,200,.12); color: var(--accent-ink);
+}
+.fit-card.caution .fit-list li::before { content: '!'; background: rgba(245,166,35,.14); color: var(--warn); }
+.fit-ask {
+  margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border);
+  font-size: 14px; color: var(--muted2); line-height: 1.65;
+}
+
+/* ── Pricing + booking ───────────────────────────────── */
+#book { scroll-margin-top: 70px; }
+.price-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 22px; }
+.price-card {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 24px 26px;
+  display: flex; flex-direction: column; transition: border-color .2s;
+}
+.price-card.mine { border-color: var(--cyan); box-shadow: 0 0 0 1px var(--cyan) inset; }
+.price-tag {
+  font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: .8px;
+  text-transform: uppercase; color: var(--muted2); margin-bottom: 10px;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.price-you {
+  display: none; font-size: 9px; padding: 2px 7px; border-radius: 4px;
+  background: var(--cyan); color: #000; letter-spacing: .5px;
+}
+.price-card.mine .price-you { display: inline-block; }
+.price-amt { font-family: var(--display); font-size: 40px; font-weight: 700; letter-spacing: -1px; line-height: 1.05; }
+.price-amt small { font-family: var(--body); font-size: 15px; font-weight: 500; color: var(--muted2); letter-spacing: 0; margin-left: 4px; }
+.price-amt s { font-size: 20px; color: var(--muted2); font-weight: 600; margin-right: 6px; }
+.price-desc { font-size: 14.5px; color: var(--muted2); line-height: 1.65; margin-top: 8px; }
+
+.book-panel {
+  background: linear-gradient(135deg, rgba(0,229,200,.07), rgba(139,124,248,.06));
+  border: 1px solid rgba(0,229,200,.2); border-radius: 18px; padding: 30px 32px;
+}
+.book-row { display: flex; align-items: center; justify-content: space-between; gap: 22px; flex-wrap: wrap; }
+.book-h { font-family: var(--display); font-size: 24px; font-weight: 700; letter-spacing: -.4px; margin-bottom: 4px; }
+.book-note { font-size: 14.5px; color: var(--muted2); line-height: 1.65; max-width: 520px; }
+.book-note strong { color: var(--text); }
+.book-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.book-micro { margin-top: 18px; font-size: 12px; color: var(--muted2); font-family: var(--mono); line-height: 1.7; }
+.book-err {
+  display: none; margin-top: 16px; padding: 12px 14px; border-radius: 10px;
+  background: rgba(245,80,80,.08); border: 1px solid rgba(245,80,80,.3);
+  color: var(--bad); font-size: 14px; line-height: 1.55;
+}
+.book-err.show { display: block; }
+.paid-banner {
+  margin-bottom: 18px; padding: 20px 24px; border-radius: 14px;
+  background: rgba(34,199,138,.09); border: 1px solid rgba(34,199,138,.3);
+  border-left: 4px solid var(--good);
+  display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap;
+}
+.paid-banner[hidden] { display: none; }
+.paid-banner strong { color: var(--good); }
+.paid-banner p { font-size: 15px; line-height: 1.6; max-width: 600px; }
+.paid-banner .small { font-size: 13.5px; color: var(--muted2); margin-top: 2px; }
+
+/* ── FAQ ─────────────────────────────────────────────── */
+.faq { display: flex; flex-direction: column; gap: 10px; max-width: 860px; }
+.faq details { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; }
+.faq summary {
+  cursor: pointer; list-style: none; padding: 18px 22px;
+  font-weight: 600; font-size: 16.5px; display: flex; justify-content: space-between; gap: 16px;
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: '+'; font-family: var(--mono); color: var(--accent-ink); font-size: 18px; line-height: 1.2; transition: transform .15s; }
+.faq details[open] summary::after { transform: rotate(45deg); }
+.faq details p { padding: 0 22px 20px; font-size: 15.5px; color: var(--muted2); line-height: 1.75; }
+
+/* ── Research ────────────────────────────────────────── */
+.refs { list-style: none; display: flex; flex-direction: column; gap: 9px; max-width: 900px; }
+.refs li { font-size: 13px; color: var(--muted2); font-family: var(--mono); line-height: 1.65; padding-left: 16px; position: relative; }
+.refs li::before { content: '·'; position: absolute; left: 2px; color: var(--accent-ink); }
+.refs em { font-style: italic; color: var(--text); font-family: var(--body); font-size: 14px; }
+
+/* ── Footer ──────────────────────────────────────────── */
+footer {
+  border-top: 1px solid var(--border); padding: 42px 40px;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px;
+}
+.footer-logo-img { height: 32px; width: auto; display: block; }
+.footer-links { display: flex; gap: 22px; flex-wrap: wrap; }
+.footer-link { font-size: 14px; color: var(--muted2); text-decoration: none; transition: color .15s; }
+.footer-link:hover { color: var(--text); }
+.footer-copy { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+.footer-disclaimer {
+  flex-basis: 100%; font-size: 11px; color: var(--muted); line-height: 1.7; font-family: var(--mono);
+  margin-top: 6px; border-top: 1px solid var(--border); padding-top: 16px;
+}
+.footer-disclaimer strong { color: var(--muted2); }
+
+/* ── Responsive ──────────────────────────────────────── */
+@media (max-width: 960px) {
+  .steps { grid-template-columns: 1fr 1fr; }
+  .price-grid { grid-template-columns: 1fr; }
+  .fit-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 800px) {
+  .tx-grid { grid-template-columns: 1fr; }
+  .ev-row { grid-template-columns: 1fr auto; gap: 8px 16px; }
+  .ev-row .ev-note { grid-column: 1 / -1; }
+  .ev-row.ev-head { display: none; }
+}
+@media (max-width: 768px) {
+  body { font-size: 16px; }
+  .hero { padding: 64px 20px 56px; }
+  .hero-title { letter-spacing: -1px; }
+  .hero-sub { font-size: 17px; margin-bottom: 32px; }
+  .hero-actions { margin-bottom: 44px; }
+  .btn-primary, .btn-secondary { padding: 13px 24px; font-size: 15px; }
+  .hero-stats { gap: 26px; }
+  .hero-stat-val { font-size: 27px; }
+  section { padding: 64px 20px; }
+  .divider { margin: 0 20px; }
+  .section-sub { font-size: 16px; }
+  .tx-card, .fit-card { padding: 24px; }
+  .photo-break { height: 400px; }
+  .photo-break-overlay { padding: 28px 20px; }
+  .book-panel { padding: 24px; }
+  footer { padding: 32px 20px; flex-direction: column; align-items: flex-start; gap: 16px; }
+}
+@media (max-width: 480px) {
+  .hero { padding: 44px 16px 48px; }
+  .hero-actions { width: 100%; flex-direction: column; }
+  .hero-actions a { width: 100%; }
+  .hero-stats { flex-direction: column; gap: 18px; }
+  .stat-divider { display: none; }
+  section { padding: 52px 16px; }
+  .divider { margin: 0 16px; }
+  .steps { grid-template-columns: 1fr; }
+  .fit-list.two-col { grid-template-columns: 1fr; }
+  .together { flex-direction: column; gap: 10px; padding: 20px; }
+  .ev-row { padding: 16px 18px; }
+  .book-actions, .book-actions > * { width: 100%; }
+  .paid-banner .btn-primary { width: 100%; }
+  footer { padding: 28px 16px; }
+}
+</style>
+</head>
+<body>
+
+<nav class="eslabs-nav" id="sw-nav"></nav>
+<div id="sw-gate" class="hidden"></div>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-label">◉ Shockwave + EMTT · Boulder / Denver</div>
+  <h1 class="hero-title">Restart healing in <em>stubborn</em> running injuries.</h1>
+  <p class="hero-sub">
+    Two non-invasive treatments in one visit — acoustic shockwaves and high-energy
+    electromagnetic pulses — delivered in person by an Endurance Science Labs coach
+    in the Boulder / Denver area.
+  </p>
+  <div class="hero-actions">
+    <a href="#book" class="btn-primary">Book a session →</a>
+    <a href="#treatments" class="btn-secondary">How it works</a>
+  </div>
+  <div class="hero-stats">
+    <div>
+      <div class="hero-stat-val">$150</div>
+      <div class="hero-stat-label">Per session</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div>
+      <div class="hero-stat-val">$50</div>
+      <div class="hero-stat-label">For coaching athletes</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div>
+      <div class="hero-stat-val">3–6</div>
+      <div class="hero-stat-label">Sessions in a typical protocol</div>
+    </div>
+  </div>
+</div>
+
+<!-- The two treatments -->
+<section id="treatments">
+  <div class="section-head">
+    <div class="section-label">The treatments</div>
+    <h2 class="section-title">Two signals, one goal: get stalled tissue repairing again.</h2>
+    <p class="section-sub">Chronic tendon and fascia pain often isn't ongoing damage — it's tissue that stopped healing. Both treatments are designed to give it a fresh stimulus to repair.</p>
+  </div>
+  <div class="tx-grid">
+    <div class="tx-card sw">
+      <div class="tx-icon">◉</div>
+      <div class="tx-kicker">Extracorporeal shockwave therapy · ESWT</div>
+      <div class="tx-title">Shockwave</div>
+      <p class="tx-desc">
+        Short, high-pressure acoustic pulses travel through the skin into the injured tendon,
+        fascia, or bone. Cells respond to that mechanical stimulus with <strong>new blood-vessel
+        growth, collagen remodeling, and a reset of local pain signaling</strong> — kick-starting
+        repair in tissue that had plateaued. It's one of the most-studied non-surgical options
+        for chronic tendon pain.
+      </p>
+      <ul class="tx-facts">
+        <li><strong>Feels like</strong><span>A strong, rapid tapping over the sore spot. Intensity is set to your tolerance.</span></li>
+        <li><strong>Targets</strong><span>The precise spot that hurts — we locate it by feel and feedback.</span></li>
+        <li><strong>Evidence</strong><span>Decades of research, including multiple randomized trials.</span></li>
+      </ul>
+    </div>
+    <div class="tx-card em">
+      <div class="tx-icon">⬡</div>
+      <div class="tx-kicker">Extracorporeal magnetotransduction therapy</div>
+      <div class="tx-title">EMTT</div>
+      <p class="tx-desc">
+        High-energy pulsed electromagnetic fields — far stronger and faster-oscillating than
+        conventional PEMF devices — reach deep into muscle, tendon, and bone without any contact
+        pressure. The field is thought to <strong>stimulate cell metabolism and repair</strong>
+        across a broader area than the shockwave head covers.
+      </p>
+      <ul class="tx-facts">
+        <li><strong>Feels like</strong><span>Little or nothing — at most a light twitch or tingle. It's painless.</span></li>
+        <li><strong>Targets</strong><span>A wider, deeper zone around the injury, including bone.</span></li>
+        <li><strong>Evidence</strong><span>Newer. Early randomized trials are promising, but the research base is much smaller.</span></li>
+      </ul>
+    </div>
+  </div>
+  <div class="together">
+    <div class="together-mark">+</div>
+    <p>
+      <strong>Why pair them?</strong> Shockwave treats the focal point of the injury; EMTT treats the
+      tissue around and beneath it. Combining the two in one visit is a common protocol — and
+      combination trials are where EMTT has shown the most benefit so far, e.g. better outcomes
+      than shockwave alone in a randomized trial for rotator cuff tendinopathy.
+    </p>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- Evidence for running injuries -->
+<section id="evidence">
+  <div class="section-head">
+    <div class="section-label">What it's used for</div>
+    <h2 class="section-title">Common running injuries, rated honestly.</h2>
+    <p class="section-sub">Shockwave isn't a cure-all. Here's where the research is strong, where it's thin, and where it's mixed.</p>
+  </div>
+  <div class="ev-list" role="table" aria-label="Evidence by running injury">
+    <div class="ev-row ev-head" role="row">
+      <div role="columnheader">Injury</div><div role="columnheader">Evidence</div><div role="columnheader">What the research says</div>
+    </div>
+    <div class="ev-row" role="row">
+      <div class="ev-cond" role="cell">Plantar fasciitis<span>Heel and arch pain</span></div>
+      <div role="cell"><span class="ev-badge strong">Well supported</span></div>
+      <div class="ev-note" role="cell">Multiple randomized trials and meta-analyses support shockwave for chronic heel pain that hasn't settled with standard care.</div>
+    </div>
+    <div class="ev-row" role="row">
+      <div class="ev-cond" role="cell">Achilles tendinopathy<span>Mid-portion and insertional</span></div>
+      <div role="cell"><span class="ev-badge support">Supported</span></div>
+      <div class="ev-note" role="cell">Works best alongside a loading program — eccentric loading plus shockwave beat loading alone in a randomized trial.</div>
+    </div>
+    <div class="ev-row" role="row">
+      <div class="ev-cond" role="cell">Lateral hip pain<span>Greater trochanteric pain syndrome</span></div>
+      <div role="cell"><span class="ev-badge support">Supported</span></div>
+      <div class="ev-note" role="cell">Randomized trial evidence for shockwave over usual care, with longer-lasting results than a corticosteroid injection.</div>
+    </div>
+    <div class="ev-row" role="row">
+      <div class="ev-cond" role="cell">Proximal hamstring tendinopathy<span>Deep buttock pain</span></div>
+      <div role="cell"><span class="ev-badge early">Early</span></div>
+      <div class="ev-note" role="cell">One randomized trial in professional athletes was clearly positive; it hasn't been widely replicated yet.</div>
+    </div>
+    <div class="ev-row" role="row">
+      <div class="ev-cond" role="cell">Shin splints<span>Medial tibial stress syndrome</span></div>
+      <div role="cell"><span class="ev-badge early">Early</span></div>
+      <div class="ev-note" role="cell">Non-randomized studies show faster recovery when shockwave is added to a graded return-to-run plan.</div>
+    </div>
+    <div class="ev-row" role="row">
+      <div class="ev-cond" role="cell">Patellar tendinopathy<span>"Jumper's knee"</span></div>
+      <div role="cell"><span class="ev-badge mixed">Mixed</span></div>
+      <div class="ev-note" role="cell">Some trials show gains in chronic cases; one trial in athletes treated mid-season found no benefit over placebo.</div>
+    </div>
+    <div class="ev-row" role="row">
+      <div class="ev-cond" role="cell">Bone stress injuries<span>Stress reactions, slow-healing fractures</span></div>
+      <div role="cell"><span class="ev-badge early">Early</span></div>
+      <div class="ev-note" role="cell">Small studies only. Needs a medical diagnosis — and your physician's OK — before treatment.</div>
+    </div>
+  </div>
+  <p class="ev-foot">Ratings reflect the shockwave research. EMTT's evidence is earlier-stage across the board.</p>
+</section>
+
+<!-- Photo break: load framing -->
+<div class="photo-break">
+  <img src="/images/track_running_legs.jpg" alt="A runner's legs mid-stride on a track" loading="lazy">
+  <div class="photo-break-overlay">
+    <div class="photo-break-quote">The treatment restarts healing.<br>The <em>training plan</em> keeps it going.</div>
+    <p class="photo-break-sub">
+      Tendons get irritated when load outpaces adaptation. The best results in the research
+      come from pairing treatment with progressive loading — which is why our
+      <a href="/coaching/">coaching athletes</a> get both.
+    </p>
+  </div>
+</div>
+
+<!-- Your visit -->
+<section id="visit">
+  <div class="section-head">
+    <div class="section-label">Your visit</div>
+    <h2 class="section-title">From booking to back on the road.</h2>
+  </div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">01</div>
+      <div class="step-title">Book &amp; pay</div>
+      <p class="step-desc">Check out securely with Stripe — coaching athletes get their member rate automatically.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <div class="step-title">Pick your time</div>
+      <p class="step-desc">Choose an open slot on our calendar. We'll confirm the location in the Boulder / Denver area.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <div class="step-title">Screen &amp; treat</div>
+      <p class="step-desc">We go over your injury history and the safety checklist, then treat with shockwave followed by EMTT.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">04</div>
+      <div class="step-title">Keep training, smarter</div>
+      <p class="step-desc">Mild soreness for a day or two is normal. Most runners keep training as symptoms allow — easy days first.</p>
+    </div>
+  </div>
+  <p class="protocol-note"><strong>Most protocols run 3–6 sessions</strong>, roughly a week apart. We reassess your symptoms each visit rather than locking you into a package.</p>
+</section>
+
+<hr class="divider">
+
+<!-- Is it right for you -->
+<section id="fit">
+  <div class="section-head">
+    <div class="section-label">Is it right for you?</div>
+    <h2 class="section-title">Safety first.</h2>
+    <p class="section-sub">Shockwave and EMTT are low-risk for most healthy runners, but they aren't for everyone.</p>
+  </div>
+  <div class="fit-grid">
+    <div class="fit-card">
+      <div class="fit-h">Good candidates</div>
+      <p class="fit-sub">You'll likely get the most out of it if:</p>
+      <ul class="fit-list">
+        <li>The pain has lasted roughly three months or more</li>
+        <li>It's a tendon, fascia, or known overuse injury — not a mystery</li>
+        <li>Rest, rehab exercises, or load changes alone haven't resolved it</li>
+        <li>You're willing to pair treatment with smart training changes</li>
+      </ul>
+    </div>
+    <div class="fit-card caution">
+      <div class="fit-h">Don't book if any of these apply</div>
+      <p class="fit-sub">Talk to us first — and in most cases your doctor:</p>
+      <ul class="fit-list two-col">
+        <li>Pregnancy</li>
+        <li>Pacemaker, defibrillator, or other implanted electronics</li>
+        <li>Metal implants in or near the treatment area</li>
+        <li>Bleeding disorder or blood-thinning medication</li>
+        <li>Cancer, or a tumor near the treatment area</li>
+        <li>Infection, open wound, or skin condition at the site</li>
+        <li>Steroid injection in the area in the last 6 weeks</li>
+        <li>Under 18 (open growth plates)</li>
+        <li>A new, undiagnosed injury — e.g. a suspected fracture or tear</li>
+      </ul>
+      <p class="fit-ask">Not sure? Email <a href="mailto:austen@endurancesciencelabs.com">austen@endurancesciencelabs.com</a> before you book and we'll talk it through.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- Pricing + booking -->
+<section id="book">
+  <div class="section-head">
+    <div class="section-label">Pricing &amp; booking</div>
+    <h2 class="section-title">Book a Shockwave + EMTT session.</h2>
+    <p class="section-sub">Every session includes both treatments. Coaching athletes save automatically when signed in.</p>
+  </div>
+
+  <div class="paid-banner" id="sw-paid" hidden>
+    <div>
+      <p><strong>✓ Payment received.</strong> Now pick a time that works for you.</p>
+      <p class="small">Already picked one? You're all set — we'll see you there.</p>
+    </div>
+    <a class="btn-primary" id="sw-paid-cal" target="_blank" rel="noopener">Pick a time →</a>
+  </div>
+
+  <div class="price-grid">
+    <div class="price-card" data-price-card="standard">
+      <div class="price-tag">Single session <span class="price-you">Your rate</span></div>
+      <div class="price-amt">$150</div>
+      <p class="price-desc">Shockwave + EMTT in the same visit. Pay per session — no package required.</p>
+    </div>
+    <div class="price-card" data-price-card="member">
+      <div class="price-tag">Standard Coaching <span class="price-you">Your rate</span></div>
+      <div class="price-amt"><s>$150</s>$50<small>/ session</small></div>
+      <p class="price-desc">$100 off every session for athletes on any <a href="/coaching/">coaching plan</a>.</p>
+    </div>
+    <div class="price-card" data-price-card="premium">
+      <div class="price-tag">Full Access Coaching <span class="price-you">Your rate</span></div>
+      <div class="price-amt">Free<small>monthly</small></div>
+      <p class="price-desc">One free session every month, then $50 for each additional session.</p>
+    </div>
+  </div>
+
+  <div class="book-panel">
+    <div class="book-row">
+      <div>
+        <div class="book-h" id="sw-book-h">Reserve your session</div>
+        <p class="book-note" id="sw-book-note">Pay securely, then choose a time on our calendar.</p>
+      </div>
+      <div class="book-actions" id="sw-book-actions"></div>
+    </div>
+    <div class="book-err" id="sw-book-err"></div>
+    <div class="book-micro">Secure checkout via Stripe · Boulder / Denver area · If we can't find a time that works, or screening shows it isn't right for you, we'll refund in full.</div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- FAQ -->
+<section id="faq">
+  <div class="section-head">
+    <div class="section-label">FAQ</div>
+    <h2 class="section-title">Good questions.</h2>
+  </div>
+  <div class="faq">
+    <details>
+      <summary>Does it hurt?</summary>
+      <p>Shockwave is uncomfortable but brief — a strong, rapid tapping right over the sore spot. We start low and adjust to your tolerance. EMTT is painless; most people feel little or nothing.</p>
+    </details>
+    <details>
+      <summary>How many sessions will I need?</summary>
+      <p>Most protocols are 3–6 sessions, about a week apart. Some runners notice a change after the first couple; tendon remodeling continues for weeks after the last session, so the full effect often shows up later.</p>
+    </details>
+    <details>
+      <summary>Can I keep running?</summary>
+      <p>Usually, yes, as symptoms allow. We suggest keeping the day of treatment and the day after easy, and avoiding big jumps in load while you heal. Coaching athletes get this built into their plan.</p>
+    </details>
+    <details>
+      <summary>Should I take anti-inflammatories or ice afterward?</summary>
+      <p>We generally suggest skipping over-the-counter anti-inflammatories and ice for a couple of days after each session, since the treatment works partly through your body's own healing response. Don't stop anything your doctor has prescribed.</p>
+    </details>
+    <details>
+      <summary>Is this a replacement for seeing a doctor or physical therapist?</summary>
+      <p>No. We don't diagnose injuries. If your pain is new, severe, getting worse, or you're unsure what it is, get it evaluated first — shockwave and EMTT work best on a known problem.</p>
+    </details>
+    <details>
+      <summary>I'm a coaching athlete — how do I get my rate?</summary>
+      <p>Just sign in with the account your coaching subscription is on. The booking panel picks up your plan automatically: Standard athletes pay $50 per session, and Full Access athletes can book their free monthly session with no checkout.</p>
+    </details>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- Research -->
+<section id="research">
+  <div class="section-head" style="margin-bottom:24px">
+    <div class="section-label">Selected research</div>
+  </div>
+  <ul class="refs">
+    <li>Gollwitzer et al., 2015 — <em>Focused shockwave therapy for chronic plantar fasciitis: a randomized, controlled multicenter study.</em> J Bone Joint Surg Am.</li>
+    <li>Rompe et al., 2009 — <em>Eccentric loading versus eccentric loading plus shock-wave treatment for midportion Achilles tendinopathy.</em> Am J Sports Med.</li>
+    <li>Rompe et al., 2009 — <em>Home training, local corticosteroid injection, or radial shock wave therapy for greater trochanter pain syndrome.</em> Am J Sports Med.</li>
+    <li>Cacchio et al., 2011 — <em>Shockwave therapy for chronic proximal hamstring tendinopathy in professional athletes.</em> Am J Sports Med.</li>
+    <li>Rompe et al., 2010 — <em>Low-energy extracorporeal shock wave therapy as a treatment for medial tibial stress syndrome.</em> Am J Sports Med.</li>
+    <li>Zwerver et al., 2011 — <em>No effect of shockwave therapy on patellar tendinopathy in jumping athletes during the competitive season.</em> Am J Sports Med.</li>
+    <li>Klüter et al., 2018 — <em>Electromagnetic transduction therapy and shockwave therapy in 86 patients with rotator cuff tendinopathy: a randomized controlled trial.</em> Electromagn Biol Med.</li>
+  </ul>
+</section>
+
+<footer>
+  <div class="footer-brand">
+    <img src="/images/generic_logo_white_clean.png" alt="Endurance Science Labs" class="footer-logo-img">
+  </div>
+  <div class="footer-links">
+    <a href="/"                 class="footer-link">Home</a>
+    <a href="/esformlab/"       class="footer-link">esFormLab</a>
+    <a href="/esmetaboliclab/"  class="footer-link">esMetabolicLab</a>
+    <a href="/coaching/"        class="footer-link">Coaching</a>
+    <a href="/shockwave/"       class="footer-link">Shockwave</a>
+    <a href="/privacy/"         class="footer-link">Privacy</a>
+  </div>
+  <div class="footer-copy">© <span id="footer-year"></span> Endurance Science Labs</div>
+  <div class="footer-disclaimer">
+    <strong>Not medical advice.</strong> Information on this page is educational and is not a diagnosis. Shockwave and EMTT aren't right for everyone — review the safety checklist above, and consult a qualified healthcare professional about persistent, severe, or worsening pain, or before starting treatment. Individual results vary.
+  </div>
+</footer>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="/shared/site.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var BOOKING_URL = 'https://calendar.app.google/cVkd17x2h7vdtTHH7';
+  // A payment this recent still shows the "now pick a time" banner, in case
+  // they closed the tab before booking.
+  var PAID_WINDOW_SEC = 7 * 24 * 60 * 60;
+  var urlPaid = new URLSearchParams(window.location.search).get('paid') === '1';
+
+  var user = null;
+  var pass = esLabs.getPassState();
+  var gate = null;
+  var scrollAfterSignIn = false;
+  var checkingOut = false;
+
+  var $ = function (id) { return document.getElementById(id); };
+  $('footer-year').textContent = new Date().getFullYear();
+  $('sw-paid-cal').href = BOOKING_URL;
+
+  esLabs.mountNav('#sw-nav', { active: 'shockwave' });
+
+  // The page is public; the sign-in gate only mounts when someone tries to book.
+  function openGate() {
+    scrollAfterSignIn = true;
+    if (gate) { gate.show(); return; }
+    gate = esLabs.mountAuthGate('#sw-gate', {
+      eyebrow: '◉ Sign in to book',
+      headline: 'Book Shockwave + EMTT',
+      sub: 'Sign in or create a free account to pay for your session and pick a time. Coaching athletes: use the account your plan is on to get your rate.',
+      foot: '<a href="#book" data-sw-gate-close style="color:var(--cyan);text-decoration:none">&larr; Back to Shockwave + EMTT</a>'
+    });
+    gate.host.querySelector('[data-sw-gate-close]').addEventListener('click', function (e) {
+      e.preventDefault();
+      scrollAfterSignIn = false;
+      gate.hide();
+    });
+  }
+
+  function calendarLink(label, cls) {
+    return '<a class="' + cls + '" href="' + BOOKING_URL + '" target="_blank" rel="noopener">' + label + '</a>';
+  }
+  function checkoutButton(rate, label, cls) {
+    return '<button type="button" class="' + cls + '" data-sw-rate="' + rate + '"' + (checkingOut ? ' disabled' : '') + '>' + label + '</button>';
+  }
+
+  function render() {
+    var now = Math.floor(Date.now() / 1000);
+    var paidRecently = urlPaid
+      || (pass.shockwaveLatestPaid && now - pass.shockwaveLatestPaid < PAID_WINDOW_SEC);
+    $('sw-paid').hidden = !paidRecently;
+
+    var tier = null;   // which price card is "yours"
+    var h, note, actions;
+    if (!user) {
+      h = 'Reserve your session';
+      note = 'Pay securely, then choose a time on our calendar. <strong>Coaching athlete?</strong> Sign in to see your rate.';
+      actions = '<button type="button" class="btn-primary" data-sw-signin>Book a session →</button>';
+    } else if (!pass.subscriptionsLoaded) {
+      h = 'Reserve your session';
+      note = 'Checking for a coaching plan on your account…';
+      actions = '<button type="button" class="btn-primary" disabled>Loading…</button>';
+    } else if (pass.hasPremiumCoach) {
+      tier = 'premium';
+      h = 'Your free monthly session';
+      note = 'Full Access includes <strong>one free session every month</strong> — just pick a time. Already used this month\'s? Additional sessions are $50.';
+      actions = calendarLink('Book free session →', 'btn-primary')
+        + checkoutButton('member', 'Additional — $50', 'btn-secondary');
+    } else if (pass.hasStandardCoach) {
+      tier = 'member';
+      h = 'Your member rate: $50';
+      note = 'Your coaching plan takes <strong>$100 off</strong> every session. Pay securely, then choose a time on our calendar.';
+      actions = checkoutButton('member', 'Book a session — $50 →', 'btn-primary');
+    } else {
+      tier = 'standard';
+      h = 'Reserve your session';
+      note = 'Pay securely, then choose a time on our calendar. Coaching athletes pay $50, and <a href="/coaching/">Full Access</a> includes a free session every month.';
+      actions = checkoutButton('standard', 'Book a session — $150 →', 'btn-primary');
+    }
+    $('sw-book-h').textContent = h;
+    $('sw-book-note').innerHTML = note;
+    $('sw-book-actions').innerHTML = actions;
+    document.querySelectorAll('[data-price-card]').forEach(function (card) {
+      card.classList.toggle('mine', card.getAttribute('data-price-card') === tier);
+    });
+  }
+
+  $('sw-book-actions').addEventListener('click', function (e) {
+    if (e.target.closest('[data-sw-signin]')) { openGate(); return; }
+    var btn = e.target.closest('[data-sw-rate]');
+    if (!btn || checkingOut) return;
+    var err = $('sw-book-err');
+    err.classList.remove('show');
+    checkingOut = true;
+    btn.disabled = true;
+    btn.textContent = 'Loading checkout…';
+    esLabs.startShockwaveCheckout(btn.getAttribute('data-sw-rate')).catch(function (ex) {
+      console.error('Shockwave checkout error:', ex);
+      err.textContent = 'Couldn’t start checkout: ' + (ex && ex.message || ex);
+      err.classList.add('show');
+      checkingOut = false;
+      render();
+    });
+  });
+
+  esLabs.onAuthChange(function (u) {
+    user = u;
+    render();
+    if (u && scrollAfterSignIn) {
+      scrollAfterSignIn = false;
+      $('book').scrollIntoView({ behavior: 'smooth' });
+    }
+  });
+  esLabs.onPassChange(function (p) { pass = p; render(); });
+})();
+</script>
+</body>
+</html>
