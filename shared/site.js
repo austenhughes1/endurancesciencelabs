@@ -48,13 +48,14 @@ var FIREBASE_CONFIG = {
 };
 
 var ADMIN_UID = '2z9Z3K5ZwShvadUuqZmwMv0s1Od2';
-var STRIPE_PASS_PRICE_ID = 'price_1TVIadIFO8pppwnFTfqv3CCh';
+var STRIPE_PASS_PRICE_ID = 'price_1UPp34IFO8pppwnFSpUiY96l';  // $90 90-day pass (Oct 2026)
 // Every price the esFormLab 90-day pass has sold under. Only a payment for
 // one of these unlocks esFormLab -- metabolic and coaching payments land in
 // the same customers/{uid}/payments collection and must not.
 // Keep in sync with ESFORMLAB_PASS_PRICE_IDS in functions/index.js.
 var ESFORMLAB_PASS_PRICE_IDS = [
   STRIPE_PASS_PRICE_ID,
+  'price_1TVIadIFO8pppwnFTfqv3CCh',  // previous $90 pass price (until Oct 2026)
   'price_1TSjv3IpQrSCpWBRsrDgplXd',  // original pass price (May 2026)
   'price_1TVHAtIpQrSCpWBRLx1baI59'   // "ESFormLabs 90 Day Access" product
 ];

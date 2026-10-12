@@ -27,7 +27,8 @@ const COACHING_PREMIUM_PRICE_IDS = [
 // coaching payments land in the same customers/{uid}/payments collection,
 // so a payment only counts as a pass if it was for one of these.
 const ESFORMLAB_PASS_PRICE_IDS = [
-  "price_1TVIadIFO8pppwnFTfqv3CCh",
+  "price_1UPp34IFO8pppwnFSpUiY96l", // current $90 pass price (Oct 2026)
+  "price_1TVIadIFO8pppwnFTfqv3CCh", // previous $90 pass price (until Oct 2026)
   "price_1TSjv3IpQrSCpWBRsrDgplXd", // original pass price (May 2026)
   "price_1TVHAtIpQrSCpWBRLx1baI59", // "ESFormLabs 90 Day Access" product
 ];
