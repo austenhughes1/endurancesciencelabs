@@ -691,13 +691,17 @@ header{display:none}
 .pc-btn-featured{background:var(--cyan);color:#000;border-color:var(--cyan)}
 .pc-btn-featured:hover{opacity:.88;color:#000;border-color:var(--cyan)}
 .paywall-foot{margin-top:28px;font-size:11px;color:var(--muted2);font-family:var(--mono);text-align:center}
-/* Billing-interval toggle (monthly vs 4-month block) */
-.billing-toggle{display:inline-flex;align-items:center;gap:4px;padding:4px;margin:0 auto 22px;background:var(--panel);border:1px solid var(--border2);border-radius:12px}
-.bt-opt{display:flex;align-items:center;gap:8px;padding:9px 16px;font-size:13px;font-weight:700;font-family:var(--ui);color:var(--muted2);background:transparent;border:0;border-radius:9px;cursor:pointer;transition:all .15s;white-space:nowrap}
-.bt-opt:hover{color:var(--text)}
-.bt-opt.active{background:var(--cyan);color:#000}
-.bt-save{font-size:10px;font-weight:800;font-family:var(--mono);letter-spacing:.4px;text-transform:uppercase;padding:2px 7px;border-radius:5px;background:rgba(0,229,200,.14);color:var(--cyan)}
-.bt-opt.active .bt-save{background:rgba(0,0,0,.18);color:#000}
+/* Billing-interval picker (monthly vs 4-month block) */
+.billing-picker{display:flex;flex-direction:column;align-items:center;gap:12px;margin:0 auto 28px;padding:18px 22px 20px;width:100%;max-width:640px;background:var(--panel);border:1px solid rgba(0,229,200,.45);box-shadow:0 0 0 1px rgba(0,229,200,.15),0 8px 30px rgba(0,229,200,.08);border-radius:16px}
+.billing-picker-label{font-size:12px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:var(--cyan);font-family:var(--mono)}
+.billing-toggle{display:flex;align-items:stretch;gap:6px;padding:5px;width:100%;background:var(--panel2);border:1px solid var(--border2);border-radius:14px}
+.bt-opt{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:14px 18px;font-size:16px;font-weight:800;font-family:var(--ui);color:var(--muted2);background:transparent;border:2px solid transparent;border-radius:11px;cursor:pointer;transition:all .15s;line-height:1.2}
+.bt-opt:hover{color:var(--text);border-color:var(--border2)}
+.bt-opt.active{background:var(--cyan);color:#000;border-color:var(--cyan)}
+.bt-save{font-size:11px;font-weight:800;font-family:var(--mono);letter-spacing:.5px;text-transform:uppercase;padding:4px 10px;border-radius:6px;background:var(--gold);color:#000;white-space:nowrap}
+.bt-opt.active .bt-save{background:#000;color:var(--gold)}
+.billing-picker-hint{font-size:13px;color:var(--text);line-height:1.5;text-align:center}
+.billing-picker-hint strong{color:var(--accent-ink)}
 .pc-bill-note{font-size:11px;color:var(--muted2);font-family:var(--mono);margin-top:6px;min-height:16px}
 .pc-block-perk{display:none;margin:14px 0 -6px;padding:10px 12px;border:1px solid rgba(0,229,200,.35);border-radius:9px;background:rgba(0,229,200,.07);font-size:12px;line-height:1.5;color:var(--text)}
 .pc-block-perk strong{color:var(--cyan)}
@@ -708,9 +712,9 @@ header{display:none}
   .pricing-cards{grid-template-columns:1fr;max-width:480px}
   .paywall-title{font-size:24px}
   #athlete-paywall .paywall-main{padding:28px 16px}
-  .billing-toggle{width:100%;max-width:480px}
-  .bt-opt{flex:1;justify-content:center;padding:9px 10px;font-size:12px}
-  .bt-save{font-size:9px}
+  .billing-picker{padding:14px 12px 16px;max-width:480px}
+  .bt-opt{padding:12px 8px;font-size:14px}
+  .bt-save{font-size:10px;padding:3px 8px}
 }
 
 /* ── Awaiting coach assignment (subscribed, no coachUid yet) ── */
@@ -788,9 +792,13 @@ header{display:none}
       <h1 class="paywall-title">Pick the plan that fits you</h1>
       <p class="paywall-sub">Our athletes range from sub-4 minute milers to beginners looking to complete their first marathon — we customize the plan to your goals, experience and schedule. Cancel anytime.</p>
     </div>
-    <div class="billing-toggle" role="group" aria-label="Billing interval">
-      <button type="button" class="bt-opt active" id="bt-monthly" onclick="setCoachingBilling('monthly')">Monthly</button>
-      <button type="button" class="bt-opt" id="bt-block" onclick="setCoachingBilling('block')">4-month training block <span class="bt-save">Save $100 + free kit</span></button>
+    <div class="billing-picker">
+      <div class="billing-picker-label">Step 1 &middot; Choose how you want to pay</div>
+      <div class="billing-toggle" role="group" aria-label="Billing interval">
+        <button type="button" class="bt-opt active" id="bt-monthly" onclick="setCoachingBilling('monthly')"><span>Monthly</span></button>
+        <button type="button" class="bt-opt" id="bt-block" onclick="setCoachingBilling('block')"><span>4-month training block</span><span class="bt-save">Save $100 + free racing kit</span></button>
+      </div>
+      <div class="billing-picker-hint" id="billing-picker-hint">Pay month to month, cancel anytime. Or commit to a <strong>4-month block</strong> and get <strong>$100 off</strong> plus a <strong>free Endurance Science Labs racing kit</strong>.</div>
     </div>
     <div class="pricing-cards">
       <div class="pricing-card">
@@ -1275,6 +1283,9 @@ function setCoachingBilling(billing) {
   }
   // Standard's "racing kit" line is normally crossed off; the block includes it.
   document.getElementById('pc-kit-icon-standard').textContent = isBlock ? '✓' : '—';
+  document.getElementById('billing-picker-hint').innerHTML = isBlock
+    ? '<strong>4-month block selected:</strong> $100 off, a <strong>free Endurance Science Labs racing kit</strong>, billed once every 4 months. Cancel anytime.'
+    : 'Pay month to month, cancel anytime. Or commit to a <strong>4-month block</strong> and get <strong>$100 off</strong> plus a <strong>free Endurance Science Labs racing kit</strong>.';
   document.getElementById('paywall-foot').innerHTML = isBlock
     ? 'Billed every 4 months &middot; cancel anytime &middot; Secure checkout via Stripe &middot; No setup fees'
     : 'Cancel anytime &middot; Secure checkout via Stripe &middot; No setup fees';
