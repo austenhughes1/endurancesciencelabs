@@ -23,13 +23,12 @@ const COACHING_PREMIUM_PRICE_IDS = [
   "price_1UOlXBIFO8pppwnFMym4W83P", // $275 / mo
   "price_1UPoiIIFO8pppwnFyugPYaSf", // $1000 every 4 months
 ];
-// Every price the esFormLab 90-day pass has sold under. Metabolic and
-// coaching payments land in the same customers/{uid}/payments collection,
-// so a payment only counts as a pass if it was for one of these.
+// Price(s) the esFormLab 90-day pass sells under. Metabolic and coaching
+// payments land in the same customers/{uid}/payments collection, so a
+// payment only counts as a pass if it was for one of these. If the pass
+// price ever changes after people have bought it, keep the old ID here.
 const ESFORMLAB_PASS_PRICE_IDS = [
-  "price_1UPp34IFO8pppwnFSpUiY96l", // current $90 pass price (Oct 2026)
-  "price_1TSjv3IpQrSCpWBRsrDgplXd", // original pass price (May 2026)
-  "price_1TVHAtIpQrSCpWBRLx1baI59", // "ESFormLabs 90 Day Access" product
+  "price_1UPp34IFO8pppwnFSpUiY96l", // $90 90-day pass
 ];
 
 // ═══════════════════════════════════════════════════════════

@@ -49,14 +49,13 @@ var FIREBASE_CONFIG = {
 
 var ADMIN_UID = '2z9Z3K5ZwShvadUuqZmwMv0s1Od2';
 var STRIPE_PASS_PRICE_ID = 'price_1UPp34IFO8pppwnFSpUiY96l';  // $90 90-day pass (Oct 2026)
-// Every price the esFormLab 90-day pass has sold under. Only a payment for
-// one of these unlocks esFormLab -- metabolic and coaching payments land in
-// the same customers/{uid}/payments collection and must not.
+// Price(s) the esFormLab 90-day pass sells under. Only a payment for one of
+// these unlocks esFormLab -- metabolic and coaching payments land in the
+// same customers/{uid}/payments collection and must not. If the pass price
+// ever changes after people have bought it, keep the old ID in this list.
 // Keep in sync with ESFORMLAB_PASS_PRICE_IDS in functions/index.js.
 var ESFORMLAB_PASS_PRICE_IDS = [
-  STRIPE_PASS_PRICE_ID,
-  'price_1TSjv3IpQrSCpWBRsrDgplXd',  // original pass price (May 2026)
-  'price_1TVHAtIpQrSCpWBRLx1baI59'   // "ESFormLabs 90 Day Access" product
+  STRIPE_PASS_PRICE_ID
 ];
 // Coaching subscriptions: monthly prices and 4-month "training block" prices
 // (recurring every 4 months). Keep in sync with coaching/index.html and
