@@ -691,10 +691,26 @@ header{display:none}
 .pc-btn-featured{background:var(--cyan);color:#000;border-color:var(--cyan)}
 .pc-btn-featured:hover{opacity:.88;color:#000;border-color:var(--cyan)}
 .paywall-foot{margin-top:28px;font-size:11px;color:var(--muted2);font-family:var(--mono);text-align:center}
+/* Billing-interval toggle (monthly vs 4-month block) */
+.billing-toggle{display:inline-flex;align-items:center;gap:4px;padding:4px;margin:0 auto 22px;background:var(--panel);border:1px solid var(--border2);border-radius:12px}
+.bt-opt{display:flex;align-items:center;gap:8px;padding:9px 16px;font-size:13px;font-weight:700;font-family:var(--ui);color:var(--muted2);background:transparent;border:0;border-radius:9px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.bt-opt:hover{color:var(--text)}
+.bt-opt.active{background:var(--cyan);color:#000}
+.bt-save{font-size:10px;font-weight:800;font-family:var(--mono);letter-spacing:.4px;text-transform:uppercase;padding:2px 7px;border-radius:5px;background:rgba(0,229,200,.14);color:var(--cyan)}
+.bt-opt.active .bt-save{background:rgba(0,0,0,.18);color:#000}
+.pc-bill-note{font-size:11px;color:var(--muted2);font-family:var(--mono);margin-top:6px;min-height:16px}
+.pc-block-perk{display:none;margin:14px 0 -6px;padding:10px 12px;border:1px solid rgba(0,229,200,.35);border-radius:9px;background:rgba(0,229,200,.07);font-size:12px;line-height:1.5;color:var(--text)}
+.pc-block-perk strong{color:var(--cyan)}
+#athlete-paywall.billing-block .pc-block-perk{display:block}
+#athlete-paywall.billing-block .pc-feat-off.pc-feat-kit{color:var(--text)}
+#athlete-paywall.billing-block .pc-feat-off.pc-feat-kit .pc-feat-icon-off{color:var(--cyan);font-weight:700}
 @media(max-width:680px){
   .pricing-cards{grid-template-columns:1fr;max-width:480px}
   .paywall-title{font-size:24px}
   #athlete-paywall .paywall-main{padding:28px 16px}
+  .billing-toggle{width:100%;max-width:480px}
+  .bt-opt{flex:1;justify-content:center;padding:9px 10px;font-size:12px}
+  .bt-save{font-size:9px}
 }
 
 /* ── Awaiting coach assignment (subscribed, no coachUid yet) ── */
@@ -772,10 +788,15 @@ header{display:none}
       <h1 class="paywall-title">Pick the plan that fits you</h1>
       <p class="paywall-sub">Our athletes range from sub-4 minute milers to beginners looking to complete their first marathon — we customize the plan to your goals, experience and schedule. Cancel anytime.</p>
     </div>
+    <div class="billing-toggle" role="group" aria-label="Billing interval">
+      <button type="button" class="bt-opt active" id="bt-monthly" onclick="setCoachingBilling('monthly')">Monthly</button>
+      <button type="button" class="bt-opt" id="bt-block" onclick="setCoachingBilling('block')">4-month training block <span class="bt-save">Save $100 + free kit</span></button>
+    </div>
     <div class="pricing-cards">
       <div class="pricing-card">
         <div class="pc-name">Standard Coaching</div>
-        <div class="pc-price">$175<span>/mo</span></div>
+        <div class="pc-price" id="pc-price-standard">$175<span>/mo</span></div>
+        <div class="pc-bill-note" id="pc-note-standard">Billed monthly &middot; cancel anytime</div>
         <div class="pc-features">
           <div class="pc-feat"><span class="pc-feat-icon">✓</span><span>Custom workouts every week, tailored to your race schedule</span></div>
           <div class="pc-feat"><span class="pc-feat-icon">✓</span><span>Monthly check-ins to review progress and adjust the plan</span></div>
@@ -785,14 +806,16 @@ header{display:none}
           <div class="pc-feat-off"><span class="pc-feat-icon-off">—</span><span>esFormLab full access included</span></div>
           <div class="pc-feat-off"><span class="pc-feat-icon-off">—</span><span>Personalized coach review of your esFormLab analysis</span></div>
           <div class="pc-feat-off"><span class="pc-feat-icon-off">—</span><span>Access to ESLabs Metabolic Testing</span></div>
-          <div class="pc-feat-off"><span class="pc-feat-icon-off">—</span><span>Free Endurance Science Labs racing kit</span></div>
+          <div class="pc-feat-off pc-feat-kit"><span class="pc-feat-icon-off" id="pc-kit-icon-standard">—</span><span id="pc-kit-text-standard">Free Endurance Science Labs racing kit</span></div>
+          <div class="pc-block-perk"><strong>4-month block perk:</strong> a free Endurance Science Labs racing kit is included with your block (normally Full Access only).</div>
         </div>
         <button id="pc-btn-standard" class="pc-btn" onclick="startCoachingCheckout('standard')">Subscribe — $175 / mo</button>
       </div>
       <div class="pricing-card pc-featured">
         <div class="pc-badge">RECOMMENDED</div>
         <div class="pc-name">Full Access</div>
-        <div class="pc-price">$275<span>/mo</span></div>
+        <div class="pc-price" id="pc-price-premium">$275<span>/mo</span></div>
+        <div class="pc-bill-note" id="pc-note-premium">Billed monthly &middot; cancel anytime</div>
         <div class="pc-features">
           <div class="pc-feat"><span class="pc-feat-icon">✓</span><span><strong>Everything in Standard</strong>, plus:</span></div>
           <div class="pc-feat"><span class="pc-feat-icon">✓</span><span>Unlimited direct messaging with your coach</span></div>
@@ -801,6 +824,7 @@ header{display:none}
           <div class="pc-feat"><span class="pc-feat-icon">✓</span><span>Access to ESLabs Metabolic Testing</span></div>
           <div class="pc-feat"><span class="pc-feat-icon">✓</span><span><strong>FREE</strong> <a href="/shockwave/" class="pc-feat-link">Shockwave + EMTT</a> session every month, plus 70% off all additional sessions (Boulder/Denver area only)</span></div>
           <div class="pc-feat"><span class="pc-feat-icon">✓</span><span>Free Endurance Science Labs racing kit</span></div>
+          <div class="pc-block-perk"><strong>4-month block perk:</strong> save $100 vs. monthly, and your free racing kit ships with your block.</div>
           <div class="pc-kit-display">
             <img src="/images/eslabs_racing_kit.png" alt="Endurance Science Labs racing singlet — included with Full Access" class="pc-kit-img">
             <div class="pc-kit-label">Racing kit</div>
@@ -828,7 +852,7 @@ header{display:none}
       })();
       </script>
     </div>
-    <div class="paywall-foot">Cancel anytime &middot; Secure checkout via Stripe &middot; No setup fees</div>
+    <div class="paywall-foot" id="paywall-foot">Cancel anytime &middot; Secure checkout via Stripe &middot; No setup fees</div>
     <div style="max-width:760px;margin:18px auto 0;padding:14px 18px;background:rgba(245,166,35,.06);border:1px solid rgba(245,166,35,.35);border-left:3px solid var(--warn);border-radius:10px;font-size:12px;color:var(--muted2);line-height:1.7;text-align:left">
       <strong style="color:var(--warn)">&#9888; Not medical advice.</strong> Endurance Science Labs coaching and running form analysis are provided for educational and informational purposes only. Coaching, plans, and form analysis are not intended to diagnose, treat, cure, or prevent any disease, injury, or other health condition, and do not constitute a medical diagnosis. Subscribing to a coaching plan does not create a doctor&ndash;patient or healthcare-provider relationship between you and Endurance Science Labs or your coach. Always consult a qualified healthcare professional before starting a new exercise program. Use of these services is at your own risk.
     </div>
@@ -1208,9 +1232,53 @@ async function loadUserDoc(user) {
 // ══════════════════════════════════════════════════════════
 //  ATHLETE ACCESS STATE
 // ══════════════════════════════════════════════════════════
-// Live coaching price IDs.
-const COACHING_STANDARD_PRICE_ID = 'price_1TVIadIFO8pppwnFuj3vYy9S';
-const COACHING_PREMIUM_PRICE_ID  = 'price_1UOlXBIFO8pppwnFMym4W83P';
+// Live coaching price IDs. Monthly prices bill every month; "block" prices
+// bill once every 4 months (still a Stripe subscription, cancel anytime).
+// Keep in sync with shared/site.js and functions/index.js.
+const COACHING_STANDARD_PRICE_ID       = 'price_1TVIadIFO8pppwnFuj3vYy9S'; // $175 / mo
+const COACHING_PREMIUM_PRICE_ID        = 'price_1UOlXBIFO8pppwnFMym4W83P'; // $275 / mo
+const COACHING_STANDARD_BLOCK_PRICE_ID = 'price_1UPogpIFO8pppwnFytHL4QA1'; // $600 / 4 months
+const COACHING_PREMIUM_BLOCK_PRICE_ID  = 'price_1UPoiIIFO8pppwnFyugPYaSf'; // $1000 / 4 months
+const COACHING_PREMIUM_PRICE_IDS  = [COACHING_PREMIUM_PRICE_ID, COACHING_PREMIUM_BLOCK_PRICE_ID];
+const COACHING_STANDARD_PRICE_IDS = [COACHING_STANDARD_PRICE_ID, COACHING_STANDARD_BLOCK_PRICE_ID];
+
+// Paywall card copy per tier x billing interval. Both 4-month blocks include
+// a free ESL racing kit (Standard normally doesn't get one).
+const COACHING_PLANS = {
+  standard: {
+    monthly: { priceId: COACHING_STANDARD_PRICE_ID, price: '$175', per: '/mo',
+               note: 'Billed monthly &middot; cancel anytime', btn: 'Subscribe — $175 / mo' },
+    block:   { priceId: COACHING_STANDARD_BLOCK_PRICE_ID, price: '$600', per: '/4 mo',
+               note: '$150 / mo equivalent &middot; billed every 4 months &middot; cancel anytime', btn: 'Start 4-month block — $600' },
+  },
+  premium: {
+    monthly: { priceId: COACHING_PREMIUM_PRICE_ID, price: '$275', per: '/mo',
+               note: 'Billed monthly &middot; cancel anytime', btn: 'Subscribe — $275 / mo' },
+    block:   { priceId: COACHING_PREMIUM_BLOCK_PRICE_ID, price: '$1,000', per: '/4 mo',
+               note: '$250 / mo equivalent &middot; billed every 4 months &middot; cancel anytime', btn: 'Start 4-month block — $1,000' },
+  },
+};
+let coachingBilling = 'monthly';  // 'monthly' | 'block'
+
+function setCoachingBilling(billing) {
+  coachingBilling = billing === 'block' ? 'block' : 'monthly';
+  const isBlock = coachingBilling === 'block';
+  document.getElementById('bt-monthly').classList.toggle('active', !isBlock);
+  document.getElementById('bt-block').classList.toggle('active', isBlock);
+  document.getElementById('athlete-paywall').classList.toggle('billing-block', isBlock);
+  for (const tier of ['standard', 'premium']) {
+    const plan = COACHING_PLANS[tier][coachingBilling];
+    document.getElementById('pc-price-' + tier).innerHTML = plan.price + '<span>' + plan.per + '</span>';
+    document.getElementById('pc-note-' + tier).innerHTML = plan.note;
+    const btn = document.getElementById('pc-btn-' + tier);
+    if (btn && !btn.disabled) btn.textContent = plan.btn;
+  }
+  // Standard's "racing kit" line is normally crossed off; the block includes it.
+  document.getElementById('pc-kit-icon-standard').textContent = isBlock ? '✓' : '—';
+  document.getElementById('paywall-foot').innerHTML = isBlock
+    ? 'Billed every 4 months &middot; cancel anytime &middot; Secure checkout via Stripe &middot; No setup fees'
+    : 'Cancel anytime &middot; Secure checkout via Stripe &middot; No setup fees';
+}
 
 let coachingSubTier = null;       // 'standard' | 'premium' | null
 let coachingSubsUnsub = null;
@@ -1232,8 +1300,8 @@ function computeCoachingTier(docs) {
     const sub = doc.data();
     if (!['active', 'trialing'].includes(sub.status)) continue;
     const ids = extractSubPriceIds(sub);
-    if (ids.includes(COACHING_PREMIUM_PRICE_ID)) return 'premium';
-    if (ids.includes(COACHING_STANDARD_PRICE_ID)) return 'standard';
+    if (ids.some(id => COACHING_PREMIUM_PRICE_IDS.includes(id))) return 'premium';
+    if (ids.some(id => COACHING_STANDARD_PRICE_IDS.includes(id))) return 'standard';
   }
   return null;
 }
@@ -1324,7 +1392,8 @@ async function openCustomerPortal() {
 
 async function startCoachingCheckout(tier) {
   if (!currentUser) return;
-  const priceId = tier === 'premium' ? COACHING_PREMIUM_PRICE_ID : COACHING_STANDARD_PRICE_ID;
+  const plan = COACHING_PLANS[tier === 'premium' ? 'premium' : 'standard'][coachingBilling];
+  const priceId = plan.priceId;
   const btnId = tier === 'premium' ? 'pc-btn-premium' : 'pc-btn-standard';
   const btn = document.getElementById(btnId);
   const originalLabel = btn ? btn.textContent : '';

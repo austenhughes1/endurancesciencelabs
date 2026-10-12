@@ -17,7 +17,12 @@ const ADMIN_UID = "2z9Z3K5ZwShvadUuqZmwMv0s1Od2";
 // Pass-duration / price-id constants mirror the client-side pass logic.
 // Keep these in sync with the same constants at the top of shared/site.js.
 const PASS_DURATION_SEC = 90 * 24 * 60 * 60;
-const COACHING_PREMIUM_PRICE_ID = "price_1UOlXBIFO8pppwnFMym4W83P";
+// Full Access coaching: monthly ($275/mo) and 4-month block ($1000 / 4 mo).
+// Either one bundles esFormLab access. Keep in sync with shared/site.js.
+const COACHING_PREMIUM_PRICE_IDS = [
+  "price_1UOlXBIFO8pppwnFMym4W83P", // $275 / mo
+  "price_1UPoiIIFO8pppwnFyugPYaSf", // $1000 every 4 months
+];
 // Every price the esFormLab 90-day pass has sold under. Metabolic and
 // coaching payments land in the same customers/{uid}/payments collection,
 // so a payment only counts as a pass if it was for one of these.
@@ -712,13 +717,13 @@ exports.deauthorizeStrava = onCall({ cors: true }, async (request) => {
 //  a notification to the admin so they can take the athlete
 //  on as a client.
 // ═══════════════════════════════════════════════════════════
+// Keep in sync with COACHING_PLANS in coaching/index.html. The 4-month
+// blocks are recurring (every 4 months) and include a free ESL racing kit.
 const COACHING_PRICE_IDS = {
-  "price_1TVIadIFO8pppwnFuj3vYy9S": "Standard",
-  "price_1UOlXBIFO8pppwnFMym4W83P": "Full Access",
-};
-const COACHING_PRICE_AMOUNTS = {
-  "Standard": 175,
-  "Full Access": 275,
+  "price_1TVIadIFO8pppwnFuj3vYy9S": { tier: "Standard", billing: "$175/mo" },
+  "price_1UOlXBIFO8pppwnFMym4W83P": { tier: "Full Access", billing: "$275/mo" },
+  "price_1UPogpIFO8pppwnFytHL4QA1": { tier: "Standard", billing: "$600 / 4-month block", block: true },
+  "price_1UPoiIIFO8pppwnFyugPYaSf": { tier: "Full Access", billing: "$1000 / 4-month block", block: true },
 };
 
 // Price IDs on a Stripe-extension subscription or payment doc: `items[].price`
@@ -750,8 +755,7 @@ exports.onCoachingSubscription = onDocumentWritten(
     const matchedPriceId = priceIds.find((id) => COACHING_PRICE_IDS[id]);
     if (!matchedPriceId) return;
 
-    const tier = COACHING_PRICE_IDS[matchedPriceId];
-    const amount = COACHING_PRICE_AMOUNTS[tier];
+    const { tier, billing, block } = COACHING_PRICE_IDS[matchedPriceId];
     const uid = event.params.uid;
     const subId = event.params.subId;
 
@@ -777,7 +781,8 @@ exports.onCoachingSubscription = onDocumentWritten(
         subscriptionId: subId,
         athleteUid: uid,
         tier,
-        message: `${athleteName} just subscribed to ${tier} coaching ($${amount}/mo). Assign them as your athlete to get started.`,
+        message: `${athleteName} just subscribed to ${tier} coaching (${billing}). Assign them as your athlete to get started.` +
+          (block ? " 4-month block: they get a free ESL racing kit -- send them one." : ""),
         read: false,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
@@ -950,7 +955,7 @@ async function verifyActivePass(uid) {
     for (const doc of subsSnap.docs) {
       const sub = doc.data();
       if (sub.status !== "active" && sub.status !== "trialing") continue;
-      if (extractPriceIds(sub).includes(COACHING_PREMIUM_PRICE_ID)) return true;
+      if (extractPriceIds(sub).some((id) => COACHING_PREMIUM_PRICE_IDS.includes(id))) return true;
     }
   } catch (e) {
     console.warn("verifyActivePass subscription check failed:", e && e.message);

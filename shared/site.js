@@ -58,8 +58,15 @@ var ESFORMLAB_PASS_PRICE_IDS = [
   'price_1TSjv3IpQrSCpWBRsrDgplXd',  // original pass price (May 2026)
   'price_1TVHAtIpQrSCpWBRLx1baI59'   // "ESFormLabs 90 Day Access" product
 ];
-var COACHING_PREMIUM_PRICE_ID = 'price_1UOlXBIFO8pppwnFMym4W83P';
-var COACHING_STANDARD_PRICE_ID = 'price_1TVIadIFO8pppwnFuj3vYy9S';
+// Coaching subscriptions: monthly prices and 4-month "training block" prices
+// (recurring every 4 months). Keep in sync with coaching/index.html and
+// functions/index.js.
+var COACHING_PREMIUM_PRICE_ID = 'price_1UOlXBIFO8pppwnFMym4W83P';          // $275 / mo
+var COACHING_STANDARD_PRICE_ID = 'price_1TVIadIFO8pppwnFuj3vYy9S';         // $175 / mo
+var COACHING_PREMIUM_BLOCK_PRICE_ID = 'price_1UPoiIIFO8pppwnFyugPYaSf';    // $1000 / 4 mo
+var COACHING_STANDARD_BLOCK_PRICE_ID = 'price_1UPogpIFO8pppwnFytHL4QA1';   // $600 / 4 mo
+var COACHING_PREMIUM_PRICE_IDS = [COACHING_PREMIUM_PRICE_ID, COACHING_PREMIUM_BLOCK_PRICE_ID];
+var COACHING_STANDARD_PRICE_IDS = [COACHING_STANDARD_PRICE_ID, COACHING_STANDARD_BLOCK_PRICE_ID];
 var PASS_DURATION_SEC = 90 * 24 * 60 * 60;
 
 // esMetabolicLab price IDs (4 tiers).
@@ -427,8 +434,8 @@ function attachPassWatchers(uid) {
         var sub = d.data();
         if (sub.status !== 'active' && sub.status !== 'trialing') return;
         var ids = collectPriceIds(sub);
-        if (ids.indexOf(COACHING_PREMIUM_PRICE_ID) !== -1) { foundPremium = sub; return; }
-        if (ids.indexOf(COACHING_STANDARD_PRICE_ID) !== -1) { foundStandard = true; }
+        if (ids.some(function (id) { return COACHING_PREMIUM_PRICE_IDS.indexOf(id) !== -1; })) { foundPremium = sub; return; }
+        if (ids.some(function (id) { return COACHING_STANDARD_PRICE_IDS.indexOf(id) !== -1; })) { foundStandard = true; }
         if (ids.indexOf(METLAB_YEARLY_PRICE_ID) !== -1) { foundMetlabYearly = sub; }
       });
       state.hasPremiumCoach = !!foundPremium;
@@ -1095,6 +1102,8 @@ window.esLabs = {
   startShockwaveCheckout: startShockwaveCheckout,
   STRIPE_PASS_PRICE_ID: STRIPE_PASS_PRICE_ID,
   COACHING_PREMIUM_PRICE_ID: COACHING_PREMIUM_PRICE_ID,
+  COACHING_PREMIUM_PRICE_IDS: COACHING_PREMIUM_PRICE_IDS,
+  COACHING_STANDARD_PRICE_IDS: COACHING_STANDARD_PRICE_IDS,
   METLAB_LIFETIME_PRICE_ID: METLAB_LIFETIME_PRICE_ID,
   METLAB_YEARLY_PRICE_ID: METLAB_YEARLY_PRICE_ID,
   METLAB_SINGLE_PRICE_ID: METLAB_SINGLE_PRICE_ID,
