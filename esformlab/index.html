@@ -163,8 +163,10 @@
   <div class="scan-card">
     <div class="scan-title">Scanning stride phases</div>
     <div class="scan-sub" id="scan-sub-text">Analyzing your videos for key moments of the running gait cycle.</div>
-    <div class="scan-hint">Each video typically takes 1-3 minutes to process. The preview below populates as frames are scanned -- pose detection runs entirely on your device.</div>
+    <div class="scan-hint">Each clip first plays through once while its frames load (about as long as the clip itself), then the pose scan runs. Everything happens on your device -- nothing is uploaded.</div>
     <div class="scan-preview">
+      <!-- The one decoder: each clip plays through here once while its frames are captured (frame-store.js). -->
+      <video id="capture-video" muted playsinline webkit-playsinline disablepictureinpicture disableremoteplayback preload="auto"></video>
       <canvas id="scan-canvas"></canvas>
       <div class="scan-preview-label" id="scan-label">Preparing...</div>
     </div>
@@ -453,15 +455,15 @@
             <span id="ep-quality-pill" class="dq-pill" style="display:none"></span>
           </div>
           <div class="scrub-stepper-row">
-            <button class="step-btn-big" onclick="epStep(-25)" title="Back ~1 second (25 frames)">&#8722;1s</button>
+            <button class="step-btn-big" onclick="epStepSeconds(-1)" title="Back 1 second">&#8722;1s</button>
             <button class="step-btn-big" onclick="epStep(-5)" title="Back 5 frames">&#8722;5f</button>
             <button class="step-btn-big" onclick="epStep(-1)" title="Back 1 frame">&#8722;1f</button>
             <span class="ep-time" id="ep-time">0.00s</span>
             <button class="step-btn-big" onclick="epStep(1)" title="Forward 1 frame">+1f</button>
             <button class="step-btn-big" onclick="epStep(5)" title="Forward 5 frames">+5f</button>
-            <button class="step-btn-big" onclick="epStep(25)" title="Forward ~1 second (25 frames)">+1s</button>
+            <button class="step-btn-big" onclick="epStepSeconds(1)" title="Forward 1 second">+1s</button>
           </div>
-          <div class="scrub-hint">Step through the clip with these buttons - <strong>&#8722;1f</strong> / <strong>+1f</strong> nudge one frame at a time, <strong>&#8722;5f</strong> / <strong>+5f</strong> skip ~0.2s, <strong>&#8722;1s</strong> / <strong>+1s</strong> jump a full second. After landing on the right frame, click <strong>&#8635; Analyze</strong> below to re-measure.</div>
+          <div class="scrub-hint">Step through the clip with these buttons - <strong>&#8722;1f</strong> / <strong>+1f</strong> nudge one frame at a time, <strong>&#8722;5f</strong> / <strong>+5f</strong> skip five frames, <strong>&#8722;1s</strong> / <strong>+1s</strong> jump a full second. After landing on the right frame, click <strong>&#8635; Analyze</strong> below to re-measure.</div>
           <div class="scrub-actions-row">
             <button class="re-btn" id="ep-re-btn" onclick="epReanalyze()">&#8635; Analyze this frame</button>
             <button class="swap-btn" id="ep-swap-btn" onclick="swapLegs()" title="Swap left/right leg assignments">&#8644; Swap L/R</button>
@@ -620,9 +622,6 @@
   </div>
 </div>
 
-<video id="video-side" style="display:none" playsinline preload="metadata"></video>
-<video id="video-front" style="display:none" playsinline preload="metadata"></video>
-<video id="video-back" style="display:none" playsinline preload="metadata"></video>
 
 <!-- Firebase (read-only -- fetches computed ranges) -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -638,6 +637,7 @@
      script's top-level initModel() call runs. None of these files
      execute anything at top-level beyond declarations, so they have no
      ordering dependency on the main script. -->
+<script src="frame-store.js"></script>
 <script src="report-render.js"></script>
 <script src="saved-analyses.js"></script>
 <script src="auth-paywall.js"></script>
@@ -718,6 +718,31 @@ var uploadedFiles = {side: null, front: null, back: null};
 // reliable WebGL context. This flag is used in initModel to force WebGL on mobile,
 // and it's available for any other mobile-specific tweaks we add later.
 var IS_MOBILE_RUNNER = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+
+// Frame-cache settings (frame-store.js). Phones store smaller frames at <=30fps
+// so capture keeps pace with real-time playback and memory stays modest;
+// desktop keeps up to 60fps at 1280px and may capture at 2x speed.
+var FRAME_STORE_OPTS = IS_MOBILE_RUNNER
+  ? {maxDim: 960,  maxFps: 30, maxFrames: 600, quality: 0.8,  maxRate: 1, maxSeeks: 150, cacheMax: 10}
+  : {maxDim: 1280, maxFps: 60, maxFrames: 900, quality: 0.82, maxRate: 2, maxSeeks: 300, cacheMax: 24};
+// Share of the scan progress bar spent loading frames; the pose scan fills the rest.
+var LOAD_BAR_PCT = 30;
+
+// Every frame the app shows or poses comes from these two, reading a clip's
+// FrameStore store (videoEls[view]).
+// Decoded image of the frame of `src` shown at time t, or null if the clip has
+// no frames. Draw it right away (see Store.image). Callers that resize their
+// canvas should do so AFTER this resolves, so the canvas never paints blank.
+function getVideoFrame(src, t){
+  return (src && src.ok) ? src.image(t) : Promise.resolve(null);
+}
+// Draws that frame into ctx scaled to w x h. Resolves false if there is none.
+function drawVideoFrame(src, t, ctx, w, h){
+  return getVideoFrame(src, t).then(function(img){
+    if(!img) return false;
+    try { ctx.drawImage(img, 0, 0, w, h); return true; } catch(e) { return false; }
+  });
+}
 
 let detector=null, phases={};
 // Mobile only: Lightning is a smaller / faster MoveNet variant used for the scan
@@ -973,13 +998,14 @@ function swapLegs(){
   var vidEl = getVideoElForPhase(expandKey);
   var W = canvas.width, H = canvas.height;
   var ctx = canvas.getContext('2d');
-  try{ ctx.drawImage(vidEl, 0, 0, W, H); }catch(e){}
-  drawPose(ctx, kps, W, H);
-
   var ovCanvas = document.getElementById('canvas-'+expandKey);
-  if(ovCanvas){
-    try{ ovCanvas.getContext('2d').drawImage(canvas, 0, 0, ovCanvas.width, ovCanvas.height); }catch(e){}
-  }
+  ++epDrawToken; // supersede any scrub draw still decoding
+  drawVideoFrame(vidEl, epCurrentT, ctx, W, H).then(function(){
+    drawPose(ctx, kps, W, H);
+    if(ovCanvas){
+      try{ ovCanvas.getContext('2d').drawImage(canvas, 0, 0, ovCanvas.width, ovCanvas.height); }catch(e){}
+    }
+  });
 
   if(isFrontBack){
     renderExpandMetricsFrontBack(ph.frontBackMetrics);
@@ -995,12 +1021,8 @@ function swapLegs(){
 }
 
 function clearOverlay(){
-  var canvas=document.getElementById('ep-canvas');
-  if(!canvas)return;
-  var vidEl=getVideoElForPhase(expandKey);
-  var W=canvas.width,H=canvas.height;
-  var ctx=canvas.getContext('2d');
-  try{ctx.drawImage(vidEl,0,0,W,H);}catch(e){}
+  if(!document.getElementById('ep-canvas'))return;
+  drawExpandFrame(epCurrentT, null);
 }
 
 function checkAllAnalyzed(){
@@ -1138,45 +1160,31 @@ function checkAllUploaded() {
 function startAllVideos() {
   document.getElementById('screen-upload').style.display='none';
   document.getElementById('hdr-file').textContent = uploadedFiles.side.name + ' + 2 more';
+  document.getElementById('screen-scanning').style.display='flex';
+  var vid = document.getElementById('capture-video');
+  // Must run inside this click, before anything awaits (see FrameStore.prime).
+  FrameStore.prime(vid);
+  loadAllVideos(vid).then(autoScanAll).catch(function(e){ console.error('esFormLab: video load failed', e); });
+}
 
-  // Set up video elements
-  videoEls.side  = document.getElementById('video-side');
-  videoEls.front = document.getElementById('video-front');
-  videoEls.back  = document.getElementById('video-back');
-
-  var loadCount = 0;
-  var totalToLoad = 3;
-
-  function onLoaded() {
-    loadCount++;
-    if(loadCount >= totalToLoad) {
-      document.getElementById('screen-scanning').style.display='flex';
-      autoScanAll();
-    }
+// Decode each clip once into the frame stores that everything else reads.
+// One clip at a time on one <video>, so only one hardware decoder is ever live.
+async function loadAllVideos(vid){
+  var views = [['side','Side'], ['front','Front'], ['back','Back']];
+  var preview = document.querySelector('#screen-scanning .scan-preview');
+  var bar = document.getElementById('scan-bar');
+  document.getElementById('scan-sub-text').textContent = 'Loading your videos frame by frame...';
+  if(preview) preview.classList.add('loading');
+  for(var i = 0; i < views.length; i++){
+    var key = views[i][0], label = views[i][1];
+    document.getElementById('scan-label').textContent = label + ' video';
+    document.getElementById('scan-step').textContent = label + ' video: loading frames (' + (i+1) + ' of 3)...';
+    if(videoEls[key]) videoEls[key].release();
+    videoEls[key] = await FrameStore.extract(uploadedFiles[key], vid, Object.assign({
+      onProgress: function(p){ bar.style.width = Math.round((i + p) / views.length * LOAD_BAR_PCT) + '%'; }
+    }, FRAME_STORE_OPTS));
   }
-
-  function setupVideo(vidEl, file) {
-    var started = false;
-    function begin() {
-      if(started) return;
-      started = true;
-      vidEl.removeEventListener('loadedmetadata', begin);
-      vidEl.removeEventListener('loadeddata',     begin);
-      vidEl.removeEventListener('canplay',        begin);
-      clearTimeout(ft);
-      onLoaded();
-    }
-    vidEl.addEventListener('loadedmetadata', begin, {once:true});
-    vidEl.addEventListener('loadeddata',     begin, {once:true});
-    vidEl.addEventListener('canplay',        begin, {once:true});
-    var ft = setTimeout(function(){ if(!started){ console.warn('esFormLab: metadata timeout for '+file.name); begin(); } }, 8000);
-    vidEl.src = URL.createObjectURL(file);
-    vidEl.load();
-  }
-
-  setupVideo(videoEls.side,  uploadedFiles.side);
-  setupVideo(videoEls.front, uploadedFiles.front);
-  setupVideo(videoEls.back,  uploadedFiles.back);
+  if(preview) preview.classList.remove('loading');
 }
 
 // -- Auto scan all 3 videos sequentially --
@@ -1209,10 +1217,9 @@ async function autoScanAll(){
   var frontVid = videoEls.front;
   var backVid = videoEls.back;
 
-  // Detect uploads that didn't actually decode. videoWidth === 0 after the metadata
-  // event means the browser claimed the file loaded but couldn't read pixels from it
-  // (common on Android Chrome with HEVC, or with concurrent-decoder slot limits).
-  // We warn loudly and keep going so any video that DID decode still gets analyzed.
+  // Detect uploads that didn't decode (a store with no frames -- typically an HEVC
+  // clip on a browser/device without an HEVC decoder). We warn loudly and keep
+  // going so any video that DID decode still gets analyzed.
   var loadStatus = {
     side:  (sideVid.videoWidth  || 0) > 0,
     front: (frontVid.videoWidth || 0) > 0,
@@ -1226,8 +1233,8 @@ async function autoScanAll(){
     var step = document.getElementById('scan-step');
     if(step){
       step.innerHTML = '&#9888; ' + failedLabels.join(' &amp; ') + ' video' +
-        (failedLabels.length>1?'s':'') + ' failed to load. Re-export as H.264 .mp4 ' +
-        '(or use desktop) for best compatibility -- scanning will continue with whatever did load.';
+        (failedLabels.length>1?'s':'') + ' could not be decoded by this browser (phone clips are often HEVC / H.265). ' +
+        'Re-export as H.264 .mp4 or try Safari / Chrome -- scanning will continue with whatever did load.';
       step.style.color = 'var(--bad)';
     }
     console.warn('[esfl] video load failure:', failedLabels.join(', '));
@@ -1272,22 +1279,23 @@ async function autoScanAll(){
       await new Promise(function(r){ setTimeout(r, 60); });
     }
     var t=Math.min((i+0.5)*(sideDur/N),sideDur-0.05);
-    document.getElementById('scan-bar').style.width=Math.round(i/N*70)+'%'; // 0-70% for side
+    // Side scan fills the bar from LOAD_BAR_PCT to 75%.
+    document.getElementById('scan-bar').style.width=Math.round(LOAD_BAR_PCT+i/N*(75-LOAD_BAR_PCT))+'%';
     document.getElementById('scan-step').textContent='Side view: scanning frame '+(i+1)+' of '+N+' at '+t.toFixed(2)+'s';
     document.getElementById('scan-label').textContent=t.toFixed(2)+'s (side)';
-    await seekTo(t, sideVid);
+    var frameImg = await getVideoFrame(sideVid, t);
+    if(!frameImg) continue;
     sc.width=Math.min(400,sideVid.videoWidth||400);sc.height=Math.min(225,sideVid.videoHeight||225);
     if(sideVid.videoWidth>0)sc.height=Math.round(sc.width*sideVid.videoHeight/sideVid.videoWidth);
-    try{sctx.drawImage(sideVid,0,0,sc.width,sc.height);}catch(e){}
+    try{sctx.drawImage(frameImg,0,0,sc.width,sc.height);}catch(e){continue;}
     var poses=null;try{poses=await sideScanDet.estimatePoses(sc);}catch(e){}
-    if(!poses||!poses.length){try{poses=await sideScanDet.estimatePoses(sideVid);}catch(e){}}
     if(!poses||!poses.length)continue;
     posesFound++;
     if(posesFound===1 && !isSideView(poses[0].keypoints)){
       document.getElementById('scan-step').textContent='Side view: front or back view detected -- side view gives best results';
     }
     var kps=poses[0].keypoints;
-    drawMiniSkeleton(sctx,kps,sc.width/(sideVid.videoWidth||sc.width),sc.height/(sideVid.videoHeight||sc.height));
+    drawMiniSkeleton(sctx,kps,1,1); // poses were estimated on sc itself
     var g=function(idx){return (kps[idx]&&kps[idx].score>=MIN_CONF)?kps[idx]:null;};
     var lAn=g(15),rAn=g(16),lKn=g(13),lHi=g(11),rHi=g(12),lSh=g(5),rSh=g(6),rKn=g(14);
     var conf=kps.reduce(function(sum,k){return sum+(k.score||0);},0)/kps.length;
@@ -1382,7 +1390,7 @@ async function autoScanAll(){
 
   // ---- STEP 2: Scan front video for L and R stance frames ----
   document.getElementById('scan-sub-text').textContent = 'Scanning front view for L and R mid-stance frames...';
-  var frontBest = await scanBestStanceFrames(frontVid, 'front', 70, 85);
+  var frontBest = await scanBestStanceFrames(frontVid, 'front', 75, 87);
   applyStanceFrame('mid_front_l', frontBest.left);
   applyStanceFrame('mid_front_r', frontBest.right);
 
@@ -1394,7 +1402,7 @@ async function autoScanAll(){
 
   // ---- STEP 3: Scan back video for L and R stance frames ----
   document.getElementById('scan-sub-text').textContent = 'Scanning back view for L and R mid-stance frames...';
-  var backBest = await scanBestStanceFrames(backVid, 'back', 85, 100);
+  var backBest = await scanBestStanceFrames(backVid, 'back', 87, 100);
   applyStanceFrame('mid_back_l', backBest.left);
   applyStanceFrame('mid_back_r', backBest.right);
 
@@ -1403,12 +1411,14 @@ async function autoScanAll(){
   document.getElementById('scan-step').textContent='Done -- all 3 videos scanned';
 
   var diag=document.getElementById('scan-diag');diag.style.display='block';
-  diag.textContent='Side: '+(sideVid.videoWidth||'?')+'x'+(sideVid.videoHeight||'?')+' '+sideDur.toFixed(1)+'s | Front: '+(frontVid.videoWidth||'?')+'x'+(frontVid.videoHeight||'?')+' | Back: '+(backVid.videoWidth||'?')+'x'+(backVid.videoHeight||'?');
+  var fmtClip = function(v){ return v.ok ? (v.nativeWidth+'x'+v.nativeHeight+(v.fps?' '+v.fps+'fps':'')) : 'failed'; };
+  diag.textContent='Side: '+fmtClip(sideVid)+' '+sideDur.toFixed(1)+'s | Front: '+fmtClip(frontVid)+' | Back: '+fmtClip(backVid);
 
-  // Check sparse keyframes on side
-  var uniqueTimes = new Set(samples.map(function(s){return Math.round(s.t*4)/4;}));
-  if(samples.length > 5 && uniqueTimes.size < samples.length * 0.5){
-    diag.innerHTML += '<br>&#9888; Sparse keyframes detected in side video -- for best results, re-export at original quality.';
+  // Frames the browser couldn't decode leave holes the scrubber steps across.
+  var partial = [['Side',sideVid],['Front',frontVid],['Back',backVid]].filter(function(p){ return p[1].ok && p[1].coverage < 0.9; });
+  if(partial.length){
+    diag.innerHTML += '<br>&#9888; Only part of the ' + partial.map(function(p){ return p[0].toLowerCase()+' ('+Math.round(p[1].coverage*100)+'% of frames)'; }).join(', ') +
+      ' video could be loaded -- re-exporting as H.264 .mp4 usually fixes this.';
     diag.style.borderLeft = '3px solid var(--warn)';
     diag.style.paddingLeft = '10px';
   }
@@ -1422,7 +1432,7 @@ async function autoScanAll(){
   var sexInfo=selectedSex?'<span class="ss-item '+selectedSex+'">Ranges: <strong>'+selectedSex+'</strong></span>':'<span class="ss-item">Ranges: <strong>default</strong></span>';
   // Show all three video dimensions and flag any that failed to load so the
   // user can immediately see which video is broken from the cards screen.
-  var fmtDim = function(v){ var w=v.videoWidth||0,h=v.videoHeight||0; return w>0?(w+'x'+h):'failed'; };
+  var fmtDim = function(v){ return v.ok ? (v.nativeWidth+'x'+v.nativeHeight) : 'failed'; };
   var sideFailed  = (sideVid.videoWidth ||0) === 0;
   var frontFailed = (frontVid.videoWidth||0) === 0;
   var backFailed  = (backVid.videoWidth ||0) === 0;
@@ -1434,7 +1444,7 @@ async function autoScanAll(){
     '<span class="ss-item '+(posesFound<15?'warn':'')+'">Side poses: <strong>'+posesFound+'/'+N+'</strong></span>'+
     '<span class="ss-item">Auto-detected: <strong>'+detected+'/9</strong></span>'+sexInfo;
   if(sideFailed || frontFailed || backFailed){
-    sb.innerHTML += '<span class="ss-item warn" style="flex-basis:100%">&#9888; A video failed to decode -- try re-exporting as H.264 .mp4 or analyze on desktop.</span>';
+    sb.innerHTML += '<span class="ss-item warn" style="flex-basis:100%">&#9888; A video could not be decoded by this browser (phone clips are often HEVC / H.265) -- re-export it as H.264 .mp4 or try Safari / Chrome.</span>';
   }
   buildPhaseGroups();buildSummaryTable();
   for(var di=0;di<PHASE_DEFS.length;di++){
@@ -1491,15 +1501,15 @@ async function scanBestStanceFrames(vidEl, viewLabel, barStart, barEnd) {
     document.getElementById('scan-bar').style.width = Math.round(pct)+'%';
     document.getElementById('scan-step').textContent = viewLabel.charAt(0).toUpperCase()+viewLabel.slice(1)+' view: frame '+(i+1)+' of '+NFRAMES;
     document.getElementById('scan-label').textContent = t.toFixed(2)+'s ('+viewLabel+')';
-    await seekTo(t, vidEl);
+    var frameImg = await getVideoFrame(vidEl, t);
+    if(!frameImg){ frames.push(null); continue; }
     sc.width=Math.min(400,vidEl.videoWidth||400);sc.height=Math.min(225,vidEl.videoHeight||225);
     if(vidEl.videoWidth>0)sc.height=Math.round(sc.width*vidEl.videoHeight/vidEl.videoWidth);
-    try{sctx.drawImage(vidEl,0,0,sc.width,sc.height);}catch(e){}
+    try{sctx.drawImage(frameImg,0,0,sc.width,sc.height);}catch(e){ frames.push(null); continue; }
     var poses=null;try{poses=await fbScanDet.estimatePoses(sc);}catch(e){}
-    if(!poses||!poses.length){try{poses=await fbScanDet.estimatePoses(vidEl);}catch(e){}}
     if(!poses||!poses.length){ frames.push(null); continue; }
     var kps = poses[0].keypoints;
-    drawMiniSkeleton(sctx,kps,sc.width/(vidEl.videoWidth||sc.width),sc.height/(vidEl.videoHeight||sc.height));
+    drawMiniSkeleton(sctx,kps,1,1); // poses were estimated on sc itself
     var avgConf = kps.reduce(function(sum,k){return sum+(k.score||0);},0)/kps.length;
 
     var lAn = kps[15], rAn = kps[16], lHi = kps[11], rHi = kps[12];
@@ -1794,20 +1804,17 @@ function findPhases(samples,dur){
 // from the dense data. Refinement always uses the high-accuracy Thunder detector, even
 // on mobile (where the coarse scan may have used Lightning) -- the dense scan is short
 // enough that the thermal cost is acceptable.
+// One reused work canvas: callers run strictly one at a time (awaited loops).
+var _denseCanvas = null;
 async function _denseRefinePoseForAnkle(sideVid, det, t, ankleIdx){
   var dur = sideVid.duration || 0;
   if(t < 0 || (dur && t > dur - 0.01)) return null;
-  try { await seekTo(t, sideVid); } catch(e){ return null; }
   var W = sideVid.videoWidth || 640, H = sideVid.videoHeight || 360;
-  var canvas = document.createElement('canvas');
-  canvas.width = W; canvas.height = H;
-  var ctx = canvas.getContext('2d');
-  try { ctx.drawImage(sideVid, 0, 0, W, H); } catch(e){ return null; }
+  var canvas = _denseCanvas || (_denseCanvas = document.createElement('canvas'));
+  if(canvas.width !== W || canvas.height !== H){ canvas.width = W; canvas.height = H; }
+  if(!(await drawVideoFrame(sideVid, t, canvas.getContext('2d'), W, H))) return null;
   var poses = null;
   try { poses = await det.estimatePoses(canvas); } catch(e){}
-  if(!poses || !poses.length){
-    try { poses = await det.estimatePoses(sideVid); } catch(e){}
-  }
   if(!poses || !poses.length) return null;
   var kps = poses[0].keypoints;
   if(!kps || kps.length < 17) return null;
@@ -1821,8 +1828,8 @@ async function _denseRefinePoseForAnkle(sideVid, det, t, ankleIdx){
   var hiMidY = (lHi && rHi) ? (lHi.y + rHi.y)/2 : (lHi ? lHi.y : (rHi ? rHi.y : null));
   var scale = (shMidY != null && hiMidY != null) ? Math.abs(hiMidY - shMidY) : null;
   // frameWidth records the coordinate space these keypoints live in. This helper
-  // poses at NATIVE video resolution, unlike the coarse scan's <=400px canvas,
-  // so any consumer mixing the two must rescale by the ratio.
+  // poses at full stored-frame resolution, unlike the coarse scan's <=400px
+  // canvas, so any consumer mixing the two must rescale by the ratio.
   var conf = kps.reduce(function(sum,k){return sum+(k.score||0);},0)/kps.length;
   return {t:t, ankleY:an.y, scale:scale, kps:kps, frameWidth:W, conf:conf};
 }
@@ -1946,7 +1953,8 @@ function buildPhaseGroups(){
             '<div class="pc-metrics-mini" id="metrics-mini-'+key+'"></div>';
           var W=vidEl.videoWidth||640, H=vidEl.videoHeight||360;
           (function(k2, vidEl2, W2, H2){
-            seekTo(ph.t, vidEl2).then(function(){var c=document.getElementById('canvas-'+k2);if(!c)return;c.width=W2;c.height=H2;try{c.getContext('2d').drawImage(vidEl2,0,0,W2,H2);}catch(e){}if(phases[k2].kps)drawPose(c.getContext('2d'),phases[k2].kps,W2,H2);}).catch(function(){});
+            var c=card.querySelector('#canvas-'+k2);if(!c)return;c.width=W2;c.height=H2;
+            drawVideoFrame(vidEl2, ph.t, c.getContext('2d'), W2, H2).then(function(drawn){if(drawn&&phases[k2]&&phases[k2].kps)drawPose(c.getContext('2d'),phases[k2].kps,W2,H2);});
           })(key, vidEl, W, H);
         }else{
           card.innerHTML='<div class="pc-hdr"><div class="pc-num">'+(idx+1)+'</div><div class="pc-name-wrap"><div class="pc-name">'+ph.label+'</div><div class="pc-desc">'+ph.desc+'</div></div><span class="pc-video-badge '+badgeClass+'">'+badgeLabel+'</span><div class="pc-badge manual" id="badge-'+key+'">manual</div></div>'+
@@ -1972,13 +1980,12 @@ async function analyzeCard(key){
   var badge=document.getElementById('badge-'+key),loading=document.getElementById('loading-'+key);
   if(badge){badge.className='pc-badge analyzing';badge.textContent='analyzing';}
   if(loading)loading.classList.add('show');
-  await seekTo(ph.t, vidEl);
   var canvas=document.getElementById('canvas-'+key);if(!canvas){if(loading)loading.classList.remove('show');return;}
   var W=vidEl.videoWidth||640, H=vidEl.videoHeight||360;
+  var frameImg=await getVideoFrame(vidEl, ph.t);
   canvas.width=W;canvas.height=H;var ctx=canvas.getContext('2d');
-  try{ctx.drawImage(vidEl,0,0,W,H);}catch(e){}
+  if(frameImg){try{ctx.drawImage(frameImg,0,0,W,H);}catch(e){}}
   var poses=null;try{poses=await detector.estimatePoses(canvas);}catch(e){}
-  if(!poses||!poses.length){try{poses=await detector.estimatePoses(vidEl);}catch(e){}}
   if(!poses||!poses.length){if(badge){badge.className='pc-badge manual';badge.textContent='no pose';}if(loading)loading.classList.remove('show');return;}
   var kps=poses[0].keypoints;
   // If weak, retry with brightness-normalized image
@@ -2135,15 +2142,12 @@ async function analyzePoseAtT(t, phaseKey){
   if(!vidEl || !detector) return null;
   var dur = vidEl.duration || 0;
   if(t < 0 || (dur && t > dur - 0.01)) return null;
-  try { await seekTo(t, vidEl); } catch(e){ return null; }
   var W = vidEl.videoWidth || 640, H = vidEl.videoHeight || 360;
   var canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;
-  var ctx = canvas.getContext('2d');
-  try { ctx.drawImage(vidEl, 0, 0, W, H); } catch(e) { return null; }
+  if(!(await drawVideoFrame(vidEl, t, canvas.getContext('2d'), W, H))) return null;
   var poses = null;
   try { poses = await detector.estimatePoses(canvas); } catch(e){}
-  if(!poses || !poses.length){ try { poses = await detector.estimatePoses(vidEl); } catch(e){} }
   if(!poses || !poses.length) return null;
   var kps = poses[0].keypoints;
   var vKey = getVideoKeyForPhase(phaseKey);
@@ -2182,7 +2186,7 @@ async function writePhaseLabelDoc(phaseKey, frameData, isCorrect){
 
 // Single button: mark CURRENT frame as correct, then auto-step +/- 1,2,3 frames
 // and save each neighbor as a bad frame. Produces 7 training examples per click.
-var FRAME_STEP_SECS = 0.04; // matches epStep (1f = 40ms)
+var FRAME_STEP_SECS = 0.04; // fallback only; real clips step whole frames like epStep
 var NEIGHBOR_OFFSETS = [-3, -2, -1, 1, 2, 3];
 
 async function labelCorrectFrame(){
@@ -2219,7 +2223,8 @@ async function labelCorrectFrame(){
     var saved = 1, failed = 0;
     for(var i = 0; i < NEIGHBOR_OFFSETS.length; i++){
       var offset = NEIGHBOR_OFFSETS[i];
-      var tNeighbor = originalT + offset * FRAME_STEP_SECS;
+      var nVid = getVideoElForPhase(phaseKey);
+      var tNeighbor = (nVid && nVid.ok) ? nVid.step(originalT, offset) : originalT + offset * FRAME_STEP_SECS;
       status.textContent = 'Analyzing neighbor ' + (i+1) + '/6 (' + (offset>0?'+':'') + offset + 'f)...';
       var nd = await analyzePoseAtT(tNeighbor, phaseKey);
       if(!nd){ failed++; continue; }
@@ -2424,7 +2429,7 @@ function getTourSteps(){
     },
     {
       title: 'Step to a better frame',
-      desc: 'Click the <strong>&#8722;1f / +1f</strong> buttons to nudge one frame at a time, <strong>&#8722;5f / +5f</strong> to skip ~0.2 seconds, or <strong>&#8722;1s / +1s</strong> to jump a full second. After landing on the right frame, press <strong>&#8635; Analyze this frame</strong> to re-measure.',
+      desc: 'Click the <strong>&#8722;1f / +1f</strong> buttons to nudge one frame at a time, <strong>&#8722;5f / +5f</strong> to skip five frames, or <strong>&#8722;1s / +1s</strong> to jump a full second. After landing on the right frame, press <strong>&#8635; Analyze this frame</strong> to re-measure.',
       setup: function(){ ensureTourCardOpen(); },
       target: function(){ return document.querySelector('#expand-overlay .scrub-stepper-row'); },
       align: 'below'
@@ -2700,11 +2705,18 @@ function positionTour(){
   tourState.raf = requestAnimationFrame(loop);
 })();
 
+// Latest call wins: a slower frame decode never paints over a newer scrub.
+var epDrawToken = 0;
 async function drawExpandFrame(t,kps){
   var vidEl = getVideoElForPhase(expandKey);
   var canvas=document.getElementById('ep-canvas');var W=vidEl.videoWidth||640,H=vidEl.videoHeight||360;
-  canvas.width=W;canvas.height=H;await seekTo(t, vidEl);var ctx=canvas.getContext('2d');
-  try{ctx.drawImage(vidEl,0,0,W,H);}catch(e){}if(kps)drawPose(ctx,kps,W,H);
+  var token = ++epDrawToken;
+  var img = await getVideoFrame(vidEl, t);
+  if(token !== epDrawToken) return;
+  // Resize only once the frame is ready, so the canvas never flashes blank.
+  canvas.width=W;canvas.height=H;var ctx=canvas.getContext('2d');
+  if(img){try{ctx.drawImage(img,0,0,W,H);}catch(e){}}
+  if(kps)drawPose(ctx,kps,W,H);
 }
 function epScrub(val){
   epCurrentT=parseFloat(val);document.getElementById('ep-time').textContent=epCurrentT.toFixed(2)+'s';
@@ -2713,7 +2725,18 @@ function epScrub(val){
   clearTimeout(epDbt.t);epDbt.t=setTimeout(function(){drawExpandFrame(epCurrentT,null);},100);
   if(isAdmin()) renderLabelPanel();
 }
-function epStep(frames){var newT=Math.max(0,Math.min(epDuration,epCurrentT+frames*0.04));epScrub(newT);}
+// Steps whole frames of the actual clip (30fps clip: 33ms, 60fps: 17ms).
+function epStep(frames){
+  var vidEl=getVideoElForPhase(expandKey);
+  var newT=(vidEl&&vidEl.ok)?vidEl.step(epCurrentT,frames):Math.max(0,Math.min(epDuration,epCurrentT+frames*0.04));
+  epScrub(newT);
+}
+function epStepSeconds(secs){
+  var vidEl=getVideoElForPhase(expandKey);
+  var newT=Math.max(0,Math.min(epDuration,epCurrentT+secs));
+  if(vidEl&&vidEl.ok) newT=vidEl.frameTime(newT);
+  epScrub(newT);
+}
 
 async function epReanalyze(){
   if(!detector||epAnalyzing)return;epAnalyzing=true;
@@ -2722,11 +2745,12 @@ async function epReanalyze(){
   var isFrontBack = (vKey==='front'||vKey==='back');
   var btn=document.getElementById('ep-re-btn'),loading=document.getElementById('ep-loading');
   btn.disabled=true;btn.textContent='Analyzing...';loading.classList.add('show');
-  await seekTo(epCurrentT, vidEl);
   var canvas=document.getElementById('ep-canvas');var W=vidEl.videoWidth||640,H=vidEl.videoHeight||360;
-  canvas.width=W;canvas.height=H;var ctx=canvas.getContext('2d');try{ctx.drawImage(vidEl,0,0,W,H);}catch(e){}
+  ++epDrawToken; // supersede any scrub draw still decoding
+  var frameImg=await getVideoFrame(vidEl, epCurrentT);
+  canvas.width=W;canvas.height=H;var ctx=canvas.getContext('2d');
+  if(frameImg){try{ctx.drawImage(frameImg,0,0,W,H);}catch(e){}}
   var poses=null;try{poses=await detector.estimatePoses(canvas);}catch(e){}
-  if(!poses||!poses.length){try{poses=await detector.estimatePoses(vidEl);}catch(e){}}
   loading.classList.remove('show');
   if(!poses||!poses.length){document.getElementById('ep-metrics').innerHTML='<div class="ep-no-data">No pose detected -- try a different frame</div>';btn.disabled=false;btn.textContent='\u21bb Analyze';epAnalyzing=false;return;}
   var kps=poses[0].keypoints;
@@ -2867,15 +2891,14 @@ async function capturePhaseImages() {
     var vidEl = getVideoElForPhase(key);
     if (!vidEl || !vidEl.videoWidth) continue;
     try {
-      await seekTo(ph.t, vidEl);
       var vw = vidEl.videoWidth, vh = vidEl.videoHeight;
       var scale = Math.min(1, TARGET_W / vw);
       var cv = document.createElement('canvas');
       cv.width  = Math.round(vw * scale);
       cv.height = Math.round(vh * scale);
       var cx = cv.getContext('2d');
-      cx.scale(scale, scale);                            // draw in native coords, downscale via transform
-      cx.drawImage(vidEl, 0, 0, vw, vh);
+      cx.scale(scale, scale);                            // draw in pose coords, downscale via transform
+      if (!(await drawVideoFrame(vidEl, ph.t, cx, vw, vh))) continue;
       drawPose(cx, ph.kps, vw, vh);                      // skeleton + angle overlays (side view)
       out[key] = cv.toDataURL('image/jpeg', JPEG_Q);
     } catch (e) { /* skip this phase's image on any capture/seek error */ }
@@ -2971,29 +2994,6 @@ async function downloadReport() {
 
 // Summary table (single table, all 7 side-view phases)
 
-// Seek -- takes video element as parameter
-function seekTo(t, vidEl2){
-  return new Promise(function(resolve){
-    if(!vidEl2){resolve();return;}
-    var done=false;
-    var finish=function(){
-      if(done) return;
-      done=true;
-      vidEl2.removeEventListener('seeked', finish);
-      clearTimeout(timer);
-      setTimeout(resolve, 60);
-    };
-    vidEl2.addEventListener('seeked', finish, {once:true});
-    var timer = setTimeout(function(){
-      if(!done){
-        console.warn('seekTo timeout at '+t.toFixed(2)+'s -- continuing');
-        finish();
-      }
-    }, 3000);
-    vidEl2.currentTime = Math.max(0, Math.min(t, (vidEl2.duration||9999) - 0.05));
-  });
-}
-
 // Controls
 async function rescan(){
   // Mobile only: a second run in the same tab is dramatically slower than the
@@ -3060,9 +3060,9 @@ function resetApp(){
   var bar = document.getElementById('complete-analysis-bar');
   if(bar) bar.classList.remove('show');
   document.body.classList.remove('bar-showing');
-  // Clear videos
+  // Drop the decoded frames
   ['side','front','back'].forEach(function(vk){
-    if(videoEls[vk]){videoEls[vk].pause();videoEls[vk].src='';}
+    if(videoEls[vk]) videoEls[vk].release();
     videoEls[vk]=null;
     uploadedFiles[vk]=null;
   });

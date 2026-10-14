@@ -152,9 +152,9 @@
     var samples = getSamples();
     if (!samples) return null;
     var ctx = readContext();
-    var vid = (typeof document !== 'undefined') ? document.getElementById('video-side') : null;
+    var vid = sideClip();
     var meta = {};
-    if (vid) { meta.width = vid.videoWidth || null; meta.height = vid.videoHeight || null; }
+    if (vid) { meta.width = vid.videoWidth || null; meta.height = vid.videoHeight || null; meta.fps = vid.fps || null; }
     lastResult = PGIAnalysis.analyze({
       samples: samples,
       denseWindows: getDenseWindows(),
@@ -463,6 +463,12 @@
 
   // ── Card grid ──────────────────────────────────────────────────────────────
 
+  // The side clip's decoded frames (frame-store.js via esFormLab's videoEls).
+  function sideClip() {
+    var v = (typeof videoEls !== 'undefined') ? videoEls.side : null;
+    return v && v.ok ? v : null;
+  }
+
   var thumbQueue = [], thumbBusy = false;
   function queueThumb(idx) {
     if (thumbQueue.indexOf(idx) === -1) thumbQueue.push(idx);
@@ -472,30 +478,23 @@
     var idx = thumbQueue.shift();
     if (idx == null) { thumbBusy = false; return; }
     thumbBusy = true;
-    var video = document.getElementById('video-side');
+    var video = sideClip();
     var host = document.getElementById('pgi-landmark-cards');
     var canvas = host && host.querySelector('[data-pgi-lm-canvas="' + idx + '"]');
     var lm = landmarkList()[idx];
     if (!video || !canvas || !lm) { nextThumb(); return; }
     var t = landmarkTime(lm.stance, lm.event);
-    var done = false;
-    var finish = function () {
-      if (done) return; done = true;
-      video.removeEventListener('seeked', finish);
+    var vw = video.videoWidth || 640, vh = video.videoHeight || 360;
+    canvas.width = 320; canvas.height = Math.round(320 * vh / vw);
+    drawVideoFrame(video, t, canvas.getContext('2d'), canvas.width, canvas.height).then(function (drawn) {
       try {
-        var vw = video.videoWidth || 640, vh = video.videoHeight || 360;
-        canvas.width = 320; canvas.height = Math.round(320 * vh / vw);
-        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
         // Thumbnails use the nearest retained sample for the overlay — cheap
         // and close enough at card size. The expand panel re-poses live.
-        var smp = nearestSample(t);
+        var smp = drawn ? nearestSample(t) : null;
         if (smp) drawLandmarkOverlay(canvas, smp.kps, smp.frameWidth || null, lm.stance.side);
       } catch (e) { /* thumbnail only */ }
-      setTimeout(nextThumb, 25);
-    };
-    video.addEventListener('seeked', finish);
-    setTimeout(finish, 900);
-    try { video.currentTime = t; } catch (e) { finish(); }
+      nextThumb();
+    });
   }
 
   function refreshLandmarkCardMeta(idx) {
@@ -516,7 +515,7 @@
 
   function mountLandmarkCards() {
     var list = landmarkList();
-    var video = document.getElementById('video-side');
+    var video = sideClip();
     if (!list.length || !video) { removeNode('pgi-landmark-cards'); return; }
     var host = document.getElementById('pgi-landmark-cards');
     var rebuilt = false;
@@ -582,13 +581,13 @@
       '<div class="ep-canvas-wrap"><canvas class="ep-canvas" id="pgi-ep-canvas"></canvas>' +
       '<div class="ep-loading" id="pgi-ep-loading"><div class="ep-spinner"></div></div></div>' +
       '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px">' +
-      '<button class="step-btn-big" onclick="PGIApp._epStep(-25)" title="Back ~1 second">&#8722;1s</button>' +
+      '<button class="step-btn-big" onclick="PGIApp._epStepSeconds(-1)" title="Back 1 second">&#8722;1s</button>' +
       '<button class="step-btn-big" onclick="PGIApp._epStep(-5)">&#8722;5f</button>' +
       '<button class="step-btn-big" onclick="PGIApp._epStep(-1)">&#8722;1f</button>' +
       '<span class="ep-time" id="pgi-ep-time">0.00s</span>' +
       '<button class="step-btn-big" onclick="PGIApp._epStep(1)">+1f</button>' +
       '<button class="step-btn-big" onclick="PGIApp._epStep(5)">+5f</button>' +
-      '<button class="step-btn-big" onclick="PGIApp._epStep(25)" title="Forward ~1 second">+1s</button>' +
+      '<button class="step-btn-big" onclick="PGIApp._epStepSeconds(1)" title="Forward 1 second">+1s</button>' +
       '</div>' +
       '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px">' +
       '<button class="re-btn" id="pgi-ep-use" onclick="PGIApp._epUse()">&#10003; Use this frame</button>' +
@@ -629,32 +628,33 @@
     openPgiExpand((pgiEp.idx + dir + list.length) % list.length);
   }
   function epStep(frames) {
-    var video = document.getElementById('video-side');
+    var video = sideClip();
     if (!video) return;
-    var t = Math.max(0, Math.min(video.duration || 0, pgiEp.t + frames * 0.04));
-    epScrubTo(t);
+    epScrubTo(video.step(pgiEp.t, frames));
+  }
+  function epStepSeconds(secs) {
+    var video = sideClip();
+    if (!video) return;
+    epScrubTo(video.frameTime(Math.max(0, Math.min(video.duration || 0, pgiEp.t + secs))));
   }
 
   /**
-   * Seek, draw the ORIGINAL video frame, then re-pose THAT frame and draw the
+   * Draw the ORIGINAL video frame, then re-pose THAT frame and draw the
    * overlay — the overlay always moves with the scrub. A token discards any
-   * pose result that lands after the user has scrubbed again.
+   * frame or pose result that lands after the user has scrubbed again.
    */
   function epScrubTo(t) {
-    var video = document.getElementById('video-side');
+    var video = sideClip();
     var canvas = document.getElementById('pgi-ep-canvas');
     if (!video || !canvas || pgiEp.idx < 0) return;
     pgiEp.t = t;
     var token = ++pgiEp.poseToken;
     document.getElementById('pgi-ep-time').textContent = t.toFixed(2) + 's';
-    var done = false;
-    var onSeek = function () {
-      if (done) return; done = true;
-      video.removeEventListener('seeked', onSeek);
-      if (token !== pgiEp.poseToken) return;
+    video.image(t).then(function (img) {
+      if (token !== pgiEp.poseToken || !img) return;
       var W = video.videoWidth || 640, H = video.videoHeight || 360;
       canvas.width = W; canvas.height = H;
-      try { canvas.getContext('2d').drawImage(video, 0, 0, W, H); } catch (e) { return; }
+      try { canvas.getContext('2d').drawImage(img, 0, 0, W, H); } catch (e) { return; }
       // Live pose on the frame just drawn.
       if (typeof detector === 'undefined' || !detector) return;
       var loading = document.getElementById('pgi-ep-loading');
@@ -667,10 +667,7 @@
           drawLandmarkOverlay(canvas, poses[0].keypoints, W, lm.stance.side);
         }
       }).catch(function () { if (loading) loading.classList.remove('show'); });
-    };
-    video.addEventListener('seeked', onSeek);
-    setTimeout(onSeek, 900);
-    try { video.currentTime = t; } catch (e) { onSeek(); }
+    });
   }
 
   /** Commit the scrubbed frame as this landmark's time and re-analyse. */
@@ -951,6 +948,7 @@
     help: help,
     // Expand-panel handlers (bound from the injected markup).
     _epStep: epStep,
+    _epStepSeconds: epStepSeconds,
     _epNav: epNav,
     _epUse: epUse,
     _epClose: epClose
