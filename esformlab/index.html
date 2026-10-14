@@ -32,8 +32,8 @@
     <div class="mobile-perf-notice" role="note" aria-label="Mobile performance notice">
       <div class="mpn-icon">&#9888;</div>
       <div>
-        <div class="mpn-title">Use a desktop for the most accurate analysis</div>
-        <div class="mpn-body">The pose detection runs in your browser. On mobile it is significantly slower (the full scan of all three videos can take several minutes) and somewhat less accurate. Mobile still works -- but a laptop or desktop gives a noticeably faster and better analysis. Also: if you've just run an analysis, the phone may be warm and the next scan will start slowed-down -- let the device sit for a few minutes between runs.</div>
+        <div class="mpn-title">Works on your phone -- desktop is a little more precise</div>
+        <div class="mpn-body">Everything runs on your phone -- nothing is uploaded. Each clip plays through once while its frames load, then the pose scan runs. Phones check fewer frames when auto-picking each gait phase (and step 60fps clips two frames at a time), so a laptop or desktop gives slightly more precise picks. Back-to-back scans can run slower on a warm phone -- give it a minute between runs.</div>
       </div>
     </div>
 
@@ -119,7 +119,7 @@
       <div class="video-tips">
         <div class="video-tips-title">Recording tips for the best results</div>
         <div class="video-tips-grid">
-          <div class="video-tip-item"><span class="vt-icon">&#9201;</span><span><strong>Keep clips 8 seconds or less.</strong> We only sample 20-40 frames from each video, so longer clips just add unnecessary footage. A few seconds of steady running is ideal.</span></div>
+          <div class="video-tip-item"><span class="vt-icon">&#9201;</span><span><strong>Keep clips 8 seconds or less.</strong> Each clip plays through once while its frames load, so longer clips take longer, and the scan spreads a fixed number of samples across the whole clip, so extra footage means fewer samples per stride. A few seconds of steady running is ideal.</span></div>
           <div class="video-tip-item"><span class="vt-icon">&#128247;</span><span><strong>Stay close to the camera.</strong> The runner should fill most of the frame. If you are too far away, the pose model cannot accurately identify joint positions.</span></div>
           <div class="video-tip-item"><span class="vt-icon">&#9888;</span><span><strong>Nothing should block your body.</strong> Treadmill handrails, other runners, or objects in front of you will hide joints and reduce detection accuracy. If filming on a treadmill, position the camera so the display and handrails are not covering your arms or legs.</span></div>
           <div class="video-tip-item"><span class="vt-icon">&#127939;</span><span><strong>Consider filming both outdoors and on a treadmill.</strong> Treadmill running can change your form -- your stride length, foot strike, and trunk lean may differ from outdoor running. If you want a complete picture, analyze one of each and compare the results.</span></div>
