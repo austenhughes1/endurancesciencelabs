@@ -68,7 +68,6 @@ html:not([data-theme="light"]) .rdx{--muted2:#8590ae}
 html[data-theme="light"] .rdx input[type=date]{color-scheme:light}
 .rdx-ctl{display:flex;flex-direction:column;gap:6px;min-width:0}
 .rdx-ctl>label,.rdx-lbl{font-size:12px;font-weight:600;color:var(--muted2);line-height:1.3}
-.rdx-ctl-hint{font-size:12px;color:var(--muted2);line-height:1.45;max-width:260px}
 .rdx-inunit{display:flex;align-items:center;gap:6px}
 .rdx-inunit span{font-size:12.5px;color:var(--muted2)}
 .rdx-inl{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--muted2);white-space:nowrap}
@@ -123,21 +122,25 @@ html[data-theme="light"] .rdx input[type=date]{color-scheme:light}
 /* 1. Data & settings panel */
 /* Profile + What's included share a row once the panel is ≥900px wide (2×444 + 12 gap): flex-basis does it
    from the panel's own width — no size container, which (like containment on ROOT) would trap fixed overlays */
-.rdx-settings{margin-top:12px;animation:rdx-fade .25s}
-.rdx-set-grid{display:flex;flex-wrap:wrap;gap:12px}
-.rdx-group{flex:1 1 444px;display:flex;flex-direction:column;gap:14px;min-width:0;padding:18px 20px;background:var(--panel);border:1px solid var(--border);border-radius:12px;scroll-margin-top:72px}
-.rdx-group-wide{flex-basis:100%}
-.rdx-group-hd{font-size:13px;font-weight:600;color:var(--text);margin:0;line-height:1.3}
-.rdx-group-body{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
-.rdx-group-body.rdx-top{align-items:flex-start}   /* a field with a hint under it would drag its row's inputs down */
-.rdx-group-note{font-size:12.5px;color:var(--muted2);line-height:1.55;margin:0}
-.rdx-group-note b{color:var(--text);font-weight:600}
-.rdx-ev-form{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
-.rdx-ev-form .rdx-ctl-note{flex:1 1 220px}
-.rdx-ev-hint{font-size:12.5px;color:var(--muted2);margin:-4px 0 0;line-height:1.5}
-.rdx-ev-cols{display:flex;flex-wrap:wrap;gap:14px 28px}
-.rdx-ev-cols>*{flex:5 1 346px;min-width:0}   /* bases in 5:7 that sum to the group's inner width at a 900px panel, */
-.rdx-ev-cols>:last-child{flex:7 1 484px}      /* so side by side they keep the 5fr/7fr split; narrower, they stack */
+.rdx-settings{margin-top:12px;background:var(--panel);border:1px solid var(--border);border-radius:12px;animation:rdx-fade .25s}
+/* one sheet: a row per group, its name in a narrow left column, its controls in one wrapping row;
+   explanations live in title tooltips, the long lists behind one-line toggles */
+.rdx-group{display:grid;grid-template-columns:118px minmax(0,1fr);gap:8px 16px;align-items:start;padding:14px 18px;border-top:1px solid var(--border);scroll-margin-top:72px}
+.rdx-group:first-child{border-top:none}
+.rdx-group-hd{font-size:13px;font-weight:600;color:var(--text);margin:0;line-height:1.3;padding-top:9px}
+.rdx-group:not(#set-events)>.rdx-group-hd{padding-top:27px}   /* level with the inputs under their 18px labels */
+.rdx-group-main{display:flex;flex-direction:column;gap:8px;min-width:0}
+.rdx-group-body{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:flex-end}
+.rdx-ev-form{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}
+.rdx-ev-form .rdx-ev-note-in{flex:1 1 200px;min-width:0}
+.rdx-ev-end{display:inline-flex;align-items:center;gap:8px}
+.rdx-ev-to{font-size:12.5px;color:var(--muted2);white-space:nowrap}
+.rdx-ev-hint{font-size:12.5px;color:var(--muted2);margin:0;line-height:1.5}
+.rdx-ev-hint .rdx-linkbtn,.rdx-ev-logged .rdx-linkbtn{font-size:12.5px;white-space:nowrap}
+.rdx-ev-logged{font-size:12.5px;color:var(--muted2)}
+.rdx-ev-logged .rdx-events{margin-top:4px;max-width:760px}
+.rdx-wtl-box{max-width:620px}
+.rdx-wtl-box .rdx-lbl{display:none}   /* the toggle already says "What to log" */
 .rdx-wtl{font-size:12.5px;color:var(--muted2);line-height:1.55}
 .rdx-wtl ul{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:3px}
 .rdx-wtl li{display:flex;align-items:baseline;gap:8px}
@@ -146,7 +149,7 @@ html[data-theme="light"] .rdx input[type=date]{color-scheme:light}
 .rdx-wtl p{margin:6px 0 0}
 .rdx-events{display:flex;flex-direction:column;margin-top:4px}
 .rdx-ev-empty{font-size:12.5px;color:var(--muted2);margin:0;padding:6px 0}
-.rdx-ev-row{display:flex;flex-wrap:wrap;align-items:center;gap:2px 10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13.5px}
+.rdx-ev-row{display:flex;flex-wrap:wrap;align-items:center;gap:2px 10px;padding:2px 0;border-bottom:1px solid var(--border);font-size:13px}
 .rdx-ev-row:last-child{border-bottom:none}
 .rdx-ev-dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .rdx-ev-type{font-weight:600;color:var(--text);white-space:nowrap}
@@ -164,9 +167,12 @@ html[data-theme="light"] .rdx input[type=date]{color-scheme:light}
 .rdx-filenote{font-size:12.5px;color:var(--muted2);margin:0}
 .rdx-imp-note{margin:0;font-size:13px;line-height:1.5;color:var(--muted2)}
 .rdx-imp-note:empty,.rdx #importHome .rdx-imp-note{display:none}   /* onboarding card: the header status sits right above it */
-.rdx-danger{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-top:6px;padding-top:20px;border-top:1px solid var(--border)}
-.rdx-danger .rdx-lbl{flex-basis:100%}
-.rdx-danger p{flex:1 1 260px;max-width:560px;margin:0;font-size:12.5px;color:var(--muted2);line-height:1.55}
+.rdx-data-foot{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px}
+.rdx-data-foot .rdx-btn-danger{margin-left:auto}
+#importSlot .rdx-import{gap:6px}
+#importSlot .rdx-drop{padding:8px 14px;text-align:left}   /* in the sheet the drop zone is one line; the onboarding card keeps it big */
+#importSlot .rdx-drop span{display:inline;margin:0 0 0 8px}
+#importSlot .rdx-more>summary{padding:2px 0;font-size:12.5px;font-weight:500;color:var(--muted2)}
 
 /* sections */
 .rdx-section{display:none;margin-top:36px}
@@ -469,19 +475,23 @@ html[data-theme="light"] .rdx-strava-o{display:inline-block}
 }
 @media(max-width:599px){
   .rdx-section{margin-top:28px}
-  .rdx-card,.rdx-group{padding:14px 16px}
-  /* header: status on its own line, the two actions share a row */
+  .rdx-card{padding:14px 16px}
+  .rdx-group{grid-template-columns:minmax(0,1fr);gap:8px;padding:14px 16px}
+  .rdx-group-hd,.rdx-group:not(#set-events)>.rdx-group-hd{padding-top:0}
+  #importSlot .rdx-drop span{display:block;margin:2px 0 0}
+  /* header: status on its own line, then the settings button */
   .rdx-head{flex-direction:column;align-items:stretch;gap:8px}
   .rdx-status{flex:none;font-size:12px}
   .rdx-head-acts .rdx-btn{flex:1;min-height:40px}
   /* settings: 2-column event form (Type | Date, End | Note), full-width + add */
   .rdx-ev-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
   .rdx-ev-form>.rdx-btn{grid-column:1/-1}
-  .rdx #evEndCtl[hidden]+.rdx-ctl-note{grid-column:1/-1}   /* Race has no End: Note takes the row */
-  .rdx-ev-form .rdx-ctl :is(select,input){width:100%}
+  .rdx-ev-form>.rdx-ev-end,.rdx-ev-form>.rdx-ev-note-in{grid-column:1/-1}   /* Type | Date, then End and Note a row each */
+  .rdx-ev-form>:is(select,input){width:100%}
+  .rdx-ev-end input{flex:1;min-width:0}
   :where(.rdx) :is(select,input[type=text],input[type=date],input[type=number]){height:40px;font-size:16px}   /* iOS zooms into inputs under 16px */
   .rdx-group-body>.rdx-ctl{flex:1 1 140px}
-  .rdx-group-body>.rdx-ctl-row{flex-basis:100%}   /* a long device name / a wrapping label + hint: its own row */
+  .rdx-group-body>.rdx-ctl-wide{flex-basis:100%}   /* chip rows and the Lever button + its count need the whole width */
   .rdx-group-body>.rdx-ctl :is(select,input[type=text]){max-width:100%}
   .rdx-custom{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
   .rdx-custom input{width:100%}
@@ -642,7 +652,6 @@ var PROFILE_ERR=null;   // loadProfile failed: the view runs on defaults, so pro
 var LIST_Q={};          // uid/key → {tail, n}: that field's serialized transaction chain + writes issued
 var DIS_OPEN=false, DIS_T=0, DIS_SEQ=0;   // "N dismissed · show" expanded; last dismiss/restore click; dismiss/restore writes issued (only the newest may revert)
 var GAP_FORM=null;      // the open "Log it…" gap form: {t0, type, start, end, note} — re-opened with what was typed after a re-render
-var PANEL=null;   // Data & settings panel mode: null (closed) | 'events' | 'all' — see setPanel
 var SB_MORE=false, ALSO_ALL=false, PAT_STATS=false, GAPS_OPEN=false;   // injury section: older setback cards shown, all "Also logged" shown, stats disclosure open, training gaps expanded
 var TOAST_T=0, TOAST_ARM=null, TOAST_BACK=null;   // page toast: hide timer, its (re)start fn while shown, where focus returns
 var SAVE_SEQ={};        // profile key → persist() calls issued: only the newest call to a key may revert it
@@ -1363,8 +1372,10 @@ function evDelete(id, kbd){
 }
 function renderEventsList(){
   var el=$('eventsList'); if(!el) return;
-  var evs=events().slice().sort(function(a,b){return b.ts-a.ts;});
-  if(!evs.length){ el.innerHTML='<p class="rdx-ev-empty">No events logged yet — add one to mark it on the chart.</p>'; return; }
+  var evs=events().slice().sort(function(a,b){return b.ts-a.ts;}), cnt=$('evCount'), tog=$('evListTog');
+  if(cnt) cnt.textContent=evs.length?evs.length+' logged event'+(evs.length===1?'':'s')+' ·':'No events logged yet — add one to mark it on the chart.';
+  if(tog) tog.hidden=!evs.length;
+  if(!evs.length){ el.innerHTML=''; return; }
   el.innerHTML=evs.map(function(e){ var m=EV_META[e.type]||EV_META.race, when=fmtSpan(e.ts,e.endTs);
     return '<div class="rdx-ev-row"><span class="rdx-ev-dot" style="background:'+m[1]+'"></span><span class="rdx-ev-type">'+m[0]+'</span><span class="rdx-ev-when">'+when+'</span>'+
       (e.note?'<span class="rdx-ev-note">'+esc(e.note)+'</span>':'')+
@@ -2474,21 +2485,16 @@ function fillProfileInputs(){
   $('easypace').value=easyPaceSec()!=null?fmtPace(easyPaceSec()):'';
   var a=$('accessory'); a.classList.toggle('on', hasAccessory()); a.setAttribute('aria-pressed',String(hasAccessory()));
 }
-// Data & settings panel, in one of two modes: 'events' (+ Log event — the event logger alone) or 'all'
-// (⚙ Data & settings — every group); null = closed. Each header button toggles its own mode and
-// switches over from the other, and its aria-expanded (styled as the open state) follows.
-function setPanel(mode){
-  var p=$('settingsPanel'); if(!p) return;
-  PANEL=mode||null; p.hidden=!PANEL;
-  ['set-profile','set-included','set-data'].forEach(function(id){ var g=$(id); if(g) g.hidden=PANEL==='events'; });
-  var g=$('gearBtn'), q=$('evQuick');
-  if(g) g.setAttribute('aria-expanded',String(PANEL==='all'));
-  if(q) q.setAttribute('aria-expanded',String(PANEL==='events'));
+// Data & settings panel: open/close keeps the gear button's state in step.
+function setPanel(open){
+  var p=$('settingsPanel'), g=$('gearBtn'); if(!p) return;
+  p.hidden=!open;
+  if(g) g.setAttribute('aria-expanded',String(!!open));
 }
 // Open the panel at one group: 'events' (focus Type, or with {type} preset that type — firing its
 // change handler — and focus the date) or 'data' (focus the drop zone).
 function openSettings(group, preset){
-  setPanel(group==='events'?'events':'all');
+  setPanel(true);
   var g=$('set-'+group); if(!g) return;
   var reduce=window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   g.scrollIntoView({block:'start', behavior:reduce?'auto':'smooth'});
@@ -2504,8 +2510,8 @@ function openSettings(group, preset){
 function showSections(hasData){
   var blk=$('importBlock'), dst=$(hasData?'importSlot':'importHome'), had=false;
   if(blk && dst && blk.parentNode!==dst){ had=blk.contains(document.activeElement); dst.appendChild(blk); var h=$('exportHelp'); if(h) h.open=!hasData; }
-  ['evQuick','gearBtn'].forEach(function(id){ var b=$(id); if(b) b.hidden=!hasData; });
-  if(!hasData) setPanel(null);
+  var gb=$('gearBtn'); if(gb) gb.hidden=!hasData;
+  if(!hasData) setPanel(false);
   // a keyboard import from the onboarding card: the focused drop zone just moved into the closed panel —
   // keep focus on the page, on the button that opens where it went
   if(had && hasData && $('settingsPanel').hidden) $('gearBtn').focus({preventScroll:true});
@@ -2655,65 +2661,59 @@ function shellHTML(opts){
   '</div>';
   return ''+
   titleHTML+
-  // 0. header strip: freshness + import status, and the two panel shortcuts (hidden until runs exist)
+  // 0. header strip: freshness + import status, and the settings button (hidden until runs exist)
   '<div class="rdx-head">'+
     '<div class="rdx-status"><span id="rdxFresh"></span><span id="importStatus"></span></div>'+
     '<div class="rdx-head-acts">'+
-      '<button type="button" class="rdx-btn rdx-btn-outline" id="evQuick" aria-expanded="false" aria-controls="settingsPanel" hidden>+ Log event</button>'+
       '<button type="button" class="rdx-btn rdx-btn-outline" id="gearBtn" aria-expanded="false" aria-controls="settingsPanel" hidden>⚙ Data &amp; settings</button>'+
     '</div>'+
   '</div>'+
 
   // 1. Data & settings
   '<div class="rdx-settings" id="settingsPanel" role="region" aria-label="Data and settings" hidden><div class="rdx-set-grid">'+
-    '<section class="rdx-group rdx-group-wide" id="set-events" aria-labelledby="setEventsHd">'+
-      '<h3 class="rdx-group-hd" id="setEventsHd">Log an event</h3>'+
-      '<div class="rdx-ev-form">'+
-        '<div class="rdx-ctl"><label for="evType">Type</label><select id="evType" aria-describedby="evHint">'+evOpts+'</select></div>'+
-        '<div class="rdx-ctl"><label for="evDate">Date</label><input type="date" id="evDate"></div>'+
-        '<div class="rdx-ctl" id="evEndCtl" hidden><label for="evEndDate">End (optional)</label><input type="date" id="evEndDate"></div>'+
-        '<div class="rdx-ctl rdx-ctl-note"><label for="evNote">Note</label><input type="text" id="evNote" placeholder="'+EV_PH.race+'" style="width:100%"></div>'+
-        '<button type="button" class="rdx-btn" id="evAdd">+ add</button>'+
-      '</div>'+
-      '<p class="rdx-ev-hint" id="evHint">'+EV_HINT.race+'</p>'+
-      '<div class="rdx-ev-cols">'+whatToLogHTML()+
-        '<div><div class="rdx-lbl">Logged events</div><div class="rdx-events" id="eventsList"></div></div>'+
+    '<section class="rdx-group" id="set-events" aria-labelledby="setEventsHd">'+
+      '<h3 class="rdx-group-hd" id="setEventsHd">Events</h3>'+
+      '<div class="rdx-group-main">'+
+        '<div class="rdx-ev-form" role="group" aria-labelledby="setEventsHd">'+
+          '<select id="evType" aria-label="Event type" aria-describedby="evHint">'+evOpts+'</select>'+
+          '<input type="date" id="evDate" aria-label="Date">'+
+          '<span class="rdx-ev-end" id="evEndCtl" hidden><span class="rdx-ev-to" aria-hidden="true">to (optional)</span><input type="date" id="evEndDate" aria-label="End date (optional)"></span>'+
+          '<input type="text" id="evNote" class="rdx-ev-note-in" aria-label="Note" placeholder="'+EV_PH.race+'">'+
+          '<button type="button" class="rdx-btn" id="evAdd">+ add</button>'+
+        '</div>'+
+        '<p class="rdx-ev-hint"><span id="evHint">'+EV_HINT.race+'</span> <button type="button" class="rdx-linkbtn" id="wtlTog" aria-expanded="false" aria-controls="wtlBox">What to log?</button></p>'+
+        '<div class="rdx-wtl-box" id="wtlBox" hidden>'+whatToLogHTML()+'</div>'+
+        '<div class="rdx-ev-logged"><span id="evCount"></span> <button type="button" class="rdx-linkbtn" id="evListTog" aria-expanded="false" aria-controls="eventsList" hidden>show</button>'+
+          '<div class="rdx-events" id="eventsList" hidden></div></div>'+
       '</div>'+
     '</section>'+
     '<section class="rdx-group" id="set-profile" aria-labelledby="setProfileHd">'+
       '<h3 class="rdx-group-hd" id="setProfileHd">Profile</h3>'+
       '<div class="rdx-group-body">'+
-        '<div class="rdx-ctl rdx-ctl-row"><label for="device">Device</label><select id="device"></select></div>'+
+        '<div class="rdx-ctl"><label for="device">Device</label><select id="device"></select></div>'+
         '<div class="rdx-ctl"><span class="rdx-lbl">Strap / pod</span><div class="rdx-types"><button type="button" class="rdx-chip" id="accessory" aria-pressed="false">chest strap / pod</button></div></div>'+
         '<div class="rdx-ctl"><label for="weight">Body weight</label><div class="rdx-inunit"><input type="text" id="weight" inputmode="decimal" placeholder="—" style="width:64px"><span>lb</span></div></div>'+
-      '</div>'+
-      '<div class="rdx-group-body">'+
-        '<div class="rdx-ctl"><label for="offload">Lever support</label><div class="rdx-inunit"><input type="text" id="offload" inputmode="decimal" placeholder="85" style="width:56px"><span>% BW</span></div></div>'+
-        '<div class="rdx-inunit"><button type="button" class="rdx-btn rdx-btn-outline" id="lvOpen" aria-haspopup="dialog">Mark Lever runs…</button><span class="rdx-lv-hint" id="lvHint"></span></div>'+
-      '</div>'+
-      '<p class="rdx-group-note"><b>Lever support</b> is the share of body weight run at on the Lever (85% BW = 15% offload). It is the default for auto-detected Lever runs and the starting value in <b>Mark Lever runs…</b>, where treadmill runs can be marked by hand with their own offload.</p>'+
-      '<div class="rdx-group-body">'+
-        '<div class="rdx-ctl"><label for="easypace">Easy pace</label><div class="rdx-inunit"><input type="text" id="easypace" placeholder="9:00" style="width:64px" aria-describedby="easypaceHint"><span>/mi</span></div>'+
-          '<span class="rdx-ctl-hint" id="easypaceHint">Used as the load baseline until there are enough easy runs to calibrate from.</span></div>'+
+        '<div class="rdx-ctl" title="The share of body weight run at on the Lever (85% BW = 15% offload): the default for auto-detected Lever runs and the starting value in Mark Lever runs…"><label for="offload">Lever support</label><div class="rdx-inunit"><input type="text" id="offload" inputmode="decimal" placeholder="85" style="width:56px"><span>% BW</span></div></div>'+
+        '<div class="rdx-ctl rdx-ctl-wide"><span class="rdx-lbl">Lever runs</span><div class="rdx-inunit"><button type="button" class="rdx-btn rdx-btn-outline" id="lvOpen" aria-haspopup="dialog">Mark Lever runs…</button><span class="rdx-lv-hint" id="lvHint"></span></div></div>'+
+        '<div class="rdx-ctl" title="Used as the load baseline until there are enough easy runs to calibrate from."><label for="easypace">Easy pace</label><div class="rdx-inunit"><input type="text" id="easypace" placeholder="9:00" style="width:64px"><span>/mi</span></div></div>'+
       '</div>'+
     '</section>'+
     '<section class="rdx-group" id="set-included" aria-labelledby="setIncludedHd">'+
       '<h3 class="rdx-group-hd" id="setIncludedHd">What’s included</h3>'+
-      '<div class="rdx-ctl"><span class="rdx-lbl" id="typesLbl">Activity types</span><div class="rdx-types" id="types" role="group" aria-labelledby="typesLbl"></div></div>'+
-      '<div class="rdx-group-body rdx-top">'+
+      '<div class="rdx-group-body">'+
+        '<div class="rdx-ctl rdx-ctl-wide"><span class="rdx-lbl" id="typesLbl">Activity types</span><div class="rdx-types" id="types" role="group" aria-labelledby="typesLbl"></div></div>'+
         '<div class="rdx-ctl"><label for="intensity">Runs</label><select id="intensity"><option value="all">All runs</option><option value="workout">Workouts only</option><option value="easy">Easy only</option></select></div>'+
-        '<div class="rdx-ctl rdx-ctl-row"><label for="cutoff">Workout pace (faster than)</label><div class="rdx-inunit"><input type="text" id="cutoff" value="6:40" style="width:66px" aria-describedby="cutoffHint"><span>/mi</span></div>'+
-          '<span class="rdx-ctl-hint" id="cutoffHint">Slower runs count as easy and calibrate the easy pace.</span></div>'+
+        '<div class="rdx-ctl" title="Runs slower than this count as easy and calibrate the easy pace."><label for="cutoff">Workout pace (faster than)</label><div class="rdx-inunit"><input type="text" id="cutoff" value="6:40" style="width:66px"><span>/mi</span></div></div>'+
         '<div class="rdx-ctl"><label for="mindist">Min distance</label><div class="rdx-inunit"><input type="text" id="mindist" value="0.5" inputmode="decimal" style="width:56px"><span>mi</span></div></div>'+
       '</div>'+
     '</section>'+
-    '<section class="rdx-group rdx-group-wide" id="set-data" aria-labelledby="setDataHd">'+
+    '<section class="rdx-group" id="set-data" aria-labelledby="setDataHd">'+
       '<h3 class="rdx-group-hd" id="setDataHd">Import &amp; data</h3>'+
-      '<div id="importSlot">'+importBlock+'</div>'+
-      '<p class="rdx-filenote" id="filenote"></p>'+
-      '<div class="rdx-danger"><span class="rdx-lbl">Danger zone</span>'+
-        '<button type="button" class="rdx-btn rdx-btn-danger" id="resetData">Delete all imported runs</button>'+
-        '<p>Clears every stored run so '+who('you')+' can re-import cleanly. Profile, logged events, dismissed gaps and Lever marks are kept.</p></div>'+
+      '<div class="rdx-group-main">'+
+        '<div id="importSlot">'+importBlock+'</div>'+
+        // the delete confirm() spells out what is kept
+        '<div class="rdx-data-foot"><p class="rdx-filenote" id="filenote"></p><button type="button" class="rdx-btn rdx-btn-danger rdx-btn-sm" id="resetData">Delete all imported runs</button></div>'+
+      '</div>'+
     '</section>'+
   '</div></div>'+
 
@@ -2832,8 +2832,11 @@ function wire(){
   drop.ondragleave=function(){ drop.classList.remove('over'); };
   drop.ondrop=function(e){ e.preventDefault(); drop.classList.remove('over'); var f=e.dataTransfer.files[0]; if(f) readFile(f); };
   fileInput.onchange=function(e){ var f=e.target.files[0]; if(f) readFile(f); fileInput.value=''; };
-  $('gearBtn').onclick=function(){ setPanel(PANEL==='all'?null:'all'); };
-  $('evQuick').onclick=function(){ if(PANEL==='events') setPanel(null); else openSettings('events'); };
+  $('gearBtn').onclick=function(){ setPanel($('settingsPanel').hidden); };
+  // the two one-line toggles in Events: the what-to-log list and the logged events (in place, no re-render)
+  [['wtlTog','wtlBox'],['evListTog','eventsList']].forEach(function(x){ $(x[0]).onclick=function(){
+    var box=$(x[1]), open=box.hidden; box.hidden=!open; this.setAttribute('aria-expanded',String(open));
+    if(x[0]==='evListTog') this.textContent=open?'hide':'show'; }; });
   $('intensity').onchange=refresh;
   $('cutoff').onchange=refresh;
   $('mindist').onchange=refresh;
@@ -2959,7 +2962,7 @@ function mount(container, opts){
   ROOT=container; DB=opts.db; UID=opts.uid; ROLE=opts.role||'athlete'; ADMIN=!!opts.admin; DEMO=null;
   VIEW=VIEW_SECS[opts.view]?opts.view:'training';
   var my=++MOUNT; PROFILE_ERR=null;
-  DIS_OPEN=false; DIS_T=0; DIS_SEQ=0; GAP_FORM=null; PANEL=null; SB_MORE=false; ALSO_ALL=false; PAT_STATS=false; GAPS_OPEN=false; HERO_HELP=false; CAP_PIN=''; clearTimeout(LV.toastT); clearTimeout(TOAST_T); TOAST_ARM=TOAST_BACK=null; SAVE_SEQ={}; LV={filter:'all', sel:new Set(), rows:[], trigger:null, toastT:null};
+  DIS_OPEN=false; DIS_T=0; DIS_SEQ=0; GAP_FORM=null; SB_MORE=false; ALSO_ALL=false; PAT_STATS=false; GAPS_OPEN=false; HERO_HELP=false; CAP_PIN=''; clearTimeout(LV.toastT); clearTimeout(TOAST_T); TOAST_ARM=TOAST_BACK=null; SAVE_SEQ={}; LV={filter:'all', sel:new Set(), rows:[], trigger:null, toastT:null};
   RAW=[]; ACTIVE_TYPES=new Set(); KNOWN_TYPES=new Set(); ANCHOR=null; LOAD_PARAMS=null; STD_PROFILE={}; STRAVA_LEVER=[]; STRAVA_SYNC={};
   container.classList.add('rdx');
   container.innerHTML=shellHTML(opts);
