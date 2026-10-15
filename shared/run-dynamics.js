@@ -302,7 +302,7 @@ html[data-theme="light"] .rdx input[type=date]{color-scheme:light}
 .rdx-pat-act{margin:0 0 16px}
 .rdx-sb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:12px;align-items:start}
 .rdx-sb-card{min-width:0;padding:16px 18px;background:var(--panel);border:1px solid var(--border);border-radius:12px}
-.rdx-sb-card:focus,.rdx-sb-also li:focus,.rdx-gaps-hd:focus{outline:none}
+.rdx-sb-card:focus,.rdx-sb-also li:focus{outline:none}
 .rdx-sb-hd{display:flex;align-items:center;gap:8px;margin:0;font-size:12.5px;font-weight:600;line-height:1.4;color:var(--muted2)}
 .rdx-sb-note{margin:6px 0 0;font-size:15px;font-weight:600;line-height:1.4;color:var(--text);overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 .rdx-sb-lbl{margin:14px 0 6px;font-size:12px;color:var(--muted2)}
@@ -332,7 +332,10 @@ html[data-theme="light"] .rdx input[type=date]{color-scheme:light}
 .rdx-pt-cav{margin:10px 0 0!important;font-size:12.5px}
 /* training gaps: a fill + warn left border, not another bordered card */
 .rdx-gaps{margin-top:24px;padding:16px 20px;background:var(--panel2);border-left:3px solid var(--warn);border-radius:10px}
-.rdx-gaps-hd{margin:0;font-size:14.5px;font-weight:700;line-height:1.35;color:var(--text)}
+.rdx-gaps-hd{margin:0;font-size:14.5px;font-weight:700;line-height:1.35;color:inherit}
+.rdx-gaps>summary{display:flex;width:100%;padding:0}
+.rdx-gaps:not([open]){padding-top:12px;padding-bottom:12px}
+.rdx-gaps-body{padding-top:2px}
 .rdx-gaps-intro{margin:4px 0 0;max-width:760px;font-size:13.5px;line-height:1.55;color:var(--muted2)}
 .rdx-gap-list{list-style:none;margin:12px 0 0;padding:0;max-width:880px}   /* keeps a row's actions near its dates on wide screens */
 .rdx-gap-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:10px 0;border-top:1px solid var(--border)}
@@ -631,7 +634,8 @@ var PROFILE_ERR=null;   // loadProfile failed: the view runs on defaults, so pro
 var LIST_Q={};          // uid/key → {tail, n}: that field's serialized transaction chain + writes issued
 var DIS_OPEN=false, DIS_T=0, DIS_SEQ=0;   // "N dismissed · show" expanded; last dismiss/restore click; dismiss/restore writes issued (only the newest may revert)
 var GAP_FORM=null;      // the open "Log it…" gap form: {t0, type, start, end, note} — re-opened with what was typed after a re-render
-var SB_MORE=false, ALSO_ALL=false, PAT_STATS=false;   // injury section: older setback cards shown, all "Also logged" shown, stats disclosure open
+var PANEL=null;   // Data & settings panel mode: null (closed) | 'events' | 'all' — see setPanel
+var SB_MORE=false, ALSO_ALL=false, PAT_STATS=false, GAPS_OPEN=false;   // injury section: older setback cards shown, all "Also logged" shown, stats disclosure open, training gaps expanded
 var TOAST_T=0, TOAST_ARM=null, TOAST_BACK=null;   // page toast: hide timer, its (re)start fn while shown, where focus returns
 var SAVE_SEQ={};        // profile key → persist() calls issued: only the newest call to a key may revert it
 var HERO_HELP=false;    // hero "How to read these numbers" open — survives refresh() re-renders
@@ -1891,6 +1895,7 @@ function patLeadHTML(res){
   return '<p class="rdx-pat-lead">Seen most often: <b>'+esc(top.name)+'</b> — before '+top.injHits+' of '+top.injEval+' '+patNoun(top.injEval,top.injEval-top.illEval,top.illEval)+
     (top.ctrlRate!=null?', vs '+pctOf(top.ctrlRate)+' of '+who()+' normal weeks':'')+'.</p>';
 }
+function moreTxt(open,n){ return (open?'Hide ':'Show ')+n+' older'; }
 // B + C. a card per case where something fired (newest first, 3 then "Show n older"); "Also logged"
 // (nothing fired, or outside the stored history) is the grid's last item
 function setbackCardsHTML(res){
@@ -1898,7 +1903,7 @@ function setbackCardsHTML(res){
   res.patterns.forEach(function(p){ rate[p.id]=p.ctrlRate; });
   var hit=res.cases.filter(function(c){ return c.ok&&c.firedIds.length; }).sort(newest);
   var html=hit.map(function(c,i){ var e=c.event;
-    return '<article class="rdx-sb-card" tabindex="-1"'+(i>=3&&!SB_MORE?' hidden':'')+'>'+
+    return '<article class="rdx-sb-card'+(i>=3?' rdx-sb-old':'')+'" tabindex="-1"'+(i>=3&&!SB_MORE?' hidden':'')+'>'+
       '<h3 class="rdx-sb-hd">'+evDot(e.type)+'<span>'+evLabel(e)+'</span></h3>'+
       (e.note?'<p class="rdx-sb-note" title="'+esc(e.note)+'">'+esc(e.note)+'</p>':'')+
       '<div class="rdx-sb-lbl">In the weeks before</div><ul class="rdx-sb-flags">'+
@@ -1906,7 +1911,7 @@ function setbackCardsHTML(res){
         return '<li><b>'+esc(f.name)+'</b><span class="v">'+esc(f.value)+'</span>'+(r!=null?'<span class="r">seen in '+pctOf(r)+' of '+who()+' normal weeks</span>':'')+'</li>'; }).join('')+
       '</ul>'+(e.type==='illness'?'<p class="rdx-sb-ill">Checked against overtraining-type patterns only.</p>':'')+'</article>';
   }).join('');
-  if(hit.length>3 && !SB_MORE) html+='<div class="rdx-sb-more"><button type="button" class="rdx-link rdx-sb-older">Show '+(hit.length-3)+' older</button></div>';
+  if(hit.length>3) html+='<div class="rdx-sb-more"><button type="button" class="rdx-link rdx-sb-older" data-f="sbolder" aria-expanded="'+SB_MORE+'">'+moreTxt(SB_MORE,hit.length-3)+'</button></div>';
   return '<div class="rdx-sb-grid">'+html+alsoHTML(res.cases.filter(function(c){ return !(c.ok&&c.firedIds.length); }).sort(newest), res)+'</div>';
 }
 function alsoHTML(cs, res){
@@ -1918,8 +1923,8 @@ function alsoHTML(cs, res){
       : e.ts<t0?'Before the stored run history — import the weeks before it to include it.'
       : e.ts>t1+7*DAY?'After the last stored run — import the newer runs to include it.'
       : 'Too close to the start of the stored run history — import the weeks before it to include it.';
-    return '<li tabindex="-1"'+(i>=5&&!ALSO_ALL?' hidden':'')+'><div class="t">'+evDot(e.type)+'<span>'+evLabel(e)+(e.note?' · '+esc(e.note):'')+'</span></div><div class="s">'+why+'</div></li>';
-  }).join('')+'</ul>'+(cs.length>5&&!ALSO_ALL?'<button type="button" class="rdx-link rdx-also-all">Show all</button>':'')+'</div>';
+    return '<li'+(i>=5?' class="rdx-also-old"':'')+' tabindex="-1"'+(i>=5&&!ALSO_ALL?' hidden':'')+'><div class="t">'+evDot(e.type)+'<span>'+evLabel(e)+(e.note?' · '+esc(e.note):'')+'</span></div><div class="s">'+why+'</div></li>';
+  }).join('')+'</ul>'+(cs.length>5?'<button type="button" class="rdx-link rdx-also-all" data-f="alsoall" aria-expanded="'+ALSO_ALL+'">'+(ALSO_ALL?'Show fewer':'Show all')+'</button>':'')+'</div>';
 }
 // D. the statistics, CLOSED by default: fired patterns only, then pairs that co-fired before ≥2 cases.
 // No pills, no red: "×N as often" only with ≥3 cases and enough normal weeks to compare.
@@ -1956,8 +1961,8 @@ function patTableHTML(res){
 function gapsHTML(drops, dis){
   if(!drops.length && !dis.length) return '';
   var n=drops.length;
-  return '<section class="rdx-gaps" id="rdxGaps" aria-labelledby="rdxGapsHd">'+
-    '<h3 class="rdx-gaps-hd" id="rdxGapsHd" tabindex="-1">'+(n?'Training gaps to review · '+n:'No open training gaps')+'</h3>'+
+  return '<details class="rdx-more rdx-gaps" id="rdxGaps"'+(GAPS_OPEN?' open':'')+'>'+
+    '<summary id="rdxGapsHd"><h3 class="rdx-gaps-hd">'+(n?'Training gaps to review · '+n:'No open training gaps · '+dis.length+' dismissed')+'</h3></summary><div class="rdx-gaps-body">'+
     (n?'<p class="rdx-gaps-intro">'+who('Your')+' volume fell sharply in these weeks and nothing logged explains it. If one was a setback, log it and it joins this report. A busy week or travel, not a setback? Dismiss it and it won’t be flagged again.</p>'+
       '<ul class="rdx-gap-list">'+drops.map(function(d,i){
         var w=d.weeks+(d.capped?'+':'')+' week'+(d.weeks===1&&!d.capped?'':'s');
@@ -1969,7 +1974,7 @@ function gapsHTML(drops, dis){
             '<button type="button" class="rdx-btn rdx-btn-ghost rdx-btn-sm rdx-gap-dismiss" data-i="'+i+'" data-f="dis'+d.t0+'" title="Not a setback — hide it and don’t flag it again" aria-label="Dismiss: not a setback — hide it and don’t flag it again" aria-describedby="rdxGapW'+i+'">Dismiss</button>'+
           '</div></li>';
       }).join('')+'</ul>':'')+
-    dismissedHTML(dis)+'</section>';
+    dismissedHTML(dis)+'</div></details>';
 }
 function dismissedHTML(dis){
   if(!dis.length) return '';
@@ -2001,6 +2006,7 @@ function saveDismissed(fn, o){
     revertKey('runDismissedDrops', Array.isArray(prev)?prev:[], function(){ return my===MOUNT && DIS_SEQ===n && canonJSON(STD_PROFILE.runDismissedDrops)===sent; });
   });
   if(!dismissedDrops().length) DIS_OPEN=false;
+  if(o.restored) GAPS_OPEN=true;
   refresh();
   var box=$('patternsBox'); if(!o.kbd||!box) return;
   var t=null, back=function(){ Array.prototype.some.call(box.querySelectorAll('.rdx-gap-row'),function(c){
@@ -2078,15 +2084,13 @@ function wireGapForm(d){
 }
 function wireDrops(box, drops){
   var on=function(sel,fn){ Array.prototype.forEach.call(box.querySelectorAll(sel),function(b){ b.onclick=fn; }); };
-  var reveal=function(btn, sel, wrap){ var first=null;
-    Array.prototype.forEach.call(box.querySelectorAll(sel),function(c){ c.hidden=false; first=first||c; });
-    if(wrap) btn=btn.parentNode; btn.parentNode.removeChild(btn);
-    if(first) first.focus({preventScroll:true});
-  };
   on('.rdx-pat-logpast', function(){ openSettings('events',{type:'injury'}); });
   on('.rdx-pat-import', function(){ openSettings('data'); });
-  on('.rdx-sb-older', function(){ SB_MORE=true; reveal(this,'.rdx-sb-card[hidden]',true); });
-  on('.rdx-also-all', function(){ ALSO_ALL=true; reveal(this,'.rdx-sb-also li[hidden]',false); });
+  // show/hide in place (no re-render), so the button keeps focus and can fold them back up
+  var fold=function(btn, sel, open, txt){ Array.prototype.forEach.call(box.querySelectorAll(sel),function(c){ c.hidden=!open; }); btn.textContent=txt; btn.setAttribute('aria-expanded',String(open)); };
+  on('.rdx-sb-older', function(){ SB_MORE=!SB_MORE; fold(this,'.rdx-sb-old',SB_MORE,moreTxt(SB_MORE,box.querySelectorAll('.rdx-sb-old').length)); });
+  on('.rdx-also-all', function(){ ALSO_ALL=!ALSO_ALL; fold(this,'.rdx-also-old',ALSO_ALL,ALSO_ALL?'Show fewer':'Show all'); });
+  var gd=$('rdxGaps'); if(gd) gd.ontoggle=function(){ GAPS_OPEN=gd.open; };
   var det=$('patStats'); if(det) det.ontoggle=function(){ PAT_STATS=det.open; };
   on('.rdx-gap-log', function(){
     var d=drops[+this.getAttribute('data-i')]; if(!d) return;
@@ -2462,16 +2466,21 @@ function fillProfileInputs(){
   $('easypace').value=easyPaceSec()!=null?fmtPace(easyPaceSec()):'';
   var a=$('accessory'); a.classList.toggle('on', hasAccessory()); a.setAttribute('aria-pressed',String(hasAccessory()));
 }
-// Data & settings panel: open/close keeps the gear button's state in step.
-function setPanel(open){
-  var p=$('settingsPanel'), g=$('gearBtn'); if(!p) return;
-  p.hidden=!open;
-  if(g) g.setAttribute('aria-expanded',String(open));
+// Data & settings panel, in one of two modes: 'events' (+ Log event — the event logger alone) or 'all'
+// (⚙ Data & settings — every group); null = closed. Each header button toggles its own mode and
+// switches over from the other, and its aria-expanded (styled as the open state) follows.
+function setPanel(mode){
+  var p=$('settingsPanel'); if(!p) return;
+  PANEL=mode||null; p.hidden=!PANEL;
+  ['set-profile','set-included','set-data'].forEach(function(id){ var g=$(id); if(g) g.hidden=PANEL==='events'; });
+  var g=$('gearBtn'), q=$('evQuick');
+  if(g) g.setAttribute('aria-expanded',String(PANEL==='all'));
+  if(q) q.setAttribute('aria-expanded',String(PANEL==='events'));
 }
 // Open the panel at one group: 'events' (focus Type, or with {type} preset that type — firing its
 // change handler — and focus the date) or 'data' (focus the drop zone).
 function openSettings(group, preset){
-  setPanel(true);
+  setPanel(group==='events'?'events':'all');
   var g=$('set-'+group); if(!g) return;
   var reduce=window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   g.scrollIntoView({block:'start', behavior:reduce?'auto':'smooth'});
@@ -2488,7 +2497,7 @@ function showSections(hasData){
   var blk=$('importBlock'), dst=$(hasData?'importSlot':'importHome'), had=false;
   if(blk && dst && blk.parentNode!==dst){ had=blk.contains(document.activeElement); dst.appendChild(blk); var h=$('exportHelp'); if(h) h.open=!hasData; }
   ['evQuick','gearBtn'].forEach(function(id){ var b=$(id); if(b) b.hidden=!hasData; });
-  if(!hasData) setPanel(false);
+  if(!hasData) setPanel(null);
   // a keyboard import from the onboarding card: the focused drop zone just moved into the closed panel —
   // keep focus on the page, on the button that opens where it went
   if(had && hasData && $('settingsPanel').hidden) $('gearBtn').focus({preventScroll:true});
@@ -2641,7 +2650,7 @@ function shellHTML(opts){
   '<div class="rdx-head">'+
     '<div class="rdx-status"><span id="rdxFresh"></span><span id="importStatus"></span></div>'+
     '<div class="rdx-head-acts">'+
-      '<button type="button" class="rdx-btn rdx-btn-outline" id="evQuick" hidden>+ Log event</button>'+
+      '<button type="button" class="rdx-btn rdx-btn-outline" id="evQuick" aria-expanded="false" aria-controls="settingsPanel" hidden>+ Log event</button>'+
       '<button type="button" class="rdx-btn rdx-btn-outline" id="gearBtn" aria-expanded="false" aria-controls="settingsPanel" hidden>⚙ Data &amp; settings</button>'+
     '</div>'+
   '</div>'+
@@ -2812,8 +2821,8 @@ function wire(){
   drop.ondrop=function(e){ e.preventDefault(); drop.classList.remove('over'); var f=e.dataTransfer.files[0]; if(f) readFile(f); };
   fileInput.onchange=function(e){ var f=e.target.files[0]; if(f) readFile(f); fileInput.value=''; };
   $('anchor').onchange=function(e){ var d=parseDate(e.target.value); if(d){ANCHOR=dayEnd(d);refresh();} };
-  $('gearBtn').onclick=function(){ setPanel($('settingsPanel').hidden); };
-  $('evQuick').onclick=function(){ openSettings('events'); };
+  $('gearBtn').onclick=function(){ setPanel(PANEL==='all'?null:'all'); };
+  $('evQuick').onclick=function(){ if(PANEL==='events') setPanel(null); else openSettings('events'); };
   $('intensity').onchange=refresh;
   $('cutoff').onchange=refresh;
   $('mindist').onchange=refresh;
@@ -2828,7 +2837,7 @@ function wire(){
   $('formCompare').onclick=function(){ setCompare(!this.classList.contains('on')); renderForm(); };
   wireEventCap($('chartBox'));
   $('chartHow').onclick=function(){ var d=$('loadMethodBox'); d.open=true; smoothScroll(d); d.querySelector('summary').focus({preventScroll:true}); };
-  $('patGapChip').onclick=function(){ var g=$('rdxGaps'); if(!g) return; smoothScroll(g); var h=$('rdxGapsHd'); if(h) h.focus({preventScroll:true}); };
+  $('patGapChip').onclick=function(){ var g=$('rdxGaps'); if(!g) return; GAPS_OPEN=g.open=true; smoothScroll(g); var h=$('rdxGapsHd'); if(h) h.focus({preventScroll:true}); };
   $('device').onchange=function(e){ persist({ runDevice:e.target.value }); populateMetricSelects(); refresh(); };
   $('accessory').onclick=function(){ var on=!this.classList.contains('on'); this.classList.toggle('on',on); this.setAttribute('aria-pressed',String(on)); persist({ runHasAccessory:on }); populateMetricSelects(); refresh(); };
   $('weight').onchange=function(e){ var lb=parseFloat(String(e.target.value).replace(/[^0-9.]/g,'')); persist({ weightLb:(lb&&lb>0)?lb:null }); refresh(); };
@@ -2933,7 +2942,7 @@ function mount(container, opts){
   injectCSS();
   ROOT=container; DB=opts.db; UID=opts.uid; ROLE=opts.role||'athlete'; ADMIN=!!opts.admin; DEMO=null;
   var my=++MOUNT; PROFILE_ERR=null;
-  DIS_OPEN=false; DIS_T=0; DIS_SEQ=0; GAP_FORM=null; SB_MORE=false; ALSO_ALL=false; PAT_STATS=false; HERO_HELP=false; CAP_PIN=''; clearTimeout(LV.toastT); clearTimeout(TOAST_T); TOAST_ARM=TOAST_BACK=null; SAVE_SEQ={}; LV={filter:'all', sel:new Set(), rows:[], trigger:null, toastT:null};
+  DIS_OPEN=false; DIS_T=0; DIS_SEQ=0; GAP_FORM=null; PANEL=null; SB_MORE=false; ALSO_ALL=false; PAT_STATS=false; GAPS_OPEN=false; HERO_HELP=false; CAP_PIN=''; clearTimeout(LV.toastT); clearTimeout(TOAST_T); TOAST_ARM=TOAST_BACK=null; SAVE_SEQ={}; LV={filter:'all', sel:new Set(), rows:[], trigger:null, toastT:null};
   RAW=[]; ACTIVE_TYPES=new Set(); KNOWN_TYPES=new Set(); ANCHOR=null; LOAD_PARAMS=null; STD_PROFILE={}; STRAVA_LEVER=[]; STRAVA_SYNC={};
   container.classList.add('rdx');
   container.innerHTML=shellHTML(opts);
