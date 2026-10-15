@@ -23,6 +23,11 @@
 //
 // Metric/load math lives in run-load-model.js; the math is identical
 // across both surfaces because there is only one renderer.
+//
+// Athlete annotations live on the USER doc — runEvents, runDismissedDrops
+// (drops marked "not a setback"), runLeverMarks (hand-marked Lever runs +
+// offload) — never on activity docs, which the importer and the daily
+// Strava sync rewrite wholesale.
 // ════════════════════════════════════════════════════════════════
 (function () {
 'use strict';
@@ -105,6 +110,14 @@ var CSS = `
 .rdx-df-err{border-color:var(--bad)!important}
 .rdx-btn{padding:9px 16px;background:var(--cyan);color:#000;font-weight:700;font-size:12.5px;border:none;border-radius:8px;cursor:pointer;transition:opacity .15s}
 .rdx-btn:hover{opacity:.85}
+.rdx-btn:disabled{opacity:.4;cursor:not-allowed}
+.rdx-btn-ghost{background:transparent;color:var(--text);border:1px solid var(--border2);font-weight:600}
+.rdx-btn-ghost:hover:not(:disabled){opacity:1;border-color:var(--cyan);color:var(--accent-ink,var(--cyan))}
+.rdx-linkbtn{background:none;border:none;padding:0;font:inherit;color:var(--muted2);text-decoration:underline dotted;text-underline-offset:3px;cursor:pointer}
+.rdx-linkbtn:hover{color:var(--text)}
+.rdx-group-note{width:0;min-width:100%;font-size:11.5px;color:var(--muted2);line-height:1.55}
+.rdx-group-note b{color:var(--text)}
+.rdx-lv-hint{font-size:10.5px;color:var(--muted2);font-family:var(--mono);line-height:1.35;max-width:150px}
 .rdx-btn-danger{background:transparent;color:var(--bad);border:1px solid var(--bad);font-weight:600}
 .rdx-btn-danger:disabled{opacity:.5;cursor:default}
 .rdx-filenote{font-size:11px;color:var(--muted2);font-family:var(--mono)}
@@ -202,6 +215,14 @@ var CSS = `
 .rdx-pat-flag b{display:block;color:var(--text);font-size:12px}
 .rdx-pat-flagval{font-size:11.5px;color:var(--muted2);line-height:1.5}
 .rdx-pat-dropintro{font-size:12px;color:var(--muted2);margin-bottom:10px;line-height:1.6}
+.rdx-drop-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.rdx-dis{margin-top:12px;font-size:11.5px;color:var(--muted2);font-family:var(--mono)}
+.rdx-dis .rdx-linkbtn{padding:6px 5px;min-height:30px;margin-top:-6px;margin-bottom:-6px}   /* touch-sized hit area, same line height */
+.rdx-dis-list{margin-top:8px;display:flex;flex-direction:column;gap:6px;max-width:560px}
+.rdx-dis-item{display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;padding:7px 12px;background:var(--panel);border:1px solid var(--border);border-radius:9px}
+.rdx-dis-when{color:var(--text)}
+.rdx-dis-item .rdx-linkbtn{margin-left:auto}
+.rdx-dis-warn{margin-top:8px;color:var(--rdx-bad-ink)}
 .rdx-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
 .rdx-tile{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
 .rdx-tile-lbl{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono)}
@@ -212,6 +233,81 @@ var CSS = `
 
 .rdx-info{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;border:1px solid var(--muted2);color:var(--muted2);font-size:9px;font-weight:700;font-style:normal;cursor:help;margin-left:4px;position:relative;vertical-align:middle}
 .rdx-info:hover{color:var(--cyan);border-color:var(--cyan)}
+.rdx{--rdx-good-ink:var(--good);--rdx-warn-ink:var(--warn);--rdx-bad-ink:var(--bad)}
+/* good/warn/bad as small TEXT on light surfaces (the brand tokens fail contrast there, ~2–3:1) */
+html[data-theme="light"] .rdx{--rdx-good-ink:#0b7a50;--rdx-warn-ink:#93560a;--rdx-bad-ink:#c62828}
+.rdx-modal{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(3,5,10,.6);animation:rdx-fade .15s}
+.rdx-modal[hidden]{display:none}
+.rdx-modal-panel{display:flex;flex-direction:column;width:100%;max-width:920px;max-height:100%;background:var(--panel);color:var(--text);border:1px solid var(--border2);border-radius:14px;box-shadow:0 22px 60px rgba(0,0,0,.45);outline:none;overflow:hidden}
+.rdx-modal-hd{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 20px 6px;background:var(--panel)}
+.rdx-modal-intro{padding:0 20px 14px;border-bottom:1px solid var(--border)}
+.rdx-modal-title{font-size:17px;font-weight:800;letter-spacing:-.2px;margin:0}
+.rdx-modal-sub{font-size:12.5px;color:var(--muted2);line-height:1.55;margin:0;max-width:660px}
+.rdx-modal-x{flex-shrink:0;width:32px;height:32px;background:transparent;border:1px solid var(--border2);border-radius:8px;color:var(--muted2);font-size:13px;cursor:pointer}
+.rdx-modal-x:hover{color:var(--text);border-color:var(--muted2)}
+.rdx-lv-bar{display:flex;flex-wrap:wrap;gap:12px 26px;align-items:flex-start;padding:12px 20px;border-bottom:1px solid var(--border)}
+.rdx-lv-bar input{width:62px;background:var(--panel2);border:1px solid var(--border2);border-radius:8px;padding:7px 9px;color:var(--text);font-family:var(--mono);font-size:13px;outline:none}
+.rdx-lv-bar input:focus{border-color:var(--cyan)}
+.rdx-lv-cap{font-size:11.5px;color:var(--muted2);font-family:var(--mono);min-height:17px}
+.rdx-lv-cap.err{color:var(--rdx-bad-ink)}
+.rdx-lv-note{flex-basis:100%;font-size:11.5px;color:var(--muted2);line-height:1.5}
+.rdx button.rdx-chip{font-family:inherit}
+.rdx-lv-bar .rdx-chip.on{color:var(--accent-ink,var(--cyan))}
+.rdx-lv-list{flex:1;overflow-y:auto;overscroll-behavior:contain;min-height:140px}
+.rdx-lv-row{display:grid;grid-template-columns:16px 104px minmax(0,1fr) 54px 46px 46px 158px 50px;gap:10px;align-items:center;padding:8px 20px;border-bottom:1px solid var(--border);font-size:12.5px;cursor:pointer}
+.rdx-lv-row:hover{background:var(--hover)}
+.rdx-lv-row.on{background:rgba(0,229,200,.07)}
+.rdx-lv-row input{width:16px;height:16px;margin:0;accent-color:var(--cyan);cursor:pointer}
+.rdx-lv-head{position:sticky;top:0;z-index:1;background:var(--panel2);cursor:default;font-size:9.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono)}
+.rdx-lv-head:hover{background:var(--panel2)}
+.rdx-lv-head .r{text-align:right}
+.rdx-lv-head .c-all{display:none;cursor:pointer;font-size:11px;letter-spacing:.3px}
+.rdx-lv-date{font-family:var(--mono);font-size:12px;color:var(--text);white-space:nowrap}
+.rdx-lv-date small{font-size:10.5px;color:var(--muted2);margin-left:6px}
+.rdx-lv-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rdx-lv-num{font-family:var(--mono);font-size:12px;color:var(--muted2);text-align:right;white-space:nowrap}
+.rdx-lv-meta{display:none}
+.rdx-lv-badge{justify-self:start;font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;border:1px solid var(--border2);color:var(--muted2);white-space:nowrap}
+.rdx-lv-badge.lever{color:var(--accent-ink,var(--cyan));border-color:rgba(0,229,200,.4);background:rgba(0,229,200,.07)}
+.rdx-lv-badge.not{color:var(--rdx-warn-ink);border-color:rgba(245,166,35,.45)}
+.rdx-lv-iad{font-family:var(--mono);font-size:12.5px;font-weight:700;text-align:right;white-space:nowrap}
+.rdx-lv-iad small{display:none;font-size:10px;font-weight:400;color:var(--muted2)}
+.rdx-lv-empty{padding:34px 20px;text-align:center;color:var(--muted2);font-size:12.5px}
+.rdx-modal-ft{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;padding:12px 20px;border-top:1px solid var(--border2);background:var(--panel2)}
+.rdx-lv-sum{font-size:12px;color:var(--muted2);font-family:var(--mono)}
+.rdx-lv-sum b{color:var(--text)}
+.rdx-lv-acts{display:flex;flex-wrap:wrap;gap:8px}
+.rdx-lv-acts .rdx-btn-sm{align-self:auto}
+.rdx-lv-toast{flex-basis:100%;font-size:12px;font-family:var(--mono);color:var(--rdx-good-ink)}
+.rdx-lv-toast.err{color:var(--rdx-bad-ink)}
+.rdx-lv-toast:empty{display:none}
+@media(max-width:599px),(max-height:560px){
+  .rdx-modal{padding:0}
+  /* phone, or any short viewport (landscape phone, zoomed laptop): the whole sheet scrolls (title
+     bar + action footer stay pinned) — a fixed-height panel would push the footer out of reach */
+  .rdx-modal-panel{max-width:none;height:100%;border:none;border-radius:0;overflow-y:auto;overscroll-behavior:contain}
+  .rdx-modal-panel>*{flex-shrink:0}
+  .rdx-modal-hd{position:sticky;top:0;z-index:3;padding-bottom:10px;border-bottom:1px solid var(--border)}
+  .rdx-modal-intro{padding-top:10px}
+  .rdx-lv-list{flex:none;overflow:visible;min-height:0}
+  .rdx-lv-head{position:static}
+  .rdx-modal-ft{position:sticky;bottom:0;z-index:3}
+}
+@media(max-width:599px){
+  .rdx-modal-hd,.rdx-modal-intro,.rdx-lv-bar,.rdx-modal-ft{padding-left:16px;padding-right:16px}
+  .rdx-lv-bar input{font-size:16px}   /* iOS Safari zooms into any focused input under 16px */
+  .rdx-lv-row{grid-template-columns:16px minmax(0,1fr) auto;grid-template-areas:"cb date badge" "cb title title" "cb meta iad";gap:3px 10px;padding:10px 16px}
+  .rdx-lv-row>input{grid-area:cb;align-self:start;margin-top:1px}
+  .rdx-lv-date{grid-area:date}.rdx-lv-title{grid-area:title}.rdx-lv-badge{grid-area:badge;justify-self:end}.rdx-lv-iad{grid-area:iad}
+  .rdx-lv-num{display:none}
+  .rdx-lv-meta{display:block;grid-area:meta;font-family:var(--mono);font-size:11px;color:var(--muted2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rdx-lv-iad small{display:inline}
+  .rdx-lv-head{grid-template-areas:"cb date date"}
+  .rdx-lv-head span{display:none}
+  .rdx-lv-head .c-all{display:block;grid-area:date}
+  .rdx-lv-acts{width:100%}
+  .rdx-lv-acts .rdx-btn{flex:1;padding-left:8px;padding-right:8px}
+}
 .rdx-foot{margin-top:40px;font-size:11px;color:var(--muted);font-family:var(--mono);line-height:1.7;border-top:1px solid var(--border);padding-top:18px}
 @media(max-width:560px){
   .rdx-table{font-size:12px}
@@ -288,6 +384,17 @@ var ROOT=null, DB=null, UID=null, ROLE='athlete', ADMIN=false, STRAVA_SYNC={};
 var RAW=[], ACTIVE_TYPES=new Set(), KNOWN_TYPES=new Set();
 var ANCHOR=null, LOAD_PARAMS=null, STD_PROFILE={}, STRAVA_LEVER=[];
 var DAY=864e5;
+// Bumped by every mount(). Async loaders and late save callbacks compare it with the value they
+// started under and drop their result when a newer mount (a coach switching athletes, a tab
+// switch) took over — otherwise athlete A's profile/runs land in athlete B's globals, and the next
+// list write saves A's dismissals/marks into B's doc.
+var MOUNT=0;
+var PROFILE_ERR=null;   // loadProfile failed: the view runs on defaults, so profile writes are blocked
+var LIST_Q={};          // uid/key → {tail, n}: that field's serialized transaction chain + writes issued
+var DIS_OPEN=false, PAT_WARN='', DIS_T=0;   // "N dismissed · show" expanded; last failed dismiss/restore save; last dismiss click
+// "Mark Lever runs" modal: filter chip, selected run ids, rows on screen (data-i indexes them),
+// the element that opened it (focus returns there), confirmation timer
+var LV={filter:'all', sel:new Set(), rows:[], trigger:null, toastT:null};
 
 /* Admin-only demo switcher: forces the hero's r1/r3/r7 ratios to a fixed scenario so each
    recommendation card can be shown on demand. DEMO=null = live. Real run data is never
@@ -501,8 +608,13 @@ function runFromFitSession(s){
   if(sport && !/run/.test(sport)) return null;            // run-focused tool
   var start=new Date(s.start_time);
   if(isNaN(start)) return null;
-  var type=s.sport?(s.sport.charAt(0).toUpperCase()+s.sport.slice(1)):'Running';
-  var id=start.toISOString().replace(/\D/g,'').slice(0,14)+'_'+norm(type);
+  var sportType=s.sport?(s.sport.charAt(0).toUpperCase()+s.sport.slice(1)):'Running';
+  // Indoor sessions are sport 'running' + sub_sport treadmill / indoor_running / virtual_activity:
+  // type them 'Treadmill Running' like the Garmin CSV and Strava docs, so the treadmill rules (no
+  // hill surcharge, Lever detection, Mark Lever runs) apply. The id keeps the sport-only suffix,
+  // so a re-import overwrites the docs stored before this mapping instead of duplicating them.
+  var type=/treadmill|indoor|virtual/.test(String(s.sub_sport||'').toLowerCase())?'Treadmill Running':sportType;
+  var id=start.toISOString().replace(/\D/g,'').slice(0,14)+'_'+norm(sportType);
   var distM=fitPos(s.total_distance);
   var spd=fitPos(s.avg_speed!=null?s.avg_speed:s.enhanced_avg_speed);
   var cadHalf=fitPos(s.avg_running_cadence!=null?s.avg_running_cadence:s.avg_cadence);
@@ -569,7 +681,9 @@ function parseCorosArchive(arrayBuffer, fileName, onProgress){
 /* ---------- Firestore: load + backfill ---------- */
 function docToRun(d){ var o=Object.assign({},d); o.date=new Date(d.ts); return o; }
 function loadFromFirestore(){
+  var my=MOUNT;
   return actCol().get().then(function(snap){
+    if(my!==MOUNT) return;   // a newer mount's athlete owns RAW now
     RAW=[]; snap.forEach(function(doc){ RAW.push(docToRun(doc.data())); });
     RAW.sort(function(a,b){ return a.ts-b.ts; });
   });
@@ -694,13 +808,16 @@ function leverPct(){ var v=parseFloat(STD_PROFILE.runLeverPctBW); return (v>0&&v
 // it to the Garmin run by date (+distance); every metric still comes from Garmin.
 function fetchStravaLever(){
   if(!UID) return Promise.resolve();
+  var my=MOUNT;
   return DB.collection('trainingPlans').where('athleteUid','==',UID).limit(1).get().then(function(ps){
+    if(my!==MOUNT) return;
     if(ps.empty){ STRAVA_LEVER=[]; return; }
     return DB.collection('trainingPlans').doc(ps.docs[0].id).collection('stravaActivities').get().then(function(snap){
+      if(my!==MOUNT) return;
       var out=[]; snap.forEach(function(d){ var a=d.data(); if(a&&a.name&&/lever/i.test(a.name)&&a.date) out.push({ date:a.date, distMi:(a.distance||0)/1609.34 }); });
       STRAVA_LEVER=out;
     });
-  }).catch(function(){ STRAVA_LEVER=[]; });
+  }).catch(function(){ if(my===MOUNT) STRAVA_LEVER=[]; });
 }
 function stravaLever(r){
   if(!STRAVA_LEVER.length) return false;
@@ -709,7 +826,41 @@ function stravaLever(r){
     if(r.distMi!=null && s.distMi>0 && Math.abs(s.distMi-r.distMi) > Math.max(0.2,0.05*r.distMi)) return false;
     return true; });
 }
-function annotateLever(){ var ids=RunLoad.detectLeverIds(RAW); RAW.forEach(function(r){ r.lever = !!r.leverTitle || stravaLever(r) || ids.has(r.id); }); }
+// Manual Lever marks: users/{uid}.runLeverMarks = [{id, lever:true, offload:0.01–0.95, ts, mi} |
+// {id, lever:false, ts, mi}]. They live on the USER doc, never on activity docs — the importer and
+// the daily Strava sync rewrite activity docs wholesale with set(). Run ids are stable across
+// re-imports of the same source (local start digits + type; Garmin CSV and Strava docs agree), so
+// a mark survives a wipe + re-import. ts (start epoch) + mi (distance) are a fallback key for a run
+// that comes back under a DIFFERENT id — a Coros FIT import (UTC-digit id) replacing the Strava doc
+// it was marked on: a mark whose id no stored run has adopts the run starting within 30 min of it.
+function leverMarkList(){ return (Array.isArray(STD_PROFILE.runLeverMarks)?STD_PROFILE.runLeverMarks:[]).filter(function(m){ return m&&m.id!=null; }); }
+function markOffload(m){ var v=+m.offload; return (v>=0.01&&v<=0.95)?v:null; }
+function orphanMark(r, orphans){
+  var best=-1, bd=Infinity;
+  orphans.forEach(function(m,i){
+    var dt=Math.abs(m.ts-r.ts); if(!(dt<=18e5)) return;
+    if(m.mi!=null && r.distMi!=null && Math.abs(m.mi-r.distMi)>Math.max(0.2,0.05*r.distMi)) return;
+    if(dt<bd){ bd=dt; best=i; }
+  });
+  return best<0 ? null : orphans.splice(best,1)[0];
+}
+// A manual mark wins over everything, then title → Strava title → HR-for-pace detection; leverSrc
+// records which one for the marking tool (r._mark = the mark applied, for re-marking). A marked
+// Lever run carries its own offload (impactLoad prefers run.offload over the profile default); an
+// explicit Not-Lever mark clears any offload; otherwise the doc's own value (captured once per
+// loaded doc, normally null) stands.
+function annotateLever(){
+  var ids=RunLoad.detectLeverIds(RAW), marks=new Map(), have=new Set(RAW.map(function(r){ return r.id; })), orphans=[];
+  leverMarkList().forEach(function(m){ if(have.has(m.id)) marks.set(m.id,m); else if(isFinite(m.ts)) orphans.push(m); });
+  RAW.forEach(function(r){
+    if(!('_docOffload' in r)) r._docOffload=r.offload!=null?r.offload:null;
+    var m=marks.get(r.id)||(orphans.length?orphanMark(r,orphans):null);
+    r._mark=m;
+    r.leverSrc = m ? (m.lever?'marked':'unmarked') : r.leverTitle ? 'title' : stravaLever(r) ? 'strava' : ids.has(r.id) ? 'auto' : null;
+    r.lever = m ? !!m.lever : !!r.leverSrc;
+    r.offload = m ? (m.lever?markOffload(m):null) : r._docOffload;
+  });
+}
 function effType(r){ return r.lever ? 'Lever' : r.type; }
 // Runner-entered easy pace (s/mi, 240–1200) from the profile: the middle rung of the baseline
 // chain calibrated median → recorded easy pace → neutral. Null when unset or out of range.
@@ -728,20 +879,66 @@ function weightKg(){ var lb=STD_PROFILE.weightLb; return lb ? lb*0.453592 : null
 function deviceId(){ return STD_PROFILE.runDevice||''; }
 function hasAccessory(){ return !!STD_PROFILE.runHasAccessory; }
 function metricVisible(m){ return RunDevices.status(m.needs, deviceId(), hasAccessory())==='native'; }
+// Key-order-insensitive JSON for the read-back check: Firestore hands maps back with keys in its
+// own order, so a plain stringify of an array of maps (events, marks) reads a good write as lost.
+function canonJSON(v){
+  if(Array.isArray(v)) return '['+v.map(canonJSON).join(',')+']';
+  if(v && typeof v==='object') return '{'+Object.keys(v).filter(function(k){ return v[k]!==undefined; }).sort().map(function(k){ return JSON.stringify(k)+':'+canonJSON(v[k]); }).join(',')+'}';
+  return JSON.stringify(v);
+}
+// Applies the patch locally at once, then persists it. Resolves true once the read-back matches,
+// else a short reason string (callers outside the settings panel surface it themselves).
+function savedNote(txt,ok){
+  var el=$('savedNote'); if(!el) return;
+  el.style.color=ok?'var(--good)':'var(--bad)'; el.textContent=txt; el.style.opacity='1';
+  if(ok) setTimeout(function(){ el.style.opacity='0'; },1500);
+}
+// A failed profile read leaves STD_PROFILE on defaults — writing from it would overwrite the
+// stored values (runEvents wholesale) with what the view never saw.
+function profileBlocked(){ if(!PROFILE_ERR) return null; savedNote('⚠ profile didn’t load — reload before changing it',false); return 'profile not loaded'; }
 function saveProfile(patch){
   Object.assign(STD_PROFILE, patch);
-  var el=$('savedNote');
-  var show=function(txt,ok){ if(!el)return; el.style.color=ok?'var(--good)':'var(--bad)'; el.textContent=txt; el.style.opacity='1'; if(ok) setTimeout(function(){ el.style.opacity='0'; },1500); };
-  if(!UID){ show('⚠ no athlete',false); return; }
-  var ref=DB.collection('users').doc(UID), key=Object.keys(patch)[0];
-  ref.set(patch,{merge:true})
+  var my=MOUNT, uid=UID, show=function(txt,ok){ if(my===MOUNT) savedNote(txt,ok); };
+  if(!uid){ show('⚠ no athlete',false); return Promise.resolve('no athlete'); }
+  var blocked=profileBlocked(); if(blocked) return Promise.resolve(blocked);
+  var ref=DB.collection('users').doc(uid), key=Object.keys(patch)[0];
+  return ref.set(patch,{merge:true})
     .then(function(){ return ref.get(); })
-    .then(function(d){ var data=d.data()||{}; var ok=JSON.stringify(data[key])===JSON.stringify(patch[key]);
+    // a newer save of the same key (quick successive clicks) may land before this read-back
+    .then(function(d){ var data=d.data()||{}, got=canonJSON(data[key]); var ok=got===canonJSON(patch[key])||got===canonJSON(STD_PROFILE[key]);
       show(ok?'✓ saved':'⚠ wrote but not stored',ok);
-      if(!ok) console.warn('RunDynamics: profile did not persist',{uid:UID,key:key,got:data[key],sent:patch[key]}); })
-    .catch(function(e){ console.error('profile save',e); show('⚠ '+(e&&e.code||'save failed'),false); });
+      if(!ok) console.warn('RunDynamics: profile did not persist',{uid:uid,key:key,got:data[key],sent:patch[key]});
+      return ok||'wrote but not stored'; })
+    .catch(function(e){ console.error('profile save',e); show('⚠ '+(e&&e.code||'save failed'),false); return (e&&e.code)||'save failed'; });
 }
-function loadProfile(){ if(!UID) return Promise.resolve(); return DB.collection('users').doc(UID).get().then(function(d){ var x=d.exists?d.data():{}; STD_PROFILE={ weightLb:x.weightLb, runDevice:x.runDevice, runHasAccessory:x.runHasAccessory, runLeverPctBW:x.runLeverPctBW, runEasyPaceSec:x.runEasyPaceSec, runEvents:Array.isArray(x.runEvents)?x.runEvents:[] }; STRAVA_SYNC={ connected:!!x.stravaConnected, last:x.stravaLastSyncedAt||null }; }).catch(function(){ STD_PROFILE={}; STRAVA_SYNC={}; }); }
+// Read-modify-write of one array field on the user doc (runDismissedDrops, runLeverMarks): fn(list)
+// → new list runs on the STORED copy inside a transaction, so a stale tab or another device can't
+// have its entries overwritten by this tab's old snapshot. fn is applied locally first (the view
+// updates at once); once stored, the stored result becomes the local copy and rerender() runs if
+// it differs (another session's entries merged in). One tab's writes to a field run in order, each
+// on the result of the last. Resolves true, or a short failure reason (the local change stays).
+function updateProfileList(key, fn, rerender){
+  var cur=function(x){ return Array.isArray(x)?x.slice():[]; };
+  STD_PROFILE[key]=fn(cur(STD_PROFILE[key]));
+  var my=MOUNT, uid=UID;
+  if(!uid) return Promise.resolve('no athlete');
+  var blocked=profileBlocked(); if(blocked) return Promise.resolve(blocked);
+  var ref=DB.collection('users').doc(uid), q=LIST_Q[uid+'/'+key]||(LIST_Q[uid+'/'+key]={tail:Promise.resolve(),n:0}), n=++q.n, out;
+  var run=function(){ return DB.runTransaction(function(tx){
+    return tx.get(ref).then(function(d){ var patch={}; out=patch[key]=fn(cur(d.exists?(d.data()||{})[key]:null)); tx.set(ref,patch,{merge:true}); });
+  }); };
+  var p=q.tail.then(run,run);
+  q.tail=p.catch(function(){});
+  return p.then(function(){
+    if(my!==MOUNT) return true;
+    savedNote('✓ saved',true);
+    if(n!==q.n) return true;   // a newer write to this field is queued: it adopts the stored copy
+    var changed=canonJSON(out)!==canonJSON(STD_PROFILE[key]);
+    STD_PROFILE[key]=out; if(changed && rerender) rerender();
+    return true;
+  }).catch(function(e){ console.error('profile save',e); if(my===MOUNT) savedNote('⚠ '+(e&&e.code||'save failed'),false); return (e&&e.code)||'save failed'; });
+}
+function loadProfile(){ if(!UID) return Promise.resolve(); var my=MOUNT; return DB.collection('users').doc(UID).get().then(function(d){ if(my!==MOUNT) return; var x=d.exists?d.data():{}; PROFILE_ERR=null; STD_PROFILE={ weightLb:x.weightLb, runDevice:x.runDevice, runHasAccessory:x.runHasAccessory, runLeverPctBW:x.runLeverPctBW, runEasyPaceSec:x.runEasyPaceSec, runEvents:Array.isArray(x.runEvents)?x.runEvents:[], runDismissedDrops:Array.isArray(x.runDismissedDrops)?x.runDismissedDrops:[], runLeverMarks:Array.isArray(x.runLeverMarks)?x.runLeverMarks:[] }; STRAVA_SYNC={ connected:!!x.stravaConnected, last:x.stravaLastSyncedAt||null }; }).catch(function(e){ if(my!==MOUNT) return; console.error('profile load',e); PROFILE_ERR=(e&&e.code)||'load failed'; STD_PROFILE={}; STRAVA_SYNC={}; }); }
 
 /* ---------- performance/injury/downtime history events ---------- */
 // runEvents[] entry: { id, type:'race'|'injury'|'illness'|'nonrun'|'timeoff', ts, endTs?, note }.
@@ -1168,11 +1365,12 @@ function renderMetricChart(){
   chart.innerHTML='<svg class="rdx-chart-svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Run metric trend">'+grid+xlab+lines+RunLoad.eventOverlaySVG(events(),t0,t1,padL,innerW,padT,innerH)+hits+'</svg>';
   wireChartTip(chart);
 }
+// dataset values come back attribute-DECODED (ctx holds the run title) — re-escape before innerHTML.
 function chartTipHTML(c){
   var k=c.dataset.kind, m={race:['Race','#22c78a'],injury:['Injury','#f55050'],max:['Hard Effort','#f5c842']}[k];
-  return '<div class="rdx-tip-top">'+c.dataset.date+(m?' <span class="rdx-tip-chip" style="color:'+m[1]+';border-color:'+m[1]+'">'+m[0]+'</span>':'')+'</div>'
-    +'<div class="rdx-tip-val">'+c.dataset.metric+' · <b>'+c.dataset.val+'</b></div>'
-    +(c.dataset.ctx?'<div class="rdx-tip-ctx">'+c.dataset.ctx+'</div>':'');
+  return '<div class="rdx-tip-top">'+esc(c.dataset.date)+(m?' <span class="rdx-tip-chip" style="color:'+m[1]+';border-color:'+m[1]+'">'+m[0]+'</span>':'')+'</div>'
+    +'<div class="rdx-tip-val">'+esc(c.dataset.metric)+' · <b>'+esc(c.dataset.val)+'</b></div>'
+    +(c.dataset.ctx?'<div class="rdx-tip-ctx">'+esc(c.dataset.ctx)+'</div>':'');
 }
 function wireChartTip(chart){
   var tip=document.createElement('div'); tip.className='rdx-chart-tip'; chart.appendChild(tip);
@@ -1190,23 +1388,141 @@ function wireChartTip(chart){
 // injury's lead-up window scored against the pattern registry, each pattern's
 // base rate from control windows across the rest of the history, and big
 // UNexplained volume drops (not near a race / logged injury / logged time
-// off) offered as possible unlogged setbacks with a one-click "log as injury".
+// off) offered as possible unlogged setbacks with a one-click "log as injury"
+// or "Dismiss" (not a setback — stored on the user doc as runDismissedDrops,
+// matched by InjuryPatterns, never flagged again; restorable from the
+// "N dismissed · show" line).
+function dismissedDrops(){ return (Array.isArray(STD_PROFILE.runDismissedDrops)?STD_PROFILE.runDismissedDrops:[]).filter(function(x){ return x&&isFinite(x.t0)&&isFinite(x.t1); }); }
+function spanTxt(x){ return ymd(new Date(x.t0))+' → '+ymd(new Date(x.t1)); }
+function dismissedHTML(dis){
+  var warn=PAT_WARN?'<div class="rdx-dis-warn" role="alert">'+esc(PAT_WARN)+'</div>':'';
+  if(!dis.length) return warn?'<div class="rdx-dis">'+warn+'</div>':'';
+  var n=dis.length, order=dis.map(function(x,i){ return i; }).sort(function(a,b){ return dis[b].t0-dis[a].t0; });
+  return '<div class="rdx-dis">'+n+' dismissed training drop'+(n>1?'s':'')+' · <button type="button" class="rdx-linkbtn rdx-dis-tog" aria-expanded="'+DIS_OPEN+'" aria-controls="rdxDisList">'+(DIS_OPEN?'hide':'show')+'</button>'+
+    '<div class="rdx-dis-list" id="rdxDisList"'+(DIS_OPEN?'':' hidden')+'>'+order.map(function(i){ var x=dis[i], when=spanTxt(x);
+      return '<div class="rdx-dis-item"><span class="rdx-dis-when">▼ '+when+'</span>'+(isFinite(x.at)?'<span>dismissed '+ymd(new Date(x.at))+'</span>':'')+
+        '<button type="button" class="rdx-linkbtn rdx-dis-restore" data-i="'+i+'" aria-label="Restore the '+when+' drop">restore</button></div>';
+    }).join('')+'</div>'+warn+'</div>';
+}
+// Persist a dismissal change — fn(list) → list, run on the stored copy (updateProfileList) — and
+// re-render. A keyboard user (click.detail 0) gets focus back on the "dismissed" toggle, or, once
+// none is left, on the restored drop's Dismiss button (the button they pressed is gone).
+function saveDismissed(fn, kbd, restored){
+  var my=MOUNT;
+  PAT_WARN='';
+  updateProfileList('runDismissedDrops', fn, refresh).then(function(r){
+    if(r===true || my!==MOUNT) return;
+    PAT_WARN='⚠ Not saved ('+r+') — this change will be undone on reload.'; renderPatterns();
+  });
+  if(!dismissedDrops().length) DIS_OPEN=false;
+  refresh();
+  var box=$('patternsBox'); if(!kbd||!box) return;
+  var t=box.querySelector('.rdx-dis-tog');
+  if(!t && restored) Array.prototype.some.call(box.querySelectorAll('.rdx-dropcard'),function(c){
+    var d={t0:+c.getAttribute('data-t0'), t1:+c.getAttribute('data-t1')};
+    return InjuryPatterns.dismissOverlaps(d,restored) && (t=c.querySelector('.rdx-drop-dismiss'));
+  });
+  if(!t) t=$('patHead');
+  if(t) t.focus({preventScroll:true});
+}
+function wireDrops(box, drops){
+  Array.prototype.forEach.call(box.querySelectorAll('.rdx-drop-log'),function(b){
+    b.onclick=function(){
+      var form=this.closest('.rdx-card').querySelector('.rdx-drop-form'), open=form.style.display==='none';
+      form.style.display=open?'':'none';
+      this.textContent=open?'cancel':'+ log as event';
+    };
+  });
+  Array.prototype.forEach.call(box.querySelectorAll('.rdx-drop-dismiss'),function(b){
+    b.onclick=function(e){
+      // the cards re-render under the pointer: a double-click's second click would land on the
+      // NEXT drop's Dismiss button, so ignore repeats
+      if(e.detail>1 || Date.now()-DIS_T<500) return;
+      var d=drops[+this.getAttribute('data-i')]; if(!d) return;
+      DIS_T=Date.now();
+      var rec={ t0:d.t0, t1:d.t1, at:Date.now() };
+      saveDismissed(function(list){ return list.concat([rec]); }, e.detail===0);
+    };
+  });
+  var tog=box.querySelector('.rdx-dis-tog'), list=box.querySelector('.rdx-dis-list');
+  // show/hide in place — a re-render would close any half-filled "log as event" form
+  if(tog&&list) tog.onclick=function(){ DIS_OPEN=!DIS_OPEN; list.hidden=!DIS_OPEN; tog.textContent=DIS_OPEN?'hide':'show'; tog.setAttribute('aria-expanded',String(DIS_OPEN)); };
+  Array.prototype.forEach.call(box.querySelectorAll('.rdx-dis-restore'),function(b){
+    b.onclick=function(e){
+      var x=dismissedDrops()[+this.getAttribute('data-i')]; if(!x) return;
+      // by value, not index: the stored list may be ordered differently
+      saveDismissed(function(list){ return list.filter(function(y){ return !(y&&y.t0===x.t0&&y.t1===x.t1&&y.at===x.at); }); }, e.detail===0, x);
+    };
+  });
+  Array.prototype.forEach.call(box.querySelectorAll('.rdx-drop-form'),function(form){
+    var type=form.querySelector('.rdx-df-type'), start=form.querySelector('.rdx-df-start'), end=form.querySelector('.rdx-df-end'), endF=form.querySelector('.rdx-df-endf');
+    type.onchange=function(){ endF.style.display=this.value==='race'?'none':''; if(this.value==='race') end.value=''; };
+    form.querySelector('.rdx-df-save').onclick=function(){
+      start.classList.remove('rdx-df-err'); end.classList.remove('rdx-df-err');
+      var s=parseDate(start.value);
+      if(!s){ start.classList.add('rdx-df-err'); return; }
+      var note=(form.querySelector('.rdx-df-note').value||'').trim();
+      var e={ id:Date.now(), type:type.value, ts:s.getTime(),
+              note:note||(type.value==='injury'?'Setback — unexplained training drop':'') };
+      if(type.value!=='race'){
+        var en=parseDate(end.value);
+        if(en){
+          if(en.getTime()<=s.getTime()){ end.classList.add('rdx-df-err'); return; }
+          e.endTs=en.getTime();
+        }
+      }
+      var evs=events().slice(); evs.push(e);
+      PAT_WARN='';
+      saveProfile({ runEvents:evs });
+      renderEventsList(); refresh();
+    };
+  });
+}
+// Open "log as event" forms (keyed by their drop's start) and what was typed, so a re-render of the
+// report — a dismissal, a restore, a settings change — doesn't throw away a half-filled form.
+function dropForms(box){
+  var st={};
+  Array.prototype.forEach.call(box.querySelectorAll('.rdx-dropcard'),function(c){
+    var f=c.querySelector('.rdx-drop-form'); if(!f||f.style.display==='none') return;
+    st[c.getAttribute('data-t0')]=['.rdx-df-type','.rdx-df-start','.rdx-df-end','.rdx-df-note'].map(function(q){ return f.querySelector(q).value; });
+  });
+  return st;
+}
+function restoreDropForms(box, st){
+  Object.keys(st).forEach(function(k){
+    var c=box.querySelector('.rdx-dropcard[data-t0="'+k+'"]'); if(!c) return;
+    var f=c.querySelector('.rdx-drop-form'), q=['.rdx-df-type','.rdx-df-start','.rdx-df-end','.rdx-df-note'];
+    q.forEach(function(sel,i){ f.querySelector(sel).value=st[k][i]; });
+    f.style.display=''; c.querySelector('.rdx-drop-log').textContent='cancel';
+    f.querySelector('.rdx-df-endf').style.display=st[k][0]==='race'?'none':'';
+  });
+}
 function renderPatterns(){
   var box=$('patternsBox'); if(!box) return;
+  var forms=dropForms(box);
+  renderPatternsBox(box);
+  restoreDropForms(box, forms);
+}
+function renderPatternsBox(box){
   if(!window.InjuryPatterns || !LOAD_PARAMS){ box.innerHTML=''; return; }
-  var res=InjuryPatterns.analyze(typeRuns(), events(), LOAD_PARAMS);
+  var dis=dismissedDrops();
+  var res=InjuryPatterns.analyze(typeRuns(), events(), LOAD_PARAMS, { dismissedDrops:dis });
   var nInj=events().filter(function(e){return e.type==='injury';}).length;
+  // The "N dismissed · show" line rides along on every branch, so a dismissal stays restorable
+  // even when it leaves nothing else to show.
   if(!res.ok){
     box.innerHTML='<div class="rdx-chart-empty">'+(res.reason==='history'
       ? 'Not enough continuous run history to analyze injury patterns yet — about 10 weeks of data unlocks this report.'
-      : 'Import run history to unlock the injury pattern report.')+'</div>';
+      : 'Import run history to unlock the injury pattern report.')+'</div>'+dismissedHTML(dis);
+    wireDrops(box,[]);
     return;
   }
   var drops=res.drops.filter(function(d){return !d.explained;});
   if(!res.meta.nEval && !drops.length){
     box.innerHTML='<div class="rdx-chart-empty">'+(nInj
       ? 'The logged injuries fall outside the stored run history, so there is no training window to analyze — import the runs from the weeks before each injury.'
-      : 'No injuries logged yet. Add past injuries under ⚙ Settings → Performance &amp; injury history, and this report analyzes the training that led up to each one. Log <b>overuse injuries</b> as Injury; acute injuries that didn’t come from running go under <b>Non-Running Injury</b> and significant illnesses under <b>Illness</b>, so they don’t skew the analysis.')+'</div>';
+      : 'No injuries logged yet. Add past injuries under ⚙ Settings → Performance &amp; injury history, and this report analyzes the training that led up to each one. Log <b>overuse injuries</b> as Injury; acute injuries that didn’t come from running go under <b>Non-Running Injury</b> and significant illnesses under <b>Illness</b>, so they don’t skew the analysis.')+'</div>'+dismissedHTML(dis);
+    wireDrops(box,[]);
     return;
   }
   var html='';
@@ -1260,15 +1576,16 @@ function renderPatterns(){
   }
   if(drops.length){
     html+='<div class="rdx-pat-sub">Unexplained training drops · possible unlogged setbacks</div>'+
-      '<div class="rdx-pat-dropintro">Sharp volume drops with nothing logged nearby to explain them — a forced reduction is often an unlogged setback. Logging one as Injury adds its lead-up to the analysis above; logged as Illness, Non-Running Injury or Planned Downtime it simply disappears from this list.</div>'+
-      '<div class="rdx-cards">'+drops.map(function(d){
-        var fired=(d.flags||[]).filter(function(f){return f.fired;});
-        return '<div class="rdx-card">'+
-          '<div class="rdx-win" style="color:var(--warn)">▼ '+ymd(new Date(d.t0))+' → '+(d.ongoing?'now':ymd(new Date(d.t1)))+'</div>'+
+      '<div class="rdx-pat-dropintro">Sharp volume drops with nothing logged nearby to explain them — a forced reduction is often an unlogged setback. Logging one as Injury adds its lead-up to the analysis above; logged as Illness, Non-Running Injury or Planned Downtime it simply disappears from this list. Just a busy week or travel, not a setback? <b>Dismiss</b> it and it won’t be flagged again.</div>'+
+      '<div class="rdx-cards">'+drops.map(function(d,k){
+        var fired=(d.flags||[]).filter(function(f){return f.fired;}), when=ymd(new Date(d.t0))+' → '+(d.ongoing?'now':ymd(new Date(d.t1)));
+        return '<div class="rdx-card rdx-dropcard" data-t0="'+d.t0+'" data-t1="'+d.t1+'">'+
+          '<div class="rdx-win" style="color:var(--warn)">▼ '+when+'</div>'+
           '<div class="rdx-row">Volume drop <b>−'+Math.round(d.pct*100)+'%</b></div>'+
           '<div class="rdx-row">Duration <b>'+d.weeks+(d.capped?'+':'')+' wk'+(d.weeks>1?'s':'')+(d.ongoing?' · ongoing':'')+'</b></div>'+
           (fired.length?'<div class="rdx-pat-flagval" style="margin-top:6px">in its lead-up: '+fired.map(function(f){return f.name;}).join(' · ')+'</div>':'')+
-          '<button class="rdx-btn rdx-btn-sm rdx-drop-log" style="margin-top:10px">+ log as event</button>'+
+          '<div class="rdx-drop-acts"><button type="button" class="rdx-btn rdx-btn-sm rdx-drop-log">+ log as event</button>'+
+            '<button type="button" class="rdx-btn rdx-btn-ghost rdx-btn-sm rdx-drop-dismiss" data-i="'+k+'" title="Not a setback — hide it and don’t flag it again" aria-label="Dismiss the '+when+' drop: not a setback — hide it and don’t flag it again">Dismiss</button></div>'+
           '<div class="rdx-drop-form" style="display:none">'+
             '<div class="rdx-df-field"><label>Type</label><select class="rdx-df-type"><option value="injury">Injury</option><option value="illness">Illness</option><option value="nonrun">Non-Running Injury</option><option value="race">Race</option><option value="timeoff">Planned Downtime</option></select></div>'+
             '<div class="rdx-df-field"><label>Start</label><input type="date" class="rdx-df-start" value="'+ymd(new Date(d.t0))+'"></div>'+
@@ -1279,37 +1596,10 @@ function renderPatterns(){
         '</div>';
       }).join('')+'</div>';
   }
+  html+=dismissedHTML(dis);
   html+='<p class="rdx-hint">Retrospective and correlational — these are load patterns that showed up before logged injuries, not causes and not an injury prediction. With a handful of injuries the sample is small; every added injury, logged setback and month of history sharpens the report. Log only <b>overuse injuries</b> as injuries — acute injuries that didn’t come from running would skew these base rates and belong under Non-Running Injury, which stays out of the analysis entirely. Illnesses get their own event type and join only the overtraining-type patterns; planned breaks logged as downtime explain training drops without entering the analysis. Detectors and thresholds are transparent, tunable heuristics in <code>shared/injury-patterns.js</code>.</p>';
   box.innerHTML=html;
-  Array.prototype.forEach.call(box.querySelectorAll('.rdx-drop-log'),function(b){
-    b.onclick=function(){
-      var form=this.nextElementSibling, open=form.style.display==='none';
-      form.style.display=open?'':'none';
-      this.textContent=open?'cancel':'+ log as event';
-    };
-  });
-  Array.prototype.forEach.call(box.querySelectorAll('.rdx-drop-form'),function(form){
-    var type=form.querySelector('.rdx-df-type'), start=form.querySelector('.rdx-df-start'), end=form.querySelector('.rdx-df-end'), endF=form.querySelector('.rdx-df-endf');
-    type.onchange=function(){ endF.style.display=this.value==='race'?'none':''; if(this.value==='race') end.value=''; };
-    form.querySelector('.rdx-df-save').onclick=function(){
-      start.classList.remove('rdx-df-err'); end.classList.remove('rdx-df-err');
-      var s=parseDate(start.value);
-      if(!s){ start.classList.add('rdx-df-err'); return; }
-      var note=(form.querySelector('.rdx-df-note').value||'').trim();
-      var e={ id:Date.now(), type:type.value, ts:s.getTime(),
-              note:note||(type.value==='injury'?'Setback — unexplained training drop':'') };
-      if(type.value!=='race'){
-        var en=parseDate(end.value);
-        if(en){
-          if(en.getTime()<=s.getTime()){ end.classList.add('rdx-df-err'); return; }
-          e.endTs=en.getTime();
-        }
-      }
-      var evs=events().slice(); evs.push(e);
-      saveProfile({ runEvents:evs });
-      renderEventsList(); refresh();
-    };
-  });
+  wireDrops(box,drops);
 }
 
 /* ---------- volume + form ---------- */
@@ -1374,6 +1664,171 @@ function renderTiles(){
   el.innerHTML=html||'<div class="rdx-chart-empty">No form metrics available for this device.</div>';
 }
 
+/* ---------- "Mark Lever runs" modal ----------
+   Bulk-marks treadmill runs as Lever runs (or explicitly not) with a per-run offload, stored as
+   users/{uid}.runLeverMarks. annotateLever() applies the marks on every refresh, and every IAD
+   consumer (hero, load chart, Impact Load metric, injury patterns) reads the per-run offload
+   through RunLoad.impactLoad — so a mark change only has to persist, re-annotate, rebuild the
+   type chips (Lever is its own chip) and refresh. */
+var DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function fmtPct(x){ var v=Math.round(x*10)/10; return (v%1===0)?String(v):v.toFixed(1); }
+// Every indoor run (RunLoad's own test), plus anything currently Lever or carrying a manual mark.
+function lvRuns(){ return RAW.filter(function(r){ return RunLoad.isIndoor(r)||r.lever||r.leverSrc==='unmarked'; }).sort(function(a,b){ return b.ts-a.ts; }); }
+function lvOffFrac(){ var el=$('lvOff'), v=el?parseFloat(el.value):NaN; return (v>=1&&v<=95)?v/100:null; }
+function lvIL(r){ var v=LOAD_PARAMS?RunLoad.impactLoad(r,LOAD_PARAMS):null; return v>0?v:0; }
+function lvBadge(r){
+  var dflt='Scored at the profile default: '+fmtPct(100-leverPct())+'% offload';
+  switch(r.leverSrc){
+    case 'marked':   var o=r.offload!=null?r.offload*100:100-leverPct();
+                     return ['lever','Lever · '+fmtPct(o)+'% off · marked','Marked by hand: '+fmtPct(o)+'% offload = runs at '+fmtPct(100-o)+'% body weight'];
+    case 'title':    return ['lever','Lever · title',dflt];
+    case 'strava':   return ['lever','Lever · Strava title',dflt];
+    case 'auto':     return ['lever','Lever · auto-detected',dflt];
+    case 'unmarked': return ['not','Not Lever · marked','Marked by hand as not a Lever run — scored at full body weight'];
+  }
+  return ['tm','Treadmill'];
+}
+function lvRowHTML(r,i){
+  var d=new Date(r.ts), b=lvBadge(r), il=LOAD_PARAMS?RunLoad.impactLoad(r,LOAD_PARAMS):null, name=esc(r.title||r.type||'Run');
+  var dist=r.distMi!=null?r.distMi.toFixed(1)+' mi':'–', pace=r.paceSec>0?fmtPace(r.paceSec):'–', hr=r.avgHr>0?String(Math.round(r.avgHr)):'–';
+  return '<label class="rdx-lv-row">'+
+    '<input type="checkbox" class="rdx-lv-cb" data-i="'+i+'">'+
+    '<span class="rdx-lv-date">'+ymd(d)+'<small>'+DOW[d.getDay()]+'</small></span>'+
+    '<span class="rdx-lv-title" title="'+name+'">'+name+'</span>'+
+    '<span class="rdx-lv-num">'+dist+'</span><span class="rdx-lv-num">'+pace+'</span><span class="rdx-lv-num">'+hr+'</span>'+
+    '<span class="rdx-lv-meta">'+[dist, pace!=='–'?pace+'/mi':'', hr!=='–'?hr+' bpm':''].filter(Boolean).join(' · ')+'</span>'+
+    '<span class="rdx-lv-badge '+b[0]+'"'+(b[2]?' title="'+esc(b[2])+'"':'')+'>'+b[1]+'</span>'+
+    '<span class="rdx-lv-iad">'+(il!=null?il.toFixed(1):'–')+'<small> IAD</small></span>'+
+  '</label>';
+}
+function renderLeverHint(){
+  var el=$('lvHint'); if(!el) return;
+  var n=RAW.filter(RunLoad.isIndoor).length, lv=RAW.filter(function(r){ return r.lever; }).length;
+  var mk=RAW.filter(function(r){ return r.leverSrc==='marked'||r.leverSrc==='unmarked'; }).length;
+  el.textContent=n+' treadmill run'+(n===1?'':'s')+' · '+lv+' Lever'+(mk?' · '+mk+' marked by hand':'');
+}
+function renderLeverModal(){
+  var m=$('lvModal'); if(!m||m.hidden) return;
+  var all=lvRuns(), cnt={all:all.length, not:0, lever:0};
+  all.forEach(function(r){ cnt[r.lever?'lever':'not']++; });
+  $('lvFilter').innerHTML=[['all','All treadmill'],['not','Not Lever'],['lever','Lever']].map(function(f){
+    var on=LV.filter===f[0];
+    return '<button type="button" class="rdx-chip'+(on?' on':'')+'" data-f="'+f[0]+'" aria-pressed="'+on+'">'+f[1]+' ('+cnt[f[0]]+')</button>';
+  }).join('');
+  LV.rows=all.filter(function(r){ return LV.filter==='all' || (LV.filter==='lever')===!!r.lever; });
+  var vis=new Set(LV.rows.map(function(r){ return r.id; }));
+  LV.sel.forEach(function(id){ if(!vis.has(id)) LV.sel.delete(id); });   // selection = visible rows only
+  $('lvList').innerHTML = LV.rows.length
+    ? '<div class="rdx-lv-row rdx-lv-head"><input type="checkbox" class="rdx-lv-all" id="lvAll" aria-label="Select all shown runs">'+
+        '<label class="c-all" for="lvAll">Select all shown</label><span>Date</span><span>Run</span><span class="r">Dist</span><span class="r">Pace</span><span class="r">Avg HR</span><span>Status</span><span class="r">IAD mi</span></div>'+
+      LV.rows.map(lvRowHTML).join('')
+    : '<div class="rdx-lv-empty">'+(all.length?'No runs match this filter.':'No treadmill or indoor runs stored yet — they show up here once imported or synced.')+'</div>';
+  lvSync();
+}
+// Checkbox states, select-all, offload caption/validation, IAD preview and button states.
+function lvSync(){
+  var list=$('lvList'); if(!list) return;
+  Array.prototype.forEach.call(list.querySelectorAll('.rdx-lv-cb'),function(cb){
+    var r=LV.rows[+cb.getAttribute('data-i')], on=!!r&&LV.sel.has(r.id);
+    cb.checked=on; cb.parentNode.classList.toggle('on',on);
+  });
+  var n=LV.sel.size, allCb=list.querySelector('.rdx-lv-all');
+  if(allCb){ allCb.checked=n>0&&n===LV.rows.length; allCb.indeterminate=n>0&&n<LV.rows.length; }
+  var off=lvOffFrac(), inp=$('lvOff'), cap=$('lvOffCap');
+  inp.classList.toggle('rdx-df-err',off==null); inp.setAttribute('aria-invalid',off==null?'true':'false');
+  cap.className='rdx-lv-cap'+(off==null?' err':'');
+  cap.textContent=off==null?'Enter a number from 1 to 95':'= runs at '+fmtPct(100-off*100)+'% body weight';
+  var sel=LV.rows.filter(function(r){ return LV.sel.has(r.id); }), sum=$('lvSum');
+  if(!n) sum.textContent='Select runs to change · '+LV.rows.length+' shown';
+  else {
+    // each preview names its action: "as Lever" for Mark as Lever, plus "as not Lever" whenever a
+    // selected run is Lever now (that's the one Not Lever / Reset would raise)
+    var before=0, asLever=0, asNot=0;
+    sel.forEach(function(r){ before+=lvIL(r); if(off!=null) asLever+=lvIL(Object.assign({},r,{lever:true,offload:off})); asNot+=lvIL(Object.assign({},r,{lever:false,offload:null})); });
+    sum.innerHTML='<b>'+n+'</b> selected · '+(off==null
+      ? 'set a valid offload to mark them as Lever'
+      : 'as Lever at '+fmtPct(off*100)+'% offload: <b>'+before.toFixed(1)+' → '+asLever.toFixed(1)+'</b> IAD mi')+
+      (sel.some(function(r){ return r.lever; })?' · as not Lever: <b>'+before.toFixed(1)+' → '+asNot.toFixed(1)+'</b>':'');
+  }
+  var hasMark=sel.some(function(r){ return r.leverSrc==='marked'||r.leverSrc==='unmarked'; });
+  $('lvMark').disabled=!n||off==null; $('lvNot').disabled=!n; $('lvReset').disabled=!hasMark;
+  $('lvReset').title=(n&&!hasMark)?'None of the selected runs has a manual mark':'Remove the manual mark — back to title / auto-detection';
+}
+function lvToast(msg,ok){
+  var el=$('lvToast'); if(!el) return;
+  clearTimeout(LV.toastT); el.className='rdx-lv-toast'+(ok?'':' err'); el.textContent=msg;
+  if(ok) LV.toastT=setTimeout(function(){ el.textContent=''; },5000);
+}
+function lvApply(kind){
+  var off=lvOffFrac();
+  if(kind==='mark' && off==null) return;
+  var sel=LV.rows.filter(function(r){ return LV.sel.has(r.id); });
+  if(!sel.length) return;
+  // drop every mark that applies to a selected run — by its id, or the fallback-matched mark of a
+  // run re-imported under a new id — then add the new ones (ts + mi = the fallback key)
+  var drop=new Set(); sel.forEach(function(r){ drop.add(r.id); if(r._mark) drop.add(r._mark.id); });
+  var add=kind==='reset' ? [] : sel.map(function(r){
+    var m={ id:r.id, lever:kind==='mark', ts:r.ts, mi:r.distMi!=null?Math.round(r.distMi*100)/100:null };
+    if(kind==='mark') m.offload=Math.round(off*1e4)/1e4;
+    return m;
+  });
+  var had=sel.filter(function(r){ return !!r._mark; }).length;
+  var n=kind==='reset'?had:sel.length, runs=n+' run'+(n===1?'':'s');
+  var msg=kind==='mark'?runs+' marked as Lever at '+fmtPct(off*100)+'% offload':kind==='not'?runs+' marked as not Lever':runs+' reset to auto-detection';
+  LV.sel.clear();
+  var my=MOUNT, rerender=function(){ annotateLever(); buildTypeChips(); refresh(); };   // refresh re-renders the open modal too
+  var saved=updateProfileList('runLeverMarks', function(list){ return list.filter(function(m){ return !(m&&drop.has(m.id)); }).concat(add); }, rerender);
+  rerender();
+  lvToast('✓ '+msg, true);
+  saved.then(function(r){ if(r!==true && my===MOUNT) lvToast('⚠ Not saved ('+r+') — '+msg+' for now, but it will be undone on reload.', false); });
+  var panel=$('lvModal').querySelector('.rdx-modal-panel');
+  if(!panel.contains(document.activeElement) || document.activeElement.disabled) panel.focus();
+}
+function lvOpenModal(){
+  var m=$('lvModal'); if(!m||!RAW.length) return;
+  // Safari / macOS Firefox don't focus a clicked button, so activeElement can be <body>
+  var a=document.activeElement;
+  LV.trigger=(a && a!==document.body && ROOT.contains(a)) ? a : $('lvOpen'); LV.filter='all'; LV.sel.clear();
+  $('lvOff').value=fmtPct(100-leverPct());
+  var t=$('lvToast'); if(t) t.textContent='';
+  m.hidden=false;
+  renderLeverModal();
+  m.querySelector('.rdx-modal-panel').focus();
+}
+function lvClose(){
+  var m=$('lvModal'); if(!m||m.hidden) return;
+  m.hidden=true; LV.sel.clear();
+  if(LV.trigger && LV.trigger.focus && ROOT.contains(LV.trigger)) LV.trigger.focus();
+}
+function wireLeverModal(){
+  var m=$('lvModal'), panel=m.querySelector('.rdx-modal-panel'), downOnBack=false;
+  $('lvOpen').onclick=lvOpenModal;
+  $('lvClose').onclick=lvClose;
+  // backdrop: only a press that STARTED on it closes (a text-selection drag out of the panel must not)
+  m.onmousedown=function(e){ downOnBack=e.target===m; };
+  m.onclick=function(e){ if(e.target===m && downOnBack) lvClose(); downOnBack=false; };
+  m.onkeydown=function(e){
+    if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); lvClose(); return; }
+    if(e.key!=='Tab') return;   // keep Tab inside the dialog
+    var f=Array.prototype.filter.call(panel.querySelectorAll('button,input,select,a[href]'),function(el){ return !el.disabled && el.offsetParent!==null; });
+    if(!f.length) return;
+    var a=document.activeElement;
+    if(e.shiftKey && (a===f[0]||a===panel)){ e.preventDefault(); f[f.length-1].focus(); }
+    else if(!e.shiftKey && a===f[f.length-1]){ e.preventDefault(); f[0].focus(); }
+  };
+  $('lvOff').oninput=lvSync;
+  $('lvFilter').onclick=function(e){ var b=e.target.closest('[data-f]'); if(!b) return; LV.filter=b.getAttribute('data-f'); renderLeverModal(); var nb=$('lvFilter').querySelector('[data-f="'+LV.filter+'"]'); if(nb) nb.focus(); };
+  $('lvList').onchange=function(e){
+    var t=e.target;
+    if(t.classList.contains('rdx-lv-all')){ if(t.checked) LV.rows.forEach(function(r){ LV.sel.add(r.id); }); else LV.sel.clear(); }
+    else if(t.classList.contains('rdx-lv-cb')){ var r=LV.rows[+t.getAttribute('data-i')]; if(r){ if(t.checked) LV.sel.add(r.id); else LV.sel.delete(r.id); } }
+    lvSync();
+  };
+  $('lvMark').onclick=function(){ lvApply('mark'); };
+  $('lvNot').onclick=function(){ lvApply('not'); };
+  $('lvReset').onclick=function(){ lvApply('reset'); };
+}
+
 /* ---------- type filter ---------- */
 function buildTypeChips(){
   var counts={};
@@ -1394,7 +1849,7 @@ function buildTypeChips(){
 }
 
 /* ---------- orchestration ---------- */
-function refresh(){ if(RAW.length){ annotateLever(); LOAD_PARAMS=computeLoadParams(); renderHero(); renderChart(); renderPatterns(); renderTiles(); renderForm(); renderAll(); } }
+function refresh(){ if(RAW.length){ annotateLever(); LOAD_PARAMS=computeLoadParams(); renderHero(); renderChart(); renderPatterns(); renderTiles(); renderForm(); renderAll(); renderLeverHint(); renderLeverModal(); } }
 function setRangeChip(active){ Array.prototype.forEach.call($all('#rdx-rangeChips .rdx-chip'),function(c){ c.classList.toggle('on', c.getAttribute('data-range')===active); }); }
 function applyRange(r){
   if(!RAW.length) return;
@@ -1554,15 +2009,17 @@ function shellHTML(opts){
           '<div class="rdx-ctl"><label>Window end</label><input type="date" id="anchor"></div>'+
         '</div>'+
       '</div>'+
-      '<div class="rdx-group">'+
+      '<div class="rdx-group rdx-group-grow">'+
         '<div class="rdx-group-hd">Athlete</div>'+
         '<div class="rdx-group-body">'+
           '<div class="rdx-ctl"><label>Device</label><select id="device"></select></div>'+
           '<div class="rdx-ctl"><label>Strap / pod</label><div class="rdx-types"><span class="rdx-chip" id="accessory">chest strap / pod</span></div></div>'+
           '<div class="rdx-ctl"><label>Body weight</label><div class="rdx-inunit"><input type="text" id="weight" placeholder="—" style="width:54px"><span>lb</span></div></div>'+
           '<div class="rdx-ctl"><label>Lever support</label><div class="rdx-inunit"><input type="text" id="offload" placeholder="85" style="width:42px"><span>% BW</span></div></div>'+
+          '<div class="rdx-ctl"><label>Lever runs</label><div class="rdx-inunit"><button type="button" class="rdx-btn rdx-btn-ghost rdx-btn-sm" id="lvOpen" aria-haspopup="dialog">Mark Lever runs…</button><span class="rdx-lv-hint" id="lvHint"></span></div></div>'+
           '<div class="rdx-ctl" title="Your easy-day pace. Used as the Impact Load baseline until there are enough of your own easy runs to calibrate from."><label>Easy pace</label><div class="rdx-inunit"><input type="text" id="easypace" placeholder="9:00" style="width:54px"><span>/mi</span></div></div>'+
         '</div>'+
+        '<div class="rdx-group-note"><b>Lever support</b> is the share of body weight run at on the Lever (85% BW = 15% offload). It is the default for auto-detected Lever runs and the starting value in <b>Mark Lever runs…</b>, where treadmill runs can be marked by hand with their own offload.</div>'+
       '</div>'+
       '<div class="rdx-group rdx-group-grow">'+
         '<div class="rdx-group-hd">Performance &amp; injury history <span class="rdx-group-sub">overlays your logged events on the chart</span></div>'+
@@ -1609,7 +2066,7 @@ function shellHTML(opts){
   '</div>'+
 
   '<div class="rdx-section" id="sec-patterns">'+
-    '<h2>Injury patterns <span class="rdx-note">· the training that preceded each logged injury</span></h2>'+
+    '<h2 id="patHead" tabindex="-1">Injury patterns <span class="rdx-note">· the training that preceded each logged injury</span></h2>'+
     '<div id="patternsBox"></div>'+
   '</div>'+
 
@@ -1633,7 +2090,30 @@ function shellHTML(opts){
 
   '<div class="rdx-section" id="sec-summary"><h2>Volume by window</h2><div class="rdx-cards" id="cards"></div></div>'+
 
-  '<div class="rdx-foot" id="foot"></div>';
+  '<div class="rdx-foot" id="foot"></div>'+
+
+  '<div class="rdx-modal" id="lvModal" hidden>'+
+    '<div class="rdx-modal-panel" role="dialog" aria-modal="true" aria-labelledby="lvTitle" aria-describedby="lvDesc" tabindex="-1">'+
+      '<div class="rdx-modal-hd"><h3 class="rdx-modal-title" id="lvTitle">Mark Lever runs</h3>'+
+        '<button type="button" class="rdx-modal-x" id="lvClose" aria-label="Close">✕</button></div>'+
+      '<div class="rdx-modal-intro"><p class="rdx-modal-sub" id="lvDesc">Pick the treadmill runs '+(ROLE==='coach'?'this athlete':'you')+' did on the Lever and set the body-weight offload. Their Impact Load (IAD) is recalculated with the offload discount, and the guidance card, load chart and injury patterns update.</p></div>'+
+      '<div class="rdx-lv-bar">'+
+        '<div class="rdx-ctl"><label for="lvOff">Offload</label><div class="rdx-inunit"><input type="number" id="lvOff" min="1" max="95" step="any" inputmode="decimal" aria-describedby="lvOffCap"><span>% of body weight taken off</span></div><div class="rdx-lv-cap" id="lvOffCap"></div></div>'+
+        '<div class="rdx-ctl"><label>Show</label><div class="rdx-types" id="lvFilter" role="group" aria-label="Filter runs"></div></div>'+
+        '<div class="rdx-lv-note">Auto-detected = a treadmill run with a heart rate low for its pace. A manual mark always wins over detection and titles; <b>Reset to auto</b> removes it.</div>'+
+      '</div>'+
+      '<div class="rdx-lv-list" id="lvList"></div>'+
+      '<div class="rdx-modal-ft">'+
+        '<div class="rdx-lv-sum" id="lvSum"></div>'+
+        '<div class="rdx-lv-acts">'+
+          '<button type="button" class="rdx-btn rdx-btn-ghost rdx-btn-sm" id="lvReset">Reset to auto</button>'+
+          '<button type="button" class="rdx-btn rdx-btn-ghost rdx-btn-sm" id="lvNot">Not Lever</button>'+
+          '<button type="button" class="rdx-btn rdx-btn-sm" id="lvMark">Mark as Lever</button>'+
+        '</div>'+
+        '<div class="rdx-lv-toast" id="lvToast" role="status" aria-live="polite"></div>'+
+      '</div>'+
+    '</div>'+
+  '</div>';
 }
 
 /* ---------- wiring ---------- */
@@ -1666,6 +2146,7 @@ function wire(){
   $('offload').onchange=function(e){ var pct=parseFloat(String(e.target.value).replace(/[^0-9.]/g,'')); saveProfile({ runLeverPctBW:(pct>0&&pct<100)?pct:null }); refresh(); };
   $('easypace').onchange=function(e){ var sec=hmsToSec(e.target.value); var ok=sec>=240&&sec<=1200; saveProfile({ runEasyPaceSec: ok?sec:null }); e.target.value=ok?fmtPace(sec):''; refresh(); };
   $('evAdd').onclick=evAdd;
+  wireLeverModal();
   $('evType').onchange=function(){ $('evEndCtl').style.display=this.value==='race'?'none':''; if(this.value==='race') $('evEndDate').value=''; };
   $('evNote').onkeydown=function(e){ if(e.key==='Enter') evAdd(); };
   $('resetData').onclick=function(){
@@ -1735,11 +2216,11 @@ function maybeSyncStrava(){
     var d=last.toDate?last.toDate():new Date(last);
     if(d.toDateString()===new Date().toDateString()) return;
   }
-  var container=ROOT;
+  var container=ROOT, my=MOUNT;
   firebase.functions().httpsCallable('syncStravaActivities',{timeout:300000})({}).then(function(res){
     var n=res&&res.data&&res.data.runDocs;
-    if(!n || ROOT!==container) return;
-    return loadFromFirestore().then(function(){ if(ROOT===container) renderLoaded(); });
+    if(!n || ROOT!==container || my!==MOUNT) return;
+    return loadFromFirestore().then(function(){ if(ROOT===container && my===MOUNT) renderLoaded(); });
   }).catch(function(e){ console.warn('RunDynamics: Strava sync failed', e); });
 }
 
@@ -1752,22 +2233,25 @@ function mount(container, opts){
   }
   injectCSS();
   ROOT=container; DB=opts.db; UID=opts.uid; ROLE=opts.role||'athlete'; ADMIN=!!opts.admin; DEMO=null;
+  var my=++MOUNT; PROFILE_ERR=null;
+  DIS_OPEN=false; PAT_WARN=''; DIS_T=0; clearTimeout(LV.toastT); LV={filter:'all', sel:new Set(), rows:[], trigger:null, toastT:null};
   RAW=[]; ACTIVE_TYPES=new Set(); KNOWN_TYPES=new Set(); ANCHOR=null; LOAD_PARAMS=null; STD_PROFILE={}; STRAVA_LEVER=[]; STRAVA_SYNC={};
   container.classList.add('rdx');
   container.innerHTML=shellHTML(opts);
   wire();
   var st=$('importStatus'); if(st) st.innerHTML='<span class="rdx-spin"></span>Loading stored runs…';
   Promise.all([loadProfile(), loadFromFirestore(), fetchStravaLever()]).then(function(){
-    if(ROOT!==container) return;   // a newer mount superseded this one
+    if(ROOT!==container || my!==MOUNT) return;   // a newer mount superseded this one
     renderLoaded();
-    if(st) st.innerHTML = RAW.length
+    if(st) st.innerHTML = (RAW.length
       ? '<span class="ok">✓ '+RAW.length+' runs loaded</span> · import a newer export to add more'
-      : 'No runs stored yet — import a Garmin or Coros export to begin.';
+      : 'No runs stored yet — import a Garmin or Coros export to begin.')+
+      (PROFILE_ERR?'<br><span class="err">⚠ Profile settings and logged events didn’t load ('+esc(PROFILE_ERR)+') — showing defaults, and changes are blocked until you reload.</span>':'');
     var bf=$('stravaBackfill'); if(bf && STRAVA_SYNC.connected) bf.style.display='';
     maybeSyncStrava();
   }).catch(function(e){
     console.error(e);
-    if(st) st.innerHTML='<span class="err">Could not load stored runs: '+(e&&e.message||e)+'</span>';
+    if(st && my===MOUNT) st.innerHTML='<span class="err">Could not load stored runs: '+esc(e&&e.message||e)+'</span>';
   });
 }
 

@@ -33,6 +33,17 @@
 //      injuries ('nonrun') explain drops and are excluded from
 //      controls too, but get NO case window at all — their lead-up
 //      says nothing about training load.
+//   5. The athlete can DISMISS a flagged drop ("not a setback" — a busy
+//      week, travel). analyze() takes opts.dismissedDrops = [{t0,t1}]
+//      (stored on the user doc as runDismissedDrops); a drop overlapping
+//      one (± dismissSlackDays) that nothing logged already explains is
+//      marked explained + dismissed, so it is not flagged again and —
+//      since the athlete says it was not a setback — its window is no
+//      longer excluded from control sampling (it counts as normal
+//      training). A logged event near it still wins (its why is the
+//      event's). Dismissal is permanent until restored: an ongoing drop
+//      that keeps running on stays dismissed (the athlete asked not to be
+//      asked again).
 //
 // Small-sample honesty: most athletes log 1–5 injuries. The report
 // always shows raw counts (2 of 2, not "100%"), the control base
@@ -86,6 +97,10 @@ var OPTS = {
   injExplainPre:  14,   // a logged injury/illness up to 14 d before the drop explains it
   injExplainPost: 21,   // …or up to 21 d into it
   offExplainDays: 7,    // logged planned downtime within ±7 d of the drop explains it
+  dismissSlackDays:6,   // a dismissal matches a drop overlapping its stored span ± this: detectDrops
+                        // buckets weeks backwards from the LAST day of history, so the same drop's
+                        // t0/t1 drift by up to 6 days as new runs arrive (and an ongoing drop's t1
+                        // keeps growing) — an exact match would resurface it within the week
   // control sampling
   ctrlStepDays:   7,
   ctrlExclPreInj: 28,   // days before an injury excluded from controls
@@ -292,6 +307,10 @@ function detectDrops(prepd, o){
   return out;
 }
 
+// A stored dismissal {t0,t1} refers to drop d (same drop, week buckets drifted). Also used by the
+// view to find the drop a restored dismissal brings back.
+function dismissOverlaps(d, x, o){ o=o||OPTS; return d.t0<=x.t1+o.dismissSlackDays*DAY && d.t1>=x.t0-o.dismissSlackDays*DAY; }
+
 /* ---------- the full analysis ---------- */
 function analyze(runs, events, params, opts){
   var o=Object.assign({}, OPTS, opts||{});
@@ -307,6 +326,7 @@ function analyze(runs, events, params, opts){
   var timeoffs=evs.filter(function(e){return e.type==='timeoff';});
   var raceTs=evs.filter(function(e){return e.type==='race';}).map(function(e){return dayFloor(e.ts);})
     .concat(prepd.hardDays);
+  var dismissed=(o.dismissedDrops||[]).filter(function(x){return x&&x.t0!=null&&x.t1!=null;});
 
   // drops + planned/explained classification (span events count over [ts, endTs])
   var drops=detectDrops(prepd,o).map(function(d){
@@ -321,6 +341,8 @@ function analyze(runs, events, params, opts){
       why='logged planned downtime';
     if(!why && raceTs.some(function(t){ return t>=d.t0-o.raceExplainDays*DAY && t<=d.t1+o.raceExplainDays*DAY; }))
       why='around a race / max effort — taper or recovery';
+    // athlete-dismissed ("not a setback") — checked last so a logged event keeps its own why
+    if(!why && dismissed.some(function(x){ return dismissOverlaps(d,x,o); })){ why='dismissed — not a setback'; d.dismissed=true; }
     d.explained=!!why; d.why=why;
     if(!d.explained){
       var ev=evaluateAt(prepd, d.t0-DAY, o);   // the training BEFORE the drop began
@@ -345,7 +367,8 @@ function analyze(runs, events, params, opts){
   var evalCases=cases.filter(function(c){return c.ok;});
 
   // control windows: every ctrlStepDays across the history, away from
-  // injuries and unexplained drops
+  // injuries and unexplained drops (a dismissed drop is explained, so its
+  // window counts as normal training)
   var excl=[];
   injuries.concat(illnesses,nonruns).forEach(function(e){ excl.push([dayFloor(e.ts)-o.ctrlExclPreInj*DAY, evEnd(e)+o.ctrlExclPostInj*DAY]); });
   openDrops.forEach(function(d){ excl.push([d.t0-o.ctrlExclDropPre*DAY, d.t1+o.ctrlExclDropPost*DAY]); });
@@ -400,6 +423,6 @@ function analyze(runs, events, params, opts){
     cases:cases, patterns:patterns, combos:combos, drops:drops };
 }
 
-window.InjuryPatterns = { analyze:analyze, PATTERNS:PATTERNS, OPTS:OPTS };
+window.InjuryPatterns = { analyze:analyze, dismissOverlaps:dismissOverlaps, PATTERNS:PATTERNS, OPTS:OPTS };
 
 })();
