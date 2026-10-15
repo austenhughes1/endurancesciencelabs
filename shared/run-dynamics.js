@@ -652,7 +652,7 @@ var PROFILE_ERR=null;   // loadProfile failed: the view runs on defaults, so pro
 var LIST_Q={};          // uid/key → {tail, n}: that field's serialized transaction chain + writes issued
 var DIS_OPEN=false, DIS_T=0, DIS_SEQ=0;   // "N dismissed · show" expanded; last dismiss/restore click; dismiss/restore writes issued (only the newest may revert)
 var GAP_FORM=null;      // the open "Log it…" gap form: {t0, type, start, end, note} — re-opened with what was typed after a re-render
-var SB_MORE=false, ALSO_ALL=false, PAT_STATS=false, GAPS_OPEN=false;   // injury section: older setback cards shown, all "Also logged" shown, stats disclosure open, training gaps expanded
+var SB_MORE=false, ALSO_ALL=false, PAT_STATS=true, GAPS_OPEN=false;   // injury section: older setback cards shown, all "Also logged" shown, stats disclosure open, training gaps expanded
 var TOAST_T=0, TOAST_ARM=null, TOAST_BACK=null;   // page toast: hide timer, its (re)start fn while shown, where focus returns
 var SAVE_SEQ={};        // profile key → persist() calls issued: only the newest call to a key may revert it
 var HERO_HELP=false;    // hero "How to read these numbers" open — survives refresh() re-renders
@@ -2962,7 +2962,7 @@ function mount(container, opts){
   ROOT=container; DB=opts.db; UID=opts.uid; ROLE=opts.role||'athlete'; ADMIN=!!opts.admin; DEMO=null;
   VIEW=VIEW_SECS[opts.view]?opts.view:'training';
   var my=++MOUNT; PROFILE_ERR=null;
-  DIS_OPEN=false; DIS_T=0; DIS_SEQ=0; GAP_FORM=null; SB_MORE=false; ALSO_ALL=false; PAT_STATS=false; GAPS_OPEN=false; HERO_HELP=false; CAP_PIN=''; clearTimeout(LV.toastT); clearTimeout(TOAST_T); TOAST_ARM=TOAST_BACK=null; SAVE_SEQ={}; LV={filter:'all', sel:new Set(), rows:[], trigger:null, toastT:null};
+  DIS_OPEN=false; DIS_T=0; DIS_SEQ=0; GAP_FORM=null; SB_MORE=false; ALSO_ALL=false; PAT_STATS=true; GAPS_OPEN=false; HERO_HELP=false; CAP_PIN=''; clearTimeout(LV.toastT); clearTimeout(TOAST_T); TOAST_ARM=TOAST_BACK=null; SAVE_SEQ={}; LV={filter:'all', sel:new Set(), rows:[], trigger:null, toastT:null};
   RAW=[]; ACTIVE_TYPES=new Set(); KNOWN_TYPES=new Set(); ANCHOR=null; LOAD_PARAMS=null; STD_PROFILE={}; STRAVA_LEVER=[]; STRAVA_SYNC={};
   container.classList.add('rdx');
   container.innerHTML=shellHTML(opts);
