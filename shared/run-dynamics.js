@@ -39,203 +39,358 @@
    theming keeps working.
    ============================================================ */
 var CSS = `
-.rdx{font-family:var(--ui,'Inter',system-ui,sans-serif);color:var(--text);font-size:15px;line-height:1.5}
+.rdx{font-family:var(--ui,'Inter',system-ui,sans-serif);color:var(--text);font-size:14px;line-height:1.5}
 .rdx *{box-sizing:border-box}
-.rdx-topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px}
+.rdx [hidden]{display:none!important}
+.rdx :focus-visible{outline:2px solid var(--accent-ink,var(--cyan));outline-offset:2px}
+.rdx{--rdx-good-ink:var(--good);--rdx-warn-ink:var(--warn);--rdx-bad-ink:var(--bad);--rdx-gold-ink:var(--gold,#f5c842);--rdx-accent-ink:var(--accent-ink,var(--cyan))}
+/* good/warn/bad/gold/accent as small TEXT on light surfaces (the brand tokens fail contrast there, ~2–3:1;
+   the site's #08927f accent-ink is 3.1–3.9:1 on white/panel2/hover — #067566 clears 4.5:1 on all three) */
+html[data-theme="light"] .rdx{--rdx-good-ink:#0b7a50;--rdx-warn-ink:#93560a;--rdx-bad-ink:#c62828;--rdx-gold-ink:#7a5d00;--rdx-accent-ink:#067566}
+/* dark: the site's --muted2 (#6e7a9a) is 4.1:1 on panel2 and 4.4:1 on panel, under AA for this view's small secondary
+   text — lifted inside the view only (5.0:1+ on panel2 even under a hover wash). Light's --muted2 already passes. */
+html:not([data-theme="light"]) .rdx{--muted2:#8590ae}
 .rdx-h1{font-size:22px;font-weight:800;letter-spacing:-.3px;margin:0 0 4px}
 .rdx-sub{font-size:13px;color:var(--muted2);max-width:760px;line-height:1.6;margin:0}
 .rdx-sub code{font-family:var(--mono);font-size:12px;background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:1px 6px;color:var(--text)}
-.rdx-gear{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.3px;color:var(--muted2);background:var(--panel);border:1px solid var(--border2);border-radius:9px;padding:8px 13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .14s;white-space:nowrap}
-.rdx-gear:hover{border-color:var(--cyan);color:var(--cyan)}
-.rdx-gear.on{border-color:var(--cyan);color:var(--cyan);background:rgba(0,229,200,.06)}
-
-.rdx-help{margin-bottom:16px;background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden}
-.rdx-help summary{cursor:pointer;list-style:none;padding:12px 16px;font-size:12px;font-weight:700;font-family:var(--mono);letter-spacing:.3px;text-transform:uppercase;color:var(--cyan);display:flex;align-items:center;gap:8px}
-.rdx-help summary::-webkit-details-marker{display:none}
-.rdx-help summary::before{content:"▸";transition:transform .15s}
-.rdx-help[open] summary::before{transform:rotate(90deg)}
-.rdx-help-body{padding:4px 18px 16px;font-size:13px;color:var(--muted2);line-height:1.7}
-.rdx-help-body ol{margin:6px 0 0 18px;padding:0}
-.rdx-help-body li{margin-bottom:7px}
-.rdx-help-body code{font-family:var(--mono);font-size:12px;background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:1px 6px;color:var(--text)}
-.rdx-help-body b{color:var(--text)}
-.rdx-help-note{margin-top:10px;padding:9px 12px;background:rgba(245,166,35,.07);border:1px solid rgba(245,166,35,.22);border-radius:8px;color:var(--warn);font-size:12px;line-height:1.6}
-
-.rdx-importbar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-bottom:8px;padding:14px 16px;background:var(--panel);border:1px solid var(--border);border-radius:13px}
-.rdx-drop{flex:1;min-width:280px;border:1.5px dashed var(--border2);border-radius:11px;padding:14px 18px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
-.rdx-drop:hover,.rdx-drop.over{border-color:var(--cyan);background:rgba(0,229,200,.04)}
-.rdx-drop b{font-size:13.5px;font-weight:700}
-.rdx-drop span{font-size:11.5px;color:var(--muted2);display:block;margin-top:2px}
-.rdx-status{font-size:12px;color:var(--muted2);font-family:var(--mono);line-height:1.6;min-width:200px;flex:1}
-.rdx-status .ok{color:var(--good)}
-.rdx-status .err{color:var(--bad)}
-.rdx-spin{display:inline-block;width:13px;height:13px;border:2px solid var(--border2);border-top-color:var(--cyan);border-radius:50%;animation:rdx-spin .7s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes rdx-fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @keyframes rdx-spin{to{transform:rotate(360deg)}}
+.rdx-spin{display:inline-block;width:13px;height:13px;border:2px solid var(--border2);border-top-color:var(--cyan);border-radius:50%;animation:rdx-spin .7s linear infinite;vertical-align:-2px;margin-right:6px}
 
-.rdx-settings{margin-top:14px;animation:rdx-fade .25s}
-.rdx-controls{display:flex;flex-wrap:wrap;gap:12px;align-items:stretch}
-.rdx-group{display:flex;flex-direction:column;gap:11px;padding:13px 16px;background:var(--panel);border:1px solid var(--border);border-radius:13px}
-.rdx-group-grow{flex:1;min-width:300px}
-.rdx-group-hd{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);font-family:var(--mono);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.rdx-group-sub{font-weight:400;letter-spacing:0;text-transform:none;color:var(--muted2);font-family:inherit;font-size:11.5px}
-.rdx-group-body{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
-.rdx-ctl-grow{flex:1;min-width:120px}
-.rdx-controls-meta{display:flex;justify-content:flex-end;align-items:center;gap:14px;margin-top:8px;min-height:14px}
+/* form fields — :where() keeps these at element weight so the modal/gap-form rules below still win */
+:where(.rdx) :is(select,input[type=text],input[type=date],input[type=number]){height:36px;padding:0 11px;background:var(--panel2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--ui);font-size:13px;outline:none;min-width:0}
+:where(.rdx) select{cursor:pointer}
+:where(.rdx) :is(select,input):focus{border-color:var(--accent-ink,var(--cyan))}
+.rdx input[type=date]{color-scheme:dark}
+html[data-theme="light"] .rdx input[type=date]{color-scheme:light}
+.rdx-ctl{display:flex;flex-direction:column;gap:6px;min-width:0}
+.rdx-ctl>label,.rdx-lbl{font-size:12px;font-weight:600;color:var(--muted2);line-height:1.3}
+.rdx-ctl-hint{font-size:12px;color:var(--muted2);line-height:1.45;max-width:260px}
 .rdx-inunit{display:flex;align-items:center;gap:6px}
-.rdx-inunit span{font-size:12px;color:var(--muted2);font-family:var(--mono)}
-.rdx-btn-sm{padding:8px 14px;align-self:flex-end;line-height:1.2}
-.rdx-ctl{display:flex;flex-direction:column;gap:6px}
-.rdx-ctl label{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono)}
-.rdx-types{display:flex;flex-wrap:wrap;gap:7px}
-.rdx-chip{font-size:12px;font-weight:600;padding:6px 12px;border-radius:20px;border:1px solid var(--border2);background:var(--panel2);color:var(--muted2);cursor:pointer;user-select:none;transition:all .12s}
-.rdx-chip.on{background:rgba(0,229,200,.1);border-color:rgba(0,229,200,.35);color:var(--cyan)}
-.rdx-events{display:flex;flex-wrap:wrap;gap:8px}
-.rdx-ev-empty{font-size:11px;color:var(--muted2);font-family:var(--mono)}
-.rdx-ev-guide{font-size:11.5px;color:var(--muted2);line-height:1.55}
-.rdx-ev-guide b{color:var(--text)}
-.rdx-ev-chip{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;padding:5px 9px;border-radius:20px;border:1px solid var(--border2);background:var(--panel2)}
-.rdx-ev-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.rdx-ev-chip b{font-size:10px;text-transform:uppercase;letter-spacing:.4px;font-family:var(--mono)}
-.rdx-ev-date{font-family:var(--mono);color:var(--muted2);font-size:10.5px}
-.rdx-ev-note{color:var(--text);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rdx-ev-del{background:transparent;border:none;color:var(--muted2);cursor:pointer;font-size:12px;padding:0 0 0 2px;line-height:1}
-.rdx-ev-del:hover{color:var(--bad)}
-.rdx-ctl input[type=date]{background:var(--panel2);border:1px solid var(--border2);border-radius:8px;padding:8px 11px;color:var(--text);font-family:var(--mono);font-size:12.5px;color-scheme:dark}
-.rdx-ctl select,.rdx-ctl input[type=text]{background:var(--panel2);border:1px solid var(--border2);border-radius:8px;padding:8px 11px;color:var(--text);font-family:var(--mono);font-size:12.5px;cursor:pointer;outline:none}
-.rdx-ctl input[type=text]{cursor:text}
-.rdx-drop-form{margin-top:10px;padding-top:10px;border-top:1px solid var(--border2);display:flex;flex-direction:column;gap:8px}
-.rdx-df-field{display:flex;flex-direction:column;gap:4px}
-.rdx-df-field label{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono)}
-.rdx-drop-form select,.rdx-drop-form input{width:100%;box-sizing:border-box;background:var(--panel2);border:1px solid var(--border2);border-radius:7px;padding:7px 9px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none;min-width:0}
+.rdx-inunit span{font-size:12.5px;color:var(--muted2)}
+.rdx-inl{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--muted2);white-space:nowrap}
 .rdx-df-err{border-color:var(--bad)!important}
-.rdx-btn{padding:9px 16px;background:var(--cyan);color:#000;font-weight:700;font-size:12.5px;border:none;border-radius:8px;cursor:pointer;transition:opacity .15s}
-.rdx-btn:hover{opacity:.85}
+
+/* buttons: filled = the one primary action (+ add, Save event, Mark as Lever); outline = secondary; ghost = quiet */
+.rdx-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:7px 16px;background:var(--cyan);color:#000;font-family:inherit;font-weight:700;font-size:13px;line-height:1.2;border:1px solid transparent;border-radius:8px;cursor:pointer;white-space:nowrap;transition:opacity .15s,border-color .15s,color .15s,background .15s}
+.rdx-btn:hover{opacity:.86}
 .rdx-btn:disabled{opacity:.4;cursor:not-allowed}
-.rdx-btn-ghost{background:transparent;color:var(--text);border:1px solid var(--border2);font-weight:600}
-.rdx-btn-ghost:hover:not(:disabled){opacity:1;border-color:var(--cyan);color:var(--accent-ink,var(--cyan))}
+.rdx-btn-sm{padding:6px 12px;font-size:12.5px}
+.rdx-btn-outline{background:transparent;color:var(--text);border-color:var(--border2);font-weight:600}
+.rdx-btn-outline:hover:not(:disabled){opacity:1;border-color:var(--accent-ink,var(--cyan));color:var(--rdx-accent-ink)}
+.rdx-btn-outline[aria-expanded="true"]{border-color:var(--accent-ink,var(--cyan));background:var(--hover)}   /* open: border + fill carry the state, the label stays --text */
+.rdx-btn-ghost{background:transparent;color:var(--muted2);border-color:transparent;font-weight:600}
+.rdx-btn-ghost:hover:not(:disabled){opacity:1;color:var(--text);background:var(--hover)}
+.rdx-btn-danger{background:transparent;color:var(--rdx-bad-ink);border-color:var(--bad);font-weight:600}
+.rdx-btn-danger:hover:not(:disabled){opacity:1;background:rgba(245,80,80,.08)}
 .rdx-linkbtn{background:none;border:none;padding:0;font:inherit;color:var(--muted2);text-decoration:underline dotted;text-underline-offset:3px;cursor:pointer}
 .rdx-linkbtn:hover{color:var(--text)}
-.rdx-group-note{width:0;min-width:100%;font-size:11.5px;color:var(--muted2);line-height:1.55}
-.rdx-group-note b{color:var(--text)}
-.rdx-lv-hint{font-size:10.5px;color:var(--muted2);font-family:var(--mono);line-height:1.35;max-width:150px}
-.rdx-btn-danger{background:transparent;color:var(--bad);border:1px solid var(--bad);font-weight:600}
-.rdx-btn-danger:disabled{opacity:.5;cursor:default}
-.rdx-filenote{font-size:11px;color:var(--muted2);font-family:var(--mono)}
+.rdx-link{background:none;border:none;padding:0;font:inherit;color:var(--rdx-accent-ink);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;cursor:pointer}
+.rdx-link:hover{text-decoration-thickness:2px}
+.rdx-chip{font-size:12px;font-weight:600;padding:6px 12px;border-radius:20px;border:1px solid var(--border2);background:var(--panel2);color:var(--muted2);cursor:pointer;user-select:none;transition:all .12s}
+.rdx-chip.on{background:rgba(0,229,200,.1);border-color:rgba(0,229,200,.35);color:var(--rdx-accent-ink)}
+.rdx button.rdx-chip{font-family:inherit;line-height:1.3}
+.rdx-types{display:flex;flex-wrap:wrap;gap:7px}
+.rdx-ctl>.rdx-types{min-height:36px;align-items:center}   /* a chip row lines up with the 36px inputs beside it */
 
-.rdx-section{display:none;margin-top:26px}
+/* disclosures: no box, a rotating chevron */
+.rdx-more>summary{cursor:pointer;list-style:none;display:inline-flex;align-items:baseline;gap:8px;padding:6px 0;font-size:13.5px;font-weight:600;line-height:1.45;color:var(--text)}   /* baseline: a wrapped summary keeps its chevron on line 1 */
+.rdx-more>summary::-webkit-details-marker{display:none}
+.rdx-more>summary::before{content:"▸";display:inline-block;color:var(--muted2);transition:transform .15s}
+.rdx-more[open]>summary::before{transform:rotate(90deg)}
+.rdx-more>summary:hover{color:var(--rdx-accent-ink)}
+.rdx-more-body{padding:12px 0 0;font-size:13.5px;color:var(--muted2);line-height:1.65}
+.rdx-more-body p{margin:0 0 10px}
+.rdx-more-body ol{margin:0 0 12px 20px;padding:0}
+.rdx-more-body li{margin-bottom:6px}
+.rdx-more-body b{color:var(--text)}
+.rdx-more-body a{color:var(--rdx-accent-ink)}
+.rdx-more-body code{font-family:var(--mono);font-size:12px;background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:1px 6px;color:var(--text)}
+.rdx-note,.rdx-more-body .rdx-note{font-size:12.5px;color:var(--muted2);line-height:1.6;max-width:760px;margin:10px 0 0}   /* beats .rdx-more-body p's margin */
+
+/* 0. header strip */
+.rdx-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;margin-top:16px;scroll-margin-top:72px}
+.rdx-status{flex:1 1 320px;min-width:0;font-size:13px;color:var(--muted2);line-height:1.5}
+.rdx-status .ok,.rdx-imp-note .ok{color:var(--rdx-good-ink)}
+.rdx-status .err,.rdx-imp-note .err{color:var(--rdx-bad-ink)}
+.rdx #importStatus:not(:empty)::before{content:"·";margin:0 7px}
+.rdx #rdxFresh:empty+#importStatus::before{content:none}
+.rdx-head-acts{display:flex;gap:8px;flex-shrink:0}
+
+/* 1. Data & settings panel */
+/* Profile + What's included share a row once the panel is ≥900px wide (2×444 + 12 gap): flex-basis does it
+   from the panel's own width — no size container, which (like containment on ROOT) would trap fixed overlays */
+.rdx-settings{margin-top:12px;animation:rdx-fade .25s}
+.rdx-set-grid{display:flex;flex-wrap:wrap;gap:12px}
+.rdx-group{flex:1 1 444px;display:flex;flex-direction:column;gap:14px;min-width:0;padding:18px 20px;background:var(--panel);border:1px solid var(--border);border-radius:12px;scroll-margin-top:72px}
+.rdx-group-wide{flex-basis:100%}
+.rdx-group-hd{font-size:13px;font-weight:600;color:var(--text);margin:0;line-height:1.3}
+.rdx-group-body{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+.rdx-group-body.rdx-top{align-items:flex-start}   /* a field with a hint under it would drag its row's inputs down */
+.rdx-group-note{font-size:12.5px;color:var(--muted2);line-height:1.55;margin:0}
+.rdx-group-note b{color:var(--text);font-weight:600}
+.rdx-ev-form{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.rdx-ev-form .rdx-ctl-note{flex:1 1 220px}
+.rdx-ev-hint{font-size:12.5px;color:var(--muted2);margin:-4px 0 0;line-height:1.5}
+.rdx-ev-cols{display:flex;flex-wrap:wrap;gap:14px 28px}
+.rdx-ev-cols>*{flex:5 1 346px;min-width:0}   /* bases in 5:7 that sum to the group's inner width at a 900px panel, */
+.rdx-ev-cols>:last-child{flex:7 1 484px}      /* so side by side they keep the 5fr/7fr split; narrower, they stack */
+.rdx-wtl{font-size:12.5px;color:var(--muted2);line-height:1.55}
+.rdx-wtl ul{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:3px}
+.rdx-wtl li{display:flex;align-items:baseline;gap:8px}
+.rdx-wtl li .rdx-ev-dot{transform:translateY(-1px)}
+.rdx-wtl b{color:var(--text);font-weight:600;white-space:nowrap}
+.rdx-wtl p{margin:6px 0 0}
+.rdx-events{display:flex;flex-direction:column;margin-top:4px}
+.rdx-ev-empty{font-size:12.5px;color:var(--muted2);margin:0;padding:6px 0}
+.rdx-ev-row{display:flex;flex-wrap:wrap;align-items:center;gap:2px 10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13.5px}
+.rdx-ev-row:last-child{border-bottom:none}
+.rdx-ev-dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.rdx-ev-type{font-weight:600;color:var(--text);white-space:nowrap}
+.rdx-ev-when{color:var(--muted2);white-space:nowrap}
+.rdx-ev-note{flex:1 1 180px;min-width:0;color:var(--text);overflow-wrap:anywhere}
+.rdx-ev-del{margin-left:auto;flex-shrink:0;width:32px;height:32px;background:transparent;border:none;border-radius:8px;color:var(--muted2);font-size:13px;cursor:pointer}
+.rdx-ev-del:hover{color:var(--rdx-bad-ink);background:var(--hover)}
+.rdx-lv-hint{font-size:12px;color:var(--muted2);line-height:1.4}
+.rdx-import{display:flex;flex-direction:column;gap:12px}
+.rdx-import-row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.rdx-drop{flex:1 1 280px;border:1.5px dashed var(--border2);border-radius:10px;padding:16px 18px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
+.rdx-drop:hover,.rdx-drop.over{border-color:var(--accent-ink,var(--cyan));background:rgba(0,229,200,.04)}
+.rdx-drop b{font-size:14px;font-weight:600;color:var(--text)}
+.rdx-drop span{font-size:12.5px;color:var(--muted2);display:block;margin-top:2px}
+.rdx-filenote{font-size:12.5px;color:var(--muted2);margin:0}
+.rdx-imp-note{margin:0;font-size:13px;line-height:1.5;color:var(--muted2)}
+.rdx-imp-note:empty,.rdx #importHome .rdx-imp-note{display:none}   /* onboarding card: the header status sits right above it */
+.rdx-danger{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-top:6px;padding-top:20px;border-top:1px solid var(--border)}
+.rdx-danger .rdx-lbl{flex-basis:100%}
+.rdx-danger p{flex:1 1 260px;max-width:560px;margin:0;font-size:12.5px;color:var(--muted2);line-height:1.55}
+
+/* sections */
+.rdx-section{display:none;margin-top:36px}
+.rdx-section,.rdx-more,.rdx #rdxGaps{scroll-margin-top:72px}   /* clear the sticky site nav (58px) */
 .rdx-section.show{display:block;animation:rdx-fade .3s}
-@keyframes rdx-fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-.rdx-section h2{font-size:13px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono);margin:0 0 13px;display:flex;align-items:center;gap:10px}
-.rdx-section h2 .rdx-note{font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted)}
-.rdx-section h2::after{content:"";flex:1;height:1px;background:var(--border)}
+.rdx #sec-hero,.rdx #sec-empty{margin-top:16px}
+.rdx-sec-hd{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px 20px;margin-bottom:12px}
+.rdx-sec-hd-txt{flex:1 1 320px;min-width:0}
+.rdx-sec-title{font-family:var(--ui);font-size:17px;font-weight:700;letter-spacing:-.2px;line-height:1.3;color:var(--text);margin:0}
+.rdx-sec-title:focus{outline:none}
+.rdx-sec-sub{font-size:13px;line-height:1.5;color:var(--muted2);max-width:760px;margin:3px 0 0}
+.rdx-sec-ctl{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.rdx-sub-hd{font-size:13.5px;font-weight:600;color:var(--text);margin:22px 0 10px}
+.rdx-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 20px}
+.rdx-empty{padding:40px;text-align:center;color:var(--muted2);font-size:13px}
+.rdx-empty-card{max-width:860px}
+.rdx-empty-card .rdx-sec-sub{margin-bottom:16px}
+.rdx-gapchip{display:inline-flex;align-items:center;gap:7px;min-height:32px;padding:4px 12px;font:inherit;font-size:12.5px;font-weight:600;color:var(--text);background:var(--panel2);border:1px solid var(--border2);border-radius:20px;cursor:pointer}
+.rdx-gapchip::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--warn)}
 
-.rdx-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
-.rdx-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:15px 16px}
-.rdx-card .rdx-win{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--cyan);font-family:var(--mono);margin-bottom:10px}
-.rdx-card .rdx-row{display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;color:var(--muted2)}
-.rdx-card .rdx-row b{color:var(--text);font-weight:700;font-family:var(--mono)}
-
+/* tables (volume + all metrics); the sticky first column needs an opaque fill */
 .rdx-tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--panel)}
 .rdx-table{border-collapse:collapse;width:100%;font-size:13px}
 .rdx-table th,.rdx-table td{padding:10px 14px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--border)}
-.rdx-table th:first-child,.rdx-table td:first-child{text-align:left;position:sticky;left:0;background:var(--panel)}
-.rdx-table thead th{font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono);background:var(--panel2)}
-.rdx-table thead th:first-child{background:var(--panel2)}
-.rdx-table tbody tr:last-child td{border-bottom:none}
-.rdx-table tbody tr:hover td{background:var(--hover)}
-.rdx-table tbody tr:hover td:first-child{background:var(--panel2)}
+.rdx-table tr>:first-child{text-align:left;position:sticky;left:0;background:var(--panel)}
+.rdx-table thead th{font-size:12px;font-weight:600;line-height:1.35;color:var(--muted2);vertical-align:bottom}
+.rdx-table thead th,.rdx-table thead th:first-child{background:var(--panel2)}
+.rdx-table tbody th{font-weight:600;color:var(--text)}
+.rdx-table tbody tr:last-child>*{border-bottom:none}
+.rdx-table tbody tr:hover>*{background:var(--hover)}
+.rdx-table tbody tr:hover>:first-child{background:var(--panel2)}
+.rdx-table .rdx-grp>th,.rdx-table tbody tr.rdx-grp:hover>th{padding-top:16px;padding-bottom:6px;font-size:12px;color:var(--muted2);background:var(--panel)}
+.rdx-th-sub{display:block;margin-top:2px;font-weight:400;font-size:11.5px;color:var(--muted2)}
 .rdx-mname{font-weight:600;color:var(--text)}
-.rdx-munit{font-size:10px;color:var(--muted);font-family:var(--mono);margin-left:5px}
-.rdx-mdesc{font-size:10.5px;color:var(--muted2);font-weight:400;margin-top:2px}
+.rdx-munit{font-size:11px;font-weight:400;color:var(--muted2);font-family:var(--mono);margin-left:5px}
+.rdx-mdesc{font-size:12px;color:var(--muted2);font-weight:400;line-height:1.4;margin-top:2px;white-space:normal;max-width:340px}
 .rdx-val{font-family:var(--mono);font-weight:700;color:var(--text)}
-.rdx-val.na{color:var(--muted);font-weight:400}
-.rdx-delta{font-family:var(--mono);font-size:10.5px;margin-left:7px}
-.rdx-delta.up{color:var(--good)}.rdx-delta.down{color:var(--bad)}.rdx-delta.flat{color:var(--muted)}
+.rdx-val.na{color:var(--muted2);font-weight:400}
+.rdx-delta{font-family:var(--mono);font-size:12px;white-space:nowrap}
+.rdx-delta.up{color:var(--rdx-good-ink)}.rdx-delta.down{color:var(--rdx-bad-ink)}.rdx-delta.flat{color:var(--muted2)}
+.rdx-delta.same{font-family:var(--ui)}
+.rdx-cmpbar{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;margin-bottom:14px}
+.rdx-cmpbar>.rdx-chip{min-height:36px}
+.rdx-cmp-ranges{display:flex;flex-wrap:wrap;gap:12px 24px}
+.rdx-cmp-dates{display:flex;align-items:center;gap:6px}
+.rdx-cmp-dates>span{color:var(--muted2)}
 
-.rdx-rangebar{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;margin-bottom:14px;padding:16px 18px;background:var(--panel);border:1px solid var(--border);border-radius:12px}
-.rdx-hint{font-size:11.5px;color:var(--muted2);line-height:1.6;margin-top:10px;font-family:var(--mono)}
-.rdx-empty{padding:40px;text-align:center;color:var(--muted2);font-size:13px}
+/* 3. chart */
+.rdx-seg{display:inline-flex;gap:2px;padding:2px;background:var(--panel2);border:1px solid var(--border2);border-radius:9px}
+.rdx-seg button{min-height:30px;padding:0 11px;font:inherit;font-size:12.5px;font-weight:600;color:var(--muted2);background:transparent;border:1px solid transparent;border-radius:7px;cursor:pointer;white-space:nowrap}
+.rdx-seg button:hover{color:var(--text)}
+.rdx-seg button.on{background:var(--panel);border-color:var(--border2);color:var(--rdx-accent-ink)}
+.rdx-chart-row2{display:flex;flex-wrap:wrap;gap:0 16px;align-items:flex-end}
+.rdx-custom{display:flex;gap:12px}
+.rdx-chart-row2>*{margin-bottom:12px}
 .rdx-chartwrap{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 14px 8px}
 .rdx-chart-svg{display:block;width:100%;height:auto}
-.rdx-chart-empty{padding:34px;text-align:center;color:var(--muted2);font-size:12px;font-family:var(--mono)}
-#rdx-chartBox{position:relative}
+/* axis text and grid take theme tokens (SVG drawn at the box's real width, so 11px is 11px) */
+.rdx-chart-svg text{font-family:var(--mono);font-size:11px;fill:var(--muted2)}
+.rdx-chart-svg .rdx-ax-lbl{font-family:var(--ui)}
+.rdx-chart-svg .rdx-ax2{fill:var(--purple,#8b7cf8)}
+.rdx-chart-svg .rdx-grid{stroke:var(--border)}
+.rdx-chart-svg .rdx-today{stroke:var(--muted2);stroke-width:1;stroke-dasharray:3 3}
+.rdx-chart-svg .rdx-today-lbl{fill:var(--text);font-weight:600}
+.rdx-chart-svg .rdx-today-dot{stroke:var(--panel);stroke-width:2}
+.rdx-chart-empty{padding:34px;text-align:center;color:var(--muted2);font-size:13px}
+.rdx-ev-cap{font-size:12.5px;color:var(--muted2);margin:6px 0 2px}
+.rdx-ev-cap:empty{display:none}
+.rdx #chartBox{position:relative}
 .rdx-hit{cursor:pointer}
-.rdx-chart-tip{position:absolute;left:0;top:0;display:none;pointer-events:none;z-index:30;min-width:120px;max-width:250px;padding:8px 10px;background:rgba(13,18,30,.97);border:1px solid var(--border2);border-radius:8px;box-shadow:0 6px 22px rgba(0,0,0,.45);font-size:11.5px;line-height:1.5;color:var(--text)}
+@media(pointer:coarse){.rdx-hit{r:11px}}   /* finger-sized tap target (CSS r overrides the attribute) */
+.rdx-chart-tip{position:absolute;left:0;top:0;display:none;pointer-events:none;z-index:30;min-width:120px;max-width:250px;padding:8px 10px;background:var(--panel);border:1px solid var(--border2);border-radius:8px;box-shadow:0 6px 22px rgba(0,0,0,.28);font-size:12px;line-height:1.5;color:var(--text)}
 .rdx-chart-tip.on{display:block}
-.rdx-tip-top{font-family:var(--mono);font-size:11px;color:var(--muted2);margin-bottom:3px;display:flex;align-items:center;gap:6px}
-.rdx-tip-chip{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;border:1px solid;border-radius:10px;padding:1px 6px}
-.rdx-tip-val b{color:var(--cyan)}
-.rdx-tip-ctx{color:var(--muted2);font-size:10.5px;margin-top:3px}
-.rdx-legend{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px;padding-left:2px}
-.rdx-legend-item{display:flex;align-items:center;gap:6px;font-size:10px;font-family:var(--mono);color:var(--muted2);font-weight:700}
-.rdx-legend-sw{width:14px;height:3px;border-radius:2px}
-.rdx-legend-ring{display:inline-block;width:9px;height:9px;border:1.6px solid #f5c842;border-radius:50%;margin-right:4px;vertical-align:middle}
+.rdx-tip-top{font-size:11.5px;color:var(--muted2);margin-bottom:3px;display:flex;align-items:center;gap:6px}
+.rdx-tip-chip{font-family:var(--ui);font-size:10.5px;font-weight:600;border:1px solid;border-radius:10px;padding:0 6px}
+.rdx-tip-val b{font-family:var(--mono);color:var(--rdx-accent-ink)}
+.rdx-tip-ctx{color:var(--muted2);font-size:11.5px;margin-top:3px;overflow-wrap:anywhere}
+.rdx-legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-bottom:8px;padding-left:2px}
+.rdx-legend:empty{display:none}
+.rdx-legend-item{display:inline-flex;align-items:center;gap:6px;font-size:12px;line-height:1.4;color:var(--muted2)}
+.rdx-legend-sw{width:14px;height:3px;border-radius:2px;flex-shrink:0}
+.rdx-legend-band{height:10px;background:rgba(34,199,138,.2);border:1px solid rgba(34,199,138,.45)}
+.rdx-legend-ev{width:10px;height:12px;flex-shrink:0;border-left:2px dashed var(--c);background:color-mix(in srgb,var(--c) 22%,transparent)}
+.rdx-legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.rdx-legend-ring{width:9px;height:9px;border:1.6px solid #f5c842;border-radius:50%;flex-shrink:0}
 
-#rdx-rangeChips .rdx-chip.on{background:rgba(0,229,200,.1);border-color:rgba(0,229,200,.35);color:var(--cyan)}
-
+/* 2. hero */
 .rdx-demobar{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-bottom:12px;padding:9px 12px;border:1px dashed var(--gold);border-radius:10px;background:rgba(245,200,66,.05)}
 .rdx-demobar .lbl{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--gold);margin-right:2px}
 .rdx-demobar .rdx-chip{font-size:11px;padding:4px 10px}
 .rdx-demobar .rdx-chip.on{background:rgba(245,200,66,.16);border-color:var(--gold);color:var(--gold)}
-.rdx-hero{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px 22px;border-left:4px solid var(--muted2)}
-.rdx-hero-badge{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-bottom:12px}
-.rdx-hero-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
-.rdx-hero-read{font-size:15.5px;line-height:1.55;color:var(--text);margin-bottom:12px}
-.rdx-hero-read b{font-family:var(--mono);font-weight:700}
-.rdx-hero-stats{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
-.rdx-hero-stat{background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:8px 13px;min-width:96px}
-.rdx-hero-stat .k{font-size:9.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono)}
-.rdx-hero-stat .v{font-size:19px;font-weight:800;font-family:var(--mono);margin-top:3px}
-.rdx-hero-stat .x{font-size:9.5px;font-weight:700;font-family:var(--mono);margin-top:2px;letter-spacing:.2px}
-.rdx-hero-do{font-size:14px;line-height:1.6;color:var(--muted2);background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:13px 15px}
+/* #sec-hero is the hero's size container — never ROOT: containment would trap the fixed toast/modal */
+.rdx #sec-hero{container:rdx-hero/inline-size}
+.rdx-hero{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 20px;border-left:4px solid var(--muted2)}
+.rdx-hero-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:18px 36px}
+.rdx-hero-one>*{max-width:760px}   /* "Building your baseline": one column at reading width at any size */
+.rdx-hero-one>.rdx-hero-side{max-width:520px}
+.rdx-hero-eyebrow{font-size:12px;color:var(--muted2);line-height:1.4;margin:0 0 4px}
+.rdx-hero-head{display:flex;align-items:flex-start;gap:10px;font-family:var(--ui);font-size:22px;font-weight:800;letter-spacing:-.3px;line-height:1.25;color:var(--text);margin:0}
+.rdx-hero-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:calc(.625em - 5px)}   /* centred on the first line */
+.rdx-hero-read{font-size:15px;line-height:1.55;color:var(--text);margin-top:10px;max-width:640px}
+/* "What to do next": the doHtml strings are locked, so the layout is CSS-only (the options' <b> distance
+   and its label text become the two grid columns) */
+.rdx-hero-do{margin-top:16px;font-size:14px;line-height:1.6;color:var(--muted2)}
+.rdx-hero-do .do-hd{display:block;font-size:12px;font-weight:600;color:var(--muted2);margin-bottom:6px}
 .rdx-hero-do b{color:var(--text);font-weight:700}
-.rdx-hero-do .lever{color:var(--cyan);font-weight:700}
-.rdx-hero-do .do-hd{display:block;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--cyan);margin-bottom:6px}
-.rdx-do-line{color:var(--text);margin-bottom:10px}
+.rdx-hero-do .lever{color:var(--rdx-accent-ink);font-weight:700}
+.rdx-do-line{font-size:15px;line-height:1.55;color:var(--text);margin-bottom:12px}
 .rdx-do-vol{margin-bottom:4px}
-.rdx-do-opts{list-style:none;margin:9px 0 4px;padding:0;display:flex;flex-wrap:wrap;gap:8px}
-.rdx-do-opts li{background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:8px 12px;font-size:13px;color:var(--text)}
-.rdx-do-opts li b{font-family:var(--mono);color:var(--text)}
-.rdx-do-opts .lever-opt{border-color:rgba(0,229,200,.4);background:rgba(0,229,200,.06)}
-.rdx-do-opts .lever-opt b{color:var(--cyan)}
-.rdx-do-lever{margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.rdx-do-opts{list-style:none;margin:0 0 2px;padding:0;max-width:440px}
+.rdx-do-opts li{display:grid;grid-template-columns:64px minmax(0,1fr);align-items:baseline;padding:7px 0;border-bottom:1px solid var(--border);font-size:13.5px;line-height:1.45;color:var(--text)}
+.rdx-do-opts li:last-child{border-bottom:none}
+.rdx-do-opts li b{font-family:var(--mono);font-size:13px}
+.rdx-do-opts .lever-opt b{color:var(--rdx-accent-ink)}
+.rdx-do-lever{margin-top:8px;font-size:13px;line-height:1.55;color:var(--muted2)}
+.rdx-hero-cap{font-size:12px;color:var(--muted2);line-height:1.4;margin:0 0 8px}
+.rdx-stat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.rdx-stat,.rdx-trend{background:var(--panel2);border-radius:10px;padding:10px 12px;min-width:0}
+.rdx-stat .k,.rdx-trend .k{font-size:12px;font-weight:600;color:var(--muted2);line-height:1.3}
+.rdx-stat .v,.rdx-trend .v{font-family:var(--mono);font-size:20px;font-weight:700;line-height:1.2;color:var(--text);white-space:nowrap}
+.rdx-stat .v{margin-top:4px}
+.rdx-stat .v small{font-family:var(--ui);font-size:11.5px;font-weight:600;color:var(--muted2);margin-left:5px}
+.rdx-stat .x{display:flex;align-items:baseline;gap:6px;margin-top:3px;font-size:12px;line-height:1.35;color:var(--muted2)}
+.rdx-stat .x i{width:6px;height:6px;border-radius:50%;flex-shrink:0;transform:translateY(-1px)}
+.rdx-trend{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 12px;margin-top:8px}
+.rdx-trend .x{font-size:12px;color:var(--muted2);line-height:1.35}
+.rdx-hero-foot{grid-column:1/-1;padding-top:12px;border-top:1px solid var(--border);font-size:12.5px;line-height:1.55;color:var(--muted2)}
+.rdx-hero-help{margin:8px 0 0;max-width:760px}
+@container rdx-hero (min-width:860px){
+  .rdx-hero-grid:not(.rdx-hero-one){grid-template-columns:minmax(0,7fr) minmax(0,5fr)}
+}
 
-.rdx-pat-intro{font-size:13px;color:var(--muted2);line-height:1.6;margin-bottom:12px}
-.rdx-pat-intro b{color:var(--text);font-family:var(--mono)}
-.rdx-pat-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:8px}
-.rdx-pat-main{display:flex;flex-direction:column;gap:2px;min-width:220px;flex:1}
-.rdx-pat-name{font-weight:700;font-size:13.5px}
-.rdx-pat-desc{font-size:11px;color:var(--muted2)}
-.rdx-pat-stats{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
-.rdx-pat-stat{font-size:11.5px;color:var(--muted2);font-family:var(--mono)}
-.rdx-pat-stat b{color:var(--text)}
-.rdx-pat-lift{font-family:var(--mono);font-size:10.5px;font-weight:700;border:1px solid;border-radius:20px;padding:3px 10px;white-space:nowrap}
-.rdx-pat-sub{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono);margin:18px 0 10px}
-.rdx-pat-flag{font-size:12px;padding:4px 0;color:var(--muted2);line-height:1.45}
-.rdx-pat-flag b{display:block;color:var(--text);font-size:12px}
-.rdx-pat-flagval{font-size:11.5px;color:var(--muted2);line-height:1.5}
-.rdx-pat-dropintro{font-size:12px;color:var(--muted2);margin-bottom:10px;line-height:1.6}
-.rdx-drop-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
-.rdx-dis{margin-top:12px;font-size:11.5px;color:var(--muted2);font-family:var(--mono)}
-.rdx-dis .rdx-linkbtn{padding:6px 5px;min-height:30px;margin-top:-6px;margin-bottom:-6px}   /* touch-sized hit area, same line height */
-.rdx-dis-list{margin-top:8px;display:flex;flex-direction:column;gap:6px;max-width:560px}
-.rdx-dis-item{display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;padding:7px 12px;background:var(--panel);border:1px solid var(--border);border-radius:9px}
+/* 4. injury & illness history — event dots and the --warn gaps border are the only accents; no red text */
+.rdx-pat-lead{font-size:15px;line-height:1.55;color:var(--text);margin:0 0 14px;max-width:760px}
+.rdx-pat-lead b{font-weight:700}
+.rdx-pat-act{margin:0 0 16px}
+.rdx-sb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:12px;align-items:start}
+.rdx-sb-card{min-width:0;padding:16px 18px;background:var(--panel);border:1px solid var(--border);border-radius:12px}
+.rdx-sb-card:focus,.rdx-sb-also li:focus,.rdx-gaps-hd:focus{outline:none}
+.rdx-sb-hd{display:flex;align-items:center;gap:8px;margin:0;font-size:12.5px;font-weight:600;line-height:1.4;color:var(--muted2)}
+.rdx-sb-note{margin:6px 0 0;font-size:15px;font-weight:600;line-height:1.4;color:var(--text);overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.rdx-sb-lbl{margin:14px 0 6px;font-size:12px;color:var(--muted2)}
+.rdx-sb-flags{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.rdx-sb-flags b{display:block;font-size:14px;font-weight:600;line-height:1.35;color:var(--text)}
+.rdx-sb-flags .v{display:block;margin-top:1px;font-size:13.5px;line-height:1.45;color:var(--text)}
+.rdx-sb-flags .r,.rdx-sb-ill{display:block;margin:2px 0 0;font-size:12.5px;line-height:1.45;color:var(--muted2)}
+.rdx-sb-ill{margin-top:12px}
+.rdx-sb-more{grid-column:1/-1;font-size:13.5px}
+.rdx-sb-also{min-width:0;padding:6px 4px}
+.rdx-sb-also-hd{margin:0 0 8px;font-size:12px;font-weight:600;color:var(--muted2)}
+.rdx-sb-also ul{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.rdx-sb-also .t{display:flex;align-items:baseline;gap:8px;min-width:0;font-size:13.5px;line-height:1.45;color:var(--text);overflow-wrap:anywhere}
+.rdx-sb-also .t .rdx-ev-dot{transform:translateY(-1px)}
+.rdx-sb-also .s{padding-left:16px;font-size:12.5px;line-height:1.45;color:var(--muted2)}
+.rdx-sb-also .rdx-link{margin:10px 0 0 16px;font-size:13px}
+.rdx-pat-more{display:block;margin-top:20px}
+.rdx-pat-more .rdx-more-body>p{max-width:760px}
+.rdx-pt{width:100%;max-width:760px;border-collapse:collapse;margin-top:2px;font-size:13.5px;line-height:1.45;color:var(--text);font-variant-numeric:tabular-nums}
+.rdx-pt th{padding:0 16px 8px 0;text-align:left;font-size:12px;font-weight:600;color:var(--muted2);border-bottom:1px solid var(--border)}
+.rdx-pt td{padding:10px 16px 10px 0;vertical-align:top;border-bottom:1px solid var(--border)}
+.rdx-pt td+td{white-space:nowrap}
+.rdx-pt th:last-child,.rdx-pt td:last-child{padding-right:0}
+.rdx-pt .nm{font-weight:600}
+.rdx-pt .d,.rdx-pt .m{display:block;font-size:12.5px;font-weight:400;color:var(--muted2);white-space:normal}
+.rdx-pt .mob{display:none}
+.rdx-pt-cav{margin:10px 0 0!important;font-size:12.5px}
+/* training gaps: a fill + warn left border, not another bordered card */
+.rdx-gaps{margin-top:24px;padding:16px 20px;background:var(--panel2);border-left:3px solid var(--warn);border-radius:10px}
+.rdx-gaps-hd{margin:0;font-size:14.5px;font-weight:700;line-height:1.35;color:var(--text)}
+.rdx-gaps-intro{margin:4px 0 0;max-width:760px;font-size:13.5px;line-height:1.55;color:var(--muted2)}
+.rdx-gap-list{list-style:none;margin:12px 0 0;padding:0;max-width:880px}   /* keeps a row's actions near its dates on wide screens */
+.rdx-gap-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:10px 0;border-top:1px solid var(--border)}
+.rdx-gap-main{flex:1 1 240px;min-width:0}
+.rdx-gap-when{font-size:14px;font-weight:600;line-height:1.4;color:var(--text)}
+.rdx-gap-ico{margin-right:7px;font-size:10px;vertical-align:1px;color:var(--rdx-warn-ink)}
+.rdx-gap-stats{font-size:13px;line-height:1.45;color:var(--muted2)}
+.rdx-gap-acts{display:flex;gap:6px;flex-shrink:0}
+.rdx-gap-form{flex-basis:100%;min-width:0;padding:14px 16px;background:var(--panel);border-radius:10px;animation:rdx-fade .2s}
+.rdx-gf-fields{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.rdx-gf-note{flex:1 1 200px}
+.rdx-gf-note input{width:100%}
+.rdx-gf-hint{margin:8px 0 0;font-size:12.5px;line-height:1.5;color:var(--muted2)}
+.rdx-gf-hint:empty{display:none}
+.rdx-gf-acts{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:12px}
+.rdx-dis{margin-top:12px;font-size:12.5px;color:var(--muted2)}
+.rdx-dis .rdx-linkbtn{padding:6px 4px;margin:-6px 0}   /* touch-sized hit area, same line height */
+.rdx-dis-list{list-style:none;margin:6px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,auto);justify-content:start;align-items:center;column-gap:10px}
+.rdx-dis-list[hidden]{display:none}
+.rdx-dis-item{display:grid;grid-column:1/-1;grid-template-columns:subgrid;align-items:center;font-size:13px}   /* rows share the list's columns, so the Restore buttons line up */
 .rdx-dis-when{color:var(--text)}
-.rdx-dis-item .rdx-linkbtn{margin-left:auto}
-.rdx-dis-warn{margin-top:8px;color:var(--rdx-bad-ink)}
-.rdx-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
-.rdx-tile{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
-.rdx-tile-lbl{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono)}
-.rdx-tile-val{font-size:24px;font-weight:800;font-family:var(--mono);margin-top:8px;line-height:1}
-.rdx-tile-unit{font-size:11px;font-weight:600;color:var(--muted2);margin-left:4px}
-.rdx-tile-delta{margin-top:7px;min-height:14px}
-.rdx-tile-delta .rdx-delta{margin-left:0;font-size:11.5px}
+.rdx-pat-foot{margin-top:16px}
 
-.rdx-info{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;border:1px solid var(--muted2);color:var(--muted2);font-size:9px;font-weight:700;font-style:normal;cursor:help;margin-left:4px;position:relative;vertical-align:middle}
-.rdx-info:hover{color:var(--cyan);border-color:var(--cyan)}
-.rdx{--rdx-good-ink:var(--good);--rdx-warn-ink:var(--warn);--rdx-bad-ink:var(--bad)}
-/* good/warn/bad as small TEXT on light surfaces (the brand tokens fail contrast there, ~2–3:1) */
-html[data-theme="light"] .rdx{--rdx-good-ink:#0b7a50;--rdx-warn-ink:#93560a;--rdx-bad-ink:#c62828}
+/* 5. form & volume: 4 tiles a row (2 on phones), then the volume table */
+.rdx-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.rdx-tile{min-width:0;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.rdx-tile-lbl{font-size:12px;font-weight:600;line-height:1.3;color:var(--muted2)}
+.rdx-tile-val{font-size:24px;font-weight:700;font-family:var(--mono);margin-top:8px;line-height:1.1;color:var(--text);white-space:nowrap}
+.rdx-tile-unit{font-family:var(--ui);font-size:11.5px;font-weight:600;color:var(--muted2);margin-left:5px}
+.rdx-tile-delta{margin-top:6px;line-height:1.35}
+.rdx-tiles-note{grid-column:1/-1;margin:0}
+.rdx-volwrap{max-width:760px}
+.rdx-form-more{display:block;margin-top:16px}
+.rdx-form-more .rdx-tablewrap{max-width:920px}
+.rdx-vol td{font-family:var(--mono);color:var(--text)}
+
+/* 6. about */
+.rdx-foot{font-size:12.5px;color:var(--muted2);line-height:1.6;max-width:760px;margin:16px 0 0}
+.rdx-strava{display:block;margin-top:10px;line-height:0}
+.rdx-strava img{height:15px;width:auto}
+.rdx-strava-w{display:inline-block}
+.rdx-strava-o{display:none}
+html[data-theme="light"] .rdx-strava-w{display:none}
+html[data-theme="light"] .rdx-strava-o{display:inline-block}
+
+/* 7. toast — #rdxToast is the always-present live region; the box inside it is the visible toast.
+   Above the sticky site nav (300), below the Lever modal (1000). */
+.rdx-toast{position:fixed;left:0;right:0;bottom:calc(16px + env(safe-area-inset-bottom));z-index:900;display:flex;justify-content:center;padding:0 16px;pointer-events:none}
+.rdx-toast-box{pointer-events:auto;display:flex;align-items:center;gap:10px;max-width:min(480px,100%);padding:9px 10px 9px 16px;background:var(--text);color:var(--bg);font-size:13.5px;line-height:1.4;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.35);animation:rdx-fade .18s ease-out}
+.rdx-toast-box.err{border-left:4px solid var(--bad)}
+.rdx-toast-msg{flex:1;min-width:0}
+/* ghost buttons on the inverted box: no border, a --bg wash on hover */
+.rdx-toast-box button{flex-shrink:0;min-height:36px;padding:3px 10px;font:inherit;font-weight:700;color:inherit;background:transparent;border:none;border-radius:7px;cursor:pointer}
+.rdx-toast-box button:hover{background:color-mix(in srgb,var(--bg) 16%,transparent)}
+.rdx-toast-box .rdx-toast-x{min-width:36px;padding:3px 8px}
+.rdx-toast-box button:focus-visible{outline-color:var(--bg)}
+
+/* Lever modal */
 .rdx-modal{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(3,5,10,.6);animation:rdx-fade .15s}
 .rdx-modal[hidden]{display:none}
 .rdx-modal-panel{display:flex;flex-direction:column;width:100%;max-width:920px;max-height:100%;background:var(--panel);color:var(--text);border:1px solid var(--border2);border-radius:14px;box-shadow:0 22px 60px rgba(0,0,0,.45);outline:none;overflow:hidden}
@@ -246,13 +401,12 @@ html[data-theme="light"] .rdx{--rdx-good-ink:#0b7a50;--rdx-warn-ink:#93560a;--rd
 .rdx-modal-x{flex-shrink:0;width:32px;height:32px;background:transparent;border:1px solid var(--border2);border-radius:8px;color:var(--muted2);font-size:13px;cursor:pointer}
 .rdx-modal-x:hover{color:var(--text);border-color:var(--muted2)}
 .rdx-lv-bar{display:flex;flex-wrap:wrap;gap:12px 26px;align-items:flex-start;padding:12px 20px;border-bottom:1px solid var(--border)}
-.rdx-lv-bar input{width:62px;background:var(--panel2);border:1px solid var(--border2);border-radius:8px;padding:7px 9px;color:var(--text);font-family:var(--mono);font-size:13px;outline:none}
+.rdx-lv-bar input{width:62px;height:auto;background:var(--panel2);border:1px solid var(--border2);border-radius:8px;padding:7px 9px;color:var(--text);font-family:var(--mono);font-size:13px;outline:none}
 .rdx-lv-bar input:focus{border-color:var(--cyan)}
 .rdx-lv-cap{font-size:11.5px;color:var(--muted2);font-family:var(--mono);min-height:17px}
 .rdx-lv-cap.err{color:var(--rdx-bad-ink)}
 .rdx-lv-note{flex-basis:100%;font-size:11.5px;color:var(--muted2);line-height:1.5}
-.rdx button.rdx-chip{font-family:inherit}
-.rdx-lv-bar .rdx-chip.on{color:var(--accent-ink,var(--cyan))}
+.rdx-lv-bar .rdx-chip.on{color:var(--rdx-accent-ink)}
 .rdx-lv-list{flex:1;overflow-y:auto;overscroll-behavior:contain;min-height:140px}
 .rdx-lv-row{display:grid;grid-template-columns:16px 104px minmax(0,1fr) 54px 46px 46px 158px 50px;gap:10px;align-items:center;padding:8px 20px;border-bottom:1px solid var(--border);font-size:12.5px;cursor:pointer}
 .rdx-lv-row:hover{background:var(--hover)}
@@ -268,7 +422,7 @@ html[data-theme="light"] .rdx{--rdx-good-ink:#0b7a50;--rdx-warn-ink:#93560a;--rd
 .rdx-lv-num{font-family:var(--mono);font-size:12px;color:var(--muted2);text-align:right;white-space:nowrap}
 .rdx-lv-meta{display:none}
 .rdx-lv-badge{justify-self:start;font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;border:1px solid var(--border2);color:var(--muted2);white-space:nowrap}
-.rdx-lv-badge.lever{color:var(--accent-ink,var(--cyan));border-color:rgba(0,229,200,.4);background:rgba(0,229,200,.07)}
+.rdx-lv-badge.lever{color:var(--rdx-accent-ink);border-color:rgba(0,229,200,.4);background:rgba(0,229,200,.07)}
 .rdx-lv-badge.not{color:var(--rdx-warn-ink);border-color:rgba(245,166,35,.45)}
 .rdx-lv-iad{font-family:var(--mono);font-size:12.5px;font-weight:700;text-align:right;white-space:nowrap}
 .rdx-lv-iad small{display:none;font-size:10px;font-weight:400;color:var(--muted2)}
@@ -277,7 +431,6 @@ html[data-theme="light"] .rdx{--rdx-good-ink:#0b7a50;--rdx-warn-ink:#93560a;--rd
 .rdx-lv-sum{font-size:12px;color:var(--muted2);font-family:var(--mono)}
 .rdx-lv-sum b{color:var(--text)}
 .rdx-lv-acts{display:flex;flex-wrap:wrap;gap:8px}
-.rdx-lv-acts .rdx-btn-sm{align-self:auto}
 .rdx-lv-toast{flex-basis:100%;font-size:12px;font-family:var(--mono);color:var(--rdx-good-ink)}
 .rdx-lv-toast.err{color:var(--rdx-bad-ink)}
 .rdx-lv-toast:empty{display:none}
@@ -308,14 +461,98 @@ html[data-theme="light"] .rdx{--rdx-good-ink:#0b7a50;--rdx-warn-ink:#93560a;--rd
   .rdx-lv-acts{width:100%}
   .rdx-lv-acts .rdx-btn{flex:1;padding-left:8px;padding-right:8px}
 }
-.rdx-foot{margin-top:40px;font-size:11px;color:var(--muted);font-family:var(--mono);line-height:1.7;border-top:1px solid var(--border);padding-top:18px}
-@media(max-width:560px){
-  .rdx-table{font-size:12px}
-  .rdx-table th,.rdx-table td{padding:7px 10px}
-  .rdx-table th:first-child,.rdx-table td:first-child{white-space:normal;max-width:42vw}
-  .rdx-mname{display:block}
-  .rdx-mdesc{display:none}
+@media(max-width:599px){
+  .rdx-section{margin-top:28px}
+  .rdx-card,.rdx-group{padding:14px 16px}
+  /* header: status on its own line, the two actions share a row */
+  .rdx-head{flex-direction:column;align-items:stretch;gap:8px}
+  .rdx-status{flex:none;font-size:12px}
+  .rdx-head-acts .rdx-btn{flex:1;min-height:40px}
+  /* settings: 2-column event form (Type | Date, End | Note), full-width + add */
+  .rdx-ev-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .rdx-ev-form>.rdx-btn{grid-column:1/-1}
+  .rdx #evEndCtl[hidden]+.rdx-ctl-note{grid-column:1/-1}   /* Race has no End: Note takes the row */
+  .rdx-ev-form .rdx-ctl :is(select,input){width:100%}
+  :where(.rdx) :is(select,input[type=text],input[type=date],input[type=number]){height:40px;font-size:16px}   /* iOS zooms into inputs under 16px */
+  .rdx-group-body>.rdx-ctl{flex:1 1 140px}
+  .rdx-group-body>.rdx-ctl-row{flex-basis:100%}   /* a long device name / a wrapping label + hint: its own row */
+  .rdx-group-body>.rdx-ctl :is(select,input[type=text]){max-width:100%}
+  .rdx-custom{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+  .rdx-custom input{width:100%}
+  /* hero: one column (the container query never fires this narrow) */
+  .rdx-hero{padding:14px 16px}
+  .rdx-hero-head{font-size:20px}
+  .rdx-hero-do{margin-top:12px}
+  .rdx-do-opts{max-width:none}
+  /* chart: the range segments span the width, then "Show [select]" gets its own full-width row — the select's
+     longest option (~290px) can't share a 358px row, and a sideways-scrolling row hid most of it */
+  .rdx-chart-ctl{width:100%}
+  .rdx-chart-ctl .rdx-seg{display:flex;width:100%}
+  .rdx-seg button{flex:1;padding:0 6px}
+  .rdx-chart-ctl .rdx-inl{flex:1 1 100%;min-width:0}   /* lets the select shrink on a 320px phone */
+  .rdx-chart-ctl select{flex:1}
+  .rdx-chartwrap{padding:10px 8px 6px}
+  /* injury: stats table → stacked rows ("1 of 1 injury · 22% of normal weeks"); gap rows → dates,
+     stats, then a full-width action row; the gap form goes to one column */
+  .rdx-pt,.rdx-pt tbody,.rdx-pt tr{display:block}
+  .rdx-pt thead{display:none}
+  .rdx-pt tr{padding:10px 0;border-bottom:1px solid var(--border)}
+  .rdx-pt td{display:inline;padding:0;border:none;white-space:normal}
+  .rdx-pt td:first-child{display:block;margin-bottom:3px}
+  .rdx-pt td+td+td::before,.rdx-pt td .m::before{content:" · "}
+  .rdx-pt .mob,.rdx-pt td+td .m{display:inline}
+  .rdx-gaps{padding:14px}
+  .rdx-dis-list{display:block}
+  .rdx-dis-item{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"w b" "a b";column-gap:10px;padding:3px 0}
+  .rdx-dis-when{grid-area:w}
+  .rdx-dis-at{grid-area:a;font-size:12.5px}
+  .rdx-dis-at>span{display:none}
+  .rdx-dis-item .rdx-btn{grid-area:b}
+  .rdx-gap-acts{width:100%}
+  .rdx-gap-acts .rdx-btn{flex:1;min-height:40px}
+  .rdx-gap-form{padding:12px}
+  .rdx-gf-fields{display:grid;grid-template-columns:minmax(0,1fr)}
+  .rdx-gf-fields :is(select,input){width:100%}
+  .rdx-gf-acts{flex-direction:column-reverse}
+  .rdx-gf-acts .rdx-btn{width:100%;min-height:40px}
+  /* form & volume: 2 tiles a row; each compare range is a From – To pair across the width */
+  .rdx-tiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .rdx-tile{padding:12px 14px}
+  .rdx-tile-val{font-size:22px}
+  .rdx-cmp-ranges,.rdx-cmp-ranges>.rdx-ctl{width:100%}
+  .rdx-cmp-dates{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}
+  .rdx-cmp-dates input{width:100%}
 }
+@media(max-width:560px){
+  /* phones: both tables fit the width — "Last" and the header date spans drop (the dates sit in the
+     inputs above), metric names may wrap and the descriptions hide */
+  .rdx-table{font-size:12px}
+  .rdx-table th,.rdx-table td{padding:7px 8px}
+  .rdx-table tr>:first-child{white-space:normal;max-width:36vw}
+  /* volume: ~270px at its narrowest, so it fits a 320px phone and the standalone page's 26px wrap —
+     "(611 days)" drops under "All", "/mi" under "Avg pace", and the headers may wrap */
+  .rdx-vol th,.rdx-vol td{padding:7px 4px}
+  .rdx-vol thead th{white-space:normal}
+  .rdx-vol .rdx-munit,.rdx-vol-n{display:block;margin-left:0}
+  .rdx-vol tr>:first-child{white-space:nowrap;max-width:none;padding-left:10px}
+  .rdx-vol tr>:last-child{padding-right:10px}
+  .rdx-wide,.rdx-mdesc{display:none}
+}
+/* touch: every control at least 40px tall (spec §5). Last, so it beats the base sizes above; a summary
+   grows by padding, keeping its baseline-aligned chevron on line 1 when it wraps */
+@media(pointer:coarse){
+  .rdx-btn,.rdx-seg button,.rdx-gapchip,.rdx-toast-box button{min-height:40px}
+  .rdx-types>.rdx-chip,.rdx-cmpbar>.rdx-chip{display:inline-flex;align-items:center;min-height:40px}
+  .rdx-ev-del,.rdx-toast-box .rdx-toast-x{width:40px;min-width:40px;height:40px}
+  .rdx-more>summary{padding:10px 0;min-height:40px}
+  .rdx-dis .rdx-linkbtn{padding:11px 6px;margin:-11px -2px}
+  .rdx-link,.rdx-linkbtn{padding:11px 4px;margin:-11px -4px}   /* text buttons: 40px hit area, same line box */
+  .rdx-sb-also .rdx-link{margin:-1px 0 -11px 12px}              /* keeps its 10px gap and 16px indent */
+  /* fields too, on any touch screen (a landscape phone is wider than the 599px phone block): iOS zooms under 16px */
+  :where(.rdx) :is(select,input[type=text],input[type=date],input[type=number]){height:40px;font-size:16px}
+  .rdx-lv-bar input{font-size:16px;min-height:40px}
+}
+@media(prefers-reduced-motion:reduce){.rdx *,.rdx{animation:none!important;transition:none!important}}
 `;
 function injectCSS(){
   if (document.getElementById('rdx-styles')) return;
@@ -327,55 +564,56 @@ function injectCSS(){
    METRIC DEFINITIONS — computed PER RUN, then averaged across a window.
    ============================================================ */
 var METRICS = [
-  { key:'load',   label:'Load Factor',         unit:'',    dec:1, better:'lower', needs:'gct',
-    desc:'cadence × GCT ÷ 1000 — cumulative ground-contact loading proxy',
+  // hide: kept for stable indices (select values are METRICS indices) but left out of the chart and table
+  { key:'load',   label:'Load Factor',         unit:'',    dec:1, better:'lower', needs:'gct', hide:true,
+    desc:'A ground-contact loading proxy from cadence and contact time',
     calc:function(r){ return (r.cadence!=null&&r.gct!=null)? r.cadence*r.gct/1000 : null; } },
   { key:'duty',   label:'Duty Factor',         unit:'%',   dec:1, better:'lower', needs:'gct',
-    desc:'share of the stride spent on the ground = GCT × cadence ÷ 1200',
+    desc:'Share of each stride spent on the ground',
     calc:function(r){ return (r.cadence!=null&&r.gct!=null)? r.gct*r.cadence/1200 : null; } },
   { key:'vgrf',   label:'Peak vGRF',           unit:'BW',  dec:2, better:'lower', needs:'gct',
-    desc:'estimated peak vertical impact force in body-weights (Morin method, from contact + flight time)',
+    desc:'Estimated peak vertical impact force, in body weights',
     calc:function(r){ return RunLoad.vgrfBW(r); } },
   { key:'force',  label:'Peak Force',          unit:'N',   dec:0, better:'lower', needs:'gct', needsWeight:true,
-    desc:'estimated peak vertical impact force in Newtons — needs body weight',
+    desc:'Estimated peak vertical impact force, in newtons (needs body weight)',
     calc:function(r){ return RunLoad.vgrfN(r, weightKg()); } },
   { key:'gct',    label:'Ground Contact Time', unit:'ms',  dec:0, better:'lower', needs:'gct',
-    desc:'time the foot is on the ground each step',
+    desc:'Time the foot spends on the ground each step',
     calc:function(r){ return r.gct; } },
   { key:'vo',     label:'Vertical Oscillation',unit:'cm',  dec:1, better:'lower', needs:'vo',
-    desc:'how much the torso bounces vertically each step',
+    desc:'How much the body bounces up and down each step',
     calc:function(r){ return r.vo; } },
   { key:'vratio', label:'Vertical Ratio',      unit:'%',   dec:1, better:'lower', needs:'vratio',
-    desc:'bounce ÷ stride length — overall efficiency (lower is better)',
+    desc:'Bounce relative to stride length — lower is more efficient',
     calc:function(r){ return r.vratio; } },
   { key:'cad',    label:'Cadence',             unit:'spm', dec:0, better:'higher', needs:null,
-    desc:'steps per minute',
+    desc:'Steps per minute',
     calc:function(r){ return r.cadence; } },
   { key:'stride', label:'Stride Length',       unit:'m',   dec:2, better:null, needs:'stride',
-    desc:'distance covered per step',
+    desc:'Distance covered per step',
     calc:function(r){ return r.stride; } },
   { key:'asym',   label:'GCT Balance Asym.',   unit:'%',   dec:1, better:'lower', needs:'gctBalance',
-    desc:'L/R contact-time imbalance = |left% − 50|',
+    desc:'Left/right imbalance in ground contact time',
     calc:function(r){ return r.gctBalL!=null? Math.abs(r.gctBalL-50) : null; } },
   { key:'eff',    label:'Form Efficiency',     unit:'m/cm',dec:2, better:'higher', needs:'vo',
-    desc:'stride length ÷ vertical oscillation — distance per unit of bounce',
+    desc:'Distance covered per unit of bounce — higher is more efficient',
     calc:function(r){ return (r.stride!=null&&r.vo)? r.stride/r.vo : null; } },
   { key:'pace',   label:'Avg Pace',            unit:'/mi', dec:0, better:null, pace:true, needs:null,
-    desc:'average pace',
+    desc:'Average pace',
     calc:function(r){ return r.paceSec; } },
   { key:'hr',     label:'Avg HR',              unit:'bpm', dec:0, better:'lower', needs:null,
-    desc:'average heart rate',
+    desc:'Average heart rate',
     calc:function(r){ return r.avgHr; } },
   { key:'impact', label:'Impact Load',         unit:'IAD mi',  dec:1, better:null, needs:null, zeroFill:true,
-    desc:'modeled mechanical load in Impact Adjusted Distance (distance × pace × duty-factor impact + grade)',
+    desc:'Modeled mechanical load of each run, in IAD mi',
     calc:function(r){ return window.RunLoad ? RunLoad.impactLoad(r, LOAD_PARAMS) : null; } },
 ];
 var RUN_WINDOWS = [
-  {days:7,   label:'7 days'},
+  {days:7,   label:'7 days'},   // shown as "Last 7 days" ("Last" drops on phones)
   {days:30,  label:'30 days'},
   {days:90,  label:'90 days'},
   {days:365, label:'365 days'},
-  {days:null,label:'All time'},
+  {days:null,label:'All'},
 ];
 var MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -391,7 +629,14 @@ var DAY=864e5;
 var MOUNT=0;
 var PROFILE_ERR=null;   // loadProfile failed: the view runs on defaults, so profile writes are blocked
 var LIST_Q={};          // uid/key → {tail, n}: that field's serialized transaction chain + writes issued
-var DIS_OPEN=false, PAT_WARN='', DIS_T=0;   // "N dismissed · show" expanded; last failed dismiss/restore save; last dismiss click
+var DIS_OPEN=false, DIS_T=0, DIS_SEQ=0;   // "N dismissed · show" expanded; last dismiss/restore click; dismiss/restore writes issued (only the newest may revert)
+var GAP_FORM=null;      // the open "Log it…" gap form: {t0, type, start, end, note} — re-opened with what was typed after a re-render
+var SB_MORE=false, ALSO_ALL=false, PAT_STATS=false;   // injury section: older setback cards shown, all "Also logged" shown, stats disclosure open
+var TOAST_T=0, TOAST_ARM=null, TOAST_BACK=null;   // page toast: hide timer, its (re)start fn while shown, where focus returns
+var SAVE_SEQ={};        // profile key → persist() calls issued: only the newest call to a key may revert it
+var HERO_HELP=false;    // hero "How to read these numbers" open — survives refresh() re-renders
+var RO=null, RO_T=0, WIN_RS=null, CHART_W=0;   // chart resize watcher (ResizeObserver, or window resize fallback), its debounce, the width last drawn at
+var CAP_PIN='';         // event caption under the chart: the default hint, or the band/marker last tapped
 // "Mark Lever runs" modal: filter chip, selected run ids, rows on screen (data-i indexes them),
 // the element that opened it (focus returns there), confirmation timer
 var LV={filter:'all', sel:new Set(), rows:[], trigger:null, toastT:null};
@@ -774,15 +1019,19 @@ function fmtVal(v,m){
 }
 function fmtPace(s){ if(s==null) return '–'; var mm=Math.floor(s/60), ss=Math.round(s%60); return mm+':'+String(ss).padStart(2,'0'); }
 function fmtDur(s){ var h=Math.floor(s/3600), mm=Math.round((s%3600)/60); return h>0?h+'h '+mm+'m':mm+'m'; }
+// "≈ same" deadband: a change smaller than ordinary run-to-run noise isn't a change. Per metric where
+// noise beats display precision; otherwise half the last shown digit (anything that would print as 0).
+// The derived metrics carry their inputs' noise (duty = gct×cad, vGRF/force from gct+cad, eff = stride/vo).
+var FORM_TOL={cad:1.5, gct:4, vo:0.3, vratio:0.3, asym:0.5, stride:0.02, pace:5, hr:2, duty:0.5, vgrf:0.03, force:20, eff:0.01};
 function deltaHTML(cur,prev,m){
   if(cur==null||prev==null) return '';
-  var diff=cur-prev;
-  if(Math.abs(diff)<1e-9) return '<span class="rdx-delta flat">→ 0</span>';
+  var diff=cur-prev, tol=FORM_TOL[m.key]!=null?FORM_TOL[m.key]:0.5*Math.pow(10,-m.dec);
+  if(Math.abs(diff)<tol) return '<span class="rdx-delta flat same">≈ same</span>';
   var dir=diff>0?'▲':'▼', cls='flat';
   if(m.better==='lower') cls=diff<0?'up':'down';
   else if(m.better==='higher') cls=diff>0?'up':'down';
   var txt=m.pace?((diff>0?'+':'−')+fmtPace(Math.abs(diff))):((diff>0?'+':'−')+Math.abs(diff).toFixed(m.dec));
-  return '<span class="rdx-delta '+cls+'">'+dir+' '+txt+'</span>';
+  return '<span class="rdx-delta '+cls+'"><span aria-hidden="true">'+dir+'</span> '+txt+'</span>';
 }
 // Local calendar date — toISOString() would shift evening runs (and their day keys) to the
 // next UTC day for athletes west of UTC.
@@ -790,15 +1039,26 @@ function ymd(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'
 // Inclusive end bound for a date-input "To" value: the whole local day, not its midnight.
 function dayEnd(d){ var e=new Date(d); e.setHours(23,59,59,999); return e; }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+// Role-aware copy: the coach sees the same view about "this athlete".
+function who(k){ var c=ROLE==='coach'; return { your:c?'this athlete’s':'your', Your:c?'This athlete’s':'Your', you:c?'this athlete':'you', 'you have':c?'this athlete has':'you have', their:c?'their':'your' }[k||'your']; }
+// User-facing dates (ISO stays in date inputs only): "Aug 10, 2025"; a span drops what its ends
+// share — "Aug 10 – 28, 2025", "Mar 3 – Apr 20, 2026", "Dec 25, 2025 – Jan 3, 2026".
+function fmtDay(ts){ var d=new Date(ts); return MONTHS[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear(); }
+function fmtSpan(t0,t1){
+  if(t1==null) return fmtDay(t0);
+  var a=new Date(t0), b=new Date(t1);
+  if(ymd(a)===ymd(b)) return fmtDay(t0);
+  if(a.getFullYear()!==b.getFullYear()) return fmtDay(t0)+' – '+fmtDay(t1);
+  return MONTHS[a.getMonth()]+' '+a.getDate()+' – '+(a.getMonth()===b.getMonth()?'':MONTHS[b.getMonth()]+' ')+b.getDate()+', '+b.getFullYear();
+}
+// "Oct 9", with the year only when it isn't this one.
+function fmtMD(ts){ var d=new Date(ts); return MONTHS[d.getMonth()]+' '+d.getDate()+(d.getFullYear()===new Date().getFullYear()?'':', '+d.getFullYear()); }
+function fmtClock(ts){ var d=new Date(ts), h=d.getHours(); return (h%12||12)+':'+('0'+d.getMinutes()).slice(-2)+(h<12?' AM':' PM'); }
+function daysAgo(ts){ var a=new Date(ts), b=new Date(); a.setHours(0,0,0,0); b.setHours(0,0,0,0); return Math.round((b-a)/DAY); }   // calendar days; round absorbs DST
+// Freshness wording: "today 6:15 AM" / "yesterday" / "5 days ago (Oct 9)".
+function fmtRel(ts){ var n=daysAgo(ts); return n<=0?'today '+fmtClock(ts):n===1?'yesterday':n+' days ago ('+fmtMD(ts)+')'; }
 
 /* ---------- rendering helpers ---------- */
-function summaryCard(label,s){
-  return '<div class="rdx-card"><div class="rdx-win">'+label+'</div>'+
-    '<div class="rdx-row">Runs <b>'+s.n+'</b></div>'+
-    '<div class="rdx-row">Distance <b>'+s.dist.toFixed(1)+' mi</b></div>'+
-    '<div class="rdx-row">Time <b>'+(s.dur?fmtDur(s.dur):'–')+'</b></div>'+
-    '<div class="rdx-row">Avg pace <b>'+fmtPace(s.pace)+'</b></div></div>';
-}
 function filterIntensity(runs,mode,cutoffSec){
   if(mode==='workout') return runs.filter(function(r){return r.paceSec!=null && r.paceSec<cutoffSec;});
   if(mode==='easy') return runs.filter(function(r){return r.paceSec!=null && r.paceSec>=cutoffSec;});
@@ -896,30 +1156,87 @@ function canonJSON(v){
   if(v && typeof v==='object') return '{'+Object.keys(v).filter(function(k){ return v[k]!==undefined; }).sort().map(function(k){ return JSON.stringify(k)+':'+canonJSON(v[k]); }).join(',')+'}';
   return JSON.stringify(v);
 }
-// Applies the patch locally at once, then persists it. Resolves true once the read-back matches,
-// else a short reason string (callers outside the settings panel surface it themselves).
-function savedNote(txt,ok){
-  var el=$('savedNote'); if(!el) return;
-  el.style.color=ok?'var(--good)':'var(--bad)'; el.textContent=txt; el.style.opacity='1';
-  if(ok) setTimeout(function(){ el.style.opacity='0'; },1500);
+/* ---------- page toast (#rdxToast) ----------
+   One message at a time; a new one replaces the last. #rdxToast is the always-present live region
+   (role=status) — the visible box is rebuilt inside it, so the box's text is what gets announced.
+   ok: 4s (7s with Undo); err: until ✕ or 10s. Text goes in via textContent, never markup.
+   The clock stops while the box is hovered or holds focus (WCAG 2.2.1 — Undo can't vanish under the
+   pointer or the keyboard) and while #rdxToast is hidden behind the Lever modal (lvOpenModal/lvClose);
+   a box removed while focused hands focus back to where the user came from. */
+function toast(msg, o){
+  o=o||{}; var el=$('rdxToast'); if(!el) return;
+  clearTimeout(TOAST_T);
+  var err=o.kind==='err', ms=err?10000:o.undo?7000:4000, box=document.createElement('div'), m=document.createElement('span');
+  box.className='rdx-toast-box'+(err?' err':''); m.className='rdx-toast-msg'; m.textContent=msg; box.appendChild(m);
+  // both no-op once a newer toast replaced this box: the shared timer is the newer box's now
+  var hide=function(){ if(box.parentNode!==el) return; clearTimeout(TOAST_T); TOAST_ARM=null; var f=box.contains(document.activeElement); el.innerHTML=''; if(f) toastFocusBack(); };
+  var arm=function(){ if(box.parentNode!==el) return; clearTimeout(TOAST_T); if(!el.hidden) TOAST_T=setTimeout(hide, ms); };
+  var btn=function(cls,txt,label,fn){ var b=document.createElement('button'); b.type='button'; b.className=cls; b.textContent=txt; if(label) b.setAttribute('aria-label',label); b.addEventListener('click',fn); box.appendChild(b); };
+  if(o.undo) btn('rdx-toast-undo','Undo','',function(e){ hide(); o.undo(e); });
+  if(err) btn('rdx-toast-x','✕','Dismiss message',hide);
+  box.addEventListener('mouseenter',function(){ clearTimeout(TOAST_T); });
+  box.addEventListener('mouseleave',function(){ if(!box.contains(document.activeElement)) arm(); });
+  box.addEventListener('focusin',function(e){ clearTimeout(TOAST_T); if(e.relatedTarget && !box.contains(e.relatedTarget)) TOAST_BACK=e.relatedTarget; });
+  box.addEventListener('focusout',function(e){ if(!box.contains(e.relatedTarget) && !box.matches(':hover')) arm(); });
+  var had=el.firstChild && el.firstChild.contains(document.activeElement);   // replacing a focused toast
+  el.innerHTML=''; el.appendChild(box);
+  if(had) toastFocusBack(); else TOAST_BACK=null;
+  TOAST_ARM=arm; arm();
+}
+// Where focus goes when a focused toast is removed: the element it was entered from, if that's still on
+// the page, else the injury section's heading (the toasts with buttons come from there).
+function toastFocusBack(){
+  var t=TOAST_BACK; TOAST_BACK=null;
+  if(!(t && ROOT && ROOT.contains(t) && t.offsetParent!==null)) t=$('rdxGapsHd')||$('patHead');
+  if(t && t.offsetParent!==null) t.focus({preventScroll:true});
 }
 // A failed profile read leaves STD_PROFILE on defaults — writing from it would overwrite the
-// stored values (runEvents wholesale) with what the view never saw.
-function profileBlocked(){ if(!PROFILE_ERR) return null; savedNote('⚠ profile didn’t load — reload before changing it',false); return 'profile not loaded'; }
-function saveProfile(patch){
+// stored values (runEvents wholesale) with what the view never saw. Returns the block reason.
+function profileBlocked(){ return PROFILE_ERR ? 'profile didn’t load — reload the page' : null; }
+// Applies the patch locally at once, then persists it. Resolves true once the read-back matches,
+// else a short reason string. Reports through the toast: okMsg (default "Saved") on success —
+// okMsg===false keeps it quiet — and the error on failure. Callers use persist(), which also
+// rolls the view back when a write fails.
+function saveProfile(patch, okMsg){
   Object.assign(STD_PROFILE, patch);
-  var my=MOUNT, uid=UID, show=function(txt,ok){ if(my===MOUNT) savedNote(txt,ok); };
-  if(!uid){ show('⚠ no athlete',false); return Promise.resolve('no athlete'); }
-  var blocked=profileBlocked(); if(blocked) return Promise.resolve(blocked);
+  var my=MOUNT, uid=UID, show=function(r){ if(my!==MOUNT) return r;
+    if(r!==true) toast('Couldn’t save ('+r+'). Nothing was changed.',{kind:'err'});
+    else if(okMsg!==false) toast(okMsg||'Saved');
+    return r; };
+  if(!uid) return Promise.resolve(show('no athlete'));
+  var blocked=profileBlocked(); if(blocked) return Promise.resolve(show(blocked));
   var ref=DB.collection('users').doc(uid), key=Object.keys(patch)[0];
   return ref.set(patch,{merge:true})
     .then(function(){ return ref.get(); })
     // a newer save of the same key (quick successive clicks) may land before this read-back
     .then(function(d){ var data=d.data()||{}, got=canonJSON(data[key]); var ok=got===canonJSON(patch[key])||got===canonJSON(STD_PROFILE[key]);
-      show(ok?'✓ saved':'⚠ wrote but not stored',ok);
       if(!ok) console.warn('RunDynamics: profile did not persist',{uid:uid,key:key,got:data[key],sent:patch[key]});
-      return ok||'wrote but not stored'; })
-    .catch(function(e){ console.error('profile save',e); show('⚠ '+(e&&e.code||'save failed'),false); return (e&&e.code)||'save failed'; });
+      return show(ok||'wrote but not stored'); })
+    .catch(function(e){ console.error('profile save',e); return show((e&&e.code)||'save failed'); });
+}
+// saveProfile + rollback: a failed write puts back its own key — unless a newer persist() of the key
+// was issued or the local value moved on (that change owns the field and reports for itself).
+function persist(patch, okMsg){
+  var key=Object.keys(patch)[0], n=SAVE_SEQ[key]=(SAVE_SEQ[key]||0)+1, sent=canonJSON(patch[key]), prev=STD_PROFILE[key], my=MOUNT;
+  return saveProfile(patch, okMsg).then(function(r){
+    if(r!==true) revertKey(key, prev, function(){ return my===MOUNT && SAVE_SEQ[key]===n && canonJSON(STD_PROFILE[key])===sent; });
+    return r;
+  });
+}
+// Roll ONE profile key back to its stored value, or to prev (its value before the failed write) when the
+// doc can't be read either. Never a whole-profile reload: that would drop other keys' in-flight saves
+// from the view, and offline — where the read fails too — wipe the view and block every later write.
+// mine() is re-checked once the read is back.
+function revertKey(key, prev, mine){
+  var my=MOUNT, uid=UID;
+  if(!uid || !mine()) return Promise.resolve();
+  return DB.collection('users').doc(uid).get().then(function(d){ return (d.exists?d.data()||{}:{})[key]; }, function(){ return prev; }).then(function(v){
+    if(my!==MOUNT || !mine()) return;
+    var list=/^run(Events|DismissedDrops|LeverMarks)$/.test(key);
+    STD_PROFILE[key]=(list&&!Array.isArray(v))?[]:v;   // list fields stay arrays, as loadProfile keeps them
+    if(list) renderEventsList(); else { fillProfileInputs(); populateMetricSelects(); }
+    refresh();
+  });
 }
 // Read-modify-write of one array field on the user doc (runDismissedDrops, runLeverMarks): fn(list)
 // → new list runs on the STORED copy inside a transaction, so a stale tab or another device can't
@@ -927,12 +1244,13 @@ function saveProfile(patch){
 // updates at once); once stored, the stored result becomes the local copy and rerender() runs if
 // it differs (another session's entries merged in). One tab's writes to a field run in order, each
 // on the result of the last. Resolves true, or a short failure reason (the local change stays).
-function updateProfileList(key, fn, rerender){
+// Toasts okMsg (default "Saved") or the error; okMsg===false = the caller reports both itself.
+function updateProfileList(key, fn, rerender, okMsg){
   var cur=function(x){ return Array.isArray(x)?x.slice():[]; };
   STD_PROFILE[key]=fn(cur(STD_PROFILE[key]));
-  var my=MOUNT, uid=UID;
-  if(!uid) return Promise.resolve('no athlete');
-  var blocked=profileBlocked(); if(blocked) return Promise.resolve(blocked);
+  var my=MOUNT, uid=UID, fail=function(r){ if(my===MOUNT && okMsg!==false) toast('Couldn’t save ('+r+').',{kind:'err'}); return r; };
+  if(!uid) return Promise.resolve(fail('no athlete'));
+  var blocked=profileBlocked(); if(blocked) return Promise.resolve(fail(blocked));
   var ref=DB.collection('users').doc(uid), q=LIST_Q[uid+'/'+key]||(LIST_Q[uid+'/'+key]={tail:Promise.resolve(),n:0}), n=++q.n, out;
   var run=function(){ return DB.runTransaction(function(tx){
     return tx.get(ref).then(function(d){ var patch={}; out=patch[key]=fn(cur(d.exists?(d.data()||{})[key]:null)); tx.set(ref,patch,{merge:true}); });
@@ -941,12 +1259,12 @@ function updateProfileList(key, fn, rerender){
   q.tail=p.catch(function(){});
   return p.then(function(){
     if(my!==MOUNT) return true;
-    savedNote('✓ saved',true);
+    if(okMsg!==false) toast(okMsg||'Saved');
     if(n!==q.n) return true;   // a newer write to this field is queued: it adopts the stored copy
     var changed=canonJSON(out)!==canonJSON(STD_PROFILE[key]);
     STD_PROFILE[key]=out; if(changed && rerender) rerender();
     return true;
-  }).catch(function(e){ console.error('profile save',e); if(my===MOUNT) savedNote('⚠ '+(e&&e.code||'save failed'),false); return (e&&e.code)||'save failed'; });
+  }).catch(function(e){ console.error('profile save',e); return fail((e&&e.code)||'save failed'); });
 }
 function loadProfile(){ if(!UID) return Promise.resolve(); var my=MOUNT; return DB.collection('users').doc(UID).get().then(function(d){ if(my!==MOUNT) return; var x=d.exists?d.data():{}; PROFILE_ERR=null; STD_PROFILE={ weightLb:x.weightLb, runDevice:x.runDevice, runHasAccessory:x.runHasAccessory, runLeverPctBW:x.runLeverPctBW, runEasyPaceSec:x.runEasyPaceSec, runEvents:Array.isArray(x.runEvents)?x.runEvents:[], runDismissedDrops:Array.isArray(x.runDismissedDrops)?x.runDismissedDrops:[], runLeverMarks:Array.isArray(x.runLeverMarks)?x.runLeverMarks:[] }; STRAVA_SYNC={ connected:!!x.stravaConnected, last:x.stravaLastSyncedAt||null }; }).catch(function(e){ if(my!==MOUNT) return; console.error('profile load',e); PROFILE_ERR=(e&&e.code)||'load failed'; STD_PROFILE={}; STRAVA_SYNC={}; }); }
 
@@ -970,43 +1288,95 @@ function events(){
     return o;
   });
 }
-function evWarn(msg){ var el=$('savedNote'); if(el){el.style.color='var(--bad)';el.textContent=msg;el.style.opacity='1';} }
+// One-line hint per type, under the settings form and the gap form's type select.
+var EV_HINT={
+  race:'A race or time trial. Marked on the chart; explains a taper or recovery dip.',
+  injury:'An overuse injury that built up from running. Its lead-up is analyzed in this report.',
+  illness:'A significant illness that stopped training. Checked against overtraining-type patterns only.',
+  nonrun:'An acute injury that didn’t come from running (a basketball ankle, a bike crash). Explains the gap; stays out of the analysis.',
+  timeoff:'A planned break (off-season, vacation). Explains the gap; stays out of the analysis.'
+};
+// Note placeholder per type, short enough for the half-width phone field (Race has no End, so its Note takes the row)
+var EV_PH={race:'e.g. Boston Marathon', injury:'e.g. Achilles', illness:'e.g. flu', nonrun:'e.g. bike crash', timeoff:'e.g. vacation'};
+// The condensed what-to-log guidance — shared by the settings "Log an event" group and the injury
+// section's no-injuries invite, so the two can't drift apart.
+function whatToLogHTML(){
+  return '<div class="rdx-wtl"><div class="rdx-lbl">What to log</div><ul>'+
+    [['injury','overuse injuries that built up from training'],['nonrun','acute injuries that didn’t come from running'],
+     ['illness','significant illnesses that stopped training'],['timeoff','planned breaks: off-season, vacation']].map(function(x){
+      var m=EV_META[x[0]]; return '<li><span class="rdx-ev-dot" style="background:'+m[1]+'"></span><span><b>'+m[0]+'</b> — '+x[1]+'</span></li>'; }).join('')+
+    '</ul><p>Everything but races can take an end date to shade the whole span.</p></div>';
+}
+function evLabel(e){ return (EV_META[e.type]||EV_META.race)[0]+' · '+fmtSpan(e.ts,e.endTs); }
+// Inline field error + error toast; cleared on the field's next input.
+function evWarn(id,msg){ var f=$(id); if(f){ f.classList.add('rdx-df-err'); f.setAttribute('aria-invalid','true'); f.focus(); } toast(msg,{kind:'err'}); }
+function evClearErr(){ ['evDate','evEndDate'].forEach(function(id){ var f=$(id); if(f){ f.classList.remove('rdx-df-err'); f.removeAttribute('aria-invalid'); } }); }
 function evAdd(){
+  evClearErr();
   var d=parseDate($('evDate').value);
-  if(!d){ evWarn('⚠ pick a date'); return; }
+  if(!d){ evWarn('evDate','Pick a date for the event.'); return; }
   var type=$('evType').value; if(!EV_META[type]) type='race';
   var note=($('evNote').value||'').trim();
   var e={ id:Date.now(), type:type, ts:d.getTime(), note:note };
   if(type!=='race'){
     var end=parseDate($('evEndDate').value);
     if(end){
-      if(end.getTime()<=d.getTime()){ evWarn('⚠ end date must be after the start'); return; }
+      if(end.getTime()<=d.getTime()){ evWarn('evEndDate','The end date must be after the start.'); return; }
       e.endTs=end.getTime();
     }
   }
   var evs=events().slice(); evs.push(e);
-  saveProfile({ runEvents:evs });
+  // a failed save rolls the event back (persist): put back what was typed, as the gap form does —
+  // unless a new note / end date has been typed since
+  var my=MOUNT, typedNote=$('evNote').value, typedEnd=$('evEndDate').value;
+  persist({ runEvents:evs }, 'Logged: '+evLabel(e)).then(function(r){
+    if(r===true || my!==MOUNT) return;
+    var nt=$('evNote'), en=$('evEndDate');
+    if(nt && !nt.value) nt.value=typedNote;
+    if(en && !en.value && !$('evEndCtl').hidden) en.value=typedEnd;
+  });
   $('evNote').value=''; $('evEndDate').value='';
   renderEventsList(); refresh();
 }
-function evDelete(id){ var evs=events().filter(function(e){return e.id!==id;}); saveProfile({ runEvents:evs }); renderEventsList(); refresh(); }
+// by String id: data-id comes back as text, stored ids are numbers. A keyboard user's focus moves
+// to the next row's ✕ (or the Type select once the list is empty) — the pressed button is gone.
+function evDelete(id, kbd){
+  var all=events(), e=all.filter(function(x){ return String(x.id)===String(id); })[0]; if(!e) return;
+  var rows=Array.prototype.slice.call($all('#eventsList .rdx-ev-del')), at=rows.map(function(b){ return b.getAttribute('data-id'); }).indexOf(String(id));
+  persist({ runEvents:all.filter(function(x){ return x!==e; }) }, 'Removed: '+evLabel(e));
+  renderEventsList(); refresh();
+  if(!kbd) return;
+  rows=$all('#eventsList .rdx-ev-del');
+  var t=rows[Math.min(Math.max(at,0),rows.length-1)]||$('evType'); if(t) t.focus();
+}
 function renderEventsList(){
   var el=$('eventsList'); if(!el) return;
   var evs=events().slice().sort(function(a,b){return b.ts-a.ts;});
-  el.style.display='flex';
-  if(!evs.length){ el.innerHTML='<span class="rdx-ev-empty">No events logged yet — add one to overlay it on the chart.</span>'; return; }
-  el.innerHTML=evs.map(function(e){ var m=EV_META[e.type]||EV_META.race, col=m[1];
-    var when=ymd(new Date(e.ts))+(e.endTs?' → '+ymd(new Date(e.endTs)):'');
-    return '<span class="rdx-ev-chip"><span class="rdx-ev-dot" style="background:'+col+'"></span><b style="color:'+col+'">'+m[0]+'</b><span class="rdx-ev-date">'+when+'</span>'+(e.note?'<span class="rdx-ev-note">'+esc(e.note)+'</span>':'')+'<button class="rdx-ev-del" data-id="'+esc(e.id)+'" title="Remove">✕</button></span>';
+  if(!evs.length){ el.innerHTML='<p class="rdx-ev-empty">No events logged yet — add one to mark it on the chart.</p>'; return; }
+  el.innerHTML=evs.map(function(e){ var m=EV_META[e.type]||EV_META.race, when=fmtSpan(e.ts,e.endTs);
+    return '<div class="rdx-ev-row"><span class="rdx-ev-dot" style="background:'+m[1]+'"></span><span class="rdx-ev-type">'+m[0]+'</span><span class="rdx-ev-when">'+when+'</span>'+
+      (e.note?'<span class="rdx-ev-note">'+esc(e.note)+'</span>':'')+
+      '<button type="button" class="rdx-ev-del" data-id="'+esc(e.id)+'" aria-label="Remove '+m[0]+' '+when+'">✕</button></div>';
   }).join('');
-  Array.prototype.forEach.call(el.querySelectorAll('.rdx-ev-del'),function(b){ b.onclick=function(){ evDelete(+this.getAttribute('data-id')); }; });
+}
+// Show / Overlay selects, grouped. Values are METRICS indices ('load' = the load chart); hidden
+// metrics and ones the athlete's device can't record are left out; an ungrouped metric lands in Derived.
+var METRIC_GROUPS=[['Load',['impact']],['Form',['cad','gct','vo','vratio','asym','stride']],['Effort',['pace','hr']],['Derived',['duty','vgrf','force','eff']]];
+function metricGroups(){
+  var seen={}; METRIC_GROUPS.forEach(function(g){ g[1].forEach(function(k){ seen[k]=1; }); });
+  return METRIC_GROUPS.map(function(g){ return [g[0], g[0]==='Derived' ? g[1].concat(METRICS.filter(function(m){ return !seen[m.key]; }).map(function(m){ return m.key; })) : g[1]]; });
 }
 function populateMetricSelects(){
   var v1=$('chartView'), v2=$('chartView2'); if(!v1) return;
-  var prev1=v1.value, prev2=v2.value;
-  var opts=METRICS.map(function(m,i){return metricVisible(m)?'<option value="'+i+'">'+m.label+'</option>':'';}).join('');
-  v1.innerHTML='<option value="load">Load (acute vs chronic)</option>'+opts;
-  v2.innerHTML='<option value="">None</option>'+opts;
+  var prev1=v1.value, prev2=v2.value, idx={}, groups=metricGroups();
+  METRICS.forEach(function(m,i){ idx[m.key]=i; });
+  var opts=function(withLoad){ return groups.map(function(g){
+    var o=g[1].map(function(k){ var i=idx[k], m=METRICS[i]; return (m&&!m.hide&&metricVisible(m))?'<option value="'+i+'">'+(k==='impact'?'Impact Load per run':m.label)+'</option>':''; }).join('');
+    if(withLoad && g[0]==='Load') o='<option value="load">Load — 7-day vs 28-day base</option>'+o;
+    return o?'<optgroup label="'+g[0]+'">'+o+'</optgroup>':'';
+  }).join(''); };
+  v1.innerHTML=opts(true);
+  v2.innerHTML='<option value="">None</option>'+opts(false);
   var has=function(sel,v){return Array.prototype.some.call(sel.options,function(o){return o.value===v;});};
   v1.value=has(v1,prev1)?prev1:'load';
   v2.value=has(v2,prev2)?prev2:'';
@@ -1014,12 +1384,11 @@ function populateMetricSelects(){
 
 /* ---------- chart math helpers ---------- */
 function acwrColor(a){ if(a==null)return 'var(--muted2)'; if(a>1.5)return 'var(--bad)'; if(a>1.3)return 'var(--gold)'; if(a<0.8)return 'var(--warn)'; return 'var(--good)'; }
-function acwrLabel(a){ if(a==null)return 'building baseline'; if(a>1.5)return 'spike · injury-risk zone'; if(a>1.3)return 'approaching ceiling'; if(a<0.8)return 'detraining / taper'; return 'in the safe band'; }
-function spanDays(){ return RAW.length ? Math.round((RAW[RAW.length-1].ts - RAW[0].ts)/DAY)+1 : 0; }
-function axisTicks(t0,t1){
-  var months=(t1-t0)/(30.44*DAY);
+// Month ticks, at most maxTicks of them (4 on a phone-width chart, 8 otherwise).
+function axisTicks(t0,t1,maxTicks){
+  var months=(t1-t0)/(30.44*DAY), cap=maxTicks||8;
   var steps=[1,2,3,6,12], step=12;
-  for(var i=0;i<steps.length;i++){ if(months/steps[i]<=12){ step=steps[i]; break; } }
+  for(var i=0;i<steps.length;i++){ if(Math.floor(months/steps[i])<=cap){ step=steps[i]; break; } }
   var out=[], y0=new Date(t0).getFullYear(), y1=new Date(t1).getFullYear();
   for(var y=y0;y<=y1;y++) for(var m=0;m<12;m+=step){ var t=new Date(y,m,1).getTime(); if(t>=t0&&t<=t1) out.push(t); }
   return out.length>=2 ? out : [t0,t1];
@@ -1034,7 +1403,11 @@ function coloredPath(xs,ys,cs,width){ var out='',cur=[],cc=null;
   if(cur.length>1) out+='<polyline points="'+cur.join(' ')+'" fill="none" stroke="'+cc+'" stroke-width="'+width+'" stroke-linejoin="round" stroke-linecap="round"/>';
   return out;
 }
-function acuteSegColor(acwr){ if(acwr==null) return '#00e5c8'; if(acwr>1.5) return '#f55050'; if(acwr>1.3) return '#f5a623'; if(acwr>1.0) return '#22c78a'; return '#00e5c8'; }
+// 7-day line: cyan inside the band, gold above it, red past 1.5 (hex: SVG presentation attributes).
+function acuteSegColor(acwr){ if(acwr==null) return '#00e5c8'; if(acwr>1.5) return '#f55050'; if(acwr>1.3) return '#f5c842'; return '#00e5c8'; }
+// Y gridline step: n steps that cover vmax, on a readable number (…, 1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10, …).
+function niceStep(vmax,n){ var raw=vmax/n, p=Math.pow(10,Math.floor(Math.log(raw)/Math.LN10)), f=raw/p;
+  return [1,1.5,2,2.5,3,4,5,6,8,10].filter(function(x){ return x>=f-1e-9; })[0]*p; }
 function tickFmt(m,v){ if(m.pace)return fmtPace(v); if(Math.abs(v)>=100)return Math.round(v); return v.toFixed(m.dec===0?0:(m.dec>=2?2:1)); }
 function quantile(sorted,q){ var pos=(sorted.length-1)*q, base=Math.floor(pos), rest=pos-base; return sorted[base+1]!==undefined ? sorted[base]+rest*(sorted[base+1]-sorted[base]) : sorted[base]; }
 function smoothPts(pts){ var w=Math.max(3,Math.min(21,Math.round(pts.length/8))), half=Math.floor(w/2); return pts.map(function(p,i){ var s=0,c=0; for(var j=Math.max(0,i-half);j<=Math.min(pts.length-1,i+half);j++){ s+=pts[j].v; c++; } return {ts:p.ts,v:s/c}; }); }
@@ -1055,9 +1428,10 @@ function renderHero(){
   // already include today; this is the hero's equivalent.
   var today=new Date();
   var tl=RunLoad.extendTimeline(RunLoad.loadTimeline(typeRuns(), LOAD_PARAMS), today, LOAD_PARAMS);
+  var eyebrow='<p class="rdx-hero-eyebrow">Today · '+DOW[today.getDay()]+', '+MONTHS[today.getMonth()]+' '+today.getDate()+'</p>';
   if(tl.length<2){
     el.style.borderLeftColor='var(--muted2)';
-    el.innerHTML='<div class="rdx-hero-badge" style="color:var(--muted2)"><span class="rdx-hero-dot" style="background:var(--muted2)"></span>Building your baseline</div>'+
+    el.innerHTML=eyebrow+'<h2 class="rdx-hero-head"><span class="rdx-hero-dot" style="background:var(--muted2)"></span>Building your baseline</h2>'+
       '<div class="rdx-hero-read">Not enough run history yet to model your training load. Import a few more weeks of activities and your day-to-day guidance will show up here.</div>';
     return;
   }
@@ -1163,41 +1537,51 @@ function renderHero(){
       '<div class="rdx-do-lever">'+leverNote+'</div>';
   }
 
-  // The four tiles carry the numbers (1-/3-day load vs the biggest comparable block of the
-  // prior 28 days, 7-day load vs the 28-day base, each tinted by how it compares); the
-  // recommendation below weighs all three. The ratio of sums equals the ratio of means, so
-  // "× biggest 3-day avg" is the same number as the 3-day block ratio.
-  var statTile=function(k,val,c,sub){ return '<div class="rdx-hero-stat"><div class="k">'+k+'</div><div class="v" style="color:'+c+'">'+val.toFixed(1)+'</div>'+(sub?'<div class="x" style="color:'+c+'">'+sub+'</div>':'')+'</div>'; };
-  // Acute-trend tile: weekly rate of rise of the acute curve, tinted by how steep (rising fast is a
-  // leading risk even when the ratio is still in band). '—' when there isn't enough history.
+  // ---- markup only from here; every string above is locked ----
+  // Left: the answer (eyebrow, headline, what to do). Right: the numbers — 1-/3-day load vs the
+  // biggest comparable block of the prior 28 days, 7-day load vs the 28-day base (the ratio of sums
+  // equals the ratio of means, so "× biggest 3-day avg" is the 3-day block ratio). Values read in
+  // the text colour; each tile's state tint rides on its ratio sub-line and dot.
+  var statTile=function(k,val,unit,c,sub){ return '<div class="rdx-stat"><div class="k">'+k+'</div><div class="v">'+val.toFixed(1)+'<small>'+unit+'</small></div>'+
+    (sub?'<div class="x"'+(c?' style="color:'+ink(c)+'"><i style="background:'+c+'"></i>':'>')+'<span>'+sub+'</span></div>':'')+'</div>'; };
+  // Acute trend: weekly rate of rise of the acute curve, tinted by how steep (rising fast is a
+  // leading signal even when the ratio is still in band). '—' when there isn't enough history.
+  // A decline reads muted, not green (presentation only; the thresholds are unchanged).
   var rampTxt = rampPerWk==null ? '—' : (rampPerWk>=0?'+':'')+Math.round(rampPerWk*100)+'%';
-  var rampCol = rampPerWk==null ? 'var(--muted2)' : rampPerWk>=0.20 ? 'var(--bad)' : rampPerWk>=0.10 ? 'var(--gold)' : rampPerWk<=-0.05 ? 'var(--good)' : 'var(--muted2)';
-  var rampTile='<div class="rdx-hero-stat"><div class="k">Acute trend</div><div class="v" style="color:'+rampCol+';font-size:16px">'+rampTxt+'</div><div class="x" style="color:'+rampCol+'">per week</div></div>';
-  // Easy-baseline-pace tile: the P₀ every run's Impact Load pace term is scored against —
-  // NOT an average of recent runs. Shows whichever rung is in force (median grade-adjusted
-  // easy-run pace, or the easy pace entered in the profile) and hides when neutral.
+  var rampCol = rampPerWk==null ? 'var(--muted2)' : rampPerWk>=0.20 ? 'var(--bad)' : rampPerWk>=0.10 ? 'var(--gold)' : 'var(--muted2)';
+  // Footnote: the easy-pace P₀ every run's pace term is scored against — a calibration anchor, NOT
+  // an average of recent runs. Only when a rung is in force (calibrated median or the profile).
   var baseSrc=LOAD_PARAMS&&LOAD_PARAMS.basePaceSource;
-  var baseTile=(LOAD_PARAMS&&LOAD_PARAMS.basePaceSec>0&&baseSrc)?
-    '<div class="rdx-hero-stat" title="'+(baseSrc==='profile'
-      ?'Your Impact Load baseline: the easy pace entered in your profile, used until there are enough of your own easy runs to calibrate from. Every run’s pace is compared against this in the load equation.'
-      :'Your Impact Load baseline: the median grade-adjusted (flat-equivalent) pace of your easy runs. Every run’s pace is compared against this in the load equation — it is a calibration anchor, not your recent average pace.')+'">'+
-      '<div class="k">Easy base pace</div>'+
-      '<div class="v" style="color:var(--cyan)">'+fmtPace(LOAD_PARAMS.basePaceSec)+'</div>'+
-      '<div class="x" style="color:var(--muted2)">'+(baseSrc==='profile'?'/mi · from profile · load baseline':'/mi · grade-adj · load baseline')+'</div>'+
-    '</div>':'';
+  var baseTxt=(LOAD_PARAMS&&LOAD_PARAMS.basePaceSec>0&&baseSrc) ? 'Scored against '+who()+' easy pace, '+fmtPace(LOAD_PARAMS.basePaceSec)+' /mi ('+(baseSrc==='profile'?'from the profile':'grade-adjusted, from easy runs')+') · ' : '';
   el.style.borderLeftColor=accent;
-  el.innerHTML=
-    '<div class="rdx-hero-badge" style="color:'+accent+'"><span class="rdx-hero-dot" style="background:'+accent+'"></span>'+head+'</div>'+
-    '<div class="rdx-hero-stats">'+
-      statTile('Last day', d1, col1, r1!=null?r1.toFixed(1)+'× biggest day (28d)':'')+
-      statTile('3-day avg', d3, col3, r3!=null?r3.toFixed(1)+'× biggest 3-day avg (28d)':'')+
-      statTile('7-day avg', d7, col7, r7!=null?r7.toFixed(1)+'× base':'')+
-      statTile('28-day base', d28, 'var(--muted2)', 'IAD mi/day')+
-      rampTile+
-      baseTile+
+  var main='<div class="rdx-hero-main">'+eyebrow+
+      '<h2 class="rdx-hero-head"><span class="rdx-hero-dot" style="background:'+accent+'"></span>'+head+'</h2>'+
+      '<div class="rdx-hero-do"><span class="do-hd">What to do next</span>'+doHtml+'</div>'+
+    '</div>';
+  // "Building your baseline" (no 28-day base yet, e.g. back after 4+ weeks off): same tiles, trend and
+  // footnote as HEAD, in one column — the ratios are blank, but the Acute trend and easy pace still read
+  el.innerHTML='<div class="rdx-hero-grid'+(base==null?' rdx-hero-one':'')+'">'+main+
+    '<div class="rdx-hero-side">'+
+      '<p class="rdx-hero-cap">Recent load · IAD mi per day, through today</p>'+
+      '<div class="rdx-stat-grid">'+
+        statTile('Last day', d1, 'IAD mi', col1, r1!=null?r1.toFixed(1)+'× biggest day (28d)':'')+
+        statTile('3-day avg', d3, 'IAD mi/day', col3, r3!=null?r3.toFixed(1)+'× biggest 3-day avg (28d)':'')+
+        statTile('7-day avg', d7, 'IAD mi/day', col7, r7!=null?r7.toFixed(1)+'× 28-day base':'')+
+        statTile('28-day base', d28, 'IAD mi/day', null, who()+' average day')+
+      '</div>'+
+      '<div class="rdx-trend"><span class="k">Acute trend</span><span class="v" style="color:'+ink(rampCol)+'">'+rampTxt+'</span><span class="x">per week · how fast the 7-day load is changing</span></div>'+
     '</div>'+
-    '<div class="rdx-hero-do"><span class="do-hd">What to do next</span>'+doHtml+'</div>';
+    '<div class="rdx-hero-foot">'+baseTxt+'<button type="button" class="rdx-linkbtn" id="heroHelpBtn" aria-expanded="'+HERO_HELP+'" aria-controls="heroHelp">How to read these numbers</button>'+
+      '<p class="rdx-hero-help" id="heroHelp"'+(HERO_HELP?'':' hidden')+'>IAD (Impact Adjusted Distance): one easy, flat mile = 1 IAD mi. Faster, harder-landing or hillier miles count for more; Lever miles count for less. '+
+        'Last day (today so far) and 3-day avg are compared with the biggest day and biggest 3-day stretch of the past 28 days. 7-day avg is compared with the 28-day base — '+who()+' average day, rest days included. '+
+        'Acute trend is how fast the 7-day load is changing per week. The easy pace is the anchor every run is scored against, not a recent average.</p>'+
+    '</div>'+
+  '</div>';
+  // HERO_HELP keeps the toggle's state across refresh() re-renders
+  $('heroHelpBtn').addEventListener('click',function(){ HERO_HELP=!HERO_HELP; this.setAttribute('aria-expanded',String(HERO_HELP)); $('heroHelp').hidden=!HERO_HELP; });
 }
+// State tint as TEXT: the brand good/warn/bad/gold fail contrast on light surfaces — use the ink tokens.
+function ink(c){ return {'var(--good)':'var(--rdx-good-ink)','var(--warn)':'var(--rdx-warn-ink)','var(--bad)':'var(--rdx-bad-ink)','var(--gold)':'var(--rdx-gold-ink)'}[c]||c; }
 // Admin-only scenario switcher above the hero (demo control).
 function renderDemoBar(){
   if(!ADMIN) return; var el=$('demobar'); if(!el) return;
@@ -1212,30 +1596,64 @@ function renderDemoBar(){
 }
 
 /* ---------- unified chart: load (default) or metric trend ---------- */
-var LOAD_HINT='Load is in <b>Impact Adjusted Distance (IAD miles)</b> — distance weighted by pace and by per-step impact (duty factor = cadence × ground-contact time vs your baseline). One easy flat mile = 1 IAD mile; a hard or hilly mile counts as more. <b>Acute (7d)</b> and <b>chronic (28d)</b> are rolling daily averages in IAD mi/day. This is a <b>load measure, not an injury prediction</b> — auto-calibrated from your easy runs; 0.8–1.3 is the commonly cited safe band.';
 function renderChart(){
   var sel=$('chartView'); if(!sel) return;
-  var v=sel.value, isLoad=(v==='load');
+  var v=sel.value, isLoad=(v==='load'), m=METRICS[+v];
   $('chartView2Wrap').style.display=isLoad?'none':'flex';
   $('dispWrap').style.display=isLoad?'none':'flex';
+  $('chartTitle').textContent=isLoad?'Load over time':(m?m.label:'Metric')+' over time';
+  $('chartSub').textContent=isLoad
+    ? who('Your')+' 7-day load against '+who('their')+' 28-day base, in IAD mi per day. Staying inside the band is the steady zone.'
+    : m ? m.desc+(m.zeroFill?'. Rest days read 0.':'. One point per run.') : '';
   if(isLoad) renderLoadChart(); else renderMetricChart();
 }
+// Geometry at the box's real width: the SVG draws 1:1, so 11px axis text stays 11px on a phone.
+// CHART_W records the width drawn at, for the resize watcher.
+function chartDims(box,padR){
+  CHART_W=box.clientWidth;
+  var W=Math.max(300,Math.min(1100,CHART_W||720)), H=Math.max(220,Math.min(320,Math.round(W*0.3)));
+  return {W:W,H:H,padL:44,padR:padR,padT:24,padB:26,innerW:W-44-padR,innerH:H-50,maxTicks:W<500?4:8};
+}
+// Month labels along the bottom; one too close to the right edge anchors at its end so it isn't clipped.
+function xTicksSVG(t0,t1,D,xOf){
+  return axisTicks(t0,t1,D.maxTicks).map(function(ts,idx){ if(ts<t0||ts>t1) return ''; var x=xOf(ts);
+    return '<text x="'+x.toFixed(1)+'" y="'+(D.H-8)+'" text-anchor="'+(x>D.W-28?'end':'middle')+'">'+axisLabel(ts,idx)+'</text>'; }).join('');
+}
+// Legend entries for the logged-event types drawn in [t0,t1] (same in-range test as the overlay),
+// in their locked colours and labels; skip = types already in the legend as a marker.
+var EV_HEX={ injury:'#f55050', race:'#22c78a', illness:'#f59a4d', nonrun:'#ef6bab', timeoff:'#5b9cf5' };
+function evLegendHTML(t0,t1,skip){
+  var have={};
+  events().forEach(function(e){ var end=(e.endTs!=null&&e.endTs>e.ts)?e.endTs:null; if(e.ts!=null && (end||e.ts)>=t0 && e.ts<=t1) have[EV_META[e.type]?e.type:'race']=1; });
+  return ['race','injury','illness','nonrun','timeoff'].filter(function(t){ return have[t]&&!(skip&&skip[t]); })
+    .map(function(t){ return '<span class="rdx-legend-item"><span class="rdx-legend-ev" style="--c:'+EV_HEX[t]+'"></span>'+EV_META[t][0]+'</span>'; }).join('');
+}
+// The caption under the chart: a tap hint when the overlay drew anything (each band/marker carries a
+// <title>), otherwise empty (and hidden). The listeners are wired once in wireEventCap().
+// RunLoad's overlay <title>s read "⚠ Injury · 2025-08-11 – …"; swap in the view's own labels ("Injury · Aug 11 – 29,
+// 2025 — note"). One <title> per drawn event, in events() order, with the overlay's own range test.
+function evOverlaySVG(t0,t1,padL,innerW,padT,innerH){
+  var ev=events(), i=0, drawn=ev.filter(function(e){ var end=(e.endTs!=null&&e.endTs>e.ts)?e.endTs:null; return e.ts!=null && (end||e.ts)>=t0 && e.ts<=t1; });
+  return RunLoad.eventOverlaySVG(ev,t0,t1,padL,innerW,padT,innerH).replace(/<title>[\s\S]*?<\/title>/g,function(m){ var e=drawn[i++]; return e?'<title>'+esc(evLabel(e)+(e.note?' — '+e.note:''))+'</title>':m; });
+}
+function evCapReset(box){ CAP_PIN=box.querySelector('svg title')?'Tap a shaded band or marker to see what it was.':''; var c=$('chartEvCap'); if(c) c.textContent=CAP_PIN; }
 function renderLoadChart(){
-  var legEl=$('chartLegend'), chartEl=$('chartBox'), hintEl=$('chartHint');
+  var legEl=$('chartLegend'), chartEl=$('chartBox');
   if(!chartEl) return;
-  if(hintEl) hintEl.innerHTML=LOAD_HINT;
+  chartEl.onmousemove=chartEl.onmouseleave=chartEl.onpointerdown=null;   // the metric chart's tooltip handlers
   // Padded through today like the hero, so the acute curve decays across rest days since the
   // last run instead of stopping on it; the To-date filter below still trims it to the range.
   var full=RunLoad.extendTimeline(RunLoad.loadTimeline(typeRuns(), LOAD_PARAMS), new Date(), LOAD_PARAMS);
-  if(full.length<2){ legEl.innerHTML=''; chartEl.innerHTML='<div class="rdx-chart-empty">Not enough history to model load yet.</div>'; return; }
+  if(full.length<2){ legEl.innerHTML=''; chartEl.innerHTML='<div class="rdx-chart-empty">Not enough history to model load yet.</div>'; evCapReset(chartEl); return; }
   var from=parseDate($('tFrom').value), to=parseDate($('tTo').value);
   var f0=from?from.getTime():full[0].ts, f1=to?dayEnd(to).getTime():full[full.length-1].ts;
   var tl=full.filter(function(d){return d.ts>=f0&&d.ts<=f1;});
   if(tl.length<2) tl=full;                    // window too narrow — show everything
   var last=tl[tl.length-1];
-  var W=720,H=210,padL=40,padR=12,padT=12,padB=24,innerW=W-padL-padR,innerH=H-padT-padB;
+  var D=chartDims(chartEl,12), W=D.W, H=D.H, padL=D.padL, padR=D.padR, padT=D.padT, innerW=D.innerW, innerH=D.innerH;
   var t0=tl[0].ts,t1=last.ts,span=Math.max(1,t1-t0);
-  var ymax=Math.max.apply(null,tl.map(function(d){return Math.max(d.acute,d.chronic*1.3);}))*1.05||1;
+  // 4 gridlines (0 + 3 steps) on round numbers; the top one clears the band's upper edge
+  var step=niceStep(Math.max.apply(null,tl.map(function(d){return Math.max(d.acute,d.chronic*1.3);}))*1.05||1, 3), ymax=step*3;
   var xOf=function(ts){return padL+((ts-t0)/span)*innerW;};
   var yOf=function(v){return padT+innerH-(v/ymax)*innerH;};
   var acuteS=smoothArr(tl.map(function(d){return d.acute;}),5), chronicS=smoothArr(tl.map(function(d){return d.chronic;}),5);
@@ -1245,33 +1663,42 @@ function renderLoadChart(){
   var band='<polygon points="'+bandTop.concat(bandBot).join(' ')+'" fill="rgba(34,199,138,0.16)" stroke="rgba(34,199,138,0.3)" stroke-width="0.5"/>';
   var chronicLn='<polyline points="'+tl.map(function(d,i){return xs[i].toFixed(1)+','+yOf(chronicS[i]).toFixed(1);}).join(' ')+'" fill="none" stroke="#8b7cf8" stroke-width="2.2" stroke-linejoin="round"/>';
   var acuteLn=coloredPath(xs, acuteS.map(yOf), tl.map(function(d){return acuteSegColor(d.acwr);}), 2.6);
-  var grid='';
-  var gridStroke=getComputedStyle(document.documentElement).getPropertyValue('--border').trim()||'rgba(255,255,255,0.06)';
-  for(var g=0;g<=3;g++){ var f=g/3, yy=(padT+innerH-f*innerH).toFixed(1);
-    grid+='<line x1="'+padL+'" y1="'+yy+'" x2="'+(W-padR)+'" y2="'+yy+'" stroke="'+gridStroke+'"/>';
-    grid+='<text x="'+(padL-6)+'" y="'+(parseFloat(yy)+3).toFixed(1)+'" text-anchor="end" font-size="9" font-family="ui-monospace,monospace" fill="#6e7a9a">'+(ymax*f).toFixed(0)+'</text>'; }
-  var xlab='';
-  axisTicks(t0,t1).forEach(function(ts,idx){ xlab+='<text x="'+xOf(ts).toFixed(1)+'" y="'+(H-7)+'" text-anchor="middle" font-size="8.5" font-family="ui-monospace,monospace" fill="#6e7a9a">'+axisLabel(ts,idx)+'</text>'; });
-  legEl.innerHTML='<span class="rdx-legend-item"><span class="rdx-legend-sw" style="background:#00e5c8"></span>Acute (7d)</span><span class="rdx-legend-item"><span class="rdx-legend-sw" style="background:#8b7cf8"></span>Chronic (28d)</span><span class="rdx-legend-item"><span class="rdx-legend-sw" style="background:rgba(34,199,138,0.5)"></span>Safe band</span><span class="rdx-legend-item" style="color:var(--muted)">acute shifts green above chronic, amber/red above the band</span>';
-  chartEl.innerHTML='<svg class="rdx-chart-svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Mechanical load timeline">'+grid+band+chronicLn+acuteLn+xlab+RunLoad.eventOverlaySVG(events(),t0,t1,padL,innerW,padT,innerH)+'</svg>';
+  var grid='<text class="rdx-ax-lbl" x="2" y="13">IAD mi/day</text>';
+  for(var g=0;g<=3;g++){ var yy=padT+innerH-g/3*innerH;
+    grid+='<line class="rdx-grid" x1="'+padL+'" y1="'+yy.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+yy.toFixed(1)+'"/>'+
+      '<text x="'+(padL-6)+'" y="'+(yy+4).toFixed(1)+'" text-anchor="end">'+(Math.round(step*g*10)/10)+'</text>'; }
+  // the range ends today: mark it (the hero reads this same day)
+  var todayM='';
+  if(ymd(new Date(last.ts))===ymd(new Date())){ var tx=xs[xs.length-1].toFixed(1);
+    todayM='<line class="rdx-today" x1="'+tx+'" y1="'+(padT-4)+'" x2="'+tx+'" y2="'+(padT+innerH)+'"/>'+
+      '<text class="rdx-ax-lbl rdx-today-lbl" x="'+tx+'" y="'+(padT-8)+'" text-anchor="end">Today</text>'+
+      '<circle class="rdx-today-dot" cx="'+tx+'" cy="'+yOf(acuteS[acuteS.length-1]).toFixed(1)+'" r="4.5" fill="'+acuteSegColor(last.acwr)+'"/>'; }
+  var li=function(sw,txt){ return '<span class="rdx-legend-item">'+sw+txt+'</span>'; };
+  legEl.innerHTML=li('<span class="rdx-legend-sw" style="background:#00e5c8"></span>','7-day load')+
+    li('<span class="rdx-legend-sw" style="background:#8b7cf8"></span>','28-day base')+
+    li('<span class="rdx-legend-sw rdx-legend-band"></span>','Safe band (0.8–1.3× base)')+
+    (tl.some(function(d){ return d.acwr!=null&&d.acwr>1.3; })?li('<span class="rdx-legend-sw" style="background:linear-gradient(90deg,#f5c842,#f55050)"></span>','Above the band'):'')+
+    evLegendHTML(t0,t1);
+  chartEl.innerHTML='<svg class="rdx-chart-svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Load over time: 7-day load against the 28-day base">'+grid+band+chronicLn+acuteLn+xTicksSVG(t0,t1,D,xOf)+todayM+evOverlaySVG(t0,t1,padL,innerW,padT,innerH)+'</svg>';
+  evCapReset(chartEl);
 }
 function renderMetricChart(){
-  var chart=$('chartBox'), legend=$('chartLegend'), hintEl=$('chartHint');
+  var chart=$('chartBox'), legend=$('chartLegend');
   if(!chart) return;
-  if(hintEl) hintEl.innerHTML='Per-run values over the selected range. <b>Smooth</b> draws the trend line; <b>Hide outliers</b> drops glitch values (keeps logged races/injuries and detected hard efforts); <b>Points</b> shows every run. Runs missing a metric leave a gap in its line; Impact Load drops to 0 on rest days and is never outlier-filtered (big days are real training, not glitches).';
+  // Smooth draws the trend line; Hide outliers drops glitch values (keeps logged races/injuries and
+  // detected hard efforts); Points shows every run. Runs missing a metric leave a gap in its line;
+  // Impact Load drops to 0 on rest days and is never outlier-filtered (big days are real training).
+  var bail=function(msg){ legend.innerHTML=''; chart.innerHTML='<div class="rdx-chart-empty">'+msg+'</div>'; evCapReset(chart); };
   var i1=$('chartView').value, i2=$('chartView2').value;
   var from=parseDate($('tFrom').value), to=parseDate($('tTo').value);
   var series=[];
   if(i1!=='') series.push({m:METRICS[+i1],color:'#00e5c8'});
-  if(i2!==''&&i2!==i1) series.push({m:METRICS[+i2],color:'#f5c842'});
+  if(i2!==''&&i2!==i1) series.push({m:METRICS[+i2],color:'#8b7cf8'});
   var evMap=new Map(); events().forEach(function(e){ if(e.type!=='injury'&&e.type!=='race') return; evMap.set(ymd(new Date(e.ts)), e.type); });
   var evType=function(p){ return evMap.get(ymd(p.date))||null; };
   var maxIds=RunLoad.maxEffortIds(typeRuns());
-  var legHtml=series.map(function(s){return '<span class="rdx-legend-item"><span class="rdx-legend-sw" style="background:'+s.color+'"></span>'+s.m.label+(s.m.unit?' ('+s.m.unit+')':'')+'</span>';}).join('');
-  if(evMap.size||maxIds.size) legHtml+='<span class="rdx-legend-item" style="color:var(--muted)"><span class="rdx-legend-sw" style="background:#22c78a"></span>race<span class="rdx-legend-sw" style="background:#f55050;margin-left:8px"></span>injury<span class="rdx-legend-ring" style="margin-left:8px"></span>hard effort</span>';
-  legend.innerHTML=legHtml;
-  if(!series.length){ chart.innerHTML='<div class="rdx-chart-empty">Select a metric to plot.</div>'; return; }
-  if(!from||!to||dayEnd(to).getTime()<=from.getTime()){ chart.innerHTML='<div class="rdx-chart-empty">Pick a valid date range.</div>'; return; }
+  if(!series.length){ bail('Select a metric to plot.'); return; }
+  if(!from||!to||dayEnd(to).getTime()<=from.getTime()){ bail('Pick a valid date range.'); return; }
   var hideOut=$('hideOutliers').classList.contains('on');
   var smooth=$('smooth').classList.contains('on');
   var showPts=$('points').classList.contains('on');
@@ -1327,21 +1754,23 @@ function renderMetricChart(){
     if(scaleSrc.length){ var mn=Math.min.apply(null,scaleSrc.map(function(p){return p.v;})), mx=Math.max.apply(null,scaleSrc.map(function(p){return p.v;})); if(mn===mx){mn-=1;mx+=1;} var pad=(mx-mn)*0.08; s.lo=mn-pad; s.hi=mx+pad; if(s.m.zeroFill) s.lo=Math.min(s.lo,0); }
   });
   var have=series.filter(function(s){return s.dots.length;});
-  if(!have.length){ chart.innerHTML='<div class="rdx-chart-empty">No runs with this metric in range.</div>'; return; }
-  var W=720,H=240,padL=42,padR=series.length>1?46:12,padT=12,padB=26,innerW=W-padL-padR,innerH=H-padT-padB;
+  if(!have.length){ bail('No runs with this metric in range.'); return; }
+  var D=chartDims(chart,series.length>1?46:12), W=D.W, H=D.H, padL=D.padL, padR=D.padR, padT=D.padT, innerW=D.innerW, innerH=D.innerH;
   var t0=from.getTime(),t1=dayEnd(to).getTime();
   var xOf=function(ts){return padL+((ts-t0)/(t1-t0))*innerW;};
   var yOf=function(v,s){return padT+innerH-((v-s.lo)/(s.hi-s.lo))*innerH;};
-  var grid='';
-  var gridStroke=getComputedStyle(document.documentElement).getPropertyValue('--border').trim()||'rgba(255,255,255,0.06)';
-  for(var g=0;g<=4;g++){
-    var f=g/4, yy=(padT+innerH-f*innerH).toFixed(1);
-    grid+='<line x1="'+padL+'" y1="'+yy+'" x2="'+(W-padR)+'" y2="'+yy+'" stroke="'+gridStroke+'" stroke-width="1"/>';
-    grid+='<text x="'+(padL-6)+'" y="'+(parseFloat(yy)+3).toFixed(1)+'" text-anchor="end" font-size="9" font-family="ui-monospace,monospace" fill="#6e7a9a">'+tickFmt(have[0].m,have[0].lo+(have[0].hi-have[0].lo)*f)+'</text>';
-    if(series.length>1&&series[1].dots.length) grid+='<text x="'+(W-padR+6)+'" y="'+(parseFloat(yy)+3).toFixed(1)+'" text-anchor="start" font-size="9" font-family="ui-monospace,monospace" fill="#f5c842">'+tickFmt(series[1].m,series[1].lo+(series[1].hi-series[1].lo)*f)+'</text>';
+  // 4 gridlines; the left axis (and its unit, top-left) belongs to the first plotted series, the
+  // right one (purple) to the overlay
+  var s2=series.length>1&&series[1].dots.length?series[1]:null;
+  var grid=(have[0].m.unit?'<text class="rdx-ax-lbl" x="2" y="13">'+have[0].m.unit+'</text>':'')+
+    (s2&&s2.m.unit?'<text class="rdx-ax-lbl rdx-ax2" x="'+(W-2)+'" y="13" text-anchor="end">'+s2.m.unit+'</text>':'');
+  for(var g=0;g<=3;g++){
+    var f=g/3, yy=(padT+innerH-f*innerH).toFixed(1);
+    grid+='<line class="rdx-grid" x1="'+padL+'" y1="'+yy+'" x2="'+(W-padR)+'" y2="'+yy+'"/>';
+    grid+='<text x="'+(padL-6)+'" y="'+(parseFloat(yy)+4).toFixed(1)+'" text-anchor="end">'+tickFmt(have[0].m,have[0].lo+(have[0].hi-have[0].lo)*f)+'</text>';
+    if(s2) grid+='<text class="rdx-ax2" x="'+(W-padR+6)+'" y="'+(parseFloat(yy)+4).toFixed(1)+'" text-anchor="start">'+tickFmt(s2.m,s2.lo+(s2.hi-s2.lo)*f)+'</text>';
   }
-  var xlab='';
-  axisTicks(t0,t1).forEach(function(ts,idx){ if(ts<t0||ts>t1) return; xlab+='<text x="'+xOf(ts).toFixed(1)+'" y="'+(H-7)+'" text-anchor="middle" font-size="8.5" font-family="ui-monospace,monospace" fill="#6e7a9a">'+axisLabel(ts,idx)+'</text>'; });
+  var xlab=xTicksSVG(t0,t1,D,xOf);
   var ea=function(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
   var lines='', hits='';
   var haloStroke=document.documentElement.getAttribute('data-theme')==='light'?'rgba(0,0,0,0.30)':'rgba(255,255,255,0.85)';
@@ -1369,309 +1798,441 @@ function renderMetricChart(){
       var t=evType(p), kind=t||(maxIds.has(p.id)?'max':''), cx=xOf(p.ts).toFixed(1), cy=yOf(p.v,s).toFixed(1);
       var val=tickFmt(s.m,p.v)+(s.m.unit?' '+s.m.unit:'');
       var ctx=(p.dist!=null?p.dist.toFixed(1)+' mi':''); if(p.pace){ ctx+=(ctx?' · ':'')+fmtPace(p.pace)+'/mi'; } if(p.title){ ctx+=(ctx?' · ':'')+p.title; }
-      return '<circle class="rdx-hit" cx="'+cx+'" cy="'+cy+'" r="7" fill="rgba(0,0,0,0)" data-date="'+ea(ymd(p.date))+'" data-kind="'+kind+'" data-metric="'+ea(s.m.label)+'" data-val="'+ea(val)+'" data-ctx="'+ea(ctx)+'"/>';
+      return '<circle class="rdx-hit" cx="'+cx+'" cy="'+cy+'" r="7" fill="rgba(0,0,0,0)" data-date="'+ea(fmtDay(p.ts))+'" data-kind="'+kind+'" data-metric="'+ea(s.m.label)+'" data-val="'+ea(val)+'" data-ctx="'+ea(ctx)+'"/>';
     }).join('');
   });
-  chart.innerHTML='<svg class="rdx-chart-svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Run metric trend">'+grid+xlab+lines+RunLoad.eventOverlaySVG(events(),t0,t1,padL,innerW,padT,innerH)+hits+'</svg>';
+  // legend: the series, then only the markers actually plotted, then the overlay's other event types
+  var mk={};
+  have.forEach(function(s){ s.dots.forEach(function(p){ var t=evType(p); if(t) mk[t]=1; else if(maxIds.has(p.id)) mk.max=1; }); });
+  var li=function(sw,txt){ return '<span class="rdx-legend-item">'+sw+txt+'</span>'; };
+  legend.innerHTML=series.map(function(s){ return li('<span class="rdx-legend-sw" style="background:'+s.color+'"></span>', s.m.label+(s.m.unit?' ('+s.m.unit+')':'')); }).join('')+
+    (mk.race?li('<span class="rdx-legend-dot" style="background:#22c78a"></span>','Race'):'')+
+    (mk.injury?li('<span class="rdx-legend-dot" style="background:#f55050"></span>','Injury'):'')+
+    (mk.max?li('<span class="rdx-legend-ring"></span>','Hard effort'):'')+
+    evLegendHTML(t0,t1,mk);
+  chart.innerHTML='<svg class="rdx-chart-svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Run metric trend">'+grid+xlab+lines+evOverlaySVG(t0,t1,padL,innerW,padT,innerH)+hits+'</svg>';
   wireChartTip(chart);
+  evCapReset(chart);
 }
 // dataset values come back attribute-DECODED (ctx holds the run title) — re-escape before innerHTML.
+// The marker chip keeps its locked hex as the border; its TEXT takes the ink token (the hexes fail on a light tooltip).
 function chartTipHTML(c){
-  var k=c.dataset.kind, m={race:['Race','#22c78a'],injury:['Injury','#f55050'],max:['Hard Effort','#f5c842']}[k];
-  return '<div class="rdx-tip-top">'+esc(c.dataset.date)+(m?' <span class="rdx-tip-chip" style="color:'+m[1]+';border-color:'+m[1]+'">'+m[0]+'</span>':'')+'</div>'
+  var k=c.dataset.kind, m={race:['Race','#22c78a','var(--rdx-good-ink)'],injury:['Injury','#f55050','var(--rdx-bad-ink)'],max:['Hard Effort','#f5c842','var(--rdx-gold-ink)']}[k];
+  return '<div class="rdx-tip-top">'+esc(c.dataset.date)+(m?' <span class="rdx-tip-chip" style="color:'+m[2]+';border-color:'+m[1]+'">'+m[0]+'</span>':'')+'</div>'
     +'<div class="rdx-tip-val">'+esc(c.dataset.metric)+' · <b>'+esc(c.dataset.val)+'</b></div>'
     +(c.dataset.ctx?'<div class="rdx-tip-ctx">'+esc(c.dataset.ctx)+'</div>':'');
 }
+// Hover shows a point's tooltip; a tap (pointerdown from touch or pen) does the same, and a tap
+// anywhere else closes it. Property handlers: each redraw replaces them (renderLoadChart clears them).
 function wireChartTip(chart){
   var tip=document.createElement('div'); tip.className='rdx-chart-tip'; chart.appendChild(tip);
-  chart.onmousemove=function(e){ var c=e.target.closest&&e.target.closest('.rdx-hit'); if(!c){ tip.classList.remove('on'); return; }
+  var show=function(e){ var c=e.target.closest&&e.target.closest('.rdx-hit'); if(!c){ tip.classList.remove('on'); return; }
     tip.innerHTML=chartTipHTML(c); tip.classList.add('on');
     var r=chart.getBoundingClientRect(), x=e.clientX-r.left+14, y=e.clientY-r.top+14;
     if(x+tip.offsetWidth>r.width) x=e.clientX-r.left-tip.offsetWidth-14;
     if(y+tip.offsetHeight>r.height) y=e.clientY-r.top-tip.offsetHeight-14;
     tip.style.left=Math.max(0,x)+'px'; tip.style.top=Math.max(0,y)+'px'; };
+  chart.onmousemove=show;
+  chart.onpointerdown=function(e){ if(e.pointerType!=='mouse') show(e); };
   chart.onmouseleave=function(){ tip.classList.remove('on'); };
 }
-
-/* ---------- injury pattern report ---------- */
-// Renders InjuryPatterns.analyze() (shared/injury-patterns.js): every logged
-// injury's lead-up window scored against the pattern registry, each pattern's
-// base rate from control windows across the rest of the history, and big
-// UNexplained volume drops (not near a race / logged injury / logged time
-// off) offered as possible unlogged setbacks with a one-click "log as injury"
-// or "Dismiss" (not a setback — stored on the user doc as runDismissedDrops,
-// matched by InjuryPatterns, never flagged again; restorable from the
-// "N dismissed · show" line).
-function dismissedDrops(){ return (Array.isArray(STD_PROFILE.runDismissedDrops)?STD_PROFILE.runDismissedDrops:[]).filter(function(x){ return x&&isFinite(x.t0)&&isFinite(x.t1); }); }
-function spanTxt(x){ return ymd(new Date(x.t0))+' → '+ymd(new Date(x.t1)); }
-function dismissedHTML(dis){
-  var warn=PAT_WARN?'<div class="rdx-dis-warn" role="alert">'+esc(PAT_WARN)+'</div>':'';
-  if(!dis.length) return warn?'<div class="rdx-dis">'+warn+'</div>':'';
-  var n=dis.length, order=dis.map(function(x,i){ return i; }).sort(function(a,b){ return dis[b].t0-dis[a].t0; });
-  return '<div class="rdx-dis">'+n+' dismissed training drop'+(n>1?'s':'')+' · <button type="button" class="rdx-linkbtn rdx-dis-tog" aria-expanded="'+DIS_OPEN+'" aria-controls="rdxDisList">'+(DIS_OPEN?'hide':'show')+'</button>'+
-    '<div class="rdx-dis-list" id="rdxDisList"'+(DIS_OPEN?'':' hidden')+'>'+order.map(function(i){ var x=dis[i], when=spanTxt(x);
-      return '<div class="rdx-dis-item"><span class="rdx-dis-when">▼ '+when+'</span>'+(isFinite(x.at)?'<span>dismissed '+ymd(new Date(x.at))+'</span>':'')+
-        '<button type="button" class="rdx-linkbtn rdx-dis-restore" data-i="'+i+'" aria-label="Restore the '+when+' drop">restore</button></div>';
-    }).join('')+'</div>'+warn+'</div>';
+// Event caption: a tap or click on an overlay band/marker pins its <title> text in #chartEvCap;
+// mouse hover previews it and leaving restores the pinned text. Wired once per mount on #chartBox
+// (it outlives each redraw). textContent only — the titles carry the athlete's own notes.
+function wireEventCap(box){
+  var title=function(t){ var c=t&&t.firstElementChild; return (c&&c.tagName.toLowerCase()==='title')?c.textContent:null; };
+  var set=function(txt){ var c=$('chartEvCap'); if(c) c.textContent=txt; };
+  var pin=function(e){ var t=title(e.target); if(t!=null) set(CAP_PIN=t); };
+  box.addEventListener('pointerdown',pin);
+  box.addEventListener('click',pin);
+  box.addEventListener('pointerover',function(e){ if(e.pointerType!=='mouse') return; var t=title(e.target); set(t!=null?t:CAP_PIN); });
+  box.addEventListener('pointerleave',function(e){ if(e.pointerType==='mouse') set(CAP_PIN); });
 }
-// Persist a dismissal change — fn(list) → list, run on the stored copy (updateProfileList) — and
-// re-render. A keyboard user (click.detail 0) gets focus back on the "dismissed" toggle, or, once
-// none is left, on the restored drop's Dismiss button (the button they pressed is gone).
-function saveDismissed(fn, kbd, restored){
-  var my=MOUNT;
-  PAT_WARN='';
-  updateProfileList('runDismissedDrops', fn, refresh).then(function(r){
+// Redraw the chart at its new width when #chartBox resizes (window, sidebar, a hidden tab shown).
+// Debounced 150ms; only a ≥8px width change redraws, so a redraw's own height change can't loop.
+function watchChartSize(container){
+  var box=$('chartBox'); if(!box) return;
+  var cb=function(){ clearTimeout(RO_T); RO_T=setTimeout(function(){
+    if(ROOT!==container || !RAW.length) return;
+    var w=box.clientWidth; if(!w || Math.abs(w-CHART_W)<8) return;
+    renderChart();
+  },150); };
+  if(window.ResizeObserver){ RO=new ResizeObserver(cb); RO.observe(box); }
+  else { WIN_RS=cb; window.addEventListener('resize',cb); }
+}
+
+/* ---------- injury & illness history ---------- */
+// Renders InjuryPatterns.analyze() (shared/injury-patterns.js): each logged injury/illness lead-up
+// scored against the pattern registry, each pattern's base rate from normal (control) weeks, and big
+// UNexplained volume drops offered as "Training gaps to review" — Log it… (any event type) or
+// Dismiss (not a setback: stored on the user doc as runDismissedDrops, matched by InjuryPatterns,
+// never flagged again; restorable from the "N dismissed · show" line). Retrospective and
+// correlational only, and only patterns that FIRED are listed — never a forecast.
+var PATTERN_COPY={ ramp:'Weekly load climbing week after week', acwr:'Recent load well above the usual base', longrun:'One run much longer than the usual long run',
+  intensity:'A bigger share of hard sessions than usual', monotony:'Running most days with little variation or rest', downhill:'Far more downhill than usual' };
+// "injury/injuries" when only injuries were counted, "illness/illnesses" when only illnesses, else "setback/setbacks".
+function patNoun(n, inj, ill){ var one=n===1; return (inj&&ill)?(one?'setback':'setbacks'):(ill&&!inj)?(one?'illness':'illnesses'):(one?'injury':'injuries'); }
+function casesNoun(cs){ var ill=cs.filter(function(c){ return c.event.type==='illness'; }).length; return patNoun(cs.length, cs.length-ill, ill); }
+function pctOf(x){ return Math.round(x*100)+'%'; }
+function evDot(t){ return '<span class="rdx-ev-dot" style="background:'+(EV_HEX[t]||EV_HEX.race)+'" aria-hidden="true"></span>'; }
+function dismissedDrops(){ return (Array.isArray(STD_PROFILE.runDismissedDrops)?STD_PROFILE.runDismissedDrops:[]).filter(function(x){ return x&&isFinite(x.t0)&&isFinite(x.t1); }); }
+function sameDis(y,x){ return !!y && y.t0===x.t0 && y.t1===x.t1 && y.at===x.at; }
+function gapWhen(d){ return d.ongoing ? fmtMD(d.t0)+' – now' : fmtSpan(d.t0,d.t1); }
+
+// A. the one-line finding above the cards
+function patLeadHTML(res){
+  var m=res.meta, noun=patNoun(m.nEval,m.nEvalInj,m.nEvalIll);
+  if(!res.cases.some(function(c){ return c.ok&&c.firedIds.length; }))
+    return '<p class="rdx-pat-lead">Nothing unusual showed up before '+who()+' logged '+noun+' — the lead-up'+(m.nEval===1?'':'s')+' looked like typical training.</p>';
+  if(m.nEval<2) return '';   // one case that fired: its card is the finding
+  // most repeated pattern; ties go to the one rarer in normal weeks
+  var top=res.patterns.filter(function(p){ return p.injHits>=2; }).sort(function(a,b){ return b.injHits-a.injHits || (a.ctrlRate==null?1:a.ctrlRate)-(b.ctrlRate==null?1:b.ctrlRate); })[0];
+  if(!top) return '<p class="rdx-pat-lead">No single pattern showed up before more than one '+patNoun(1,m.nEvalInj,m.nEvalIll)+'.</p>';
+  return '<p class="rdx-pat-lead">Seen most often: <b>'+esc(top.name)+'</b> — before '+top.injHits+' of '+top.injEval+' '+patNoun(top.injEval,top.injEval-top.illEval,top.illEval)+
+    (top.ctrlRate!=null?', vs '+pctOf(top.ctrlRate)+' of '+who()+' normal weeks':'')+'.</p>';
+}
+// B + C. a card per case where something fired (newest first, 3 then "Show n older"); "Also logged"
+// (nothing fired, or outside the stored history) is the grid's last item
+function setbackCardsHTML(res){
+  var rate={}, newest=function(a,b){ return b.event.ts-a.event.ts; };
+  res.patterns.forEach(function(p){ rate[p.id]=p.ctrlRate; });
+  var hit=res.cases.filter(function(c){ return c.ok&&c.firedIds.length; }).sort(newest);
+  var html=hit.map(function(c,i){ var e=c.event;
+    return '<article class="rdx-sb-card" tabindex="-1"'+(i>=3&&!SB_MORE?' hidden':'')+'>'+
+      '<h3 class="rdx-sb-hd">'+evDot(e.type)+'<span>'+evLabel(e)+'</span></h3>'+
+      (e.note?'<p class="rdx-sb-note" title="'+esc(e.note)+'">'+esc(e.note)+'</p>':'')+
+      '<div class="rdx-sb-lbl">In the weeks before</div><ul class="rdx-sb-flags">'+
+      c.flags.filter(function(f){ return f.fired; }).map(function(f){ var r=rate[f.id];
+        return '<li><b>'+esc(f.name)+'</b><span class="v">'+esc(f.value)+'</span>'+(r!=null?'<span class="r">seen in '+pctOf(r)+' of '+who()+' normal weeks</span>':'')+'</li>'; }).join('')+
+      '</ul>'+(e.type==='illness'?'<p class="rdx-sb-ill">Checked against overtraining-type patterns only.</p>':'')+'</article>';
+  }).join('');
+  if(hit.length>3 && !SB_MORE) html+='<div class="rdx-sb-more"><button type="button" class="rdx-link rdx-sb-older">Show '+(hit.length-3)+' older</button></div>';
+  return '<div class="rdx-sb-grid">'+html+alsoHTML(res.cases.filter(function(c){ return !(c.ok&&c.firedIds.length); }).sort(newest), res)+'</div>';
+}
+function alsoHTML(cs, res){
+  if(!cs.length) return '';
+  var t0=res.meta.t0, t1=res.meta.t1;
+  return '<div class="rdx-sb-also"><h3 class="rdx-sb-also-hd">Also logged</h3><ul>'+cs.map(function(c,i){ var e=c.event;
+    // why a case has no lead-up: before the history, past its end, or too early in it for the 6-week warm-up
+    var why=c.ok?'Nothing unusual in the weeks before.'
+      : e.ts<t0?'Before the stored run history — import the weeks before it to include it.'
+      : e.ts>t1+7*DAY?'After the last stored run — import the newer runs to include it.'
+      : 'Too close to the start of the stored run history — import the weeks before it to include it.';
+    return '<li tabindex="-1"'+(i>=5&&!ALSO_ALL?' hidden':'')+'><div class="t">'+evDot(e.type)+'<span>'+evLabel(e)+(e.note?' · '+esc(e.note):'')+'</span></div><div class="s">'+why+'</div></li>';
+  }).join('')+'</ul>'+(cs.length>5&&!ALSO_ALL?'<button type="button" class="rdx-link rdx-also-all">Show all</button>':'')+'</div>';
+}
+// D. the statistics, CLOSED by default: fired patterns only, then pairs that co-fired before ≥2 cases.
+// No pills, no red: "×N as often" only with ≥3 cases and enough normal weeks to compare.
+function patTableHTML(res){
+  var m=res.meta, fired=res.patterns.filter(function(p){ return p.injHits>0; });
+  if(!fired.length) return '';
+  var noun=patNoun(m.nEval,m.nEvalInj,m.nEvalIll), weeks=m.nControls+' normal week'+(m.nControls===1?'':'s');
+  var row=function(name, sub, hits, den, dnoun, rate, lift, low){
+    return '<tr><td><span class="nm">'+name+'</span>'+(sub?'<span class="d">'+sub+'</span>':'')+'</td><td>'+hits+' of '+den+' '+dnoun+'</td>'+
+      '<td>'+(rate==null?'—':pctOf(rate)+'<span class="mob"> of normal weeks</span>')+
+      // ×N only for a pattern MORE common before setbacks: "×0.3 as often" reads as a finding when it's the opposite
+      (low?'<span class="m">few normal weeks to compare</span>':(den>=3&&lift!=null&&lift>=1.05)?'<span class="m">×'+(lift>=10?Math.round(lift):lift.toFixed(1))+' as often</span>':'')+'</td></tr>';
+  };
+  var rows=fired.map(function(p){ return row(esc(p.name), esc(PATTERN_COPY[p.id]||p.desc), p.injHits, p.injEval, patNoun(p.injEval,p.injEval-p.illEval,p.illEval), p.ctrlRate, p.lift, p.lowConf); });
+  // pair denominator = the cases where BOTH patterns could be checked (res.combos counts every case)
+  var ord={}, ev=res.cases.filter(function(c){ return c.ok; }), lowAll=m.nControls<InjuryPatterns.OPTS.lowConfCtrls;
+  InjuryPatterns.PATTERNS.forEach(function(p,i){ ord[p.id]=i; });
+  res.combos.filter(function(c){ return c.injHits>=2; }).slice(0,2).forEach(function(c){
+    var nm={}; c.ids.forEach(function(id,i){ nm[id]=c.names[i]; });
+    var ids=c.ids.slice().sort(function(a,b){ return ord[a]-ord[b]; });
+    var den=ev.filter(function(cs){ return ids.every(function(id){ return cs.flags.some(function(f){ return f.id===id; }); }); }), n=den.length;
+    var lift=(n&&m.nControls&&c.ctrlRate!=null)?(c.injHits/n)/Math.max(c.ctrlRate,0.5/m.nControls):null;
+    rows.push(row(esc(nm[ids[0]])+' + '+esc(nm[ids[1]])+', together', '', c.injHits, n, casesNoun(den), c.ctrlRate, lift, lowAll));
+  });
+  return '<details class="rdx-more rdx-pat-more" id="patStats"'+(PAT_STATS?' open':'')+'><summary data-f="patsum">How often each pattern showed up · '+m.nEval+' '+noun+' vs '+weeks+'</summary><div class="rdx-more-body">'+
+    '<p>Each lead-up was compared with '+weeks+' sampled from the rest of '+who()+' history, skipping the weeks around each setback.'+
+      (m.nEvalIll?' Illnesses are checked only against overtraining-type patterns: ramp, load spike, intensity and monotony.':'')+'</p>'+
+    '<table class="rdx-pt"><thead><tr><th scope="col">Pattern</th><th scope="col">Before '+noun+'</th><th scope="col">In normal weeks</th></tr></thead><tbody>'+rows.join('')+'</tbody></table>'+
+    (m.nEval<3?'<p class="rdx-pt-cav">Based on '+m.nEval+' '+noun+' — treat these as clues, not trends.</p>':'')+
+  '</div></details>';
+}
+// E. Training gaps to review: open drops (newest first) + the dismissed line. Rendered on every branch
+// that has drops or stored dismissals, so a dismissal always stays restorable.
+function gapsHTML(drops, dis){
+  if(!drops.length && !dis.length) return '';
+  var n=drops.length;
+  return '<section class="rdx-gaps" id="rdxGaps" aria-labelledby="rdxGapsHd">'+
+    '<h3 class="rdx-gaps-hd" id="rdxGapsHd" tabindex="-1">'+(n?'Training gaps to review · '+n:'No open training gaps')+'</h3>'+
+    (n?'<p class="rdx-gaps-intro">'+who('Your')+' volume fell sharply in these weeks and nothing logged explains it. If one was a setback, log it and it joins this report. A busy week or travel, not a setback? Dismiss it and it won’t be flagged again.</p>'+
+      '<ul class="rdx-gap-list">'+drops.map(function(d,i){
+        var w=d.weeks+(d.capped?'+':'')+' week'+(d.weeks===1&&!d.capped?'':'s');
+        return '<li class="rdx-gap-row" data-t0="'+d.t0+'" data-t1="'+d.t1+'">'+
+          '<div class="rdx-gap-main"><div class="rdx-gap-when" id="rdxGapW'+i+'"><span class="rdx-gap-ico" aria-hidden="true">▼</span>'+gapWhen(d)+'</div>'+
+            '<div class="rdx-gap-stats">'+w+(d.ongoing?' · ongoing':'')+' · down '+Math.round(d.pct*100)+'% vs the 4 weeks before</div></div>'+
+          '<div class="rdx-gap-acts">'+
+            '<button type="button" class="rdx-btn rdx-btn-outline rdx-btn-sm rdx-gap-log" data-i="'+i+'" data-f="log'+d.t0+'" aria-expanded="false" aria-describedby="rdxGapW'+i+'">Log it…</button>'+
+            '<button type="button" class="rdx-btn rdx-btn-ghost rdx-btn-sm rdx-gap-dismiss" data-i="'+i+'" data-f="dis'+d.t0+'" title="Not a setback — hide it and don’t flag it again" aria-label="Dismiss: not a setback — hide it and don’t flag it again" aria-describedby="rdxGapW'+i+'">Dismiss</button>'+
+          '</div></li>';
+      }).join('')+'</ul>':'')+
+    dismissedHTML(dis)+'</section>';
+}
+function dismissedHTML(dis){
+  if(!dis.length) return '';
+  var order=dis.map(function(x,i){ return i; }).sort(function(a,b){ return dis[b].t0-dis[a].t0; });
+  return '<div class="rdx-dis">'+dis.length+' dismissed · <button type="button" class="rdx-linkbtn rdx-dis-tog" data-f="distog" aria-expanded="'+DIS_OPEN+'" aria-controls="rdxDisList">'+(DIS_OPEN?'hide':'show')+'</button>'+
+    '<ul class="rdx-dis-list" id="rdxDisList"'+(DIS_OPEN?'':' hidden')+'>'+order.map(function(i){ var x=dis[i], when=fmtSpan(x.t0,x.t1);
+      return '<li class="rdx-dis-item"><span class="rdx-dis-when">'+when+'</span>'+'<span class="rdx-dis-at">'+(isFinite(x.at)?'<span aria-hidden="true">· </span>dismissed '+fmtMD(x.at):'')+'</span>'+
+        '<button type="button" class="rdx-btn rdx-btn-ghost rdx-btn-sm rdx-dis-restore" data-i="'+i+'" aria-label="Restore the '+when+' drop">Restore</button></li>';
+    }).join('')+'</ul></div>';
+}
+// F. disclaimer + what-to-log, under every branch that shows findings or gaps
+function patFootHTML(){
+  return '<p class="rdx-note rdx-pat-foot">A look back, not a prediction: these are patterns that showed up before '+who()+' logged setbacks — correlations, not causes — and a handful of setbacks is a small sample. '+
+    'What to log: overuse injuries → Injury · acute injuries not from running → Non-Running Injury · significant illnesses → Illness · planned breaks → Planned Downtime.</p>';
+}
+// Persist a dismissal change — fn(list) → list, run on the stored copy (updateProfileList) — with a
+// toast (o.msg, Undo when o.undo), and re-render. A failed write raises an error toast and rolls the
+// list back (revertKey: the stored copy, else the list before this change), unless a newer
+// dismiss/restore owns the field by then. A keyboard user
+// (o.kbd) gets focus on the "dismissed" toggle — or, for an Undo (o.toDrop) or once no toggle is
+// left, on the restored gap's Dismiss button (the button they pressed is gone).
+function saveDismissed(fn, o){
+  o=o||{};
+  var my=MOUNT, n=++DIS_SEQ, prev=STD_PROFILE.runDismissedDrops, p=updateProfileList('runDismissedDrops', fn, refresh, false), sent=canonJSON(STD_PROFILE.runDismissedDrops);
+  if(o.msg) toast(o.msg, o.undo?{undo:o.undo}:null);
+  p.then(function(r){
     if(r===true || my!==MOUNT) return;
-    PAT_WARN='⚠ Not saved ('+r+') — this change will be undone on reload.'; renderPatterns();
+    toast('Couldn’t save ('+r+'). Nothing was changed.',{kind:'err'});
+    revertKey('runDismissedDrops', Array.isArray(prev)?prev:[], function(){ return my===MOUNT && DIS_SEQ===n && canonJSON(STD_PROFILE.runDismissedDrops)===sent; });
   });
   if(!dismissedDrops().length) DIS_OPEN=false;
   refresh();
-  var box=$('patternsBox'); if(!kbd||!box) return;
-  var t=box.querySelector('.rdx-dis-tog');
-  if(!t && restored) Array.prototype.some.call(box.querySelectorAll('.rdx-dropcard'),function(c){
+  var box=$('patternsBox'); if(!o.kbd||!box) return;
+  var t=null, back=function(){ Array.prototype.some.call(box.querySelectorAll('.rdx-gap-row'),function(c){
     var d={t0:+c.getAttribute('data-t0'), t1:+c.getAttribute('data-t1')};
-    return InjuryPatterns.dismissOverlaps(d,restored) && (t=c.querySelector('.rdx-drop-dismiss'));
-  });
-  if(!t) t=$('patHead');
+    return InjuryPatterns.dismissOverlaps(d,o.restored) && (t=c.querySelector('.rdx-gap-dismiss'));
+  }); };
+  if(o.restored && o.toDrop) back();
+  if(!t) t=box.querySelector('.rdx-dis-tog');
+  if(!t && o.restored) back();
+  if(!t) t=$('rdxGapsHd')||$('patHead');
   if(t) t.focus({preventScroll:true});
 }
+// "Log it…" form — one at a time, full width under its row. GAP_FORM holds what was typed, so a
+// re-render of the report (a dismissal, a settings change, another device's write) re-opens it as it was.
+function gapFormHTML(d, st){
+  var opt=function(t){ return '<option value="'+t+'"'+(st.type===t?' selected':'')+'>'+EV_META[t][0]+'</option>'; };
+  return '<div class="rdx-gap-form" id="rdxGapForm" role="group" aria-label="Log the '+gapWhen(d)+' gap">'+
+    '<div class="rdx-gf-fields">'+
+      '<div class="rdx-ctl"><label for="gfType">What was it?</label><select id="gfType" required aria-describedby="gfHint">'+
+        '<option value="" disabled'+(st.type?'':' selected')+'>Choose a type…</option>'+['injury','illness','nonrun','race','timeoff'].map(opt).join('')+'</select></div>'+
+      '<div class="rdx-ctl"><label for="gfStart">Start</label><input type="date" id="gfStart" value="'+esc(st.start)+'"></div>'+
+      '<div class="rdx-ctl" id="gfEndCtl"'+(st.type==='race'?' hidden':'')+'><label for="gfEnd">End (optional)</label><input type="date" id="gfEnd" value="'+esc(st.end)+'"></div>'+
+      '<div class="rdx-ctl rdx-gf-note"><label for="gfNote">Note</label><input type="text" id="gfNote" placeholder="e.g. calf strain / family trip" value="'+esc(st.note)+'"></div>'+
+    '</div>'+
+    '<p class="rdx-gf-hint" id="gfHint">'+(EV_HINT[st.type]||'')+'</p>'+
+    '<div class="rdx-gf-acts"><button type="button" class="rdx-btn rdx-btn-ghost" id="gfCancel">Cancel</button>'+
+      '<button type="button" class="rdx-btn" id="gfSave"'+(EV_META[st.type]?'':' disabled')+'>Save event</button></div>'+
+  '</div>';
+}
+function openGapForm(row, d, st, focus){
+  var box=$('patternsBox'); if(!box||!row) return;
+  closeGapForm(false);
+  GAP_FORM=st;
+  row.insertAdjacentHTML('beforeend', gapFormHTML(d, st));
+  var b=row.querySelector('.rdx-gap-log'); b.setAttribute('aria-expanded','true'); b.setAttribute('aria-controls','rdxGapForm');
+  wireGapForm(d);
+  if(focus) $('gfType').focus();
+}
+function closeGapForm(focusBtn){
+  GAP_FORM=null;
+  var f=$('rdxGapForm'); if(!f) return;
+  var b=f.parentNode.querySelector('.rdx-gap-log');
+  f.parentNode.removeChild(f);
+  if(b){ b.setAttribute('aria-expanded','false'); b.removeAttribute('aria-controls'); if(focusBtn) b.focus(); }
+}
+function wireGapForm(d){
+  var type=$('gfType'), start=$('gfStart'), end=$('gfEnd'), note=$('gfNote'), save=$('gfSave');
+  var clr=function(){ [start,end].forEach(function(f){ f.classList.remove('rdx-df-err'); f.removeAttribute('aria-invalid'); }); };
+  var bad=function(f,msg){ f.classList.add('rdx-df-err'); f.setAttribute('aria-invalid','true'); f.focus(); toast(msg,{kind:'err'}); };
+  type.onchange=function(){ var v=type.value, race=v==='race'; GAP_FORM.type=v; $('gfEndCtl').hidden=race; if(race){ end.value=''; GAP_FORM.end=''; } $('gfHint').textContent=EV_HINT[v]||''; save.disabled=!EV_META[v]; };
+  start.oninput=start.onchange=function(){ GAP_FORM.start=start.value; clr(); };
+  end.oninput=end.onchange=function(){ GAP_FORM.end=end.value; clr(); };
+  note.oninput=function(){ GAP_FORM.note=note.value; };
+  note.onkeydown=function(e){ if(e.key==='Enter' && !save.disabled) save.click(); };
+  $('rdxGapForm').onkeydown=function(e){ if(e.key==='Escape'){ e.stopPropagation(); closeGapForm(true); } };
+  $('gfCancel').onclick=function(){ closeGapForm(true); };
+  save.onclick=function(ev){
+    var t=type.value; if(save.disabled || !EV_META[t]) return;
+    clr();
+    var s=parseDate(start.value); if(!s){ bad(start,'Pick a start date.'); return; }
+    var nv=(note.value||'').trim();
+    var e={ id:Date.now(), type:t, ts:s.getTime(), note:nv||(t==='injury'?'Setback — unexplained training drop':'') };
+    if(t!=='race'){
+      var en=parseDate(end.value);
+      if(en){ if(en.getTime()<=s.getTime()){ bad(end,'The end date must be after the start.'); return; } e.endTs=en.getTime(); }
+    }
+    save.disabled=true;   // double-click guard: the row re-renders away under the pointer
+    var st=Object.assign({},GAP_FORM), my=MOUNT, evs=events().slice(); evs.push(e);
+    GAP_FORM=null;
+    // a failed save rolls the event back (persist), which brings the gap back: re-open it as typed
+    persist({ runEvents:evs }, 'Logged: '+evLabel(e)).then(function(r){ if(r!==true && my===MOUNT && !GAP_FORM) GAP_FORM=st; });
+    renderEventsList(); refresh();
+    if(ev.detail===0){ var h=$('rdxGapsHd')||$('patHead'); if(h) h.focus({preventScroll:true}); }
+  };
+}
 function wireDrops(box, drops){
-  Array.prototype.forEach.call(box.querySelectorAll('.rdx-drop-log'),function(b){
-    b.onclick=function(){
-      var form=this.closest('.rdx-card').querySelector('.rdx-drop-form'), open=form.style.display==='none';
-      form.style.display=open?'':'none';
-      this.textContent=open?'cancel':'+ log as event';
-    };
+  var on=function(sel,fn){ Array.prototype.forEach.call(box.querySelectorAll(sel),function(b){ b.onclick=fn; }); };
+  var reveal=function(btn, sel, wrap){ var first=null;
+    Array.prototype.forEach.call(box.querySelectorAll(sel),function(c){ c.hidden=false; first=first||c; });
+    if(wrap) btn=btn.parentNode; btn.parentNode.removeChild(btn);
+    if(first) first.focus({preventScroll:true});
+  };
+  on('.rdx-pat-logpast', function(){ openSettings('events',{type:'injury'}); });
+  on('.rdx-pat-import', function(){ openSettings('data'); });
+  on('.rdx-sb-older', function(){ SB_MORE=true; reveal(this,'.rdx-sb-card[hidden]',true); });
+  on('.rdx-also-all', function(){ ALSO_ALL=true; reveal(this,'.rdx-sb-also li[hidden]',false); });
+  var det=$('patStats'); if(det) det.ontoggle=function(){ PAT_STATS=det.open; };
+  on('.rdx-gap-log', function(){
+    var d=drops[+this.getAttribute('data-i')]; if(!d) return;
+    if(GAP_FORM && GAP_FORM.t0===d.t0){ closeGapForm(false); return; }
+    openGapForm(this.closest('.rdx-gap-row'), d, { t0:d.t0, type:'', start:ymd(new Date(d.t0)), end:d.ongoing?'':ymd(new Date(d.t1)), note:'' }, true);
   });
-  Array.prototype.forEach.call(box.querySelectorAll('.rdx-drop-dismiss'),function(b){
-    b.onclick=function(e){
-      // the cards re-render under the pointer: a double-click's second click would land on the
-      // NEXT drop's Dismiss button, so ignore repeats
-      if(e.detail>1 || Date.now()-DIS_T<500) return;
-      var d=drops[+this.getAttribute('data-i')]; if(!d) return;
-      DIS_T=Date.now();
-      var rec={ t0:d.t0, t1:d.t1, at:Date.now() };
-      saveDismissed(function(list){ return list.concat([rec]); }, e.detail===0);
-    };
+  on('.rdx-gap-dismiss', function(e){
+    // the rows re-render under the pointer: a double-click's second click would land on the
+    // NEXT gap's Dismiss button, so ignore repeats
+    if(e.detail>1 || Date.now()-DIS_T<500) return;
+    var d=drops[+this.getAttribute('data-i')]; if(!d) return;
+    DIS_T=Date.now();
+    var rec={ t0:d.t0, t1:d.t1, at:Date.now() }, when=fmtSpan(d.t0,d.t1);
+    if(GAP_FORM && GAP_FORM.t0===d.t0) GAP_FORM=null;
+    saveDismissed(function(list){ return list.concat([rec]); }, { kbd:e.detail===0, msg:'Dismissed '+when+' — it won’t be flagged again.',
+      undo:function(u){ saveDismissed(function(list){ return list.filter(function(y){ return !sameDis(y,rec); }); },
+        { kbd:!!u&&u.detail===0, restored:rec, toDrop:true, msg:'Restored '+when+' — it’s back in Training gaps to review.' }); } });
   });
   var tog=box.querySelector('.rdx-dis-tog'), list=box.querySelector('.rdx-dis-list');
-  // show/hide in place — a re-render would close any half-filled "log as event" form
+  // show/hide in place — a re-render would cost an open form its focus
   if(tog&&list) tog.onclick=function(){ DIS_OPEN=!DIS_OPEN; list.hidden=!DIS_OPEN; tog.textContent=DIS_OPEN?'hide':'show'; tog.setAttribute('aria-expanded',String(DIS_OPEN)); };
-  Array.prototype.forEach.call(box.querySelectorAll('.rdx-dis-restore'),function(b){
-    b.onclick=function(e){
-      var x=dismissedDrops()[+this.getAttribute('data-i')]; if(!x) return;
-      // by value, not index: the stored list may be ordered differently
-      saveDismissed(function(list){ return list.filter(function(y){ return !(y&&y.t0===x.t0&&y.t1===x.t1&&y.at===x.at); }); }, e.detail===0, x);
-    };
+  on('.rdx-dis-restore', function(e){
+    if(e.detail>1 || Date.now()-DIS_T<500) return;
+    var x=dismissedDrops()[+this.getAttribute('data-i')]; if(!x) return;
+    DIS_T=Date.now();
+    // by value, not index: the stored list may be ordered differently
+    saveDismissed(function(list){ return list.filter(function(y){ return !sameDis(y,x); }); },
+      { kbd:e.detail===0, restored:x, msg:'Restored '+fmtSpan(x.t0,x.t1)+' — it’s back in Training gaps to review.' });
   });
-  Array.prototype.forEach.call(box.querySelectorAll('.rdx-drop-form'),function(form){
-    var type=form.querySelector('.rdx-df-type'), start=form.querySelector('.rdx-df-start'), end=form.querySelector('.rdx-df-end'), endF=form.querySelector('.rdx-df-endf');
-    type.onchange=function(){ endF.style.display=this.value==='race'?'none':''; if(this.value==='race') end.value=''; };
-    form.querySelector('.rdx-df-save').onclick=function(){
-      start.classList.remove('rdx-df-err'); end.classList.remove('rdx-df-err');
-      var s=parseDate(start.value);
-      if(!s){ start.classList.add('rdx-df-err'); return; }
-      var note=(form.querySelector('.rdx-df-note').value||'').trim();
-      var e={ id:Date.now(), type:type.value, ts:s.getTime(),
-              note:note||(type.value==='injury'?'Setback — unexplained training drop':'') };
-      if(type.value!=='race'){
-        var en=parseDate(end.value);
-        if(en){
-          if(en.getTime()<=s.getTime()){ end.classList.add('rdx-df-err'); return; }
-          e.endTs=en.getTime();
-        }
-      }
-      var evs=events().slice(); evs.push(e);
-      PAT_WARN='';
-      saveProfile({ runEvents:evs });
-      renderEventsList(); refresh();
-    };
-  });
+  // re-open the form a re-render closed, if its gap is still listed
+  if(GAP_FORM){
+    var st=GAP_FORM, k=-1; drops.some(function(d,i){ if(d.t0===st.t0){ k=i; return true; } return false; });
+    if(k<0) GAP_FORM=null; else openGapForm(box.querySelector('.rdx-gap-row[data-t0="'+st.t0+'"]'), drops[k], st, false);
+  }
 }
-// Open "log as event" forms (keyed by their drop's start) and what was typed, so a re-render of the
-// report — a dismissal, a restore, a settings change — doesn't throw away a half-filled form.
-function dropForms(box){
-  var st={};
-  Array.prototype.forEach.call(box.querySelectorAll('.rdx-dropcard'),function(c){
-    var f=c.querySelector('.rdx-drop-form'); if(!f||f.style.display==='none') return;
-    st[c.getAttribute('data-t0')]=['.rdx-df-type','.rdx-df-start','.rdx-df-end','.rdx-df-note'].map(function(q){ return f.querySelector(q).value; });
-  });
-  return st;
-}
-function restoreDropForms(box, st){
-  Object.keys(st).forEach(function(k){
-    var c=box.querySelector('.rdx-dropcard[data-t0="'+k+'"]'); if(!c) return;
-    var f=c.querySelector('.rdx-drop-form'), q=['.rdx-df-type','.rdx-df-start','.rdx-df-end','.rdx-df-note'];
-    q.forEach(function(sel,i){ f.querySelector(sel).value=st[k][i]; });
-    f.style.display=''; c.querySelector('.rdx-drop-log').textContent='cancel';
-    f.querySelector('.rdx-df-endf').style.display=st[k][0]==='race'?'none':'';
-  });
-}
+// Re-render, then put focus (and a text field's caret) back where it was — re-renders happen under
+// an open form when another device's write lands or a setting changes.
 function renderPatterns(){
   var box=$('patternsBox'); if(!box) return;
-  var forms=dropForms(box);
+  var a=document.activeElement, k=null, sel=null;
+  if(a && a!==box && box.contains(a)){
+    k=a.id?'#'+a.id:a.getAttribute('data-f')?'[data-f="'+a.getAttribute('data-f')+'"]':null;
+    if(k && typeof a.selectionStart==='number') sel=[a.selectionStart,a.selectionEnd];
+  }
   renderPatternsBox(box);
-  restoreDropForms(box, forms);
+  var f=k&&box.querySelector(k);
+  if(f && document.activeElement!==f){ f.focus({preventScroll:true}); if(sel) try{ f.setSelectionRange(sel[0],sel[1]); }catch(_){} }
 }
 function renderPatternsBox(box){
-  if(!window.InjuryPatterns || !LOAD_PARAMS){ box.innerHTML=''; return; }
-  var dis=dismissedDrops();
-  var res=InjuryPatterns.analyze(typeRuns(), events(), LOAD_PARAMS, { dismissedDrops:dis });
-  var nInj=events().filter(function(e){return e.type==='injury';}).length;
-  // The "N dismissed · show" line rides along on every branch, so a dismissal stays restorable
-  // even when it leaves nothing else to show.
+  var chip=$('patGapChip'), drops=[], dis=dismissedDrops(), html;
+  if(!window.InjuryPatterns || !LOAD_PARAMS){ box.innerHTML=''; if(chip) chip.hidden=true; return; }
+  var evs=events(), res=InjuryPatterns.analyze(typeRuns(), evs, LOAD_PARAMS, { dismissedDrops:dis });
+  var nInj=evs.filter(function(e){ return e.type==='injury'; }).length, nIll=evs.filter(function(e){ return e.type==='illness'; }).length;
+  var logPast='<p class="rdx-pat-act"><button type="button" class="rdx-btn rdx-btn-outline rdx-pat-logpast" data-f="logpast">+ Log a past injury</button></p>';
   if(!res.ok){
-    box.innerHTML='<div class="rdx-chart-empty">'+(res.reason==='history'
-      ? 'Not enough continuous run history to analyze injury patterns yet — about 10 weeks of data unlocks this report.'
-      : 'Import run history to unlock the injury pattern report.')+'</div>'+dismissedHTML(dis);
-    wireDrops(box,[]);
-    return;
-  }
-  var drops=res.drops.filter(function(d){return !d.explained;});
-  if(!res.meta.nEval && !drops.length){
-    box.innerHTML='<div class="rdx-chart-empty">'+(nInj
-      ? 'The logged injuries fall outside the stored run history, so there is no training window to analyze — import the runs from the weeks before each injury.'
-      : 'No injuries logged yet. Add past injuries under ⚙ Settings → Performance &amp; injury history, and this report analyzes the training that led up to each one. Log <b>overuse injuries</b> as Injury; acute injuries that didn’t come from running go under <b>Non-Running Injury</b> and significant illnesses under <b>Illness</b>, so they don’t skew the analysis.')+'</div>'+dismissedHTML(dis);
-    wireDrops(box,[]);
-    return;
-  }
-  var html='';
-  if(res.meta.nEval){
-    var caseBits=[];
-    if(res.meta.nEvalInj) caseBits.push('<b>'+res.meta.nEvalInj+'</b> logged injur'+(res.meta.nEvalInj>1?'ies':'y'));
-    if(res.meta.nEvalIll) caseBits.push('<b>'+res.meta.nEvalIll+'</b> illness'+(res.meta.nEvalIll>1?'es':''));
-    html+='<div class="rdx-pat-intro">Compared the '+res.meta.acuteWinDays+' days (and trailing weeks) leading into '+
-      caseBits.join(' and ')+' against <b>'+res.meta.nControls+
-      '</b> control windows sampled from the rest of the stored history. A pattern matters when it fired before setbacks far more often than its normal-week base rate.'+
-      (res.meta.nEvalIll?' Illness lead-ups are checked against overtraining-type patterns only (ramp, load spike, intensity, monotony) — not mechanical ones like a long-run jump.':'')+'</div>';
-    var hit=res.patterns.filter(function(p){return p.injHits>0;});
-    if(hit.length){
-      html+=hit.map(function(p){
-        var liftTxt=p.lift==null?'—':'×'+(p.lift>=10?Math.round(p.lift):p.lift.toFixed(1));
-        var col=(p.lift!=null&&p.lift>=2)?'var(--bad)':(p.lift!=null&&p.lift>=1.2)?'var(--gold)':'var(--muted2)';
-        return '<div class="rdx-pat-row">'+
-          '<div class="rdx-pat-main"><span class="rdx-pat-name">'+p.name+'</span><span class="rdx-pat-desc">'+p.desc+'</span></div>'+
-          '<div class="rdx-pat-stats">'+
-            '<span class="rdx-pat-stat">before <b>'+p.injHits+' of '+p.injEval+'</b> '+(p.illEval?'setbacks':'injuries')+'</span>'+
-            '<span class="rdx-pat-stat">'+(p.ctrlRate==null?'—':Math.round(p.ctrlRate*100)+'% of normal weeks')+'</span>'+
-            '<span class="rdx-pat-lift" style="color:'+col+';border-color:'+col+'">'+liftTxt+' vs normal'+(p.lowConf?' · few controls':'')+'</span>'+
-          '</div></div>';
-      }).join('');
+    var days=res.days||0;
+    html=res.reason==='history'
+      ? '<p class="rdx-pat-lead">This section needs about 10 weeks of continuous run history — '+who('you have')+' '+Math.floor(days/7)+' so far. It unlocks around '+fmtDay(Date.now()+Math.max(0,70-days)*DAY)+'.</p>'+logPast+gapsHTML([],dis)+patFootHTML()
+      : '<p class="rdx-pat-lead">No runs match the current activity types and minimum distance.</p>'+gapsHTML([],dis);
+  } else {
+    drops=res.drops.filter(function(d){ return !d.explained; }).sort(function(a,b){ return b.t0-a.t0; });
+    var m=res.meta, gaps=gapsHTML(drops,dis), foot=patFootHTML();
+    if(!nInj && !nIll){
+      html='<p class="rdx-pat-lead">No injuries or illnesses logged yet. Log past ones and this section shows what '+who()+' training looked like in the weeks before each.</p>'+logPast+
+        (drops.length ? gaps+foot : whatToLogHTML()+gaps);
+    } else if(!m.nEval){
+      var n=nInj+nIll, before=res.cases.every(function(c){ return c.event.ts<m.t0; });
+      html='<p class="rdx-pat-lead">'+who('Your')+' logged '+patNoun(n,nInj,nIll)+' '+(n===1?'is':'are')+' '+(before?'before':'outside')+' the stored run history, so there’s no lead-up to look at. Import the runs from the weeks before '+(n===1?'it':'each one')+'.</p>'+
+        '<p class="rdx-pat-act"><button type="button" class="rdx-btn rdx-btn-outline rdx-pat-import" data-f="import">Open Import &amp; data</button></p>'+
+        '<div class="rdx-sb-grid">'+alsoHTML(res.cases.slice().sort(function(a,b){ return b.event.ts-a.event.ts; }), res)+'</div>'+gaps+foot;
     } else {
-      html+='<div class="rdx-chart-empty">None of the current pattern set fired before the logged injuries — the lead-ups looked like typical training weeks. As the pattern registry grows this may change.</div>';
+      html=patLeadHTML(res)+setbackCardsHTML(res)+patTableHTML(res)+gaps+foot;
     }
-    var co=res.combos.filter(function(c){return c.injHits>0;});
-    if(co.length){
-      html+='<div class="rdx-pat-sub">Combinations</div>'+co.slice(0,4).map(function(c){
-        var liftTxt=c.lift==null?'—':'×'+(c.lift>=10?Math.round(c.lift):c.lift.toFixed(1));
-        return '<div class="rdx-pat-row"><div class="rdx-pat-main"><span class="rdx-pat-name">'+c.names.join(' + ')+'</span><span class="rdx-pat-desc">both fired in the same lead-up</span></div>'+
-          '<div class="rdx-pat-stats"><span class="rdx-pat-stat">before <b>'+c.injHits+' of '+c.injEval+'</b> injuries</span>'+
-          '<span class="rdx-pat-stat">'+(c.ctrlRate==null?'—':Math.round(c.ctrlRate*100)+'% of normal weeks')+'</span>'+
-          '<span class="rdx-pat-lift" style="color:var(--bad);border-color:var(--bad)">'+liftTxt+' vs normal</span></div></div>';
-      }).join('');
-    }
-    html+='<div class="rdx-pat-sub">Each '+(res.meta.nEvalIll?'setback':'injury')+', up close</div><div class="rdx-cards">'+res.cases.map(function(c){
-      var ill=c.event.type==='illness';
-      var d=ymd(new Date(c.event.ts))+(c.event.endTs?' → '+ymd(new Date(c.event.endTs)):'');
-      var inner;
-      if(!c.ok) inner='<div class="rdx-pat-flagval">outside the stored run history — no training window to analyze</div>';
-      else{
-        var fired=c.flags.filter(function(f){return f.fired;});
-        inner=fired.length
-          ? fired.map(function(f){return '<div class="rdx-pat-flag"><b>'+f.name+'</b><span>'+f.value+'</span></div>';}).join('')
-          : '<div class="rdx-pat-flagval">no flagged pattern — the lead-up looked like typical training</div>';
-      }
-      return '<div class="rdx-card"><div class="rdx-win" style="color:'+(ill?'#f59a4d':'var(--bad)')+'">'+(ill?'🤒':'⚠')+' '+d+(c.event.note?' · '+esc(c.event.note):'')+'</div>'+inner+'</div>';
-    }).join('')+'</div>';
   }
-  if(drops.length){
-    html+='<div class="rdx-pat-sub">Unexplained training drops · possible unlogged setbacks</div>'+
-      '<div class="rdx-pat-dropintro">Sharp volume drops with nothing logged nearby to explain them — a forced reduction is often an unlogged setback. Logging one as Injury adds its lead-up to the analysis above; logged as Illness, Non-Running Injury or Planned Downtime it simply disappears from this list. Just a busy week or travel, not a setback? <b>Dismiss</b> it and it won’t be flagged again.</div>'+
-      '<div class="rdx-cards">'+drops.map(function(d,k){
-        var fired=(d.flags||[]).filter(function(f){return f.fired;}), when=ymd(new Date(d.t0))+' → '+(d.ongoing?'now':ymd(new Date(d.t1)));
-        return '<div class="rdx-card rdx-dropcard" data-t0="'+d.t0+'" data-t1="'+d.t1+'">'+
-          '<div class="rdx-win" style="color:var(--warn)">▼ '+when+'</div>'+
-          '<div class="rdx-row">Volume drop <b>−'+Math.round(d.pct*100)+'%</b></div>'+
-          '<div class="rdx-row">Duration <b>'+d.weeks+(d.capped?'+':'')+' wk'+(d.weeks>1?'s':'')+(d.ongoing?' · ongoing':'')+'</b></div>'+
-          (fired.length?'<div class="rdx-pat-flagval" style="margin-top:6px">in its lead-up: '+fired.map(function(f){return f.name;}).join(' · ')+'</div>':'')+
-          '<div class="rdx-drop-acts"><button type="button" class="rdx-btn rdx-btn-sm rdx-drop-log">+ log as event</button>'+
-            '<button type="button" class="rdx-btn rdx-btn-ghost rdx-btn-sm rdx-drop-dismiss" data-i="'+k+'" title="Not a setback — hide it and don’t flag it again" aria-label="Dismiss the '+when+' drop: not a setback — hide it and don’t flag it again">Dismiss</button></div>'+
-          '<div class="rdx-drop-form" style="display:none">'+
-            '<div class="rdx-df-field"><label>Type</label><select class="rdx-df-type"><option value="injury">Injury</option><option value="illness">Illness</option><option value="nonrun">Non-Running Injury</option><option value="race">Race</option><option value="timeoff">Planned Downtime</option></select></div>'+
-            '<div class="rdx-df-field"><label>Start</label><input type="date" class="rdx-df-start" value="'+ymd(new Date(d.t0))+'"></div>'+
-            '<div class="rdx-df-field rdx-df-endf"><label>End (optional)</label><input type="date" class="rdx-df-end" value="'+(d.ongoing?'':ymd(new Date(d.t1)))+'"></div>'+
-            '<div class="rdx-df-field"><label>Note</label><input type="text" class="rdx-df-note" placeholder="e.g. calf strain / off-season break"></div>'+
-            '<button class="rdx-btn rdx-btn-sm rdx-df-save">save</button>'+
-          '</div>'+
-        '</div>';
-      }).join('')+'</div>';
-  }
-  html+=dismissedHTML(dis);
-  html+='<p class="rdx-hint">Retrospective and correlational — these are load patterns that showed up before logged injuries, not causes and not an injury prediction. With a handful of injuries the sample is small; every added injury, logged setback and month of history sharpens the report. Log only <b>overuse injuries</b> as injuries — acute injuries that didn’t come from running would skew these base rates and belong under Non-Running Injury, which stays out of the analysis entirely. Illnesses get their own event type and join only the overtraining-type patterns; planned breaks logged as downtime explain training drops without entering the analysis. Detectors and thresholds are transparent, tunable heuristics in <code>shared/injury-patterns.js</code>.</p>';
   box.innerHTML=html;
-  wireDrops(box,drops);
+  if(chip){ chip.hidden=!drops.length; chip.textContent=drops.length+' gap'+(drops.length===1?'':'s')+' to review'; }
+  wireDrops(box, drops);
 }
 
 /* ---------- volume + form ---------- */
+// Calendar days of stored history up to d, inclusive: the "All" window as of the "as of" date.
+function histDays(d){ if(!RAW.length) return 0; var a=new Date(RAW[0].ts), b=new Date(d); a.setHours(0,0,0,0); b.setHours(0,0,0,0); return Math.max(0,Math.round((b-a)/DAY)+1); }
+// Volume as of #anchor, one row per window. A window longer than the stored history would only repeat All, so it's left out.
 function renderAll(){
-  var cards=$('cards'); if(!cards) return;
-  cards.innerHTML=RUN_WINDOWS.map(function(w){
-    var end=ANCHOR, start = w.days==null ? new Date(0) : new Date(end.getTime()-w.days*DAY);
-    var lbl = w.days==null ? ('Stored · '+spanDays()+'d') : w.label;
-    return summaryCard(lbl, summarize(runsInF(start,end)));
+  var el=$('cards'); if(!el) return;
+  var end=ANCHOR||new Date(), have=histDays(end);
+  var rows=RUN_WINDOWS.filter(function(w){ return w.days==null || w.days<=have; }).map(function(w){
+    var s=summarize(runsInF(w.days==null?new Date(0):new Date(end.getTime()-w.days*DAY), end));
+    return '<tr><th scope="row">'+(w.days==null?'All<span class="rdx-vol-n"> ('+have+' day'+(have===1?'':'s')+')</span>':'<span class="rdx-wide">Last </span>'+w.label)+'</th><td>'+s.n+'</td><td>'+s.dist.toFixed(1)+'</td><td>'+(s.dur?fmtDur(s.dur):'–')+'</td><td>'+fmtPace(s.pace)+'</td></tr>';
   }).join('');
+  el.innerHTML='<div class="rdx-tablewrap rdx-volwrap"><table class="rdx-table rdx-vol" aria-labelledby="volHd"><thead><tr><th scope="col">Window</th><th scope="col">Runs</th><th scope="col">Miles</th><th scope="col">Time</th><th scope="col">Avg pace<span class="rdx-munit">/mi</span></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
+function setCompare(on){ var b=$('formCompare'); b.classList.toggle('on',on); b.setAttribute('aria-pressed',String(on)); $('cmpRanges').hidden=!on; }
+// All metrics: Range A vs Range B (the default: last 90 days vs the 90 before), or every stored run.
+// Grouped like the chart's Show select but Form first and Derived last; hidden metrics are skipped.
 function renderForm(){
   var tbl=$('ftable'); if(!tbl) return;
-  var it=intensityState();
-  var compare=$('formCompare').classList.contains('on');
-  var cols;
-  if(compare){
-    var af=parseDate($('faFrom').value), at=parseDate($('faTo').value);
-    var bf=parseDate($('fbFrom').value), bt=parseDate($('fbTo').value);
-    var A=(af&&at)?filterIntensity(runsIn(new Date(af.getTime()-1),dayEnd(at)),it.mode,it.cutoff):[];
-    var B=(bf&&bt)?filterIntensity(runsIn(new Date(bf.getTime()-1),dayEnd(bt)),it.mode,it.cutoff):[];
-    cols=[{label:'Range A',runs:A},{label:'Range B',runs:B}];
-  } else {
-    cols=[{label:'Stored ('+spanDays()+' d)', runs:filterIntensity(runsIn(new Date(0), new Date(8.64e15)),it.mode,it.cutoff)}];
-  }
-  var visible=METRICS.filter(metricVisible);
-  var head='<thead><tr><th>Metric</th>'+cols.map(function(c){return '<th>'+c.label+' <span class="rdx-munit">n='+c.runs.length+'</span></th>';}).join('')+(compare?'<th>Δ</th>':'')+'</tr></thead>';
-  var body='<tbody>';
-  visible.forEach(function(m){
-    var vals=cols.map(function(c){return metricMean(c.runs,m);});
-    body+='<tr><td><span class="rdx-mname">'+m.label+'</span>'+(m.unit?'<span class="rdx-munit">'+m.unit+'</span>':'')+'<div class="rdx-mdesc">'+m.desc+'</div></td>';
-    vals.forEach(function(v){ body+='<td>'+fmtVal(v,m)+'</td>'; });
-    if(compare) body+='<td>'+deltaHTML(vals[0],vals[1],m)+'</td>';
-    body+='</tr>';
-  });
-  tbl.innerHTML=head+body+'</tbody>';
+  var it=intensityState(), compare=$('formCompare').classList.contains('on'), cols;
+  var rng=function(lbl,f,t){ var a=parseDate($(f).value), b=parseDate($(t).value);
+    return {label:lbl, sub:(a&&b)?fmtSpan(a.getTime(),b.getTime()):'pick both dates', runs:(a&&b)?filterIntensity(runsIn(new Date(a.getTime()-1),dayEnd(b)),it.mode,it.cutoff):[]}; };
+  if(compare) cols=[rng('Range A','faFrom','faTo'), rng('Range B','fbFrom','fbTo')];
+  else cols=[{label:'All runs', sub:RAW.length?fmtSpan(RAW[0].ts,RAW[RAW.length-1].ts):'', runs:filterIntensity(runsIn(new Date(0), new Date(8.64e15)),it.mode,it.cutoff)}];
+  var byKey={}; METRICS.forEach(function(m){ byKey[m.key]=m; });
+  var order=['Form','Effort','Load','Derived'], gs=metricGroups().sort(function(a,b){ return order.indexOf(a[0])-order.indexOf(b[0]); });
+  var head='<thead><tr><th scope="col">Metric</th>'+cols.map(function(c){ return '<th scope="col">'+c.label+'<span class="rdx-th-sub"><span class="rdx-wide">'+c.sub+' · </span>'+c.runs.length+' run'+(c.runs.length===1?'':'s')+'</span></th>'; }).join('')+
+    (compare?'<th scope="col">Change<span class="rdx-th-sub">A − B</span></th>':'')+'</tr></thead>';
+  var body=gs.map(function(g){
+    var rows=g[1].map(function(k){
+      var m=byKey[k]; if(!m||m.hide||!metricVisible(m)) return '';
+      var vals=cols.map(function(c){ return metricMean(c.runs,m); });
+      return '<tr><td><span class="rdx-mname">'+m.label+'</span>'+(m.unit?'<span class="rdx-munit">'+m.unit+'</span>':'')+'<div class="rdx-mdesc">'+m.desc+'</div></td>'+
+        vals.map(function(v){ return '<td>'+fmtVal(v,m)+'</td>'; }).join('')+(compare?'<td>'+deltaHTML(vals[0],vals[1],m)+'</td>':'')+'</tr>';
+    }).join('');
+    return rows?'<tbody><tr class="rdx-grp"><th colspan="'+(cols.length+(compare?2:1))+'" scope="rowgroup">'+g[0]+'</th></tr>'+rows+'</tbody>':'';
+  }).join('');
+  tbl.innerHTML=head+body;
 
-  var hidden=METRICS.filter(function(m){return !metricVisible(m);});
+  var hidden=METRICS.filter(function(m){ return !m.hide && !metricVisible(m); });
   var note=compare
-    ? 'Comparing two date ranges (Δ = Range A − Range B). n = runs in each range after filters.'
-    : 'Showing stored-history averages. Toggle “compare two ranges” to compare periods (Δ = Range A − Range B).';
-  if(hidden.length){ var dev=RunDevices.byId(deviceId()); note+=' · Hidden for '+(dev?dev.label:'this device')+': '+hidden.map(function(m){return m.label;}).join(', ')+' (needs a chest strap/pod or not captured).'; }
-  if(visible.some(function(m){return m.needsWeight;}) && weightKg()==null){ note+=' · Enter body weight in settings to show Peak Force in Newtons.'; }
+    ? 'Each value is the average per run. Change = Range A − Range B: green or red marks a change in the better or worse direction where there is one, and “≈ same” one within normal run-to-run variation.'
+    : 'Each value is the average per run over every stored run that matches the filters. Turn on Compare two ranges to compare periods.';
+  if(hidden.length){ var dev=RunDevices.byId(deviceId()); note+=' Hidden for '+(dev?dev.label:'this device')+': '+hidden.map(function(m){return m.label;}).join(', ')+' (needs a chest strap or pod, or not recorded).'; }
+  if(byKey.force && metricVisible(byKey.force) && weightKg()==null) note+=' Add body weight in Data & settings → Profile to show Peak Force.';
   var hintEl=$('formHint'); if(hintEl) hintEl.textContent=note;
 }
+// Form tiles: the last 90 days to #anchor vs the 90 before. With no runs in the earlier window there is
+// nothing to compare, so one line says so instead of a "no prior" on every tile.
 function renderTiles(){
   var el=$('formTiles'); if(!el) return;
   var it=intensityState(), end=ANCHOR||new Date();
   var cur =filterIntensity(runsIn(new Date(end.getTime()-90*DAY),end),it.mode,it.cutoff);
   var prev=filterIntensity(runsIn(new Date(end.getTime()-180*DAY),new Date(end.getTime()-90*DAY)),it.mode,it.cutoff);
+  if(!cur.length){ el.innerHTML='<p class="rdx-note rdx-tiles-note">No runs in the 90 days up to '+fmtDay(end)+' that match the filters.</p>'; return; }
   var pri=['cad','gct','vo','vratio','asym','stride','pace'];
   var byKey={}; METRICS.forEach(function(m){ byKey[m.key]=m; });
   var html=pri.map(function(k){
     var m=byKey[k]; if(!m||!metricVisible(m)) return '';
     var cv=metricMean(cur,m); if(cv==null) return '';
-    var pv=metricMean(prev,m);
     var val=m.pace?fmtPace(cv):cv.toFixed(m.dec);
+    var d=prev.length?(deltaHTML(cv,metricMean(prev,m),m)||'<span class="rdx-delta flat same">no earlier data</span>'):'';
     return '<div class="rdx-tile"><div class="rdx-tile-lbl">'+m.label+'</div>'+
       '<div class="rdx-tile-val">'+val+(m.unit?'<span class="rdx-tile-unit">'+m.unit+'</span>':'')+'</div>'+
-      '<div class="rdx-tile-delta">'+(deltaHTML(cv,pv,m)||'<span class="rdx-delta flat">— no prior</span>')+'</div></div>';
+      (d?'<div class="rdx-tile-delta">'+d+'</div>':'')+'</div>';
   }).join('');
-  el.innerHTML=html||'<div class="rdx-chart-empty">No form metrics available for this device.</div>';
+  if(!html){ el.innerHTML='<p class="rdx-note rdx-tiles-note">No form metrics available for this device.</p>'; return; }
+  el.innerHTML=html+(prev.length?'':'<p class="rdx-note rdx-tiles-note">Form changes show here once there are 90 days of runs before this window.</p>');
 }
 
 /* ---------- "Mark Lever runs" modal ----------
@@ -1787,7 +2348,7 @@ function lvApply(kind){
   var msg=kind==='mark'?runs+' marked as Lever at '+fmtPct(off*100)+'% offload':kind==='not'?runs+' marked as not Lever':runs+' reset to auto-detection';
   LV.sel.clear();
   var my=MOUNT, rerender=function(){ annotateLever(); buildTypeChips(); refresh(); };   // refresh re-renders the open modal too
-  var saved=updateProfileList('runLeverMarks', function(list){ return list.filter(function(m){ return !(m&&drop.has(m.id)); }).concat(add); }, rerender);
+  var saved=updateProfileList('runLeverMarks', function(list){ return list.filter(function(m){ return !(m&&drop.has(m.id)); }).concat(add); }, rerender, false);   // the modal reports in its own #lvToast
   rerender();
   lvToast('✓ '+msg, true);
   saved.then(function(r){ if(r!==true && my===MOUNT) lvToast('⚠ Not saved ('+r+') — '+msg+' for now, but it will be undone on reload.', false); });
@@ -1801,6 +2362,7 @@ function lvOpenModal(){
   LV.trigger=(a && a!==document.body && ROOT.contains(a)) ? a : $('lvOpen'); LV.filter='all'; LV.sel.clear();
   $('lvOff').value=fmtPct(100-leverPct());
   var t=$('lvToast'); if(t) t.textContent='';
+  var pt=$('rdxToast'); if(pt){ pt.hidden=true; clearTimeout(TOAST_T); }   // the page toast waits behind the modal, clock stopped
   m.hidden=false;
   renderLeverModal();
   m.querySelector('.rdx-modal-panel').focus();
@@ -1808,6 +2370,7 @@ function lvOpenModal(){
 function lvClose(){
   var m=$('lvModal'); if(!m||m.hidden) return;
   m.hidden=true; LV.sel.clear();
+  var pt=$('rdxToast'); if(pt){ pt.hidden=false; if(TOAST_ARM) TOAST_ARM(); }
   if(LV.trigger && LV.trigger.focus && ROOT.contains(LV.trigger)) LV.trigger.focus();
 }
 function wireLeverModal(){
@@ -1847,11 +2410,11 @@ function buildTypeChips(){
   types.forEach(function(t){ if(!KNOWN_TYPES.has(t)){ KNOWN_TYPES.add(t); ACTIVE_TYPES.add(t); } });
   var wrap=$('types'); if(!wrap) return; wrap.innerHTML='';
   types.forEach(function(tp){
-    var c=document.createElement('span');
-    c.className='rdx-chip'+(ACTIVE_TYPES.has(tp)?' on':''); c.textContent=tp+' ('+counts[tp]+')';
+    var c=document.createElement('button'); c.type='button';
+    c.className='rdx-chip'+(ACTIVE_TYPES.has(tp)?' on':''); c.textContent=tp+' ('+counts[tp]+')'; c.setAttribute('aria-pressed',String(ACTIVE_TYPES.has(tp)));
     c.onclick=function(){
-      if(ACTIVE_TYPES.has(tp)){ACTIVE_TYPES.delete(tp);c.classList.remove('on');}
-      else{ACTIVE_TYPES.add(tp);c.classList.add('on');}
+      if(ACTIVE_TYPES.has(tp)) ACTIVE_TYPES.delete(tp); else ACTIVE_TYPES.add(tp);
+      c.classList.toggle('on',ACTIVE_TYPES.has(tp)); c.setAttribute('aria-pressed',String(ACTIVE_TYPES.has(tp)));
       refresh();
     };
     wrap.appendChild(c);
@@ -1859,26 +2422,84 @@ function buildTypeChips(){
 }
 
 /* ---------- orchestration ---------- */
-function refresh(){ if(RAW.length){ annotateLever(); LOAD_PARAMS=computeLoadParams(); renderHero(); renderChart(); renderPatterns(); renderTiles(); renderForm(); renderAll(); renderLeverHint(); renderLeverModal(); } }
-function setRangeChip(active){ Array.prototype.forEach.call($all('#rdx-rangeChips .rdx-chip'),function(c){ c.classList.toggle('on', c.getAttribute('data-range')===active); }); }
-function applyRange(r){
-  if(!RAW.length) return;
-  var max=ANCHOR||new Date(RAW[RAW.length-1].ts);
-  var from=(r==='all')?new Date(RAW[0].ts):new Date(max.getTime()-parseInt(r,10)*30.44*DAY);
-  $('tFrom').value=ymd(from); $('tTo').value=ymd(max);
-  setRangeChip(r); renderChart();
+function refresh(){ if(RAW.length){ annotateLever(); LOAD_PARAMS=computeLoadParams(); renderHero(); renderChart(); renderPatterns(); renderTiles(); renderForm(); renderAll(); renderLeverHint(); renderLeverModal(); renderStatus(); } }
+// Segmented range control; 'custom' reveals the From/To inputs.
+function setRangeChip(active){
+  Array.prototype.forEach.call($all('#rdx-rangeChips [data-range]'),function(c){ var on=c.getAttribute('data-range')===active; c.classList.toggle('on',on); c.setAttribute('aria-pressed',String(on)); });
+  var cr=$('customRange'); if(cr) cr.hidden=active!=='custom';
 }
+// Range presets end TODAY, so the chart's right edge is the day the hero reads ('all' starts at the first run).
+function setRange(r){
+  if(!RAW.length) return;
+  var to=new Date(), from=(r==='all')?new Date(RAW[0].ts):new Date(to.getTime()-parseInt(r,10)*30.44*DAY);
+  $('tFrom').value=ymd(from); $('tTo').value=ymd(to);
+  setRangeChip(r);
+}
+function applyRange(r){ setRange(r); renderChart(); }
+// Header freshness line: "369 runs · last run today 6:15 AM · Strava synced today". A stale history
+// (last run > 3 days) with no Strava sync to top it up gets a nudge to the import group.
+function renderStatus(){
+  var el=$('rdxFresh'); if(!el) return;
+  if(!RAW.length){ el.textContent='No runs yet'; return; }
+  var last=RAW[RAW.length-1].ts, s=RAW.length+' run'+(RAW.length===1?'':'s')+' · last run '+fmtRel(last);
+  if(STRAVA_SYNC.connected && STRAVA_SYNC.last){
+    var t=STRAVA_SYNC.last.toDate?STRAVA_SYNC.last.toDate().getTime():new Date(STRAVA_SYNC.last).getTime(), n=daysAgo(t);
+    if(isFinite(t)) s+=' · Strava synced '+(n<=0?'today':n===1?'yesterday':fmtMD(t));
+  }
+  el.textContent=s;
+  if(daysAgo(last)>3 && !STRAVA_SYNC.connected){
+    el.appendChild(document.createTextNode(' · '));
+    var b=document.createElement('button'); b.type='button'; b.className='rdx-link'; b.textContent='Import a newer export';
+    b.onclick=function(){ openSettings('data'); }; el.appendChild(b);
+  }
+}
+// Profile inputs from STD_PROFILE — on load, and again after a failed save rolls the view back.
+function fillProfileInputs(){
+  var byBrand={}; RunDevices.LIST.forEach(function(d){ (byBrand[d.brand]=byBrand[d.brand]||[]).push(d); });
+  $('device').innerHTML='<option value="">All metrics (no device set)</option>'+Object.keys(byBrand).map(function(b){return '<optgroup label="'+b+'">'+byBrand[b].map(function(d){return '<option value="'+d.id+'"'+(d.id===deviceId()?' selected':'')+'>'+d.label+'</option>';}).join('')+'</optgroup>';}).join('');
+  $('weight').value=STD_PROFILE.weightLb||'';
+  $('offload').value=STD_PROFILE.runLeverPctBW||'';
+  $('easypace').value=easyPaceSec()!=null?fmtPace(easyPaceSec()):'';
+  var a=$('accessory'); a.classList.toggle('on', hasAccessory()); a.setAttribute('aria-pressed',String(hasAccessory()));
+}
+// Data & settings panel: open/close keeps the gear button's state in step.
+function setPanel(open){
+  var p=$('settingsPanel'), g=$('gearBtn'); if(!p) return;
+  p.hidden=!open;
+  if(g) g.setAttribute('aria-expanded',String(open));
+}
+// Open the panel at one group: 'events' (focus Type, or with {type} preset that type — firing its
+// change handler — and focus the date) or 'data' (focus the drop zone).
+function openSettings(group, preset){
+  setPanel(true);
+  var g=$('set-'+group); if(!g) return;
+  var reduce=window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  g.scrollIntoView({block:'start', behavior:reduce?'auto':'smooth'});
+  var f;
+  if(group==='events'){
+    f=$('evType');
+    if(preset && preset.type && EV_META[preset.type]){ f.value=preset.type; f.onchange(); f=$('evDate'); }
+  } else if(group==='data') f=$('drop');
+  if(f) f.focus({preventScroll:true});
+}
+// The import block lives in Data & settings → Import & data; with no runs it moves (appendChild keeps
+// its listeners) into the onboarding card, with the export steps open.
 function showSections(hasData){
-  var gb=$('gearBtn'); if(gb){ gb.style.display=hasData?'inline-flex':'none'; gb.classList.remove('on'); }
-  var panel=$('settingsPanel'); if(panel) panel.style.display='none';   // collapsed by default
+  var blk=$('importBlock'), dst=$(hasData?'importSlot':'importHome'), had=false;
+  if(blk && dst && blk.parentNode!==dst){ had=blk.contains(document.activeElement); dst.appendChild(blk); var h=$('exportHelp'); if(h) h.open=!hasData; }
+  ['evQuick','gearBtn'].forEach(function(id){ var b=$(id); if(b) b.hidden=!hasData; });
+  if(!hasData) setPanel(false);
+  // a keyboard import from the onboarding card: the focused drop zone just moved into the closed panel —
+  // keep focus on the page, on the button that opens where it went
+  if(had && hasData && $('settingsPanel').hidden) $('gearBtn').focus({preventScroll:true});
   var emptyEl=$('sec-empty'); if(emptyEl) emptyEl.classList.toggle('show',!hasData);
-  ['sec-hero','sec-chart','sec-patterns','sec-form','sec-summary'].forEach(function(id){
+  ['sec-hero','sec-chart','sec-patterns','sec-form','sec-about'].forEach(function(id){
     var e=$(id); if(e) e.classList.toggle('show',hasData);
   });
 }
 
 function renderLoaded(){
-  if(!RAW.length){ showSections(false); return; }
+  if(!RAW.length){ showSections(false); renderStatus(); return; }
   var dates=RAW.map(function(r){return r.date;}).sort(function(a,b){return a-b;});
   var min=dates[0], max=dates[dates.length-1];
   ANCHOR=new Date(max);
@@ -1887,28 +2508,27 @@ function renderLoaded(){
   showSections(true);
   renderDemoBar();
   var lm=$('loadMethod'); if(lm && window.RunLoad) lm.innerHTML=RunLoad.methodologyHTML();
-  $('filenote').textContent=RAW.length+' runs stored · '+ymd(min)+' → '+ymd(max);
+  var span=fmtSpan(min.getTime(), max.getTime());
+  $('filenote').textContent=RAW.length+' run'+(RAW.length===1?'':'s')+' stored · '+span;
   $('anchor').value=ymd(max);
-  $('faFrom').value=ymd(new Date(max.getTime()-90*DAY));
+  // compare defaults: the last 90 days to the last run vs the 90 before (inclusive date ranges, no shared day)
+  $('faFrom').value=ymd(new Date(max.getTime()-89*DAY));
   $('faTo').value=ymd(max);
-  $('fbFrom').value=ymd(new Date(max.getTime()-180*DAY));
+  $('fbFrom').value=ymd(new Date(max.getTime()-179*DAY));
   $('fbTo').value=ymd(new Date(max.getTime()-90*DAY));
-  var byBrand={}; RunDevices.LIST.forEach(function(d){ (byBrand[d.brand]=byBrand[d.brand]||[]).push(d); });
-  $('device').innerHTML='<option value="">Device: all metrics</option>'+Object.keys(byBrand).map(function(b){return '<optgroup label="'+b+'">'+byBrand[b].map(function(d){return '<option value="'+d.id+'"'+(d.id===deviceId()?' selected':'')+'>'+d.label+'</option>';}).join('')+'</optgroup>';}).join('');
-  $('weight').value=STD_PROFILE.weightLb||'';
-  $('offload').value=STD_PROFILE.runLeverPctBW||'';
-  $('easypace').value=easyPaceSec()!=null?fmtPace(easyPaceSec()):'';
-  $('accessory').classList.toggle('on', hasAccessory());
+  setCompare(true);
+  fillProfileInputs();
   $('evDate').value=ymd(max);
   renderEventsList();
   populateMetricSelects();
-  $('tTo').value=ymd(max);
-  $('tFrom').value=ymd(new Date(max.getTime()-91*DAY));
-  setRangeChip('3');
+  setRange('3');
+  // Strava attribution (API terms): the "Powered by Strava" mark shows whenever Strava runs do —
+  // white on the dark theme, orange on light.
   var nStrava=RAW.filter(function(r){return r.source==='strava';}).length;
-  var foot=$('foot'); if(foot) foot.innerHTML='Reading '+RAW.length+' stored runs.'+
-    (nStrava?(' '+nStrava+' synced from Strava on days with no watch import — Strava runs carry pace, distance, HR, cadence and ascent (no descent: outdoor runs are scored as if they came down what they went up, since runs almost always end where they started; treadmill runs take no hill surcharge), but no ground-contact or oscillation data. <img src="/images/strava/api_logo_pwrdBy_strava_horiz_orange.svg" alt="Powered by Strava" style="height:15px;vertical-align:-4px">'):'')+
-    ' Track-running distances are converted from meters to miles. Load and form math live in <code>shared/run-load-model.js</code>; this view in <code>shared/run-dynamics.js</code>.';
+  var foot=$('foot'); if(foot) foot.innerHTML=RAW.length+' run'+(RAW.length===1?'':'s')+' · '+span+'. '+
+    (nStrava?nStrava+' synced from Strava on days with no watch import — Strava runs carry pace, distance, heart rate, cadence and ascent but no ground contact or oscillation; outdoor Strava runs are scored as if they came back down what they climbed, and treadmill runs take no hill surcharge. ':'')+
+    'Track distances are converted from meters to miles.'+
+    (nStrava?'<span class="rdx-strava"><img class="rdx-strava-w" src="/images/strava/api_logo_pwrdBy_strava_horiz_white.svg" alt="Powered by Strava"><img class="rdx-strava-o" src="/images/strava/api_logo_pwrdBy_strava_horiz_orange.svg" alt="Powered by Strava"></span>':'');
   refresh();
 }
 
@@ -1916,42 +2536,47 @@ function renderLoaded(){
 // Garmin = one Activities.csv (text); Coros = a .zip of binary .fit files
 // (or a single .fit). Both paths produce the same candidate run docs and
 // share saveCandidates() for dedup/backfill/status.
+// Import / backfill / delete status: the header line (#importStatus) AND #importNote inside the import block,
+// since the header is off-screen when the action was taken from Data & settings. A final outcome (done =
+// 'ok' | 'err') is also toasted — the announced copy (neither line is a live region, so progress ticks stay
+// quiet), visible wherever the page is scrolled.
+function impStatus(html, done){
+  ['importStatus','importNote'].forEach(function(id){ var e=$(id); if(e) e.innerHTML=html; });
+  var st=$('importStatus'); if(done && st) toast(st.textContent, done==='err'?{kind:'err'}:null);
+}
 function readFile(f){
   var name=String(f.name||'').toLowerCase();
   if(/\.zip$/.test(name)||/\.fit$/.test(name)) return readCorosFile(f);
   return readGarminCsv(f);
 }
 function readGarminCsv(f){
-  var st=$('importStatus');
-  st.innerHTML='<span class="rdx-spin"></span>Reading '+esc(f.name)+'…';
+  impStatus('<span class="rdx-spin"></span>Reading '+esc(f.name)+'…');
   var rd=new FileReader();
-  rd.onerror=function(){ st.innerHTML='<span class="err">Could not read file.</span>'; };
+  rd.onerror=function(){ impStatus('<span class="err">Could not read file.</span>','err'); };
   rd.onload=function(){
     var candidates;
     try{ candidates=parseExport(rd.result); }
-    catch(e){ st.innerHTML='<span class="err">'+esc(e.message)+'</span>'; return; }
+    catch(e){ impStatus('<span class="err">'+esc(e.message)+'</span>','err'); return; }
     saveCandidates(candidates);
   };
   rd.readAsText(f);
 }
 function readCorosFile(f){
-  var st=$('importStatus');
-  st.innerHTML='<span class="rdx-spin"></span>Reading '+esc(f.name)+'…';
+  impStatus('<span class="rdx-spin"></span>Reading '+esc(f.name)+'…');
   var rd=new FileReader();
-  rd.onerror=function(){ st.innerHTML='<span class="err">Could not read file.</span>'; };
+  rd.onerror=function(){ impStatus('<span class="err">Could not read file.</span>','err'); };
   rd.onload=function(){
     parseCorosArchive(rd.result, f.name, function(done,total){
-      if(st) st.innerHTML='<span class="rdx-spin"></span>Parsing .fit files… '+done+'/'+total;
+      impStatus('<span class="rdx-spin"></span>Parsing .fit files… '+done+'/'+total);
     }).then(function(candidates){ saveCandidates(candidates); })
-      .catch(function(e){ console.error(e); st.innerHTML='<span class="err">'+esc(e&&e.message||'Could not read this Coros file.')+'</span>'; });
+      .catch(function(e){ console.error(e); impStatus('<span class="err">'+esc(e&&e.message||'Could not read this Coros file.')+'</span>','err'); });
   };
   rd.readAsArrayBuffer(f);
 }
 function saveCandidates(candidates){
-  var st=$('importStatus');
-  if(!candidates||!candidates.length){ if(st) st.innerHTML='<span class="err">No running activities found in this file.</span>'; return; }
+  if(!candidates||!candidates.length){ impStatus('<span class="err">No running activities found in this file.</span>','err'); return; }
   var elev=candidates.filter(function(c){return c.ascentM!=null;}).length;
-  if(st) st.innerHTML='<span class="rdx-spin"></span>Saving '+candidates.length+' runs…';
+  impStatus('<span class="rdx-spin"></span>Saving '+candidates.length+' runs…');
   backfill(candidates).then(function(res){
     return loadFromFirestore().then(function(){
       renderLoaded();
@@ -1959,148 +2584,198 @@ function saveCandidates(candidates){
       var verify=sample?actCol().doc(sample.id).get().then(function(d){return d.exists&&d.data().ascentM!=null;}):Promise.resolve(null);
       verify.then(function(ok){
         var unitsNote=candidates.csvUnits?' · '+(candidates.csvUnits==='metric'?'km/m':'mi/ft')+' export detected':'';
-        if(st) st.innerHTML='<span class="ok">✓ '+res.added+' new'+(res.updated?(', '+res.updated+' updated'):'')+(res.replaced?(', '+res.replaced+' Strava-synced replaced by watch data'):'')+'</span> · '+RAW.length+' total · '+elev+'/'+candidates.length+' w/ elevation'+unitsNote+(ok===false?' <span class="err">(elevation did NOT persist — check rules)</span>':'');
+        impStatus('<span class="ok">✓ '+res.added+' new'+(res.updated?(', '+res.updated+' updated'):'')+(res.replaced?(', '+res.replaced+' Strava-synced replaced by watch data'):'')+'</span> · '+RAW.length+' total · '+elev+'/'+candidates.length+' w/ elevation'+unitsNote+(ok===false?' <span class="err">(elevation did NOT persist — check rules)</span>':''), ok===false?'err':'ok');
       });
     });
   }).catch(function(e){
     console.error(e);
-    if(st) st.innerHTML='<span class="err">Save failed: '+(e&&e.code||e&&e.message||e)+'</span>';
+    impStatus('<span class="err">Save failed: '+esc(e&&e.code||e&&e.message||e)+'</span>','err');
   });
 }
 
-/* ---------- shell markup ---------- */
+/* ---------- shell markup ----------
+   Page order: header strip → Data & settings panel (collapsed) → [onboarding card when there are no
+   runs] → Today → Load over time → Injury & illness history → Form & volume → About these numbers,
+   then the toast and the Lever modal. #importBlock is built once and moved between the panel's
+   Import & data group (#importSlot) and the onboarding card (#importHome) by showSections(). */
 function shellHTML(opts){
-  var who = ROLE==='coach' ? "this athlete's" : 'your';
+  var your=who();
   var titleHTML = opts.title
-    ? '<div><h2 class="rdx-h1">'+esc(opts.title)+'</h2>'+(opts.sub?'<p class="rdx-sub">'+opts.sub+'</p>':'')+'</div>'
-    : '<span></span>';
+    ? '<div class="rdx-title"><h2 class="rdx-h1">'+esc(opts.title)+'</h2>'+(opts.sub?'<p class="rdx-sub">'+opts.sub+'</p>':'')+'</div>'
+    : '';
+  var evOpts=['race','injury','illness','nonrun','timeoff'].map(function(t){ return '<option value="'+t+'">'+EV_META[t][0]+'</option>'; }).join('');
+  var importBlock=
+  '<div class="rdx-import" id="importBlock">'+
+    '<div class="rdx-import-row">'+
+      '<div class="rdx-drop" id="drop" role="button" tabindex="0"><b>Import a Garmin CSV or COROS .zip</b>'+
+        '<span>Drag &amp; drop, or click to choose — re-imports only add what’s new.</span>'+
+        '<input type="file" id="file" accept=".csv,text/csv,.zip,.fit,application/zip" hidden></div>'+
+      '<button type="button" class="rdx-btn rdx-btn-outline" id="stravaBackfill" hidden title="Fetch '+your+' entire Strava history — one run per day is added for every day with no imported activity">⟲ Backfill Strava history</button>'+
+    '</div>'+
+    '<p class="rdx-imp-note" id="importNote"></p>'+
+    '<details class="rdx-more" id="exportHelp"><summary>How to export '+your+' run history</summary>'+
+      '<div class="rdx-more-body">'+
+        '<p>Export from '+your+' watch platform with the steps below, then drop the file in the import box above. '+
+          'Everything is read in your browser and de-duplicated by start time, so re-uploads only add what is new — and importing from more than one source is fine.</p>'+
+        '<p><b>Garmin Connect</b> — one <code>Activities.csv</code>:</p><ol>'+
+        '<li>On a computer, open <a href="https://connect.garmin.com/modern/activities" target="_blank" rel="noopener">Garmin Connect → Activities → All Activities</a> and sign in.</li>'+
+        '<li>Use the <b>filter</b> controls to set <b>Activity Type → Running</b> (optional) and the <b>date range</b> you want.</li>'+
+        '<li><b>Scroll to the bottom</b> so every activity in that range loads on screen — the export only includes what is loaded.</li>'+
+        '<li>Click <b>Export CSV</b> (top-right) to download <code>Activities.csv</code>.</li>'+
+        '<li>Drop that file in the import box above. Runs are de-duplicated by start time, so re-uploads only add what is new.</li>'+
+      '</ol>'+
+        '<p><b>COROS Training Hub</b> — a <code>.zip</code> of per-activity <code>.fit</code> files, delivered by email:</p><ol>'+
+        '<li>On a computer, open <a href="https://t.coros.com" target="_blank" rel="noopener">COROS Training Hub (t.coros.com)</a> and sign in.</li>'+
+        '<li>Open the <b>Activity List</b> tab at the top. To import only part of the history, use the list\'s <b>filter</b> controls to narrow by <b>date range</b> and sport first (optional — re-imports de-dupe, so exporting everything is fine too).</li>'+
+        '<li>Click <b>Export Data</b> on the right, choose <b>.FIT</b> as the format, and enter the <b>email address</b> to send the export to.</li>'+
+        '<li>COROS emails a <b>download link</b> (usually within a few minutes). Open it and download the <code>.zip</code> — it holds one <code>.fit</code> file per activity.</li>'+
+        '<li>Drop that <code>.zip</code> in the import box above (a single <code>.fit</code> works too). Each <code>.fit</code> is unpacked and read right in your browser.</li>'+
+      '</ol>'+
+        '<p>Running-form metrics (ground contact, vertical oscillation, cadence, stride) need a compatible device or strap — runs recorded without one still import for load and pace, they just skip those fields. Garmin\'s CSV export is capped at ~1,000 rows and only includes what is loaded on screen, so export long Garmin histories in chunks by date range — each chunk merges in automatically.</p>'+
+        '<p>Strava connected (via the coaching dashboard)? The last 2 years of Strava runs sync in automatically, once a day, for days with no watch import — and <b>Backfill Strava history</b> pulls the entire Strava history at once for the same gap-fill. Strava can\'t provide ground contact, oscillation, or descent, so uploading a watch export for those days replaces the Strava copy with the full-metric version.</p>'+
+      '</div></details>'+
+  '</div>';
   return ''+
-  '<div class="rdx-topbar">'+titleHTML+'<button class="rdx-gear" id="gearBtn" style="display:none">⚙ Settings &amp; filters</button></div>'+
-
-  '<details class="rdx-help"><summary>How to export your run history and import it here</summary>'+
-    '<div class="rdx-help-body">'+
-      '<p>Export from your watch platform below, then drop the file in the box. '+
-        'Everything is read in your browser and de-duplicated by start time, so re-uploads only add what is new — and importing from more than one source is fine.</p>'+
-      '<p><b>Garmin Connect</b> — one <code>Activities.csv</code>:</p><ol>'+
-      '<li>On a computer, open <a href="https://connect.garmin.com/modern/activities" target="_blank" rel="noopener">Garmin Connect → Activities → All Activities</a> and sign in.</li>'+
-      '<li>Use the <b>filter</b> controls to set <b>Activity Type → Running</b> (optional) and the <b>date range</b> you want.</li>'+
-      '<li><b>Scroll to the bottom</b> so every activity in that range loads on screen — the export only includes what is loaded.</li>'+
-      '<li>Click <b>Export CSV</b> (top-right) to download <code>Activities.csv</code>.</li>'+
-      '<li>Drop that file below. Runs are de-duplicated by start time, so re-uploads only add what is new.</li>'+
-    '</ol>'+
-      '<p><b>COROS Training Hub</b> — a <code>.zip</code> of per-activity <code>.fit</code> files, delivered by email:</p><ol>'+
-      '<li>On a computer, open <a href="https://t.coros.com" target="_blank" rel="noopener">COROS Training Hub (t.coros.com)</a> and sign in.</li>'+
-      '<li>Open the <b>Activity List</b> tab at the top. To import only part of your history, use the list\'s <b>filter</b> controls to narrow by <b>date range</b> and sport first (optional — re-imports de-dupe, so exporting everything is fine too).</li>'+
-      '<li>Click <b>Export Data</b> on the right, choose <b>.FIT</b> as the format, and enter the <b>email address</b> to send the export to.</li>'+
-      '<li>COROS emails a <b>download link</b> (usually within a few minutes). Open it and download the <code>.zip</code> — it holds one <code>.fit</code> file per activity.</li>'+
-      '<li>Drop that <code>.zip</code> below (a single <code>.fit</code> works too). We unpack and read each <code>.fit</code> right in your browser.</li>'+
-    '</ol>'+
-    '<div class="rdx-help-note">Running-form metrics (ground contact, vertical oscillation, cadence, stride) require a compatible device or strap — runs recorded without one still import for load and pace, they just skip those fields. Garmin\'s CSV export is also capped at ~1,000 rows and only includes what is loaded on screen, so export long Garmin histories in chunks by date range — each chunk merges in automatically.</div>'+
-    '<div class="rdx-help-note">Strava connected (via the coaching dashboard)? The last 2 years of Strava runs sync in automatically, once a day, for days with no watch import — and the <b>Backfill Strava history</b> button pulls your entire Strava history at once for the same gap-fill. Strava can\'t provide ground contact, oscillation, or descent, so uploading a watch export for those days replaces the Strava copy with the full-metric version.</div>'+
-    '</div></details>'+
-
-  '<div class="rdx-importbar">'+
-    '<div class="rdx-drop" id="drop"><b>Import Garmin <code>Activities.csv</code> or a Coros <code>.zip</code></b>'+
-      '<span>Drag &amp; drop, or click to choose — backfills '+who+' run history.</span>'+
-      '<input type="file" id="file" accept=".csv,text/csv,.zip,.fit,application/zip" hidden></div>'+
-    '<div class="rdx-status" id="importStatus"></div>'+
-    '<button class="rdx-btn rdx-btn-sm" id="stravaBackfill" style="display:none;align-self:center" title="Fetch '+who+' entire Strava history — one run per day is added for every day with no imported activity">⟲ Backfill Strava history</button>'+
-  '</div>'+
-
-  '<div class="rdx-settings" id="settingsPanel" style="display:none">'+
-    '<div class="rdx-controls">'+
-      '<div class="rdx-group">'+
-        '<div class="rdx-group-hd">Filters</div>'+
-        '<div class="rdx-group-body">'+
-          '<div class="rdx-ctl rdx-ctl-grow"><label>Activity types</label><div class="rdx-types" id="types"></div></div>'+
-          '<div class="rdx-ctl"><label>Runs</label><select id="intensity"><option value="all">All runs</option><option value="workout">Workouts only</option><option value="easy">Easy only</option></select></div>'+
-          '<div class="rdx-ctl"><label>Workout cutoff /mi</label><input type="text" id="cutoff" value="6:40" style="width:66px"></div>'+
-          '<div class="rdx-ctl"><label>Min distance</label><div class="rdx-inunit"><input type="text" id="mindist" value="0.5" style="width:46px"><span>mi</span></div></div>'+
-          '<div class="rdx-ctl"><label>Window end</label><input type="date" id="anchor"></div>'+
-        '</div>'+
-      '</div>'+
-      '<div class="rdx-group rdx-group-grow">'+
-        '<div class="rdx-group-hd">Athlete</div>'+
-        '<div class="rdx-group-body">'+
-          '<div class="rdx-ctl"><label>Device</label><select id="device"></select></div>'+
-          '<div class="rdx-ctl"><label>Strap / pod</label><div class="rdx-types"><span class="rdx-chip" id="accessory">chest strap / pod</span></div></div>'+
-          '<div class="rdx-ctl"><label>Body weight</label><div class="rdx-inunit"><input type="text" id="weight" placeholder="—" style="width:54px"><span>lb</span></div></div>'+
-          '<div class="rdx-ctl"><label>Lever support</label><div class="rdx-inunit"><input type="text" id="offload" placeholder="85" style="width:42px"><span>% BW</span></div></div>'+
-          '<div class="rdx-ctl"><label>Lever runs</label><div class="rdx-inunit"><button type="button" class="rdx-btn rdx-btn-ghost rdx-btn-sm" id="lvOpen" aria-haspopup="dialog">Mark Lever runs…</button><span class="rdx-lv-hint" id="lvHint"></span></div></div>'+
-          '<div class="rdx-ctl" title="Your easy-day pace. Used as the Impact Load baseline until there are enough of your own easy runs to calibrate from."><label>Easy pace</label><div class="rdx-inunit"><input type="text" id="easypace" placeholder="9:00" style="width:54px"><span>/mi</span></div></div>'+
-        '</div>'+
-        '<div class="rdx-group-note"><b>Lever support</b> is the share of body weight run at on the Lever (85% BW = 15% offload). It is the default for auto-detected Lever runs and the starting value in <b>Mark Lever runs…</b>, where treadmill runs can be marked by hand with their own offload.</div>'+
-      '</div>'+
-      '<div class="rdx-group rdx-group-grow">'+
-        '<div class="rdx-group-hd">Performance &amp; injury history <span class="rdx-group-sub">overlays your logged events on the chart</span></div>'+
-        '<div class="rdx-group-body">'+
-          '<div class="rdx-ctl"><label>Type</label><select id="evType"><option value="race">Race</option><option value="injury">Injury</option><option value="illness">Illness</option><option value="nonrun">Non-Running Injury</option><option value="timeoff">Planned Downtime</option></select></div>'+
-          '<div class="rdx-ctl"><label>Date</label><input type="date" id="evDate"></div>'+
-          '<div class="rdx-ctl" id="evEndCtl" style="display:none"><label>End (opt.)</label><input type="date" id="evEndDate"></div>'+
-          '<div class="rdx-ctl rdx-ctl-grow"><label>Note</label><input type="text" id="evNote" placeholder="e.g. Boston Marathon / left Achilles" style="width:100%"></div>'+
-          '<button class="rdx-btn rdx-btn-sm" id="evAdd">+ add</button>'+
-        '</div>'+
-        '<div class="rdx-ev-guide">Log <b>overuse injuries</b> — the kind that build up from training — as Injury. An acute injury that didn’t come from running (a basketball ankle, a bike crash) goes under <b>Non-Running Injury</b>: it explains the training gap but stays out of the pattern analysis, since its lead-up says nothing about training load. Log significant <b>illnesses</b> that stopped training — their lead-ups are checked against overtraining-type patterns (ramp, load spike, intensity, monotony) but not mechanical ones. Log <b>planned downtime</b> (off-season break, vacation) so the volume drop reads as planned. Everything but races takes an optional end date and shades the whole span on the chart.</div>'+
-        '<div class="rdx-events" id="eventsList" style="display:none"></div>'+
-      '</div>'+
-    '</div>'+
-    '<div class="rdx-controls-meta">'+
-      '<span class="rdx-filenote" id="savedNote" style="color:var(--good);opacity:0;transition:opacity .2s"></span>'+
-      '<span class="rdx-filenote" id="filenote"></span>'+
-      '<button class="rdx-btn rdx-btn-sm rdx-btn-danger" id="resetData">Delete all imported runs</button>'+
+  titleHTML+
+  // 0. header strip: freshness + import status, and the two panel shortcuts (hidden until runs exist)
+  '<div class="rdx-head">'+
+    '<div class="rdx-status"><span id="rdxFresh"></span><span id="importStatus"></span></div>'+
+    '<div class="rdx-head-acts">'+
+      '<button type="button" class="rdx-btn rdx-btn-outline" id="evQuick" hidden>+ Log event</button>'+
+      '<button type="button" class="rdx-btn rdx-btn-outline" id="gearBtn" aria-expanded="false" aria-controls="settingsPanel" hidden>⚙ Data &amp; settings</button>'+
     '</div>'+
   '</div>'+
 
-  '<div class="rdx-empty rdx-section" id="sec-empty">No running activities stored '+(ROLE==='coach'?'for this athlete ':'')+'yet. Import a Garmin <code>Activities.csv</code> or a Coros <code>.zip</code> above to get started — or connect Strava on the coaching dashboard and recent run history fills in automatically.</div>'+
+  // 1. Data & settings
+  '<div class="rdx-settings" id="settingsPanel" role="region" aria-label="Data and settings" hidden><div class="rdx-set-grid">'+
+    '<section class="rdx-group rdx-group-wide" id="set-events" aria-labelledby="setEventsHd">'+
+      '<h3 class="rdx-group-hd" id="setEventsHd">Log an event</h3>'+
+      '<div class="rdx-ev-form">'+
+        '<div class="rdx-ctl"><label for="evType">Type</label><select id="evType" aria-describedby="evHint">'+evOpts+'</select></div>'+
+        '<div class="rdx-ctl"><label for="evDate">Date</label><input type="date" id="evDate"></div>'+
+        '<div class="rdx-ctl" id="evEndCtl" hidden><label for="evEndDate">End (optional)</label><input type="date" id="evEndDate"></div>'+
+        '<div class="rdx-ctl rdx-ctl-note"><label for="evNote">Note</label><input type="text" id="evNote" placeholder="'+EV_PH.race+'" style="width:100%"></div>'+
+        '<button type="button" class="rdx-btn" id="evAdd">+ add</button>'+
+      '</div>'+
+      '<p class="rdx-ev-hint" id="evHint">'+EV_HINT.race+'</p>'+
+      '<div class="rdx-ev-cols">'+whatToLogHTML()+
+        '<div><div class="rdx-lbl">Logged events</div><div class="rdx-events" id="eventsList"></div></div>'+
+      '</div>'+
+    '</section>'+
+    '<section class="rdx-group" id="set-profile" aria-labelledby="setProfileHd">'+
+      '<h3 class="rdx-group-hd" id="setProfileHd">Profile</h3>'+
+      '<div class="rdx-group-body">'+
+        '<div class="rdx-ctl rdx-ctl-row"><label for="device">Device</label><select id="device"></select></div>'+
+        '<div class="rdx-ctl"><span class="rdx-lbl">Strap / pod</span><div class="rdx-types"><button type="button" class="rdx-chip" id="accessory" aria-pressed="false">chest strap / pod</button></div></div>'+
+        '<div class="rdx-ctl"><label for="weight">Body weight</label><div class="rdx-inunit"><input type="text" id="weight" inputmode="decimal" placeholder="—" style="width:64px"><span>lb</span></div></div>'+
+      '</div>'+
+      '<div class="rdx-group-body">'+
+        '<div class="rdx-ctl"><label for="offload">Lever support</label><div class="rdx-inunit"><input type="text" id="offload" inputmode="decimal" placeholder="85" style="width:56px"><span>% BW</span></div></div>'+
+        '<div class="rdx-inunit"><button type="button" class="rdx-btn rdx-btn-outline" id="lvOpen" aria-haspopup="dialog">Mark Lever runs…</button><span class="rdx-lv-hint" id="lvHint"></span></div>'+
+      '</div>'+
+      '<p class="rdx-group-note"><b>Lever support</b> is the share of body weight run at on the Lever (85% BW = 15% offload). It is the default for auto-detected Lever runs and the starting value in <b>Mark Lever runs…</b>, where treadmill runs can be marked by hand with their own offload.</p>'+
+      '<div class="rdx-group-body">'+
+        '<div class="rdx-ctl"><label for="easypace">Easy pace</label><div class="rdx-inunit"><input type="text" id="easypace" placeholder="9:00" style="width:64px" aria-describedby="easypaceHint"><span>/mi</span></div>'+
+          '<span class="rdx-ctl-hint" id="easypaceHint">Used as the load baseline until there are enough easy runs to calibrate from.</span></div>'+
+      '</div>'+
+    '</section>'+
+    '<section class="rdx-group" id="set-included" aria-labelledby="setIncludedHd">'+
+      '<h3 class="rdx-group-hd" id="setIncludedHd">What’s included</h3>'+
+      '<div class="rdx-ctl"><span class="rdx-lbl" id="typesLbl">Activity types</span><div class="rdx-types" id="types" role="group" aria-labelledby="typesLbl"></div></div>'+
+      '<div class="rdx-group-body rdx-top">'+
+        '<div class="rdx-ctl"><label for="intensity">Runs</label><select id="intensity"><option value="all">All runs</option><option value="workout">Workouts only</option><option value="easy">Easy only</option></select></div>'+
+        '<div class="rdx-ctl rdx-ctl-row"><label for="cutoff">Workout pace (faster than)</label><div class="rdx-inunit"><input type="text" id="cutoff" value="6:40" style="width:66px" aria-describedby="cutoffHint"><span>/mi</span></div>'+
+          '<span class="rdx-ctl-hint" id="cutoffHint">Slower runs count as easy and calibrate the easy pace.</span></div>'+
+        '<div class="rdx-ctl"><label for="mindist">Min distance</label><div class="rdx-inunit"><input type="text" id="mindist" value="0.5" inputmode="decimal" style="width:56px"><span>mi</span></div></div>'+
+      '</div>'+
+    '</section>'+
+    '<section class="rdx-group rdx-group-wide" id="set-data" aria-labelledby="setDataHd">'+
+      '<h3 class="rdx-group-hd" id="setDataHd">Import &amp; data</h3>'+
+      '<div id="importSlot">'+importBlock+'</div>'+
+      '<p class="rdx-filenote" id="filenote"></p>'+
+      '<div class="rdx-danger"><span class="rdx-lbl">Danger zone</span>'+
+        '<button type="button" class="rdx-btn rdx-btn-danger" id="resetData">Delete all imported runs</button>'+
+        '<p>Clears every stored run so '+who('you')+' can re-import cleanly. Profile, logged events, dismissed gaps and Lever marks are kept.</p></div>'+
+    '</section>'+
+  '</div></div>'+
 
+  // no runs: onboarding card (the import block moves in here)
+  '<div class="rdx-section" id="sec-empty"><div class="rdx-card rdx-empty-card">'+
+    '<h2 class="rdx-sec-title" id="emptyHd" tabindex="-1">Import '+your+' run history to get started</h2>'+
+    '<p class="rdx-sec-sub">Drop a Garmin or COROS export below, or connect Strava on the coaching dashboard and recent runs fill in automatically.</p>'+
+    '<div id="importHome"></div>'+
+  '</div></div>'+
+
+  // 2. Today
   '<div class="rdx-section" id="sec-hero">'+(ADMIN?'<div class="rdx-demobar" id="demobar"></div>':'')+'<div class="rdx-hero" id="hero"></div></div>'+
 
+  // 3. Load over time
   '<div class="rdx-section" id="sec-chart">'+
-    '<h2>Training load &amp; trends</h2>'+
-    '<div class="rdx-rangebar">'+
-      '<div class="rdx-ctl"><label>View</label><select id="chartView"></select></div>'+
-      '<div class="rdx-ctl" id="chartView2Wrap" style="display:none"><label>Overlay 2nd</label><select id="chartView2"></select></div>'+
-      '<div class="rdx-ctl"><label>From</label><input type="date" id="tFrom"></div>'+
-      '<div class="rdx-ctl"><label>To</label><input type="date" id="tTo"></div>'+
-      '<div class="rdx-ctl"><label>Range</label><div class="rdx-types" id="rdx-rangeChips">'+
-        '<span class="rdx-chip" data-range="3">3M</span>'+
-        '<span class="rdx-chip" data-range="6">6M</span>'+
-        '<span class="rdx-chip" data-range="12">1Y</span>'+
-        '<span class="rdx-chip" data-range="all">All</span>'+
-      '</div></div>'+
-      '<div class="rdx-ctl" id="dispWrap" style="display:none"><label>Display</label><div class="rdx-types"><span class="rdx-chip on" id="hideOutliers">Hide outliers</span><span class="rdx-chip on" id="smooth">Smooth</span><span class="rdx-chip" id="points">Points</span></div></div>'+
+    '<div class="rdx-sec-hd">'+
+      '<div class="rdx-sec-hd-txt"><h2 class="rdx-sec-title" id="chartTitle">Load over time</h2><p class="rdx-sec-sub" id="chartSub"></p></div>'+
+      '<div class="rdx-sec-ctl rdx-chart-ctl">'+
+        '<div class="rdx-seg" id="rdx-rangeChips" role="group" aria-label="Date range">'+
+          [['3','3M'],['6','6M'],['12','1Y'],['all','All'],['custom','Custom']].map(function(r){ return '<button type="button" data-range="'+r[0]+'" aria-pressed="false">'+r[1]+'</button>'; }).join('')+
+        '</div>'+
+        '<label class="rdx-inl">Show <select id="chartView"></select></label>'+
+      '</div>'+
     '</div>'+
-    '<div class="rdx-chartwrap"><div class="rdx-legend" id="chartLegend"></div><div id="chartBox"></div></div>'+
-    '<p class="rdx-hint" id="chartHint"></p>'+
-    '<details class="rdx-help" style="margin-top:12px"><summary>How Impact Load is calculated — equation, variables &amp; sources</summary><div class="rdx-help-body" id="loadMethod"></div></details>'+
+    '<div class="rdx-chart-row2">'+
+      '<div class="rdx-custom" id="customRange" hidden>'+
+        '<div class="rdx-ctl"><label for="tFrom">From</label><input type="date" id="tFrom"></div>'+
+        '<div class="rdx-ctl"><label for="tTo">To</label><input type="date" id="tTo"></div>'+
+      '</div>'+
+      '<div class="rdx-ctl" id="chartView2Wrap" style="display:none"><label for="chartView2">Overlay</label><select id="chartView2"></select></div>'+
+      '<div class="rdx-ctl" id="dispWrap" style="display:none"><span class="rdx-lbl" id="dispLbl">Display</span><div class="rdx-types" role="group" aria-labelledby="dispLbl">'+
+        [['hideOutliers','Hide outliers',1],['smooth','Smooth',1],['points','Points',0]].map(function(c){ return '<button type="button" class="rdx-chip'+(c[2]?' on':'')+'" id="'+c[0]+'" aria-pressed="'+!!c[2]+'">'+c[1]+'</button>'; }).join('')+
+      '</div></div>'+
+    '</div>'+
+    '<div class="rdx-chartwrap"><div class="rdx-legend" id="chartLegend"></div><div id="chartBox"></div><p class="rdx-ev-cap" id="chartEvCap"></p></div>'+
+    '<p class="rdx-note" id="chartCaption">One easy flat mile = 1 IAD mi; harder or hillier miles count for more. A load measure, not an injury prediction. '+
+      '<button type="button" class="rdx-link" id="chartHow">How IAD is calculated →</button></p>'+
   '</div>'+
 
+  // 4. Injury & illness history
   '<div class="rdx-section" id="sec-patterns">'+
-    '<h2 id="patHead" tabindex="-1">Injury patterns <span class="rdx-note">· the training that preceded each logged injury</span></h2>'+
+    '<div class="rdx-sec-hd">'+
+      '<div class="rdx-sec-hd-txt"><h2 class="rdx-sec-title" id="patHead" tabindex="-1">Injury &amp; illness history</h2>'+
+        '<p class="rdx-sec-sub">What '+your+' training looked like in the weeks before each logged injury or illness. A look back, not a prediction.</p></div>'+
+      '<div class="rdx-sec-ctl"><button type="button" class="rdx-gapchip" id="patGapChip" hidden></button></div>'+
+    '</div>'+
     '<div id="patternsBox"></div>'+
   '</div>'+
 
+  // 5. Form & volume — #anchor ("as of") drives the form tiles and the volume windows only
   '<div class="rdx-section" id="sec-form">'+
-    '<h2>Form metrics <span class="rdx-note">· recent 90 days vs prior 90</span></h2>'+
+    '<div class="rdx-sec-hd">'+
+      '<div class="rdx-sec-hd-txt"><h2 class="rdx-sec-title">Form &amp; volume</h2><p class="rdx-sec-sub">Last 90 days vs the 90 before · distances are actual miles, not IAD</p></div>'+
+      '<div class="rdx-sec-ctl"><label class="rdx-inl">as of <input type="date" id="anchor"></label></div>'+
+    '</div>'+
     '<div class="rdx-tiles" id="formTiles"></div>'+
-    '<details class="rdx-help" style="margin-top:14px"><summary>Show all metrics &amp; compare ranges</summary>'+
-      '<div class="rdx-help-body" style="padding-top:14px">'+
-        '<div class="rdx-rangebar" style="margin-bottom:14px">'+
-          '<span class="rdx-chip" id="formCompare">⇄ compare two ranges</span>'+
-          '<div class="rdx-ctl" id="faFromWrap" style="display:none"><label>Range A — from</label><input type="date" id="faFrom"></div>'+
-          '<div class="rdx-ctl" id="faToWrap" style="display:none"><label>to</label><input type="date" id="faTo"></div>'+
-          '<div class="rdx-ctl" id="fbFromWrap" style="display:none"><label>Range B — from</label><input type="date" id="fbFrom"></div>'+
-          '<div class="rdx-ctl" id="fbToWrap" style="display:none"><label>to</label><input type="date" id="fbTo"></div>'+
+    '<div id="sec-summary"><h3 class="rdx-sub-hd" id="volHd">Volume</h3><div id="cards"></div></div>'+
+    '<details class="rdx-more rdx-form-more"><summary>All metrics &amp; compare periods</summary>'+
+      '<div class="rdx-more-body">'+
+        '<div class="rdx-cmpbar">'+
+          '<button type="button" class="rdx-chip on" id="formCompare" aria-pressed="true">⇄ Compare two ranges</button>'+
+          '<div class="rdx-cmp-ranges" id="cmpRanges">'+
+            [['a','A'],['b','B']].map(function(r){ var f='f'+r[0]; return '<div class="rdx-ctl" role="group" aria-labelledby="'+f+'Lbl"><span class="rdx-lbl" id="'+f+'Lbl">Range '+r[1]+'</span>'+
+              '<div class="rdx-cmp-dates"><input type="date" id="'+f+'From" aria-label="Range '+r[1]+' from"><span aria-hidden="true">–</span><input type="date" id="'+f+'To" aria-label="Range '+r[1]+' to"></div></div>'; }).join('')+
+          '</div>'+
         '</div>'+
         '<div class="rdx-tablewrap"><table class="rdx-table" id="ftable"></table></div>'+
-        '<p class="rdx-hint" id="formHint">Showing stored-history averages. Toggle “compare two ranges” to compare periods (Δ = Range A − Range B).</p>'+
+        '<p class="rdx-note" id="formHint"></p>'+
       '</div>'+
     '</details>'+
   '</div>'+
 
-  '<div class="rdx-section" id="sec-summary"><h2>Volume by window</h2><div class="rdx-cards" id="cards"></div></div>'+
+  // 6. About these numbers
+  '<div class="rdx-section" id="sec-about">'+
+    '<div class="rdx-sec-hd"><div class="rdx-sec-hd-txt"><h2 class="rdx-sec-title">About these numbers</h2></div></div>'+
+    '<details class="rdx-more" id="loadMethodBox"><summary>How Impact Load (IAD) is calculated — equation, variables &amp; sources</summary><div class="rdx-more-body" id="loadMethod"></div></details>'+
+    '<p class="rdx-foot" id="foot"></p>'+
+  '</div>'+
 
-  '<div class="rdx-foot" id="foot"></div>'+
+  '<div class="rdx-toast" id="rdxToast" role="status" aria-live="polite"></div>'+
 
   '<div class="rdx-modal" id="lvModal" hidden>'+
     '<div class="rdx-modal-panel" role="dialog" aria-modal="true" aria-labelledby="lvTitle" aria-describedby="lvDesc" tabindex="-1">'+
@@ -2116,8 +2791,8 @@ function shellHTML(opts){
       '<div class="rdx-modal-ft">'+
         '<div class="rdx-lv-sum" id="lvSum"></div>'+
         '<div class="rdx-lv-acts">'+
-          '<button type="button" class="rdx-btn rdx-btn-ghost rdx-btn-sm" id="lvReset">Reset to auto</button>'+
-          '<button type="button" class="rdx-btn rdx-btn-ghost rdx-btn-sm" id="lvNot">Not Lever</button>'+
+          '<button type="button" class="rdx-btn rdx-btn-outline rdx-btn-sm" id="lvReset">Reset to auto</button>'+
+          '<button type="button" class="rdx-btn rdx-btn-outline rdx-btn-sm" id="lvNot">Not Lever</button>'+
           '<button type="button" class="rdx-btn rdx-btn-sm" id="lvMark">Mark as Lever</button>'+
         '</div>'+
         '<div class="rdx-lv-toast" id="lvToast" role="status" aria-live="polite"></div>'+
@@ -2127,57 +2802,65 @@ function shellHTML(opts){
 }
 
 /* ---------- wiring ---------- */
+function smoothScroll(el){ var reduce=window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches; el.scrollIntoView({block:'start', behavior:reduce?'auto':'smooth'}); }
 function wire(){
   var drop=$('drop'), fileInput=$('file');
   drop.onclick=function(){ fileInput.click(); };
+  drop.onkeydown=function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); fileInput.click(); } };
   drop.ondragover=function(e){ e.preventDefault(); drop.classList.add('over'); };
   drop.ondragleave=function(){ drop.classList.remove('over'); };
   drop.ondrop=function(e){ e.preventDefault(); drop.classList.remove('over'); var f=e.dataTransfer.files[0]; if(f) readFile(f); };
   fileInput.onchange=function(e){ var f=e.target.files[0]; if(f) readFile(f); fileInput.value=''; };
   $('anchor').onchange=function(e){ var d=parseDate(e.target.value); if(d){ANCHOR=dayEnd(d);refresh();} };
-  $('gearBtn').onclick=function(){ var p=$('settingsPanel'), open=p.style.display!=='none'; p.style.display=open?'none':'block'; this.classList.toggle('on',!open); };
+  $('gearBtn').onclick=function(){ setPanel($('settingsPanel').hidden); };
+  $('evQuick').onclick=function(){ openSettings('events'); };
   $('intensity').onchange=refresh;
   $('cutoff').onchange=refresh;
   $('mindist').onchange=refresh;
   ['chartView','chartView2'].forEach(function(id){ $(id).onchange=renderChart; });
-  ['tFrom','tTo'].forEach(function(id){ $(id).onchange=function(){ setRangeChip(''); renderChart(); }; });
-  ['hideOutliers','smooth','points'].forEach(function(id){ $(id).onclick=function(){ this.classList.toggle('on'); renderChart(); }; });
-  Array.prototype.forEach.call($all('#rdx-rangeChips .rdx-chip'),function(c){ c.onclick=function(){ applyRange(c.getAttribute('data-range')); }; });
+  ['tFrom','tTo'].forEach(function(id){ $(id).onchange=function(){ setRangeChip('custom'); renderChart(); }; });
+  ['hideOutliers','smooth','points'].forEach(function(id){ $(id).onclick=function(){ this.setAttribute('aria-pressed',String(this.classList.toggle('on'))); renderChart(); }; });
+  Array.prototype.forEach.call($all('#rdx-rangeChips [data-range]'),function(c){ c.onclick=function(){
+    var r=c.getAttribute('data-range');
+    if(r==='custom'){ setRangeChip('custom'); $('tFrom').focus(); } else applyRange(r);   // Custom keeps the current dates until one is edited
+  }; });
   ['faFrom','faTo','fbFrom','fbTo'].forEach(function(id){ $(id).onchange=renderForm; });
-  $('formCompare').onclick=function(){
-    this.classList.toggle('on');
-    var on=this.classList.contains('on');
-    ['faFromWrap','faToWrap','fbFromWrap','fbToWrap'].forEach(function(id){ $(id).style.display=on?'flex':'none'; });
-    renderForm();
-  };
-  $('device').onchange=function(e){ saveProfile({ runDevice:e.target.value }); populateMetricSelects(); refresh(); };
-  $('accessory').onclick=function(){ this.classList.toggle('on'); saveProfile({ runHasAccessory:this.classList.contains('on') }); populateMetricSelects(); refresh(); };
-  $('weight').onchange=function(e){ var lb=parseFloat(String(e.target.value).replace(/[^0-9.]/g,'')); saveProfile({ weightLb:(lb&&lb>0)?lb:null }); refresh(); };
-  $('offload').onchange=function(e){ var pct=parseFloat(String(e.target.value).replace(/[^0-9.]/g,'')); saveProfile({ runLeverPctBW:(pct>0&&pct<100)?pct:null }); refresh(); };
-  $('easypace').onchange=function(e){ var sec=hmsToSec(e.target.value); var ok=sec>=240&&sec<=1200; saveProfile({ runEasyPaceSec: ok?sec:null }); e.target.value=ok?fmtPace(sec):''; refresh(); };
+  $('formCompare').onclick=function(){ setCompare(!this.classList.contains('on')); renderForm(); };
+  wireEventCap($('chartBox'));
+  $('chartHow').onclick=function(){ var d=$('loadMethodBox'); d.open=true; smoothScroll(d); d.querySelector('summary').focus({preventScroll:true}); };
+  $('patGapChip').onclick=function(){ var g=$('rdxGaps'); if(!g) return; smoothScroll(g); var h=$('rdxGapsHd'); if(h) h.focus({preventScroll:true}); };
+  $('device').onchange=function(e){ persist({ runDevice:e.target.value }); populateMetricSelects(); refresh(); };
+  $('accessory').onclick=function(){ var on=!this.classList.contains('on'); this.classList.toggle('on',on); this.setAttribute('aria-pressed',String(on)); persist({ runHasAccessory:on }); populateMetricSelects(); refresh(); };
+  $('weight').onchange=function(e){ var lb=parseFloat(String(e.target.value).replace(/[^0-9.]/g,'')); persist({ weightLb:(lb&&lb>0)?lb:null }); refresh(); };
+  $('offload').onchange=function(e){ var pct=parseFloat(String(e.target.value).replace(/[^0-9.]/g,'')); persist({ runLeverPctBW:(pct>0&&pct<100)?pct:null }); refresh(); };
+  $('easypace').onchange=function(e){ var sec=hmsToSec(e.target.value); var ok=sec>=240&&sec<=1200; persist({ runEasyPaceSec: ok?sec:null }); e.target.value=ok?fmtPace(sec):''; refresh(); };
   $('evAdd').onclick=evAdd;
   wireLeverModal();
-  $('evType').onchange=function(){ $('evEndCtl').style.display=this.value==='race'?'none':''; if(this.value==='race') $('evEndDate').value=''; };
+  $('evType').onchange=function(){ var race=this.value==='race'; $('evEndCtl').hidden=race; if(race) $('evEndDate').value=''; $('evHint').textContent=EV_HINT[this.value]||''; $('evNote').placeholder=EV_PH[this.value]||''; };
   $('evNote').onkeydown=function(e){ if(e.key==='Enter') evAdd(); };
+  ['evDate','evEndDate'].forEach(function(id){ $(id).oninput=evClearErr; });
+  $('eventsList').onclick=function(e){ var b=e.target.closest&&e.target.closest('.rdx-ev-del'); if(b) evDelete(b.getAttribute('data-id'), e.detail===0); };
   $('resetData').onclick=function(){
-    var btn=this, st=$('importStatus');
-    var who = ROLE==='coach' ? "this athlete's" : 'your';
-    if(!confirm('Delete ALL of '+who+' stored run history ('+RAW.length+' runs)?\n\n'+
+    var btn=this;
+    if(!confirm('Delete ALL of '+who()+' stored run history ('+RAW.length+' runs)?\n\n'+
       'This clears every imported activity so a fresh export can be re-imported clean — '+
       'use it if a bad activity got stuck in an earlier upload. '+
-      'Profile settings and race/injury markers are kept.\n\nThis cannot be undone.')) return;
+      'Profile, logged events, dismissed gaps and Lever marks are kept.\n\nThis cannot be undone.')) return;
     btn.disabled=true;
-    if(st) st.innerHTML='<span class="rdx-spin"></span>Deleting '+RAW.length+' stored runs…';
+    impStatus('<span class="rdx-spin"></span>Deleting '+RAW.length+' stored runs…');
     deleteAllRuns().then(function(n){
       RAW=[]; KNOWN_TYPES=new Set(); ACTIVE_TYPES=new Set();
       renderLoaded();
-      if(st) st.innerHTML='<span class="ok">✓ '+n+' runs deleted</span> · import an export above to start fresh.';
+      impStatus('<span class="ok">✓ '+n+' runs deleted</span> · import an export below to start fresh.','ok');
+      // the panel closed and the page collapsed under the pointer: bring the status line and the
+      // onboarding card into view, and put focus on the card (the pressed button is gone)
+      var hd=ROOT.querySelector('.rdx-head'), h=$('emptyHd'); if(hd) smoothScroll(hd); if(h) h.focus({preventScroll:true});
     }).catch(function(e){
       console.error(e);
       // A mid-way batch failure leaves a partial history — reload so the view
       // shows what actually remains rather than the pre-delete state.
       return loadFromFirestore().then(renderLoaded).catch(function(){}).then(function(){
-        if(st) st.innerHTML='<span class="err">Delete failed: '+esc(e&&e.code||e&&e.message||e)+'</span>';
+        impStatus('<span class="err">Delete failed: '+esc(e&&e.code||e&&e.message||e)+'</span>','err');
       });
     }).then(function(){ btn.disabled=false; });
   };
@@ -2187,10 +2870,10 @@ function wire(){
   // for every day with no imported activity. Re-runs are cheap: already
   // stored runs are skipped server-side.
   $('stravaBackfill').onclick=function(){
-    var btn=this, st=$('importStatus');
+    var btn=this;
     if(DEMO || !(window.firebase && firebase.functions)) return;
     btn.disabled=true;
-    if(st) st.innerHTML='<span class="rdx-spin"></span>Backfilling from Strava — fetching the full activity history, this can take a minute…';
+    impStatus('<span class="rdx-spin"></span>Backfilling from Strava — fetching the full activity history, this can take a minute…');
     var payload={backfill:true}; if(ROLE==='coach') payload.athleteUid=UID;
     // The callable SDK's default client timeout is 70s; a full-history
     // backfill (up to 40 sequential Strava page fetches) can outlast it,
@@ -2200,12 +2883,12 @@ function wire(){
       var d=(res&&res.data)||{};
       return loadFromFirestore().then(function(){
         renderLoaded();
-        if(st) st.innerHTML='<span class="ok">✓ '+(d.runDocs||0)+' Strava runs added</span> · '+(d.runSkipped||0)+' already stored or covered by watch imports'+
-          (d.rateLimited?' · <span class="err">Strava’s rate limit paused the fetch — run backfill again in ~15 minutes to pull the rest</span>':'');
+        impStatus('<span class="ok">✓ '+(d.runDocs||0)+' Strava runs added</span> · '+(d.runSkipped||0)+' already stored or covered by watch imports'+
+          (d.rateLimited?' · <span class="err">Strava’s rate limit paused the fetch — run backfill again in ~15 minutes to pull the rest</span>':''), 'ok');
       });
     }).catch(function(e){
       console.error(e);
-      if(st) st.innerHTML='<span class="err">Backfill failed: '+esc(e&&e.message||e)+'</span>';
+      impStatus('<span class="err">Backfill failed: '+esc(e&&e.message||e)+'</span>','err');
     }).then(function(){ btn.disabled=false; });
   };
 }
@@ -2228,8 +2911,11 @@ function maybeSyncStrava(){
   }
   var container=ROOT, my=MOUNT;
   firebase.functions().httpsCallable('syncStravaActivities',{timeout:300000})({}).then(function(res){
+    if(ROOT!==container || my!==MOUNT) return;
+    // the server stamped stravaLastSyncedAt (even with nothing new): the header's "Strava synced" reads this
+    STRAVA_SYNC.last=new Date();
     var n=res&&res.data&&res.data.runDocs;
-    if(!n || ROOT!==container || my!==MOUNT) return;
+    if(!n){ renderStatus(); return; }
     return loadFromFirestore().then(function(){ if(ROOT===container && my===MOUNT) renderLoaded(); });
   }).catch(function(e){ console.warn('RunDynamics: Strava sync failed', e); });
 }
@@ -2237,6 +2923,9 @@ function maybeSyncStrava(){
 /* ---------- public entry point ---------- */
 function mount(container, opts){
   opts=opts||{};
+  if(RO){ RO.disconnect(); RO=null; }   // the previous mount's chart box is gone
+  if(WIN_RS){ window.removeEventListener('resize',WIN_RS); WIN_RS=null; }
+  clearTimeout(RO_T); CHART_W=0;
   if(!container || !opts.db || !opts.uid){
     if(container) container.innerHTML='<div class="rdx rdx-empty">Run Dynamics: missing db/uid.</div>';
     return;
@@ -2244,20 +2933,19 @@ function mount(container, opts){
   injectCSS();
   ROOT=container; DB=opts.db; UID=opts.uid; ROLE=opts.role||'athlete'; ADMIN=!!opts.admin; DEMO=null;
   var my=++MOUNT; PROFILE_ERR=null;
-  DIS_OPEN=false; PAT_WARN=''; DIS_T=0; clearTimeout(LV.toastT); LV={filter:'all', sel:new Set(), rows:[], trigger:null, toastT:null};
+  DIS_OPEN=false; DIS_T=0; DIS_SEQ=0; GAP_FORM=null; SB_MORE=false; ALSO_ALL=false; PAT_STATS=false; HERO_HELP=false; CAP_PIN=''; clearTimeout(LV.toastT); clearTimeout(TOAST_T); TOAST_ARM=TOAST_BACK=null; SAVE_SEQ={}; LV={filter:'all', sel:new Set(), rows:[], trigger:null, toastT:null};
   RAW=[]; ACTIVE_TYPES=new Set(); KNOWN_TYPES=new Set(); ANCHOR=null; LOAD_PARAMS=null; STD_PROFILE={}; STRAVA_LEVER=[]; STRAVA_SYNC={};
   container.classList.add('rdx');
   container.innerHTML=shellHTML(opts);
   wire();
+  watchChartSize(container);
   var st=$('importStatus'); if(st) st.innerHTML='<span class="rdx-spin"></span>Loading stored runs…';
   Promise.all([loadProfile(), loadFromFirestore(), fetchStravaLever()]).then(function(){
     if(ROOT!==container || my!==MOUNT) return;   // a newer mount superseded this one
     renderLoaded();
-    if(st) st.innerHTML = (RAW.length
-      ? '<span class="ok">✓ '+RAW.length+' runs loaded</span> · import a newer export to add more'
-      : 'No runs stored yet — import a Garmin or Coros export to begin.')+
-      (PROFILE_ERR?'<br><span class="err">⚠ Profile settings and logged events didn’t load ('+esc(PROFILE_ERR)+') — showing defaults, and changes are blocked until you reload.</span>':'');
-    var bf=$('stravaBackfill'); if(bf && STRAVA_SYNC.connected) bf.style.display='';
+    // the freshness line (#rdxFresh) now says what was loaded; the status only carries a profile error
+    if(st) st.innerHTML = PROFILE_ERR?'<span class="err">⚠ Profile settings and logged events didn’t load ('+esc(PROFILE_ERR)+') — showing defaults, and changes are blocked until you reload.</span>':'';
+    var bf=$('stravaBackfill'); if(bf && STRAVA_SYNC.connected) bf.hidden=false;
     maybeSyncStrava();
   }).catch(function(e){
     console.error(e);
