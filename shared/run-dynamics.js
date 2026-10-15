@@ -330,14 +330,27 @@ html[data-theme="light"] .rdx input[type=date]{color-scheme:light}
 .rdx-sb-also .rdx-link{margin:10px 0 0 16px;font-size:13px}
 .rdx-pat-more{display:block;margin-top:20px}
 .rdx-pat-more .rdx-more-body>p{max-width:760px}
-.rdx-pt{width:100%;max-width:760px;border-collapse:collapse;margin-top:2px;font-size:13.5px;line-height:1.45;color:var(--text);font-variant-numeric:tabular-nums}
-.rdx-pt th{padding:0 16px 8px 0;text-align:left;font-size:12px;font-weight:600;color:var(--muted2);border-bottom:1px solid var(--border)}
-.rdx-pt td{padding:10px 16px 10px 0;vertical-align:top;border-bottom:1px solid var(--border)}
-.rdx-pt td+td{white-space:nowrap}
-.rdx-pt th:last-child,.rdx-pt td:last-child{padding-right:0}
-.rdx-pt .nm{font-weight:600}
-.rdx-pt .d,.rdx-pt .m{display:block;font-size:12.5px;font-weight:400;color:var(--muted2);white-space:normal}
-.rdx-pt .mob{display:none}
+.rdx-pt-wrap{max-width:860px;margin-top:4px;border:1px solid var(--border);border-radius:12px;background:var(--panel);overflow:hidden}
+.rdx-pt{width:100%;border-collapse:collapse;font-size:13.5px;line-height:1.45;color:var(--text);font-variant-numeric:tabular-nums}
+.rdx-pt th{padding:10px 16px;text-align:left;font-size:12px;font-weight:600;line-height:1.35;color:var(--muted2);background:var(--panel2);border-bottom:1px solid var(--border);vertical-align:bottom}
+.rdx-pt td{padding:14px 16px;vertical-align:top;border-bottom:1px solid var(--border)}
+.rdx-pt tbody tr:last-child td{border-bottom:none}
+.rdx-pt .c-rate{width:22%;min-width:150px}
+.rdx-pt .c-x{width:17%;min-width:130px;text-align:right;white-space:nowrap}
+.rdx-pt .nm{display:block;font-weight:600}
+.rdx-pt .d{display:block;margin-top:2px;font-size:12.5px;color:var(--muted2)}
+/* a rate: the % with its count, over a thin 0–100% bar (one scale across both columns) */
+.rdx-pt .r{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
+.rdx-pt .r b{font-size:15px;font-weight:700}
+.rdx-pt .r small{font-size:12px;color:var(--muted2)}
+.rdx-pt .bar{display:block;height:6px;margin-top:7px;border-radius:3px;background:var(--panel2);overflow:hidden}
+.rdx-pt .bar i{display:block;height:100%;min-width:2px;border-radius:3px;background:var(--muted2)}
+.rdx-pt .bar.case i{background:var(--rdx-accent-ink)}
+.rdx-pt .x{font-size:15px;font-weight:700}
+.rdx-pt .x-na{color:var(--muted2)}
+.rdx-pt .m{display:block;margin-top:2px;font-size:12px;color:var(--muted2);white-space:normal}
+.rdx-pt .grp td{padding:9px 16px;font-size:12px;font-weight:600;color:var(--muted2);background:var(--panel2)}
+.rdx-pt .lbl{display:none}
 .rdx-pt-cav{margin:10px 0 0!important;font-size:12.5px}
 /* training gaps: a fill + warn left border, not another bordered card */
 .rdx-gaps{margin-top:24px;padding:16px 20px;background:var(--panel2);border-left:3px solid var(--warn);border-radius:10px}
@@ -510,13 +523,19 @@ html[data-theme="light"] .rdx-strava-o{display:inline-block}
   .rdx-chartwrap{padding:10px 8px 6px}
   /* injury: stats table → stacked rows ("1 of 1 injury · 22% of normal weeks"); gap rows → dates,
      stats, then a full-width action row; the gap form goes to one column */
-  .rdx-pt,.rdx-pt tbody,.rdx-pt tr{display:block}
+  .rdx-pt,.rdx-pt tbody{display:block}
   .rdx-pt thead{display:none}
-  .rdx-pt tr{padding:10px 0;border-bottom:1px solid var(--border)}
-  .rdx-pt td{display:inline;padding:0;border:none;white-space:normal}
-  .rdx-pt td:first-child{display:block;margin-bottom:3px}
-  .rdx-pt td+td+td::before,.rdx-pt td .m::before{content:" · "}
-  .rdx-pt .mob,.rdx-pt td+td .m{display:inline}
+  .rdx-pt tr{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;padding:14px;border-bottom:1px solid var(--border)}
+  .rdx-pt tbody tr:last-child{border-bottom:none}
+  .rdx-pt td,.rdx-pt .c-rate,.rdx-pt .c-x{display:block;width:auto;min-width:0;padding:0;border:none}
+  .rdx-pt td:first-child,.rdx-pt .c-x{grid-column:1/-1}
+  .rdx-pt .c-x{text-align:left}
+  .rdx-pt .c-x .x,.rdx-pt .c-x .m{display:inline;margin:0}
+  .rdx-pt .c-x .lbl{display:inline;margin-right:6px}
+  .rdx-pt .c-x .m::before{content:" · "}
+  .rdx-pt .lbl{display:block;margin-bottom:3px;font-size:11.5px;font-weight:600;color:var(--muted2)}
+  .rdx-pt .grp{display:block;padding:0}
+  .rdx-pt .grp td{display:block;padding:9px 14px}
   .rdx-gaps{padding:14px}
   .rdx-dis-list{display:block}
   .rdx-dis-item{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"w b" "a b";column-gap:10px;padding:3px 0}
@@ -1945,33 +1964,43 @@ function alsoHTML(cs, res){
     return '<li'+(i>=5?' class="rdx-also-old"':'')+' tabindex="-1"'+(i>=5&&!ALSO_ALL?' hidden':'')+'><div class="t">'+evDot(e.type)+'<span>'+evLabel(e)+(e.note?' · '+esc(e.note):'')+'</span></div><div class="s">'+why+'</div></li>';
   }).join('')+'</ul>'+(cs.length>5?'<button type="button" class="rdx-link rdx-also-all" data-f="alsoall" aria-expanded="'+ALSO_ALL+'">'+(ALSO_ALL?'Show fewer':'Show all')+'</button>':'')+'</div>';
 }
-// D. the statistics, CLOSED by default: fired patterns only, then pairs that co-fired before ≥2 cases.
-// No pills, no red: "×N as often" only with ≥3 cases and enough normal weeks to compare.
+// D. the statistics, OPEN by default: fired patterns only, then pairs that co-fired before ≥2 cases.
+// A bordered table: each rate is a % + count over a thin bar on one 0–100% scale (cyan = before
+// setbacks, grey = normal weeks), then the ratio. No pills, no red: "×N" only with ≥3 cases and
+// enough normal weeks to compare. On phones each row stacks into a small card.
 function patTableHTML(res){
   var m=res.meta, fired=res.patterns.filter(function(p){ return p.injHits>0; });
   if(!fired.length) return '';
   var noun=patNoun(m.nEval,m.nEvalInj,m.nEvalIll), weeks=m.nControls+' normal week'+(m.nControls===1?'':'s');
+  var bar=function(r, cls){ return '<span class="bar'+(cls?' '+cls:'')+'" aria-hidden="true"><i style="width:'+Math.min(100,Math.max(0,r*100)).toFixed(1)+'%"></i></span>'; };
   var row=function(name, sub, hits, den, dnoun, rate, lift, low){
-    return '<tr><td><span class="nm">'+name+'</span>'+(sub?'<span class="d">'+sub+'</span>':'')+'</td><td>'+hits+' of '+den+' '+dnoun+'</td>'+
-      '<td>'+(rate==null?'—':pctOf(rate)+'<span class="mob"> of normal weeks</span>')+
-      // ×N only for a pattern MORE common before setbacks: "×0.3 as often" reads as a finding when it's the opposite
-      (low?'<span class="m">few normal weeks to compare</span>':(den>=3&&lift!=null&&lift>=1.05)?'<span class="m">×'+(lift>=10?Math.round(lift):lift.toFixed(1))+' as often</span>':'')+'</td></tr>';
+    var caseRate=den?hits/den:0;
+    // ×N only for a pattern MORE common before setbacks: "×0.3 as often" reads as a finding when it's the opposite
+    var x=low?'<span class="x x-na">—</span><span class="m">few normal weeks to compare</span>'
+      :(den>=3&&lift!=null&&lift>=1.05)?'<span class="x">×'+(lift>=10?Math.round(lift):lift.toFixed(1))+'</span><span class="m">as often</span>'
+      :'<span class="x x-na">—</span><span class="m">'+(den<3?'too few to compare':'no more often')+'</span>';
+    return '<tr><td><span class="nm">'+name+'</span>'+(sub?'<span class="d">'+sub+'</span>':'')+'</td>'+
+      '<td class="c-rate"><span class="lbl">Before '+dnoun+'</span><span class="r"><b>'+pctOf(caseRate)+'</b><small>'+hits+' of '+den+' '+dnoun+'</small></span>'+bar(caseRate,'case')+'</td>'+
+      '<td class="c-rate"><span class="lbl">Normal weeks</span>'+(rate==null?'<span class="r"><b class="x-na">—</b></span>':'<span class="r"><b>'+pctOf(rate)+'</b><small>of weeks</small></span>'+bar(rate))+'</td>'+
+      '<td class="c-x"><span class="lbl">Ratio</span>'+x+'</td></tr>';
   };
   var rows=fired.map(function(p){ return row(esc(p.name), esc(PATTERN_COPY[p.id]||p.desc), p.injHits, p.injEval, patNoun(p.injEval,p.injEval-p.illEval,p.illEval), p.ctrlRate, p.lift, p.lowConf); });
   // pair denominator = the cases where BOTH patterns could be checked (res.combos counts every case)
   var ord={}, ev=res.cases.filter(function(c){ return c.ok; }), lowAll=m.nControls<InjuryPatterns.OPTS.lowConfCtrls;
   InjuryPatterns.PATTERNS.forEach(function(p,i){ ord[p.id]=i; });
-  res.combos.filter(function(c){ return c.injHits>=2; }).slice(0,2).forEach(function(c){
+  var pairs=res.combos.filter(function(c){ return c.injHits>=2; }).slice(0,2);
+  if(pairs.length) rows.push('<tr class="grp"><td colspan="4">Showed up together</td></tr>');
+  pairs.forEach(function(c){
     var nm={}; c.ids.forEach(function(id,i){ nm[id]=c.names[i]; });
     var ids=c.ids.slice().sort(function(a,b){ return ord[a]-ord[b]; });
     var den=ev.filter(function(cs){ return ids.every(function(id){ return cs.flags.some(function(f){ return f.id===id; }); }); }), n=den.length;
     var lift=(n&&m.nControls&&c.ctrlRate!=null)?(c.injHits/n)/Math.max(c.ctrlRate,0.5/m.nControls):null;
-    rows.push(row(esc(nm[ids[0]])+' + '+esc(nm[ids[1]])+', together', '', c.injHits, n, casesNoun(den), c.ctrlRate, lift, lowAll));
+    rows.push(row(esc(nm[ids[0]])+' + '+esc(nm[ids[1]]), '', c.injHits, n, casesNoun(den), c.ctrlRate, lift, lowAll));
   });
   return '<details class="rdx-more rdx-pat-more" id="patStats"'+(PAT_STATS?' open':'')+'><summary data-f="patsum">How often each pattern showed up · '+m.nEval+' '+noun+' vs '+weeks+'</summary><div class="rdx-more-body">'+
     '<p>Each lead-up was compared with '+weeks+' sampled from the rest of '+who()+' history, skipping the weeks around each setback.'+
       (m.nEvalIll?' Illnesses are checked only against overtraining-type patterns: ramp, load spike, intensity and monotony.':'')+'</p>'+
-    '<table class="rdx-pt"><thead><tr><th scope="col">Pattern</th><th scope="col">Before '+noun+'</th><th scope="col">In normal weeks</th></tr></thead><tbody>'+rows.join('')+'</tbody></table>'+
+    '<div class="rdx-pt-wrap"><table class="rdx-pt"><thead><tr><th scope="col">Pattern</th><th scope="col" class="c-rate">Before '+noun+'</th><th scope="col" class="c-rate">In normal weeks</th><th scope="col" class="c-x">Ratio</th></tr></thead><tbody>'+rows.join('')+'</tbody></table></div>'+
     (m.nEval<3?'<p class="rdx-pt-cav">Based on '+m.nEval+' '+noun+' — treat these as clues, not trends.</p>':'')+
   '</div></details>';
 }
