@@ -493,6 +493,16 @@ function parseExport(text){
     if(!(k in col)) throw new Error('Not a Garmin activities export (missing "'+k+'").');
   });
   var get=function(r,k){ return col[k]!=null ? r[col[k]] : null; };
+  // Garmin names the shared cadence/pace columns after the export's FIRST row: with a ride on
+  // top they come out "Avg Bike Cadence" / "Avg Speed", yet run rows still hold run cadence and
+  // an m:ss pace there. Reading only the run names nulled pace on every run of such a file, and
+  // impactLoad scores a pace-less run as nothing (a Sep 2026 upload zeroed ~10 weeks of load).
+  // The speed column is taken only as m:ss — a decimal there is a real speed, not a pace.
+  var cadenceOf=function(r){ var v=num(get(r,'avgruncadence')); return v!=null?v:num(get(r,'avgbikecadence')); };
+  var paceOf=function(r){
+    var v=hmsToSec(get(r,'avgpace')); if(v!=null) return v;
+    var s=get(r,'avgspeed'); return (s!=null&&/^\s*"?\d+:\d/.test(s))?hmsToSec(s):null;
+  };
   var byId={};
   for(var i=1;i<rows.length;i++){
     var r=rows[i];
@@ -513,10 +523,10 @@ function parseExport(text){
       distMi: distRaw==null?null:(isTrack?distRaw/1609.34:distRaw),
       durSec: hmsToSec(get(r,'time')),
       avgHr:num(get(r,'avghr')), maxHr:num(get(r,'maxhr')), aerobicTE:num(get(r,'aerobicte')),
-      cadence:num(get(r,'avgruncadence')), stride:num(get(r,'avgstridelength')),
+      cadence:cadenceOf(r), stride:num(get(r,'avgstridelength')),
       vratio:num(get(r,'avgverticalratio')), vo:num(get(r,'avgverticaloscillation')),
       gct:num(get(r,'avggroundcontacttime')), gctBalL:gctBalLeft(get(r,'avggctbalance')),
-      paceSec:hmsToSec(get(r,'avgpace')), gapSec:hmsToSec(get(r,'avggap')),
+      paceSec:paceOf(r), gapSec:hmsToSec(get(r,'avggap')),
       ascentM:num(get(r,'totalascent')), descentM:num(get(r,'totaldescent')), steps:num(get(r,'steps')),
     };
   }
