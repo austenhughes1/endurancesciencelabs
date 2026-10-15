@@ -2,8 +2,8 @@
 // shared/run-dynamics.js
 //
 // The ONE Run Dynamics view. Both the standalone /running-dynamics/
-// page and the coaching dashboard's "Run Dynamics" tab mount this —
-// there is no second copy. Imports a Garmin Connect activities export
+// page and the coaching dashboard's "Training Analysis" and "Injury
+// Patterns" tabs mount this — there is no second copy. Imports a Garmin Connect activities export
 // (Activities.csv) OR a Coros export (.zip of per-activity .fit files),
 // stores it under users/{uid}/garminActivities (de-duped by start
 // time), and renders the actionable hero + unified load/metric chart +
@@ -14,10 +14,13 @@
 // and RunDevices (shared/device-matrix.js). The host page provides a
 // container, a Firestore handle, the athlete uid, and a role.
 //
-//   RunDynamics.mount(containerEl, { db, uid, role, title, sub })
+//   RunDynamics.mount(containerEl, { db, uid, role, view, title, sub })
 //     db    : firebase firestore instance
 //     uid   : the athlete whose data to show / write
 //     role  : 'athlete' (self) | 'coach' (viewing an athlete) — copy only
+//     view  : 'training' (Today, load chart, form & volume) | 'injury'
+//             (injury & illness history, training gaps). Both keep the
+//             header strip, Data & settings, and About these numbers.
 //     title : optional heading shown above the tool (standalone page)
 //     sub   : optional sub-line under the title
 //
@@ -622,6 +625,11 @@ var MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','D
 
 /* ---------- per-mount state ---------- */
 var ROOT=null, DB=null, UID=null, ROLE='athlete', ADMIN=false, STRAVA_SYNC={};
+// Which tab this mount is: the sections it builds. Everything else (settings, events, toasts, the
+// Lever modal) is shared. Renderers no-op when their section's elements aren't in the shell.
+var VIEW='training';
+var VIEW_SECS={ training:['hero','chart','form','about'], injury:['patterns','about'] };
+function inView(sec){ return VIEW_SECS[VIEW].indexOf(sec)>=0; }
 var RAW=[], ACTIVE_TYPES=new Set(), KNOWN_TYPES=new Set();
 var ANCHOR=null, LOAD_PARAMS=null, STD_PROFILE={}, STRAVA_LEVER=[];
 var DAY=864e5;
@@ -2519,18 +2527,19 @@ function renderLoaded(){
   var lm=$('loadMethod'); if(lm && window.RunLoad) lm.innerHTML=RunLoad.methodologyHTML();
   var span=fmtSpan(min.getTime(), max.getTime());
   $('filenote').textContent=RAW.length+' run'+(RAW.length===1?'':'s')+' stored · '+span;
-  $('anchor').value=ymd(max);
-  // compare defaults: the last 90 days to the last run vs the 90 before (inclusive date ranges, no shared day)
-  $('faFrom').value=ymd(new Date(max.getTime()-89*DAY));
-  $('faTo').value=ymd(max);
-  $('fbFrom').value=ymd(new Date(max.getTime()-179*DAY));
-  $('fbTo').value=ymd(new Date(max.getTime()-90*DAY));
-  setCompare(true);
+  if(inView('form')){
+    $('anchor').value=ymd(max);
+    // compare defaults: the last 90 days to the last run vs the 90 before (inclusive date ranges, no shared day)
+    $('faFrom').value=ymd(new Date(max.getTime()-89*DAY));
+    $('faTo').value=ymd(max);
+    $('fbFrom').value=ymd(new Date(max.getTime()-179*DAY));
+    $('fbTo').value=ymd(new Date(max.getTime()-90*DAY));
+    setCompare(true);
+  }
   fillProfileInputs();
   $('evDate').value=ymd(max);
   renderEventsList();
-  populateMetricSelects();
-  setRange('3');
+  if(inView('chart')){ populateMetricSelects(); setRange('3'); }
   // Strava attribution (API terms): the "Powered by Strava" mark shows whenever Strava runs do —
   // white on the dark theme, orange on light.
   var nStrava=RAW.filter(function(r){return r.source==='strava';}).length;
@@ -2604,8 +2613,8 @@ function saveCandidates(candidates){
 
 /* ---------- shell markup ----------
    Page order: header strip → Data & settings panel (collapsed) → [onboarding card when there are no
-   runs] → Today → Load over time → Injury & illness history → Form & volume → About these numbers,
-   then the toast and the Lever modal. #importBlock is built once and moved between the panel's
+   runs] → the view's sections → About these numbers, then the toast and the Lever modal. Training
+   view: Today → Load over time → Form & volume. Injury view: Injury & illness history. #importBlock is built once and moved between the panel's
    Import & data group (#importSlot) and the onboarding card (#importHome) by showSections(). */
 function shellHTML(opts){
   var your=who();
@@ -2715,6 +2724,7 @@ function shellHTML(opts){
     '<div id="importHome"></div>'+
   '</div></div>'+
 
+  (inView('hero') ? ''+
   // 2. Today
   '<div class="rdx-section" id="sec-hero">'+(ADMIN?'<div class="rdx-demobar" id="demobar"></div>':'')+'<div class="rdx-hero" id="hero"></div></div>'+
 
@@ -2742,9 +2752,10 @@ function shellHTML(opts){
     '<div class="rdx-chartwrap"><div class="rdx-legend" id="chartLegend"></div><div id="chartBox"></div><p class="rdx-ev-cap" id="chartEvCap"></p></div>'+
     '<p class="rdx-note" id="chartCaption">One easy flat mile = 1 IAD mi; harder or hillier miles count for more. A load measure, not an injury prediction. '+
       '<button type="button" class="rdx-link" id="chartHow">How IAD is calculated →</button></p>'+
-  '</div>'+
+  '</div>' : '')+
 
-  // 4. Injury & illness history
+  // 4. Injury & illness history (the Injury Patterns view)
+  (inView('patterns') ? ''+
   '<div class="rdx-section" id="sec-patterns">'+
     '<div class="rdx-sec-hd">'+
       '<div class="rdx-sec-hd-txt"><h2 class="rdx-sec-title" id="patHead" tabindex="-1">Injury &amp; illness history</h2>'+
@@ -2752,9 +2763,10 @@ function shellHTML(opts){
       '<div class="rdx-sec-ctl"><button type="button" class="rdx-gapchip" id="patGapChip" hidden></button></div>'+
     '</div>'+
     '<div id="patternsBox"></div>'+
-  '</div>'+
+  '</div>' : '')+
 
   // 5. Form & volume — #anchor ("as of") drives the form tiles and the volume windows only
+  (inView('form') ? ''+
   '<div class="rdx-section" id="sec-form">'+
     '<div class="rdx-sec-hd">'+
       '<div class="rdx-sec-hd-txt"><h2 class="rdx-sec-title">Form &amp; volume</h2><p class="rdx-sec-sub">Last 90 days vs the 90 before · distances are actual miles, not IAD</p></div>'+
@@ -2775,9 +2787,9 @@ function shellHTML(opts){
         '<p class="rdx-note" id="formHint"></p>'+
       '</div>'+
     '</details>'+
-  '</div>'+
+  '</div>' : '')+
 
-  // 6. About these numbers
+  // 6. About these numbers (both views — it carries the Strava attribution)
   '<div class="rdx-section" id="sec-about">'+
     '<div class="rdx-sec-hd"><div class="rdx-sec-hd-txt"><h2 class="rdx-sec-title">About these numbers</h2></div></div>'+
     '<details class="rdx-more" id="loadMethodBox"><summary>How Impact Load (IAD) is calculated — equation, variables &amp; sources</summary><div class="rdx-more-body" id="loadMethod"></div></details>'+
@@ -2820,24 +2832,28 @@ function wire(){
   drop.ondragleave=function(){ drop.classList.remove('over'); };
   drop.ondrop=function(e){ e.preventDefault(); drop.classList.remove('over'); var f=e.dataTransfer.files[0]; if(f) readFile(f); };
   fileInput.onchange=function(e){ var f=e.target.files[0]; if(f) readFile(f); fileInput.value=''; };
-  $('anchor').onchange=function(e){ var d=parseDate(e.target.value); if(d){ANCHOR=dayEnd(d);refresh();} };
   $('gearBtn').onclick=function(){ setPanel(PANEL==='all'?null:'all'); };
   $('evQuick').onclick=function(){ if(PANEL==='events') setPanel(null); else openSettings('events'); };
   $('intensity').onchange=refresh;
   $('cutoff').onchange=refresh;
   $('mindist').onchange=refresh;
-  ['chartView','chartView2'].forEach(function(id){ $(id).onchange=renderChart; });
-  ['tFrom','tTo'].forEach(function(id){ $(id).onchange=function(){ setRangeChip('custom'); renderChart(); }; });
-  ['hideOutliers','smooth','points'].forEach(function(id){ $(id).onclick=function(){ this.setAttribute('aria-pressed',String(this.classList.toggle('on'))); renderChart(); }; });
-  Array.prototype.forEach.call($all('#rdx-rangeChips [data-range]'),function(c){ c.onclick=function(){
-    var r=c.getAttribute('data-range');
-    if(r==='custom'){ setRangeChip('custom'); $('tFrom').focus(); } else applyRange(r);   // Custom keeps the current dates until one is edited
-  }; });
-  ['faFrom','faTo','fbFrom','fbTo'].forEach(function(id){ $(id).onchange=renderForm; });
-  $('formCompare').onclick=function(){ setCompare(!this.classList.contains('on')); renderForm(); };
-  wireEventCap($('chartBox'));
-  $('chartHow').onclick=function(){ var d=$('loadMethodBox'); d.open=true; smoothScroll(d); d.querySelector('summary').focus({preventScroll:true}); };
-  $('patGapChip').onclick=function(){ var g=$('rdxGaps'); if(!g) return; GAPS_OPEN=g.open=true; smoothScroll(g); var h=$('rdxGapsHd'); if(h) h.focus({preventScroll:true}); };
+  if(inView('chart')){
+    ['chartView','chartView2'].forEach(function(id){ $(id).onchange=renderChart; });
+    ['tFrom','tTo'].forEach(function(id){ $(id).onchange=function(){ setRangeChip('custom'); renderChart(); }; });
+    ['hideOutliers','smooth','points'].forEach(function(id){ $(id).onclick=function(){ this.setAttribute('aria-pressed',String(this.classList.toggle('on'))); renderChart(); }; });
+    Array.prototype.forEach.call($all('#rdx-rangeChips [data-range]'),function(c){ c.onclick=function(){
+      var r=c.getAttribute('data-range');
+      if(r==='custom'){ setRangeChip('custom'); $('tFrom').focus(); } else applyRange(r);   // Custom keeps the current dates until one is edited
+    }; });
+    wireEventCap($('chartBox'));
+    $('chartHow').onclick=function(){ var d=$('loadMethodBox'); d.open=true; smoothScroll(d); d.querySelector('summary').focus({preventScroll:true}); };
+  }
+  if(inView('form')){
+    $('anchor').onchange=function(e){ var d=parseDate(e.target.value); if(d){ANCHOR=dayEnd(d);refresh();} };
+    ['faFrom','faTo','fbFrom','fbTo'].forEach(function(id){ $(id).onchange=renderForm; });
+    $('formCompare').onclick=function(){ setCompare(!this.classList.contains('on')); renderForm(); };
+  }
+  if(inView('patterns')) $('patGapChip').onclick=function(){ var g=$('rdxGaps'); if(!g) return; GAPS_OPEN=g.open=true; smoothScroll(g); var h=$('rdxGapsHd'); if(h) h.focus({preventScroll:true}); };
   $('device').onchange=function(e){ persist({ runDevice:e.target.value }); populateMetricSelects(); refresh(); };
   $('accessory').onclick=function(){ var on=!this.classList.contains('on'); this.classList.toggle('on',on); this.setAttribute('aria-pressed',String(on)); persist({ runHasAccessory:on }); populateMetricSelects(); refresh(); };
   $('weight').onchange=function(e){ var lb=parseFloat(String(e.target.value).replace(/[^0-9.]/g,'')); persist({ weightLb:(lb&&lb>0)?lb:null }); refresh(); };
@@ -2941,6 +2957,7 @@ function mount(container, opts){
   }
   injectCSS();
   ROOT=container; DB=opts.db; UID=opts.uid; ROLE=opts.role||'athlete'; ADMIN=!!opts.admin; DEMO=null;
+  VIEW=VIEW_SECS[opts.view]?opts.view:'training';
   var my=++MOUNT; PROFILE_ERR=null;
   DIS_OPEN=false; DIS_T=0; DIS_SEQ=0; GAP_FORM=null; PANEL=null; SB_MORE=false; ALSO_ALL=false; PAT_STATS=false; GAPS_OPEN=false; HERO_HELP=false; CAP_PIN=''; clearTimeout(LV.toastT); clearTimeout(TOAST_T); TOAST_ARM=TOAST_BACK=null; SAVE_SEQ={}; LV={filter:'all', sel:new Set(), rows:[], trigger:null, toastT:null};
   RAW=[]; ACTIVE_TYPES=new Set(); KNOWN_TYPES=new Set(); ANCHOR=null; LOAD_PARAMS=null; STD_PROFILE={}; STRAVA_LEVER=[]; STRAVA_SYNC={};

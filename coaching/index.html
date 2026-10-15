@@ -397,7 +397,7 @@ header{display:none}
 .tab-btn:hover:not(.active){color:var(--text)}
 .tab-btn:disabled{opacity:.3;cursor:not-allowed}
 
-/* ── Run Dynamics tab — all styles live in /shared/run-dynamics.js (injected once as #rdx-styles) ── */
+/* ── Training Analysis + Injury Patterns tabs (Run Dynamics) — all styles live in /shared/run-dynamics.js (injected once as #rdx-styles) ── */
 /* ── Lifting plan ──────────────────────────────────── */
 .lift-instructions{background:linear-gradient(135deg,rgba(0,229,200,.08) 0%,rgba(139,124,248,.08) 100%);border:1px solid rgba(0,229,200,.25);border-radius:12px;padding:18px 22px;font-size:13px;color:var(--text);line-height:1.7;margin-bottom:18px;font-family:var(--body)}
 .lift-instructions strong{color:var(--cyan);font-weight:700}
@@ -956,7 +956,7 @@ header{display:none}
 <script src="/shared/run-load-model.js?v=28"></script>
 <script src="/shared/injury-patterns.js?v=7"></script>
 <script src="/shared/device-matrix.js"></script>
-<script src="/shared/run-dynamics.js?v=36"></script>
+<script src="/shared/run-dynamics.js?v=37"></script>
 
 <script>
 'use strict';
@@ -999,7 +999,7 @@ let weekOffset = 0;
 let workoutsCache = {};
 let stravaCache = {};
 let savingWeeks = {};
-let currentTab = 'training'; // 'training' or 'lifting'
+let currentTab = 'training'; // 'training' | 'lifting' | 'rundynamics' (Training Analysis) | 'injurypatterns'
 let viewMode = 'week'; // 'week' (single-week editor) or 'overview' (16-week table)
 let overviewPage = 0; // 0 = most recent 16 weeks, 1 = the 16 before that, …
 let liftingCache = {}; // weekStart -> lifting data
@@ -2270,8 +2270,9 @@ function renderSingleWeek(weekContainerId, dashContainerId, role) {
   const hasFeatureConfig = Object.keys(athleteFeatures).length > 0;
   const showCoaching = role === 'coach' || currentUser.uid === ADMIN_UID || !hasFeatureConfig || athleteFeatures.coaching === true;
   const showLifting = role === 'coach' || currentUser.uid === ADMIN_UID || athleteFeatures.lifting === true;
-  // Run Dynamics is available to coaches/admin always, and to athletes
-  // unless explicitly turned off via features.runDynamics === false.
+  // Run Dynamics (the Training Analysis + Injury Patterns tabs) is available
+  // to coaches/admin always, and to athletes unless explicitly turned off via
+  // features.runDynamics === false.
   const showRunDynamics = role === 'coach' || currentUser.uid === ADMIN_UID || athleteFeatures.runDynamics !== false;
 
   // Build the list of available tabs; fall back to the first available
@@ -2279,8 +2280,13 @@ function renderSingleWeek(weekContainerId, dashContainerId, role) {
   const availTabs = [];
   if (showCoaching) availTabs.push({ key: 'training', label: 'Training Plan' });
   if (showLifting) availTabs.push({ key: 'lifting', label: 'Lifting Plan' });
-  if (showRunDynamics) availTabs.push({ key: 'rundynamics', label: 'Run Dynamics' });
+  if (showRunDynamics) {
+    availTabs.push({ key: 'rundynamics', label: 'Training Analysis' });
+    availTabs.push({ key: 'injurypatterns', label: 'Injury Patterns' });
+  }
   if (!availTabs.some(t => t.key === currentTab)) currentTab = availTabs.length ? availTabs[0].key : 'training';
+  // Both Run Dynamics tabs mount the shared module; the tab picks its view.
+  const rdView = currentTab === 'rundynamics' ? 'training' : currentTab === 'injurypatterns' ? 'injury' : null;
 
   const raceHtml = upcomingRaces.length
     ? `<div class="plan-race">${upcomingRaces.map(r => `<span class="plan-race-name">${esc(r.name || 'Race')}</span> · ${r.date}`).join('&nbsp;&nbsp;|&nbsp;&nbsp;')}</div>`
@@ -2305,8 +2311,8 @@ function renderSingleWeek(weekContainerId, dashContainerId, role) {
   const showViewToggle = currentTab === 'training' && showCoaching;
 
   // Week navigation (shared) — when overview is active, hide week-specific controls.
-  // Run Dynamics is not week-based, so it skips the week nav entirely.
-  if (currentTab !== 'rundynamics') {
+  // The Run Dynamics tabs are not week-based, so they skip the week nav entirely.
+  if (!rdView) {
   html += `<div class="week-nav">`;
   if (overviewActive) {
     const blocksBack = overviewPage;
@@ -2333,7 +2339,7 @@ function renderSingleWeek(weekContainerId, dashContainerId, role) {
   }
 
   // Tab content
-  if (currentTab === 'rundynamics' && showRunDynamics) {
+  if (rdView && showRunDynamics) {
     html += `<div id="rd-root" class="rd-root"></div>`;
   } else if (currentTab === 'training' && showCoaching) {
     if (viewMode === 'overview') {
@@ -2350,9 +2356,9 @@ function renderSingleWeek(weekContainerId, dashContainerId, role) {
   container.innerHTML = html;
 
   // Run Dynamics mounts its own UI into #rd-root, scoped to the viewed athlete.
-  if (currentTab === 'rundynamics' && showRunDynamics) {
+  if (rdView && showRunDynamics) {
     const rdUid = role === 'coach' ? selectedAthleteUid : currentUser.uid;
-    mountRunDynamics(rdUid, role);
+    mountRunDynamics(rdUid, role, rdView);
   }
 
   // Also render dashboard below (only for training tab in single-week mode)
@@ -3739,7 +3745,7 @@ function switchTab(tab) {
 }
 
 // ══════════════════════════════════════════════════════════
-//  RUN DYNAMICS TAB
+//  RUN DYNAMICS TABS (Training Analysis + Injury Patterns)
 //  Backfills a Garmin Connect CSV export into
 //  users/{athleteUid}/garminActivities (de-duped by activity
 //  start time) and reports run-form metrics over windows and
@@ -3752,11 +3758,11 @@ function switchTab(tab) {
 // module the standalone /running-dynamics/ page mounts. Here we just mount it
 // into #rd-root for the viewed athlete, so a coach sees exactly what the
 // athlete sees. There is no second copy of the view to keep in sync.
-function mountRunDynamics(uid, role){
+function mountRunDynamics(uid, role, view){
   const root=document.getElementById('rd-root');
   if(!root) return;
-  if(!uid){ root.innerHTML='<div style="padding:40px;text-align:center;color:var(--muted2);font-size:13px">Select an athlete from the sidebar to view their run dynamics.</div>'; return; }
-  RunDynamics.mount(root, { db: db, uid: uid, role: role, admin: !!(currentUser && currentUser.uid === ADMIN_UID) });
+  if(!uid){ root.innerHTML='<div style="padding:40px;text-align:center;color:var(--muted2);font-size:13px">Select an athlete from the sidebar to view their run data.</div>'; return; }
+  RunDynamics.mount(root, { db: db, uid: uid, role: role, view: view, admin: !!(currentUser && currentUser.uid === ADMIN_UID) });
 }
 
 // ══════════════════════════════════════════════════════════

@@ -22,6 +22,11 @@
 body{font-family:var(--ui);background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;font-size:15px;line-height:1.5}
 a{color:var(--cyan)}
 .wrap{max-width:1180px;margin:0 auto;padding:30px 26px 80px}
+.rd-tabs{display:flex;gap:4px;background:var(--panel2);border:1px solid var(--border2);border-radius:10px;padding:3px;width:fit-content;margin-bottom:6px}
+.rd-tab{padding:7px 18px;font-size:11px;font-weight:700;font-family:var(--mono);letter-spacing:.3px;text-transform:uppercase;border:none;border-radius:7px;background:transparent;color:var(--muted2);cursor:pointer;transition:all .15s}
+.rd-tab[aria-pressed="true"]{background:var(--cyan);color:#000}
+.rd-tab:hover:not([aria-pressed="true"]){color:var(--text)}
+@media(max-width:600px){.wrap{padding:24px 16px 64px}.rd-tabs{width:100%}.rd-tab{flex:1;padding:8px 10px;font-size:10px}}
 .eyebrow{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--cyan);font-family:var(--mono);background:rgba(0,229,200,.08);border:1px solid rgba(0,229,200,.2);border-radius:20px;padding:4px 12px;margin-bottom:14px}
 </style>
 </head>
@@ -32,6 +37,10 @@ a{color:var(--cyan)}
 
 <div class="wrap" id="tool" style="display:none">
   <span class="eyebrow">Running Dynamics</span>
+  <div class="rd-tabs" role="group" aria-label="View">
+    <button type="button" class="rd-tab" data-view="training" aria-pressed="true">Training Analysis</button>
+    <button type="button" class="rd-tab" data-view="injury" aria-pressed="false">Injury Patterns</button>
+  </div>
   <div id="rdx-mount"></div>
 </div>
 
@@ -43,7 +52,7 @@ a{color:var(--cyan)}
 <script src="/shared/run-load-model.js?v=28"></script>
 <script src="/shared/injury-patterns.js?v=7"></script>
 <script src="/shared/device-matrix.js"></script>
-<script src="/shared/run-dynamics.js?v=36"></script>
+<script src="/shared/run-dynamics.js?v=37"></script>
 <script>
 'use strict';
 /* The whole Run Dynamics view lives in /shared/run-dynamics.js — this page
@@ -62,16 +71,32 @@ esLabs.mountAuthGate('#gate-mount', {
   emailDefault:'signup'
 });
 
+// Two tabs over the one module: Training Analysis and Injury Patterns each mount it with their view.
+var rdUser=null, rdView='training';
+function mountView(){
+  if(!rdUser) return;
+  RunDynamics.mount(document.getElementById('rdx-mount'), {
+    db: esLabs.db, uid: rdUser.uid, role: 'athlete', view: rdView,
+    admin: (rdUser.uid === esLabs.ADMIN_UID),
+    title: 'Garmin Run Dynamics',
+    sub: 'Import a Garmin Connect activities export (<code>Activities.csv</code>) to backfill your run history. New activities are saved to your account and de-duplicated by start time, so you only ever import what\'s new.'
+  });
+}
+Array.prototype.forEach.call(document.querySelectorAll('.rd-tab'), function(b){
+  b.onclick=function(){
+    if(b.getAttribute('data-view')===rdView) return;
+    rdView=b.getAttribute('data-view');
+    Array.prototype.forEach.call(document.querySelectorAll('.rd-tab'), function(x){ x.setAttribute('aria-pressed', String(x===b)); });
+    mountView();
+  };
+});
+
 esLabs.onAuthChange(function(user){
   var tool=document.getElementById('tool');
+  rdUser=user||null;
   if(user){
     tool.style.display='block';
-    RunDynamics.mount(document.getElementById('rdx-mount'), {
-      db: esLabs.db, uid: user.uid, role: 'athlete',
-      admin: (user.uid === esLabs.ADMIN_UID),
-      title: 'Garmin Run Dynamics',
-      sub: 'Import a Garmin Connect activities export (<code>Activities.csv</code>) to backfill your run history. New activities are saved to your account and de-duplicated by start time, so you only ever import what\'s new.'
-    });
+    mountView();
   } else {
     tool.style.display='none';
   }
