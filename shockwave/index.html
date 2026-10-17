@@ -5,43 +5,37 @@
 <script>try{if(localStorage.getItem('esl-theme')==='light')document.documentElement.setAttribute('data-theme','light')}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Shockwave + EMTT - Endurance Science Labs</title>
+<link rel="icon" type="image/png" sizes="64x64" href="/images/favicon-64.png">
+<link rel="apple-touch-icon" href="/images/apple-touch-icon.png">
 <meta name="description" content="Radial shockwave + EMTT sessions for chronic running injuries in Broomfield, CO, by Endurance Science Labs. $150 per session; $50 for coaching athletes.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Shockwave + EMTT - Endurance Science Labs">
+<meta property="og:description" content="Radial shockwave + EMTT sessions for chronic running injuries in Broomfield, CO, by Endurance Science Labs. $150 per session; $50 for coaching athletes.">
+<meta property="og:image" content="https://endurancesciencelabs.com/images/track_running_legs-1600.jpg">
+<meta property="og:url" content="https://endurancesciencelabs.com/shockwave/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/shared/site.css">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/site.css?v=20261016">
 <style>
-:root {
-  --gold:    #f5c842;
-  --coral:   #ff6b35;
-  --display: 'Fraunces', Georgia, serif;
-  --body:    'DM Sans', system-ui, sans-serif;
-  /* Accents used as TEXT need deeper ink on light (see --accent-ink) */
-  --gold-ink:   var(--gold);
-  --purple-ink: var(--purple);
-}
-html[data-theme="light"] {
-  --gold-ink:   #8a6a00;
-  --purple-ink: #5a49d6;
-}
+/* Tokens, fonts and the esl-* layer come from /shared/site.css. */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
 body {
   font-family: var(--body); background: var(--bg); color: var(--text);
-  min-height: 100vh; font-size: 17px; line-height: 1.65;
+  min-height: 100vh; font-size: 16px; line-height: 1.7;
   -webkit-font-smoothing: antialiased;
 }
 a { color: var(--accent-ink); }
 
 /* ── Hero ────────────────────────────────────────────── */
 .hero {
-  padding: 100px 40px 80px;
+  padding: 96px 40px 80px;
   display: flex; flex-direction: column; align-items: center;
   text-align: center; position: relative; overflow: hidden;
 }
 .hero::before {
   content: ''; position: absolute; top: -20%; left: 50%; transform: translateX(-50%);
   width: 800px; height: 600px;
-  background: radial-gradient(ellipse, rgba(0,229,200,.055) 0%, transparent 68%);
+  background: radial-gradient(ellipse, var(--accent-wash) 0%, transparent 68%);
   pointer-events: none;
 }
 .hero::after {
@@ -54,137 +48,133 @@ a { color: var(--accent-ink); }
 .hero > * { position: relative; z-index: 1; }
 .hero-label {
   display: inline-flex; align-items: center; gap: 7px;
-  font-size: 12px; font-weight: 600; letter-spacing: .7px; text-transform: uppercase;
-  color: var(--accent-ink); font-family: var(--mono);
-  background: rgba(0,229,200,.08); border: 1px solid rgba(0,229,200,.18);
-  border-radius: 20px; padding: 5px 14px; margin-bottom: 30px;
+  font: 700 10px/1.2 var(--mono); letter-spacing: .8px; text-transform: uppercase;
+  color: var(--accent-ink); background: var(--accent-wash); border: 1px solid var(--accent-line);
+  border-radius: var(--r-pill); padding: 4px 12px; margin-bottom: 32px;
 }
 .hero-title {
-  font-family: var(--display); font-size: clamp(42px, 6.4vw, 80px);
+  font-family: var(--display); font-size: clamp(40px, 6.5vw, 80px);
   font-weight: 700; line-height: 1.05; letter-spacing: -2px;
   max-width: 860px; margin-bottom: 24px;
 }
 .hero-title em { font-style: italic; color: var(--accent-ink); }
 .hero-sub {
-  font-size: 19px; color: var(--muted2); line-height: 1.8;
+  font-size: 18px; line-height: 1.7; color: var(--muted2);
   max-width: 600px; margin-bottom: 40px;
 }
 .hero-actions {
-  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-  justify-content: center; margin-bottom: 60px;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  justify-content: center; margin-bottom: 64px;
 }
-.btn-primary {
+
+/* Buttons (lg, §3.5) */
+.btn-primary, .btn-secondary {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  padding: 15px 30px; background: var(--cyan); color: #000;
-  font-weight: 600; font-size: 16px; font-family: var(--body);
-  border: none; border-radius: 12px; cursor: pointer;
-  text-decoration: none; transition: opacity .15s;
+  box-sizing: border-box; min-height: 48px; padding: 13px 27px;  /* 14/28 incl. the 1px border */
+  font: 600 16px/1.2 var(--ui); border: 1px solid transparent; border-radius: var(--r-lg);
+  cursor: pointer; text-decoration: none; transition: opacity .15s, color .15s, border-color .15s;
 }
-.btn-primary:hover { opacity: .85; }
-.btn-primary:disabled { opacity: .55; cursor: wait; }
-.btn-secondary {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  padding: 15px 30px; color: var(--muted2); font-size: 16px;
-  font-weight: 500; font-family: var(--body);
-  border: 1px solid var(--border2); border-radius: 12px; background: transparent;
-  cursor: pointer; text-decoration: none; transition: color .15s, border-color .15s;
-}
-.btn-secondary:hover { color: var(--text); border-color: var(--accent-ink); }
-.btn-secondary:disabled { opacity: .55; cursor: wait; }
+.btn-primary { background: var(--cyan); color: var(--on-accent); font-weight: 700; }
+.btn-primary:hover { opacity: .86; }
+.btn-secondary { background: transparent; color: var(--text); border-color: var(--border2); }
+.btn-secondary:hover:not(:disabled) { color: var(--accent-ink); border-color: var(--accent-ink); }
+:is(.btn-primary, .btn-secondary):disabled { opacity: .4; cursor: not-allowed; }
+
 .hero-stats {
-  display: flex; align-items: center; gap: 44px; flex-wrap: wrap; justify-content: center;
+  display: flex; align-items: center; gap: 48px; flex-wrap: wrap; justify-content: center;
 }
-.hero-stat-val {
-  font-family: var(--display); font-size: 32px; font-weight: 700;
-  letter-spacing: -1px; line-height: 1;
-}
+.hero-stat-val { font: 700 32px/1 var(--display); letter-spacing: -1px; }
 .hero-stat-val em { font-style: normal; color: var(--accent-ink); }
-.hero-stat-label { font-size: 13px; color: var(--muted2); margin-top: 6px; }
+.hero-stat-label { font-size: 13px; line-height: 1.55; color: var(--muted2); margin-top: 6px; }
 .stat-divider { width: 1px; height: 44px; background: var(--border2); }
 
 /* ── Sections ────────────────────────────────────────── */
-section { padding: 88px 40px; max-width: 1200px; margin: 0 auto; }
-.divider { border: none; border-top: 1px solid var(--border); margin: 0 40px; }
+section { padding: 96px 40px; max-width: 1200px; margin: 0 auto; }
+.divider { width: calc(100% - 80px); max-width: 1120px; margin: 0 auto; border: none; border-top: 1px solid var(--border); }
 .section-label {
-  font-size: 11px; font-weight: 600; letter-spacing: .9px; text-transform: uppercase;
-  color: var(--accent-ink); font-family: var(--mono); margin-bottom: 14px;
+  font: 700 11px/1.3 var(--mono); letter-spacing: .9px; text-transform: uppercase;
+  color: var(--accent-ink); margin-bottom: 14px;
 }
 .section-title {
-  font-family: var(--display); font-size: clamp(30px, 3.5vw, 44px);
+  font-family: var(--display); font-size: clamp(28px, 3.5vw, 44px);
   font-weight: 700; letter-spacing: -.8px; margin-bottom: 16px; line-height: 1.12;
 }
-.section-sub { font-size: 18px; color: var(--muted2); line-height: 1.8; max-width: 640px; }
-.section-head { margin-bottom: 44px; }
+.section-sub { font-size: 18px; line-height: 1.7; color: var(--muted2); max-width: 640px; }
+.section-head { margin-bottom: 48px; }
+.section-head.compact { margin-bottom: 24px; }
+
+/* Marketing card title role (h3) */
+.tx-title, .step-title, .fit-h, .book-h, .book-step-title {
+  font: 600 20px/1.3 var(--display); letter-spacing: -.2px; color: var(--text);
+}
 
 /* ── Treatment cards ─────────────────────────────────── */
-.tx-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.tx-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .tx-card {
   background: var(--panel); border: 1px solid var(--border);
-  border-radius: 18px; padding: 32px; display: flex; flex-direction: column;
+  border-radius: var(--r-xl); padding: 28px; display: flex; flex-direction: column;
   position: relative; overflow: hidden;
 }
 .tx-card::before {
   content: ''; position: absolute; inset: 0; pointer-events: none;
   background: radial-gradient(ellipse at top left, var(--tx-glow), transparent 55%);
 }
-.tx-card.sw { --tx-glow: rgba(0,229,200,.06); border-color: rgba(0,229,200,.2); }
-.tx-card.em { --tx-glow: rgba(139,124,248,.07); border-color: rgba(139,124,248,.24); }
+.tx-card.sw { --tx-glow: var(--accent-wash); border-color: var(--accent-line); }
+.tx-card.em { --tx-glow: var(--purple-wash); border-color: var(--purple-line); }
 .tx-card > * { position: relative; }
 .tx-icon {
-  width: 48px; height: 48px; border-radius: 13px; margin-bottom: 18px;
+  width: 48px; height: 48px; border-radius: var(--r-lg); margin-bottom: 18px;
   display: flex; align-items: center; justify-content: center; font-size: 22px;
 }
-.tx-card.sw .tx-icon { background: rgba(0,229,200,.11); color: var(--accent-ink); }
-.tx-card.em .tx-icon { background: rgba(139,124,248,.12); color: var(--purple-ink); }
+.tx-card.sw .tx-icon { background: var(--accent-wash-2); color: var(--accent-ink); }
+.tx-card.em .tx-icon { background: var(--purple-wash); color: var(--purple-ink); }
 .tx-kicker {
-  font-size: 10px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase;
-  font-family: var(--mono); color: var(--muted2); margin-bottom: 6px;
+  font: 700 11px/1.3 var(--mono); letter-spacing: .9px; text-transform: uppercase;
+  color: var(--muted2); margin-bottom: 6px;
 }
-.tx-title { font-family: var(--display); font-size: 26px; font-weight: 700; letter-spacing: -.4px; margin-bottom: 12px; line-height: 1.2; }
-.tx-desc { font-size: 16px; color: var(--muted2); line-height: 1.8; }
+.tx-title { margin-bottom: 12px; }
+.tx-desc { font-size: 16px; line-height: 1.7; color: var(--muted2); }
 .tx-desc strong { color: var(--text); font-weight: 600; }
 .tx-facts { list-style: none; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
-.tx-facts li { display: flex; gap: 12px; font-size: 14.5px; line-height: 1.6; color: var(--muted2); }
+.tx-facts li { display: flex; gap: 12px; font-size: 14px; line-height: 1.6; color: var(--muted2); }
 .tx-facts li strong { color: var(--text); font-weight: 600; flex-shrink: 0; min-width: 92px; }
 
 .together {
-  margin-top: 18px; padding: 24px 28px; border-radius: 16px;
-  background: linear-gradient(135deg, rgba(0,229,200,.06), rgba(139,124,248,.06));
+  margin-top: 16px; padding: 24px 28px; border-radius: var(--r-xl);
+  background: linear-gradient(135deg, var(--accent-wash), var(--purple-wash));
   border: 1px solid var(--border2);
   display: flex; gap: 18px; align-items: flex-start;
 }
 .together-mark { font-family: var(--display); font-size: 30px; line-height: 1; color: var(--accent-ink); flex-shrink: 0; }
-.together p { font-size: 16px; color: var(--muted2); line-height: 1.75; }
+.together p { font-size: 16px; line-height: 1.7; color: var(--muted2); }
 .together p strong { color: var(--text); font-weight: 600; }
 
 /* ── Evidence table ──────────────────────────────────── */
-.ev-list { border: 1px solid var(--border); border-radius: 16px; overflow: hidden; background: var(--panel); }
+.ev-list { border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; background: var(--panel); }
 .ev-row {
   display: grid; grid-template-columns: minmax(200px, 1.1fr) 140px 2fr;
-  gap: 20px; align-items: center; padding: 18px 24px;
+  gap: 20px; align-items: center; padding: 16px 20px;
   border-top: 1px solid var(--border);
 }
 .ev-row:first-child { border-top: none; }
 .ev-row.ev-head {
-  padding-top: 12px; padding-bottom: 12px; background: var(--panel2);
-  font-family: var(--mono); font-size: 10px; font-weight: 700;
-  letter-spacing: .8px; text-transform: uppercase; color: var(--muted2);
+  padding-top: 10px; padding-bottom: 10px; background: var(--panel2);
+  font: 600 12px/1.35 var(--ui); letter-spacing: 0; text-transform: none; color: var(--muted2);
 }
 .ev-cond { font-weight: 600; font-size: 16px; line-height: 1.35; }
 .ev-cond span { display: block; font-weight: 400; font-size: 13px; color: var(--muted2); margin-top: 2px; }
-.ev-note { font-size: 14.5px; color: var(--muted2); line-height: 1.65; }
+.ev-note { font-size: 14px; line-height: 1.6; color: var(--muted2); }
 .ev-badge {
   display: inline-flex; align-items: center; gap: 6px; width: fit-content;
-  font-family: var(--mono); font-size: 10px; font-weight: 700;
-  letter-spacing: .5px; text-transform: uppercase;
-  padding: 4px 9px; border-radius: 6px; border: 1px solid; white-space: nowrap;
+  font: 700 10px/1.3 var(--mono); letter-spacing: .5px; text-transform: uppercase;
+  padding: 3px 8px; border-radius: var(--r-sm); border: 1px solid; white-space: nowrap;
 }
 .ev-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.ev-badge.strong   { color: var(--accent-ink); background: rgba(0,229,200,.08);   border-color: rgba(0,229,200,.25); }
-.ev-badge.support  { color: var(--purple-ink); background: rgba(139,124,248,.09); border-color: rgba(139,124,248,.28); }
-.ev-badge.early    { color: var(--muted2);     background: var(--hover);          border-color: var(--border2); }
-.ev-badge.mixed    { color: var(--gold-ink);   background: rgba(245,200,66,.08);  border-color: rgba(245,200,66,.28); }
-.ev-foot { margin-top: 14px; font-size: 13px; color: var(--muted2); font-family: var(--mono); line-height: 1.7; }
+.ev-badge.strong   { color: var(--accent-ink); background: var(--accent-wash); border-color: var(--accent-line); }
+.ev-badge.support  { color: var(--purple-ink); background: var(--purple-wash); border-color: var(--purple-line); }
+.ev-badge.early    { color: var(--muted2);     background: var(--hover);       border-color: var(--border2); }
+.ev-badge.mixed    { color: var(--gold-ink);   background: var(--gold-wash);   border-color: var(--gold-line); }
+.ev-foot { margin-top: 14px; font: 400 13px/1.55 var(--body); color: var(--muted2); }
 
 /* ── Photo break ─────────────────────────────────────── */
 .photo-break { position: relative; height: 480px; overflow: hidden; }
@@ -201,38 +191,40 @@ section { padding: 88px 40px; max-width: 1200px; margin: 0 auto; }
   position: absolute; inset: 0; z-index: 3; padding: 40px;
   display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
 }
-/* Fixed light text: it always sits on the darkened photo */
+/* Fixed light text: it always sits on the darkened photo (fixed-dark photo exception) */
+.photo-break-overlay::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(ellipse 65% 60% at 50% 50%, rgba(3,5,10,.55), transparent 75%); }
 .photo-break-quote {
   font-family: var(--display); font-size: clamp(24px, 3.6vw, 42px);
   font-weight: 600; color: #f2f4fb; line-height: 1.3; max-width: 760px; letter-spacing: -.3px;
 }
 .photo-break-quote em { font-style: italic; color: var(--cyan); }
-.photo-break-sub { font-size: 16px; color: rgba(242,244,251,.75); max-width: 600px; margin-top: 18px; line-height: 1.75; }
-.photo-break-sub a { color: var(--cyan); }
+.photo-break-sub { color: #f2f4fb; font-size: 16px; line-height: 1.7; max-width: 600px; margin-top: 18px; }
+.photo-break-sub a { color: #f2f4fb; text-decoration: underline; text-decoration-color: var(--cyan); text-decoration-thickness: 2px; text-underline-offset: 3px; }
 
 /* ── Visit steps ─────────────────────────────────────── */
 .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px; }
 .step { display: flex; flex-direction: column; gap: 12px; }
 .step-num {
-  width: 40px; height: 40px; border-radius: 11px;
-  background: rgba(0,229,200,.09); border: 1px solid rgba(0,229,200,.2);
+  width: 40px; height: 40px; border-radius: var(--r-lg);
+  background: var(--accent-wash); border: 1px solid var(--accent-line);
   display: flex; align-items: center; justify-content: center;
-  font-size: 13px; font-weight: 700; color: var(--accent-ink); font-family: var(--mono);
+  font: 700 13px/1 var(--mono); color: var(--accent-ink);
 }
-.step-title { font-family: var(--display); font-size: 19px; font-weight: 600; letter-spacing: -.2px; }
-.step-desc { font-size: 15px; color: var(--muted2); line-height: 1.75; }
+.step-desc { font-size: 15px; line-height: 1.65; color: var(--muted2); }
+.visit-info { margin-top: 36px; max-width: 760px; font: 400 15px/1.6 var(--body); color: var(--muted2); }
+.visit-info strong { color: var(--text); }
 .protocol-note {
-  margin-top: 36px; font-size: 14px; color: var(--muted2); font-family: var(--mono);
-  line-height: 1.7; padding-left: 14px; border-left: 2px solid var(--border2);
+  margin-top: 20px; max-width: 760px; font: 400 15px/1.6 var(--body); color: var(--muted2);
+  padding-left: 14px; border-left: 2px solid var(--border2);
 }
 .protocol-note strong { color: var(--text); }
 
 /* ── Fit / contraindications ─────────────────────────── */
-.fit-grid { display: grid; grid-template-columns: 1fr 1.25fr; gap: 18px; }
-.fit-card { background: var(--panel); border: 1px solid var(--border); border-radius: 18px; padding: 30px; }
-.fit-card.caution { border-color: rgba(245,166,35,.28); }
-.fit-h { font-family: var(--display); font-size: 21px; font-weight: 600; margin-bottom: 6px; letter-spacing: -.2px; }
-.fit-sub { font-size: 14.5px; color: var(--muted2); line-height: 1.65; margin-bottom: 18px; }
+.fit-grid { display: grid; grid-template-columns: 1fr 1.25fr; gap: 16px; }
+.fit-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-xl); padding: 28px; }
+.fit-card.caution { border-color: var(--warn-line); }
+.fit-h { margin-bottom: 6px; }
+.fit-sub { font-size: 14px; line-height: 1.6; color: var(--muted2); margin-bottom: 18px; }
 .fit-list { list-style: none; display: flex; flex-direction: column; gap: 11px; }
 .fit-list.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 11px 22px; }
 .fit-list li { display: flex; gap: 11px; font-size: 15px; line-height: 1.55; }
@@ -240,79 +232,87 @@ section { padding: 88px 40px; max-width: 1200px; margin: 0 auto; }
   content: '✓'; flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%; margin-top: 2px;
   display: flex; align-items: center; justify-content: center;
   font-size: 10px; font-weight: 800;
-  background: rgba(0,229,200,.12); color: var(--accent-ink);
+  background: var(--accent-wash-2); color: var(--accent-ink);
 }
-.fit-card.caution .fit-list li::before { content: '!'; background: rgba(245,166,35,.14); color: var(--warn); }
+.fit-card.caution .fit-list li::before { content: '!'; background: var(--warn-wash); color: var(--warn-ink); }
 .fit-ask {
   margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border);
-  font-size: 14px; color: var(--muted2); line-height: 1.65;
+  font-size: 14px; line-height: 1.6; color: var(--muted2);
 }
 
 /* ── Pricing + booking ───────────────────────────────── */
 #book { scroll-margin-top: 70px; }
 .price-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 22px; }
 .price-card {
-  background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 24px 26px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-xl); padding: 24px 26px;
   display: flex; flex-direction: column; transition: border-color .2s;
 }
 .price-card.mine { border-color: var(--cyan); box-shadow: 0 0 0 1px var(--cyan) inset; }
 .price-tag {
-  font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: .8px;
-  text-transform: uppercase; color: var(--muted2); margin-bottom: 10px;
+  font: 700 10px/1.3 var(--mono); letter-spacing: .8px;
+  text-transform: uppercase; color: var(--muted2); margin-bottom: 10px; min-height: 22px;
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
 }
 .price-you {
-  display: none; font-size: 9px; padding: 2px 7px; border-radius: 4px;
-  background: var(--cyan); color: #000; letter-spacing: .5px;
+  display: none; padding: 3px 8px; font: 700 10px/1.3 var(--mono); letter-spacing: .5px;
+  color: var(--accent-ink); background: var(--accent-wash); border: 1px solid var(--accent-line); border-radius: var(--r-sm);
 }
-.price-card.mine .price-you { display: inline-block; }
-.price-amt { font-family: var(--display); font-size: 40px; font-weight: 700; letter-spacing: -1px; line-height: 1.05; }
-.price-amt small { font-family: var(--body); font-size: 15px; font-weight: 500; color: var(--muted2); letter-spacing: 0; margin-left: 4px; }
+.price-card.mine .price-you { display: inline-flex; }
+.price-amt { font: 700 40px/1.05 var(--display); letter-spacing: -1px; }
+.price-amt small { font: 500 15px/1.2 var(--body); color: var(--muted2); letter-spacing: 0; margin-left: 4px; }
 .price-amt s { font-size: 20px; color: var(--muted2); font-weight: 600; margin-right: 6px; }
-.price-desc { font-size: 14.5px; color: var(--muted2); line-height: 1.65; margin-top: 8px; }
+.price-desc { font-size: 14px; line-height: 1.6; color: var(--muted2); margin-top: 8px; }
 
 .book-panel {
-  background: linear-gradient(135deg, rgba(0,229,200,.07), rgba(139,124,248,.06));
-  border: 1px solid rgba(0,229,200,.2); border-radius: 18px; padding: 30px 32px;
+  background: linear-gradient(135deg, var(--accent-wash), var(--purple-wash));
+  border: 1px solid var(--accent-line); border-radius: var(--r-xl); padding: 28px;
 }
-.book-h { font-family: var(--display); font-size: 24px; font-weight: 700; letter-spacing: -.4px; margin-bottom: 4px; }
-.book-note { font-size: 14.5px; color: var(--muted2); line-height: 1.65; max-width: 560px; }
+.book-h { margin-bottom: 4px; }
+.book-note { font-size: 14px; line-height: 1.6; color: var(--muted2); max-width: 560px; }
+.book-actas {
+  margin-top: 12px; padding: 10px 14px; font: 400 13px/1.55 var(--ui); color: var(--text);
+  background: var(--panel); border: 1px solid var(--border); border-left: 4px solid var(--warn); border-radius: var(--r-lg);
+}
+.book-actas[hidden] { display: none; }
 .book-steps { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; }
 .book-step {
   display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
-  padding: 18px 20px; border-radius: 14px;
+  padding: 18px 20px; border-radius: var(--r-lg);
   background: var(--panel); border: 1px solid var(--border);
   transition: border-color .2s;
 }
-.book-step.current { border-color: rgba(0,229,200,.45); }
-.book-step.done .step-num { background: var(--cyan); border-color: var(--cyan); color: #000; }
+.book-step.current { border-color: var(--accent-line); }
+.book-step.done .step-num { background: var(--cyan); border-color: var(--cyan); color: var(--on-accent); }
 .book-step-body { flex: 1; min-width: 220px; }
-.book-step-title { font-family: var(--display); font-size: 19px; font-weight: 600; letter-spacing: -.2px; }
-.book-step-note { font-size: 14.5px; color: var(--muted2); line-height: 1.6; margin-top: 2px; }
+.book-step-title:focus { outline: none; }
+.book-step-title:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; border-radius: 4px; }
+.book-step-note { font-size: 14px; line-height: 1.6; color: var(--muted2); margin-top: 2px; }
 .book-step-note strong { color: var(--text); }
 .book-actions { display: flex; gap: 12px; flex-wrap: wrap; }
 
 /* Calendar pop-up: Google's embeddable booking view in an iframe */
 .cal-modal {
   position: fixed; inset: 0; z-index: 8000; padding: 24px;
-  background: rgba(0,0,0,.62);
+  background: var(--scrim);
   display: flex; align-items: center; justify-content: center;
 }
 .cal-modal[hidden] { display: none; }
 .cal-dialog {
   width: 100%; max-width: 780px; height: min(860px, calc(100vh - 48px));
-  background: var(--panel); border: 1px solid var(--border2); border-radius: 16px;
+  background: var(--panel); border: 1px solid var(--border2); border-radius: var(--r-xl);
   display: flex; flex-direction: column; overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0,0,0,.5);
+  box-shadow: var(--shadow-modal);
 }
 .cal-head { display: flex; align-items: center; gap: 14px; padding: 12px 14px 12px 20px; border-bottom: 1px solid var(--border); }
-.cal-title { font-family: var(--display); font-size: 18px; font-weight: 600; flex: 1; }
-.cal-newtab { font-size: 12px; font-family: var(--mono); color: var(--muted2); white-space: nowrap; }
+.cal-title { flex: 1; font: 800 17px/1.3 var(--ui); letter-spacing: -.2px; }
+.cal-newtab { font: 600 12px/1.3 var(--ui); color: var(--muted2); white-space: nowrap; text-decoration: underline; text-underline-offset: 3px; }
+.cal-newtab:hover { color: var(--text); }
 .cal-close {
-  width: 34px; height: 34px; flex-shrink: 0; border-radius: 8px; cursor: pointer;
-  border: 1px solid var(--border2); background: transparent; color: var(--text); font-size: 20px; line-height: 1;
+  width: 36px; height: 36px; flex-shrink: 0; border-radius: var(--r-md); cursor: pointer;
+  border: 1px solid var(--border2); background: transparent; color: var(--muted2); font: 400 20px/1 var(--ui);
 }
-.cal-close:hover { border-color: var(--accent-ink); color: var(--accent-ink); }
+.cal-close:hover { border-color: var(--muted2); color: var(--text); }
+@media (pointer: coarse) { .cal-close { width: 40px; height: 40px; } }
 .cal-frame { flex: 1; width: 100%; border: 0; background: #fff; }
 .cal-foot {
   display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
@@ -320,107 +320,116 @@ section { padding: 88px 40px; max-width: 1200px; margin: 0 auto; }
 }
 .cal-foot-note { font-size: 14px; color: var(--muted2); line-height: 1.5; flex: 1; min-width: 200px; }
 .cal-foot-note strong { color: var(--text); }
-.book-micro { margin-top: 18px; font-size: 12px; color: var(--muted2); font-family: var(--mono); line-height: 1.7; }
+.book-micro { margin-top: 18px; font: 400 13px/1.55 var(--body); color: var(--muted2); }
 .book-err {
-  display: none; margin-top: 16px; padding: 12px 14px; border-radius: 10px;
-  background: rgba(245,80,80,.08); border: 1px solid rgba(245,80,80,.3);
-  color: var(--bad); font-size: 14px; line-height: 1.55;
+  display: none; margin-top: 16px; padding: 12px 16px;
+  background: var(--panel); border: 1px solid var(--border); border-left: 4px solid var(--bad); border-radius: var(--r-lg);
+  color: var(--text); font: 400 14px/1.55 var(--body);
 }
+.book-err strong { color: var(--bad-ink); }
 .book-err.show { display: block; }
 .paid-banner {
-  margin-bottom: 18px; padding: 20px 24px; border-radius: 14px;
-  background: rgba(34,199,138,.09); border: 1px solid rgba(34,199,138,.3);
-  border-left: 4px solid var(--good);
+  margin-bottom: 18px; padding: 16px 20px;
+  background: var(--panel); border: 1px solid var(--border); border-left: 4px solid var(--good); border-radius: var(--r-lg);
   display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap;
 }
-.paid-banner[hidden] { display: none; }
-.paid-banner strong { color: var(--good); }
+.paid-banner[hidden], .paid-banner [hidden] { display: none; }
+.paid-banner:focus { outline: none; }
+.paid-banner strong { color: var(--good-ink); }
 .paid-banner p { font-size: 15px; line-height: 1.6; max-width: 600px; }
-.paid-banner .small { font-size: 13.5px; color: var(--muted2); margin-top: 2px; }
+.paid-banner .small { font-size: 13px; line-height: 1.55; color: var(--muted2); margin-top: 2px; }
 
 /* ── FAQ ─────────────────────────────────────────────── */
 .faq { display: flex; flex-direction: column; gap: 10px; max-width: 860px; }
-.faq details { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; }
+.faq details { background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-lg); }
 .faq summary {
   cursor: pointer; list-style: none; padding: 18px 22px;
-  font-weight: 600; font-size: 16.5px; display: flex; justify-content: space-between; gap: 16px;
+  font: 600 16px/1.4 var(--body); display: flex; justify-content: space-between; gap: 16px;
 }
 .faq summary::-webkit-details-marker { display: none; }
-.faq summary::after { content: '+'; font-family: var(--mono); color: var(--accent-ink); font-size: 18px; line-height: 1.2; transition: transform .15s; }
+.faq summary::after { content: '+'; color: var(--muted2); font: 400 18px/1.2 var(--ui); transition: transform .15s; }
 .faq details[open] summary::after { transform: rotate(45deg); }
-.faq details p { padding: 0 22px 20px; font-size: 15.5px; color: var(--muted2); line-height: 1.75; }
+.faq details p { padding: 0 22px 18px; font-size: 15px; line-height: 1.7; color: var(--muted2); }
 
 /* ── Research ────────────────────────────────────────── */
 .refs { list-style: none; display: flex; flex-direction: column; gap: 9px; max-width: 900px; }
-.refs li { font-size: 13px; color: var(--muted2); font-family: var(--mono); line-height: 1.65; padding-left: 16px; position: relative; }
+.refs li { font: 400 13px/1.55 var(--body); color: var(--muted2); padding-left: 16px; position: relative; }
 .refs li::before { content: '·'; position: absolute; left: 2px; color: var(--accent-ink); }
-.refs em { font-style: italic; color: var(--text); font-family: var(--body); font-size: 14px; }
+.refs em { font-style: italic; color: var(--text); font-family: inherit; font-size: 13px; }
+.refs a { white-space: nowrap; }
 
-/* ── Footer ──────────────────────────────────────────── */
-footer {
-  border-top: 1px solid var(--border); padding: 42px 40px;
-  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px;
-}
+/* ── Footer (layout from .esl-footer in site.css) ────── */
 .footer-logo-img { height: 32px; width: auto; display: block; }
-.footer-links { display: flex; gap: 22px; flex-wrap: wrap; }
-.footer-link { font-size: 14px; color: var(--muted2); text-decoration: none; transition: color .15s; }
-.footer-link:hover { color: var(--text); }
-.footer-copy { font-size: 12px; color: var(--muted); font-family: var(--mono); }
-.footer-disclaimer {
-  flex-basis: 100%; font-size: 11px; color: var(--muted); line-height: 1.7; font-family: var(--mono);
-  margin-top: 6px; border-top: 1px solid var(--border); padding-top: 16px;
-}
-.footer-disclaimer strong { color: var(--muted2); }
+.esl-footer-disclaimer strong { color: var(--text); }
 
 /* ── Responsive ──────────────────────────────────────── */
-@media (max-width: 960px) {
+@media (max-width: 1024px) {
   .steps { grid-template-columns: 1fr 1fr; }
-  .price-grid { grid-template-columns: 1fr; }
   .fit-grid { grid-template-columns: 1fr; }
+  .price-card { padding: 20px; }
+  .price-amt { font-size: 34px; }
 }
-@media (max-width: 800px) {
+@media (max-width: 768px) {
   .tx-grid { grid-template-columns: 1fr; }
   .ev-row { grid-template-columns: 1fr auto; gap: 8px 16px; }
   .ev-row .ev-note { grid-column: 1 / -1; }
   .ev-row.ev-head { display: none; }
-}
-@media (max-width: 768px) {
-  body { font-size: 16px; }
   .hero { padding: 64px 20px 56px; }
+  .hero-label { margin-bottom: 24px; }
   .hero-title { letter-spacing: -1px; }
-  .hero-sub { font-size: 17px; margin-bottom: 32px; }
-  .hero-actions { margin-bottom: 44px; }
-  .btn-primary, .btn-secondary { padding: 13px 24px; font-size: 15px; }
-  .hero-stats { gap: 26px; }
-  .hero-stat-val { font-size: 27px; }
+  .hero-sub { font-size: 16px; margin-bottom: 32px; }
+  .hero-actions { margin-bottom: 40px; }
+  .hero-stats { gap: 28px; }
+  .hero-stat-val { font-size: 28px; }
   section { padding: 64px 20px; }
-  .divider { margin: 0 20px; }
+  .divider { width: calc(100% - 40px); }
   .section-sub { font-size: 16px; }
-  .tx-card, .fit-card { padding: 24px; }
   .photo-break { height: 400px; }
   .photo-break-overlay { padding: 28px 20px; }
-  .book-panel { padding: 24px; }
+  .price-grid { grid-template-columns: 1fr; gap: 8px; }
+  .price-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 16px; align-items: center; padding: 14px 16px; }
+  .price-tag { grid-column: 1; grid-row: 1; margin: 0; }
+  .price-amt { grid-column: 2; grid-row: 1; text-align: right; font-size: 28px; }
+  .price-amt s { font-size: 16px; margin-right: 4px; }
+  .price-amt small { font-size: 13px; }
+  .price-tag { gap: 6px; }
+  .price-desc { grid-column: 1 / -1; margin-top: 6px; }
   .cal-modal { padding: 0; }
   .cal-dialog { height: 100%; max-width: none; border: 0; border-radius: 0; }
   .cal-foot .book-actions, .cal-foot .book-actions > * { width: 100%; }
-  footer { padding: 32px 20px; flex-direction: column; align-items: flex-start; gap: 16px; }
+}
+@media (max-height: 560px) {
+  .cal-modal { padding: 0; }
+  .cal-dialog { height: 100%; max-width: none; border: 0; border-radius: 0; }
+  .cal-head { padding: 4px 10px 4px 16px; }
+  .cal-foot { flex-wrap: nowrap; gap: 10px; padding: 8px 12px; }
+  .cal-foot-note { min-width: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cal-foot .book-actions { flex-wrap: nowrap; width: auto; }
+  .cal-foot .book-actions > * { width: auto; min-height: 40px; padding: 8px 16px; font-size: 14px; }
+}
+@media (max-width: 600px) {
+  .btn-primary, .btn-secondary { min-height: 44px; padding: 12px 22px; font-size: 15px; }
+  .tx-card, .fit-card, .book-panel { padding: 24px 20px; }
+  .tx-title, .step-title, .fit-h, .book-h, .book-step-title { font-size: 19px; }
 }
 @media (max-width: 480px) {
-  .hero { padding: 44px 16px 48px; }
+  .hero { padding: 48px 16px 48px; }
   .hero-actions { width: 100%; flex-direction: column; }
   .hero-actions a { width: 100%; }
-  .hero-stats { flex-direction: column; gap: 18px; }
-  .stat-divider { display: none; }
-  section { padding: 52px 16px; }
-  .divider { margin: 0 16px; }
+  .hero-stats { flex-direction: row; flex-wrap: nowrap; justify-content: space-between; gap: 12px; width: 100%; }
+  .hero-stats > div:not(.stat-divider) { flex: 1 1 0; min-width: 0; }
+  .hero-stat-val { font-size: 24px; }
+  .hero-stat-label { font-size: 12px; line-height: 1.35; }
+  .stat-divider { display: block; flex: 0 0 1px; height: 36px; }
+  section { padding: 56px 16px; }
+  .divider { width: calc(100% - 32px); }
   .steps { grid-template-columns: 1fr; }
   .fit-list.two-col { grid-template-columns: 1fr; }
   .together { flex-direction: column; gap: 10px; padding: 20px; }
-  .ev-row { padding: 16px 18px; }
+  .ev-row { padding: 14px 16px; }
   .book-actions, .book-actions > * { width: 100%; }
   .paid-banner .btn-secondary { width: 100%; }
   .book-step { padding: 16px; }
-  footer { padding: 28px 16px; }
 }
 </style>
 </head>
@@ -429,6 +438,7 @@ footer {
 <nav class="eslabs-nav" id="sw-nav"></nav>
 <div id="sw-gate" class="hidden"></div>
 
+<main id="main">
 <!-- Hero -->
 <div class="hero">
   <div class="hero-label">◉ Shockwave + EMTT · Broomfield, CO</div>
@@ -469,8 +479,8 @@ footer {
   <div class="tx-grid">
     <div class="tx-card sw">
       <div class="tx-icon">◉</div>
-      <div class="tx-kicker">Extracorporeal shockwave therapy · ESWT</div>
-      <div class="tx-title">Shockwave</div>
+      <div class="tx-kicker">Radial shockwave · rESWT</div>
+      <h3 class="tx-title">Shockwave</h3>
       <p class="tx-desc">
         Short, high-pressure acoustic pulses travel through the skin into the injured tendon,
         fascia, or bone. Cells respond to that mechanical stimulus with <strong>new blood-vessel
@@ -487,7 +497,7 @@ footer {
     <div class="tx-card em">
       <div class="tx-icon">⬡</div>
       <div class="tx-kicker">Extracorporeal magnetotransduction therapy</div>
-      <div class="tx-title">EMTT</div>
+      <h3 class="tx-title">EMTT</h3>
       <p class="tx-desc">
         High-energy pulsed electromagnetic fields - far stronger and faster-oscillating than
         conventional PEMF devices - reach deep into muscle, tendon, and bone without any contact
@@ -561,12 +571,12 @@ footer {
       <div class="ev-note" role="cell">Small studies only. Needs a medical diagnosis - and your physician's OK - before treatment.</div>
     </div>
   </div>
-  <p class="ev-foot">Ratings reflect the shockwave research. EMTT's evidence is earlier-stage across the board.</p>
+  <p class="ev-foot">Ratings pool radial and focused shockwave research. EMTT's evidence is earlier-stage across the board.</p>
 </section>
 
 <!-- Photo break: load framing -->
 <div class="photo-break">
-  <img src="/images/track_running_legs.jpg" alt="A runner's legs mid-stride on a track" loading="lazy">
+  <img src="/images/track_running_legs-1600.jpg" srcset="/images/track_running_legs-800.jpg 800w, /images/track_running_legs-1600.jpg 1600w" sizes="100vw" alt="A runner's legs mid-stride on a track" loading="lazy" decoding="async">
   <div class="photo-break-overlay">
     <div class="photo-break-quote">The treatment restarts healing.<br>The <em>training plan</em> keeps it going.</div>
     <p class="photo-break-sub">
@@ -586,25 +596,26 @@ footer {
   <div class="steps">
     <div class="step">
       <div class="step-num">01</div>
-      <div class="step-title">Pick your time</div>
+      <h3 class="step-title">Pick your time</h3>
       <p class="step-desc">Choose an open slot on our calendar. Sessions are in Broomfield, CO.</p>
     </div>
     <div class="step">
       <div class="step-num">02</div>
-      <div class="step-title">Pay to confirm</div>
+      <h3 class="step-title">Pay to confirm</h3>
       <p class="step-desc">Check out securely with Stripe - coaching athletes get their member rate automatically.</p>
     </div>
     <div class="step">
       <div class="step-num">03</div>
-      <div class="step-title">Screen &amp; treat</div>
+      <h3 class="step-title">Screen &amp; treat</h3>
       <p class="step-desc">We go over your injury history and the safety checklist, then treat with shockwave followed by EMTT.</p>
     </div>
     <div class="step">
       <div class="step-num">04</div>
-      <div class="step-title">Keep training, smarter</div>
+      <h3 class="step-title">Keep training, smarter</h3>
       <p class="step-desc">Mild soreness for a day or two is normal. Most runners keep training as symptoms allow - easy days first.</p>
     </div>
   </div>
+  <p class="visit-info"><strong>Sessions take about 30 minutes</strong> in Broomfield, CO - the exact address is in your booking confirmation email. Wear shorts, short sleeves and loose clothing.</p>
   <p class="protocol-note"><strong>Most protocols run 3–6 sessions</strong>, roughly a week apart. We reassess your symptoms each visit rather than locking you into a package.</p>
 </section>
 
@@ -619,7 +630,7 @@ footer {
   </div>
   <div class="fit-grid">
     <div class="fit-card">
-      <div class="fit-h">Good candidates</div>
+      <h3 class="fit-h">Good candidates</h3>
       <p class="fit-sub">You'll likely get the most out of it if:</p>
       <ul class="fit-list">
         <li>The pain has lasted roughly three months or more</li>
@@ -629,7 +640,7 @@ footer {
       </ul>
     </div>
     <div class="fit-card caution">
-      <div class="fit-h">Don't book if any of these apply</div>
+      <h3 class="fit-h">Don't book if any of these apply</h3>
       <p class="fit-sub">Talk to us first - and in most cases your doctor:</p>
       <ul class="fit-list two-col">
         <li>Pregnancy</li>
@@ -657,40 +668,41 @@ footer {
     <p class="section-sub">Every session includes both treatments. Coaching athletes save automatically when signed in.</p>
   </div>
 
-  <div class="paid-banner" id="sw-paid" hidden>
+  <div class="paid-banner" id="sw-paid" hidden tabindex="-1">
     <div>
       <p><strong>✓ Payment received.</strong> You're all set - see you at your session.</p>
-      <p class="small">Haven't picked a time yet? Grab one now.</p>
+      <p class="small" id="sw-paid-hint">Haven't picked a time yet? Grab one now.</p>
     </div>
-    <button type="button" class="btn-secondary" data-sw-cal>Pick a time</button>
+    <button type="button" class="btn-secondary" id="sw-paid-pick" data-sw-cal>Pick a time</button>
   </div>
 
   <div class="price-grid">
     <div class="price-card" data-price-card="standard">
       <div class="price-tag">Single session <span class="price-you">Your rate</span></div>
-      <div class="price-amt">$150</div>
+      <div class="price-amt">$150<small>/ session</small></div>
       <p class="price-desc">Shockwave + EMTT in the same visit. Pay per session - no package required.</p>
     </div>
     <div class="price-card" data-price-card="member">
-      <div class="price-tag">Standard Coaching <span class="price-you">Your rate</span></div>
-      <div class="price-amt"><s>$150</s>$50<small>/ session</small></div>
+      <div class="price-tag">Coaching athletes <span class="price-you">Your rate</span></div>
+      <div class="price-amt"><s><span class="esl-sr-only">Regular price </span>$150</s><span class="esl-sr-only"> now </span>$50<small>/ session</small></div>
       <p class="price-desc">$100 off every session for athletes on any <a href="/coaching/">coaching plan</a>.</p>
     </div>
     <div class="price-card" data-price-card="premium">
-      <div class="price-tag">Full Access Coaching <span class="price-you">Your rate</span></div>
-      <div class="price-amt">Free<small>monthly</small></div>
+      <div class="price-tag">Full Access <span class="price-you">Your rate</span></div>
+      <div class="price-amt">Free<small>/ month</small></div>
       <p class="price-desc">One free session every month, then $50 for each additional session.</p>
     </div>
   </div>
 
   <div class="book-panel">
-    <div class="book-h">Book your session</div>
-    <p class="book-note">Pick a time on our calendar, then pay to confirm it.</p>
+    <h3 class="book-h">Two quick steps</h3>
+    <p class="book-note" id="sw-book-note">Pick a time on our calendar, then pay to confirm it.</p>
+    <p class="book-actas" id="sw-actas-note" hidden>Admin view: prices here are for your own account, not the athlete you're acting as - checkout is off until you stop acting as them.</p>
     <div class="book-steps">
       <div class="book-step" id="sw-step-pick">
         <div class="step-num">01</div>
         <div class="book-step-body">
-          <div class="book-step-title">Pick a time</div>
+          <h4 class="book-step-title">Pick a time</h4>
           <p class="book-step-note" id="sw-pick-note"></p>
         </div>
         <div class="book-actions" id="sw-pick-actions"></div>
@@ -698,22 +710,22 @@ footer {
       <div class="book-step" id="sw-step-pay">
         <div class="step-num">02</div>
         <div class="book-step-body">
-          <div class="book-step-title" id="sw-pay-title">Pay to confirm</div>
+          <h4 class="book-step-title" id="sw-pay-title" tabindex="-1">Pay to confirm</h4>
           <p class="book-step-note" id="sw-pay-note"></p>
         </div>
         <div class="book-actions" id="sw-pay-actions"></div>
       </div>
     </div>
-    <div class="book-err" id="sw-book-err"></div>
+    <div class="book-err" id="sw-book-err" role="alert"></div>
     <div class="book-micro">Secure checkout via Stripe · Broomfield, CO · If screening shows it isn't right for you, we'll refund in full.</div>
   </div>
 </section>
 
 <!-- Step 1 pop-up: Google's booking page, embedded -->
-<div class="cal-modal" id="sw-cal" hidden role="dialog" aria-modal="true" aria-labelledby="sw-cal-title">
-  <div class="cal-dialog">
+<div class="cal-modal" id="sw-cal" hidden>
+  <div class="cal-dialog" role="dialog" aria-modal="true" aria-labelledby="sw-cal-title">
     <div class="cal-head">
-      <div class="cal-title" id="sw-cal-title">Step 1 · Pick a time</div>
+      <h2 class="cal-title" id="sw-cal-title">Step 1 · Pick a time</h2>
       <a class="cal-newtab" id="sw-cal-newtab" target="_blank" rel="noopener">Open in new tab ↗</a>
       <button type="button" class="cal-close" data-sw-cal-close aria-label="Close">×</button>
     </div>
@@ -756,7 +768,11 @@ footer {
     </details>
     <details>
       <summary>I'm a coaching athlete - how do I get my rate?</summary>
-      <p>Just sign in with the account your coaching subscription is on. The booking panel picks up your plan automatically: Standard athletes pay $50 per session, and Full Access athletes can book their free monthly session with no checkout.</p>
+      <p>Just sign in with the account your paid coaching plan is on. The booking panel picks up your plan automatically: Standard athletes pay $50 per session, and Full Access athletes can book their free monthly session with no checkout. Coached through a grant? Ask your coach for the member rate.</p>
+    </details>
+    <details>
+      <summary>What if I need to reschedule, or it isn't right for me?</summary>
+      <p>To reschedule, reply to your booking confirmation email. Cancellations made within 24 hours of your appointment, and no-shows, are not refundable. If screening shows it isn't right for you, we'll refund in full.</p>
     </details>
   </div>
 </section>
@@ -765,42 +781,43 @@ footer {
 
 <!-- Research -->
 <section id="research">
-  <div class="section-head" style="margin-bottom:24px">
+  <div class="section-head compact">
     <div class="section-label">Selected research</div>
   </div>
   <ul class="refs">
-    <li>Gollwitzer et al., 2015 - <em>Focused shockwave therapy for chronic plantar fasciitis: a randomized, controlled multicenter study.</em> J Bone Joint Surg Am.</li>
-    <li>Rompe et al., 2009 - <em>Eccentric loading versus eccentric loading plus shock-wave treatment for midportion Achilles tendinopathy.</em> Am J Sports Med.</li>
-    <li>Rompe et al., 2009 - <em>Home training, local corticosteroid injection, or radial shock wave therapy for greater trochanter pain syndrome.</em> Am J Sports Med.</li>
-    <li>Cacchio et al., 2011 - <em>Shockwave therapy for chronic proximal hamstring tendinopathy in professional athletes.</em> Am J Sports Med.</li>
-    <li>Rompe et al., 2010 - <em>Low-energy extracorporeal shock wave therapy as a treatment for medial tibial stress syndrome.</em> Am J Sports Med.</li>
-    <li>Zwerver et al., 2011 - <em>No effect of shockwave therapy on patellar tendinopathy in jumping athletes during the competitive season.</em> Am J Sports Med.</li>
-    <li>Klüter et al., 2018 - <em>Electromagnetic transduction therapy and shockwave therapy in 86 patients with rotator cuff tendinopathy: a randomized controlled trial.</em> Electromagn Biol Med.</li>
+    <li>Gollwitzer et al., 2015 - <em>Focused shockwave therapy for chronic plantar fasciitis: a randomized, controlled multicenter study.</em> J Bone Joint Surg Am. <a href="https://pubmed.ncbi.nlm.nih.gov/?term=Focused%20shockwave%20therapy%20for%20chronic%20plantar%20fasciitis%3A%20a%20randomized%2C%20controlled%20multicenter%20study" target="_blank" rel="noopener">PubMed ↗</a></li>
+    <li>Rompe et al., 2009 - <em>Eccentric loading versus eccentric loading plus shock-wave treatment for midportion Achilles tendinopathy.</em> Am J Sports Med. <a href="https://pubmed.ncbi.nlm.nih.gov/?term=Eccentric%20loading%20versus%20eccentric%20loading%20plus%20shock-wave%20treatment%20for%20midportion%20Achilles%20tendinopathy" target="_blank" rel="noopener">PubMed ↗</a></li>
+    <li>Rompe et al., 2009 - <em>Home training, local corticosteroid injection, or radial shock wave therapy for greater trochanter pain syndrome.</em> Am J Sports Med. <a href="https://pubmed.ncbi.nlm.nih.gov/?term=Home%20training%2C%20local%20corticosteroid%20injection%2C%20or%20radial%20shock%20wave%20therapy%20for%20greater%20trochanter%20pain%20syndrome" target="_blank" rel="noopener">PubMed ↗</a></li>
+    <li>Cacchio et al., 2011 - <em>Shockwave therapy for chronic proximal hamstring tendinopathy in professional athletes.</em> Am J Sports Med. <a href="https://pubmed.ncbi.nlm.nih.gov/?term=Shockwave%20therapy%20for%20chronic%20proximal%20hamstring%20tendinopathy%20in%20professional%20athletes" target="_blank" rel="noopener">PubMed ↗</a></li>
+    <li>Rompe et al., 2010 - <em>Low-energy extracorporeal shock wave therapy as a treatment for medial tibial stress syndrome.</em> Am J Sports Med. <a href="https://pubmed.ncbi.nlm.nih.gov/?term=Low-energy%20extracorporeal%20shock%20wave%20therapy%20as%20a%20treatment%20for%20medial%20tibial%20stress%20syndrome" target="_blank" rel="noopener">PubMed ↗</a></li>
+    <li>Zwerver et al., 2011 - <em>No effect of shockwave therapy on patellar tendinopathy in jumping athletes during the competitive season.</em> Am J Sports Med. <a href="https://pubmed.ncbi.nlm.nih.gov/?term=No%20effect%20of%20shockwave%20therapy%20on%20patellar%20tendinopathy%20in%20jumping%20athletes%20during%20the%20competitive%20season" target="_blank" rel="noopener">PubMed ↗</a></li>
+    <li>Klüter et al., 2018 - <em>Electromagnetic transduction therapy and shockwave therapy in 86 patients with rotator cuff tendinopathy: a randomized controlled trial.</em> Electromagn Biol Med. <a href="https://pubmed.ncbi.nlm.nih.gov/?term=Electromagnetic%20transduction%20therapy%20and%20shockwave%20therapy%20in%2086%20patients%20with%20rotator%20cuff%20tendinopathy%3A%20a%20randomized%20controlled%20trial" target="_blank" rel="noopener">PubMed ↗</a></li>
   </ul>
 </section>
+</main>
 
-<footer>
-  <div class="footer-brand">
-    <img src="/images/generic_logo_white_clean.png" alt="Endurance Science Labs" class="footer-logo-img">
-  </div>
-  <div class="footer-links">
-    <a href="/"                 class="footer-link">Home</a>
-    <a href="/esformlab/"       class="footer-link">esFormLab</a>
-    <a href="/esmetaboliclab/"  class="footer-link">esMetabolicLab</a>
-    <a href="/coaching/"        class="footer-link">Coaching</a>
-    <a href="/shockwave/"       class="footer-link">Shockwave</a>
-    <a href="/privacy/"         class="footer-link">Privacy</a>
-  </div>
-  <div class="footer-copy">© <span id="footer-year"></span> Endurance Science Labs</div>
-  <div class="footer-disclaimer">
-    <strong>Not medical advice.</strong> Information on this page is educational and is not a diagnosis. Shockwave and EMTT aren't right for everyone - review the safety checklist above, and consult a qualified healthcare professional about persistent, severe, or worsening pain, or before starting treatment. Individual results vary.
+<footer class="esl-footer">
+  <div class="esl-footer-in">
+    <a href="/" class="esl-footer-brand" aria-label="Endurance Science Labs home"><img src="/images/generic_logo_white_clean.png" alt="Endurance Science Labs" class="footer-logo-img"></a>
+    <div class="esl-footer-links">
+      <a href="/">Home</a>
+      <a href="/esformlab/">Form analysis</a>
+      <a href="/coaching/">Coaching</a>
+      <a href="/esmetaboliclab/">Metabolic testing</a>
+      <a href="/shockwave/">Shockwave</a>
+      <a href="/privacy/">Privacy</a>
+      <a href="mailto:austen@endurancesciencelabs.com">Contact</a>
+    </div>
+    <div class="esl-footer-copy">© <span id="footer-year"></span> Endurance Science Labs</div>
+    <p class="esl-footer-disclaimer"><strong>Not medical advice.</strong> Information on this page is educational and is not a diagnosis. Shockwave and EMTT aren't right for everyone - review the safety checklist above, and consult a qualified healthcare professional about persistent, severe, or worsening pain, or before starting treatment. Individual results vary.</p>
   </div>
 </footer>
+
 
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="/shared/site.js"></script>
+<script src="/shared/site.js?v=20261016"></script>
 <script>
 (function () {
   'use strict';
@@ -814,8 +831,20 @@ footer {
   // Google's booking page can't report back that a slot was booked, so
   // "picked" means they opened the calendar (or arrived via ?step=pay).
   var PICKED_KEY = 'eslShockwavePicked';
+  var PAID_TAB_KEY = 'eslShockwavePaidTab';   // this tab just came back from Stripe
   var params = new URLSearchParams(window.location.search);
   var urlPaid = params.get('paid') === '1';
+  var paidThisTab = urlPaid;
+  try {
+    if (urlPaid) sessionStorage.setItem(PAID_TAB_KEY, '1');
+    else paidThisTab = sessionStorage.getItem(PAID_TAB_KEY) === '1';
+  } catch (e) {}
+  var checkoutTimer = null;
+
+  var reduceMotion = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  function scrollToEl(el, block) {
+    if (el) el.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: block || 'start' });
+  }
 
   var user = null;
   var pass = esLabs.getPassState();
@@ -827,6 +856,8 @@ footer {
 
   var $ = function (id) { return document.getElementById(id); };
   var modal = $('sw-cal');
+  var calDialog = null;
+  var calReturn = null;
   $('footer-year').textContent = new Date().getFullYear();
   $('sw-cal-newtab').href = BOOKING_URL;
 
@@ -840,7 +871,7 @@ footer {
       eyebrow: '◉ Sign in to pay',
       headline: 'Confirm your Shockwave + EMTT session',
       sub: 'Sign in or create a free account to pay for your session. Coaching athletes: use the account your plan is on to get your rate.',
-      foot: '<a href="#book" data-sw-gate-close style="color:var(--cyan);text-decoration:none">&larr; Back to Shockwave + EMTT</a>'
+      foot: '<a href="#book" class="esl-back" data-sw-gate-close>&larr; Back to Shockwave + EMTT</a>'
     });
     gate.host.querySelector('[data-sw-gate-close]').addEventListener('click', function (e) {
       e.preventDefault();
@@ -849,7 +880,8 @@ footer {
     });
   }
 
-  function openCal() {
+  function openCal(trigger) {
+    calReturn = trigger && trigger.closest('#sw-paid') ? 'banner' : 'pick';
     var frame = $('sw-cal-frame');
     if (!frame.getAttribute('src')) frame.setAttribute('src', BOOKING_EMBED_URL);
     modal.hidden = false;
@@ -857,23 +889,33 @@ footer {
     picked = true;
     try { sessionStorage.setItem(PICKED_KEY, '1'); } catch (e) {}
     render();
+    // Shared dialog helper: focus in, Tab trap, Escape -> closeCal.
+    calDialog = esLabs.openDialog(modal, { initialFocus: modal.querySelector('.cal-close'), onClose: closeCal });
   }
   function closeCal() {
     if (modal.hidden) return;
     modal.hidden = true;
     document.body.style.overflow = '';
+    if (calDialog) { var d = calDialog; calDialog = null; d.close(); }
+    // render() replaced the trigger (and hid the banner's button once picked),
+    // so return focus to the live equivalent ourselves.
+    var bannerBtn = $('sw-paid-pick');
+    var back = (calReturn === 'banner' && !bannerBtn.hidden && !$('sw-paid').hidden)
+      ? bannerBtn : $('sw-pick-actions').querySelector('[data-sw-cal]');
+    if (back) back.focus();
   }
 
   function checkoutButton(rate, label, cls) {
-    return '<button type="button" class="' + cls + '" data-sw-rate="' + rate + '"' + (checkingOut ? ' disabled' : '') + '>' + label + '</button>';
+    return '<button type="button" class="' + cls + '" data-sw-rate="' + rate + '"' + (checkingOut ? ' disabled' : '') + '>'
+      + (checkingOut ? 'Loading checkout…' : label) + '</button>';
   }
 
   // Step 2 (pay) for the current sign-in / membership state.
   function payStep(cls) {
     if (!user) return {
       title: 'Pay to confirm',
-      note: 'Sign in to pay - coaching athletes get their rate automatically.',
-      actions: '<button type="button" class="' + cls + '" data-sw-signin>Sign in &amp; pay →</button>'
+      note: 'Sign in to pay - coaching athletes see their member rate automatically.',
+      actions: '<button type="button" class="' + cls + '" data-sw-signin>Sign in to see your rate →</button>'
     };
     if (!pass.subscriptionsLoaded) return {
       title: 'Pay to confirm',
@@ -882,8 +924,8 @@ footer {
     };
     if (pass.hasPremiumCoach) return {
       tier: 'premium', free: true,
-      title: 'Free this month',
-      note: 'Using your <strong>free monthly session</strong>? Nothing to pay - you\'re all set. Extra sessions are $50.',
+      title: 'Included with Full Access',
+      note: 'One session a month is included - nothing to pay. Already used this month\'s? Extra sessions are $50.',
       actions: checkoutButton('member', 'Pay $50 for an extra session', 'btn-secondary')
     };
     if (pass.hasStandardCoach) return {
@@ -895,7 +937,8 @@ footer {
     return {
       tier: 'standard',
       title: 'Pay to confirm',
-      note: 'Secure checkout with Stripe. Coaching athletes pay $50, and <a href="/coaching/">Full Access</a> includes a free session every month.',
+      note: 'Secure checkout with Stripe. Coaching athletes pay $50, and <a href="/coaching/">Full Access</a> includes a free session every month.'
+        + (pass.coachingGranted ? ' Coached through a grant? Ask your coach for the member rate.' : ''),
       actions: checkoutButton('standard', 'Pay $150 →', cls)
     };
   }
@@ -904,71 +947,122 @@ footer {
     var now = Math.floor(Date.now() / 1000);
     var paidRecently = urlPaid
       || (pass.shockwaveLatestPaid && now - pass.shockwaveLatestPaid < PAID_WINDOW_SEC);
-    $('sw-paid').hidden = !paidRecently;
+    var actingAs = !!(esLabs.isActingAs && esLabs.isActingAs());
+    var pay = payStep(picked && !paidThisTab ? 'btn-primary' : 'btn-secondary');
+    var payDone = !!(paidThisTab || (pay.free && picked));
 
+    $('sw-paid').hidden = !paidRecently;               // 7-day window stays (owner-deliberate)
+    $('sw-paid-hint').hidden = picked;                 // no duplicate "Pick a time" once step 1 is done
+    $('sw-paid-pick').hidden = picked;
+
+    $('sw-book-note').textContent = pay.free
+      ? 'Pick a time on our calendar - your Full Access plan includes one session a month.'
+      : 'Pick a time on our calendar, then pay to confirm it.';
     $('sw-step-pick').classList.toggle('current', !picked);
     $('sw-step-pick').classList.toggle('done', picked);
-    $('sw-step-pay').classList.toggle('current', picked);
-    $('sw-pick-note').innerHTML = picked
-      ? 'Booked your slot? Pay below to lock it in.'
-      : 'Choose an open slot on our calendar - it opens right here.';
+    $('sw-step-pay').classList.toggle('current', !!(picked && !payDone && !pay.free));
+    $('sw-step-pay').classList.toggle('done', payDone);
+    $('sw-pick-note').innerHTML = !picked ? 'Choose an open slot on our calendar - it opens right here.'
+      : (paidThisTab || pay.free) ? 'Booked your slot? You\'re all set.' : 'Booked your slot? Pay below to lock it in.';
     $('sw-pick-actions').innerHTML = '<button type="button" class="'
       + (picked ? 'btn-secondary' : 'btn-primary') + '" data-sw-cal>'
       + (picked ? 'Open calendar' : 'Pick a time →') + '</button>';
 
-    var pay = payStep(picked ? 'btn-primary' : 'btn-secondary');
-    $('sw-pay-title').textContent = pay.title;
-    $('sw-pay-note').innerHTML = pay.note;
-    $('sw-pay-actions').innerHTML = pay.actions;
+    if (paidThisTab) {
+      $('sw-pay-title').textContent = 'Paid';
+      $('sw-pay-note').innerHTML = '<strong>Payment received</strong> - you\'re all set.';
+      $('sw-pay-actions').innerHTML = (user && pay.tier)
+        ? checkoutButton(pay.tier === 'standard' ? 'standard' : 'member', 'Pay for another session', 'btn-secondary') : '';
+    } else {
+      $('sw-pay-title').textContent = pay.title;
+      $('sw-pay-note').innerHTML = pay.note;
+      $('sw-pay-actions').innerHTML = pay.actions;
+    }
 
     // Pop-up footer: the hand-off from step 1 to step 2.
-    var popPay = payStep('btn-primary');
-    $('sw-cal-note').innerHTML = pay.free
-      ? '<strong>Booked your free session?</strong> You\'re all set.'
-      : '<strong>Booked your time?</strong> Pay to confirm it.';
-    $('sw-cal-actions').innerHTML = pay.free
-      ? '<button type="button" class="btn-primary" data-sw-cal-close>Done</button>' + popPay.actions
-      : popPay.actions;
+    if (paidThisTab) {
+      $('sw-cal-note').innerHTML = '<strong>Paid and booked?</strong> You\'re all set.';
+      $('sw-cal-actions').innerHTML = '<button type="button" class="btn-primary" data-sw-cal-close>Done</button>';
+    } else {
+      var popPay = payStep('btn-primary');
+      $('sw-cal-note').innerHTML = pay.free
+        ? '<strong>Booked your free session?</strong> You\'re all set.'
+        : '<strong>Booked your time?</strong> Pay to confirm it.';
+      $('sw-cal-actions').innerHTML = pay.free
+        ? '<button type="button" class="btn-primary" data-sw-cal-close>Done</button>' + popPay.actions
+        : popPay.actions;
+    }
 
+    $('sw-actas-note').hidden = !actingAs;
     document.querySelectorAll('[data-price-card]').forEach(function (card) {
-      card.classList.toggle('mine', card.getAttribute('data-price-card') === pay.tier);
+      card.classList.toggle('mine', !actingAs && card.getAttribute('data-price-card') === pay.tier);
     });
   }
 
+  function showBookErr(title, detail) {
+    var err = $('sw-book-err'); err.textContent = '';
+    var s = document.createElement('strong'); s.textContent = title; err.appendChild(s);
+    err.appendChild(document.createTextNode(' ' + (detail ? detail + ' ' : '') + 'Try again, or email '));
+    var a = document.createElement('a'); a.href = 'mailto:austen@endurancesciencelabs.com'; a.textContent = 'austen@endurancesciencelabs.com';
+    err.appendChild(a); err.appendChild(document.createTextNode('.'));
+    err.classList.add('show');
+  }
+
   document.addEventListener('click', function (e) {
-    if (e.target.closest('[data-sw-cal]')) { openCal(); return; }
+    var calBtn = e.target.closest('[data-sw-cal]');
+    if (calBtn) { openCal(calBtn); return; }
     if (e.target.closest('[data-sw-cal-close]') || e.target === modal) { closeCal(); return; }
     if (e.target.closest('[data-sw-signin]')) { closeCal(); openGate(); return; }
     var btn = e.target.closest('[data-sw-rate]');
     if (!btn || checkingOut) return;
-    var err = $('sw-book-err');
-    err.classList.remove('show');
+    var rate = btn.getAttribute('data-sw-rate');
+    $('sw-book-err').classList.remove('show');
     checkingOut = true;
-    btn.disabled = true;
-    btn.textContent = 'Loading checkout…';
-    esLabs.startShockwaveCheckout(btn.getAttribute('data-sw-rate')).catch(function (ex) {
+    render();                                          // every [data-sw-rate] disabled + "Loading checkout…"
+    clearTimeout(checkoutTimer);
+    checkoutTimer = setTimeout(function () {
+      if (!checkingOut) return;
+      checkingOut = false; render();
+      showBookErr('Checkout is taking longer than usual.', '');
+    }, 30000);
+    esLabs.startShockwaveCheckout(rate).then(function () { clearTimeout(checkoutTimer); }).catch(function (ex) {
+      clearTimeout(checkoutTimer);
+      checkingOut = false; render();
+      if (ex && ex.handled) return;                    // e.g. acting as an athlete: site.js already explained it
       console.error('Shockwave checkout error:', ex);
       closeCal();
-      err.textContent = 'Couldn’t start checkout: ' + (ex && ex.message || ex);
-      err.classList.add('show');
-      checkingOut = false;
-      render();
-      $('sw-step-pay').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      showBookErr('Couldn’t start checkout.', (ex && ex.message) || String(ex));
+      scrollToEl($('sw-step-pay'), 'center');
     });
   });
-  window.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeCal(); });
+  window.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if (!modal.hidden) { closeCal(); return; }
+    if (gate && !gate.host.classList.contains('hidden')) { scrollAfterSignIn = false; gate.hide(); }
+  });
 
   // Arriving from the booking confirmation (?step=pay): jump to step 2.
   if (params.get('step') === 'pay') {
-    window.addEventListener('load', function () { $('sw-step-pay').scrollIntoView({ block: 'center' }); });
+    window.addEventListener('load', function () { scrollToEl($('sw-step-pay'), 'center'); });
   }
+  // Back from Stripe (?paid=1): bring the confirmation into view, then drop the query.
+  if (urlPaid) window.addEventListener('load', function () {
+    scrollToEl($('sw-paid'), 'center');
+    $('sw-paid').focus({ preventScroll: true });
+    try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {}
+  });
 
   esLabs.onAuthChange(function (u) {
     user = u;
+    if (!u && gate && !scrollAfterSignIn) {
+      // mountAuthGate's own listener (registered later) re-shows the pay gate on sign-out; this page is public.
+      setTimeout(function () { if (!user && !scrollAfterSignIn) gate.hide(); }, 0);
+    }
     render();
     if (u && scrollAfterSignIn) {
       scrollAfterSignIn = false;
-      $('book').scrollIntoView({ behavior: 'smooth' });
+      scrollToEl($('sw-step-pay'), 'center');
+      $('sw-pay-title').focus({ preventScroll: true });
     }
   });
   esLabs.onPassChange(function (p) { pass = p; render(); });
