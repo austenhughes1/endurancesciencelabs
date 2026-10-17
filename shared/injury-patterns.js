@@ -200,7 +200,7 @@ var PATTERNS=[
       }
       return {fired:fired, value:value};
     } },
-  { id:'acwr', name:'Load spike vs your base (ACWR)', systemic:true,
+  { id:'acwr', name:'Load spike above the usual base (ACWR)', systemic:true,
     desc:'acute:chronic ratio reached ≥1.4 inside the window',
     detect:function(ctx){
       var best=null;
@@ -209,10 +209,10 @@ var PATTERNS=[
         if(d.chronic>=ctx.o.acwrMinChronic && d.acwr!=null && (best==null||d.acwr>best)) best=d.acwr;
       }
       if(best==null) return null;
-      return {fired:best>=ctx.o.acwrFire, value:'peaked at '+best.toFixed(2)+'× your chronic base'+(best>=1.5?' (spike zone)':'')};
+      return {fired:best>=ctx.o.acwrFire, value:'peaked at '+best.toFixed(2)+'× the usual base'+(best>=1.5?' — well above the safe band':'')};
     } },
   { id:'longrun', name:'Long-run jump',
-    desc:'biggest single run well above your typical weekly long run',
+    desc:'biggest single run well above the usual weekly long run',
     detect:function(ctx){
       var base=[];
       // typical long run = median weekly max over the weeks BEFORE the acute window
@@ -221,10 +221,10 @@ var PATTERNS=[
       var typ=median(base), big=ctx.acute.maxRun;
       if(!(big>0)) return null;
       return { fired: big>=typ*ctx.o.longRunRatio && (big-typ)>=ctx.o.longRunMinGap,
-               value:'biggest run '+big.toFixed(1)+' IAD mi vs typical long run '+typ.toFixed(1) };
+               value:'biggest run '+big.toFixed(1)+' IAD mi vs a typical long run of '+typ.toFixed(1)+' IAD mi' };
     } },
   { id:'intensity', name:'Intensity spike', systemic:true,
-    desc:'share of load from hard sessions well above your norm',
+    desc:'share of load from hard sessions well above the usual share',
     detect:function(ctx){
       var rec=ctx.acute;
       var baseW=winStats(ctx.days, ctx.endIdx-ctx.o.acuteWinDays-56+1, ctx.endIdx-ctx.o.acuteWinDays);
@@ -245,12 +245,12 @@ var PATTERNS=[
       var monoHit=mono!=null&&mono>=ctx.o.monoFire&&s.runDays>=ctx.o.monoMinRunDays;
       var streakHit=best>=ctx.o.streakFire;
       var bits=[];
+      bits.push(s.runDays+' of '+ctx.o.monoWinDays+' days run'); bits.push(best+'-day run streak');
       if(mono!=null) bits.push('monotony '+mono.toFixed(1));
-      bits.push(best+'-day run streak'); bits.push(s.runDays+'/'+ctx.o.monoWinDays+' days run');
       return {fired:monoHit||streakHit, value:bits.join(' · ')};
     } },
   { id:'downhill', name:'Downhill volume spike',
-    desc:'descent in the window far above your typical amount',
+    desc:'descent in the window far above the usual amount',
     detect:function(ctx){
       if(!ctx.prepd.anyDesc) return null;
       var base=[];

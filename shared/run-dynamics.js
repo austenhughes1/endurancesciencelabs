@@ -46,45 +46,55 @@ var CSS = `
 .rdx *{box-sizing:border-box}
 .rdx [hidden]{display:none!important}
 .rdx :focus-visible{outline:2px solid var(--accent-ink,var(--cyan));outline-offset:2px}
-.rdx{--rdx-good-ink:var(--good);--rdx-warn-ink:var(--warn);--rdx-bad-ink:var(--bad);--rdx-gold-ink:var(--gold,#f5c842);--rdx-accent-ink:var(--accent-ink,var(--cyan))}
-/* good/warn/bad/gold/accent as small TEXT on light surfaces (the brand tokens fail contrast there, ~2–3:1;
-   the site's #08927f accent-ink is 3.1–3.9:1 on white/panel2/hover — #067566 clears 4.5:1 on all three) */
-html[data-theme="light"] .rdx{--rdx-good-ink:#0b7a50;--rdx-warn-ink:#93560a;--rdx-bad-ink:#c62828;--rdx-gold-ink:#7a5d00;--rdx-accent-ink:#067566}
-/* dark: the site's --muted2 (#6e7a9a) is 4.1:1 on panel2 and 4.4:1 on panel, under AA for this view's small secondary
-   text — lifted inside the view only (5.0:1+ on panel2 even under a hover wash). Light's --muted2 already passes. */
-html:not([data-theme="light"]) .rdx{--muted2:#8590ae}
+.rdx{--rdx-good-ink:var(--good-ink,var(--good));--rdx-warn-ink:var(--warn-ink,var(--warn));--rdx-bad-ink:var(--bad-ink,var(--bad));--rdx-gold-ink:var(--gold-ink,var(--gold,#f5c842));--rdx-accent-ink:var(--accent-ink,var(--cyan));
+  --rdx-s1:var(--rdx-accent-ink);--rdx-s2:var(--purple-ink,var(--purple,#8b7cf8));--rdx-hot:var(--rdx-gold-ink);--rdx-spike:var(--rdx-bad-ink);
+  --rdx-band:color-mix(in srgb,var(--good,#22c78a) 16%,transparent);--rdx-band-line:color-mix(in srgb,var(--good,#22c78a) 30%,transparent);
+  --rdx-inset:0px}
+/* text inks (light-mode --*-ink, --muted2 #8590ae in dark) come from /shared/site.css; the view no longer overrides them */
 .rdx-h1{font-size:22px;font-weight:800;letter-spacing:-.3px;margin:0 0 4px}
 .rdx-sub{font-size:13px;color:var(--muted2);max-width:760px;line-height:1.6;margin:0}
-.rdx-sub code{font-family:var(--mono);font-size:12px;background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:1px 6px;color:var(--text)}
+.rdx-sub code{font-family:var(--mono);font-size:12px;background:var(--panel2);border:1px solid var(--border);border-radius:var(--r-sm,6px);padding:1px 6px;color:var(--text)}
 @keyframes rdx-fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @keyframes rdx-spin{to{transform:rotate(360deg)}}
 .rdx-spin{display:inline-block;width:13px;height:13px;border:2px solid var(--border2);border-top-color:var(--cyan);border-radius:50%;animation:rdx-spin .7s linear infinite;vertical-align:-2px;margin-right:6px}
 
 /* form fields — :where() keeps these at element weight so the modal/gap-form rules below still win */
-:where(.rdx) :is(select,input[type=text],input[type=date],input[type=number]){height:36px;padding:0 11px;background:var(--panel2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--ui);font-size:13px;outline:none;min-width:0}
+:where(.rdx) :is(select,input[type=text],input[type=date],input[type=number]){height:36px;padding:0 12px;background:var(--panel2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--ui);font-size:13px;outline:none;min-width:0}
+:where(.rdx) :is(input)::placeholder{color:var(--placeholder,var(--muted2))}
 :where(.rdx) select{cursor:pointer}
-:where(.rdx) :is(select,input):focus{border-color:var(--accent-ink,var(--cyan))}
+:where(.rdx) :is(select,input):focus{border-color:var(--rdx-accent-ink);box-shadow:var(--focus-ring,0 0 0 3px rgba(0,229,200,.18))}
 .rdx input[type=date]{color-scheme:dark}
 html[data-theme="light"] .rdx input[type=date]{color-scheme:light}
 .rdx-ctl{display:flex;flex-direction:column;gap:6px;min-width:0}
 .rdx-ctl>label,.rdx-lbl{font-size:12px;font-weight:600;color:var(--muted2);line-height:1.3}
 .rdx-inunit{display:flex;align-items:center;gap:6px}
-.rdx-inunit span{font-size:12.5px;color:var(--muted2)}
+.rdx-inunit span{font-size:12px;color:var(--muted2)}
 .rdx-inl{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--muted2);white-space:nowrap}
 .rdx-df-err{border-color:var(--bad)!important}
+.rdx-field-err{font-weight:600;color:var(--rdx-bad-ink)}
+/* label + ⓘ on one 16px line (the 24px button overflows it, so the row keeps the label's height) */
+.rdx-lblrow{display:flex;align-items:center;gap:6px;height:16px;position:relative}
+.rdx-lblrow>label{font-size:12px;font-weight:600;color:var(--muted2);line-height:1.3}
+.rdx-tip-btn{position:relative;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0;font:700 12px/1 var(--ui);color:var(--muted2);background:transparent;border:1px solid var(--border2);border-radius:50%;cursor:pointer;vertical-align:middle}
+.rdx-tip-btn:hover,.rdx-tip-btn[aria-expanded="true"]{color:var(--text);border-color:var(--muted2)}
+.rdx-tip-wrap{position:relative;display:inline-flex;align-items:center}
+.rdx-tip{position:absolute;top:calc(100% + 6px);left:0;z-index:60;width:max-content;max-width:min(280px,calc(100vw - 32px));padding:8px 10px;font:400 12px/1.45 var(--ui);color:var(--text);background:var(--panel2);border:1px solid var(--border2);border-radius:8px;box-shadow:var(--shadow-pop,0 8px 32px rgba(0,0,0,.45));white-space:normal;text-align:left}
+.rdx-check{display:inline-flex;align-items:center;gap:8px;min-height:36px;font-size:13px;color:var(--text);cursor:pointer}
+.rdx-check input{width:16px;height:16px;margin:0;accent-color:var(--cyan)}
+.rdx-drop.busy{opacity:.6;cursor:progress}
 
 /* buttons: filled = the one primary action (+ add, Save event, Mark as Lever); outline = secondary; ghost = quiet */
-.rdx-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:7px 16px;background:var(--cyan);color:#000;font-family:inherit;font-weight:700;font-size:13px;line-height:1.2;border:1px solid transparent;border-radius:8px;cursor:pointer;white-space:nowrap;transition:opacity .15s,border-color .15s,color .15s,background .15s}
+.rdx-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:7px 16px;background:var(--cyan);color:var(--on-accent,#000);font-family:inherit;font-weight:700;font-size:13px;line-height:1.2;border:1px solid transparent;border-radius:8px;cursor:pointer;white-space:nowrap;transition:opacity .15s,border-color .15s,color .15s,background .15s}
 .rdx-btn:hover{opacity:.86}
 .rdx-btn:disabled{opacity:.4;cursor:not-allowed}
-.rdx-btn-sm{padding:6px 12px;font-size:12.5px}
+.rdx-btn-sm{min-height:30px;padding:5px 12px;font-size:12px;font-weight:600}
 .rdx-btn-outline{background:transparent;color:var(--text);border-color:var(--border2);font-weight:600}
 .rdx-btn-outline:hover:not(:disabled){opacity:1;border-color:var(--accent-ink,var(--cyan));color:var(--rdx-accent-ink)}
 .rdx-btn-outline[aria-expanded="true"]{border-color:var(--accent-ink,var(--cyan));background:var(--hover)}   /* open: border + fill carry the state, the label stays --text */
 .rdx-btn-ghost{background:transparent;color:var(--muted2);border-color:transparent;font-weight:600}
 .rdx-btn-ghost:hover:not(:disabled){opacity:1;color:var(--text);background:var(--hover)}
 .rdx-btn-danger{background:transparent;color:var(--rdx-bad-ink);border-color:var(--bad);font-weight:600}
-.rdx-btn-danger:hover:not(:disabled){opacity:1;background:rgba(245,80,80,.08)}
+.rdx-btn-danger:hover:not(:disabled){opacity:1;background:var(--bad-wash,rgba(245,80,80,.10))}
 .rdx-linkbtn{background:none;border:none;padding:0;font:inherit;color:var(--muted2);text-decoration:underline dotted;text-underline-offset:3px;cursor:pointer}
 .rdx-linkbtn:hover{color:var(--text)}
 .rdx-link{background:none;border:none;padding:0;font:inherit;color:var(--rdx-accent-ink);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;cursor:pointer}
@@ -96,25 +106,38 @@ html[data-theme="light"] .rdx input[type=date]{color-scheme:light}
 .rdx-ctl>.rdx-types{min-height:36px;align-items:center}   /* a chip row lines up with the 36px inputs beside it */
 
 /* disclosures: no box, a rotating chevron */
-.rdx-more>summary{cursor:pointer;list-style:none;display:inline-flex;align-items:baseline;gap:8px;padding:6px 0;font-size:13.5px;font-weight:600;line-height:1.45;color:var(--text)}   /* baseline: a wrapped summary keeps its chevron on line 1 */
+.rdx-more>summary{cursor:pointer;list-style:none;display:inline-flex;align-items:baseline;gap:8px;padding:6px 0;font-size:14px;font-weight:600;line-height:1.45;color:var(--text)}   /* baseline: a wrapped summary keeps its chevron on line 1 */
 .rdx-more>summary::-webkit-details-marker{display:none}
 .rdx-more>summary::before{content:"▸";display:inline-block;color:var(--muted2);transition:transform .15s}
 .rdx-more[open]>summary::before{transform:rotate(90deg)}
 .rdx-more>summary:hover{color:var(--rdx-accent-ink)}
-.rdx-more-body{padding:12px 0 0;font-size:13.5px;color:var(--muted2);line-height:1.65}
+.rdx-more-body{padding:12px 0 0;font-size:14px;color:var(--muted2);line-height:1.6}
 .rdx-more-body p{margin:0 0 10px}
 .rdx-more-body ol{margin:0 0 12px 20px;padding:0}
 .rdx-more-body li{margin-bottom:6px}
 .rdx-more-body b{color:var(--text)}
-.rdx-more-body a{color:var(--rdx-accent-ink)}
-.rdx-more-body code{font-family:var(--mono);font-size:12px;background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:1px 6px;color:var(--text)}
-.rdx-note,.rdx-more-body .rdx-note{font-size:12.5px;color:var(--muted2);line-height:1.6;max-width:760px;margin:10px 0 0}   /* beats .rdx-more-body p's margin */
+.rdx-more-body a{color:var(--rdx-accent-ink);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
+/* methodology (RunLoad.methodologyHTML) */
+.rdx-meth-h{display:block;margin:16px 0 6px;font:600 12px/1.3 var(--ui);color:var(--muted2)}
+.rdx-meth-eq{font:400 12px/1.6 var(--mono);white-space:pre;overflow-x:auto;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);margin:0 0 4px}
+.rdx-meth-p{max-width:var(--w-prose,760px);margin:8px 0;line-height:1.6}
+.rdx-meth-muted{color:var(--muted2)}
+.rdx-meth-k{font-family:var(--mono);font-weight:700;color:var(--text)}
+.rdx-meth-list{margin:4px 0 8px 18px;padding:0;max-width:760px;color:var(--text)}
+.rdx-meth-list li{margin-bottom:2px}
+.rdx-more-body ol.rdx-meth-refs{margin:4px 0 0;padding-left:18px;max-width:760px;line-height:1.65;color:var(--muted2)}
+.rdx-more-body code{font-family:var(--mono);font-size:12px;background:var(--panel2);border:1px solid var(--border);border-radius:var(--r-sm,6px);padding:1px 6px;color:var(--text)}
+.rdx-note,.rdx-more-body .rdx-note{font-size:13px;color:var(--muted2);line-height:1.55;max-width:760px;margin:10px 0 0}   /* beats .rdx-more-body p's margin */
 
 /* 0. header strip */
 .rdx-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;margin-top:16px;scroll-margin-top:72px}
 .rdx-status{flex:1 1 320px;min-width:0;font-size:13px;color:var(--muted2);line-height:1.5}
 .rdx-status .ok,.rdx-imp-note .ok{color:var(--rdx-good-ink)}
 .rdx-status .err,.rdx-imp-note .err{color:var(--rdx-bad-ink)}
+.rdx-status .warn{color:var(--rdx-warn-ink)}
+.rdx-flags{margin:10px 0 0;padding:8px 12px;font-size:13px;line-height:1.5;color:var(--text);background:var(--panel);border:1px solid var(--border2);border-left:3px solid var(--rdx-warn-ink);border-radius:8px}
+.rdx-flags-k{font-weight:600;color:var(--rdx-warn-ink)}
+.rdx-flags .rdx-linkbtn{font-size:inherit;font-weight:600;color:var(--rdx-accent-ink)}
 .rdx #importStatus:not(:empty)::before{content:"·";margin:0 7px}
 .rdx #rdxFresh:empty+#importStatus::before{content:none}
 .rdx-head-acts{display:flex;gap:8px;flex-shrink:0}
@@ -134,37 +157,40 @@ html[data-theme="light"] .rdx input[type=date]{color-scheme:light}
 .rdx-ev-form{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}
 .rdx-ev-form .rdx-ev-note-in{flex:1 1 200px;min-width:0}
 .rdx-ev-end{display:inline-flex;align-items:center;gap:8px}
-.rdx-ev-to{font-size:12.5px;color:var(--muted2);white-space:nowrap}
-.rdx-ev-hint{font-size:12.5px;color:var(--muted2);margin:0;line-height:1.5}
-.rdx-ev-hint .rdx-linkbtn,.rdx-ev-logged .rdx-linkbtn{font-size:12.5px;white-space:nowrap}
-.rdx-ev-logged{font-size:12.5px;color:var(--muted2)}
+.rdx-ev-to{font-size:12px;color:var(--muted2);white-space:nowrap}
+.rdx-ev-hint{font-size:13px;color:var(--muted2);margin:0;line-height:1.55}
+.rdx-ev-hint .rdx-linkbtn,.rdx-ev-logged .rdx-linkbtn{font-size:inherit;white-space:nowrap}
+.rdx-ev-logged{font-size:12px;color:var(--muted2)}
 .rdx-ev-logged .rdx-events{margin-top:4px;max-width:760px}
 .rdx-wtl-box{max-width:620px}
 .rdx-wtl-box .rdx-lbl{display:none}   /* the toggle already says "What to log" */
-.rdx-wtl{font-size:12.5px;color:var(--muted2);line-height:1.55}
+.rdx-wtl{font-size:13px;color:var(--muted2);line-height:1.55}
 .rdx-wtl ul{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:3px}
 .rdx-wtl li{display:flex;align-items:baseline;gap:8px}
 .rdx-wtl li .rdx-ev-dot{transform:translateY(-1px)}
 .rdx-wtl b{color:var(--text);font-weight:600;white-space:nowrap}
 .rdx-wtl p{margin:6px 0 0}
 .rdx-events{display:flex;flex-direction:column;margin-top:4px}
-.rdx-ev-empty{font-size:12.5px;color:var(--muted2);margin:0;padding:6px 0}
+.rdx-ev-empty{font-size:12px;color:var(--muted2);margin:0;padding:6px 0}
 .rdx-ev-row{display:flex;flex-wrap:wrap;align-items:center;gap:2px 10px;padding:2px 0;border-bottom:1px solid var(--border);font-size:13px}
 .rdx-ev-row:last-child{border-bottom:none}
+.rdx-ev-pick{flex:1 1 auto;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:2px 10px;min-height:32px;padding:2px 6px;margin-left:-6px;background:transparent;border:none;border-radius:8px;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.rdx-ev-pick:hover{background:var(--hover)}
+.rdx-ev-row.editing .rdx-ev-pick{background:var(--accent-wash);box-shadow:inset 2px 0 0 var(--rdx-accent-ink)}
 .rdx-ev-dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .rdx-ev-type{font-weight:600;color:var(--text);white-space:nowrap}
 .rdx-ev-when{color:var(--muted2);white-space:nowrap}
 .rdx-ev-note{flex:1 1 180px;min-width:0;color:var(--text);overflow-wrap:anywhere}
-.rdx-ev-del{margin-left:auto;flex-shrink:0;width:32px;height:32px;background:transparent;border:none;border-radius:8px;color:var(--muted2);font-size:13px;cursor:pointer}
+.rdx-ev-del{margin-left:auto;flex-shrink:0;width:32px;height:32px;background:transparent;border:none;border-radius:8px;color:var(--muted2);font-family:inherit;font-size:13px;cursor:pointer}
 .rdx-ev-del:hover{color:var(--rdx-bad-ink);background:var(--hover)}
 .rdx-lv-hint{font-size:12px;color:var(--muted2);line-height:1.4}
 .rdx-import{display:flex;flex-direction:column;gap:12px}
 .rdx-import-row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
-.rdx-drop{flex:1 1 280px;border:1.5px dashed var(--border2);border-radius:10px;padding:16px 18px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
-.rdx-drop:hover,.rdx-drop.over{border-color:var(--accent-ink,var(--cyan));background:rgba(0,229,200,.04)}
+.rdx-drop{flex:1 1 280px;border:1.5px dashed var(--border2);border-radius:8px;padding:16px 18px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
+.rdx-drop:hover,.rdx-drop.over{border-color:var(--accent-ink,var(--cyan));background:var(--accent-wash,rgba(0,229,200,.08))}
 .rdx-drop b{font-size:14px;font-weight:600;color:var(--text)}
-.rdx-drop span{font-size:12.5px;color:var(--muted2);display:block;margin-top:2px}
-.rdx-filenote{font-size:12.5px;color:var(--muted2);margin:0}
+.rdx-drop span{font-size:12px;color:var(--muted2);display:block;margin-top:2px}
+.rdx-filenote{font-size:12px;color:var(--muted2);margin:0}
 .rdx-imp-note{margin:0;font-size:13px;line-height:1.5;color:var(--muted2)}
 .rdx-imp-note:empty,.rdx #importHome .rdx-imp-note{display:none}   /* onboarding card: the header status sits right above it */
 .rdx-data-foot{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px}
@@ -172,7 +198,7 @@ html[data-theme="light"] .rdx input[type=date]{color-scheme:light}
 #importSlot .rdx-import{gap:6px}
 #importSlot .rdx-drop{padding:8px 14px;text-align:left}   /* in the sheet the drop zone is one line; the onboarding card keeps it big */
 #importSlot .rdx-drop span{display:inline;margin:0 0 0 8px}
-#importSlot .rdx-more>summary{padding:2px 0;font-size:12.5px;font-weight:500;color:var(--muted2)}
+#importSlot .rdx-more>summary{padding:2px 0;font-size:12px;font-weight:600;color:var(--muted2)}
 
 /* sections */
 .rdx-section{display:none;margin-top:36px}
@@ -185,12 +211,12 @@ html[data-theme="light"] .rdx input[type=date]{color-scheme:light}
 .rdx-sec-title:focus{outline:none}
 .rdx-sec-sub{font-size:13px;line-height:1.5;color:var(--muted2);max-width:760px;margin:3px 0 0}
 .rdx-sec-ctl{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
-.rdx-sub-hd{font-size:13.5px;font-weight:600;color:var(--text);margin:22px 0 10px}
+.rdx-sub-hd{font-size:14px;font-weight:600;color:var(--text);margin:22px 0 10px}
 .rdx-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 20px}
-.rdx-empty{padding:40px;text-align:center;color:var(--muted2);font-size:13px}
-.rdx-empty-card{max-width:860px}
+.rdx-empty{padding:32px 16px;text-align:center;color:var(--muted2);font-size:13px}
+.rdx-empty-card{max-width:var(--w-prose,760px)}
 .rdx-empty-card .rdx-sec-sub{margin-bottom:16px}
-.rdx-gapchip{display:inline-flex;align-items:center;gap:7px;min-height:32px;padding:4px 12px;font:inherit;font-size:12.5px;font-weight:600;color:var(--text);background:var(--panel2);border:1px solid var(--border2);border-radius:20px;cursor:pointer}
+.rdx-gapchip{display:inline-flex;align-items:center;gap:7px;min-height:32px;padding:4px 12px;font:inherit;font-size:12px;font-weight:600;color:var(--text);background:var(--panel2);border:1px solid var(--border2);border-radius:999px;cursor:pointer}
 .rdx-gapchip::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--warn)}
 
 /* tables (volume + all metrics); the sticky first column needs an opaque fill */
@@ -205,9 +231,9 @@ html[data-theme="light"] .rdx input[type=date]{color-scheme:light}
 .rdx-table tbody tr:hover>*{background:var(--hover)}
 .rdx-table tbody tr:hover>:first-child{background:var(--panel2)}
 .rdx-table .rdx-grp>th,.rdx-table tbody tr.rdx-grp:hover>th{padding-top:16px;padding-bottom:6px;font-size:12px;color:var(--muted2);background:var(--panel)}
-.rdx-th-sub{display:block;margin-top:2px;font-weight:400;font-size:11.5px;color:var(--muted2)}
+.rdx-th-sub{display:block;margin-top:2px;font-weight:400;font-size:12px;color:var(--muted2)}
 .rdx-mname{font-weight:600;color:var(--text)}
-.rdx-munit{font-size:11px;font-weight:400;color:var(--muted2);font-family:var(--mono);margin-left:5px}
+.rdx-munit{font:600 12px/1 var(--ui);color:var(--muted2);margin-left:4px}
 .rdx-mdesc{font-size:12px;color:var(--muted2);font-weight:400;line-height:1.4;margin-top:2px;white-space:normal;max-width:340px}
 .rdx-val{font-family:var(--mono);font-weight:700;color:var(--text)}
 .rdx-val.na{color:var(--muted2);font-weight:400}
@@ -222,7 +248,7 @@ html[data-theme="light"] .rdx input[type=date]{color-scheme:light}
 
 /* 3. chart */
 .rdx-seg{display:inline-flex;gap:2px;padding:2px;background:var(--panel2);border:1px solid var(--border2);border-radius:9px}
-.rdx-seg button{min-height:30px;padding:0 11px;font:inherit;font-size:12.5px;font-weight:600;color:var(--muted2);background:transparent;border:1px solid transparent;border-radius:7px;cursor:pointer;white-space:nowrap}
+.rdx-seg button{min-height:30px;padding:0 12px;font:inherit;font-size:12px;font-weight:600;color:var(--muted2);background:transparent;border:1px solid transparent;border-radius:7px;cursor:pointer;white-space:nowrap}
 .rdx-seg button:hover{color:var(--text)}
 .rdx-seg button.on{background:var(--panel);border-color:var(--border2);color:var(--rdx-accent-ink)}
 .rdx-chart-row2{display:flex;flex-wrap:wrap;gap:0 16px;align-items:flex-end}
@@ -233,37 +259,43 @@ html[data-theme="light"] .rdx input[type=date]{color-scheme:light}
 /* axis text and grid take theme tokens (SVG drawn at the box's real width, so 11px is 11px) */
 .rdx-chart-svg text{font-family:var(--mono);font-size:11px;fill:var(--muted2)}
 .rdx-chart-svg .rdx-ax-lbl{font-family:var(--ui)}
-.rdx-chart-svg .rdx-ax2{fill:var(--purple,#8b7cf8)}
+.rdx-chart-svg .rdx-ax2{fill:var(--purple-ink,var(--purple,#8b7cf8))}
 .rdx-chart-svg .rdx-grid{stroke:var(--border)}
 .rdx-chart-svg .rdx-today{stroke:var(--muted2);stroke-width:1;stroke-dasharray:3 3}
 .rdx-chart-svg .rdx-today-lbl{fill:var(--text);font-weight:600}
 .rdx-chart-svg .rdx-today-dot{stroke:var(--panel);stroke-width:2}
 .rdx-chart-empty{padding:34px;text-align:center;color:var(--muted2);font-size:13px}
-.rdx-ev-cap{font-size:12.5px;color:var(--muted2);margin:6px 0 2px}
+.rdx-ev-cap{font-size:12px;color:var(--muted2);margin:6px 0 2px}
 .rdx-ev-cap:empty{display:none}
 .rdx #chartBox{position:relative}
 .rdx-hit{cursor:pointer}
 @media(pointer:coarse){.rdx-hit{r:11px}}   /* finger-sized tap target (CSS r overrides the attribute) */
-.rdx-chart-tip{position:absolute;left:0;top:0;display:none;pointer-events:none;z-index:30;min-width:120px;max-width:250px;padding:8px 10px;background:var(--panel);border:1px solid var(--border2);border-radius:8px;box-shadow:0 6px 22px rgba(0,0,0,.28);font-size:12px;line-height:1.5;color:var(--text)}
+.rdx-chart-tip{position:absolute;left:0;top:0;display:none;pointer-events:none;z-index:30;min-width:120px;max-width:250px;padding:8px 10px;background:var(--panel);border:1px solid var(--border2);border-radius:8px;box-shadow:var(--shadow-pop,0 8px 32px rgba(0,0,0,.45));font-size:12px;line-height:1.5;color:var(--text)}
 .rdx-chart-tip.on{display:block}
-.rdx-tip-top{font-size:11.5px;color:var(--muted2);margin-bottom:3px;display:flex;align-items:center;gap:6px}
-.rdx-tip-chip{font-family:var(--ui);font-size:10.5px;font-weight:600;border:1px solid;border-radius:10px;padding:0 6px}
+.rdx-load-tip{white-space:nowrap;max-width:none}
+.rdx-load-svg{cursor:crosshair}
+.rdx-load-svg:focus{outline:none}
+.rdx-load-svg:focus-visible{outline:2px solid var(--focus-ring,var(--cyan));outline-offset:2px;border-radius:4px}
+.rdx-chart-svg .rdx-xh-ln{stroke:var(--muted2);stroke-width:1}
+.rdx-chart-svg .rdx-xh-dot{stroke:var(--panel);stroke-width:2}
+.rdx-tip-top{font-size:12px;color:var(--muted2);margin-bottom:3px;display:flex;align-items:center;gap:6px}
+.rdx-tip-chip{font-family:var(--ui);font-size:11px;font-weight:600;border:1px solid;border-radius:999px;padding:0 6px}
 .rdx-tip-val b{font-family:var(--mono);color:var(--rdx-accent-ink)}
-.rdx-tip-ctx{color:var(--muted2);font-size:11.5px;margin-top:3px;overflow-wrap:anywhere}
+.rdx-tip-ctx{color:var(--muted2);font-size:12px;margin-top:3px;overflow-wrap:anywhere}
 .rdx-legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-bottom:8px;padding-left:2px}
 .rdx-legend:empty{display:none}
 .rdx-legend-item{display:inline-flex;align-items:center;gap:6px;font-size:12px;line-height:1.4;color:var(--muted2)}
 .rdx-legend-sw{width:14px;height:3px;border-radius:2px;flex-shrink:0}
-.rdx-legend-band{height:10px;background:rgba(34,199,138,.2);border:1px solid rgba(34,199,138,.45)}
+.rdx-legend-band{height:10px;background:var(--rdx-band);border:1px solid var(--rdx-band-line)}
 .rdx-legend-ev{width:10px;height:12px;flex-shrink:0;border-left:2px dashed var(--c);background:color-mix(in srgb,var(--c) 22%,transparent)}
 .rdx-legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.rdx-legend-ring{width:9px;height:9px;border:1.6px solid #f5c842;border-radius:50%;flex-shrink:0}
+.rdx-legend-ring{width:9px;height:9px;border:1.6px solid var(--rdx-hot);border-radius:50%;flex-shrink:0}
 
 /* 2. hero */
-.rdx-demobar{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-bottom:12px;padding:9px 12px;border:1px dashed var(--gold);border-radius:10px;background:rgba(245,200,66,.05)}
-.rdx-demobar .lbl{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--gold);margin-right:2px}
-.rdx-demobar .rdx-chip{font-size:11px;padding:4px 10px}
-.rdx-demobar .rdx-chip.on{background:rgba(245,200,66,.16);border-color:var(--gold);color:var(--gold)}
+.rdx-demobar{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-bottom:12px;padding:9px 12px;border:1px dashed var(--gold);border-radius:12px;background:color-mix(in srgb,var(--gold,#f5c842) 5%,transparent)}
+.rdx-demobar .lbl{font:600 12px/1.3 var(--ui);letter-spacing:0;text-transform:none;color:var(--rdx-gold-ink);margin-right:2px}
+.rdx-demobar .rdx-chip{font-size:12px;padding:4px 10px}
+.rdx-demobar .rdx-chip.on{background:color-mix(in srgb,var(--gold,#f5c842) 16%,transparent);border-color:var(--gold);color:var(--rdx-gold-ink)}
 /* #sec-hero is the hero's size container — never ROOT: containment would trap the fixed toast/modal */
 .rdx #sec-hero{container:rdx-hero/inline-size}
 .rdx-hero{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 20px;border-left:4px solid var(--muted2)}
@@ -283,23 +315,27 @@ html[data-theme="light"] .rdx input[type=date]{color-scheme:light}
 .rdx-do-line{font-size:15px;line-height:1.55;color:var(--text);margin-bottom:12px}
 .rdx-do-vol{margin-bottom:4px}
 .rdx-do-opts{list-style:none;margin:0 0 2px;padding:0;max-width:440px}
-.rdx-do-opts li{display:grid;grid-template-columns:64px minmax(0,1fr);align-items:baseline;padding:7px 0;border-bottom:1px solid var(--border);font-size:13.5px;line-height:1.45;color:var(--text)}
+.rdx-do-opts li{display:grid;grid-template-columns:64px minmax(0,1fr);align-items:baseline;padding:7px 0;border-bottom:1px solid var(--border);font-size:14px;line-height:1.45;color:var(--text)}
 .rdx-do-opts li:last-child{border-bottom:none}
 .rdx-do-opts li b{font-family:var(--mono);font-size:13px}
 .rdx-do-opts .lever-opt b{color:var(--rdx-accent-ink)}
 .rdx-do-lever{margin-top:8px;font-size:13px;line-height:1.55;color:var(--muted2)}
 .rdx-hero-cap{font-size:12px;color:var(--muted2);line-height:1.4;margin:0 0 8px}
 .rdx-stat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.rdx-stat,.rdx-trend{background:var(--panel2);border-radius:10px;padding:10px 12px;min-width:0}
+.rdx-stat,.rdx-trend{background:var(--panel2);border-radius:8px;padding:10px 12px;min-width:0}
 .rdx-stat .k,.rdx-trend .k{font-size:12px;font-weight:600;color:var(--muted2);line-height:1.3}
 .rdx-stat .v,.rdx-trend .v{font-family:var(--mono);font-size:20px;font-weight:700;line-height:1.2;color:var(--text);white-space:nowrap}
 .rdx-stat .v{margin-top:4px}
-.rdx-stat .v small{font-family:var(--ui);font-size:11.5px;font-weight:600;color:var(--muted2);margin-left:5px}
+.rdx-stat .v small{font-family:var(--ui);font-size:12px;font-weight:600;color:var(--muted2);margin-left:4px}
 .rdx-stat .x{display:flex;align-items:baseline;gap:6px;margin-top:3px;font-size:12px;line-height:1.35;color:var(--muted2)}
+.rdx-hero-notes{margin:0 0 8px;font-size:12px;line-height:1.4;color:var(--muted2)}
+/* "today so far" under the Last day label: generated content, so the hero's own text stays unchanged */
+.rdx-stat-grid>.rdx-stat:first-child>.k::after{content:" · today so far";font-weight:400}
+.rdx-tile-prev{font:400 12px/1.35 var(--ui);color:var(--muted2)}
 .rdx-stat .x i{width:6px;height:6px;border-radius:50%;flex-shrink:0;transform:translateY(-1px)}
 .rdx-trend{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 12px;margin-top:8px}
 .rdx-trend .x{font-size:12px;color:var(--muted2);line-height:1.35}
-.rdx-hero-foot{grid-column:1/-1;padding-top:12px;border-top:1px solid var(--border);font-size:12.5px;line-height:1.55;color:var(--muted2)}
+.rdx-hero-foot{grid-column:1/-1;padding-top:12px;border-top:1px solid var(--border);font-size:13px;line-height:1.55;color:var(--muted2)}
 .rdx-hero-help{margin:8px 0 0;max-width:760px}
 @container rdx-hero (min-width:860px){
   .rdx-hero-grid:not(.rdx-hero-one){grid-template-columns:minmax(0,7fr) minmax(0,5fr)}
@@ -308,72 +344,77 @@ html[data-theme="light"] .rdx input[type=date]{color-scheme:light}
 /* 4. injury & illness history — event dots and the --warn gaps border are the only accents; no red text */
 .rdx-pat-lead{font-size:15px;line-height:1.55;color:var(--text);margin:0 0 14px;max-width:760px}
 .rdx-pat-lead b{font-weight:700}
-.rdx-pat-act{margin:0 0 16px}
-.rdx-sb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:12px;align-items:start}
+.rdx-pat-act{margin:0 0 16px;display:flex;flex-wrap:wrap;gap:8px}
+.rdx-sb-grid{max-width:var(--w-block,920px);display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:12px;align-items:start}
 .rdx-sb-card{min-width:0;padding:16px 18px;background:var(--panel);border:1px solid var(--border);border-radius:12px}
 .rdx-sb-card:focus,.rdx-sb-also li:focus{outline:none}
-.rdx-sb-hd{display:flex;align-items:center;gap:8px;margin:0;font-size:12.5px;font-weight:600;line-height:1.4;color:var(--muted2)}
-.rdx-sb-note{margin:6px 0 0;font-size:15px;font-weight:600;line-height:1.4;color:var(--text);overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
-.rdx-sb-lbl{margin:14px 0 6px;font-size:12px;color:var(--muted2)}
+.rdx-sb-hd{display:flex;align-items:center;gap:8px;margin:0;font-size:12px;font-weight:600;line-height:1.4;color:var(--muted2)}
+.rdx-sb-note{margin:6px 0 0;font-size:15px;font-weight:600;line-height:1.4;color:var(--text);overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+.rdx-sb-note.is-open{display:block;-webkit-line-clamp:unset;overflow:visible}
+.rdx-sb-note-more{margin-top:2px;font-size:13px}
+.rdx-sb-lbl{margin:14px 0 6px;font-size:12px;font-weight:600;color:var(--muted2)}
 .rdx-sb-flags{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 .rdx-sb-flags b{display:block;font-size:14px;font-weight:600;line-height:1.35;color:var(--text)}
-.rdx-sb-flags .v{display:block;margin-top:1px;font-size:13.5px;line-height:1.45;color:var(--text)}
-.rdx-sb-flags .r,.rdx-sb-ill{display:block;margin:2px 0 0;font-size:12.5px;line-height:1.45;color:var(--muted2)}
+.rdx-sb-flags .v{display:block;margin-top:1px;font-size:14px;line-height:1.45;color:var(--text)}
+.rdx-sb-flags .r,.rdx-sb-ill{display:block;margin:2px 0 0;font-size:12px;line-height:1.45;color:var(--muted2)}
 .rdx-sb-ill{margin-top:12px}
-.rdx-sb-more{grid-column:1/-1;font-size:13.5px}
-.rdx-sb-also{min-width:0;padding:6px 4px}
+.rdx-sb-more{grid-column:1/-1;font-size:13px}
+.rdx-sb-also{min-width:0;grid-column:1/-1;padding:6px 0 0}
 .rdx-sb-also-hd{margin:0 0 8px;font-size:12px;font-weight:600;color:var(--muted2)}
-.rdx-sb-also ul{list-style:none;margin:0;padding:0;display:grid;gap:10px}
-.rdx-sb-also .t{display:flex;align-items:baseline;gap:8px;min-width:0;font-size:13.5px;line-height:1.45;color:var(--text);overflow-wrap:anywhere}
+.rdx-sb-also ul{list-style:none;margin:0;padding:0;display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr));column-gap:24px}
+.rdx-sb-also .t{display:flex;align-items:baseline;gap:8px;min-width:0;font-size:14px;line-height:1.45;color:var(--text);overflow-wrap:anywhere}
 .rdx-sb-also .t .rdx-ev-dot{transform:translateY(-1px)}
-.rdx-sb-also .s{padding-left:16px;font-size:12.5px;line-height:1.45;color:var(--muted2)}
-.rdx-sb-also .rdx-link{margin:10px 0 0 16px;font-size:13px}
+.rdx-sb-also .s{padding-left:16px;font-size:12px;line-height:1.45;color:var(--muted2)}
+.rdx-sb-also .rdx-linkbtn{margin:10px 0 0 16px;font-size:13px}
 .rdx-pat-more{display:block;margin-top:20px}
 .rdx-pat-more .rdx-more-body>p{max-width:760px}
-.rdx-pt-wrap{max-width:860px;margin-top:4px;border:1px solid var(--border);border-radius:12px;background:var(--panel);overflow:hidden}
-.rdx-pt{width:100%;border-collapse:collapse;font-size:13.5px;line-height:1.45;color:var(--text);font-variant-numeric:tabular-nums}
-.rdx-pt th{padding:10px 16px;text-align:left;font-size:12px;font-weight:600;line-height:1.35;color:var(--muted2);background:var(--panel2);border-bottom:1px solid var(--border);vertical-align:bottom}
-.rdx-pt td{padding:14px 16px;vertical-align:top;border-bottom:1px solid var(--border)}
+.rdx-pt-wrap{max-width:var(--w-block,920px);margin-top:4px;border:1px solid var(--border);border-radius:12px;background:var(--panel);overflow-x:auto}
+.rdx-pt{width:100%;border-collapse:collapse;font-size:13px;line-height:1.45;color:var(--text);font-variant-numeric:tabular-nums}
+.rdx-pt th{padding:10px 14px;text-align:left;font-size:12px;font-weight:600;line-height:1.35;color:var(--muted2);background:var(--panel2);border-bottom:1px solid var(--border);vertical-align:bottom}
+.rdx-pt td{padding:12px 14px;vertical-align:top;border-bottom:1px solid var(--border)}
 .rdx-pt tbody tr:last-child td{border-bottom:none}
 .rdx-pt .c-rate{width:22%;min-width:150px}
-.rdx-pt .c-x{width:17%;min-width:130px;text-align:right;white-space:nowrap}
+.rdx-pt .c-x{width:17%;min-width:140px;text-align:right;white-space:nowrap}
 .rdx-pt .nm{display:block;font-weight:600}
-.rdx-pt .d{display:block;margin-top:2px;font-size:12.5px;color:var(--muted2)}
+.rdx-pt .d{display:block;margin-top:2px;font-size:12px;color:var(--muted2)}
 /* a rate: the % with its count, over a thin 0–100% bar (one scale across both columns) */
 .rdx-pt .r{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
-.rdx-pt .r b{font-size:15px;font-weight:700}
+.rdx-pt .r b{font-family:var(--mono);font-size:14px;font-weight:700}
 .rdx-pt .r small{font-size:12px;color:var(--muted2)}
 .rdx-pt .bar{display:block;height:6px;margin-top:7px;border-radius:3px;background:var(--panel2);overflow:hidden}
 .rdx-pt .bar i{display:block;height:100%;min-width:2px;border-radius:3px;background:var(--muted2)}
 .rdx-pt .bar.case i{background:var(--rdx-accent-ink)}
-.rdx-pt .x{font-size:15px;font-weight:700}
+.rdx-pt .x{font-family:var(--mono);font-size:14px;font-weight:700}
 .rdx-pt .x-na{color:var(--muted2)}
-.rdx-pt .m{display:block;margin-top:2px;font-size:12px;color:var(--muted2);white-space:normal}
-.rdx-pt .grp td{padding:9px 16px;font-size:12px;font-weight:600;color:var(--muted2);background:var(--panel2)}
+.rdx-pt .m{display:block;margin-top:2px;font-size:12px;color:var(--muted2);white-space:nowrap}
+.rdx-pt .grp td{padding:16px 14px 6px;font-size:12px;font-weight:600;color:var(--muted2);background:var(--panel)}
 .rdx-pt .lbl{display:none}
-.rdx-pt-cav{margin:10px 0 0!important;font-size:12.5px}
+.rdx-pt-cav{margin:10px 0 0!important;font-size:13px}
 /* training gaps: a fill + warn left border, not another bordered card */
-.rdx-gaps{margin-top:24px;padding:16px 20px;background:var(--panel2);border-left:3px solid var(--warn);border-radius:10px}
-.rdx-gaps-hd{margin:0;font-size:14.5px;font-weight:700;line-height:1.35;color:inherit}
+.rdx #sec-patterns{container:rdx-pat/inline-size}
+.rdx-gaps.is-clear{border-left-color:var(--border2)}
+.rdx-gaps{margin-top:24px;max-width:var(--w-block,920px);padding:14px 16px;background:var(--panel2);border-left:4px solid var(--warn);border-radius:12px}
+.rdx-gaps-hd{margin:0;font-size:14px;font-weight:600;line-height:1.35;color:inherit}
 .rdx-gaps>summary{display:flex;width:100%;padding:0}
-.rdx-gaps:not([open]){padding-top:12px;padding-bottom:12px}
+.rdx-gaps:not([open]){padding-top:10px;padding-bottom:10px}
 .rdx-gaps-body{padding-top:2px}
-.rdx-gaps-intro{margin:4px 0 0;max-width:760px;font-size:13.5px;line-height:1.55;color:var(--muted2)}
-.rdx-gap-list{list-style:none;margin:12px 0 0;padding:0;max-width:880px}   /* keeps a row's actions near its dates on wide screens */
+.rdx-gaps-intro{margin:4px 0 0;max-width:760px;font-size:14px;line-height:1.55;color:var(--muted2)}
+.rdx-gap-list{list-style:none;margin:12px 0 0;padding:0}   /* the block's 920px cap keeps a row's actions near its dates */
 .rdx-gap-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:10px 0;border-top:1px solid var(--border)}
 .rdx-gap-main{flex:1 1 240px;min-width:0}
 .rdx-gap-when{font-size:14px;font-weight:600;line-height:1.4;color:var(--text)}
 .rdx-gap-ico{margin-right:7px;font-size:10px;vertical-align:1px;color:var(--rdx-warn-ink)}
-.rdx-gap-stats{font-size:13px;line-height:1.45;color:var(--muted2)}
+.rdx-gap-stats{font-size:12px;line-height:1.45;color:var(--muted2)}
 .rdx-gap-acts{display:flex;gap:6px;flex-shrink:0}
-.rdx-gap-form{flex-basis:100%;min-width:0;padding:14px 16px;background:var(--panel);border-radius:10px;animation:rdx-fade .2s}
+.rdx-gap-form{flex-basis:100%;min-width:0;padding:14px 16px;background:var(--panel);border-radius:8px;animation:rdx-fade .2s}
+.rdx-gap-form-past{max-width:920px;margin:-8px 0 16px;border:1px solid var(--border2)}
 .rdx-gf-fields{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
 .rdx-gf-note{flex:1 1 200px}
 .rdx-gf-note input{width:100%}
-.rdx-gf-hint{margin:8px 0 0;font-size:12.5px;line-height:1.5;color:var(--muted2)}
+.rdx-gf-hint{margin:8px 0 0;font-size:13px;line-height:1.5;color:var(--muted2)}
 .rdx-gf-hint:empty{display:none}
 .rdx-gf-acts{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:12px}
-.rdx-dis{margin-top:12px;font-size:12.5px;color:var(--muted2)}
+.rdx-dis{margin-top:12px;font-size:12px;color:var(--muted2)}
 .rdx-dis .rdx-linkbtn{padding:6px 4px;margin:-6px 0}   /* touch-sized hit area, same line height */
 .rdx-dis-list{list-style:none;margin:6px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,auto);justify-content:start;align-items:center;column-gap:10px}
 .rdx-dis-list[hidden]{display:none}
@@ -386,16 +427,16 @@ html[data-theme="light"] .rdx input[type=date]{color-scheme:light}
 .rdx-tile{min-width:0;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
 .rdx-tile-lbl{font-size:12px;font-weight:600;line-height:1.3;color:var(--muted2)}
 .rdx-tile-val{font-size:24px;font-weight:700;font-family:var(--mono);margin-top:8px;line-height:1.1;color:var(--text);white-space:nowrap}
-.rdx-tile-unit{font-family:var(--ui);font-size:11.5px;font-weight:600;color:var(--muted2);margin-left:5px}
+.rdx-tile-unit{font-family:var(--ui);font-size:12px;font-weight:600;color:var(--muted2);margin-left:4px}
 .rdx-tile-delta{margin-top:6px;line-height:1.35}
 .rdx-tiles-note{grid-column:1/-1;margin:0}
 .rdx-volwrap{max-width:760px}
 .rdx-form-more{display:block;margin-top:16px}
 .rdx-form-more .rdx-tablewrap{max-width:920px}
-.rdx-vol td{font-family:var(--mono);color:var(--text)}
+.rdx-vol td{font-family:var(--mono);color:var(--text);font-variant-numeric:tabular-nums}
 
 /* 6. about */
-.rdx-foot{font-size:12.5px;color:var(--muted2);line-height:1.6;max-width:760px;margin:16px 0 0}
+.rdx-foot{font-size:13px;color:var(--muted2);line-height:1.6;max-width:760px;margin:16px 0 0}
 .rdx-strava{display:block;margin-top:10px;line-height:0}
 .rdx-strava img{height:15px;width:auto}
 .rdx-strava-w{display:inline-block}
@@ -405,62 +446,62 @@ html[data-theme="light"] .rdx-strava-o{display:inline-block}
 
 /* 7. toast — #rdxToast is the always-present live region; the box inside it is the visible toast.
    Above the sticky site nav (300), below the Lever modal (1000). */
-.rdx-toast{position:fixed;left:0;right:0;bottom:calc(16px + env(safe-area-inset-bottom));z-index:900;display:flex;justify-content:center;padding:0 16px;pointer-events:none}
-.rdx-toast-box{pointer-events:auto;display:flex;align-items:center;gap:10px;max-width:min(480px,100%);padding:9px 10px 9px 16px;background:var(--text);color:var(--bg);font-size:13.5px;line-height:1.4;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.35);animation:rdx-fade .18s ease-out}
+.rdx-toast{position:fixed;left:0;right:0;bottom:calc(16px + env(safe-area-inset-bottom) + var(--esl-bottom-inset,var(--rdx-inset,0px)));z-index:900;display:flex;justify-content:center;padding:0 16px;pointer-events:none}
+.rdx-toast-box{pointer-events:auto;display:flex;align-items:center;gap:10px;max-width:min(480px,100%);padding:9px 10px 9px 16px;background:var(--text);color:var(--bg);font-size:14px;line-height:1.4;border-radius:12px;box-shadow:var(--shadow-pop,0 8px 32px rgba(0,0,0,.45));animation:rdx-fade .18s ease-out}
 .rdx-toast-box.err{border-left:4px solid var(--bad)}
 .rdx-toast-msg{flex:1;min-width:0}
 /* ghost buttons on the inverted box: no border, a --bg wash on hover */
-.rdx-toast-box button{flex-shrink:0;min-height:36px;padding:3px 10px;font:inherit;font-weight:700;color:inherit;background:transparent;border:none;border-radius:7px;cursor:pointer}
+.rdx-toast-box button{flex-shrink:0;min-height:36px;padding:3px 10px;font:inherit;font-weight:700;color:inherit;background:transparent;border:none;border-radius:8px;cursor:pointer}
 .rdx-toast-box button:hover{background:color-mix(in srgb,var(--bg) 16%,transparent)}
 .rdx-toast-box .rdx-toast-x{min-width:36px;padding:3px 8px}
 .rdx-toast-box button:focus-visible{outline-color:var(--bg)}
 
 /* Lever modal */
-.rdx-modal{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(3,5,10,.6);animation:rdx-fade .15s}
+.rdx-modal{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:24px 24px calc(24px + var(--esl-bottom-inset,var(--rdx-inset,0px)));background:var(--scrim,rgba(3,5,10,.6));animation:rdx-fade .15s}
 .rdx-modal[hidden]{display:none}
-.rdx-modal-panel{display:flex;flex-direction:column;width:100%;max-width:920px;max-height:100%;background:var(--panel);color:var(--text);border:1px solid var(--border2);border-radius:14px;box-shadow:0 22px 60px rgba(0,0,0,.45);outline:none;overflow:hidden}
+.rdx-modal-panel{display:flex;flex-direction:column;width:100%;max-width:920px;max-height:100%;background:var(--panel);color:var(--text);border:1px solid var(--border2);border-radius:16px;box-shadow:var(--shadow-modal,0 22px 60px rgba(0,0,0,.45));outline:none;overflow:hidden}
 .rdx-modal-hd{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 20px 6px;background:var(--panel)}
 .rdx-modal-intro{padding:0 20px 14px;border-bottom:1px solid var(--border)}
 .rdx-modal-title{font-size:17px;font-weight:800;letter-spacing:-.2px;margin:0}
-.rdx-modal-sub{font-size:12.5px;color:var(--muted2);line-height:1.55;margin:0;max-width:660px}
-.rdx-modal-x{flex-shrink:0;width:32px;height:32px;background:transparent;border:1px solid var(--border2);border-radius:8px;color:var(--muted2);font-size:13px;cursor:pointer}
+.rdx-modal-sub{font-size:13px;color:var(--muted2);line-height:1.55;margin:0;max-width:660px}
+.rdx-modal-x{flex-shrink:0;width:36px;height:36px;background:transparent;border:1px solid var(--border2);border-radius:8px;color:var(--muted2);font-family:inherit;font-size:13px;cursor:pointer}
 .rdx-modal-x:hover{color:var(--text);border-color:var(--muted2)}
 .rdx-lv-bar{display:flex;flex-wrap:wrap;gap:12px 26px;align-items:flex-start;padding:12px 20px;border-bottom:1px solid var(--border)}
 .rdx-lv-bar input{width:62px;height:auto;background:var(--panel2);border:1px solid var(--border2);border-radius:8px;padding:7px 9px;color:var(--text);font-family:var(--mono);font-size:13px;outline:none}
-.rdx-lv-bar input:focus{border-color:var(--cyan)}
-.rdx-lv-cap{font-size:11.5px;color:var(--muted2);font-family:var(--mono);min-height:17px}
+.rdx-lv-bar input:focus{border-color:var(--rdx-accent-ink);box-shadow:var(--focus-ring,0 0 0 3px rgba(0,229,200,.18))}
+.rdx-lv-cap{font:400 12px/1.4 var(--ui);color:var(--muted2);min-height:17px}
 .rdx-lv-cap.err{color:var(--rdx-bad-ink)}
-.rdx-lv-note{flex-basis:100%;font-size:11.5px;color:var(--muted2);line-height:1.5}
+.rdx-lv-note{flex-basis:100%;font-size:12px;color:var(--muted2);line-height:1.5}
 .rdx-lv-bar .rdx-chip.on{color:var(--rdx-accent-ink)}
 .rdx-lv-list{flex:1;overflow-y:auto;overscroll-behavior:contain;min-height:140px}
-.rdx-lv-row{display:grid;grid-template-columns:16px 104px minmax(0,1fr) 54px 46px 46px 158px 50px;gap:10px;align-items:center;padding:8px 20px;border-bottom:1px solid var(--border);font-size:12.5px;cursor:pointer}
+.rdx-lv-row{display:grid;grid-template-columns:16px 128px minmax(0,1fr) 54px 46px 46px 158px 50px;gap:10px;align-items:center;padding:8px 20px;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer}
 .rdx-lv-row:hover{background:var(--hover)}
-.rdx-lv-row.on{background:rgba(0,229,200,.07)}
+.rdx-lv-row.on{background:var(--accent-wash,rgba(0,229,200,.08))}
 .rdx-lv-row input{width:16px;height:16px;margin:0;accent-color:var(--cyan);cursor:pointer}
-.rdx-lv-head{position:sticky;top:0;z-index:1;background:var(--panel2);cursor:default;font-size:9.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono)}
+.rdx-lv-head{position:sticky;top:0;z-index:1;background:var(--panel2);cursor:default;font:600 12px/1.3 var(--ui);letter-spacing:0;text-transform:none;color:var(--muted2)}
 .rdx-lv-head:hover{background:var(--panel2)}
 .rdx-lv-head .r{text-align:right}
-.rdx-lv-head .c-all{display:none;cursor:pointer;font-size:11px;letter-spacing:.3px}
-.rdx-lv-date{font-family:var(--mono);font-size:12px;color:var(--text);white-space:nowrap}
-.rdx-lv-date small{font-size:10.5px;color:var(--muted2);margin-left:6px}
+.rdx-lv-head .c-all{display:none;cursor:pointer;font-size:12px;letter-spacing:0}
+.rdx-lv-date{font:600 13px/1.3 var(--ui);color:var(--text);white-space:nowrap}
+.rdx-lv-date small{font-size:12px;font-weight:400;color:var(--muted2);margin-left:6px}
 .rdx-lv-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rdx-lv-num{font-family:var(--mono);font-size:12px;color:var(--muted2);text-align:right;white-space:nowrap}
 .rdx-lv-meta{display:none}
-.rdx-lv-badge{justify-self:start;font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;border:1px solid var(--border2);color:var(--muted2);white-space:nowrap}
-.rdx-lv-badge.lever{color:var(--rdx-accent-ink);border-color:rgba(0,229,200,.4);background:rgba(0,229,200,.07)}
-.rdx-lv-badge.not{color:var(--rdx-warn-ink);border-color:rgba(245,166,35,.45)}
-.rdx-lv-iad{font-family:var(--mono);font-size:12.5px;font-weight:700;text-align:right;white-space:nowrap}
-.rdx-lv-iad small{display:none;font-size:10px;font-weight:400;color:var(--muted2)}
-.rdx-lv-empty{padding:34px 20px;text-align:center;color:var(--muted2);font-size:12.5px}
+.rdx-lv-badge{justify-self:start;font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;border:1px solid var(--border2);color:var(--muted2);white-space:nowrap}
+.rdx-lv-badge.lever{color:var(--rdx-accent-ink);border-color:var(--accent-line,rgba(0,229,200,.30));background:var(--accent-wash,rgba(0,229,200,.08))}
+.rdx-lv-badge.not{color:var(--rdx-warn-ink);border-color:var(--warn-line,rgba(245,166,35,.32))}
+.rdx-lv-iad{font-family:var(--mono);font-size:13px;font-weight:700;text-align:right;white-space:nowrap}
+.rdx-lv-iad small{display:none;font:600 12px var(--ui);color:var(--muted2)}
+.rdx-lv-empty{padding:34px 20px;text-align:center;color:var(--muted2);font-size:13px}
 .rdx-modal-ft{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;padding:12px 20px;border-top:1px solid var(--border2);background:var(--panel2)}
-.rdx-lv-sum{font-size:12px;color:var(--muted2);font-family:var(--mono)}
+.rdx-lv-sum{font:400 13px/1.45 var(--ui);color:var(--muted2);flex-basis:100%}
 .rdx-lv-sum b{color:var(--text)}
-.rdx-lv-acts{display:flex;flex-wrap:wrap;gap:8px}
-.rdx-lv-toast{flex-basis:100%;font-size:12px;font-family:var(--mono);color:var(--rdx-good-ink)}
+.rdx-lv-acts{display:flex;flex-wrap:wrap;gap:8px;margin-left:auto}
+.rdx-lv-toast{flex-basis:100%;font:400 13px/1.45 var(--ui);color:var(--rdx-good-ink)}
 .rdx-lv-toast.err{color:var(--rdx-bad-ink)}
 .rdx-lv-toast:empty{display:none}
 @media(max-width:599px),(max-height:560px){
-  .rdx-modal{padding:0}
+  .rdx-modal{padding:0 0 var(--esl-bottom-inset,var(--rdx-inset,0px))}   /* sheet footer sits above the act-as banner */
   /* phone, or any short viewport (landscape phone, zoomed laptop): the whole sheet scrolls (title
      bar + action footer stay pinned) — a fixed-height panel would push the footer out of reach */
   .rdx-modal-panel{max-width:none;height:100%;border:none;border-radius:0;overflow-y:auto;overscroll-behavior:contain}
@@ -471,6 +512,14 @@ html[data-theme="light"] .rdx-strava-o{display:inline-block}
   .rdx-lv-head{position:static}
   .rdx-modal-ft{position:sticky;bottom:0;z-index:3}
 }
+@media(max-height:560px){
+  /* landscape phone: clamp the intro + note to one line so run rows show above the pinned footer (full text stays in aria-describedby) */
+  .rdx-modal-sub,.rdx-lv-note{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+  .rdx-modal-hd{padding-top:10px;padding-bottom:8px}
+  .rdx-modal-intro{padding-top:6px;padding-bottom:6px}
+  .rdx-lv-bar{padding-top:8px;padding-bottom:8px;row-gap:4px}
+  .rdx-modal-ft{padding-top:8px;padding-bottom:8px;row-gap:4px}
+}
 @media(max-width:599px){
   .rdx-modal-hd,.rdx-modal-intro,.rdx-lv-bar,.rdx-modal-ft{padding-left:16px;padding-right:16px}
   .rdx-lv-bar input{font-size:16px}   /* iOS Safari zooms into any focused input under 16px */
@@ -478,7 +527,7 @@ html[data-theme="light"] .rdx-strava-o{display:inline-block}
   .rdx-lv-row>input{grid-area:cb;align-self:start;margin-top:1px}
   .rdx-lv-date{grid-area:date}.rdx-lv-title{grid-area:title}.rdx-lv-badge{grid-area:badge;justify-self:end}.rdx-lv-iad{grid-area:iad}
   .rdx-lv-num{display:none}
-  .rdx-lv-meta{display:block;grid-area:meta;font-family:var(--mono);font-size:11px;color:var(--muted2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rdx-lv-meta{display:block;grid-area:meta;font-family:var(--mono);font-size:12px;color:var(--muted2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .rdx-lv-iad small{display:inline}
   .rdx-lv-head{grid-template-areas:"cb date date"}
   .rdx-lv-head span{display:none}
@@ -521,26 +570,13 @@ html[data-theme="light"] .rdx-strava-o{display:inline-block}
   .rdx-chart-ctl .rdx-inl{flex:1 1 100%;min-width:0}   /* lets the select shrink on a 320px phone */
   .rdx-chart-ctl select{flex:1}
   .rdx-chartwrap{padding:10px 8px 6px}
-  /* injury: stats table → stacked rows ("1 of 1 injury · 22% of normal weeks"); gap rows → dates,
-     stats, then a full-width action row; the gap form goes to one column */
-  .rdx-pt,.rdx-pt tbody{display:block}
-  .rdx-pt thead{display:none}
-  .rdx-pt tr{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;padding:14px;border-bottom:1px solid var(--border)}
-  .rdx-pt tbody tr:last-child{border-bottom:none}
-  .rdx-pt td,.rdx-pt .c-rate,.rdx-pt .c-x{display:block;width:auto;min-width:0;padding:0;border:none}
-  .rdx-pt td:first-child,.rdx-pt .c-x{grid-column:1/-1}
-  .rdx-pt .c-x{text-align:left}
-  .rdx-pt .c-x .x,.rdx-pt .c-x .m{display:inline;margin:0}
-  .rdx-pt .c-x .lbl{display:inline;margin-right:6px}
-  .rdx-pt .c-x .m::before{content:" · "}
-  .rdx-pt .lbl{display:block;margin-bottom:3px;font-size:11.5px;font-weight:600;color:var(--muted2)}
-  .rdx-pt .grp{display:block;padding:0}
-  .rdx-pt .grp td{display:block;padding:9px 14px}
+  /* injury: gap rows → dates, stats, then a full-width action row; the gap form goes to one column
+     (the stats table stacks by the section's own width — @container rdx-pat below) */
   .rdx-gaps{padding:14px}
   .rdx-dis-list{display:block}
   .rdx-dis-item{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"w b" "a b";column-gap:10px;padding:3px 0}
   .rdx-dis-when{grid-area:w}
-  .rdx-dis-at{grid-area:a;font-size:12.5px}
+  .rdx-dis-at{grid-area:a;font-size:12px}
   .rdx-dis-at>span{display:none}
   .rdx-dis-item .rdx-btn{grid-area:b}
   .rdx-gap-acts{width:100%}
@@ -575,14 +611,32 @@ html[data-theme="light"] .rdx-strava-o{display:inline-block}
 }
 /* touch: every control at least 40px tall (spec §5). Last, so it beats the base sizes above; a summary
    grows by padding, keeping its baseline-aligned chevron on line 1 when it wraps */
+/* injury stats table → stacked rows ("1 of 1 injury · 22% of normal weeks") whenever the section itself is
+   narrow (coaching side panel, tablet), not only on a phone viewport */
+@container rdx-pat (max-width:620px){
+  .rdx-pt,.rdx-pt tbody{display:block}
+  .rdx-pt thead{display:none}
+  .rdx-pt tr{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;padding:14px;border-bottom:1px solid var(--border)}
+  .rdx-pt tbody tr:last-child{border-bottom:none}
+  .rdx-pt td,.rdx-pt .c-rate,.rdx-pt .c-x{display:block;width:auto;min-width:0;padding:0;border:none}
+  .rdx-pt td:first-child,.rdx-pt .c-x{grid-column:1/-1}
+  .rdx-pt .c-x{text-align:left}
+  .rdx-pt .c-x .x,.rdx-pt .c-x .m{display:inline;margin:0}
+  .rdx-pt .c-x .lbl{display:inline;margin-right:6px}
+  .rdx-pt .c-x .m::before{content:" · "}
+  .rdx-pt .lbl{display:block;margin-bottom:3px;font-size:12px;font-weight:600;color:var(--muted2)}
+  .rdx-pt .grp{display:block;padding:0}
+  .rdx-pt .grp td{display:block;padding:9px 14px}
+}
 @media(pointer:coarse){
   .rdx-btn,.rdx-seg button,.rdx-gapchip,.rdx-toast-box button{min-height:40px}
   .rdx-types>.rdx-chip,.rdx-cmpbar>.rdx-chip{display:inline-flex;align-items:center;min-height:40px}
-  .rdx-ev-del,.rdx-toast-box .rdx-toast-x{width:40px;min-width:40px;height:40px}
+  .rdx-ev-del,.rdx-toast-box .rdx-toast-x,.rdx-modal-x{width:40px;min-width:40px;height:40px}
+  .rdx-tip-btn::after{content:"";position:absolute;inset:-8px}
   .rdx-more>summary{padding:10px 0;min-height:40px}
   .rdx-dis .rdx-linkbtn{padding:11px 6px;margin:-11px -2px}
   .rdx-link,.rdx-linkbtn{padding:11px 4px;margin:-11px -4px}   /* text buttons: 40px hit area, same line box */
-  .rdx-sb-also .rdx-link{margin:-1px 0 -11px 12px}              /* keeps its 10px gap and 16px indent */
+  .rdx-sb-also .rdx-linkbtn{margin:-1px 0 -11px 12px}              /* keeps its 10px gap and 16px indent */
   /* fields too, on any touch screen (a landscape phone is wider than the 599px phone block): iOS zooms under 16px */
   :where(.rdx) :is(select,input[type=text],input[type=date],input[type=number]){height:40px;font-size:16px}
   .rdx-lv-bar input{font-size:16px;min-height:40px}
@@ -627,7 +681,7 @@ var METRICS = [
   { key:'stride', label:'Stride Length',       unit:'m',   dec:2, better:null, needs:'stride',
     desc:'Distance covered per step',
     calc:function(r){ return r.stride; } },
-  { key:'asym',   label:'GCT Balance Asym.',   unit:'%',   dec:1, better:'lower', needs:'gctBalance',
+  { key:'asym',   label:'L/R contact asymmetry',   unit:'%',   dec:1, better:'lower', needs:'gctBalance',
     desc:'Left/right imbalance in ground contact time',
     calc:function(r){ return r.gctBalL!=null? Math.abs(r.gctBalL-50) : null; } },
   { key:'eff',    label:'Form Efficiency',     unit:'m/cm',dec:2, better:'higher', needs:'vo',
@@ -660,7 +714,7 @@ var VIEW='training';
 var VIEW_SECS={ training:['hero','chart','form','about'], injury:['patterns','about'] };
 function inView(sec){ return VIEW_SECS[VIEW].indexOf(sec)>=0; }
 var RAW=[], ACTIVE_TYPES=new Set(), KNOWN_TYPES=new Set();
-var ANCHOR=null, LOAD_PARAMS=null, STD_PROFILE={}, STRAVA_LEVER=[];
+var ANCHOR=null, RANGES_EDITED=false, LOAD_PARAMS=null, STD_PROFILE={}, STRAVA_LEVER=[];
 var DAY=864e5;
 // Bumped by every mount(). Async loaders and late save callbacks compare it with the value they
 // started under and drop their result when a newer mount (a coach switching athletes, a tab
@@ -670,11 +724,21 @@ var MOUNT=0;
 var PROFILE_ERR=null;   // loadProfile failed: the view runs on defaults, so profile writes are blocked
 var LIST_Q={};          // uid/key → {tail, n}: that field's serialized transaction chain + writes issued
 var DIS_OPEN=false, DIS_T=0, DIS_SEQ=0;   // "N dismissed · show" expanded; last dismiss/restore click; dismiss/restore writes issued (only the newest may revert)
-var GAP_FORM=null;      // the open "Log it…" gap form: {t0, type, start, end, note} — re-opened with what was typed after a re-render
+var GAP_FORM=null;      // the open "Log it…" gap form: {t0, type, start, end, note} — re-opened with what was typed after a re-render; t0 'past' = the "+ Log a past injury" form
+var EV_EDIT=null;       // id (string) of the logged event loaded into the Events form for editing, or null
 var SB_MORE=false, ALSO_ALL=false, PAT_STATS=true, GAPS_OPEN=false;   // injury section: older setback cards shown, all "Also logged" shown, stats disclosure open, training gaps expanded
 var TOAST_T=0, TOAST_ARM=null, TOAST_BACK=null;   // page toast: hide timer, its (re)start fn while shown, where focus returns
 var SAVE_SEQ={};        // profile key → persist() calls issued: only the newest call to a key may revert it
 var HERO_HELP=false;    // hero "How to read these numbers" open — survives refresh() re-renders
+// §15.6: per-athlete view state and data, kept across remounts (a tab switch, a coach switching back).
+// VIEWSTATE[uid] = what captureView() saw (chart range/metric/display, Form & volume windows, hero help,
+// stats/gaps disclosure, settings open), merged across views. DATA_CACHE[uid] = {raw, profile, lever,
+// sync}: a remount renders it at once (no blank shell), then refetches and re-renders — never stale.
+var VIEWSTATE={}, DATA_CACHE={};
+var EV_SEQ=0;           // runEvents writes issued (only the newest may revert)
+var IMPORT_BUSY=false, IMPORT_EXTRA='';   // a file import is running; text appended to its final status
+var CUTOFF_LAST='6:40', MINDIST_LAST='0.5';   // last valid What's-included entries (an invalid one is put back)
+var TIP_N=0, TIPS_WIRED=false;   // toggletip ids; document-level close listeners added once
 var RO=null, RO_T=0, WIN_RS=null, CHART_W=0;   // chart resize watcher (ResizeObserver, or window resize fallback), its debounce, the width last drawn at
 var CAP_PIN='';         // event caption under the chart: the default hint, or the band/marker last tapped
 // "Mark Lever runs" modal: filter chip, selected run ids, rows on screen (data-i indexes them),
@@ -768,14 +832,14 @@ function parseDate(v){
 /* Parse a Garmin export into candidate run docs keyed by a stable id. */
 function parseExport(text){
   var rows=parseCSV(text);
-  if(rows.length<2) throw new Error('No data rows found.');
+  if(rows.length<2) throw new Error('This CSV has no activity rows.');
   var col=buildColMap(rows[0]);
   // Fingerprint on the columns every Garmin activities export has. Do NOT
   // require running-form columns (GCT etc.) — Garmin only exports what's on
   // screen, so they're often absent; missing fields just parse as null and
   // the load model falls back to its no-dynamics path.
   ['activitytype','date'].forEach(function(k){
-    if(!(k in col)) throw new Error('Not a Garmin activities export (missing "'+k+'").');
+    if(!(k in col)) throw new Error('This CSV isn’t a Garmin Connect activities export (no “'+({activitytype:'Activity Type',date:'Date'})[k]+'” column).');
   });
   var get=function(r,k){ return col[k]!=null ? r[col[k]] : null; };
   // Garmin names the shared cadence/pace columns after the export's FIRST row: with a ride on
@@ -988,18 +1052,26 @@ function backfill(candidates){
   return actCol().get().then(function(snap){
     var candIds=new Set(candidates.map(function(c){return c.id;}));
     var candDays=new Set(candidates.map(function(c){return localDayKey(c.ts);}));
-    var existing=new Set(), replace=[];
+    var existing=new Set(), replace=[], near=[];
     snap.forEach(function(d){
       existing.add(d.id);
       var x=d.data();
+      // watch-sourced docs by start time: the same run imported from a FIT and from the CSV gets a
+      // different id scheme, so a new id within 60 s of a stored watch run is the same run (never re-ids)
+      if(x.source!=='strava'){ var t=x.ts&&x.ts.toMillis?x.ts.toMillis():+x.ts; if(isFinite(t)) near.push(t); }
       // A watch export is the richer record (GCT, oscillation, descent) — drop
       // any Strava-synced doc on a day this import now covers. Same-id docs
       // need no delete: the set() below overwrites them wholesale. The server
       // sync skips device-covered days, so these never come back.
       if(x.source==='strava' && !candIds.has(d.id) && candDays.has(localDayKey(x.ts))) replace.push(d.ref);
     });
-    var added=0; candidates.forEach(function(c){ if(!existing.has(c.id)) added++; });
-    var ops=candidates.slice();
+    var dupes=0, fresh=candidates.filter(function(c){
+      if(existing.has(c.id)) return true;
+      if(near.some(function(t){ return Math.abs(t-c.ts)<=60000; })){ dupes++; return false; }   // near-duplicate: no write
+      return true;
+    });
+    var added=0; fresh.forEach(function(c){ if(!existing.has(c.id)) added++; });
+    var ops=fresh.slice();
     replace.forEach(function(ref){ ops.push({del:ref}); });
     var chunks=[]; for(var i=0;i<ops.length;i+=450) chunks.push(ops.slice(i,i+450));
     var p=Promise.resolve();
@@ -1010,7 +1082,7 @@ function backfill(candidates){
         return batch.commit();
       });
     });
-    return p.then(function(){ return {added:added, updated:candidates.length-added, replaced:replace.length}; });
+    return p.then(function(){ return {added:added, updated:fresh.length-added, replaced:replace.length, dupes:dupes}; });
   });
 }
 /* Delete every stored activity doc. Escape hatch for a bad import: backfill
@@ -1019,6 +1091,7 @@ function backfill(candidates){
    is the only clean path. Profile, races/injuries live on the user doc and
    are untouched. Resolves with the number of docs deleted. */
 function deleteAllRuns(){
+  delete DATA_CACHE[UID];
   return actCol().get().then(function(snap){
     var refs=[]; snap.forEach(function(d){ refs.push(d.ref); });
     var chunks=[]; for(var i=0;i<refs.length;i+=450) chunks.push(refs.slice(i,i+450));
@@ -1036,7 +1109,7 @@ function deleteAllRuns(){
 
 /* ---------- aggregation ---------- */
 function minDist(){ var el=$('mindist'); var v=el?parseFloat(el.value):NaN; return (v>=0)?v:0.5; }
-function analyzable(r){ return r.distMi!=null && r.distMi>=minDist(); }
+function analyzable(r){ return !r._excl && r.distMi!=null && r.distMi>=minDist(); }
 function runsIn(start,end){ return RAW.filter(function(r){ return ACTIVE_TYPES.has(effType(r)) && analyzable(r) && r.date>start && r.date<=end; }); }
 function metricMean(runs,m){
   var vals=runs.map(m.calc).filter(function(v){ return v!=null && !isNaN(v); });
@@ -1046,8 +1119,9 @@ function metricMean(runs,m){
 function summarize(runs){
   var dist=runs.reduce(function(a,r){return a+(r.distMi||0);},0);
   var dur=runs.reduce(function(a,r){return a+(r.durSec||0);},0);
-  var pv=runs.map(function(r){return r.paceSec;}).filter(function(v){return v!=null;});
-  var pace=pv.length?pv.reduce(function(a,b){return a+b;},0)/pv.length:null;
+  // Avg pace = total time ÷ total distance (runs with both), so it agrees with Time ÷ Miles
+  var pd=0, pt=0; runs.forEach(function(r){ if(r.durSec>0 && r.distMi>0){ pt+=r.durSec; pd+=r.distMi; } });
+  var pace=pd>0?pt/pd:null;
   return {n:runs.length,dist:dist,dur:dur,pace:pace};
 }
 
@@ -1070,7 +1144,9 @@ function deltaHTML(cur,prev,m){
   var dir=diff>0?'▲':'▼', cls='flat';
   if(m.better==='lower') cls=diff<0?'up':'down';
   else if(m.better==='higher') cls=diff>0?'up':'down';
-  var txt=m.pace?((diff>0?'+':'−')+fmtPace(Math.abs(diff))):((diff>0?'+':'−')+Math.abs(diff).toFixed(m.dec));
+  if(m.pace){ var g=Math.round(Math.abs(diff)), gap=g<60?g+' s':fmtPace(g);   // pace in words: no ▲/▼ (up = slower reads backwards)
+    return '<span class="rdx-delta '+cls+'">'+gap+(diff>0?' slower':' faster')+'</span>'; }
+  var txt=(diff>0?'+':'−')+Math.abs(diff).toFixed(m.dec);
   return '<span class="rdx-delta '+cls+'"><span aria-hidden="true">'+dir+'</span> '+txt+'</span>';
 }
 // Local calendar date — toISOString() would shift evening runs (and their day keys) to the
@@ -1096,7 +1172,7 @@ function fmtMD(ts){ var d=new Date(ts); return MONTHS[d.getMonth()]+' '+d.getDat
 function fmtClock(ts){ var d=new Date(ts), h=d.getHours(); return (h%12||12)+':'+('0'+d.getMinutes()).slice(-2)+(h<12?' AM':' PM'); }
 function daysAgo(ts){ var a=new Date(ts), b=new Date(); a.setHours(0,0,0,0); b.setHours(0,0,0,0); return Math.round((b-a)/DAY); }   // calendar days; round absorbs DST
 // Freshness wording: "today 6:15 AM" / "yesterday" / "5 days ago (Oct 9)".
-function fmtRel(ts){ var n=daysAgo(ts); return n<=0?'today '+fmtClock(ts):n===1?'yesterday':n+' days ago ('+fmtMD(ts)+')'; }
+function fmtRel(ts){ var n=daysAgo(ts); return n<0?'in '+(-n)+' day'+(n===-1?'':'s')+' ('+fmtMD(ts)+') — check the watch clock':n===0?'today '+fmtClock(ts):n===1?'yesterday':n+' days ago ('+fmtMD(ts)+')'; }
 
 /* ---------- rendering helpers ---------- */
 function filterIntensity(runs,mode,cutoffSec){
@@ -1172,6 +1248,64 @@ function annotateLever(){
   });
 }
 function effType(r){ return r.lever ? 'Lever' : r.type; }
+// D3 data hygiene: runs that can't be right (a GPS glitch, a wrong watch clock) are flagged in a
+// one-line banner; nothing changes until someone presses Exclude. Exclusions live on the USER doc
+// (users/{uid}.runExcluded = [{id, ts, at}], like Lever marks — activity docs get rewritten by the
+// importer/sync); ts (start epoch) re-finds a run that came back under another id. An excluded run
+// stays stored and listed in the banner, but analyzable() drops it from every load and metric.
+function exclList(){ return (Array.isArray(STD_PROFILE.runExcluded)?STD_PROFILE.runExcluded:[]).filter(function(x){ return x&&x.id!=null; }); }
+function runFlag(r){
+  if(r.distMi>100) return 'over 100 mi';
+  if(r.paceSec>0 && r.paceSec<210) return 'faster than 3:30 /mi';
+  if(r.durSec>86400) return 'longer than 24 h';
+  if(r.ts>dayEnd(new Date()).getTime()) return 'dated ahead';
+  return null;
+}
+function annotateExcluded(){
+  var ex=exclList(), ids=new Set(ex.map(function(x){ return String(x.id); }));
+  RAW.forEach(function(r){ r._excl=ids.has(String(r.id)) || ex.some(function(x){ return isFinite(x.ts) && Math.abs(x.ts-r.ts)<=6e4; }); });
+}
+function exclMatch(x,r){ return String(x.id)===String(r.id) || (isFinite(x.ts) && Math.abs(x.ts-r.ts)<=6e4); }
+function setExcluded(add, rm, msg, undo){
+  var my=MOUNT, prev=STD_PROFILE.runExcluded;
+  var p=updateProfileList('runExcluded', function(list){
+    list=list.filter(function(x){ return !(x && rm.some(function(r){ return exclMatch(x,r); })); });
+    return list.concat(add.filter(function(r){ return !list.some(function(x){ return x&&exclMatch(x,r); }); }).map(function(r){ return {id:r.id, ts:r.ts, at:Date.now()}; }));
+  }, refresh, false);
+  refresh();
+  toast(msg, undo?{undo:undo}:null);
+  return p.then(function(r){
+    if(r===true || my!==MOUNT) return r;
+    STD_PROFILE.runExcluded=Array.isArray(prev)?prev:[]; refresh();
+    toast('Couldn’t save ('+r+'). Nothing was changed.',{kind:'err'});
+    return r;
+  });
+}
+function renderFlags(){
+  var el=$('rdxFlags'); if(!el) return;
+  var bad=RAW.filter(function(r){ return !r._excl && runFlag(r); }), ex=RAW.filter(function(r){ return r._excl; });
+  el.textContent=''; el.hidden=!bad.length && !ex.length;
+  if(el.hidden) return;
+  var add=function(cls,txt){ var x=document.createElement('span'); if(cls) x.className=cls; x.textContent=txt; el.appendChild(x); };
+  var btn=function(txt,fn,label){ var b=document.createElement('button'); b.type='button'; b.className='rdx-linkbtn'; b.textContent=txt; if(label) b.setAttribute('aria-label',label); b.onclick=fn; el.appendChild(b); };
+  var n=function(k){ return k+' run'+(k===1?'':'s'); };
+  var exclude=function(runs){ setExcluded(runs, [], 'Excluded '+n(runs.length)+' — no longer counted in load or metrics.', function(){ setExcluded([], runs, 'Included '+n(runs.length)+' again.'); }); };
+  if(bad.length){
+    add('rdx-flags-k', bad.length===1?'1 run looks wrong: ':bad.length+' runs look wrong: ');
+    bad.slice(0,3).forEach(function(r,i){
+      if(i) add('',' · ');
+      var what=fmtDay(r.ts)+', '+(r.distMi!=null?(r.distMi>=100?Math.round(r.distMi).toLocaleString('en-US'):fmtMi(r.distMi))+' mi':'run')+' ('+runFlag(r)+')';
+      add('',what+' ');
+      btn('Exclude',function(){ exclude([r]); },'Exclude the '+what);
+    });
+    if(bad.length>3){ add('',' · +'+(bad.length-3)+' more '); btn('Exclude all '+bad.length,function(){ exclude(bad); }); }
+  }
+  if(ex.length){
+    if(bad.length) add('',' · ');
+    add('',n(ex.length)+' excluded ');
+    btn('Include again',function(){ setExcluded([], ex, 'Included '+n(ex.length)+' again.', function(){ setExcluded(ex, [], 'Excluded '+n(ex.length)+' again.'); }); },'Include the '+n(ex.length)+' excluded again');
+  }
+}
 // Runner-entered easy pace (s/mi, 240–1200) from the profile: the middle rung of the baseline
 // chain calibrated median → recorded easy pace → neutral. Null when unset or out of range.
 function easyPaceSec(){ var v=parseFloat(STD_PROFILE.runEasyPaceSec); return (v>=240&&v<=1200)?v:null; }
@@ -1199,18 +1333,18 @@ function canonJSON(v){
 /* ---------- page toast (#rdxToast) ----------
    One message at a time; a new one replaces the last. #rdxToast is the always-present live region
    (role=status) — the visible box is rebuilt inside it, so the box's text is what gets announced.
-   ok: 4s (7s with Undo); err: until ✕ or 10s. Text goes in via textContent, never markup.
+   ok: 4s (7s with Undo); err: stays until ✕ or a newer toast replaces it. Text goes in via textContent, never markup.
    The clock stops while the box is hovered or holds focus (WCAG 2.2.1 — Undo can't vanish under the
    pointer or the keyboard) and while #rdxToast is hidden behind the Lever modal (lvOpenModal/lvClose);
    a box removed while focused hands focus back to where the user came from. */
 function toast(msg, o){
   o=o||{}; var el=$('rdxToast'); if(!el) return;
   clearTimeout(TOAST_T);
-  var err=o.kind==='err', ms=err?10000:o.undo?7000:4000, box=document.createElement('div'), m=document.createElement('span');
+  var err=o.kind==='err', ms=err?0:o.undo?7000:4000, box=document.createElement('div'), m=document.createElement('span');
   box.className='rdx-toast-box'+(err?' err':''); m.className='rdx-toast-msg'; m.textContent=msg; box.appendChild(m);
   // both no-op once a newer toast replaced this box: the shared timer is the newer box's now
   var hide=function(){ if(box.parentNode!==el) return; clearTimeout(TOAST_T); TOAST_ARM=null; var f=box.contains(document.activeElement); el.innerHTML=''; if(f) toastFocusBack(); };
-  var arm=function(){ if(box.parentNode!==el) return; clearTimeout(TOAST_T); if(!el.hidden) TOAST_T=setTimeout(hide, ms); };
+  var arm=function(){ if(box.parentNode!==el) return; clearTimeout(TOAST_T); if(!el.hidden && ms>0) TOAST_T=setTimeout(hide, ms); };
   var btn=function(cls,txt,label,fn){ var b=document.createElement('button'); b.type='button'; b.className=cls; b.textContent=txt; if(label) b.setAttribute('aria-label',label); b.addEventListener('click',fn); box.appendChild(b); };
   if(o.undo) btn('rdx-toast-undo','Undo','',function(e){ hide(); o.undo(e); });
   if(err) btn('rdx-toast-x','✕','Dismiss message',hide);
@@ -1272,9 +1406,9 @@ function revertKey(key, prev, mine){
   if(!uid || !mine()) return Promise.resolve();
   return DB.collection('users').doc(uid).get().then(function(d){ return (d.exists?d.data()||{}:{})[key]; }, function(){ return prev; }).then(function(v){
     if(my!==MOUNT || !mine()) return;
-    var list=/^run(Events|DismissedDrops|LeverMarks)$/.test(key);
+    var list=/^run(Events|DismissedDrops|LeverMarks|Excluded)$/.test(key);
     STD_PROFILE[key]=(list&&!Array.isArray(v))?[]:v;   // list fields stay arrays, as loadProfile keeps them
-    if(list) renderEventsList(); else { fillProfileInputs(); populateMetricSelects(); }
+    if(list) renderEventsList(); else { fillProfileInputs(); if(key==='runIncluded') applyIncluded(); populateMetricSelects(); }
     refresh();
   });
 }
@@ -1306,7 +1440,7 @@ function updateProfileList(key, fn, rerender, okMsg){
     return true;
   }).catch(function(e){ console.error('profile save',e); return fail((e&&e.code)||'save failed'); });
 }
-function loadProfile(){ if(!UID) return Promise.resolve(); var my=MOUNT; return DB.collection('users').doc(UID).get().then(function(d){ if(my!==MOUNT) return; var x=d.exists?d.data():{}; PROFILE_ERR=null; STD_PROFILE={ weightLb:x.weightLb, runDevice:x.runDevice, runHasAccessory:x.runHasAccessory, runLeverPctBW:x.runLeverPctBW, runEasyPaceSec:x.runEasyPaceSec, runEvents:Array.isArray(x.runEvents)?x.runEvents:[], runDismissedDrops:Array.isArray(x.runDismissedDrops)?x.runDismissedDrops:[], runLeverMarks:Array.isArray(x.runLeverMarks)?x.runLeverMarks:[] }; STRAVA_SYNC={ connected:!!x.stravaConnected, last:x.stravaLastSyncedAt||null }; }).catch(function(e){ if(my!==MOUNT) return; console.error('profile load',e); PROFILE_ERR=(e&&e.code)||'load failed'; STD_PROFILE={}; STRAVA_SYNC={}; }); }
+function loadProfile(){ if(!UID) return Promise.resolve(); var my=MOUNT; return DB.collection('users').doc(UID).get().then(function(d){ if(my!==MOUNT) return; var x=d.exists?d.data():{}; PROFILE_ERR=null; STD_PROFILE={ weightLb:x.weightLb, runDevice:x.runDevice, runHasAccessory:x.runHasAccessory, runLeverPctBW:x.runLeverPctBW, runEasyPaceSec:x.runEasyPaceSec, runEvents:Array.isArray(x.runEvents)?x.runEvents:[], runDismissedDrops:Array.isArray(x.runDismissedDrops)?x.runDismissedDrops:[], runLeverMarks:Array.isArray(x.runLeverMarks)?x.runLeverMarks:[], runExcluded:Array.isArray(x.runExcluded)?x.runExcluded:[], runIncluded:(x.runIncluded&&typeof x.runIncluded==='object')?x.runIncluded:null, runWorkoutPaceSec:x.runWorkoutPaceSec }; STRAVA_SYNC={ connected:!!x.stravaConnected, last:x.stravaLastSyncedAt||null }; }).catch(function(e){ if(my!==MOUNT) return; console.error('profile load',e); PROFILE_ERR=(e&&e.code)||'load failed'; STD_PROFILE={}; STRAVA_SYNC={}; }); }
 
 /* ---------- performance/injury/downtime history events ---------- */
 // runEvents[] entry: { id, type:'race'|'injury'|'illness'|'nonrun'|'timeoff', ts, endTs?, note }.
@@ -1348,28 +1482,63 @@ function whatToLogHTML(){
     '</ul><p>Everything but races can take an end date to shade the whole span.</p></div>';
 }
 function evLabel(e){ return (EV_META[e.type]||EV_META.race)[0]+' · '+fmtSpan(e.ts,e.endTs); }
-// Inline field error + error toast; cleared on the field's next input.
-function evWarn(id,msg){ var f=$(id); if(f){ f.classList.add('rdx-df-err'); f.setAttribute('aria-invalid','true'); f.focus(); } toast(msg,{kind:'err'}); }
-function evClearErr(){ ['evDate','evEndDate'].forEach(function(id){ var f=$(id); if(f){ f.classList.remove('rdx-df-err'); f.removeAttribute('aria-invalid'); } }); }
+// Inline field error: red border + aria-invalid, the message in the form's hint line (#evHint, which
+// the date fields are described by — no new row), and an error toast as a second cue. Cleared on input.
+function evWarn(id,msg){ var f=$(id); if(f){ f.classList.add('rdx-df-err'); f.setAttribute('aria-invalid','true'); f.focus(); }
+  var h=$('evHint'); if(h){ h.textContent=msg; h.classList.add('rdx-field-err'); } toast(msg,{kind:'err'}); }
+function evClearErr(){ ['evDate','evEndDate'].forEach(function(id){ var f=$(id); if(f){ f.classList.remove('rdx-df-err'); f.removeAttribute('aria-invalid'); } });
+  var h=$('evHint'), t=$('evType'); if(h && h.classList.contains('rdx-field-err')){ h.classList.remove('rdx-field-err'); h.textContent=EV_HINT[t?t.value:'race']||''; } }
+var EV_END_MSG='The end date can’t be before the start — leave End empty for a one-day event.';
+// Injuries and illnesses (incl. non-running injuries) can't be dated ahead; races and planned breaks can.
+var EV_NO_FUTURE={injury:1, illness:1, nonrun:1};
+var EV_FUTURE_MSG='An injury or illness can’t be dated in the future.';
+function evFuture(type, d){ return !!(EV_NO_FUTURE[type] && d && d.getTime()>dayEnd(new Date()).getTime()); }
+// date inputs' max follows the type: today for injury/illness/non-running injury, open otherwise
+function evDateMax(type, ids){ var mx=EV_NO_FUTURE[type]?ymd(new Date()):''; ids.forEach(function(id){ var f=$(id); if(f){ if(mx) f.max=mx; else f.removeAttribute('max'); } }); }
+// Settings inputs (profile + What's included): an invalid entry is never stored — red border +
+// aria-invalid, the last good value put back, focus kept, and an error toast. Cleared on next input.
+function fieldErr(id,msg,restore){
+  var f=$(id); if(f){ f.value=(restore==null)?'':restore; f.classList.add('rdx-df-err'); f.setAttribute('aria-invalid','true'); f.focus(); }
+  toast(msg,{kind:'err'});
+}
+function fieldOk(f){ if(f){ f.classList.remove('rdx-df-err'); f.removeAttribute('aria-invalid'); } }
+// Read-modify-write of runEvents on the STORED list inside a transaction (updateProfileList), so a stale
+// tab or another device keeps its entries. fn gets the raw stored array — never events(), which re-maps
+// legacy UTC timestamps and would rewrite them. Toasts okMsg (+ Undo) at once; on failure an error toast,
+// and runEvents rolls back. Resolves true or the failure reason.
+function saveEvents(fn, okMsg, undo){
+  var my=MOUNT, n=++EV_SEQ, prev=STD_PROFILE.runEvents;
+  var p=updateProfileList('runEvents', fn, function(){ renderEventsList(); refresh(); }, false), sent=canonJSON(STD_PROFILE.runEvents);
+  if(okMsg) toast(okMsg, undo?{undo:undo}:null);
+  return p.then(function(r){
+    if(r===true || my!==MOUNT) return r;
+    toast('Couldn’t save ('+r+'). Nothing was changed.',{kind:'err'});
+    revertKey('runEvents', Array.isArray(prev)?prev:[], function(){ return my===MOUNT && EV_SEQ===n && canonJSON(STD_PROFILE.runEvents)===sent; });
+    return r;
+  });
+}
+function evAddFn(e){ return function(list){ return list.some(function(x){ return String(x.id)===String(e.id); })?list:list.concat([e]); }; }
 function evAdd(){
   evClearErr();
   var d=parseDate($('evDate').value);
   if(!d){ evWarn('evDate','Pick a date for the event.'); return; }
   var type=$('evType').value; if(!EV_META[type]) type='race';
+  if(evFuture(type,d)){ evWarn('evDate',EV_FUTURE_MSG); return; }
   var note=($('evNote').value||'').trim();
   var e={ id:Date.now(), type:type, ts:d.getTime(), note:note };
   if(type!=='race'){
     var end=parseDate($('evEndDate').value);
     if(end){
-      if(end.getTime()<=d.getTime()){ evWarn('evEndDate','The end date must be after the start.'); return; }
-      e.endTs=end.getTime();
+      if(end.getTime()<d.getTime()){ evWarn('evEndDate',EV_END_MSG); return; }
+      if(evFuture(type,end)){ evWarn('evEndDate',EV_FUTURE_MSG); return; }
+      if(end.getTime()>d.getTime()) e.endTs=end.getTime();   // End = Start is a one-day event
     }
   }
-  var evs=events().slice(); evs.push(e);
-  // a failed save rolls the event back (persist): put back what was typed, as the gap form does —
+  if(EV_EDIT!=null){ evSaveEdit(EV_EDIT, e); return; }
+  // a failed save rolls the event back (saveEvents): put back what was typed, as the gap form does —
   // unless a new note / end date has been typed since
   var my=MOUNT, typedNote=$('evNote').value, typedEnd=$('evEndDate').value;
-  persist({ runEvents:evs }, 'Logged: '+evLabel(e)).then(function(r){
+  saveEvents(evAddFn(e), 'Logged: '+evLabel(e)).then(function(r){
     if(r===true || my!==MOUNT) return;
     var nt=$('evNote'), en=$('evEndDate');
     if(nt && !nt.value) nt.value=typedNote;
@@ -1378,12 +1547,57 @@ function evAdd(){
   $('evNote').value=''; $('evEndDate').value='';
   renderEventsList(); refresh();
 }
+// Editing: a logged event's row loads it into the Events form; "+ add" reads "Save" and a Cancel link
+// appears. Saving replaces the stored entry by id (keeping the id) inside the same transaction; an
+// entry deleted meanwhile (another device) is added back as edited.
+function evFormMode(id){
+  EV_EDIT=id==null?null:String(id);
+  var add=$('evAdd'), cancel=$('evCancel'); if(!add) return;
+  add.textContent=EV_EDIT!=null?'Save':'+ add';
+  if(cancel) cancel.hidden=EV_EDIT==null;
+  Array.prototype.forEach.call($all('#eventsList .rdx-ev-pick'),function(b){
+    var on=b.getAttribute('data-id')===EV_EDIT; b.parentNode.classList.toggle('editing',on); b.setAttribute('aria-pressed',String(on)); });
+}
+function evEdit(id){
+  var e=events().filter(function(x){ return String(x.id)===String(id); })[0]; if(!e) return;
+  evClearErr();
+  var t=$('evType'); t.value=EV_META[e.type]?e.type:'race'; t.onchange();
+  $('evDate').value=ymd(new Date(e.ts));
+  $('evEndDate').value=(e.endTs!=null && t.value!=='race')?ymd(new Date(e.endTs)):'';
+  $('evNote').value=e.note||'';
+  evFormMode(e.id);
+  $('evDate').focus();
+}
+function evCancelEdit(focus){
+  var id=EV_EDIT; evFormMode(null);
+  $('evDate').value=ymd(new Date()); $('evEndDate').value=''; $('evNote').value=''; evClearErr();
+  if(focus){ var b=document.querySelector('#eventsList .rdx-ev-pick[data-id="'+id+'"]')||$('evType'); if(b) b.focus(); }
+}
+function evSaveEdit(id, e){
+  var old=events().filter(function(x){ return String(x.id)===String(id); })[0];
+  var fn=function(list){
+    var hit=false, out=list.map(function(x){
+      if(String(x.id)!==String(id)) return x;
+      hit=true; var o=Object.assign({},x,{type:e.type, ts:e.ts, note:e.note}); if(e.endTs!=null) o.endTs=e.endTs; else delete o.endTs; return o;
+    });
+    return hit?out:list.concat([Object.assign({},e,{id:old?old.id:e.id})]);
+  };
+  evFormMode(null);
+  saveEvents(fn, 'Saved: '+evLabel(e));
+  $('evNote').value=''; $('evEndDate').value='';
+  renderEventsList(); refresh();
+  var b=document.querySelector('#eventsList .rdx-ev-pick[data-id="'+id+'"]'); if(b) b.focus();
+}
 // by String id: data-id comes back as text, stored ids are numbers. A keyboard user's focus moves
 // to the next row's ✕ (or the Type select once the list is empty) — the pressed button is gone.
 function evDelete(id, kbd){
   var all=events(), e=all.filter(function(x){ return String(x.id)===String(id); })[0]; if(!e) return;
   var rows=Array.prototype.slice.call($all('#eventsList .rdx-ev-del')), at=rows.map(function(b){ return b.getAttribute('data-id'); }).indexOf(String(id));
-  persist({ runEvents:all.filter(function(x){ return x!==e; }) }, 'Removed: '+evLabel(e));
+  // Undo puts back the stored entry as it was (raw ts, not the display-remapped one)
+  var raw=(Array.isArray(STD_PROFILE.runEvents)?STD_PROFILE.runEvents:[]).filter(function(x){ return String(x.id)===String(id); })[0]||e;
+  if(EV_EDIT===String(id)) evCancelEdit(false);
+  saveEvents(function(list){ return list.filter(function(x){ return String(x.id)!==String(id); }); }, 'Removed: '+evLabel(e),
+    function(){ saveEvents(evAddFn(raw), 'Restored: '+evLabel(e)); renderEventsList(); refresh(); });
   renderEventsList(); refresh();
   if(!kbd) return;
   rows=$all('#eventsList .rdx-ev-del');
@@ -1396,10 +1610,14 @@ function renderEventsList(){
   if(tog) tog.hidden=!evs.length;
   if(!evs.length){ el.innerHTML=''; return; }
   el.innerHTML=evs.map(function(e){ var m=EV_META[e.type]||EV_META.race, when=fmtSpan(e.ts,e.endTs);
-    return '<div class="rdx-ev-row"><span class="rdx-ev-dot" style="background:'+m[1]+'"></span><span class="rdx-ev-type">'+m[0]+'</span><span class="rdx-ev-when">'+when+'</span>'+
-      (e.note?'<span class="rdx-ev-note">'+esc(e.note)+'</span>':'')+
+    var on=EV_EDIT===String(e.id);
+    return '<div class="rdx-ev-row'+(on?' editing':'')+'"><button type="button" class="rdx-ev-pick" data-id="'+esc(e.id)+'" aria-pressed="'+on+'" aria-label="Edit '+m[0]+' '+when+(e.note?', '+esc(e.note):'')+'">'+
+      '<span class="rdx-ev-dot" style="background:'+m[1]+'"></span><span class="rdx-ev-type">'+m[0]+'</span><span class="rdx-ev-when">'+when+'</span>'+
+      (e.note?'<span class="rdx-ev-note">'+esc(e.note)+'</span>':'')+'</button>'+
       '<button type="button" class="rdx-ev-del" data-id="'+esc(e.id)+'" aria-label="Remove '+m[0]+' '+when+'">✕</button></div>';
   }).join('');
+  // the event being edited was removed elsewhere (another device): drop out of edit mode
+  if(EV_EDIT!=null && !evs.some(function(e){ return String(e.id)===EV_EDIT; })) evCancelEdit(false);
 }
 // Show / Overlay selects, grouped. Values are METRICS indices ('load' = the load chart); hidden
 // metrics and ones the athlete's device can't record are left out; an ungrouped metric lands in Derived.
@@ -1410,24 +1628,39 @@ function metricGroups(){
 }
 function populateMetricSelects(){
   var v1=$('chartView'), v2=$('chartView2'); if(!v1) return;
-  var prev1=v1.value, prev2=v2.value, idx={}, groups=metricGroups();
+  var prev1=v1.value, prev2=v2.value, idx={}, groups=metricGroups(), rec={};
   METRICS.forEach(function(m,i){ idx[m.key]=i; });
+  // a metric no stored run carries is listed disabled "(not recorded)" (Impact Load is always computable)
+  METRICS.forEach(function(m){ rec[m.key]=m.key==='impact' || RAW.some(function(r){ var v=m.calc(r); return v!=null&&!isNaN(v); }); });
   var opts=function(withLoad){ return groups.map(function(g){
-    var o=g[1].map(function(k){ var i=idx[k], m=METRICS[i]; return (m&&!m.hide&&metricVisible(m))?'<option value="'+i+'">'+(k==='impact'?'Impact Load per run':m.label)+'</option>':''; }).join('');
+    var o=g[1].map(function(k){ var i=idx[k], m=METRICS[i]; if(!(m&&!m.hide&&metricVisible(m))) return '';
+      return '<option value="'+i+'"'+(rec[k]?'':' disabled')+'>'+(k==='impact'?'Impact Load per run':m.label)+(rec[k]?'':' (not recorded)')+'</option>'; }).join('');
     if(withLoad && g[0]==='Load') o='<option value="load">Load — 7-day vs 28-day base</option>'+o;
     return o?'<optgroup label="'+g[0]+'">'+o+'</optgroup>':'';
   }).join(''); };
   v1.innerHTML=opts(true);
   v2.innerHTML='<option value="">None</option>'+opts(false);
-  var has=function(sel,v){return Array.prototype.some.call(sel.options,function(o){return o.value===v;});};
+  var has=function(sel,v){return Array.prototype.some.call(sel.options,function(o){return o.value===v&&!o.disabled;});};
   v1.value=has(v1,prev1)?prev1:'load';
   v2.value=has(v2,prev2)?prev2:'';
+  syncOverlaySelect();
+}
+// The overlay can't repeat the main metric: its option is disabled, and a clash resets the overlay to None.
+function syncOverlaySelect(){
+  var v1=$('chartView'), v2=$('chartView2'); if(!v1||!v2) return;
+  Array.prototype.forEach.call(v2.options,function(o){ if(o.value==='') return; var nr=/ \(not recorded\)$/.test(o.textContent); o.disabled=nr||o.value===v1.value; });
+  if(v2.value!=='' && v2.value===v1.value) v2.value='';
 }
 
 /* ---------- chart math helpers ---------- */
 function acwrColor(a){ if(a==null)return 'var(--muted2)'; if(a>1.5)return 'var(--bad)'; if(a>1.3)return 'var(--gold)'; if(a<0.8)return 'var(--warn)'; return 'var(--good)'; }
 // Month ticks, at most maxTicks of them (4 on a phone-width chart, 8 otherwise).
 function axisTicks(t0,t1,maxTicks){
+  if(t1-t0<45*DAY){   // short span: weekly ticks from the first Monday ≥ t0 (month ticks would leave 0–1 labels)
+    var wk=[], c=new Date(t0); c.setHours(0,0,0,0); while(c.getDay()!==1 || c.getTime()<t0){ c.setDate(c.getDate()+1); c.setHours(0,0,0,0); }
+    for(;c.getTime()<=t1;c.setDate(c.getDate()+7)) wk.push(c.getTime());
+    if(wk.length>=2) return wk;
+  }
   var months=(t1-t0)/(30.44*DAY), cap=maxTicks||8;
   var steps=[1,2,3,6,12], step=12;
   for(var i=0;i<steps.length;i++){ if(Math.floor(months/steps[i])<=cap){ step=steps[i]; break; } }
@@ -1435,21 +1668,35 @@ function axisTicks(t0,t1,maxTicks){
   for(var y=y0;y<=y1;y++) for(var m=0;m<12;m+=step){ var t=new Date(y,m,1).getTime(); if(t>=t0&&t<=t1) out.push(t); }
   return out.length>=2 ? out : [t0,t1];
 }
-function axisLabel(ts,idx){ var d=new Date(ts); return MONTHS[d.getMonth()]+((d.getMonth()===0||idx===0)?" '"+String(d.getFullYear()).slice(2):''); }
+function axisLabel(ts,idx,short){ var d=new Date(ts); if(short) return MONTHS[d.getMonth()]+' '+d.getDate(); return MONTHS[d.getMonth()]+((d.getMonth()===0||idx===0)?" '"+String(d.getFullYear()).slice(2):''); }
 function smoothArr(vals,w){ var half=Math.floor(w/2); return vals.map(function(_,i){ var s=0,c=0; for(var j=Math.max(0,i-half);j<=Math.min(vals.length-1,i+half);j++){ s+=vals[j]; c++; } return s/c; }); }
 function coloredPath(xs,ys,cs,width){ var out='',cur=[],cc=null;
   for(var i=0;i<xs.length;i++){ var p=xs[i].toFixed(1)+','+ys[i].toFixed(1);
     if(cc===null){cc=cs[i];cur=[p];}
     else if(cs[i]===cc){cur.push(p);}
-    else { cur.push(p); out+='<polyline points="'+cur.join(' ')+'" fill="none" stroke="'+cc+'" stroke-width="'+width+'" stroke-linejoin="round" stroke-linecap="round"/>'; cur=[p]; cc=cs[i]; } }
-  if(cur.length>1) out+='<polyline points="'+cur.join(' ')+'" fill="none" stroke="'+cc+'" stroke-width="'+width+'" stroke-linejoin="round" stroke-linecap="round"/>';
+    else { cur.push(p); out+='<polyline points="'+cur.join(' ')+'" fill="none" style="stroke:'+cc+'" stroke-width="'+width+'" stroke-linejoin="round" stroke-linecap="round"/>'; cur=[p]; cc=cs[i]; } }
+  if(cur.length>1) out+='<polyline points="'+cur.join(' ')+'" fill="none" style="stroke:'+cc+'" stroke-width="'+width+'" stroke-linejoin="round" stroke-linecap="round"/>';
   return out;
 }
-// 7-day line: cyan inside the band, gold above it, red past 1.5 (hex: SVG presentation attributes).
-function acuteSegColor(acwr){ if(acwr==null) return '#00e5c8'; if(acwr>1.5) return '#f55050'; if(acwr>1.3) return '#f5c842'; return '#00e5c8'; }
+// 7-day line: accent inside the band, gold above it, red past 1.5. Series tokens (.rdx scope) resolve to the
+// brand hues in dark and the ≥3:1 inks in light; drawn through style="stroke/fill:…" so var() resolves.
+function acuteSegColor(acwr){ if(acwr==null) return 'var(--rdx-s1)'; if(acwr>1.5) return 'var(--rdx-spike)'; if(acwr>1.3) return 'var(--rdx-hot)'; return 'var(--rdx-s1)'; }
 // Y gridline step: n steps that cover vmax, on a readable number (…, 1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10, …).
 function niceStep(vmax,n){ var raw=vmax/n, p=Math.pow(10,Math.floor(Math.log(raw)/Math.LN10)), f=raw/p;
   return [1,1.5,2,2.5,3,4,5,6,8,10].filter(function(x){ return x>=f-1e-9; })[0]*p; }
+// Snap a metric series' [lo,hi] outward to 3 round steps (the chart draws 4 gridlines). Pace steps are
+// whole seconds; a flat series pads by one step so an integer metric never prints a label twice.
+function niceBounds(s, flat){
+  var m=s.m, range=s.hi-s.lo, PACE=[5,10,15,20,30,60,120], st;
+  var next=function(x){ if(m.pace){ var n=PACE.filter(function(p){ return p>x; })[0]; return n||x*2; } return niceStep(x*1.0001,1); };
+  if(m.pace){ st=PACE.filter(function(p){ return p*3>=range; })[0]||Math.ceil(range/180)*60; }
+  else st=niceStep(Math.max(range,3*Math.pow(10,-(m.dec||0))),3);
+  var a=Math.floor(s.lo/st+1e-9)*st, guard=0;
+  if(flat) a-=st;
+  while(a+3*st<s.hi-1e-9 && guard++<30){ st=next(st); a=Math.floor(s.lo/st+1e-9)*st; if(flat) a-=st; }
+  if(m.zeroFill && s.lo>=0 && a<0) a=0;
+  s.lo=a; s.hi=a+3*st;
+}
 function tickFmt(m,v){ if(m.pace)return fmtPace(v); if(Math.abs(v)>=100)return Math.round(v); return v.toFixed(m.dec===0?0:(m.dec>=2?2:1)); }
 function quantile(sorted,q){ var pos=(sorted.length-1)*q, base=Math.floor(pos), rest=pos-base; return sorted[base+1]!==undefined ? sorted[base]+rest*(sorted[base+1]-sorted[base]) : sorted[base]; }
 function smoothPts(pts){ var w=Math.max(3,Math.min(21,Math.round(pts.length/8))), half=Math.floor(w/2); return pts.map(function(p,i){ var s=0,c=0; for(var j=Math.max(0,i-half);j<=Math.min(pts.length-1,i+half);j++){ s+=pts[j].v; c++; } return {ts:p.ts,v:s/c}; }); }
@@ -1606,7 +1853,7 @@ function renderHero(){
     '<div class="rdx-hero-side">'+
       '<p class="rdx-hero-cap">Recent load · IAD mi per day, through today</p>'+
       '<div class="rdx-stat-grid">'+
-        statTile('Last day', d1, 'IAD mi', col1, r1!=null?r1.toFixed(1)+'× biggest day (28d)':'')+
+        statTile('Last day', d1, 'IAD mi', d1>0?col1:null, r1!=null?r1.toFixed(1)+'× biggest day (28d)':'')+
         statTile('3-day avg', d3, 'IAD mi/day', col3, r3!=null?r3.toFixed(1)+'× biggest 3-day avg (28d)':'')+
         statTile('7-day avg', d7, 'IAD mi/day', col7, r7!=null?r7.toFixed(1)+'× 28-day base':'')+
         statTile('28-day base', d28, 'IAD mi/day', null, who()+' average day')+
@@ -1622,6 +1869,22 @@ function renderHero(){
   // HERO_HELP keeps the toggle's state across refresh() re-renders
   $('heroHelpBtn').addEventListener('click',function(){ HERO_HELP=!HERO_HELP; this.setAttribute('aria-expanded',String(HERO_HELP)); $('heroHelp').hidden=!HERO_HELP; });
 }
+// Muted notes BESIDE the hero (#heroNotes is a sibling of #hero, so the hero's locked words and numbers
+// are untouched): the coach view's framing, a baseline that is still forming, a week with no runs.
+// Demo scenarios skip the data notes (they are not the athlete's data).
+function renderHeroNotes(){
+  var el=$('heroNotes'); if(!el) return;
+  var notes=[], runs=RAW.length?typeRuns():[];
+  if(ROLE==='coach') notes.push('As the athlete sees it');
+  if(!DEMO && runs.length){
+    var first=Infinity, recent=false;
+    runs.forEach(function(r){ if(r.ts<first) first=r.ts; var a=daysAgo(r.ts); if(a>=0 && a<7) recent=true; });
+    var days=daysAgo(first)+1;
+    if(days>=1 && days<28) notes.push('Baseline still forming — '+days+' of 28 days');
+    if(!recent) notes.push('No runs in the last 7 days');
+  }
+  el.textContent=notes.join(' · '); el.hidden=!notes.length;
+}
 // State tint as TEXT: the brand good/warn/bad/gold fail contrast on light surfaces — use the ink tokens.
 function ink(c){ return {'var(--good)':'var(--rdx-good-ink)','var(--warn)':'var(--rdx-warn-ink)','var(--bad)':'var(--rdx-bad-ink)','var(--gold)':'var(--rdx-gold-ink)'}[c]||c; }
 // Admin-only scenario switcher above the hero (demo control).
@@ -1633,7 +1896,7 @@ function renderDemoBar(){
     return '<span class="rdx-chip'+(on?' on':'')+'" data-demo="'+it.key+'">'+it.label+'</span>';
   }).join('');
   Array.prototype.forEach.call(el.querySelectorAll('.rdx-chip'),function(c){
-    c.onclick=function(){ DEMO=this.getAttribute('data-demo')||null; renderHero(); renderDemoBar(); };
+    c.onclick=function(){ DEMO=this.getAttribute('data-demo')||null; renderHero(); renderHeroNotes(); renderDemoBar(); };
   });
 }
 
@@ -1641,12 +1904,15 @@ function renderDemoBar(){
 function renderChart(){
   var sel=$('chartView'); if(!sel) return;
   var v=sel.value, isLoad=(v==='load'), m=METRICS[+v];
-  $('chartView2Wrap').style.display=isLoad?'none':'flex';
-  $('dispWrap').style.display=isLoad?'none':'flex';
+  $('chartView2Wrap').hidden=isLoad; $('dispWrap').hidden=isLoad;
+  var cap=$('chartCapTxt');
+  if(cap) cap.textContent=isLoad ? 'A load measure, not an injury prediction. The lines are weighted averages, so they can differ slightly from the plain averages in Today. '
+    : 'One easy flat mile = 1 IAD mi; harder or hillier miles count for more. A load measure, not an injury prediction. ';
+  $('chartCaption').hidden=!(isLoad||(m&&m.key==='impact'));
   $('chartTitle').textContent=isLoad?'Load over time':(m?m.label:'Metric')+' over time';
   $('chartSub').textContent=isLoad
-    ? who('Your')+' 7-day load against '+who('their')+' 28-day base, in IAD mi per day. Staying inside the band is the steady zone.'
-    : m ? m.desc+(m.zeroFill?'. Rest days read 0.':'. One point per run.') : '';
+    ? who('Your')+' 7-day load against '+who('their')+' 28-day base, in IAD mi per day, with the safe band shaded.'
+    : m ? m.desc+(m.zeroFill?'. Rest days read 0.':'. One value per run.') : '';
   if(isLoad) renderLoadChart(); else renderMetricChart();
 }
 // Geometry at the box's real width: the SVG draws 1:1, so 11px axis text stays 11px on a phone.
@@ -1658,8 +1924,9 @@ function chartDims(box,padR){
 }
 // Month labels along the bottom; one too close to the right edge anchors at its end so it isn't clipped.
 function xTicksSVG(t0,t1,D,xOf){
+  var short=t1-t0<45*DAY;
   return axisTicks(t0,t1,D.maxTicks).map(function(ts,idx){ if(ts<t0||ts>t1) return ''; var x=xOf(ts);
-    return '<text x="'+x.toFixed(1)+'" y="'+(D.H-8)+'" text-anchor="'+(x>D.W-28?'end':'middle')+'">'+axisLabel(ts,idx)+'</text>'; }).join('');
+    return '<text x="'+x.toFixed(1)+'" y="'+(D.H-8)+'" text-anchor="'+(x>D.W-28?'end':'middle')+'">'+axisLabel(ts,idx,short)+'</text>'; }).join('');
 }
 // Legend entries for the logged-event types drawn in [t0,t1] (same in-range test as the overlay),
 // in their locked colours and labels; skip = types already in the legend as a marker.
@@ -1678,22 +1945,26 @@ function evOverlaySVG(t0,t1,padL,innerW,padT,innerH){
   var ev=events(), i=0, drawn=ev.filter(function(e){ var end=(e.endTs!=null&&e.endTs>e.ts)?e.endTs:null; return e.ts!=null && (end||e.ts)>=t0 && e.ts<=t1; });
   return RunLoad.eventOverlaySVG(ev,t0,t1,padL,innerW,padT,innerH).replace(/<title>[\s\S]*?<\/title>/g,function(m){ var e=drawn[i++]; return e?'<title>'+esc(evLabel(e)+(e.note?' — '+e.note:''))+'</title>':m; });
 }
-function evCapReset(box){ CAP_PIN=box.querySelector('svg title')?'Tap a shaded band or marker to see what it was.':''; var c=$('chartEvCap'); if(c) c.textContent=CAP_PIN; }
+var RANGE_BAD_MSG='Pick a valid date range — From must be before To.';
+function evCapReset(box){ CAP_PIN=box.querySelector('svg title')?(window.matchMedia&&matchMedia('(hover:hover)').matches?'Hover or click a shaded band or marker to see what it was.':'Tap a shaded band or marker to see what it was.'):''; var c=$('chartEvCap'); if(c) c.textContent=CAP_PIN; }
 function renderLoadChart(){
   var legEl=$('chartLegend'), chartEl=$('chartBox');
   if(!chartEl) return;
-  chartEl.onmousemove=chartEl.onmouseleave=chartEl.onpointerdown=null;   // the metric chart's tooltip handlers
+  chartEl.onmousemove=chartEl.onmouseleave=chartEl.onpointerdown=chartEl.onkeydown=null;   // the other chart's tooltip/readout handlers
   // Padded through today like the hero, so the acute curve decays across rest days since the
   // last run instead of stopping on it; the To-date filter below still trims it to the range.
   var full=RunLoad.extendTimeline(RunLoad.loadTimeline(typeRuns(), LOAD_PARAMS), new Date(), LOAD_PARAMS);
   if(full.length<2){ legEl.innerHTML=''; chartEl.innerHTML='<div class="rdx-chart-empty">Not enough history to model load yet.</div>'; evCapReset(chartEl); return; }
   var from=parseDate($('tFrom').value), to=parseDate($('tTo').value);
+  if(from&&to&&dayEnd(to).getTime()<from.getTime()){ legEl.innerHTML=''; chartEl.innerHTML='<div class="rdx-chart-empty">'+RANGE_BAD_MSG+'</div>'; evCapReset(chartEl); return; }
   var f0=from?from.getTime():full[0].ts, f1=to?dayEnd(to).getTime():full[full.length-1].ts;
-  var tl=full.filter(function(d){return d.ts>=f0&&d.ts<=f1;});
-  if(tl.length<2) tl=full;                    // window too narrow — show everything
+  var tl=full.filter(function(d){return d.ts>=f0&&d.ts<=f1;}), tooShort=false;
+  if(tl.length<2){ tl=full; tooShort=true; }   // window too narrow — show everything
   var last=tl[tl.length-1];
   var D=chartDims(chartEl,12), W=D.W, H=D.H, padL=D.padL, padR=D.padR, padT=D.padT, innerW=D.innerW, innerH=D.innerH;
-  var t0=tl[0].ts,t1=last.ts,span=Math.max(1,t1-t0);
+  // one domain rule with the metric chart: the axis starts at the selected From, even when the
+  // history starts later (the lines are drawn only where data exists, with a "History starts" mark)
+  var t0=(!tooShort && from && f0<tl[0].ts) ? f0 : tl[0].ts, t1=last.ts, span=Math.max(1,t1-t0);
   // 4 gridlines (0 + 3 steps) on round numbers; the top one clears the band's upper edge
   var step=niceStep(Math.max.apply(null,tl.map(function(d){return Math.max(d.acute,d.chronic*1.3);}))*1.05||1, 3), ymax=step*3;
   var xOf=function(ts){return padL+((ts-t0)/span)*innerW;};
@@ -1702,27 +1973,36 @@ function renderLoadChart(){
   var xs=tl.map(function(d){return xOf(d.ts);});
   var bandTop=tl.map(function(d,i){return xs[i].toFixed(1)+','+yOf(chronicS[i]*1.3).toFixed(1);});
   var bandBot=tl.map(function(d,i){return xs[i].toFixed(1)+','+yOf(chronicS[i]*0.8).toFixed(1);}).reverse();
-  var band='<polygon points="'+bandTop.concat(bandBot).join(' ')+'" fill="rgba(34,199,138,0.16)" stroke="rgba(34,199,138,0.3)" stroke-width="0.5"/>';
-  var chronicLn='<polyline points="'+tl.map(function(d,i){return xs[i].toFixed(1)+','+yOf(chronicS[i]).toFixed(1);}).join(' ')+'" fill="none" stroke="#8b7cf8" stroke-width="2.2" stroke-linejoin="round"/>';
+  var band='<polygon points="'+bandTop.concat(bandBot).join(' ')+'" style="fill:var(--rdx-band);stroke:var(--rdx-band-line)" stroke-width="0.5"/>';
+  var chronicLn='<polyline points="'+tl.map(function(d,i){return xs[i].toFixed(1)+','+yOf(chronicS[i]).toFixed(1);}).join(' ')+'" fill="none" style="stroke:var(--rdx-s2)" stroke-width="2.2" stroke-linejoin="round"/>';
   var acuteLn=coloredPath(xs, acuteS.map(yOf), tl.map(function(d){return acuteSegColor(d.acwr);}), 2.6);
-  var grid='<text class="rdx-ax-lbl" x="2" y="13">IAD mi/day</text>';
+  var grid='<text class="rdx-ax-lbl" x="2" y="13">IAD mi/day</text>', dec=0;   // as many decimals as the step needs — never "0, 0, 0"
+  while(dec<6 && Math.abs(step*Math.pow(10,dec)-Math.round(step*Math.pow(10,dec)))>1e-9) dec++;
+  if(t0<tl[0].ts){ var hx=xs[0].toFixed(1);
+    grid+='<line class="rdx-today" x1="'+hx+'" y1="'+(padT-4)+'" x2="'+hx+'" y2="'+(padT+innerH)+'"/>'+
+      '<text class="rdx-ax-lbl" x="'+hx+'" y="'+(padT-8)+'" text-anchor="'+(xs[0]>W/2?'end':'start')+'">History starts '+fmtMD(tl[0].ts)+'</text>'; }
   for(var g=0;g<=3;g++){ var yy=padT+innerH-g/3*innerH;
     grid+='<line class="rdx-grid" x1="'+padL+'" y1="'+yy.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+yy.toFixed(1)+'"/>'+
-      '<text x="'+(padL-6)+'" y="'+(yy+4).toFixed(1)+'" text-anchor="end">'+(Math.round(step*g*10)/10)+'</text>'; }
+      '<text x="'+(padL-6)+'" y="'+(yy+4).toFixed(1)+'" text-anchor="end">'+(g===0?'0':String(parseFloat((step*g).toFixed(dec))))+'</text>'; }
   // the range ends today: mark it (the hero reads this same day)
   var todayM='';
   if(ymd(new Date(last.ts))===ymd(new Date())){ var tx=xs[xs.length-1].toFixed(1);
     todayM='<line class="rdx-today" x1="'+tx+'" y1="'+(padT-4)+'" x2="'+tx+'" y2="'+(padT+innerH)+'"/>'+
       '<text class="rdx-ax-lbl rdx-today-lbl" x="'+tx+'" y="'+(padT-8)+'" text-anchor="end">Today</text>'+
-      '<circle class="rdx-today-dot" cx="'+tx+'" cy="'+yOf(acuteS[acuteS.length-1]).toFixed(1)+'" r="4.5" fill="'+acuteSegColor(last.acwr)+'"/>'; }
+      '<circle class="rdx-today-dot" cx="'+tx+'" cy="'+yOf(acuteS[acuteS.length-1]).toFixed(1)+'" r="4.5" style="fill:'+acuteSegColor(last.acwr)+'"/>'; }
+  var aMin=Math.min.apply(null,acuteS), aMax=Math.max.apply(null,acuteS);
+  var loadAria='Load over time, '+fmtDay(t0)+' – '+fmtDay(t1)+': '+(ymd(new Date(last.ts))===ymd(new Date())?'today':'on '+fmtDay(last.ts))+' 7-day load '+last.acute.toFixed(1)+' vs 28-day base '+last.chronic.toFixed(1)+' IAD mi per day; 7-day load ranged '+aMin.toFixed(1)+'–'+aMax.toFixed(1)+' in this range. Use the left and right arrow keys to read each day.';
   var li=function(sw,txt){ return '<span class="rdx-legend-item">'+sw+txt+'</span>'; };
-  legEl.innerHTML=li('<span class="rdx-legend-sw" style="background:#00e5c8"></span>','7-day load')+
-    li('<span class="rdx-legend-sw" style="background:#8b7cf8"></span>','28-day base')+
+  legEl.innerHTML=li('<span class="rdx-legend-sw" style="background:var(--rdx-s1)"></span>','7-day load')+
+    li('<span class="rdx-legend-sw" style="background:var(--rdx-s2)"></span>','28-day base')+
     li('<span class="rdx-legend-sw rdx-legend-band"></span>','Safe band (0.8–1.3× base)')+
-    (tl.some(function(d){ return d.acwr!=null&&d.acwr>1.3; })?li('<span class="rdx-legend-sw" style="background:linear-gradient(90deg,#f5c842,#f55050)"></span>','Above the band'):'')+
+    (tl.some(function(d){ return d.acwr!=null&&d.acwr>1.3; })?li('<span class="rdx-legend-sw" style="background:linear-gradient(90deg,var(--rdx-hot),var(--rdx-spike))"></span>','Above the band'):'')+
     evLegendHTML(t0,t1);
-  chartEl.innerHTML='<svg class="rdx-chart-svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Load over time: 7-day load against the 28-day base">'+grid+band+chronicLn+acuteLn+xTicksSVG(t0,t1,D,xOf)+todayM+evOverlaySVG(t0,t1,padL,innerW,padT,innerH)+'</svg>';
+  var xh='<g class="rdx-xh" visibility="hidden"><line class="rdx-xh-ln" y1="'+padT+'" y2="'+(padT+innerH)+'"/><circle class="rdx-xh-dot" r="4.5"/></g>';
+  chartEl.innerHTML='<svg class="rdx-chart-svg rdx-load-svg" viewBox="0 0 '+W+' '+H+'" role="img" tabindex="0" aria-label="'+esc(loadAria)+'">'+grid+band+chronicLn+acuteLn+xTicksSVG(t0,t1,D,xOf)+todayM+evOverlaySVG(t0,t1,padL,innerW,padT,innerH)+xh+'</svg>';
+  wireLoadReadout(chartEl, tl, xs, acuteS.map(yOf), W, padL, innerW);
   evCapReset(chartEl);
+  if(tooShort){ CAP_PIN='Range too short — showing all history.'; var cp=$('chartEvCap'); if(cp) cp.textContent=CAP_PIN; }
 }
 function renderMetricChart(){
   var chart=$('chartBox'), legend=$('chartLegend');
@@ -1734,13 +2014,13 @@ function renderMetricChart(){
   var i1=$('chartView').value, i2=$('chartView2').value;
   var from=parseDate($('tFrom').value), to=parseDate($('tTo').value);
   var series=[];
-  if(i1!=='') series.push({m:METRICS[+i1],color:'#00e5c8'});
-  if(i2!==''&&i2!==i1) series.push({m:METRICS[+i2],color:'#8b7cf8'});
+  if(i1!=='') series.push({m:METRICS[+i1],color:'var(--rdx-s1)'});
+  if(i2!==''&&i2!==i1) series.push({m:METRICS[+i2],color:'var(--rdx-s2)'});
   var evMap=new Map(); events().forEach(function(e){ if(e.type!=='injury'&&e.type!=='race') return; evMap.set(ymd(new Date(e.ts)), e.type); });
   var evType=function(p){ return evMap.get(ymd(p.date))||null; };
   var maxIds=RunLoad.maxEffortIds(typeRuns());
   if(!series.length){ bail('Select a metric to plot.'); return; }
-  if(!from||!to||dayEnd(to).getTime()<=from.getTime()){ bail('Pick a valid date range.'); return; }
+  if(!from||!to||dayEnd(to).getTime()<=from.getTime()){ bail(from&&to?RANGE_BAD_MSG:'Pick a valid date range.'); return; }
   var hideOut=$('hideOutliers').classList.contains('on');
   var smooth=$('smooth').classList.contains('on');
   var showPts=$('points').classList.contains('on');
@@ -1748,7 +2028,7 @@ function renderMetricChart(){
   // exactly local midnight count, and extend the end through the whole To day — otherwise a
   // run logged the morning of the To date (ts past midnight) never plots.
   var runs=runsInF(new Date(from.getTime()-1),dayEnd(to));
-  var evColor=function(t){ return t==='injury'?'#f55050':'#22c78a'; };
+  var evColor=function(t){ return t==='injury'?'var(--rdx-spike)':'var(--rdx-good-ink)'; };
   series.forEach(function(s){
     var mapped=runs.map(function(r){return {ts:r.ts,v:s.m.calc(r),date:r.date,id:r.id,dist:r.distMi,pace:r.paceSec,title:r.title};}).sort(function(a,b){return a.ts-b.ts;});
     // A run that exists but lacks this metric (no pod/strap that day, manual entry) splits
@@ -1793,14 +2073,16 @@ function renderMetricChart(){
       s.line=s.line.concat(zeros).sort(function(a,b){return a.ts-b.ts;});
     }
     var scaleSrc = s.dots.length ? s.dots : all;
-    if(scaleSrc.length){ var mn=Math.min.apply(null,scaleSrc.map(function(p){return p.v;})), mx=Math.max.apply(null,scaleSrc.map(function(p){return p.v;})); if(mn===mx){mn-=1;mx+=1;} var pad=(mx-mn)*0.08; s.lo=mn-pad; s.hi=mx+pad; if(s.m.zeroFill) s.lo=Math.min(s.lo,0); }
+    if(scaleSrc.length){ var mn=Math.min.apply(null,scaleSrc.map(function(p){return p.v;})), mx=Math.max.apply(null,scaleSrc.map(function(p){return p.v;})); var pad=(mx-mn)*0.08; s.lo=mn-pad; s.hi=mx+pad; if(s.m.zeroFill) s.lo=Math.min(s.lo,0); niceBounds(s, mn===mx); }
   });
   var have=series.filter(function(s){return s.dots.length;});
   if(!have.length){ bail('No runs with this metric in range.'); return; }
   var D=chartDims(chart,series.length>1?46:12), W=D.W, H=D.H, padL=D.padL, padR=D.padR, padT=D.padT, innerW=D.innerW, innerH=D.innerH;
   var t0=from.getTime(),t1=dayEnd(to).getTime();
   var xOf=function(ts){return padL+((ts-t0)/(t1-t0))*innerW;};
-  var yOf=function(v,s){return padT+innerH-((v-s.lo)/(s.hi-s.lo))*innerH;};
+  // pace reads faster-on-top (a lower /mi value is the better, higher point)
+  var yOf=function(v,s){ var f=(v-s.lo)/(s.hi-s.lo); return s.m.pace ? padT+f*innerH : padT+innerH-f*innerH; };
+  var valAt=function(s,f){ return s.m.pace ? s.hi-(s.hi-s.lo)*f : s.lo+(s.hi-s.lo)*f; };   // value at height fraction f
   // 4 gridlines; the left axis (and its unit, top-left) belongs to the first plotted series, the
   // right one (purple) to the overlay
   var s2=series.length>1&&series[1].dots.length?series[1]:null;
@@ -1809,8 +2091,8 @@ function renderMetricChart(){
   for(var g=0;g<=3;g++){
     var f=g/3, yy=(padT+innerH-f*innerH).toFixed(1);
     grid+='<line class="rdx-grid" x1="'+padL+'" y1="'+yy+'" x2="'+(W-padR)+'" y2="'+yy+'"/>';
-    grid+='<text x="'+(padL-6)+'" y="'+(parseFloat(yy)+4).toFixed(1)+'" text-anchor="end">'+tickFmt(have[0].m,have[0].lo+(have[0].hi-have[0].lo)*f)+'</text>';
-    if(s2) grid+='<text class="rdx-ax2" x="'+(W-padR+6)+'" y="'+(parseFloat(yy)+4).toFixed(1)+'" text-anchor="start">'+tickFmt(s2.m,s2.lo+(s2.hi-s2.lo)*f)+'</text>';
+    grid+='<text x="'+(padL-6)+'" y="'+(parseFloat(yy)+4).toFixed(1)+'" text-anchor="end">'+tickFmt(have[0].m,valAt(have[0],f))+'</text>';
+    if(s2) grid+='<text class="rdx-ax2" x="'+(W-padR+6)+'" y="'+(parseFloat(yy)+4).toFixed(1)+'" text-anchor="start">'+tickFmt(s2.m,valAt(s2,f))+'</text>';
   }
   var xlab=xTicksSVG(t0,t1,D,xOf);
   var ea=function(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); };
@@ -1824,17 +2106,17 @@ function renderMetricChart(){
     segs.forEach(function(segPts){
       var lineSrc=smooth?smoothPts(segPts):segPts;
       if(lineSrc.length>1){ var pts=lineSrc.map(function(p){return xOf(p.ts).toFixed(1)+','+yOf(p.v,s).toFixed(1);});
-        lines+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+s.color+'" stroke-width="'+(smooth?2.6:2)+'" stroke-linejoin="round" stroke-linecap="round"/>'; }
-      else if(lineSrc.length===1&&!showPts){ lines+='<circle cx="'+xOf(lineSrc[0].ts).toFixed(1)+'" cy="'+yOf(lineSrc[0].v,s).toFixed(1)+'" r="2.4" fill="'+s.color+'"/>'; }
+        lines+='<polyline points="'+pts.join(' ')+'" fill="none" style="stroke:'+s.color+'" stroke-width="'+(smooth?2.6:2)+'" stroke-linejoin="round" stroke-linecap="round"/>'; }
+      else if(lineSrc.length===1&&!showPts){ lines+='<circle cx="'+xOf(lineSrc[0].ts).toFixed(1)+'" cy="'+yOf(lineSrc[0].v,s).toFixed(1)+'" r="2.4" style="fill:'+s.color+'"/>'; }
     });
     lines+=s.dots.map(function(p){
       var t=evType(p), isMax=!t&&maxIds.has(p.id), cx=xOf(p.ts).toFixed(1), cy=yOf(p.v,s).toFixed(1);
-      if(t) return '<circle cx="'+cx+'" cy="'+cy+'" r="3.8" fill="'+evColor(t)+'" stroke="'+haloStroke+'" stroke-width="1.2"/>';
+      if(t) return '<circle cx="'+cx+'" cy="'+cy+'" r="3.8" style="fill:'+evColor(t)+'" stroke="'+haloStroke+'" stroke-width="1.2"/>';
       // Hard-effort rings draw regardless of the Points toggle, same as race/injury dots —
       // the outlier filter promises to keep detected hard efforts visible, and with Points
       // off the ring is the only thing marking them (their values are excluded from the line).
-      if(isMax) return '<circle cx="'+cx+'" cy="'+cy+'" r="3.8" fill="none" stroke="#f5c842" stroke-width="1.6"/>';
-      return showPts ? '<circle cx="'+cx+'" cy="'+cy+'" r="2.4" fill="'+s.color+'" fill-opacity="'+(smooth?'0.5':'1')+'"/>' : '';
+      if(isMax) return '<circle cx="'+cx+'" cy="'+cy+'" r="3.8" fill="none" style="stroke:var(--rdx-hot)" stroke-width="1.6"/>';
+      return showPts ? '<circle cx="'+cx+'" cy="'+cy+'" r="2.4" style="fill:'+s.color+'" fill-opacity="'+(smooth?'0.5':'1')+'"/>' : '';
     }).join('');
     hits+=s.dots.map(function(p){
       var t=evType(p), kind=t||(maxIds.has(p.id)?'max':''), cx=xOf(p.ts).toFixed(1), cy=yOf(p.v,s).toFixed(1);
@@ -1847,16 +2129,57 @@ function renderMetricChart(){
   var mk={};
   have.forEach(function(s){ s.dots.forEach(function(p){ var t=evType(p); if(t) mk[t]=1; else if(maxIds.has(p.id)) mk.max=1; }); });
   var li=function(sw,txt){ return '<span class="rdx-legend-item">'+sw+txt+'</span>'; };
-  legend.innerHTML=series.map(function(s){ return li('<span class="rdx-legend-sw" style="background:'+s.color+'"></span>', s.m.label+(s.m.unit?' ('+s.m.unit+')':'')); }).join('')+
-    (mk.race?li('<span class="rdx-legend-dot" style="background:#22c78a"></span>','Race'):'')+
-    (mk.injury?li('<span class="rdx-legend-dot" style="background:#f55050"></span>','Injury'):'')+
+  legend.innerHTML=series.map(function(s){ var none=!s.dots.length;
+      return li('<span class="rdx-legend-sw" style="background:'+s.color+(none?';opacity:.4':'')+'"></span>', s.m.label+(s.m.unit?' ('+s.m.unit+')':'')+(none?' — no data in this range':'')); }).join('')+
+    (mk.race?li('<span class="rdx-legend-dot" style="background:var(--rdx-good-ink)"></span>','Race'):'')+
+    (mk.injury?li('<span class="rdx-legend-dot" style="background:var(--rdx-spike)"></span>','Injury'):'')+
     (mk.max?li('<span class="rdx-legend-ring"></span>','Hard effort'):'')+
     evLegendHTML(t0,t1,mk);
-  chart.innerHTML='<svg class="rdx-chart-svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Run metric trend">'+grid+xlab+lines+evOverlaySVG(t0,t1,padL,innerW,padT,innerH)+hits+'</svg>';
+  var av=have[0].dots.map(function(p){ return p.v; });
+  var metricAria=have[0].m.label+' over time, '+fmtDay(t0)+' – '+fmtDay(t1)+': '+have[0].dots.length+' run'+(have[0].dots.length===1?'':'s')+', '+tickFmt(have[0].m,Math.min.apply(null,av))+'–'+tickFmt(have[0].m,Math.max.apply(null,av))+(have[0].m.unit?' '+have[0].m.unit:'')+'.';
+  chart.innerHTML='<svg class="rdx-chart-svg" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+esc(metricAria)+'">'+grid+xlab+lines+evOverlaySVG(t0,t1,padL,innerW,padT,innerH)+hits+'</svg>';
   wireChartTip(chart);
   evCapReset(chart);
 }
 // dataset values come back attribute-DECODED (ctx holds the run title) — re-escape before innerHTML.
+// Load-chart readout (D3): hover, tap or ←/→ (Shift = a week, Home/End) on the focused chart moves a
+// crosshair to a day and shows "date · 7-day · base · ratio". Numbers are the model's daily values (the
+// EWMA series the legend names, unsmoothed); the crosshair dot sits on the drawn (smoothed) line.
+function loadBandTxt(r){ if(r==null) return 'base still forming'; return r>1.5?'well above the band':r>1.3?'above the band':r<0.8?'below the band':'in the safe band'; }
+function wireLoadReadout(chart, tl, xs, ys, W, padL, innerW){
+  var svg=chart.querySelector('.rdx-load-svg'), g=svg&&svg.querySelector('.rdx-xh'); if(!g) return;
+  var ln=g.querySelector('line'), dot=g.querySelector('circle'), cur=-1;
+  var tip=document.createElement('div'); tip.className='rdx-chart-tip rdx-load-tip'; tip.setAttribute('role','status'); chart.appendChild(tip);
+  var near=function(x){ var b=0, bd=Infinity; for(var i=0;i<xs.length;i++){ var dd=Math.abs(xs[i]-x); if(dd<bd){ bd=dd; b=i; } } return b; };
+  var hide=function(){ cur=-1; g.setAttribute('visibility','hidden'); tip.classList.remove('on'); };
+  var show=function(i){
+    i=Math.max(0,Math.min(tl.length-1,i)); cur=i; var d=tl[i], x=xs[i].toFixed(1);
+    ln.setAttribute('x1',x); ln.setAttribute('x2',x); dot.setAttribute('cx',x); dot.setAttribute('cy',ys[i].toFixed(1));
+    dot.style.fill=acuteSegColor(d.acwr); g.setAttribute('visibility','visible');
+    tip.innerHTML='<div class="rdx-tip-top">'+esc(fmtDay(d.ts))+'</div>'+
+      '<div class="rdx-tip-val">7-day load <b>'+d.acute.toFixed(1)+'</b> · base <b>'+d.chronic.toFixed(1)+'</b> IAD mi/day</div>'+
+      '<div class="rdx-tip-ctx">'+(d.acwr!=null?d.acwr.toFixed(2)+'× base · ':'')+loadBandTxt(d.acwr)+'</div>';
+    tip.classList.add('on');
+    var r=chart.getBoundingClientRect(), sr=svg.getBoundingClientRect(), px=sr.left-r.left+xs[i]*sr.width/W, left=px+12;
+    if(left+tip.offsetWidth>r.width) left=px-tip.offsetWidth-12;
+    tip.style.left=Math.max(0,left)+'px'; tip.style.top=Math.max(0,sr.top-r.top+8)+'px';
+  };
+  var at=function(e){ var sr=svg.getBoundingClientRect(); if(!sr.width) return -1;
+    var x=(e.clientX-sr.left)*W/sr.width; return (x<padL-8||x>padL+innerW+8)?-1:near(x); };
+  chart.onmousemove=function(e){ var i=at(e); if(i<0) hide(); else if(i!==cur) show(i); };
+  chart.onmouseleave=hide;
+  chart.onpointerdown=function(e){ if(e.pointerType==='mouse') return; var i=at(e); if(i<0) hide(); else show(i); };
+  chart.onkeydown=function(e){
+    if(e.target!==svg) return;
+    var k=e.key, step=e.shiftKey?7:1, i=cur<0?tl.length-1:cur;
+    if(k==='ArrowLeft') i=cur<0?i:i-step; else if(k==='ArrowRight') i=cur<0?i:i+step;
+    else if(k==='Home') i=0; else if(k==='End') i=tl.length-1;
+    else if(k==='Escape'){ if(cur>=0){ e.stopPropagation(); hide(); } return; }
+    else return;
+    e.preventDefault(); show(i);
+  };
+  svg.addEventListener('blur',hide);
+}
 // The marker chip keeps its locked hex as the border; its TEXT takes the ink token (the hexes fail on a light tooltip).
 function chartTipHTML(c){
   var k=c.dataset.kind, m={race:['Race','#22c78a','var(--rdx-good-ink)'],injury:['Injury','#f55050','var(--rdx-bad-ink)'],max:['Hard Effort','#f5c842','var(--rdx-gold-ink)']}[k];
@@ -1874,7 +2197,7 @@ function wireChartTip(chart){
     if(x+tip.offsetWidth>r.width) x=e.clientX-r.left-tip.offsetWidth-14;
     if(y+tip.offsetHeight>r.height) y=e.clientY-r.top-tip.offsetHeight-14;
     tip.style.left=Math.max(0,x)+'px'; tip.style.top=Math.max(0,y)+'px'; };
-  chart.onmousemove=show;
+  chart.onmousemove=show; chart.onkeydown=null;
   chart.onpointerdown=function(e){ if(e.pointerType!=='mouse') show(e); };
   chart.onmouseleave=function(){ tip.classList.remove('on'); };
 }
@@ -1913,6 +2236,10 @@ function watchChartSize(container){
 var PATTERN_COPY={ ramp:'Weekly load climbing week after week', acwr:'Recent load well above the usual base', longrun:'One run much longer than the usual long run',
   intensity:'A bigger share of hard sessions than usual', monotony:'Running most days with little variation or rest', downhill:'Far more downhill than usual' };
 // "injury/injuries" when only injuries were counted, "illness/illnesses" when only illnesses, else "setback/setbacks".
+// Fired patterns in the stats table's order (the cards follow it): most setbacks, then lift, then registry order.
+function patOrder(patterns){ var ord={}; InjuryPatterns.PATTERNS.forEach(function(p,i){ ord[p.id]=i; });
+  return patterns.filter(function(p){ return p.injHits>0; }).sort(function(a,b){ return b.injHits-a.injHits || (b.lift||0)-(a.lift||0) || ord[a.id]-ord[b.id]; }); }
+var DIS_STATUS=[];   // per stored dismissal: {k:'explained',label} | {k:'gone'} | {} (set by renderPatternsBox)
 function patNoun(n, inj, ill){ var one=n===1; return (inj&&ill)?(one?'setback':'setbacks'):(ill&&!inj)?(one?'illness':'illnesses'):(one?'injury':'injuries'); }
 function casesNoun(cs){ var ill=cs.filter(function(c){ return c.event.type==='illness'; }).length; return patNoun(cs.length, cs.length-ill, ill); }
 function pctOf(x){ return Math.round(x*100)+'%'; }
@@ -1927,61 +2254,74 @@ function patLeadHTML(res){
   if(!res.cases.some(function(c){ return c.ok&&c.firedIds.length; }))
     return '<p class="rdx-pat-lead">Nothing unusual showed up before '+who()+' logged '+noun+' — the lead-up'+(m.nEval===1?'':'s')+' looked like typical training.</p>';
   if(m.nEval<2) return '';   // one case that fired: its card is the finding
-  // most repeated pattern; ties go to the one rarer in normal weeks
-  var top=res.patterns.filter(function(p){ return p.injHits>=2; }).sort(function(a,b){ return b.injHits-a.injHits || (a.ctrlRate==null?1:a.ctrlRate)-(b.ctrlRate==null?1:b.ctrlRate); })[0];
-  if(!top) return '<p class="rdx-pat-lead">No single pattern showed up before more than one '+patNoun(1,m.nEvalInj,m.nEvalIll)+'.</p>';
+  var rep=res.patterns.filter(function(p){ return p.injHits>=2; });
+  if(!rep.length) return '<p class="rdx-pat-lead">Each '+patNoun(1,m.nEvalInj,m.nEvalIll)+' had a different lead-up — no pattern has repeated yet.</p>';
+  // headline only a repeated pattern at least 1.5× as common before setbacks as in normal weeks (with
+  // enough normal weeks to say so); most repeated first, ties to the one rarer in normal weeks
+  var top=rep.filter(function(p){ return !p.lowConf && p.lift!=null && p.lift>=1.5; }).sort(function(a,b){ return b.injHits-a.injHits || (a.ctrlRate==null?1:a.ctrlRate)-(b.ctrlRate==null?1:b.ctrlRate); })[0];
+  if(!top) return '<p class="rdx-pat-lead">No pattern stood out from '+who()+' normal weeks.</p>';
   return '<p class="rdx-pat-lead">Seen most often: <b>'+esc(top.name)+'</b> — before '+top.injHits+' of '+top.injEval+' '+patNoun(top.injEval,top.injEval-top.illEval,top.illEval)+
-    (top.ctrlRate!=null?', vs '+pctOf(top.ctrlRate)+' of '+who()+' normal weeks':'')+'.</p>';
+    (top.ctrlRate!=null&&!top.lowConf?', vs '+pctOf(top.ctrlRate)+' of '+who()+' normal weeks':'')+'.</p>';
 }
 function moreTxt(open,n){ return (open?'Hide ':'Show ')+n+' older'; }
 // B + C. a card per case where something fired (newest first, 3 then "Show n older"); "Also logged"
 // (nothing fired, or outside the stored history) is the grid's last item
 function setbackCardsHTML(res){
-  var rate={}, newest=function(a,b){ return b.event.ts-a.event.ts; };
-  res.patterns.forEach(function(p){ rate[p.id]=p.ctrlRate; });
+  var newest=function(a,b){ return b.event.ts-a.event.ts; }, rank={};
+  patOrder(res.patterns).forEach(function(p,i){ rank[p.id]=i; });   // card flags in the stats table's row order
   var hit=res.cases.filter(function(c){ return c.ok&&c.firedIds.length; }).sort(newest);
   var html=hit.map(function(c,i){ var e=c.event;
     return '<article class="rdx-sb-card'+(i>=3?' rdx-sb-old':'')+'" tabindex="-1"'+(i>=3&&!SB_MORE?' hidden':'')+'>'+
       '<h3 class="rdx-sb-hd">'+evDot(e.type)+'<span>'+evLabel(e)+'</span></h3>'+
-      (e.note?'<p class="rdx-sb-note" title="'+esc(e.note)+'">'+esc(e.note)+'</p>':'')+
+      (e.note?'<p class="rdx-sb-note">'+esc(e.note)+'</p>':'')+
       '<div class="rdx-sb-lbl">In the weeks before</div><ul class="rdx-sb-flags">'+
-      c.flags.filter(function(f){ return f.fired; }).map(function(f){ var r=rate[f.id];
-        return '<li><b>'+esc(f.name)+'</b><span class="v">'+esc(f.value)+'</span>'+(r!=null?'<span class="r">seen in '+pctOf(r)+' of '+who()+' normal weeks</span>':'')+'</li>'; }).join('')+
+      c.flags.filter(function(f){ return f.fired; }).sort(function(a,b){ return (rank[a.id]!=null?rank[a.id]:99)-(rank[b.id]!=null?rank[b.id]:99); }).map(function(f){
+        return '<li><b>'+esc(f.name)+'</b><span class="v">'+esc(f.value)+'</span></li>'; }).join('')+
       '</ul>'+(e.type==='illness'?'<p class="rdx-sb-ill">Checked against overtraining-type patterns only.</p>':'')+'</article>';
   }).join('');
-  if(hit.length>3) html+='<div class="rdx-sb-more"><button type="button" class="rdx-link rdx-sb-older" data-f="sbolder" aria-expanded="'+SB_MORE+'">'+moreTxt(SB_MORE,hit.length-3)+'</button></div>';
-  return '<div class="rdx-sb-grid">'+html+alsoHTML(res.cases.filter(function(c){ return !(c.ok&&c.firedIds.length); }).sort(newest), res)+'</div>';
+  if(hit.length>3) html+='<div class="rdx-sb-more"><button type="button" class="rdx-linkbtn rdx-sb-older" data-f="sbolder" aria-expanded="'+SB_MORE+'">'+moreTxt(SB_MORE,hit.length-3)+'</button></div>';
+  return '<div class="rdx-sb-grid">'+html+alsoHTML(res.cases.filter(function(c){ return !(c.ok&&c.firedIds.length); }).sort(newest), res, {nHit:hit.length})+'</div>';
 }
-function alsoHTML(cs, res){
+// Why a case has no lead-up: dated in the future, before the stored history, past its end, or too early
+// in it for the 6-week warm-up ('ok' = it was evaluated).
+function whyOf(c, res){ var e=c.event;
+  return c.ok?'ok' : e.ts>dayEnd(new Date()).getTime()?'future' : e.ts<res.meta.t0?'before' : e.ts>res.meta.t1+7*DAY?'after' : 'early'; }
+function alsoHTML(cs, res, o){
   if(!cs.length) return '';
-  var t0=res.meta.t0, t1=res.meta.t1;
-  return '<div class="rdx-sb-also"><h3 class="rdx-sb-also-hd">Also logged</h3><ul>'+cs.map(function(c,i){ var e=c.event;
+  o=o||{};
+  // no fired cards and nothing but evaluated cases: the lead already says "nothing unusual", so rows skip it
+  var quietOk=!o.nHit && cs.every(function(c){ return c.ok; });
+  return '<div class="rdx-sb-also"><h3 class="rdx-sb-also-hd">'+(o.nHit?'Also logged':'Logged setbacks')+'</h3><ul>'+cs.map(function(c,i){ var e=c.event;
     // why a case has no lead-up: before the history, past its end, or too early in it for the 6-week warm-up
-    var why=c.ok?'Nothing unusual in the weeks before.'
-      : e.ts<t0?'Before the stored run history — import the weeks before it to include it.'
-      : e.ts>t1+7*DAY?'After the last stored run — import the newer runs to include it.'
-      : 'Too close to the start of the stored run history — import the weeks before it to include it.';
-    return '<li'+(i>=5?' class="rdx-also-old"':'')+' tabindex="-1"'+(i>=5&&!ALSO_ALL?' hidden':'')+'><div class="t">'+evDot(e.type)+'<span>'+evLabel(e)+(e.note?' · '+esc(e.note):'')+'</span></div><div class="s">'+why+'</div></li>';
-  }).join('')+'</ul>'+(cs.length>5?'<button type="button" class="rdx-link rdx-also-all" data-f="alsoall" aria-expanded="'+ALSO_ALL+'">'+(ALSO_ALL?'Show fewer':'Show all')+'</button>':'')+'</div>';
+    var why={ ok:'Nothing unusual in the weeks before.',
+      future:'This date is in the future — check it in Data & settings → Events.',
+      before:'Before the stored run history — import the weeks before it to include it.',
+      after:'After the last stored run — import the newer runs to include it.',
+      early:'Too close to the start of the stored run history — import the weeks before it to include it.' }[whyOf(c,res)];
+    return '<li'+(i>=5?' class="rdx-also-old"':'')+' tabindex="-1"'+(i>=5&&!ALSO_ALL?' hidden':'')+'><div class="t">'+evDot(e.type)+'<span>'+evLabel(e)+(e.note?' · '+esc(e.note):'')+'</span></div>'+((o.noWhy||(quietOk&&c.ok))?'':'<div class="s">'+why+'</div>')+'</li>';
+  }).join('')+'</ul>'+(cs.length>5?'<button type="button" class="rdx-linkbtn rdx-also-all" data-f="alsoall" aria-expanded="'+ALSO_ALL+'">'+(ALSO_ALL?'Show fewer':'Show all')+'</button>':'')+'</div>';
 }
 // D. the statistics, OPEN by default: fired patterns only, then pairs that co-fired before ≥2 cases.
 // A bordered table: each rate is a % + count over a thin bar on one 0–100% scale (cyan = before
 // setbacks, grey = normal weeks), then the ratio. No pills, no red: "×N" only with ≥3 cases and
 // enough normal weeks to compare. On phones each row stacks into a small card.
 function patTableHTML(res){
-  var m=res.meta, fired=res.patterns.filter(function(p){ return p.injHits>0; });
+  var m=res.meta, fired=patOrder(res.patterns);
   if(!fired.length) return '';
   var noun=patNoun(m.nEval,m.nEvalInj,m.nEvalIll), weeks=m.nControls+' normal week'+(m.nControls===1?'':'s');
   var bar=function(r, cls){ return '<span class="bar'+(cls?' '+cls:'')+'" aria-hidden="true"><i style="width:'+Math.min(100,Math.max(0,r*100)).toFixed(1)+'%"></i></span>'; };
   var row=function(name, sub, hits, den, dnoun, rate, lift, low){
     var caseRate=den?hits/den:0;
     // ×N only for a pattern MORE common before setbacks: "×0.3 as often" reads as a finding when it's the opposite
-    var x=low?'<span class="x x-na">—</span><span class="m">few normal weeks to compare</span>'
-      :(den>=3&&lift!=null&&lift>=1.05)?'<span class="x">×'+(lift>=10?Math.round(lift):lift.toFixed(1))+'</span><span class="m">as often</span>'
-      :'<span class="x x-na">—</span><span class="m">'+(den<3?'too few to compare':'no more often')+'</span>';
+    // ×N only when the pattern preceded ≥2 setbacks out of ≥3 — one coincidence is not a multiple;
+    // a pattern never seen in normal weeks says so instead of a multiple built on the 0.5-week floor
+    var x=low?'<span class="x x-na">—</span><span class="m">few normal weeks</span>'
+      :(rate===0&&hits>0)?'<span class="x x-na">—</span><span class="m">not seen in normal weeks</span>'
+      :(hits>=2&&den>=3&&lift!=null&&lift>=1.05)?'<span class="x">×'+(lift>=10?Math.round(lift):lift.toFixed(1))+'</span><span class="m">as often</span>'
+      :'<span class="x x-na">—</span><span class="m">'+(den<3?'needs 3+ setbacks':hits<2?'seen only once':'no more often')+'</span>';
     return '<tr><td><span class="nm">'+name+'</span>'+(sub?'<span class="d">'+sub+'</span>':'')+'</td>'+
       '<td class="c-rate"><span class="lbl">Before '+dnoun+'</span><span class="r"><b>'+pctOf(caseRate)+'</b><small>'+hits+' of '+den+' '+dnoun+'</small></span>'+bar(caseRate,'case')+'</td>'+
-      '<td class="c-rate"><span class="lbl">Normal weeks</span>'+(rate==null?'<span class="r"><b class="x-na">—</b></span>':'<span class="r"><b>'+pctOf(rate)+'</b><small>of weeks</small></span>'+bar(rate))+'</td>'+
+      '<td class="c-rate"><span class="lbl">Normal weeks</span>'+(low?'<span class="r"><b class="x-na">—</b><small>too few normal weeks</small></span>':rate==null?'<span class="r"><b class="x-na">—</b></span>':'<span class="r"><b>'+pctOf(rate)+'</b><small>of weeks</small></span>'+bar(rate))+'</td>'+
       '<td class="c-x"><span class="lbl">Ratio</span>'+x+'</td></tr>';
   };
   var rows=fired.map(function(p){ return row(esc(p.name), esc(PATTERN_COPY[p.id]||p.desc), p.injHits, p.injEval, patNoun(p.injEval,p.injEval-p.illEval,p.illEval), p.ctrlRate, p.lift, p.lowConf); });
@@ -1997,11 +2337,15 @@ function patTableHTML(res){
     var lift=(n&&m.nControls&&c.ctrlRate!=null)?(c.injHits/n)/Math.max(c.ctrlRate,0.5/m.nControls):null;
     rows.push(row(esc(nm[ids[0]])+' + '+esc(nm[ids[1]]), '', c.injHits, n, casesNoun(den), c.ctrlRate, lift, lowAll));
   });
-  return '<details class="rdx-more rdx-pat-more" id="patStats"'+(PAT_STATS?' open':'')+'><summary data-f="patsum">How often each pattern showed up · '+m.nEval+' '+noun+' vs '+weeks+'</summary><div class="rdx-more-body">'+
-    '<p>Each lead-up was compared with '+weeks+' sampled from the rest of '+who()+' history, skipping the weeks around each setback.'+
-      (m.nEvalIll?' Illnesses are checked only against overtraining-type patterns: ramp, load spike, intensity and monotony.':'')+'</p>'+
-    '<div class="rdx-pt-wrap"><table class="rdx-pt"><thead><tr><th scope="col">Pattern</th><th scope="col" class="c-rate">Before '+noun+'</th><th scope="col" class="c-rate">In normal weeks</th><th scope="col" class="c-x">Ratio</th></tr></thead><tbody>'+rows.join('')+'</tbody></table></div>'+
-    (m.nEval<3?'<p class="rdx-pt-cav">Based on '+m.nEval+' '+noun+' — treat these as clues, not trends.</p>':'')+
+  var injOnly={longrun:1,downhill:1}, mixed=m.nEvalIll>0 && fired.some(function(p){ return injOnly[p.id]; });
+  var cav=(m.nEval<3?'Based on '+m.nEval+' '+noun+' — treat these as clues, not trends. ':'')+'Normal weeks skip the weeks around each setback.'+
+    (m.nEvalIll?' Illnesses are checked only against overtraining-type patterns: ramp, load spike, intensity and monotony.':'')+
+    (mixed?' Long-run jump and downhill are checked on injuries only, so their % is out of injuries.':'');
+  return '<details class="rdx-more rdx-pat-more" id="patStats"'+(PAT_STATS?' open':'')+'><summary data-f="patsum">How often each pattern showed up · '+m.nEval+' '+noun+(m.nControls?' vs '+weeks:'')+'</summary><div class="rdx-more-body">'+
+    (m.nControls ? '<p>Each lead-up vs '+weeks+' from the rest of '+who()+' history.</p>'
+      : '<p>'+who('Your')+' logged setbacks and their recovery cover almost all of the stored history, so there are no normal weeks to compare against.</p>')+
+    '<div class="rdx-pt-wrap"><table class="rdx-pt"><thead><tr><th scope="col">Pattern</th><th scope="col" class="c-rate">Before</th><th scope="col" class="c-rate">In normal weeks</th><th scope="col" class="c-x">Ratio</th></tr></thead><tbody>'+rows.join('')+'</tbody></table></div>'+
+    '<p class="rdx-pt-cav">'+cav+'</p>'+
   '</div></details>';
 }
 // E. Training gaps to review: open drops (newest first) + the dismissed line. Rendered on every branch
@@ -2009,8 +2353,8 @@ function patTableHTML(res){
 function gapsHTML(drops, dis){
   if(!drops.length && !dis.length) return '';
   var n=drops.length;
-  return '<details class="rdx-more rdx-gaps" id="rdxGaps"'+(GAPS_OPEN?' open':'')+'>'+
-    '<summary id="rdxGapsHd"><h3 class="rdx-gaps-hd">'+(n?'Training gaps to review · '+n:'No open training gaps · '+dis.length+' dismissed')+'</h3></summary><div class="rdx-gaps-body">'+
+  return '<details class="rdx-more rdx-gaps'+(n?'':' is-clear')+'" id="rdxGaps"'+(GAPS_OPEN?' open':'')+'>'+
+    '<summary id="rdxGapsHd"><h3 class="rdx-gaps-hd">'+(n?'Training gaps to review · '+n:'Training gaps · none open')+'</h3></summary><div class="rdx-gaps-body">'+
     (n?'<p class="rdx-gaps-intro">'+who('Your')+' volume fell sharply in these weeks and nothing logged explains it. If one was a setback, log it and it joins this report. A busy week or travel, not a setback? Dismiss it and it won’t be flagged again.</p>'+
       '<ul class="rdx-gap-list">'+drops.map(function(d,i){
         var w=d.weeks+(d.capped?'+':'')+' week'+(d.weeks===1&&!d.capped?'':'s');
@@ -2029,14 +2373,16 @@ function dismissedHTML(dis){
   var order=dis.map(function(x,i){ return i; }).sort(function(a,b){ return dis[b].t0-dis[a].t0; });
   return '<div class="rdx-dis">'+dis.length+' dismissed · <button type="button" class="rdx-linkbtn rdx-dis-tog" data-f="distog" aria-expanded="'+DIS_OPEN+'" aria-controls="rdxDisList">'+(DIS_OPEN?'hide':'show')+'</button>'+
     '<ul class="rdx-dis-list" id="rdxDisList"'+(DIS_OPEN?'':' hidden')+'>'+order.map(function(i){ var x=dis[i], when=fmtSpan(x.t0,x.t1);
-      return '<li class="rdx-dis-item"><span class="rdx-dis-when">'+when+'</span>'+'<span class="rdx-dis-at">'+(isFinite(x.at)?'<span aria-hidden="true">· </span>dismissed '+fmtMD(x.at):'')+'</span>'+
+      var st=DIS_STATUS[i]||{}, meta=st.k==='explained'?'now explained by '+st.label : st.k==='gone'?'no longer detected' : isFinite(x.at)?'dismissed '+fmtMD(x.at):'';
+      return '<li class="rdx-dis-item"><span class="rdx-dis-when">'+when+'</span>'+'<span class="rdx-dis-at">'+(meta?'<span aria-hidden="true">· </span>'+meta:'')+'</span>'+
         '<button type="button" class="rdx-btn rdx-btn-ghost rdx-btn-sm rdx-dis-restore" data-i="'+i+'" aria-label="Restore the '+when+' drop">Restore</button></li>';
     }).join('')+'</ul></div>';
 }
 // F. disclaimer + what-to-log, under every branch that shows findings or gaps
-function patFootHTML(){
-  return '<p class="rdx-note rdx-pat-foot">A look back, not a prediction: these are patterns that showed up before '+who()+' logged setbacks — correlations, not causes — and a handful of setbacks is a small sample. '+
-    'What to log: overuse injuries → Injury · acute injuries not from running → Non-Running Injury · significant illnesses → Illness · planned breaks → Planned Downtime.</p>';
+// full: the branch shows findings, so it carries the one disclaimer; the what-to-log line is always there
+function patFootHTML(full){
+  return (full?'<p class="rdx-note rdx-pat-foot">A look back, not a prediction — correlations, not causes, from a small sample.</p>':'')+
+    '<p class="rdx-note">What to log: overuse injuries → Injury · acute injuries not from running → Non-Running Injury · significant illnesses → Illness · planned breaks → Planned Downtime.</p>';
 }
 // Persist a dismissal change — fn(list) → list, run on the stored copy (updateProfileList) — with a
 // toast (o.msg, Undo when o.undo), and re-render. A failed write raises an error toast and rolls the
@@ -2071,40 +2417,50 @@ function saveDismissed(fn, o){
 // re-render of the report (a dismissal, a settings change, another device's write) re-opens it as it was.
 function gapFormHTML(d, st){
   var opt=function(t){ return '<option value="'+t+'"'+(st.type===t?' selected':'')+'>'+EV_META[t][0]+'</option>'; };
-  return '<div class="rdx-gap-form" id="rdxGapForm" role="group" aria-label="Log the '+gapWhen(d)+' gap">'+
+  var mx=EV_NO_FUTURE[st.type]?' max="'+ymd(new Date())+'"':'';
+  return '<div class="rdx-gap-form'+(d?'':' rdx-gap-form-past')+'" id="rdxGapForm" role="group" aria-label="'+(d?'Log the '+gapWhen(d)+' gap':'Log a past injury')+'">'+
     '<div class="rdx-gf-fields">'+
       '<div class="rdx-ctl"><label for="gfType">What was it?</label><select id="gfType" required aria-describedby="gfHint">'+
         '<option value="" disabled'+(st.type?'':' selected')+'>Choose a type…</option>'+['injury','illness','nonrun','race','timeoff'].map(opt).join('')+'</select></div>'+
-      '<div class="rdx-ctl"><label for="gfStart">Start</label><input type="date" id="gfStart" value="'+esc(st.start)+'"></div>'+
-      '<div class="rdx-ctl" id="gfEndCtl"'+(st.type==='race'?' hidden':'')+'><label for="gfEnd">End (optional)</label><input type="date" id="gfEnd" value="'+esc(st.end)+'"></div>'+
-      '<div class="rdx-ctl rdx-gf-note"><label for="gfNote">Note</label><input type="text" id="gfNote" placeholder="e.g. calf strain / family trip" value="'+esc(st.note)+'"></div>'+
+      '<div class="rdx-ctl"><label for="gfStart">Start</label><input type="date" id="gfStart" aria-describedby="gfHint" value="'+esc(st.start)+'"'+mx+'></div>'+
+      '<div class="rdx-ctl" id="gfEndCtl"'+(st.type==='race'?' hidden':'')+'><label for="gfEnd">End (optional)</label><input type="date" id="gfEnd" aria-describedby="gfHint" value="'+esc(st.end)+'"'+mx+'></div>'+
+      '<div class="rdx-ctl rdx-gf-note"><label for="gfNote">Note</label><input type="text" id="gfNote" placeholder="'+esc(EV_PH[st.type]||'Optional')+'" value="'+esc(st.note)+'"></div>'+
     '</div>'+
     '<p class="rdx-gf-hint" id="gfHint">'+(EV_HINT[st.type]||'')+'</p>'+
     '<div class="rdx-gf-acts"><button type="button" class="rdx-btn rdx-btn-ghost" id="gfCancel">Cancel</button>'+
       '<button type="button" class="rdx-btn" id="gfSave"'+(EV_META[st.type]?'':' disabled')+'>Save event</button></div>'+
   '</div>';
 }
+// row = the gap row (the form goes inside it, under its buttons), or for the past-injury form
+// (d null, st.t0 'past') the "+ Log a past injury" button: the form goes right under its button row.
 function openGapForm(row, d, st, focus){
   var box=$('patternsBox'); if(!box||!row) return;
   closeGapForm(false);
   GAP_FORM=st;
-  row.insertAdjacentHTML('beforeend', gapFormHTML(d, st));
-  var b=row.querySelector('.rdx-gap-log'); b.setAttribute('aria-expanded','true'); b.setAttribute('aria-controls','rdxGapForm');
+  var b;
+  if(d){ row.insertAdjacentHTML('beforeend', gapFormHTML(d, st)); b=row.querySelector('.rdx-gap-log'); }
+  else { b=row; (row.closest('.rdx-pat-act')||row).insertAdjacentHTML('afterend', gapFormHTML(null, st)); }
+  b.setAttribute('aria-expanded','true'); b.setAttribute('aria-controls','rdxGapForm');
   wireGapForm(d);
-  if(focus) $('gfType').focus();
+  if(focus) $(d?'gfType':'gfStart').focus();
+}
+function gapFormBtn(f){
+  return f.classList.contains('rdx-gap-form-past') ? ($('patternsBox')||document).querySelector('.rdx-pat-logpast') : f.parentNode.querySelector('.rdx-gap-log');
 }
 function closeGapForm(focusBtn){
   GAP_FORM=null;
   var f=$('rdxGapForm'); if(!f) return;
-  var b=f.parentNode.querySelector('.rdx-gap-log');
+  var b=gapFormBtn(f);
   f.parentNode.removeChild(f);
   if(b){ b.setAttribute('aria-expanded','false'); b.removeAttribute('aria-controls'); if(focusBtn) b.focus(); }
 }
 function wireGapForm(d){
   var type=$('gfType'), start=$('gfStart'), end=$('gfEnd'), note=$('gfNote'), save=$('gfSave');
-  var clr=function(){ [start,end].forEach(function(f){ f.classList.remove('rdx-df-err'); f.removeAttribute('aria-invalid'); }); };
-  var bad=function(f,msg){ f.classList.add('rdx-df-err'); f.setAttribute('aria-invalid','true'); f.focus(); toast(msg,{kind:'err'}); };
-  type.onchange=function(){ var v=type.value, race=v==='race'; GAP_FORM.type=v; $('gfEndCtl').hidden=race; if(race){ end.value=''; GAP_FORM.end=''; } $('gfHint').textContent=EV_HINT[v]||''; save.disabled=!EV_META[v]; };
+  var hint=$('gfHint');
+  var clr=function(){ [start,end].forEach(function(f){ f.classList.remove('rdx-df-err'); f.removeAttribute('aria-invalid'); });
+    if(hint.classList.contains('rdx-field-err')){ hint.classList.remove('rdx-field-err'); hint.textContent=EV_HINT[type.value]||''; } };
+  var bad=function(f,msg){ f.classList.add('rdx-df-err'); f.setAttribute('aria-invalid','true'); f.focus(); hint.textContent=msg; hint.classList.add('rdx-field-err'); toast(msg,{kind:'err'}); };
+  type.onchange=function(){ var v=type.value, race=v==='race'; GAP_FORM.type=v; $('gfEndCtl').hidden=race; evDateMax(v,['gfStart','gfEnd']); clr(); if(race){ end.value=''; GAP_FORM.end=''; } hint.classList.remove('rdx-field-err'); hint.textContent=EV_HINT[v]||''; note.placeholder=EV_PH[v]||'Optional'; save.disabled=!EV_META[v]; };
   start.oninput=start.onchange=function(){ GAP_FORM.start=start.value; clr(); };
   end.oninput=end.onchange=function(){ GAP_FORM.end=end.value; clr(); };
   note.oninput=function(){ GAP_FORM.note=note.value; };
@@ -2115,25 +2471,32 @@ function wireGapForm(d){
     var t=type.value; if(save.disabled || !EV_META[t]) return;
     clr();
     var s=parseDate(start.value); if(!s){ bad(start,'Pick a start date.'); return; }
+    if(evFuture(t,s)){ bad(start,EV_FUTURE_MSG); return; }
     var nv=(note.value||'').trim();
-    var e={ id:Date.now(), type:t, ts:s.getTime(), note:nv||(t==='injury'?'Setback — unexplained training drop':'') };
+    var e={ id:Date.now(), type:t, ts:s.getTime(), note:nv };
     if(t!=='race'){
       var en=parseDate(end.value);
-      if(en){ if(en.getTime()<=s.getTime()){ bad(end,'The end date must be after the start.'); return; } e.endTs=en.getTime(); }
+      if(en){ if(en.getTime()<s.getTime()){ bad(end,EV_END_MSG); return; } if(evFuture(t,en)){ bad(end,EV_FUTURE_MSG); return; } if(en.getTime()>s.getTime()) e.endTs=en.getTime(); }
     }
     save.disabled=true;   // double-click guard: the row re-renders away under the pointer
-    var st=Object.assign({},GAP_FORM), my=MOUNT, evs=events().slice(); evs.push(e);
+    var st=Object.assign({},GAP_FORM), my=MOUNT;
     GAP_FORM=null;
-    // a failed save rolls the event back (persist), which brings the gap back: re-open it as typed
-    persist({ runEvents:evs }, 'Logged: '+evLabel(e)).then(function(r){ if(r!==true && my===MOUNT && !GAP_FORM) GAP_FORM=st; });
+    // a failed save rolls the event back (saveEvents), which brings the gap back: re-open it as typed
+    saveEvents(evAddFn(e), 'Logged: '+evLabel(e)).then(function(r){ if(r!==true && my===MOUNT && !GAP_FORM) GAP_FORM=st; });
     renderEventsList(); refresh();
     if(ev.detail===0){ var h=$('rdxGapsHd')||$('patHead'); if(h) h.focus({preventScroll:true}); }
   };
 }
 function wireDrops(box, drops){
   var on=function(sel,fn){ Array.prototype.forEach.call(box.querySelectorAll(sel),function(b){ b.onclick=fn; }); };
-  on('.rdx-pat-logpast', function(){ openSettings('events',{type:'injury'}); });
+  // inline past-injury form under the button (type Injury, Start empty); a second click folds it
+  on('.rdx-pat-logpast', function(){
+    if(GAP_FORM && GAP_FORM.t0==='past'){ closeGapForm(false); return; }
+    openGapForm(this, null, { t0:'past', type:'injury', start:'', end:'', note:'' }, true);
+  });
   on('.rdx-pat-import', function(){ openSettings('data'); });
+  on('.rdx-pat-events', function(){ openSettings('events'); });
+  on('.rdx-pat-included', function(){ openSettings('included'); });
   // show/hide in place (no re-render), so the button keeps focus and can fold them back up
   var fold=function(btn, sel, open, txt){ Array.prototype.forEach.call(box.querySelectorAll(sel),function(c){ c.hidden=!open; }); btn.textContent=txt; btn.setAttribute('aria-expanded',String(open)); };
   on('.rdx-sb-older', function(){ SB_MORE=!SB_MORE; fold(this,'.rdx-sb-old',SB_MORE,moreTxt(SB_MORE,box.querySelectorAll('.rdx-sb-old').length)); });
@@ -2162,14 +2525,20 @@ function wireDrops(box, drops){
   if(tog&&list) tog.onclick=function(){ DIS_OPEN=!DIS_OPEN; list.hidden=!DIS_OPEN; tog.textContent=DIS_OPEN?'hide':'show'; tog.setAttribute('aria-expanded',String(DIS_OPEN)); };
   on('.rdx-dis-restore', function(e){
     if(e.detail>1 || Date.now()-DIS_T<500) return;
-    var x=dismissedDrops()[+this.getAttribute('data-i')]; if(!x) return;
+    var di=+this.getAttribute('data-i'), x=dismissedDrops()[di]; if(!x) return;
     DIS_T=Date.now();
+    var st=DIS_STATUS[di]||{}, when=fmtSpan(x.t0,x.t1);
+    var msg=st.k==='explained'?'Restored '+when+' — a logged event already explains this drop, so it stays off the list.'
+      : st.k==='gone'?'Restored '+when+' — this drop is no longer detected.' : 'Restored '+when+' — it’s back in Training gaps to review.';
     // by value, not index: the stored list may be ordered differently
     saveDismissed(function(list){ return list.filter(function(y){ return !sameDis(y,x); }); },
-      { kbd:e.detail===0, restored:x, msg:'Restored '+fmtSpan(x.t0,x.t1)+' — it’s back in Training gaps to review.' });
+      { kbd:e.detail===0, restored:x, msg:msg });
   });
   // re-open the form a re-render closed, if its gap is still listed
-  if(GAP_FORM){
+  if(GAP_FORM && GAP_FORM.t0==='past'){
+    var lp=box.querySelector('.rdx-pat-logpast');
+    if(!lp) GAP_FORM=null; else openGapForm(lp, null, GAP_FORM, false);
+  } else if(GAP_FORM){
     var st=GAP_FORM, k=-1; drops.some(function(d,i){ if(d.t0===st.t0){ k=i; return true; } return false; });
     if(k<0) GAP_FORM=null; else openGapForm(box.querySelector('.rdx-gap-row[data-t0="'+st.t0+'"]'), drops[k], st, false);
   }
@@ -2189,6 +2558,7 @@ function renderPatterns(){
 }
 function renderPatternsBox(box){
   var chip=$('patGapChip'), drops=[], dis=dismissedDrops(), html;
+  DIS_STATUS=[];
   if(!window.InjuryPatterns || !LOAD_PARAMS){ box.innerHTML=''; if(chip) chip.hidden=true; return; }
   var evs=events(), res=InjuryPatterns.analyze(typeRuns(), evs, LOAD_PARAMS, { dismissedDrops:dis });
   var nInj=evs.filter(function(e){ return e.type==='injury'; }).length, nIll=evs.filter(function(e){ return e.type==='illness'; }).length;
@@ -2196,24 +2566,44 @@ function renderPatternsBox(box){
   if(!res.ok){
     var days=res.days||0;
     html=res.reason==='history'
-      ? '<p class="rdx-pat-lead">This section needs about 10 weeks of continuous run history — '+who('you have')+' '+Math.floor(days/7)+' so far. It unlocks around '+fmtDay(Date.now()+Math.max(0,70-days)*DAY)+'.</p>'+logPast+gapsHTML([],dis)+patFootHTML()
-      : '<p class="rdx-pat-lead">No runs match the current activity types and minimum distance.</p>'+gapsHTML([],dis);
+      ? '<p class="rdx-pat-lead">This section needs about 10 weeks of run history — '+who('you have')+' '+(days<7?'under a week':Math.floor(days/7)+' week'+(Math.floor(days/7)===1?'':'s'))+' so far.'+
+          (RAW.length&&daysAgo(RAW[RAW.length-1].ts)<=7?' It unlocks around '+fmtDay(Date.now()+Math.max(0,70-days)*DAY)+'.':'')+'</p>'+
+        '<p class="rdx-pat-act"><button type="button" class="rdx-btn rdx-btn-outline rdx-pat-logpast" data-f="logpast">+ Log a past injury</button><button type="button" class="rdx-btn rdx-btn-outline rdx-pat-import" data-f="import">Import older runs</button></p>'+
+        gapsHTML([],dis)+patFootHTML(false)
+      : '<p class="rdx-pat-lead">No runs match the current activity types and minimum distance.</p>'+
+        '<p class="rdx-pat-act"><button type="button" class="rdx-btn rdx-btn-outline rdx-pat-included" data-f="included">Open What’s included</button></p>'+gapsHTML([],dis);
   } else {
     drops=res.drops.filter(function(d){ return !d.explained; }).sort(function(a,b){ return b.t0-a.t0; });
-    var m=res.meta, gaps=gapsHTML(drops,dis), foot=patFootHTML();
+    // what each stored dismissal now matches: a drop a logged event explains, or no drop at all
+    var WHY_LBL={'follows a logged injury':'a logged injury','follows a logged illness':'a logged illness','follows a non-running injury':'a non-running injury','logged planned downtime':'Planned Downtime'};
+    DIS_STATUS=dis.map(function(x){ var d=res.drops.filter(function(d){ return InjuryPatterns.dismissOverlaps(d,x); })[0];
+      if(!d) return {k:'gone'};
+      if(d.why && !d.dismissed) return {k:'explained', label:WHY_LBL[d.why]||(/race/.test(d.why)?'a race':'a logged event')};
+      return {}; });
+    var m=res.meta, gaps=gapsHTML(drops,dis), foot=patFootHTML(false);
     if(!nInj && !nIll){
       html='<p class="rdx-pat-lead">No injuries or illnesses logged yet. Log past ones and this section shows what '+who()+' training looked like in the weeks before each.</p>'+logPast+
         (drops.length ? gaps+foot : whatToLogHTML()+gaps);
     } else if(!m.nEval){
-      var n=nInj+nIll, before=res.cases.every(function(c){ return c.event.ts<m.t0; });
-      html='<p class="rdx-pat-lead">'+who('Your')+' logged '+patNoun(n,nInj,nIll)+' '+(n===1?'is':'are')+' '+(before?'before':'outside')+' the stored run history, so there’s no lead-up to look at. Import the runs from the weeks before '+(n===1?'it':'each one')+'.</p>'+
-        '<p class="rdx-pat-act"><button type="button" class="rdx-btn rdx-btn-outline rdx-pat-import" data-f="import">Open Import &amp; data</button></p>'+
-        '<div class="rdx-sb-grid">'+alsoHTML(res.cases.slice().sort(function(a,b){ return b.event.ts-a.event.ts; }), res)+'</div>'+gaps+foot;
+      // the lead names the shared reason (each row then drops its duplicate reason line); mixed reasons get one phrase
+      var n=nInj+nIll, one=n===1, rs=res.cases.map(function(c){ return whyOf(c,res); }), r=rs.every(function(x){ return x===rs[0]; })?rs[0]:null;
+      var where={before:'before the stored run history',early:'in the first 6 weeks of the stored run history',after:'after the last stored run',future:'dated in the future'}[r]||'outside the part of the stored run history that can be analysed';
+      var act=r==='after'?'Import the newer runs to include '+(one?'it':'them')+'.' : r==='future'?'Check '+(one?'its':'their')+' date in Data & settings → Events.' : 'Import the runs from the weeks before '+(one?'it':'each one')+'.';
+      html='<p class="rdx-pat-lead">'+who('Your')+' logged '+patNoun(n,nInj,nIll)+' '+(one?'is':'are')+' '+where+', so there’s no lead-up to look at. '+act+'</p>'+
+        '<p class="rdx-pat-act">'+(r==='future'?'<button type="button" class="rdx-btn rdx-btn-outline rdx-pat-events" data-f="events">Open Events</button>':'<button type="button" class="rdx-btn rdx-btn-outline rdx-pat-import" data-f="import">Open Import &amp; data</button>')+'</p>'+
+        '<div class="rdx-sb-grid">'+alsoHTML(res.cases.slice().sort(function(a,b){ return b.event.ts-a.event.ts; }), res, {noWhy:!!r})+'</div>'+gaps+foot;
     } else {
-      html=patLeadHTML(res)+setbackCardsHTML(res)+patTableHTML(res)+gaps+foot;
+      html=patLeadHTML(res)+setbackCardsHTML(res)+patTableHTML(res)+gaps+patFootHTML(true);
     }
   }
   box.innerHTML=html;
+  // long setback notes clamp to 3 lines; a clamped one gets a more/less toggle (touch has no hover title)
+  Array.prototype.forEach.call(box.querySelectorAll('.rdx-sb-note'),function(n,i){
+    if(n.scrollHeight<=n.clientHeight+1) return;
+    var b=document.createElement('button'); b.type='button'; b.className='rdx-linkbtn rdx-sb-note-more'; b.setAttribute('aria-expanded','false'); b.setAttribute('data-f','note'+i); b.textContent='more';
+    b.onclick=function(){ var open=n.classList.toggle('is-open'); b.textContent=open?'less':'more'; b.setAttribute('aria-expanded',String(open)); };
+    n.parentNode.insertBefore(b,n.nextSibling);
+  });
   if(chip){ chip.hidden=!drops.length; chip.textContent=drops.length+' gap'+(drops.length===1?'':'s')+' to review'; }
   wireDrops(box, drops);
 }
@@ -2224,13 +2614,19 @@ function histDays(d){ if(!RAW.length) return 0; var a=new Date(RAW[0].ts), b=new
 // Volume as of #anchor, one row per window. A window longer than the stored history would only repeat All, so it's left out.
 function renderAll(){
   var el=$('cards'); if(!el) return;
-  var end=ANCHOR||new Date(), have=histDays(end);
+  var end=ANCHOR||new Date(), have=histDays(end), notToday=ymd(end)!==ymd(new Date());
   var rows=RUN_WINDOWS.filter(function(w){ return w.days==null || w.days<=have; }).map(function(w){
     var s=summarize(runsInF(w.days==null?new Date(0):new Date(end.getTime()-w.days*DAY), end));
-    return '<tr><th scope="row">'+(w.days==null?'All<span class="rdx-vol-n"> ('+have+' day'+(have===1?'':'s')+')</span>':'<span class="rdx-wide">Last </span>'+w.label)+'</th><td>'+s.n+'</td><td>'+s.dist.toFixed(1)+'</td><td>'+(s.dur?fmtDur(s.dur):'–')+'</td><td>'+fmtPace(s.pace)+'</td></tr>';
+    return '<tr><th scope="row">'+(w.days==null?'All<span class="rdx-vol-n"> ('+have+' day'+(have===1?'':'s')+')</span>':notToday?w.label+'<span class="rdx-wide"> to '+fmtMD(end)+'</span>':'<span class="rdx-wide">Last </span>'+w.label)+'</th><td>'+s.n+'</td><td>'+s.dist.toFixed(1)+'</td><td>'+(s.dur?fmtDur(s.dur):'–')+'</td><td>'+fmtPace(s.pace)+'</td></tr>';
   }).join('');
   el.innerHTML='<div class="rdx-tablewrap rdx-volwrap"><table class="rdx-table rdx-vol" aria-labelledby="volHd"><thead><tr><th scope="col">Window</th><th scope="col">Runs</th><th scope="col">Miles</th><th scope="col">Time</th><th scope="col">Avg pace<span class="rdx-munit">/mi</span></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
+// Range A/B defaults: the 90 days to the as-of date vs the 90 before (inclusive date ranges, no shared day).
+function seedRanges(){ if(!$('faFrom')) return; var e=ANCHOR||dayEnd(new Date());
+  $('faFrom').value=ymd(new Date(e.getTime()-89*DAY)); $('faTo').value=ymd(e);
+  $('fbFrom').value=ymd(new Date(e.getTime()-179*DAY)); $('fbTo').value=ymd(new Date(e.getTime()-90*DAY)); }
+function renderFormSub(){ var el=$('formSub'); if(!el) return; var e=ANCHOR||new Date();
+  el.textContent=(ymd(e)===ymd(new Date())?'Last 90 days':'90 days to '+fmtMD(e.getTime()))+' vs the 90 before · distances are actual miles, not IAD'; }
 function setCompare(on){ var b=$('formCompare'); b.classList.toggle('on',on); b.setAttribute('aria-pressed',String(on)); $('cmpRanges').hidden=!on; }
 // All metrics: Range A vs Range B (the default: last 90 days vs the 90 before), or every stored run.
 // Grouped like the chart's Show select but Form first and Derived last; hidden metrics are skipped.
@@ -2274,17 +2670,20 @@ function renderTiles(){
   if(!cur.length){ el.innerHTML='<p class="rdx-note rdx-tiles-note">No runs in the 90 days up to '+fmtDay(end)+' that match the filters.</p>'; return; }
   var pri=['cad','gct','vo','vratio','asym','stride','pace'];
   var byKey={}; METRICS.forEach(function(m){ byKey[m.key]=m; });
+  var missing=[], fmtM=function(v,m){ return m.pace?fmtPace(v):v.toFixed(m.dec); };
   var html=pri.map(function(k){
     var m=byKey[k]; if(!m||!metricVisible(m)) return '';
-    var cv=metricMean(cur,m); if(cv==null) return '';
-    var val=m.pace?fmtPace(cv):cv.toFixed(m.dec);
-    var d=prev.length?(deltaHTML(cv,metricMean(prev,m),m)||'<span class="rdx-delta flat same">no earlier data</span>'):'';
+    var cv=metricMean(cur,m); if(cv==null){ missing.push(m.label); return ''; }
+    var val=fmtM(cv,m), pv=prev.length?metricMean(prev,m):null;
+    // the delta says what changed: "≈ same vs 172", "9 s slower vs 7:47"
+    var d=prev.length?(pv!=null?deltaHTML(cv,pv,m)+' <span class="rdx-tile-prev">vs '+fmtM(pv,m)+'</span>':'<span class="rdx-delta flat same">no earlier data</span>'):'';
     return '<div class="rdx-tile"><div class="rdx-tile-lbl">'+m.label+'</div>'+
       '<div class="rdx-tile-val">'+val+(m.unit?'<span class="rdx-tile-unit">'+m.unit+'</span>':'')+'</div>'+
       (d?'<div class="rdx-tile-delta">'+d+'</div>':'')+'</div>';
   }).join('');
-  if(!html){ el.innerHTML='<p class="rdx-note rdx-tiles-note">No form metrics available for this device.</p>'; return; }
-  el.innerHTML=html+(prev.length?'':'<p class="rdx-note rdx-tiles-note">Form changes show here once there are 90 days of runs before this window.</p>');
+  var miss=missing.length?'<p class="rdx-note rdx-tiles-note">'+(missing.length>1?missing.slice(0,-1).join(', ')+' and '+missing[missing.length-1]:missing[0])+' weren’t recorded in these runs — they need a running-dynamics pod, strap or compatible watch.</p>':'';
+  if(!html){ el.innerHTML=miss||'<p class="rdx-note rdx-tiles-note">No form metrics available for this device.</p>'; return; }
+  el.innerHTML=html+(prev.length?'':'<p class="rdx-note rdx-tiles-note">Form changes show here once there are 90 days of runs before this window.</p>')+miss;
 }
 
 /* ---------- "Mark Lever runs" modal ----------
@@ -2297,13 +2696,14 @@ var DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 function fmtPct(x){ var v=Math.round(x*10)/10; return (v%1===0)?String(v):v.toFixed(1); }
 // Every indoor run (RunLoad's own test), plus anything currently Lever or carrying a manual mark.
 function lvRuns(){ return RAW.filter(function(r){ return RunLoad.isIndoor(r)||r.lever||r.leverSrc==='unmarked'; }).sort(function(a,b){ return b.ts-a.ts; }); }
-function lvOffFrac(){ var el=$('lvOff'), v=el?parseFloat(el.value):NaN; return (v>=1&&v<=95)?v/100:null; }
+// #lvOff holds the body-weight support (% BW, the convention used everywhere else); marks store offload = 1 − BW.
+function lvOffFrac(){ var el=$('lvOff'), v=el?parseFloat(el.value):NaN; return (v>=5&&v<=99)?(100-v)/100:null; }
 function lvIL(r){ var v=LOAD_PARAMS?RunLoad.impactLoad(r,LOAD_PARAMS):null; return v>0?v:0; }
 function lvBadge(r){
-  var dflt='Scored at the profile default: '+fmtPct(100-leverPct())+'% offload';
+  var dflt='Scored at the profile default: '+fmtPct(leverPct())+'% body weight';
   switch(r.leverSrc){
     case 'marked':   var o=r.offload!=null?r.offload*100:100-leverPct();
-                     return ['lever','Lever · '+fmtPct(o)+'% off · marked','Marked by hand: '+fmtPct(o)+'% offload = runs at '+fmtPct(100-o)+'% body weight'];
+                     return ['lever','Lever · '+fmtPct(100-o)+'% BW · marked','Marked by hand: runs at '+fmtPct(100-o)+'% body weight ('+fmtPct(o)+'% offload)'];
     case 'title':    return ['lever','Lever · title',dflt];
     case 'strava':   return ['lever','Lever · Strava title',dflt];
     case 'auto':     return ['lever','Lever · auto-detected',dflt];
@@ -2316,7 +2716,7 @@ function lvRowHTML(r,i){
   var dist=r.distMi!=null?r.distMi.toFixed(1)+' mi':'–', pace=r.paceSec>0?fmtPace(r.paceSec):'–', hr=r.avgHr>0?String(Math.round(r.avgHr)):'–';
   return '<label class="rdx-lv-row">'+
     '<input type="checkbox" class="rdx-lv-cb" data-i="'+i+'">'+
-    '<span class="rdx-lv-date">'+ymd(d)+'<small>'+DOW[d.getDay()]+'</small></span>'+
+    '<span class="rdx-lv-date">'+fmtMD(r.ts)+'<small>'+DOW[d.getDay()]+'</small></span>'+
     '<span class="rdx-lv-title" title="'+name+'">'+name+'</span>'+
     '<span class="rdx-lv-num">'+dist+'</span><span class="rdx-lv-num">'+pace+'</span><span class="rdx-lv-num">'+hr+'</span>'+
     '<span class="rdx-lv-meta">'+[dist, pace!=='–'?pace+'/mi':'', hr!=='–'?hr+' bpm':''].filter(Boolean).join(' · ')+'</span>'+
@@ -2328,7 +2728,8 @@ function renderLeverHint(){
   var el=$('lvHint'); if(!el) return;
   var n=RAW.filter(RunLoad.isIndoor).length, lv=RAW.filter(function(r){ return r.lever; }).length;
   var mk=RAW.filter(function(r){ return r.leverSrc==='marked'||r.leverSrc==='unmarked'; }).length;
-  el.textContent=n+' treadmill run'+(n===1?'':'s')+' · '+lv+' Lever'+(mk?' · '+mk+' marked by hand':'');
+  var b=$('lvOpen'); if(b) b.disabled=!lvRuns().length;
+  el.textContent=!n&&!lv ? 'No treadmill runs yet' : n+' treadmill run'+(n===1?'':'s')+' · '+lv+' Lever'+(mk?' · '+mk+' marked by hand':'');
 }
 function renderLeverModal(){
   var m=$('lvModal'); if(!m||m.hidden) return;
@@ -2360,7 +2761,7 @@ function lvSync(){
   var off=lvOffFrac(), inp=$('lvOff'), cap=$('lvOffCap');
   inp.classList.toggle('rdx-df-err',off==null); inp.setAttribute('aria-invalid',off==null?'true':'false');
   cap.className='rdx-lv-cap'+(off==null?' err':'');
-  cap.textContent=off==null?'Enter a number from 1 to 95':'= runs at '+fmtPct(100-off*100)+'% body weight';
+  cap.textContent=off==null?'Enter a number from 5 to 99':'= '+fmtPct(off*100)+'% offload';
   var sel=LV.rows.filter(function(r){ return LV.sel.has(r.id); }), sum=$('lvSum');
   if(!n) sum.textContent='Select runs to change · '+LV.rows.length+' shown';
   else {
@@ -2369,8 +2770,8 @@ function lvSync(){
     var before=0, asLever=0, asNot=0;
     sel.forEach(function(r){ before+=lvIL(r); if(off!=null) asLever+=lvIL(Object.assign({},r,{lever:true,offload:off})); asNot+=lvIL(Object.assign({},r,{lever:false,offload:null})); });
     sum.innerHTML='<b>'+n+'</b> selected · '+(off==null
-      ? 'set a valid offload to mark them as Lever'
-      : 'as Lever at '+fmtPct(off*100)+'% offload: <b>'+before.toFixed(1)+' → '+asLever.toFixed(1)+'</b> IAD mi')+
+      ? 'set a valid body-weight support to mark them as Lever'
+      : 'as Lever at '+fmtPct(100-off*100)+'% BW: <b>'+before.toFixed(1)+' → '+asLever.toFixed(1)+'</b> IAD mi')+
       (sel.some(function(r){ return r.lever; })?' · as not Lever: <b>'+before.toFixed(1)+' → '+asNot.toFixed(1)+'</b>':'');
   }
   var hasMark=sel.some(function(r){ return r.leverSrc==='marked'||r.leverSrc==='unmarked'; });
@@ -2397,7 +2798,7 @@ function lvApply(kind){
   });
   var had=sel.filter(function(r){ return !!r._mark; }).length;
   var n=kind==='reset'?had:sel.length, runs=n+' run'+(n===1?'':'s');
-  var msg=kind==='mark'?runs+' marked as Lever at '+fmtPct(off*100)+'% offload':kind==='not'?runs+' marked as not Lever':runs+' reset to auto-detection';
+  var msg=kind==='mark'?runs+' marked as Lever at '+fmtPct(100-off*100)+'% body weight':kind==='not'?runs+' marked as not Lever':runs+' reset to auto-detection';
   LV.sel.clear();
   var my=MOUNT, rerender=function(){ annotateLever(); buildTypeChips(); refresh(); };   // refresh re-renders the open modal too
   var saved=updateProfileList('runLeverMarks', function(list){ return list.filter(function(m){ return !(m&&drop.has(m.id)); }).concat(add); }, rerender, false);   // the modal reports in its own #lvToast
@@ -2412,7 +2813,7 @@ function lvOpenModal(){
   // Safari / macOS Firefox don't focus a clicked button, so activeElement can be <body>
   var a=document.activeElement;
   LV.trigger=(a && a!==document.body && ROOT.contains(a)) ? a : $('lvOpen'); LV.filter='all'; LV.sel.clear();
-  $('lvOff').value=fmtPct(100-leverPct());
+  $('lvOff').value=fmtPct(leverPct());
   var t=$('lvToast'); if(t) t.textContent='';
   var pt=$('rdxToast'); if(pt){ pt.hidden=true; clearTimeout(TOAST_T); }   // the page toast waits behind the modal, clock stopped
   m.hidden=false;
@@ -2459,7 +2860,8 @@ function buildTypeChips(){
   var counts={};
   RAW.forEach(function(r){ var t=effType(r); counts[t]=(counts[t]||0)+1; });
   var types=Object.keys(counts).sort(function(a,b){return counts[b]-counts[a];});
-  types.forEach(function(t){ if(!KNOWN_TYPES.has(t)){ KNOWN_TYPES.add(t); ACTIVE_TYPES.add(t); } });
+  var off=includedPref().off;
+  types.forEach(function(t){ if(!KNOWN_TYPES.has(t)){ KNOWN_TYPES.add(t); if(off.indexOf(t)<0) ACTIVE_TYPES.add(t); } });
   var wrap=$('types'); if(!wrap) return; wrap.innerHTML='';
   types.forEach(function(tp){
     var c=document.createElement('button'); c.type='button';
@@ -2467,14 +2869,14 @@ function buildTypeChips(){
     c.onclick=function(){
       if(ACTIVE_TYPES.has(tp)) ACTIVE_TYPES.delete(tp); else ACTIVE_TYPES.add(tp);
       c.classList.toggle('on',ACTIVE_TYPES.has(tp)); c.setAttribute('aria-pressed',String(ACTIVE_TYPES.has(tp)));
-      refresh();
+      refresh(); saveIncluded();
     };
     wrap.appendChild(c);
   });
 }
 
 /* ---------- orchestration ---------- */
-function refresh(){ if(RAW.length){ annotateLever(); LOAD_PARAMS=computeLoadParams(); renderHero(); renderChart(); renderPatterns(); renderTiles(); renderForm(); renderAll(); renderLeverHint(); renderLeverModal(); renderStatus(); } }
+function refresh(){ if(RAW.length){ annotateLever(); annotateExcluded(); renderFlags(); LOAD_PARAMS=computeLoadParams(); renderEasyCaption(); renderHero(); renderHeroNotes(); renderChart(); renderPatterns(); renderTiles(); renderForm(); renderAll(); renderLeverHint(); renderLeverModal(); renderStatus(); } }
 // Segmented range control; 'custom' reveals the From/To inputs.
 function setRangeChip(active){
   Array.prototype.forEach.call($all('#rdx-rangeChips [data-range]'),function(c){ var on=c.getAttribute('data-range')===active; c.classList.toggle('on',on); c.setAttribute('aria-pressed',String(on)); });
@@ -2484,26 +2886,113 @@ function setRangeChip(active){
 function setRange(r){
   if(!RAW.length) return;
   var to=new Date(), from=(r==='all')?new Date(RAW[0].ts):new Date(to.getTime()-parseInt(r,10)*30.44*DAY);
-  $('tFrom').value=ymd(from); $('tTo').value=ymd(to);
+  var tf=$('tFrom'), tt=$('tTo'); tf.value=ymd(from); tt.value=ymd(to);
+  tf.removeAttribute('max'); tt.removeAttribute('min'); fieldOk(tf); fieldOk(tt);
   setRangeChip(r);
 }
 function applyRange(r){ setRange(r); renderChart(); }
+// "synced today" / "synced yesterday" / "synced Oct 3" from STRAVA_SYNC.last ('' when unknown).
+function stravaSyncedTxt(){
+  if(!STRAVA_SYNC.last) return '';
+  var t=STRAVA_SYNC.last.toDate?STRAVA_SYNC.last.toDate().getTime():new Date(STRAVA_SYNC.last).getTime(), n=daysAgo(t);
+  return isFinite(t)?'synced '+(n<=0?'today':n===1?'yesterday':fmtMD(t)):'';
+}
+// Import & data foot line: "438 runs stored · Feb 22, 2025 – Oct 15, 2026 · Strava connected, synced today".
+function renderFileNote(){
+  var el=$('filenote'); if(!el || !RAW.length) return;
+  var ds=RAW.map(function(r){ return r.date; }).sort(function(a,b){ return a-b; }), sy=stravaSyncedTxt();
+  el.textContent=RAW.length+' run'+(RAW.length===1?'':'s')+' stored · '+fmtSpan(ds[0].getTime(), ds[ds.length-1].getTime())+
+    ' · '+(STRAVA_SYNC.connected?'Strava connected'+(sy?', '+sy:''):'Strava not connected');
+}
+// Calibrated easy pace: the Easy pace unit reads "/mi · using 8:10 from easy runs" (same line, no new row).
+function renderEasyCaption(){
+  var u=$('easypaceUnit'); if(!u) return;
+  u.textContent=(LOAD_PARAMS && LOAD_PARAMS.basePaceSource==='calibrated' && LOAD_PARAMS.basePaceSec>0)?'/mi · using '+fmtPace(LOAD_PARAMS.basePaceSec)+' from easy runs':'/mi';
+}
+// Toggletip: an ⓘ button + a one-sentence popover (aria-expanded/controls). Click or Enter toggles; Escape,
+// an outside click or focus leaving the button closes; one open at a time (wireTips).
+function tipHTML(text,label){ var id='rdxTip'+(++TIP_N);
+  return '<button type="button" class="rdx-tip-btn" aria-expanded="false" aria-controls="'+id+'" aria-label="About '+esc(label)+'">i</button><span class="rdx-tip" id="'+id+'" role="note" hidden>'+esc(text)+'</span>'; }
+function closeTips(except){ if(!ROOT) return; Array.prototype.forEach.call(ROOT.querySelectorAll('.rdx-tip-btn[aria-expanded="true"]'),function(b){ if(b===except) return; b.setAttribute('aria-expanded','false'); var t=document.getElementById(b.getAttribute('aria-controls')); if(t) t.hidden=true; }); }
+function wireTips(root){
+  if(!root || root._rdxTips) return; root._rdxTips=true;   // the host element outlives remounts: listeners once
+  root.addEventListener('click',function(e){
+    var b=e.target.closest&&e.target.closest('.rdx-tip-btn'); if(!b || !root.contains(b)) return;
+    var t=document.getElementById(b.getAttribute('aria-controls')); if(!t) return;
+    var open=b.getAttribute('aria-expanded')!=='true';
+    closeTips(b); b.setAttribute('aria-expanded',String(open)); t.hidden=!open;
+    if(open){ t.style.left=''; var r=t.getBoundingClientRect(), over=r.right-(window.innerWidth-12); if(over>0) t.style.left=(-over)+'px'; }
+  });
+  root.addEventListener('keydown',function(e){
+    if(e.key!=='Escape') return;
+    var b=root.querySelector('.rdx-tip-btn[aria-expanded="true"]'); if(!b) return;
+    e.stopPropagation(); closeTips(); b.focus();
+  });
+  root.addEventListener('focusout',function(e){ var b=e.target.closest&&e.target.closest('.rdx-tip-btn'); if(b && b.getAttribute('aria-expanded')==='true') closeTips(); });
+  if(!TIPS_WIRED){ TIPS_WIRED=true; document.addEventListener('click',function(e){ if(!(e.target.closest&&e.target.closest('.rdx-tip-btn'))) closeTips(); }); }
+}
+// What's-included defaults: the header names any control that differs ("Filtered: …") with a Reset.
+var FILTER_DEFAULTS={intensity:'all',cutoff:'6:40',mindist:'0.5'};
+// D4: What's included is saved per athlete on the user doc — users/{uid}.runIncluded =
+// {off:[activity types left out], intensity, mindist} (types are stored as the ones turned OFF, so a
+// new type from a later import is included) — and Workout pace is a Profile field
+// (users/{uid}.runWorkoutPaceSec, the cutoff between easy runs and workouts; unset = 6:40).
+function workoutPaceSec(){ var v=parseFloat(STD_PROFILE.runWorkoutPaceSec); return (v>=180&&v<=1200)?v:null; }
+function includedPref(){
+  var x=STD_PROFILE.runIncluded||{}, md=parseFloat(x.mindist);
+  return { off:Array.isArray(x.off)?x.off.map(String):[], intensity:/^(all|workout|easy)$/.test(x.intensity)?x.intensity:FILTER_DEFAULTS.intensity,
+    mindist:(md>=0&&md<=50)?String(x.mindist):FILTER_DEFAULTS.mindist };
+}
+function saveIncluded(okMsg){
+  var off=[]; KNOWN_TYPES.forEach(function(t){ if(!ACTIVE_TYPES.has(t)) off.push(t); });
+  var it=$('intensity'), md=$('mindist');
+  var v={ off:off, intensity:it?it.value:FILTER_DEFAULTS.intensity, mindist:md?String(md.value).trim():FILTER_DEFAULTS.mindist };
+  var dflt=!off.length && v.intensity===FILTER_DEFAULTS.intensity && parseFloat(v.mindist)===parseFloat(FILTER_DEFAULTS.mindist);
+  return persist({ runIncluded: dflt?null:v }, okMsg);
+}
+// re-apply the stored choice (a failed save rolled it back): types, intensity and min distance
+function applyIncluded(){
+  var off=includedPref().off; ACTIVE_TYPES=new Set(); KNOWN_TYPES.forEach(function(t){ if(off.indexOf(t)<0) ACTIVE_TYPES.add(t); });
+  buildTypeChips();
+}
+function filterParts(){
+  var parts=[], off=[];
+  KNOWN_TYPES.forEach(function(t){ if(!ACTIVE_TYPES.has(t)) off.push(t); });
+  if(off.length===1) parts.push('no '+off[0]);
+  else if(off.length>1) parts.push(ACTIVE_TYPES.size+' of '+KNOWN_TYPES.size+' activity types');
+  var it=$('intensity'), md=$('mindist');
+  if(it && it.value==='workout') parts.push('workouts only');
+  else if(it && it.value==='easy') parts.push('easy runs only');
+  if(md && parseFloat(md.value)!==parseFloat(FILTER_DEFAULTS.mindist)) parts.push('runs ≥ '+md.value.trim()+' mi');
+  return parts;
+}
+function resetFilters(){
+  ACTIVE_TYPES=new Set(KNOWN_TYPES);
+  var it=$('intensity'), md=$('mindist');
+  if(it) it.value=FILTER_DEFAULTS.intensity; if(md){ md.value=FILTER_DEFAULTS.mindist; fieldOk(md); }
+  MINDIST_LAST=FILTER_DEFAULTS.mindist;
+  buildTypeChips(); refresh();
+  saveIncluded('Filters reset');
+}
 // Header freshness line: "369 runs · last run today 6:15 AM · Strava synced today". A stale history
-// (last run > 3 days) with no Strava sync to top it up gets a nudge to the import group.
+// (last run > 3 days) gets a nudge to the import group — also when Strava is connected but stopped adding runs.
+// Then: runs with no pace (they score no load), and the What's-included filter clause with Reset.
 function renderStatus(){
   var el=$('rdxFresh'); if(!el) return;
-  if(!RAW.length){ el.textContent='No runs yet'; return; }
+  if(!RAW.length){ el.textContent=''; return; }   // the onboarding card's heading already says it
   var last=RAW[RAW.length-1].ts, s=RAW.length+' run'+(RAW.length===1?'':'s')+' · last run '+fmtRel(last);
-  if(STRAVA_SYNC.connected && STRAVA_SYNC.last){
-    var t=STRAVA_SYNC.last.toDate?STRAVA_SYNC.last.toDate().getTime():new Date(STRAVA_SYNC.last).getTime(), n=daysAgo(t);
-    if(isFinite(t)) s+=' · Strava synced '+(n<=0?'today':n===1?'yesterday':fmtMD(t));
-  }
+  if(STRAVA_SYNC.connected && stravaSyncedTxt()) s+=' · Strava '+stravaSyncedTxt();
   el.textContent=s;
-  if(daysAgo(last)>3 && !STRAVA_SYNC.connected){
-    el.appendChild(document.createTextNode(' · '));
-    var b=document.createElement('button'); b.type='button'; b.className='rdx-link'; b.textContent='Import a newer export';
-    b.onclick=function(){ openSettings('data'); }; el.appendChild(b);
-  }
+  var sep=function(){ el.appendChild(document.createTextNode(' · ')); };
+  var link=function(txt,fn){ var b=document.createElement('button'); b.type='button'; b.className='rdx-link'; b.textContent=txt; b.onclick=fn; el.appendChild(b); return b; };
+  var span=function(cls,txt){ var x=document.createElement('span'); x.className=cls; x.textContent=txt; el.appendChild(x); return x; };
+  if(daysAgo(last)>3){ sep(); link('Import a newer export',function(){ openSettings('data'); }); }
+  renderFileNote();
+  var tr=typeRuns(), noPace=tr.filter(function(r){ return !(r.paceSec>0); }).length;
+  if(noPace){ sep(); span('warn', noPace===1?'1 run has no pace, so it doesn’t count toward load':noPace+' runs have no pace, so they don’t count toward load'); }
+  if(!tr.length){ sep(); span('warn','Your filters exclude all '+RAW.length+' run'+(RAW.length===1?'':'s')); sep(); link('Reset',resetFilters); return; }
+  var parts=filterParts();
+  if(parts.length){ sep(); link('Filtered: '+parts.join(', '),function(){ openSettings('included'); }); sep(); link('Reset',resetFilters); }
 }
 // Profile inputs from STD_PROFILE — on load, and again after a failed save rolls the view back.
 function fillProfileInputs(){
@@ -2512,7 +3001,10 @@ function fillProfileInputs(){
   $('weight').value=STD_PROFILE.weightLb||'';
   $('offload').value=STD_PROFILE.runLeverPctBW||'';
   $('easypace').value=easyPaceSec()!=null?fmtPace(easyPaceSec()):'';
-  var a=$('accessory'); a.classList.toggle('on', hasAccessory()); a.setAttribute('aria-pressed',String(hasAccessory()));
+  $('accessory').checked=hasAccessory();
+  var wp=workoutPaceSec(); CUTOFF_LAST=$('cutoff').value=wp!=null?fmtPace(wp):FILTER_DEFAULTS.cutoff; fieldOk($('cutoff'));
+  var inc=includedPref(), md=$('mindist'), it=$('intensity');
+  it.value=inc.intensity; MINDIST_LAST=md.value=inc.mindist; fieldOk(md);
 }
 // Data & settings panel: open/close keeps the gear button's state in step.
 function setPanel(open){
@@ -2532,15 +3024,16 @@ function openSettings(group, preset){
     f=$('evType');
     if(preset && preset.type && EV_META[preset.type]){ f.value=preset.type; f.onchange(); f=$('evDate'); }
   } else if(group==='data') f=$('drop');
+  else if(group==='included') f=document.querySelector('#types .rdx-chip');
   if(f) f.focus({preventScroll:true});
 }
 // The import block lives in Data & settings → Import & data; with no runs it moves (appendChild keeps
 // its listeners) into the onboarding card, with the export steps open.
 function showSections(hasData){
   var blk=$('importBlock'), dst=$(hasData?'importSlot':'importHome'), had=false;
-  if(blk && dst && blk.parentNode!==dst){ had=blk.contains(document.activeElement); dst.appendChild(blk); var h=$('exportHelp'); if(h) h.open=!hasData; }
+  if(blk && dst && blk.parentNode!==dst){ had=blk.contains(document.activeElement); dst.appendChild(blk); var h=$('exportHelp'); if(h) h.open=!hasData && ROLE!=='coach' && VIEW==='training'; }
   var gb=$('gearBtn'); if(gb) gb.hidden=!hasData;
-  if(!hasData) setPanel(false);
+  if(!hasData){ setPanel(false); var fl=$('rdxFlags'); if(fl) fl.hidden=true; }
   // a keyboard import from the onboarding card: the focused drop zone just moved into the closed panel —
   // keep focus on the page, on the button that opens where it went
   if(had && hasData && $('settingsPanel').hidden) $('gearBtn').focus({preventScroll:true});
@@ -2551,25 +3044,22 @@ function showSections(hasData){
 }
 
 function renderLoaded(){
+  cacheData();
   if(!RAW.length){ showSections(false); renderStatus(); return; }
   var dates=RAW.map(function(r){return r.date;}).sort(function(a,b){return a-b;});
   var min=dates[0], max=dates[dates.length-1];
-  ANCHOR=new Date(max);
+  ANCHOR=dayEnd(new Date());   // Form & volume anchor on today (a lapsed athlete's "last 7 days" is really empty)
   annotateLever();
   buildTypeChips();
   showSections(true);
   renderDemoBar();
   var lm=$('loadMethod'); if(lm && window.RunLoad) lm.innerHTML=RunLoad.methodologyHTML();
-  var span=fmtSpan(min.getTime(), max.getTime());
-  $('filenote').textContent=RAW.length+' run'+(RAW.length===1?'':'s')+' stored · '+span;
+  renderFileNote();
   if(inView('form')){
-    $('anchor').value=ymd(max);
-    // compare defaults: the last 90 days to the last run vs the 90 before (inclusive date ranges, no shared day)
-    $('faFrom').value=ymd(new Date(max.getTime()-89*DAY));
-    $('faTo').value=ymd(max);
-    $('fbFrom').value=ymd(new Date(max.getTime()-179*DAY));
-    $('fbTo').value=ymd(new Date(max.getTime()-90*DAY));
+    var an=$('anchor'); an.value=ymd(ANCHOR); an.min=ymd(min); an.max=ymd(new Date());
+    RANGES_EDITED=false; seedRanges();
     setCompare(true);
+    renderFormSub();
   }
   fillProfileInputs();
   $('evDate').value=ymd(max);
@@ -2578,7 +3068,7 @@ function renderLoaded(){
   // Strava attribution (API terms): the "Powered by Strava" mark shows whenever Strava runs do —
   // white on the dark theme, orange on light.
   var nStrava=RAW.filter(function(r){return r.source==='strava';}).length;
-  var foot=$('foot'); if(foot) foot.innerHTML=RAW.length+' run'+(RAW.length===1?'':'s')+' · '+span+'. '+
+  var foot=$('foot'); if(foot) foot.innerHTML=   // the run count and span are in the header and settings already
     (nStrava?nStrava+' synced from Strava on days with no watch import — Strava runs carry pace, distance, heart rate, cadence and ascent but no ground contact or oscillation; outdoor Strava runs are scored as if they came back down what they climbed, and treadmill runs take no hill surcharge. ':'')+
     'Track distances are converted from meters to miles.'+
     (nStrava?'<span class="rdx-strava"><img class="rdx-strava-w" src="/images/strava/api_logo_pwrdBy_strava_horiz_white.svg" alt="Powered by Strava"><img class="rdx-strava-o" src="/images/strava/api_logo_pwrdBy_strava_horiz_orange.svg" alt="Powered by Strava"></span>':'');
@@ -2597,19 +3087,36 @@ function impStatus(html, done){
   ['importStatus','importNote'].forEach(function(id){ var e=$(id); if(e) e.innerHTML=html; });
   var st=$('importStatus'); if(done && st) toast(st.textContent, done==='err'?{kind:'err'}:null);
 }
-function readFile(f){
-  var name=String(f.name||'').toLowerCase();
-  if(/\.zip$/.test(name)||/\.fit$/.test(name)) return readCorosFile(f);
-  return readGarminCsv(f);
+// One import at a time: while one runs the drop zone reads busy and new files are refused with a toast.
+// extra: appended to the import's final status (several files dropped → only the first is imported).
+function readFile(f, extra){
+  if(IMPORT_BUSY){ toast('An import is already running — wait for it to finish.'); return; }
+  var name=String(f.name||'').toLowerCase(), kind=/\.zip$|\.fit$/.test(name)?'coros':/\.csv$/.test(name)?'csv':null;
+  if(!kind){ impStatus('<span class="err">Unsupported file — drop a Garmin Activities.csv, a COROS .zip or a single .fit file.</span>'+(extra||''),'err'); return; }
+  setImportBusy(true); IMPORT_EXTRA=extra||'';
+  return kind==='coros'?readCorosFile(f):readGarminCsv(f);
+}
+function setImportBusy(on){
+  IMPORT_BUSY=!!on;
+  var d=$('drop'); if(d){ d.classList.toggle('busy',IMPORT_BUSY); if(IMPORT_BUSY) d.setAttribute('aria-disabled','true'); else d.removeAttribute('aria-disabled'); }
+}
+// An import's final outcome: clears the busy guard, adds the several-files note, reports (impStatus).
+function impDone(html, kind){ var x=IMPORT_EXTRA; IMPORT_EXTRA=''; setImportBusy(false); impStatus(html+x, kind); }
+// A COROS read failure in words the athlete can act on (the raw JSZip/parser text stays in the console).
+function corosErrMsg(e){
+  var m=String(e&&e.message||'');
+  if(/central directory|zip file|Corrupted zip|End of data/i.test(m)) return 'That .zip couldn’t be opened — export it again from COROS Training Hub (choose .FIT).';
+  if(m==='No .fit files found inside the .zip.') return 'No .fit files found inside the .zip. A Garmin account export isn’t supported — export Activities.csv from Garmin Connect instead.';
+  return m||'Could not read this COROS file.';
 }
 function readGarminCsv(f){
   impStatus('<span class="rdx-spin"></span>Reading '+esc(f.name)+'…');
   var rd=new FileReader();
-  rd.onerror=function(){ impStatus('<span class="err">Could not read file.</span>','err'); };
+  rd.onerror=function(){ impDone('<span class="err">Could not read file.</span>','err'); };
   rd.onload=function(){
     var candidates;
     try{ candidates=parseExport(rd.result); }
-    catch(e){ impStatus('<span class="err">'+esc(e.message)+'</span>','err'); return; }
+    catch(e){ impDone('<span class="err">'+esc(e.message)+'</span>','err'); return; }
     saveCandidates(candidates);
   };
   rd.readAsText(f);
@@ -2617,32 +3124,34 @@ function readGarminCsv(f){
 function readCorosFile(f){
   impStatus('<span class="rdx-spin"></span>Reading '+esc(f.name)+'…');
   var rd=new FileReader();
-  rd.onerror=function(){ impStatus('<span class="err">Could not read file.</span>','err'); };
+  rd.onerror=function(){ impDone('<span class="err">Could not read file.</span>','err'); };
   rd.onload=function(){
     parseCorosArchive(rd.result, f.name, function(done,total){
       impStatus('<span class="rdx-spin"></span>Parsing .fit files… '+done+'/'+total);
     }).then(function(candidates){ saveCandidates(candidates); })
-      .catch(function(e){ console.error(e); impStatus('<span class="err">'+esc(e&&e.message||'Could not read this Coros file.')+'</span>','err'); });
+      .catch(function(e){ console.error(e); impDone('<span class="err">'+esc(corosErrMsg(e))+'</span>','err'); });
   };
   rd.readAsArrayBuffer(f);
 }
 function saveCandidates(candidates){
-  if(!candidates||!candidates.length){ impStatus('<span class="err">No running activities found in this file.</span>','err'); return; }
-  var elev=candidates.filter(function(c){return c.ascentM!=null;}).length;
+  if(!candidates||!candidates.length){ impDone('<span class="err">No running activities found in this file.</span>','err'); return; }
   impStatus('<span class="rdx-spin"></span>Saving '+candidates.length+' runs…');
   backfill(candidates).then(function(res){
     return loadFromFirestore().then(function(){
       renderLoaded();
       var sample=candidates.filter(function(c){return c.ascentM!=null;})[0];
-      var verify=sample?actCol().doc(sample.id).get().then(function(d){return d.exists&&d.data().ascentM!=null;}):Promise.resolve(null);
+      var verify=sample?actCol().doc(sample.id).get().then(function(d){return d.exists&&d.data().ascentM!=null;}).catch(function(){ return null; }):Promise.resolve(null);
       verify.then(function(ok){
-        var unitsNote=candidates.csvUnits?' · '+(candidates.csvUnits==='metric'?'km/m':'mi/ft')+' export detected':'';
-        impStatus('<span class="ok">✓ '+res.added+' new'+(res.updated?(', '+res.updated+' updated'):'')+(res.replaced?(', '+res.replaced+' Strava-synced replaced by watch data'):'')+'</span> · '+RAW.length+' total · '+elev+'/'+candidates.length+' w/ elevation'+unitsNote+(ok===false?' <span class="err">(elevation did NOT persist — check rules)</span>':''), ok===false?'err':'ok');
+        var parts=[], stored=(res.updated||0)+(res.dupes||0); if(stored) parts.push(stored+' already stored'); if(res.replaced) parts.push(res.replaced+' Strava-synced replaced by watch data');
+        if(candidates.csvUnits==='metric') parts.push('read as km/m');
+        var head=res.added? '✓ '+res.added+' new run'+(res.added===1?'':'s') : '✓ No new runs';
+        impDone('<span class="ok">'+head+'</span>'+(parts.length?' · '+parts.join(' · '):''),'ok');
+        if(ok===false) console.warn('RunDynamics: elevation did not persist — check Firestore rules', sample&&sample.id);
       });
     });
   }).catch(function(e){
     console.error(e);
-    impStatus('<span class="err">Save failed: '+esc(e&&e.code||e&&e.message||e)+'</span>','err');
+    impDone('<span class="err">Save failed: '+esc(e&&e.code||e&&e.message||e)+'</span>','err');
   });
 }
 
@@ -2661,9 +3170,10 @@ function shellHTML(opts){
   '<div class="rdx-import" id="importBlock">'+
     '<div class="rdx-import-row">'+
       '<div class="rdx-drop" id="drop" role="button" tabindex="0"><b>Import a Garmin CSV or COROS .zip</b>'+
-        '<span>Drag &amp; drop, or click to choose — re-imports only add what’s new.</span>'+
+        '<span>Choose a file or drop it here — re-imports only add what’s new.</span>'+
         '<input type="file" id="file" accept=".csv,text/csv,.zip,.fit,application/zip" hidden></div>'+
-      '<button type="button" class="rdx-btn rdx-btn-outline" id="stravaBackfill" hidden title="Fetch '+your+' entire Strava history — one run per day is added for every day with no imported activity">⟲ Backfill Strava history</button>'+
+      '<button type="button" class="rdx-btn rdx-btn-outline" id="stravaBackfill" hidden>⟲ Backfill Strava history</button>'+
+      '<span class="rdx-tip-wrap" id="stravaBackfillTip" hidden>'+tipHTML('Fetches the entire Strava history and adds one run per day for every day with no imported activity.','Backfill Strava history')+'</span>'+
     '</div>'+
     '<p class="rdx-imp-note" id="importNote"></p>'+
     '<details class="rdx-more" id="exportHelp"><summary>How to export '+your+' run history</summary>'+
@@ -2697,6 +3207,7 @@ function shellHTML(opts){
       '<button type="button" class="rdx-btn rdx-btn-outline" id="gearBtn" aria-expanded="false" aria-controls="settingsPanel" hidden>⚙ Data &amp; settings</button>'+
     '</div>'+
   '</div>'+
+  '<p class="rdx-flags" id="rdxFlags" hidden></p>'+
 
   // 1. Data & settings
   '<div class="rdx-settings" id="settingsPanel" role="region" aria-label="Data and settings" hidden><div class="rdx-set-grid">'+
@@ -2705,10 +3216,11 @@ function shellHTML(opts){
       '<div class="rdx-group-main">'+
         '<div class="rdx-ev-form" role="group" aria-labelledby="setEventsHd">'+
           '<select id="evType" aria-label="Event type" aria-describedby="evHint">'+evOpts+'</select>'+
-          '<input type="date" id="evDate" aria-label="Date">'+
-          '<span class="rdx-ev-end" id="evEndCtl" hidden><span class="rdx-ev-to" aria-hidden="true">to (optional)</span><input type="date" id="evEndDate" aria-label="End date (optional)"></span>'+
+          '<input type="date" id="evDate" aria-label="Date" aria-describedby="evHint">'+
+          '<span class="rdx-ev-end" id="evEndCtl" hidden><span class="rdx-ev-to" aria-hidden="true">to (optional)</span><input type="date" id="evEndDate" aria-label="End date (optional)" aria-describedby="evHint"></span>'+
           '<input type="text" id="evNote" class="rdx-ev-note-in" aria-label="Note" placeholder="'+EV_PH.race+'">'+
           '<button type="button" class="rdx-btn" id="evAdd">+ add</button>'+
+          '<button type="button" class="rdx-linkbtn" id="evCancel" hidden>Cancel</button>'+
         '</div>'+
         '<p class="rdx-ev-hint"><span id="evHint">'+EV_HINT.race+'</span> <button type="button" class="rdx-linkbtn" id="wtlTog" aria-expanded="false" aria-controls="wtlBox">What to log?</button></p>'+
         '<div class="rdx-wtl-box" id="wtlBox" hidden>'+whatToLogHTML()+'</div>'+
@@ -2720,19 +3232,19 @@ function shellHTML(opts){
       '<h3 class="rdx-group-hd" id="setProfileHd">Profile</h3>'+
       '<div class="rdx-group-body">'+
         '<div class="rdx-ctl"><label for="device">Device</label><select id="device"></select></div>'+
-        '<div class="rdx-ctl"><span class="rdx-lbl">Strap / pod</span><div class="rdx-types"><button type="button" class="rdx-chip" id="accessory" aria-pressed="false">chest strap / pod</button></div></div>'+
+        '<div class="rdx-ctl"><span class="rdx-lbl">Strap / pod</span><label class="rdx-check"><input type="checkbox" id="accessory"> '+(ROLE==='coach'?'Runs with a chest strap or foot pod':'I run with a chest strap or foot pod')+'</label></div>'+
         '<div class="rdx-ctl"><label for="weight">Body weight</label><div class="rdx-inunit"><input type="text" id="weight" inputmode="decimal" placeholder="—" style="width:64px"><span>lb</span></div></div>'+
-        '<div class="rdx-ctl" title="The share of body weight run at on the Lever (85% BW = 15% offload): the default for auto-detected Lever runs and the starting value in Mark Lever runs…"><label for="offload">Lever support</label><div class="rdx-inunit"><input type="text" id="offload" inputmode="decimal" placeholder="85" style="width:56px"><span>% BW</span></div></div>'+
+        '<div class="rdx-ctl"><div class="rdx-lblrow"><label for="offload">Lever support</label>'+tipHTML('The share of body weight run at on the Lever (85% BW = 15% offload) — the default for auto-detected Lever runs and the starting value in Mark Lever runs.','Lever support')+'</div><div class="rdx-inunit"><input type="text" id="offload" inputmode="decimal" placeholder="85" style="width:56px"><span>% BW</span></div></div>'+
+        '<div class="rdx-ctl"><div class="rdx-lblrow"><label for="easypace">Easy pace</label>'+tipHTML('Used as the load baseline until there are enough easy runs to calibrate from.','Easy pace')+'</div><div class="rdx-inunit"><input type="text" id="easypace" placeholder="9:00" style="width:64px"><span id="easypaceUnit">/mi</span></div></div>'+
+        '<div class="rdx-ctl"><div class="rdx-lblrow"><label for="cutoff">Workout pace</label>'+tipHTML('Runs faster than this count as workouts. Slower runs count as easy, and easy runs set the baseline pace every run is scored against — so changing it can move Today’s numbers.','Workout pace')+'</div><div class="rdx-inunit"><input type="text" id="cutoff" value="6:40" placeholder="6:40" style="width:66px"><span>/mi</span></div></div>'+
         '<div class="rdx-ctl rdx-ctl-wide"><span class="rdx-lbl">Lever runs</span><div class="rdx-inunit"><button type="button" class="rdx-btn rdx-btn-outline" id="lvOpen" aria-haspopup="dialog">Mark Lever runs…</button><span class="rdx-lv-hint" id="lvHint"></span></div></div>'+
-        '<div class="rdx-ctl" title="Used as the load baseline until there are enough easy runs to calibrate from."><label for="easypace">Easy pace</label><div class="rdx-inunit"><input type="text" id="easypace" placeholder="9:00" style="width:64px"><span>/mi</span></div></div>'+
       '</div>'+
     '</section>'+
     '<section class="rdx-group" id="set-included" aria-labelledby="setIncludedHd">'+
       '<h3 class="rdx-group-hd" id="setIncludedHd">What’s included</h3>'+
       '<div class="rdx-group-body">'+
         '<div class="rdx-ctl rdx-ctl-wide"><span class="rdx-lbl" id="typesLbl">Activity types</span><div class="rdx-types" id="types" role="group" aria-labelledby="typesLbl"></div></div>'+
-        '<div class="rdx-ctl"><label for="intensity">Runs</label><select id="intensity"><option value="all">All runs</option><option value="workout">Workouts only</option><option value="easy">Easy only</option></select></div>'+
-        '<div class="rdx-ctl" title="Runs slower than this count as easy and calibrate the easy pace."><label for="cutoff">Workout pace (faster than)</label><div class="rdx-inunit"><input type="text" id="cutoff" value="6:40" style="width:66px"><span>/mi</span></div></div>'+
+        '<div class="rdx-ctl"><div class="rdx-lblrow"><label for="intensity">Run intensity</label>'+tipHTML('Applies to Form & volume and the metric chart only — not to Today, the load chart or Injury Patterns.','Run intensity')+'</div><select id="intensity"><option value="all">All runs</option><option value="workout">Workouts only</option><option value="easy">Easy only</option></select></div>'+
         '<div class="rdx-ctl"><label for="mindist">Min distance</label><div class="rdx-inunit"><input type="text" id="mindist" value="0.5" inputmode="decimal" style="width:56px"><span>mi</span></div></div>'+
       '</div>'+
     '</section>'+
@@ -2749,13 +3261,16 @@ function shellHTML(opts){
   // no runs: onboarding card (the import block moves in here)
   '<div class="rdx-section" id="sec-empty"><div class="rdx-card rdx-empty-card">'+
     '<h2 class="rdx-sec-title" id="emptyHd" tabindex="-1">Import '+your+' run history to get started</h2>'+
-    '<p class="rdx-sec-sub">Drop a Garmin or COROS export below, or connect Strava on the coaching dashboard and recent runs fill in automatically.</p>'+
+    (VIEW==='injury'?'<p class="rdx-pat-lead">Injury patterns need about 10 weeks of run history. After importing, log past overuse injuries and illnesses here to see what training looked like before each.</p>':'')+
+    '<p class="rdx-sec-sub">'+(ROLE==='coach'
+      ? 'Drop a Garmin or COROS export below, or ask this athlete to connect Strava from their coaching dashboard — recent runs then fill in automatically.'
+      : 'Drop a Garmin or COROS export below, or connect Strava from the <a href="/coaching/">coaching dashboard</a> and recent runs fill in automatically.')+'</p>'+
     '<div id="importHome"></div>'+
   '</div></div>'+
 
   (inView('hero') ? ''+
   // 2. Today
-  '<div class="rdx-section" id="sec-hero">'+(ADMIN?'<div class="rdx-demobar" id="demobar"></div>':'')+'<div class="rdx-hero" id="hero"></div></div>'+
+  '<div class="rdx-section" id="sec-hero">'+(ADMIN?'<div class="rdx-demobar" id="demobar"></div>':'')+'<p class="rdx-hero-notes" id="heroNotes" hidden></p><div class="rdx-hero" id="hero"></div></div>'+
 
   // 3. Load over time
   '<div class="rdx-section" id="sec-chart">'+
@@ -2766,6 +3281,7 @@ function shellHTML(opts){
           [['3','3M'],['6','6M'],['12','1Y'],['all','All'],['custom','Custom']].map(function(r){ return '<button type="button" data-range="'+r[0]+'" aria-pressed="false">'+r[1]+'</button>'; }).join('')+
         '</div>'+
         '<label class="rdx-inl">Show <select id="chartView"></select></label>'+
+        '<label class="rdx-inl" id="chartView2Wrap" hidden>vs <select id="chartView2"></select></label>'+
       '</div>'+
     '</div>'+
     '<div class="rdx-chart-row2">'+
@@ -2773,22 +3289,20 @@ function shellHTML(opts){
         '<div class="rdx-ctl"><label for="tFrom">From</label><input type="date" id="tFrom"></div>'+
         '<div class="rdx-ctl"><label for="tTo">To</label><input type="date" id="tTo"></div>'+
       '</div>'+
-      '<div class="rdx-ctl" id="chartView2Wrap" style="display:none"><label for="chartView2">Overlay</label><select id="chartView2"></select></div>'+
-      '<div class="rdx-ctl" id="dispWrap" style="display:none"><span class="rdx-lbl" id="dispLbl">Display</span><div class="rdx-types" role="group" aria-labelledby="dispLbl">'+
+      '<div class="rdx-inl" id="dispWrap" hidden><span id="dispLbl">Display</span><div class="rdx-types" role="group" aria-labelledby="dispLbl">'+
         [['hideOutliers','Hide outliers',1],['smooth','Smooth',1],['points','Points',0]].map(function(c){ return '<button type="button" class="rdx-chip'+(c[2]?' on':'')+'" id="'+c[0]+'" aria-pressed="'+!!c[2]+'">'+c[1]+'</button>'; }).join('')+
       '</div></div>'+
     '</div>'+
     '<div class="rdx-chartwrap"><div class="rdx-legend" id="chartLegend"></div><div id="chartBox"></div><p class="rdx-ev-cap" id="chartEvCap"></p></div>'+
-    '<p class="rdx-note" id="chartCaption">One easy flat mile = 1 IAD mi; harder or hillier miles count for more. A load measure, not an injury prediction. '+
-      '<button type="button" class="rdx-link" id="chartHow">How IAD is calculated →</button></p>'+
+    '<p class="rdx-note" id="chartCaption"><span id="chartCapTxt"></span><button type="button" class="rdx-link" id="chartHow">How IAD is calculated →</button></p>'+
   '</div>' : '')+
 
   // 4. Injury & illness history (the Injury Patterns view)
   (inView('patterns') ? ''+
   '<div class="rdx-section" id="sec-patterns">'+
     '<div class="rdx-sec-hd">'+
-      '<div class="rdx-sec-hd-txt"><h2 class="rdx-sec-title" id="patHead" tabindex="-1">Injury &amp; illness history</h2>'+
-        '<p class="rdx-sec-sub">What '+your+' training looked like in the weeks before each logged injury or illness. A look back, not a prediction.</p></div>'+
+      '<div class="rdx-sec-hd-txt"><h2 class="rdx-sec-title" id="patHead" tabindex="-1">What came before each setback</h2>'+
+        '<p class="rdx-sec-sub">How '+your+' training looked in the weeks before each logged injury or illness.</p></div>'+
       '<div class="rdx-sec-ctl"><button type="button" class="rdx-gapchip" id="patGapChip" hidden></button></div>'+
     '</div>'+
     '<div id="patternsBox"></div>'+
@@ -2798,7 +3312,7 @@ function shellHTML(opts){
   (inView('form') ? ''+
   '<div class="rdx-section" id="sec-form">'+
     '<div class="rdx-sec-hd">'+
-      '<div class="rdx-sec-hd-txt"><h2 class="rdx-sec-title">Form &amp; volume</h2><p class="rdx-sec-sub">Last 90 days vs the 90 before · distances are actual miles, not IAD</p></div>'+
+      '<div class="rdx-sec-hd-txt"><h2 class="rdx-sec-title">Form &amp; volume</h2><p class="rdx-sec-sub" id="formSub">Last 90 days vs the 90 before · distances are actual miles, not IAD</p></div>'+
       '<div class="rdx-sec-ctl"><label class="rdx-inl">as of <input type="date" id="anchor"></label></div>'+
     '</div>'+
     '<div class="rdx-tiles" id="formTiles"></div>'+
@@ -2831,9 +3345,9 @@ function shellHTML(opts){
     '<div class="rdx-modal-panel" role="dialog" aria-modal="true" aria-labelledby="lvTitle" aria-describedby="lvDesc" tabindex="-1">'+
       '<div class="rdx-modal-hd"><h3 class="rdx-modal-title" id="lvTitle">Mark Lever runs</h3>'+
         '<button type="button" class="rdx-modal-x" id="lvClose" aria-label="Close">✕</button></div>'+
-      '<div class="rdx-modal-intro"><p class="rdx-modal-sub" id="lvDesc">Pick the treadmill runs '+(ROLE==='coach'?'this athlete':'you')+' did on the Lever and set the body-weight offload. Their Impact Load (IAD) is recalculated with the offload discount, and the guidance card, load chart and injury patterns update.</p></div>'+
+      '<div class="rdx-modal-intro"><p class="rdx-modal-sub" id="lvDesc">Pick the treadmill runs '+(ROLE==='coach'?'this athlete':'you')+' did on the Lever and set the body-weight support. Their Impact Load (IAD) is recalculated with the offload discount, and the guidance card, load chart and injury patterns update.</p></div>'+
       '<div class="rdx-lv-bar">'+
-        '<div class="rdx-ctl"><label for="lvOff">Offload</label><div class="rdx-inunit"><input type="number" id="lvOff" min="1" max="95" step="any" inputmode="decimal" aria-describedby="lvOffCap"><span>% of body weight taken off</span></div><div class="rdx-lv-cap" id="lvOffCap"></div></div>'+
+        '<div class="rdx-ctl"><label for="lvOff">Lever support</label><div class="rdx-inunit"><input type="number" id="lvOff" min="5" max="99" step="any" inputmode="decimal" aria-describedby="lvOffCap"><span>% body weight</span></div><div class="rdx-lv-cap" id="lvOffCap"></div></div>'+
         '<div class="rdx-ctl"><label>Show</label><div class="rdx-types" id="lvFilter" role="group" aria-label="Filter runs"></div></div>'+
         '<div class="rdx-lv-note">Auto-detected = a treadmill run with a heart rate low for its pace. A manual mark always wins over detection and titles; <b>Reset to auto</b> removes it.</div>'+
       '</div>'+
@@ -2855,23 +3369,40 @@ function shellHTML(opts){
 function smoothScroll(el){ var reduce=window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches; el.scrollIntoView({block:'start', behavior:reduce?'auto':'smooth'}); }
 function wire(){
   var drop=$('drop'), fileInput=$('file');
-  drop.onclick=function(){ fileInput.click(); };
-  drop.onkeydown=function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); fileInput.click(); } };
+  var busyMsg=function(){ toast('An import is already running — wait for it to finish.'); };
+  var pick=function(){ if(IMPORT_BUSY) busyMsg(); else fileInput.click(); };
+  var take=function(files){ var f=files&&files[0]; if(f) readFile(f, files.length>1?' · only the first file was imported — drop the others one at a time':''); };
+  drop.onclick=pick;
+  drop.onkeydown=function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); pick(); } };
   drop.ondragover=function(e){ e.preventDefault(); drop.classList.add('over'); };
   drop.ondragleave=function(){ drop.classList.remove('over'); };
-  drop.ondrop=function(e){ e.preventDefault(); drop.classList.remove('over'); var f=e.dataTransfer.files[0]; if(f) readFile(f); };
-  fileInput.onchange=function(e){ var f=e.target.files[0]; if(f) readFile(f); fileInput.value=''; };
+  drop.ondrop=function(e){ e.preventDefault(); drop.classList.remove('over'); take(e.dataTransfer.files); };
+  fileInput.onchange=function(e){ take(e.target.files); fileInput.value=''; };
+  wireTips(ROOT);
   $('gearBtn').onclick=function(){ setPanel($('settingsPanel').hidden); };
   // the two one-line toggles in Events: the what-to-log list and the logged events (in place, no re-render)
   [['wtlTog','wtlBox'],['evListTog','eventsList']].forEach(function(x){ $(x[0]).onclick=function(){
     var box=$(x[1]), open=box.hidden; box.hidden=!open; this.setAttribute('aria-expanded',String(open));
     if(x[0]==='evListTog') this.textContent=open?'hide':'show'; }; });
-  $('intensity').onchange=refresh;
-  $('cutoff').onchange=refresh;
-  $('mindist').onchange=refresh;
+  $('intensity').onchange=function(){ refresh(); saveIncluded(); };
+  $('cutoff').onchange=function(e){ var v=String(e.target.value).trim(), sec=hmsToSec(v);
+    if(!v){ CUTOFF_LAST=e.target.value=FILTER_DEFAULTS.cutoff; persist({ runWorkoutPaceSec:null }); refresh(); return; }
+    if(!/^\d{1,2}:\d{2}$/.test(v) || !(sec>=180 && sec<=1200)){ fieldErr('cutoff','Workout pace must look like 6:40.',CUTOFF_LAST); return; }
+    CUTOFF_LAST=e.target.value=v; persist({ runWorkoutPaceSec: sec===hmsToSec(FILTER_DEFAULTS.cutoff)?null:sec }); refresh(); };
+  $('mindist').onchange=function(e){ var v=String(e.target.value).trim(), n=parseFloat(v);
+    if(!/^\d*\.?\d+$/.test(v) || !(n>=0 && n<=50)){ fieldErr('mindist','Min distance must be a number of miles, e.g. 0.5.',MINDIST_LAST); return; }
+    MINDIST_LAST=e.target.value=v; refresh(); saveIncluded(); };
+  ['weight','offload','easypace','cutoff','mindist'].forEach(function(id){ $(id).addEventListener('input',function(){ fieldOk(this); }); });
   if(inView('chart')){
-    ['chartView','chartView2'].forEach(function(id){ $(id).onchange=renderChart; });
-    ['tFrom','tTo'].forEach(function(id){ $(id).onchange=function(){ setRangeChip('custom'); renderChart(); }; });
+    $('chartView').onchange=function(){ syncOverlaySelect(); renderChart(); };
+    $('chartView2').onchange=renderChart;
+    // the field just edited carries the error mark when From ends up after To; the other gets a linked limit
+    ['tFrom','tTo'].forEach(function(id){ $(id).onchange=function(){
+      var f=$('tFrom'), t=$('tTo'); if(id==='tFrom') t.min=f.value; else f.max=t.value;
+      fieldOk(f); fieldOk(t);
+      var a=parseDate(f.value), b=parseDate(t.value);
+      if(a&&b&&dayEnd(b).getTime()<a.getTime()){ this.classList.add('rdx-df-err'); this.setAttribute('aria-invalid','true'); }
+      setRangeChip('custom'); renderChart(); }; });
     ['hideOutliers','smooth','points'].forEach(function(id){ $(id).onclick=function(){ this.setAttribute('aria-pressed',String(this.classList.toggle('on'))); renderChart(); }; });
     Array.prototype.forEach.call($all('#rdx-rangeChips [data-range]'),function(c){ c.onclick=function(){
       var r=c.getAttribute('data-range');
@@ -2881,28 +3412,47 @@ function wire(){
     $('chartHow').onclick=function(){ var d=$('loadMethodBox'); d.open=true; smoothScroll(d); d.querySelector('summary').focus({preventScroll:true}); };
   }
   if(inView('form')){
-    $('anchor').onchange=function(e){ var d=parseDate(e.target.value); if(d){ANCHOR=dayEnd(d);refresh();} };
-    ['faFrom','faTo','fbFrom','fbTo'].forEach(function(id){ $(id).onchange=renderForm; });
+    // as of: empty → back to today; a new date also moves Range A/B unless they were edited by hand
+    $('anchor').onchange=function(e){ var d=parseDate(e.target.value); if(!d){ d=new Date(); e.target.value=ymd(d); }
+      ANCHOR=dayEnd(d); if(!RANGES_EDITED) seedRanges(); renderFormSub(); refresh(); };
+    ['faFrom','faTo','fbFrom','fbTo'].forEach(function(id){ $(id).onchange=function(){ RANGES_EDITED=true; renderForm(); }; });
     $('formCompare').onclick=function(){ setCompare(!this.classList.contains('on')); renderForm(); };
   }
   if(inView('patterns')) $('patGapChip').onclick=function(){ var g=$('rdxGaps'); if(!g) return; GAPS_OPEN=g.open=true; smoothScroll(g); var h=$('rdxGapsHd'); if(h) h.focus({preventScroll:true}); };
   $('device').onchange=function(e){ persist({ runDevice:e.target.value }); populateMetricSelects(); refresh(); };
-  $('accessory').onclick=function(){ var on=!this.classList.contains('on'); this.classList.toggle('on',on); this.setAttribute('aria-pressed',String(on)); persist({ runHasAccessory:on }); populateMetricSelects(); refresh(); };
-  $('weight').onchange=function(e){ var lb=parseFloat(String(e.target.value).replace(/[^0-9.]/g,'')); persist({ weightLb:(lb&&lb>0)?lb:null }); refresh(); };
-  $('offload').onchange=function(e){ var pct=parseFloat(String(e.target.value).replace(/[^0-9.]/g,'')); persist({ runLeverPctBW:(pct>0&&pct<100)?pct:null }); refresh(); };
-  $('easypace').onchange=function(e){ var sec=hmsToSec(e.target.value); var ok=sec>=240&&sec<=1200; persist({ runEasyPaceSec: ok?sec:null }); e.target.value=ok?fmtPace(sec):''; refresh(); };
+  $('accessory').onchange=function(){ var on=this.checked; persist({ runHasAccessory:on }); populateMetricSelects(); refresh(); };
+  // an empty field clears the stored value; an invalid entry is never stored (fieldErr puts the stored value back)
+  $('weight').onchange=function(e){ var v=String(e.target.value).trim();
+    if(!v){ persist({ weightLb:null }); refresh(); return; }
+    var lb=parseFloat(v);
+    if(!/^\d+(\.\d+)?\s*(lb|lbs)?$/i.test(v) || !(lb>=50 && lb<=400)){ fieldErr('weight','Body weight must be a number from 50 to 400 lb.',STD_PROFILE.weightLb||''); return; }
+    e.target.value=lb; persist({ weightLb:lb }); refresh(); };
+  $('offload').onchange=function(e){ var v=String(e.target.value).trim();
+    if(!v){ persist({ runLeverPctBW:null }); refresh(); return; }
+    var pct=parseFloat(v);
+    if(!/^\d+(\.\d+)?\s*%?\s*(bw)?$/i.test(v) || !(pct>=1 && pct<=99)){ fieldErr('offload','Lever support must be between 1 and 99 % BW.',STD_PROFILE.runLeverPctBW||''); return; }
+    e.target.value=pct; persist({ runLeverPctBW:pct }); refresh(); };
+  $('easypace').onchange=function(e){ var v=String(e.target.value).trim();
+    if(!v){ persist({ runEasyPaceSec:null }); refresh(); return; }
+    var sec=hmsToSec(v);
+    if(!(sec>=240 && sec<=1200)){ fieldErr('easypace','Easy pace must be between 4:00 and 20:00 /mi.',easyPaceSec()!=null?fmtPace(easyPaceSec()):''); return; }
+    e.target.value=fmtPace(sec); persist({ runEasyPaceSec:sec }); refresh(); };
   $('evAdd').onclick=evAdd;
   wireLeverModal();
-  $('evType').onchange=function(){ var race=this.value==='race'; $('evEndCtl').hidden=race; if(race) $('evEndDate').value=''; $('evHint').textContent=EV_HINT[this.value]||''; $('evNote').placeholder=EV_PH[this.value]||''; };
+  $('evCancel').onclick=function(){ evCancelEdit(true); };
+  $('evType').onchange=function(){ var race=this.value==='race'; $('evEndCtl').hidden=race; if(race) $('evEndDate').value=''; evDateMax(this.value,['evDate','evEndDate']); evClearErr(); $('evHint').textContent=EV_HINT[this.value]||''; $('evNote').placeholder=EV_PH[this.value]||''; };
   $('evNote').onkeydown=function(e){ if(e.key==='Enter') evAdd(); };
   ['evDate','evEndDate'].forEach(function(id){ $(id).oninput=evClearErr; });
-  $('eventsList').onclick=function(e){ var b=e.target.closest&&e.target.closest('.rdx-ev-del'); if(b) evDelete(b.getAttribute('data-id'), e.detail===0); };
+  $('eventsList').onclick=function(e){ var b=e.target.closest&&e.target.closest('.rdx-ev-del'); if(b){ evDelete(b.getAttribute('data-id'), e.detail===0); return; }
+    var p=e.target.closest&&e.target.closest('.rdx-ev-pick'); if(p){ if(EV_EDIT===p.getAttribute('data-id')) evCancelEdit(true); else evEdit(p.getAttribute('data-id')); } };
+  $('set-events').onkeydown=function(e){ if(e.key==='Escape' && EV_EDIT!=null){ e.stopPropagation(); evCancelEdit(true); } };
   $('resetData').onclick=function(){
     var btn=this;
     if(!confirm('Delete ALL of '+who()+' stored run history ('+RAW.length+' runs)?\n\n'+
       'This clears every imported activity so a fresh export can be re-imported clean — '+
       'use it if a bad activity got stuck in an earlier upload. '+
-      'Profile, logged events, dismissed gaps and Lever marks are kept.\n\nThis cannot be undone.')) return;
+      'Profile, logged events, dismissed gaps and Lever marks are kept.'+
+      (STRAVA_SYNC.connected?'\n\nStrava-synced runs come back automatically within a day.':'')+'\n\nThis cannot be undone.')) return;
     btn.disabled=true;
     impStatus('<span class="rdx-spin"></span>Deleting '+RAW.length+' stored runs…');
     deleteAllRuns().then(function(n){
@@ -2931,7 +3481,7 @@ function wire(){
     if(DEMO || !(window.firebase && firebase.functions)) return;
     btn.disabled=true;
     impStatus('<span class="rdx-spin"></span>Backfilling from Strava — fetching the full activity history, this can take a minute…');
-    var payload={backfill:true}; if(ROLE==='coach') payload.athleteUid=UID;
+    var who=syncActor(), payload={backfill:true}; if(who.real && who.real!==UID) payload.athleteUid=UID;   // act for the athlete shown, never the caller by accident
     // The callable SDK's default client timeout is 70s; a full-history
     // backfill (up to 40 sequential Strava page fetches) can outlast it,
     // surfacing as deadline-exceeded while the server keeps working.
@@ -2957,9 +3507,16 @@ function wire(){
    the gaps, and can't provide GCT/oscillation/descent. Coach view skips this:
    the coaching page runs its own athlete-scoped daily sync, and the callable
    syncs the CALLER's account unless invoked with athleteUid by the admin. */
+// Who is really signed in (site.js act-as layer: esLabs.user is the effective user, realUser the real one).
+// canSync: the athlete themself, or the real admin (acting as them). Without the layer, the caller is the athlete.
+function syncActor(){
+  var L=window.esLabs, real=(L && ('realUser' in L)) ? ((L.realUser&&L.realUser.uid)||null) : UID, admin=!!real && !!L && real===L.ADMIN_UID;
+  return {real:real, admin:admin, canSync:real===UID || admin};
+}
 function maybeSyncStrava(){
-  if(ROLE==='coach' || DEMO) return;
+  if(ROLE==='coach' || DEMO) return;   // the coaching page runs its own athlete-scoped sync in the coach view
   if(!STRAVA_SYNC.connected) return;
+  var who=syncActor(); if(!who.canSync) return;
   if(!(window.firebase && firebase.functions)) return;
   var last=STRAVA_SYNC.last;
   if(last){
@@ -2967,7 +3524,7 @@ function maybeSyncStrava(){
     if(d.toDateString()===new Date().toDateString()) return;
   }
   var container=ROOT, my=MOUNT;
-  firebase.functions().httpsCallable('syncStravaActivities',{timeout:300000})({}).then(function(res){
+  firebase.functions().httpsCallable('syncStravaActivities',{timeout:300000})(who.real!==UID?{athleteUid:UID}:{}).then(function(res){
     if(ROOT!==container || my!==MOUNT) return;
     // the server stamped stravaLastSyncedAt (even with nothing new): the header's "Strava synced" reads this
     STRAVA_SYNC.last=new Date();
@@ -2988,22 +3545,32 @@ function mount(container, opts){
     return;
   }
   injectCSS();
+  if(ROOT && UID){ var cv=captureView(); if(cv) VIEWSTATE[UID]=Object.assign(VIEWSTATE[UID]||{}, cv); }
   ROOT=container; DB=opts.db; UID=opts.uid; ROLE=opts.role||'athlete'; ADMIN=!!opts.admin; DEMO=null;
   VIEW=VIEW_SECS[opts.view]?opts.view:'training';
   var my=++MOUNT; PROFILE_ERR=null;
-  DIS_OPEN=false; DIS_T=0; DIS_SEQ=0; GAP_FORM=null; SB_MORE=false; ALSO_ALL=false; PAT_STATS=true; GAPS_OPEN=false; HERO_HELP=false; CAP_PIN=''; clearTimeout(LV.toastT); clearTimeout(TOAST_T); TOAST_ARM=TOAST_BACK=null; SAVE_SEQ={}; LV={filter:'all', sel:new Set(), rows:[], trigger:null, toastT:null};
+  DIS_OPEN=false; DIS_T=0; DIS_SEQ=0; GAP_FORM=null; EV_EDIT=null; SB_MORE=false; ALSO_ALL=false; PAT_STATS=true; GAPS_OPEN=false; HERO_HELP=false; CAP_PIN=''; clearTimeout(LV.toastT); clearTimeout(TOAST_T); TOAST_ARM=TOAST_BACK=null; SAVE_SEQ={}; LV={filter:'all', sel:new Set(), rows:[], trigger:null, toastT:null};
+  IMPORT_BUSY=false; IMPORT_EXTRA=''; CUTOFF_LAST=FILTER_DEFAULTS.cutoff; MINDIST_LAST=FILTER_DEFAULTS.mindist;
   RAW=[]; ACTIVE_TYPES=new Set(); KNOWN_TYPES=new Set(); ANCHOR=null; LOAD_PARAMS=null; STD_PROFILE={}; STRAVA_LEVER=[]; STRAVA_SYNC={};
   container.classList.add('rdx');
   container.innerHTML=shellHTML(opts);
   wire();
   watchChartSize(container);
-  var st=$('importStatus'); if(st) st.innerHTML='<span class="rdx-spin"></span>Loading stored runs…';
+  var st=$('importStatus'), cache=DATA_CACHE[UID];
+  if(cache && cache.raw.length){
+    // the last data for this athlete, at once (no blank shell; the host keeps its scroll) — refetched below
+    RAW=cache.raw; STD_PROFILE=Object.assign({},cache.profile); STRAVA_LEVER=cache.lever||[]; STRAVA_SYNC=cache.sync||{};
+    try{ renderLoaded(); restoreView(VIEWSTATE[UID]); }catch(e){ console.warn('RunDynamics: cached render failed',e); cache=null; }
+  } else cache=null;
+  if(st && !cache) st.innerHTML='<span class="rdx-spin"></span>Loading stored runs…';
   Promise.all([loadProfile(), loadFromFirestore(), fetchStravaLever()]).then(function(){
     if(ROOT!==container || my!==MOUNT) return;   // a newer mount superseded this one
+    var vs=cache?captureView():VIEWSTATE[UID];   // the cached render may have been used meanwhile
     renderLoaded();
+    restoreView(vs);
     // the freshness line (#rdxFresh) now says what was loaded; the status only carries a profile error
     if(st) st.innerHTML = PROFILE_ERR?'<span class="err">⚠ Profile settings and logged events didn’t load ('+esc(PROFILE_ERR)+') — showing defaults, and changes are blocked until you reload.</span>':'';
-    var bf=$('stravaBackfill'); if(bf && STRAVA_SYNC.connected) bf.hidden=false;
+    var bf=$('stravaBackfill'), bft=$('stravaBackfillTip'); if(bf && STRAVA_SYNC.connected && syncActor().canSync){ bf.hidden=false; if(bft) bft.hidden=false; }
     maybeSyncStrava();
   }).catch(function(e){
     console.error(e);
@@ -3011,5 +3578,69 @@ function mount(container, opts){
   });
 }
 
-window.RunDynamics = { mount: mount };
+// Snapshot of the on-screen view state; fields whose controls aren't in this view are left out.
+function captureView(){
+  if(!ROOT || !RAW.length) return null;
+  var v={}, val=function(id){ var e=$(id); return e?e.value:undefined; };
+  if($('tFrom')){
+    var rc=ROOT.querySelector('#rdx-rangeChips [aria-pressed="true"]');
+    v.range=rc?rc.getAttribute('data-range'):null; v.from=val('tFrom'); v.to=val('tTo');
+    v.chartView=val('chartView'); v.chartView2=val('chartView2'); v.disp={};
+    ['hideOutliers','smooth','points'].forEach(function(id){ var e=$(id); if(e) v.disp[id]=e.classList.contains('on'); });
+  }
+  if($('anchor')){
+    v.anchor=val('anchor'); v.rangesEdited=RANGES_EDITED; v.compare=$('formCompare').classList.contains('on');
+    ['faFrom','faTo','fbFrom','fbTo'].forEach(function(id){ v[id]=val(id); });
+  }
+  if($('hero')) v.heroHelp=HERO_HELP;
+  if(inView('patterns')){ v.patStats=PAT_STATS; v.gapsOpen=GAPS_OPEN; }
+  var sp=$('settingsPanel'); if(sp) v.panelOpen=!sp.hidden;
+  return v;
+}
+// Put a captureView() snapshot back after renderLoaded(), then re-render once. Range presets re-anchor
+// on today; a metric no longer offered falls back to what renderLoaded picked.
+function restoreView(v){
+  if(!v || !ROOT || !RAW.length) return;
+  if(v.heroHelp!=null) HERO_HELP=v.heroHelp;
+  if(v.patStats!=null) PAT_STATS=v.patStats;
+  if(v.gapsOpen!=null) GAPS_OPEN=v.gapsOpen;
+  if(v.panelOpen) setPanel(true);
+  if(v.from!=null && $('tFrom')){
+    if(v.range && v.range!=='custom') setRange(v.range);
+    else if(v.from && v.to){ $('tFrom').value=v.from; $('tTo').value=v.to; setRangeChip('custom'); }
+    var has=function(sel,x){ return Array.prototype.some.call(sel.options,function(o){ return o.value===x && !o.disabled; }); };
+    if(has($('chartView'),v.chartView)) $('chartView').value=v.chartView;
+    syncOverlaySelect(); if(has($('chartView2'),v.chartView2) && v.chartView2!==$('chartView').value) $('chartView2').value=v.chartView2;
+    Object.keys(v.disp||{}).forEach(function(id){ var e=$(id); if(e){ e.classList.toggle('on',!!v.disp[id]); e.setAttribute('aria-pressed',String(!!v.disp[id])); } });
+  }
+  if(v.anchor!=null && $('anchor')){
+    var d=parseDate(v.anchor); if(d && d.getTime()<=dayEnd(new Date()).getTime()){ $('anchor').value=v.anchor; ANCHOR=dayEnd(d); }
+    RANGES_EDITED=!!v.rangesEdited;
+    if(RANGES_EDITED) ['faFrom','faTo','fbFrom','fbTo'].forEach(function(id){ if(v[id]!=null) $(id).value=v[id]; }); else seedRanges();
+    setCompare(!!v.compare); renderFormSub();
+  }
+  refresh();
+}
+// Remember the loaded data for an instant re-render on the next mount of this athlete (skipped
+// while the profile failed to load: a cached default profile would hide the error next time).
+function cacheData(){
+  if(!UID) return;
+  if(PROFILE_ERR){ delete DATA_CACHE[UID]; return; }
+  DATA_CACHE[UID]={ raw:RAW, profile:STD_PROFILE, lever:STRAVA_LEVER, sync:STRAVA_SYNC };
+}
+/* Re-read the stored runs + profile of the mounted athlete and re-render in place (no remount), e.g. after
+   the coaching page's own Strava sync added runs. No-op unless uid is the athlete on screen; a remount or
+   athlete switch in the meantime wins. The chart's range and metric are kept. */
+function reload(uid){
+  if(!ROOT || !uid || uid!==UID) return Promise.resolve(false);
+  var my=MOUNT, container=ROOT;
+  return Promise.all([loadProfile(), loadFromFirestore()]).then(function(){
+    if(ROOT!==container || my!==MOUNT) return false;
+    var keep=captureView();   // taken now, so changes made while the read was in flight are kept
+    renderLoaded();
+    restoreView(keep);
+    return true;
+  }).catch(function(e){ console.warn('RunDynamics: reload failed', e); return false; });
+}
+window.RunDynamics = { mount: mount, reload: reload };
 })();
