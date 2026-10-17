@@ -211,10 +211,13 @@ service cloud.firestore {
 
     // ── Coaching requests ────────────────────────────────────
     match /coachingRequests/{requestId} {
-      // Athlete can read/create their own requests
-      allow read: if request.auth != null
-                  && (resource.data.athleteUid == request.auth.uid
-                      || resource.data.coachUid == request.auth.uid);
+      // Athlete can read/create their own requests. The admin can read any
+      // request (incl. a deleted one: get() then returns exists=false, so
+      // the bell can tell a withdrawn/deleted request from a live one).
+      allow read: if isAdmin()
+                  || (request.auth != null
+                      && (resource.data.athleteUid == request.auth.uid
+                          || resource.data.coachUid == request.auth.uid));
       allow create: if isAdmin()
                     || (request.auth != null
                         && request.resource.data.athleteUid == request.auth.uid);

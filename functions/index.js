@@ -2,6 +2,7 @@ const { onRequest } = require("firebase-functions/v2/https");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentWritten, onDocumentCreated } = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
+const crypto = require("crypto");
 const { renderReport } = require("./report-renderer");
 const { renderComparisonReport } = require("./comparison-renderer");
 
@@ -30,45 +31,110 @@ const COACHING_PREMIUM_PRICE_IDS = [
 const ESFORMLAB_PASS_PRICE_IDS = [
   "price_1UPp34IFO8pppwnFSpUiY96l", // $90 90-day pass
 ];
+// esMetabolicLab in-person lactate test (one-time). Keep in sync with
+// METLAB_INPERSON_PRICE_ID in shared/site.js.
+const METLAB_INPERSON_PRICE_ID = "price_1TahCGIFO8pppwnFHqaaKbwW";
+
+// ═══════════════════════════════════════════════════════════
+//  Signed OAuth state. The client asks createStravaOAuthState for a
+//  short-lived state bound to the caller's REAL uid (act-as callables
+//  run with the admin's own auth, so an admin acting as an athlete
+//  gets the admin's uid and can't link their Strava to the athlete).
+//  Format: "uid:exp:sig", sig = base64url(HMAC-SHA256(key, uid:exp)).
+// ═══════════════════════════════════════════════════════════
+const STRAVA_STATE_TTL_SEC = 15 * 60;
+
+function stravaStateKey() {
+  return process.env.STRAVA_STATE_SECRET || process.env.STRAVA_CLIENT_SECRET || "";
+}
+
+function signStravaState(uid, exp) {
+  return crypto.createHmac("sha256", stravaStateKey()).update(uid + ":" + exp).digest("base64url");
+}
+
+// Returns the uid the state was issued for, or null when it is forged,
+// expired or malformed.
+function verifyStravaState(state) {
+  if (typeof state !== "string") return null;
+  const parts = state.split(":");
+  if (parts.length === 3) {
+    const [uid, exp, sig] = parts;
+    if (!uid || !/^\d+$/.test(exp) || Number(exp) <= Math.floor(Date.now() / 1000) || !stravaStateKey()) return null;
+    const expected = Buffer.from(signStravaState(uid, exp));
+    const given = Buffer.from(sig || "");
+    if (expected.length !== given.length || !crypto.timingSafeEqual(expected, given)) return null;
+    return uid;
+  }
+  // Transition (phase 1): the old unsigned "uid:nonce" state is still
+  // accepted until the client that requests signed states is live.
+  // Phase 2 deletes this branch (see plan server.deploy.md).
+  if (parts.length === 2 && parts[0]) {
+    console.warn("legacy Strava state");
+    return parts[0];
+  }
+  return null;
+}
+
+exports.createStravaOAuthState = onCall({ cors: true }, async (request) => {
+  const uid = request.auth && request.auth.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Sign in to connect Strava.");
+  if (!stravaStateKey()) {
+    console.error("createStravaOAuthState: Strava credentials not configured");
+    throw new HttpsError("unavailable", "Strava connections are unavailable right now. Try again later.");
+  }
+  const exp = String(Math.floor(Date.now() / 1000) + STRAVA_STATE_TTL_SEC);
+  return { state: uid + ":" + exp + ":" + signStravaState(uid, exp) };
+});
+
+// Best-effort revoke of one just-issued access token (no stored doc yet).
+async function revokeAccessToken(accessToken) {
+  if (!accessToken) return;
+  try {
+    const r = await fetch(STRAVA_DEAUTHORIZE_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!r.ok) console.warn(`Strava deauthorize returned HTTP ${r.status}`);
+  } catch (e) {
+    console.warn("Strava deauthorize request error:", e && e.message);
+  }
+}
 
 // ═══════════════════════════════════════════════════════════
 //  stravaCallback — HTTPS endpoint that Strava redirects to
 //  after the athlete authorizes. Exchanges code for tokens,
-//  stores them securely, redirects back to coaching.html.
+//  stores them securely, redirects back to /coaching/. Every
+//  outcome redirects back with ?strava=<result>[&reason=…]
+//  (never a bare text page):
+//    connected · denied (cancelled on Strava) · scope (activity
+//    access not granted) · error&reason=params|state|user|config|
+//    exchange|inuse
 // ═══════════════════════════════════════════════════════════
 exports.stravaCallback = onRequest({ cors: false }, async (req, res) => {
+  const back = (qs) => res.redirect(`${SITE_URL}?strava=${qs}`);
   const { code, state } = req.query;
 
-  if (!code || !state) {
-    res.status(400).send("Missing code or state parameter.");
-    return;
-  }
+  // Strava sends ?error=access_denied (and no code) when the athlete cancels.
+  if (req.query.error === "access_denied") return back("denied");
+  if (!code || !state) return back("error&reason=params");
 
-  // state = "uid:nonce"
-  const parts = state.split(":");
-  if (parts.length !== 2) {
-    res.status(400).send("Invalid state parameter.");
-    return;
-  }
-  const [uid, nonce] = parts;
+  const uid = verifyStravaState(String(state));
+  if (!uid) return back("error&reason=state");
 
-  // Verify user exists
-  const userDoc = await db.collection("users").doc(uid).get();
-  if (!userDoc.exists) {
-    res.status(400).send("User not found.");
-    return;
-  }
-
-  // Exchange authorization code for tokens
   const clientId = process.env.STRAVA_CLIENT_ID;
   const clientSecret = process.env.STRAVA_CLIENT_SECRET;
-
   if (!clientId || !clientSecret) {
-    res.status(500).send("Strava credentials not configured.");
-    return;
+    console.error("stravaCallback: Strava credentials not configured");
+    return back("error&reason=config");
   }
 
   try {
+    // Verify user exists
+    const userRef = db.collection("users").doc(uid);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) return back("error&reason=user");
+
+    // Exchange authorization code for tokens
     const tokenRes = await fetch(STRAVA_TOKEN_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -83,31 +149,69 @@ exports.stravaCallback = onRequest({ cors: false }, async (req, res) => {
     if (!tokenRes.ok) {
       const err = await tokenRes.text();
       console.error("Strava token exchange failed:", err);
-      res.redirect(`${SITE_URL}?strava=error`);
-      return;
+      return back("error&reason=exchange");
     }
 
     const tokenData = await tokenRes.json();
+    const athleteId = (tokenData.athlete && tokenData.athlete.id) || null;
+    const privRef = userRef.collection("private").doc("strava");
+    const privSnap = await privRef.get();
+    const storedAthleteId = (privSnap.exists && privSnap.data().athleteId) || userDoc.data().stravaAthleteId || null;
+
+    // One Strava athlete links to one ESL account. Nothing is revoked here:
+    // the authorization is shared with the other account's live link.
+    if (athleteId != null) {
+      const dupSnap = await db.collection("users").where("stravaAthleteId", "==", athleteId).get();
+      if (dupSnap.docs.some((d) => d.id !== uid)) {
+        console.warn(`stravaCallback: athlete ${athleteId} is already linked to another user; refused for uid ${uid}`);
+        return back("error&reason=inuse");
+      }
+    }
+
+    // Activity access is required. When Strava reports the granted scopes and
+    // neither activity scope is among them, undo the half-authorization and
+    // store nothing. (No scope param at all keeps the old behaviour.)
+    if (req.query.scope !== undefined) {
+      const granted = String(req.query.scope || "").split(",").map((x) => x.trim());
+      if (!granted.some((x) => x === "activity:read" || x === "activity:read_all")) {
+        await revokeAccessToken(tokenData.access_token);
+        // Deauthorizing ends this athlete's authorization for the app; if this
+        // user already held it, purge now rather than waiting for the webhook.
+        if (storedAthleteId != null && String(storedAthleteId) === String(athleteId)) {
+          await purgeStravaData(uid);
+        }
+        return back("scope");
+      }
+    }
+
+    // Switching Strava accounts: revoke the old account and delete the runs
+    // synced from it before storing the new one, so the two never mix and a
+    // later deauth by the old account can't strand data.
+    if (storedAthleteId != null && athleteId != null && String(storedAthleteId) !== String(athleteId)) {
+      await revokeStravaToken(uid);
+      const deleted = await purgeStravaData(uid);
+      console.log(`stravaCallback: uid ${uid} switched Strava ${storedAthleteId} -> ${athleteId}; purged ${deleted} activities`);
+    }
 
     // Store tokens in a private subcollection (not readable by client)
-    await db.collection("users").doc(uid).collection("private").doc("strava").set({
+    await privRef.set({
       accessToken: tokenData.access_token,
       refreshToken: tokenData.refresh_token,
       expiresAt: tokenData.expires_at,
-      athleteId: tokenData.athlete?.id || null,
+      athleteId,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
     // Update public user doc
-    await db.collection("users").doc(uid).update({
+    await userRef.update({
       stravaConnected: true,
-      stravaAthleteId: tokenData.athlete?.id || null,
+      stravaAthleteId: athleteId,
     });
 
-    res.redirect(`${SITE_URL}?strava=connected`);
+    return back("connected");
   } catch (err) {
     console.error("Strava callback error:", err);
-    res.redirect(`${SITE_URL}?strava=error`);
+    return back("error&reason=exchange");
   }
 });
 
@@ -177,22 +281,47 @@ function stravaRunDoc(act) {
 //  mirror (trainingPlans/{plan}/stravaActivities).
 //  Called by the client after connecting or via a sync button.
 // ═══════════════════════════════════════════════════════════
+// May `callerUid` sync another athlete's Strava? The admin always; a
+// coach only for an athlete whose coach of record they are (the same
+// relationship the Firestore rules use for garminActivities).
+async function mayManageAthleteStrava(callerUid, athleteUid) {
+  if (callerUid === ADMIN_UID) return true;
+  try {
+    const [athleteSnap, callerSnap] = await Promise.all([
+      db.collection("users").doc(athleteUid).get(),
+      db.collection("users").doc(callerUid).get(),
+    ]);
+    return athleteSnap.exists && callerSnap.exists &&
+      athleteSnap.data().coachUid === callerUid &&
+      callerSnap.data().role === "coach";
+  } catch (e) {
+    console.warn("mayManageAthleteStrava lookup failed:", e && e.message);
+    return false;
+  }
+}
+
 exports.syncStravaActivities = onCall({ cors: true, timeoutSeconds: 300 }, async (request) => {
   const callerUid = request.auth?.uid;
   if (!callerUid) {
-    throw new HttpsError("unauthenticated", "Must be signed in.");
+    throw new HttpsError("unauthenticated", "Sign in to sync Strava.");
   }
 
-  // Allow coach to sync on behalf of an athlete (uses module-level ADMIN_UID)
+  // Sync on behalf of an athlete: the admin, or the athlete's coach of
+  // record. Anyone else asking for another athlete is refused outright —
+  // never fall back to syncing the caller's own account.
   let uid = callerUid;
-  if (request.data?.athleteUid && callerUid === ADMIN_UID) {
-    uid = request.data.athleteUid;
+  const targetUid = request.data?.athleteUid;
+  if (typeof targetUid === "string" && targetUid && targetUid !== callerUid) {
+    if (!(await mayManageAthleteStrava(callerUid, targetUid))) {
+      throw new HttpsError("permission-denied", "Only the athlete can sync this Strava account.");
+    }
+    uid = targetUid;
   }
 
   // Read stored tokens
   const tokenDoc = await db.collection("users").doc(uid).collection("private").doc("strava").get();
   if (!tokenDoc.exists) {
-    throw new HttpsError("not-found", "Strava not connected.");
+    throw new HttpsError("not-found", "Strava isn't connected. Connect Strava first.");
   }
 
   let { accessToken, refreshToken, expiresAt } = tokenDoc.data();
@@ -222,9 +351,9 @@ exports.syncStravaActivities = onCall({ cors: true, timeoutSeconds: 300 }, async
       if (refreshRes.status === 400 || refreshRes.status === 401) {
         const deleted = await purgeStravaData(uid);
         console.log(`Strava token revoked for uid ${uid} — purged tokens + ${deleted} activities`);
-        throw new HttpsError("failed-precondition", "Strava access was revoked. Please reconnect.");
+        throw new HttpsError("failed-precondition", "Strava access was revoked. Reconnect Strava to keep syncing.");
       }
-      throw new HttpsError("internal", "Failed to refresh Strava token.");
+      throw new HttpsError("unavailable", "Strava didn't respond. Try again in a few minutes.");
     }
 
     const refreshData = await refreshRes.json();
@@ -252,12 +381,20 @@ exports.syncStravaActivities = onCall({ cors: true, timeoutSeconds: 300 }, async
   let allActivities = [];
   let page = 1;
   let rateLimited = false;
+  let pagesOk = 0;
 
   while (page <= maxPages) {
     const url = `${STRAVA_ACTIVITIES_URL}?${isBackfill ? "" : `after=${after}&`}per_page=200&page=${page}`;
-    const actRes = await fetch(url, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    let actRes;
+    try {
+      actRes = await fetch(url, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+    } catch (e) {
+      console.error("Strava activities request error:", e && e.message);
+      if (page === 1) throw new HttpsError("unavailable", "Strava didn't respond. Try again in a few minutes.");
+      break;
+    }
 
     if (actRes.status === 429) {
       // App-level read limit (shared across all athletes, resets every
@@ -267,14 +404,37 @@ exports.syncStravaActivities = onCall({ cors: true, timeoutSeconds: 300 }, async
       break;
     }
     if (!actRes.ok) {
-      console.error("Strava activities fetch failed:", await actRes.text());
+      console.error("Strava activities fetch failed:", actRes.status, await actRes.text());
+      // A failed FIRST page means nothing was read: report it instead of
+      // finishing as "synced today" with 0 runs. Later pages keep the
+      // partial result.
+      if (page === 1) {
+        if (actRes.status === 401 || actRes.status === 403) {
+          throw new HttpsError("failed-precondition", "Strava isn't sharing your activities with us. Reconnect Strava and leave “View data about your activities” ticked.");
+        }
+        throw new HttpsError("unavailable", "Strava didn't respond. Try again in a few minutes.");
+      }
       break;
     }
 
     const activities = await actRes.json();
+    pagesOk++;
     if (!activities.length) break;
     allActivities = allActivities.concat(activities);
     page++;
+  }
+
+  // Rate-limited before any page came back: nothing to write, and
+  // stravaLastSyncedAt stays unstamped so today's auto-sync retries.
+  if (pagesOk === 0) {
+    return {
+      backfill: isBackfill,
+      rateLimited: true,
+      synced: 0,
+      runDocs: 0,
+      runSkipped: 0,
+      message: "Strava's rate limit was reached. Try again in 15 minutes.",
+    };
   }
 
   // ── Run Dynamics supplement ──────────────────────────────
@@ -474,9 +634,12 @@ async function purgeStravaData(uid) {
   await db.collection("users").doc(uid).collection("private").doc("strava").delete();
 
   // Connection flags + disconnect time for audit
+  // stravaLastSyncedAt goes too, so a same-day reconnect isn't treated as
+  // "already synced today".
   await db.collection("users").doc(uid).update({
     stravaConnected: false,
     stravaAthleteId: null,
+    stravaLastSyncedAt: admin.firestore.FieldValue.delete(),
     stravaDisconnectedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 
@@ -576,14 +739,14 @@ exports.stravaWebhook = onRequest({ cors: false }, async (req, res) => {
     const event = req.body || {};
     const athleteId = event.owner_id;
 
-    // Look up which user this Strava athlete id belongs to
+    // Look up every user this Strava athlete id belongs to. A deauth must
+    // delete the data everywhere (Strava API Agreement), so no .limit(1).
     const userSnap = await db.collection("users")
       .where("stravaAthleteId", "==", athleteId)
-      .limit(1)
       .get();
 
-    if (!userSnap.empty) {
-      const uid = userSnap.docs[0].id;
+    for (const userDocSnap of userSnap.docs) {
+      const uid = userDocSnap.id;
 
       if (event.object_type === "athlete" &&
           event.updates && String(event.updates.authorized) === "false") {
@@ -664,7 +827,30 @@ exports.stravaWebhook = onRequest({ cors: false }, async (req, res) => {
 async function revokeStravaToken(uid) {
   const tokenDoc = await db.collection("users").doc(uid).collection("private").doc("strava").get();
   if (!tokenDoc.exists) return null;
-  const { accessToken } = tokenDoc.data();
+  let { accessToken } = tokenDoc.data();
+  const { refreshToken, expiresAt } = tokenDoc.data();
+  // Strava rejects an expired access token, which would leave the app
+  // authorized; refresh it first (best effort).
+  if (refreshToken && expiresAt && Math.floor(Date.now() / 1000) >= expiresAt - 60) {
+    try {
+      const r = await fetch(STRAVA_TOKEN_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_id: process.env.STRAVA_CLIENT_ID,
+          client_secret: process.env.STRAVA_CLIENT_SECRET,
+          refresh_token: refreshToken,
+          grant_type: "refresh_token",
+        }),
+      });
+      if (r.ok) {
+        const d = await r.json();
+        if (d && d.access_token) accessToken = d.access_token;
+      }
+    } catch (e) {
+      console.warn("Strava token refresh before revoke failed:", e && e.message);
+    }
+  }
   if (!accessToken) return null;
   try {
     const revokeRes = await fetch(STRAVA_DEAUTHORIZE_URL, {
@@ -687,13 +873,18 @@ async function revokeStravaToken(uid) {
 exports.deauthorizeStrava = onCall({ cors: true }, async (request) => {
   const callerUid = request.auth?.uid;
   if (!callerUid) {
-    throw new HttpsError("unauthenticated", "Must be signed in.");
+    throw new HttpsError("unauthenticated", "Sign in to disconnect Strava.");
   }
 
-  // Allow admin to deauthorize on behalf of an athlete; otherwise self-only
+  // Admin may disconnect on behalf of an athlete; otherwise self-only.
+  // Never fall back to disconnecting the caller's own account.
   let uid = callerUid;
-  if (request.data?.athleteUid && callerUid === ADMIN_UID) {
-    uid = request.data.athleteUid;
+  const targetUid = request.data?.athleteUid;
+  if (typeof targetUid === "string" && targetUid && targetUid !== callerUid) {
+    if (callerUid !== ADMIN_UID) {
+      throw new HttpsError("permission-denied", "Only the athlete can disconnect this Strava account.");
+    }
+    uid = targetUid;
   }
 
   // Step 1: Revoke token with Strava (best effort)
@@ -743,12 +934,59 @@ function extractPriceIds(doc) {
   return ids;
 }
 
+// Best-effort display name for admin notifications: the users doc name or
+// email, else the Auth account's email, else `fallback`.
+async function athleteLabel(uid, fallback) {
+  try {
+    const userSnap = await db.collection("users").doc(uid).get();
+    if (userSnap.exists) {
+      const u = userSnap.data();
+      if (u.displayName || u.email) return u.displayName || u.email;
+    }
+  } catch (e) {
+    // best-effort name lookup
+  }
+  try {
+    const authUser = await admin.auth().getUser(uid);
+    if (authUser && (authUser.displayName || authUser.email)) return authUser.displayName || authUser.email;
+  } catch (e) {
+    // best-effort name lookup
+  }
+  return fallback;
+}
+
+// Firestore Timestamp / seconds / Date -> "Nov 3, 2026" (Mountain time).
+function fmtNotifDate(v) {
+  let d = null;
+  if (v && typeof v.toDate === "function") d = v.toDate();
+  else if (typeof v === "number") d = new Date(v * 1000);
+  else if (v instanceof Date) d = v;
+  if (!d || isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Denver" }).format(d);
+}
+
+// Payment-lifecycle change worth an admin bell item, or null. Only real
+// transitions count (a doc first written in a bad state is history).
+function coachingLifecycleChange(before, after) {
+  if (!before || !after) return null;
+  const tsKey = (v) => (v && typeof v.seconds === "number" ? v.seconds : typeof v === "number" ? v : "");
+  if (after.status !== before.status && ["canceled", "past_due", "unpaid"].includes(after.status)) {
+    // past_due/unpaid can recur in a later billing period; alert once per period.
+    const period = after.status === "canceled" ? "" : "_" + tsKey(after.current_period_start);
+    return { key: after.status + period, status: after.status };
+  }
+  if (after.cancel_at_period_end === true && before.cancel_at_period_end !== true && after.status !== "canceled") {
+    return { key: "cancel_scheduled_" + tsKey(after.current_period_end), status: "cancel_scheduled" };
+  }
+  return null;
+}
+
 exports.onCoachingSubscription = onDocumentWritten(
   "customers/{uid}/subscriptions/{subId}",
   async (event) => {
-    const after = event.data && event.data.after && event.data.after.data();
+    const after = event.data && event.data.after && event.data.after.exists ? event.data.after.data() : null;
+    const before = event.data && event.data.before && event.data.before.exists ? event.data.before.data() : null;
     if (!after) return;
-    if (after.status !== "active" && after.status !== "trialing") return;
 
     const priceIds = extractPriceIds(after);
     const matchedPriceId = priceIds.find((id) => COACHING_PRICE_IDS[id]);
@@ -758,20 +996,46 @@ exports.onCoachingSubscription = onDocumentWritten(
     const uid = event.params.uid;
     const subId = event.params.subId;
 
+    // Cancellation / failed payment: tell the admin (one bell item per
+    // change; deterministic id + create() makes re-fires no-ops).
+    const change = coachingLifecycleChange(before, after);
+    if (change) {
+      const who = await athleteLabel(uid, "An athlete");
+      const ends = fmtNotifDate(after.current_period_end);
+      let message;
+      if (change.status === "cancel_scheduled") {
+        message = `${who}'s ${tier} coaching subscription was cancelled` + (ends ? ` — it ends ${ends}.` : ".");
+      } else if (change.status === "canceled") {
+        message = `${who}'s ${tier} coaching subscription has ended (cancelled).`;
+      } else if (change.status === "past_due") {
+        message = `${who}'s ${tier} coaching payment failed (past due).`;
+      } else {
+        message = `${who}'s ${tier} coaching subscription is unpaid — payment attempts have failed.`;
+      }
+      try {
+        await db.collection("notifications").doc(`coaching_sub_${subId}_${change.key}`).create({
+          recipientUid: ADMIN_UID,
+          type: "coaching_subscription_changed",
+          subscriptionId: subId,
+          athleteUid: uid,
+          tier,
+          status: change.status,
+          message,
+          read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        if (e && e.code !== 6) console.error("Failed to write subscription-change notification:", e);
+      }
+    }
+
+    if (after.status !== "active" && after.status !== "trialing") return;
+
     // Deterministic notification ID -- create() is exactly-once, so a
     // status change re-firing the trigger won't double-notify.
     const notifId = `coaching_sub_${subId}`;
 
-    let athleteName = "A new user";
-    try {
-      const userSnap = await db.collection("users").doc(uid).get();
-      if (userSnap.exists) {
-        const u = userSnap.data();
-        athleteName = u.displayName || u.email || athleteName;
-      }
-    } catch (e) {
-      // best-effort name lookup
-    }
+    const athleteName = await athleteLabel(uid, "A new user");
 
     try {
       await db.collection("notifications").doc(notifId).create({
@@ -781,7 +1045,7 @@ exports.onCoachingSubscription = onDocumentWritten(
         athleteUid: uid,
         tier,
         message: `${athleteName} just subscribed to ${tier} coaching (${billing}). Assign them as your athlete to get started.` +
-          (block ? " 4-month block: they get a free ESL racing kit -- send them one." : ""),
+          (block ? " 4-month block: they get a free ESL racing kit — send them one." : ""),
         read: false,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
@@ -891,6 +1155,27 @@ exports.onPassPayment = onDocumentCreated(
     if (p.status !== "succeeded") return;
 
     const uid = event.params.uid;
+
+    // A paid in-person metabolic test: tell the admin so they can schedule it.
+    if (extractPriceIds(p).includes(METLAB_INPERSON_PRICE_ID)) {
+      const who = await athleteLabel(uid, "Someone");
+      const amount = typeof p.amount === "number" && p.amount > 0
+        ? ` ($${(p.amount / 100).toFixed(p.amount % 100 ? 2 : 0)})` : "";
+      try {
+        await db.collection("notifications").doc(`in_person_paid_${event.params.paymentId}`).create({
+          recipientUid: ADMIN_UID,
+          type: "in_person_paid",
+          athleteUid: uid,
+          paymentId: event.params.paymentId,
+          message: `${who} paid for an in-person metabolic test${amount}.`,
+          read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        if (e && e.code !== 6) console.error("Failed to write in-person payment notification:", e);
+      }
+    }
+
     try {
       const userSnap = await db.collection("users").doc(uid).get();
       const u = userSnap.exists ? userSnap.data() : {};
@@ -905,6 +1190,15 @@ exports.onPassPayment = onDocumentCreated(
     }
   }
 );
+
+// YYYY-MM-DD in the caller's local time. tzOffsetMin is the client's
+// new Date().getTimezoneOffset() (minutes, positive west of UTC); anything
+// invalid falls back to UTC.
+function localDateISO(tzOffsetMin) {
+  const off = typeof tzOffsetMin === "number" && isFinite(tzOffsetMin) && tzOffsetMin >= -840 && tzOffsetMin <= 840
+    ? tzOffsetMin : 0;
+  return new Date(Date.now() - off * 60000).toISOString().slice(0, 10);
+}
 
 // ═══════════════════════════════════════════════════════════
 //  Pass verification: mirrors the client-side three-source
@@ -974,7 +1268,7 @@ async function verifyActivePass(uid) {
 exports.generateFormReport = onCall({ cors: true, memory: "512MiB" }, async (request) => {
   const uid = request.auth && request.auth.uid;
   if (!uid) {
-    throw new HttpsError("unauthenticated", "Must be signed in to download the report.");
+    throw new HttpsError("unauthenticated", "Sign in to download the report.");
   }
 
   const hasPass = await verifyActivePass(uid);
@@ -986,10 +1280,18 @@ exports.generateFormReport = onCall({ cors: true, memory: "512MiB" }, async (req
   const phases = data.phases && typeof data.phases === "object" ? data.phases : {};
   const lastIssues = data.lastIssues && typeof data.lastIssues === "object" ? data.lastIssues : null;
   if (!lastIssues) {
-    throw new HttpsError("invalid-argument", "Missing analysis results -- complete an analysis before downloading.");
+    throw new HttpsError("invalid-argument", "Complete an analysis before downloading the report.");
   }
   const selectedSex = data.selectedSex === "male" || data.selectedSex === "female" ? data.selectedSex : null;
   const athleteName = typeof data.athleteName === "string" ? data.athleteName : "";
+  // Optional (newer clients): the saved/entered session name + date, and the
+  // caller's timezone offset so "Generated" is the user's local date. Each is
+  // validated and ignored when invalid.
+  const sessionName = typeof data.sessionName === "string" && data.sessionName.trim().length <= 120
+    ? data.sessionName.trim() : "";
+  const sessionDate = typeof data.sessionDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(data.sessionDate)
+    ? data.sessionDate : "";
+  const generatedISO = localDateISO(data.tzOffsetMin);
 
   // Optional per-phase captured-frame screenshots (JPEG data URLs), passed in the
   // request payload rather than persisted. Validate shape/size so a malformed or
@@ -1015,6 +1317,7 @@ exports.generateFormReport = onCall({ cors: true, memory: "512MiB" }, async (req
   // Anyone can read these (rules allow read:true), but we fetch server-side
   // so the renderer is fully self-contained.
   const liveRanges = { male: null, female: null, combined: null };
+  const rangeMeta = { male: null, female: null };
   try {
     const reads = await Promise.all([
       db.collection("computed_ranges").doc("male").get(),
@@ -1026,21 +1329,28 @@ exports.generateFormReport = onCall({ cors: true, memory: "512MiB" }, async (req
     if (reads[0].exists) liveRanges.male = reads[0].data().phases || null;
     if (reads[1].exists) liveRanges.female = reads[1].data().phases || null;
     if (reads[2].exists) liveRanges.combined = reads[2].data().phases || null;
+    // Reference-set size for the cover line ("Female elite runners (7 sessions)").
+    if (reads[0].exists && typeof reads[0].data().sampleCount === "number") rangeMeta.male = reads[0].data().sampleCount;
+    if (reads[1].exists && typeof reads[1].data().sampleCount === "number") rangeMeta.female = reads[1].data().sampleCount;
   } catch (e) {
     console.warn("computed_ranges fetch failed, falling back to defaults:", e && e.message);
   }
 
   let buf;
   try {
-    buf = renderReport({ athleteName, selectedSex, phases, lastIssues, liveRanges, images });
+    buf = renderReport({
+      athleteName, sessionName, sessionDate, generatedISO, rangeMeta,
+      selectedSex, phases, lastIssues, liveRanges, images,
+    });
   } catch (e) {
     console.error("renderReport failed:", e);
-    throw new HttpsError("internal", "Failed to generate report PDF.");
+    throw new HttpsError("internal", "We couldn't create the report PDF. Please try again.");
   }
 
+  const slug = sessionName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40).replace(/-+$/, "");
   return {
     pdfBase64: buf.toString("base64"),
-    filename: "esformlab-report-" + new Date().toISOString().slice(0, 10) + ".pdf",
+    filename: "esformlab-report-" + slug + (slug ? "-" : "") + (sessionDate || generatedISO) + ".pdf",
   };
 });
 
@@ -1055,7 +1365,7 @@ exports.generateFormReport = onCall({ cors: true, memory: "512MiB" }, async (req
 exports.generateComparisonReport = onCall({ cors: true, memory: "512MiB" }, async (request) => {
   const uid = request.auth && request.auth.uid;
   if (!uid) {
-    throw new HttpsError("unauthenticated", "Must be signed in to download the comparison report.");
+    throw new HttpsError("unauthenticated", "Sign in to download the comparison report.");
   }
 
   const hasPass = await verifyActivePass(uid);
@@ -1066,7 +1376,7 @@ exports.generateComparisonReport = onCall({ cors: true, memory: "512MiB" }, asyn
   const data = request.data || {};
   const idA = typeof data.idA === "string" ? data.idA : null;
   const idB = typeof data.idB === "string" ? data.idB : null;
-  if (!idA || !idB) throw new HttpsError("invalid-argument", "Two analysis IDs are required.");
+  if (!idA || !idB) throw new HttpsError("invalid-argument", "Pick two saved analyses to compare.");
   if (idA === idB) throw new HttpsError("invalid-argument", "Pick two different analyses to compare.");
 
   // Default to the caller's own subcollection. Admin may pass ownerUid to compare a different user's saved analyses.
@@ -1104,15 +1414,16 @@ exports.generateComparisonReport = onCall({ cors: true, memory: "512MiB" }, asyn
 
   let buf;
   try {
-    buf = renderComparisonReport({ dA, dB, liveRanges });
+    buf = renderComparisonReport({ dA, dB, liveRanges, generatedISO: localDateISO(data.tzOffsetMin) });
   } catch (e) {
     console.error("renderComparisonReport failed:", e);
-    throw new HttpsError("internal", "Failed to generate comparison PDF.");
+    throw new HttpsError("internal", "We couldn't create the comparison PDF. Please try again.");
   }
 
+  const isoOr = (v, fb) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : fb);
   return {
     pdfBase64: buf.toString("base64"),
-    filename: "esformlab-comparison-" + new Date().toISOString().slice(0, 10) + ".pdf",
+    filename: "esformlab-comparison-" + isoOr(dA.date, "a") + "-vs-" + isoOr(dB.date, "b") + ".pdf",
   };
 });
 
@@ -1176,6 +1487,36 @@ exports.listAllUsers = onCall({ cors: true }, async (request) => {
     return v;
   };
 
+  // 2b. Coaching status for Manage Users (the admin client can't read
+  //     customers/*): the live coaching subscription's tier, and whether a
+  //     coaching request is pending. Best-effort; missing → null/false.
+  const coachingByUid = {};
+  const pendingRequestUids = new Set();
+  try {
+    const subsSnap = await db.collectionGroup("subscriptions").get();
+    subsSnap.forEach((doc) => {
+      const parent = doc.ref.parent.parent;
+      if (!parent || doc.ref.parent.parent.parent.id !== "customers") return;
+      const sub = doc.data() || {};
+      if (!["active", "trialing", "past_due"].includes(sub.status)) return;
+      const priceId = extractPriceIds(sub).find((id) => COACHING_PRICE_IDS[id]);
+      if (!priceId) return;
+      const prev = coachingByUid[parent.id];
+      // Prefer a healthy subscription over a past-due one.
+      if (!prev || (prev.status === "past_due" && sub.status !== "past_due")) {
+        coachingByUid[parent.id] = { tier: COACHING_PRICE_IDS[priceId].tier, status: sub.status };
+      }
+    });
+  } catch (e) {
+    console.warn("listAllUsers: subscription scan failed:", e && e.message);
+  }
+  try {
+    const reqSnap = await db.collection("coachingRequests").where("status", "==", "pending").get();
+    reqSnap.forEach((doc) => { const a = doc.get("athleteUid"); if (a) pendingRequestUids.add(a); });
+  } catch (e) {
+    console.warn("listAllUsers: pending-request scan failed:", e && e.message);
+  }
+
   // 3. Merge — union of both keyspaces so orphan docs and
   //    profile-less Auth accounts both show up.
   const allUids = new Set([...Object.keys(authByUid), ...Object.keys(docsByUid)]);
@@ -1202,11 +1543,100 @@ exports.listAllUsers = onCall({ cors: true }, async (request) => {
       disabled: a ? !!a.disabled : false,
       createdAt: toSec(d && d.createdAt) || authCreated || null,
       lastSignInAt: authLastSignIn,
+      // Tier code matches the admin client ("premium" | "standard" | null);
+      // the display label rides alongside ("Full Access" | "Standard").
+      coachingTier: coachingByUid[uid]
+        ? (coachingByUid[uid].tier === "Full Access" ? "premium" : "standard") : null,
+      coachingTierLabel: coachingByUid[uid] ? coachingByUid[uid].tier : null,
+      coachingStatus: coachingByUid[uid] ? coachingByUid[uid].status : null,   // "active" | "trialing" | "past_due" | null
+      pendingRequest: pendingRequestUids.has(uid),
+      coachingRequestPending: pendingRequestUids.has(uid),                     // alias of pendingRequest
     });
     users.push(merged);
   });
 
   return { users };
+});
+
+// ═══════════════════════════════════════════════════════════
+//  adminAssignCoach — admin-only coach (re)assignment (owner
+//  decision D8: admin-run, plans move). One batch:
+//    - users/{athlete}.coachUid = coachUid (null = unassign)
+//    - when assigning: the athlete's training plans move to the
+//      new coach (trainingPlans rules don't let any client change
+//      coachUid), pending coaching requests are closed as
+//      accepted (and their admin bell items resolved), and the
+//      athlete gets a coaching_accepted bell item.
+//  Unassigning leaves plans untouched and sends nothing.
+//  Clients feature-detect: not-found (not deployed) → keep the
+//  old users.coachUid-only write.
+// ═══════════════════════════════════════════════════════════
+exports.adminAssignCoach = onCall({ cors: true }, async (request) => {
+  const callerUid = request.auth?.uid;
+  if (!callerUid) throw new HttpsError("unauthenticated", "Sign in first.");
+  if (callerUid !== ADMIN_UID) throw new HttpsError("permission-denied", "Only the admin can assign coaches.");
+
+  const athleteUid = request.data?.athleteUid;
+  const rawCoach = request.data?.coachUid;
+  const coachUid = rawCoach === null || rawCoach === undefined || rawCoach === "" ? null : rawCoach;
+  if (typeof athleteUid !== "string" || !athleteUid) throw new HttpsError("invalid-argument", "Pick an athlete.");
+  if (coachUid !== null && typeof coachUid !== "string") throw new HttpsError("invalid-argument", "Pick a coach.");
+  if (coachUid === athleteUid) throw new HttpsError("invalid-argument", "An athlete can't coach themselves.");
+
+  const athleteRef = db.collection("users").doc(athleteUid);
+  const athleteSnap = await athleteRef.get();
+  if (!athleteSnap.exists) throw new HttpsError("not-found", "That athlete no longer exists.");
+  if (coachUid !== null && coachUid !== ADMIN_UID) {
+    const coachSnap = await db.collection("users").doc(coachUid).get();
+    if (!coachSnap.exists || coachSnap.data().role !== "coach") {
+      throw new HttpsError("failed-precondition", "That account isn't a coach. Make them a coach first.");
+    }
+  }
+
+  const prevCoach = athleteSnap.data().coachUid || null;
+  if (prevCoach === coachUid) return { changed: false, plansMoved: 0, requestsClosed: 0 };
+
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  const batch = db.batch();
+  batch.update(athleteRef, { coachUid });
+  let plansMoved = 0;
+  let requestsClosed = 0;
+
+  if (coachUid !== null) {
+    const plansSnap = await db.collection("trainingPlans").where("athleteUid", "==", athleteUid).get();
+    plansSnap.docs.forEach((p) => {
+      if (p.data().coachUid === coachUid) return;
+      batch.update(p.ref, { coachUid, updatedAt: now });
+      plansMoved++;
+    });
+
+    const reqSnap = await db.collection("coachingRequests").where("athleteUid", "==", athleteUid).get();
+    const pendingIds = reqSnap.docs.filter((r) => r.data().status === "pending").map((r) => r.id);
+    reqSnap.docs.forEach((r) => {
+      if (r.data().status !== "pending") return;
+      batch.update(r.ref, { status: "accepted" });
+      requestsClosed++;
+    });
+    for (let i = 0; i < pendingIds.length; i += 30) {
+      const nSnap = await db.collection("notifications").where("requestId", "in", pendingIds.slice(i, i + 30)).get();
+      nSnap.docs.forEach((n) => batch.update(n.ref, { status: "accepted", read: true }));
+    }
+
+    const coachName = await athleteLabel(coachUid, "Your new coach");
+    batch.set(db.collection("notifications").doc(), {
+      recipientUid: athleteUid,
+      type: "coaching_accepted",
+      message: requestsClosed
+        ? `Your coaching request has been accepted — ${coachName} is your coach. Your training plan is ready.`
+        : `${coachName} is now your coach.` + (plansMoved ? " Your training plan moved with you." : ""),
+      read: false,
+      createdAt: now,
+    });
+  }
+
+  await batch.commit();
+  console.log(`adminAssignCoach: ${athleteUid} ${prevCoach || "-"} -> ${coachUid || "-"} (plans=${plansMoved}, requests=${requestsClosed})`);
+  return { changed: true, plansMoved, requestsClosed };
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -1217,7 +1647,8 @@ exports.listAllUsers = onCall({ cors: true }, async (request) => {
 //    - users/{uid} and all its subcollections
 //    - training plans where they are the athlete (+ workouts,
 //      lifting weeks, synced activities)
-//    - notifications addressed to them
+//    - notifications addressed to them or sent by them (incl.
+//      their coaching-request items)
 //    - coaching requests they sent or received
 //    - customers/{uid} (Stripe extension mirror)
 //    - the Firebase Auth account
@@ -1262,12 +1693,28 @@ exports.adminDeleteUser = onCall({ cors: true, timeoutSeconds: 300 }, async (req
   }
 
   const queryRefs = async (q) => (await q.get()).docs.map((d) => d.ref);
-  const topLevelRefs = [
-    ...await queryRefs(db.collection("trainingPlans").where("athleteUid", "==", uid)),
-    ...await queryRefs(db.collection("notifications").where("recipientUid", "==", uid)),
+  const requestRefs = [
     ...await queryRefs(db.collection("coachingRequests").where("athleteUid", "==", uid)),
     ...await queryRefs(db.collection("coachingRequests").where("coachUid", "==", uid)),
   ];
+  // coaching_request bell items carry the request id but no senderUid, so
+  // find them by requestId (`in` takes up to 30 values per query).
+  const reqIds = [...new Set(requestRefs.map((r) => r.id))];
+  const requestNotifRefs = [];
+  for (let i = 0; i < reqIds.length; i += 30) {
+    requestNotifRefs.push(...await queryRefs(
+      db.collection("notifications").where("requestId", "in", reqIds.slice(i, i + 30))));
+  }
+  const byPath = new Map();
+  [
+    ...await queryRefs(db.collection("trainingPlans").where("athleteUid", "==", uid)),
+    ...await queryRefs(db.collection("notifications").where("recipientUid", "==", uid)),
+    // bug reports, contact messages and in-person requests they sent
+    ...await queryRefs(db.collection("notifications").where("senderUid", "==", uid)),
+    ...requestNotifRefs,
+    ...requestRefs,
+  ].forEach((ref) => byPath.set(ref.path, ref));
+  const topLevelRefs = [...byPath.values()];
   // recursiveDelete also removes each doc's subcollections.
   for (const ref of topLevelRefs) {
     await db.recursiveDelete(ref);
