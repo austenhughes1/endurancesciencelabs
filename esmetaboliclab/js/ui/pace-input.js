@@ -65,7 +65,6 @@ export function mpsToPaceString(v_mps, unit) {
   return min + ':' + (sec < 10 ? '0' : '') + sec;
 }
 
-function labelFor(unit) { return unit === 'mi' ? 'min/mi' : 'min/km'; }
 
 /**
  * @param {Object} opts
@@ -86,36 +85,43 @@ export function paceInputHTML(opts) {
   return `
     <div class="pace-input">
       <input type="text" id="${opts.id}" class="pace-text" data-unit="${unit}" value="${value}" placeholder="${placeholder}" inputmode="numeric" autocomplete="off" ${extraAttrs}>
-      <button type="button" class="pace-unit-toggle" data-pace-unit-toggle aria-label="Toggle pace unit">${labelFor(unit)}</button>
+      <div class="unit-toggle-inline" role="group" aria-label="Pace unit">
+        <button type="button" data-pace-set="mi" class="${unit === 'mi' ? 'active' : ''}" aria-pressed="${unit === 'mi'}">min/mi</button>
+        <button type="button" data-pace-set="km" class="${unit === 'km' ? 'active' : ''}" aria-pressed="${unit === 'km'}">min/km</button>
+      </div>
     </div>
   `;
 }
 
 /**
  * Wire all pace-unit toggles on the page. Idempotent — safe to call after re-renders.
- * @param {Function} [onUnitChange]  called with the new unit ('mi'|'km') after a flip.
+ * Both options are visible; choosing one converts every pace input on the page.
+ * @param {Function} [onUnitChange]  called with the new unit ('mi'|'km') after a switch.
  */
 export function wirePaceInputs(onUnitChange) {
-  document.querySelectorAll('[data-pace-unit-toggle]').forEach((btn) => {
+  document.querySelectorAll('[data-pace-set]').forEach((btn) => {
     if (btn.dataset.paceWired === '1') return;
     btn.dataset.paceWired = '1';
     btn.addEventListener('click', () => {
       const wrap = btn.closest('.pace-input');
       if (!wrap) return;
       const me = wrap.querySelector('input');
-      const oldUnit = me.dataset.unit || 'mi';
-      const newUnit = oldUnit === 'mi' ? 'km' : 'mi';
+      const oldUnit = (me && me.dataset.unit) || 'mi';
+      const newUnit = btn.dataset.paceSet === 'km' ? 'km' : 'mi';
+      if (newUnit === oldUnit) return;
 
-      // Sync every pace input on the page to the new unit, converting values.
-      document.querySelectorAll('.pace-input input[data-unit]').forEach((inp) => {
+      // Sync every pace input on the page (never distance inputs) to the new unit.
+      document.querySelectorAll('.pace-input:not(.distance-input) input[data-unit]').forEach((inp) => {
         const fromUnit = inp.dataset.unit || 'mi';
         if (fromUnit === newUnit) return;
         const mps = paceStringToMps(inp.value, fromUnit);
         inp.dataset.unit = newUnit;
         inp.value = isFinite(mps) ? mpsToPaceString(mps, newUnit) : inp.value;
       });
-      document.querySelectorAll('[data-pace-unit-toggle]').forEach((b) => {
-        b.textContent = labelFor(newUnit);
+      document.querySelectorAll('[data-pace-set]').forEach((b) => {
+        const on = b.dataset.paceSet === newUnit;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-pressed', String(on));
       });
 
       setDefaultPaceUnit(newUnit);

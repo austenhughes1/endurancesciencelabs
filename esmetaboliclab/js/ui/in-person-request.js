@@ -7,21 +7,27 @@
  *
  * On submit, creates a Firestore notification doc that lands in the
  * admin notification panel (same schema as coaching/feedback notifs).
+ * The message carries everything the form collects, tagged [Paid] /
+ * [Not paid] (an in-person payment in the last 14 days) — in-person is
+ * pay-first (D7), so an unpaid request is flagged rather than blocked.
  */
 
+import { pushModal, closeModal } from './modal-stack.js';
+
+const PAID_WINDOW_DAYS = 14;   // same window the in-person page uses for its paid view
 const MODAL_ID = 'esml-inperson-modal-root';
 const ADMIN_UID = '2z9Z3K5ZwShvadUuqZmwMv0s1Od2';
 
 const MODAL_HTML = `
 <div class="esml-modal-overlay">
-  <div class="esml-modal" role="dialog" aria-modal="true">
+  <div class="esml-modal" role="dialog" aria-modal="true" aria-labelledby="ipm-title">
     <button class="esml-modal-close" type="button" aria-label="Close">×</button>
     <div class="esml-modal-body">
       <div class="section-label" style="margin-bottom:18px">▷ In-person test</div>
-      <h2 class="esml-modal-title">Request an in-person test session</h2>
+      <h2 class="esml-modal-title" id="ipm-title">Request an in-person test session</h2>
       <p class="esml-modal-lede">
         Tell us how to reach you and we'll follow up to schedule. Sessions are
-        typically held in the Boulder area; Denver-area travel by arrangement.
+        held in Broomfield, CO.
       </p>
 
       <form id="ipm-form">
@@ -68,7 +74,7 @@ const MODAL_HTML = `
         </label>
         <label class="field">
           <span class="lab">Anything else we should know? (optional)</span>
-          <textarea id="ipm-notes" rows="4" style="width:100%;padding:10px 14px;background:var(--panel2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--body);font-size:15px;resize:vertical"></textarea>
+          <textarea id="ipm-notes" rows="4"></textarea>
           <span class="hint">Goals, current training, any health considerations, scheduling constraints…</span>
         </label>
 
@@ -76,17 +82,20 @@ const MODAL_HTML = `
           <button type="submit" class="btn primary" id="ipm-submit">Send request →</button>
           <button type="button" class="btn ghost"   id="ipm-close">Cancel</button>
         </div>
-        <div id="ipm-status" style="display:none;padding:12px 16px;border-radius:10px;font-size:14px;margin-top:14px;line-height:1.55"></div>
+        <div id="ipm-status" hidden style="margin-top:14px"></div>
       </form>
     </div>
   </div>
 </div>
 `;
 
-function teardown(root, onKey, prevOverflow) {
-  root.remove();
-  document.body.style.overflow = prevOverflow;
-  window.removeEventListener('keydown', onKey);
+// True when the signed-in account has an in-person payment in the last 14 days.
+function hasRecentInPersonPayment() {
+  try {
+    const p = window.esLabs && window.esLabs.getPassState ? window.esLabs.getPassState() : null;
+    const t = p && p.metlab && p.metlab.inPersonLatest;
+    return !!t && (Math.floor(Date.now() / 1000) - t) < PAID_WINDOW_DAYS * 86400;
+  } catch (e) { return false; }
 }
 
 export function showInPersonRequestModal() {
@@ -103,17 +112,22 @@ export function showInPersonRequestModal() {
   const cancelBtn = root.querySelector('#ipm-close');
   const form     = root.querySelector('#ipm-form');
   const statusEl = root.querySelector('#ipm-status');
+  const close = () => closeModal(root, 'cancel');
 
-  const prevOverflow = document.body.style.overflow;
-  document.body.style.overflow = 'hidden';
-  const onKey = (e) => { if (e.key === 'Escape') teardown(root, onKey, prevOverflow); };
-  window.addEventListener('keydown', onKey);
-  closeBtn.addEventListener('click',  () => teardown(root, onKey, prevOverflow));
-  cancelBtn.addEventListener('click', () => teardown(root, onKey, prevOverflow));
-  overlay.addEventListener('click',   (e) => { if (e.target === overlay) teardown(root, onKey, prevOverflow); });
-  closeBtn.focus({ preventScroll: true });
+  closeBtn.addEventListener('click', close);
+  cancelBtn.addEventListener('click', close);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
 
   const $f = (id) => root.querySelector('#' + id);
+
+  // Prefill from the (effective) signed-in user; both stay editable.
+  const u = window.__esml && window.__esml.user;
+  if (u) {
+    if (u.displayName) $f('ipm-name').value = u.displayName;
+    if (u.email) $f('ipm-email').value = u.email;
+  }
+
+  pushModal(root, { initialFocus: closeBtn });
 
   // "Elsewhere" radio toggles a required free-text location field
   const otherRow = $f('ipm-area-other-row');
@@ -123,6 +137,13 @@ export function showInPersonRequestModal() {
       otherRow.style.display = (sel && sel.value === 'other') ? 'block' : 'none';
     });
   });
+
+  const showError = (msg) => {
+    statusEl.className = 'esl-callout esl-callout--bad';
+    statusEl.setAttribute('role', 'alert');
+    statusEl.textContent = msg;
+    statusEl.hidden = false;
+  };
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -134,6 +155,7 @@ export function showInPersonRequestModal() {
 
     const area = radio('ipm-area');
     const areaOther = $f('ipm-area-other').value.trim();
+    const paid = hasRecentInPersonPayment();
     const payload = {
       name:       $f('ipm-name').value.trim(),
       email:      $f('ipm-email').value.trim(),
@@ -143,35 +165,36 @@ export function showInPersonRequestModal() {
       area_other: area === 'other' ? (areaOther || null) : null,
       timing:     $f('ipm-timing').value.trim() || null,
       notes:      $f('ipm-notes').value.trim() || null,
+      paid:       paid,
+      source:     location.pathname,
     };
 
-    const errStyle = () => {
-      statusEl.style.display = 'block';
-      statusEl.style.background = 'rgba(255,81,99,.10)';
-      statusEl.style.border = '1px solid rgba(255,81,99,.30)';
-      statusEl.style.color = 'var(--bad)';
-    };
+    ['ipm-name', 'ipm-email', 'ipm-area-other'].forEach((id) => $f(id).removeAttribute('aria-invalid'));
     if (!payload.name || !payload.email) {
-      errStyle();
-      statusEl.textContent = 'Name and email are required.';
+      if (!payload.name) $f('ipm-name').setAttribute('aria-invalid', 'true');
+      if (!payload.email) $f('ipm-email').setAttribute('aria-invalid', 'true');
+      showError('Name and email are required.');
       return;
     }
     if (area === 'other' && !areaOther) {
-      errStyle();
-      statusEl.textContent = 'Please tell us where you are when selecting "Elsewhere".';
+      $f('ipm-area-other').setAttribute('aria-invalid', 'true');
+      showError('Please tell us where you are when selecting "Elsewhere".');
       return;
     }
 
     const btn = $f('ipm-submit');
     btn.disabled = true; btn.textContent = 'Sending…';
+    statusEl.hidden = true;
 
     const sender = (window.__esml && window.__esml.user) ? window.__esml.user : null;
     const areaLabel = payload.area === 'other' && payload.area_other
                     ? 'other: ' + payload.area_other
                     : payload.area;
-    const summary = '[In-person test] ' + payload.name + ' (' + payload.sport + ', ' + areaLabel + ')'
-                  + ' — ' + payload.email
-                  + (payload.notes ? ' · ' + payload.notes.slice(0, 120) : '');
+    const notes = payload.notes ? (payload.notes.length > 120 ? payload.notes.slice(0, 120).trimEnd() + '…' : payload.notes) : '';
+    const summary = (paid ? '[Paid] ' : '[Not paid] ')
+                  + '[In-person test] ' + payload.name + ' (' + payload.sport + ', ' + areaLabel + ') — ' + payload.email
+                  + (payload.phone ? ' · ' + payload.phone : '') + (payload.timing ? ' · When: ' + payload.timing : '')
+                  + (notes ? ' · ' + notes : '');
 
     try {
       await firebase.firestore().collection('notifications').add({
@@ -183,21 +206,21 @@ export function showInPersonRequestModal() {
         read:         false,
         createdAt:    firebase.firestore.FieldValue.serverTimestamp(),
       });
-      statusEl.style.display = 'block';
-      statusEl.style.background = 'rgba(34,199,138,.10)';
-      statusEl.style.border = '1px solid rgba(34,199,138,.30)';
-      statusEl.style.color = 'var(--good)';
-      statusEl.innerHTML = '<strong>Request sent.</strong> Your coach will reach out by email within a few days. If you don\'t hear back, send a follow-up to <a href="mailto:austen@endurancesciencelabs.com" style="color:inherit;text-decoration:underline">austen@endurancesciencelabs.com</a>.';
-      form.reset();
-      btn.textContent = 'Sent ✓';
-      setTimeout(() => teardown(root, onKey, prevOverflow), 4000);
+      // Success stays on screen until the user closes it.
+      form.hidden = true;
+      const ok = document.createElement('div');
+      ok.className = 'esl-callout esl-callout--good';
+      ok.setAttribute('role', 'status');
+      ok.tabIndex = -1;
+      ok.innerHTML = '<p class="esl-callout-title">✓ Request sent</p><p>We’ll reach out by email within a few days. If you don’t hear back, email <a href="mailto:austen@endurancesciencelabs.com">austen@endurancesciencelabs.com</a>.</p>'
+                   + '<p style="margin-top:14px"><button type="button" class="btn primary" id="ipm-done">Done</button></p>';
+      form.insertAdjacentElement('afterend', ok);
+      ok.focus();
+      ok.querySelector('#ipm-done').addEventListener('click', () => closeModal(root, 'done'));
+      window.dispatchEvent(new CustomEvent('esml-inperson-sent'));
     } catch (err) {
       console.error('In-person request submit failed:', err);
-      statusEl.style.display = 'block';
-      statusEl.style.background = 'rgba(255,81,99,.10)';
-      statusEl.style.border = '1px solid rgba(255,81,99,.30)';
-      statusEl.style.color = 'var(--bad)';
-      statusEl.textContent = 'Send failed: ' + (err.message || err) + '. Please try again, or email directly.';
+      showError('We couldn’t send that. Please try again, or email austen@endurancesciencelabs.com.');
       btn.disabled = false; btn.textContent = 'Send request →';
     }
   });

@@ -2,8 +2,8 @@
  * Shared client-side PDF renderer for esMetabolicLab results.
  *
  * Two entry points:
- *   - downloadStepTestReport({profile, sport, stages, bodyMass, sex, sessionId})
- *   - downloadPowerProfileReport({profile, sport, efforts, bodyMass, sex, altitude_m, sessionId})
+ *   - downloadStepTestReport({profile, sport, stages, bodyMass, sex, altitude_m, sessionId, measuredAt})
+ *   - downloadPowerProfileReport({profile, sport, efforts, bodyMass, sex, altitude_m, sessionId, measuredAt})
  *
  * Both render to the same visual template — branded header, accent
  * dividers, a metrics table, the two on-screen charts captured via
@@ -22,6 +22,8 @@
 
 import { generateZones } from './zones.js';
 import { altitudeFactor } from '../lib/mader/constants.js';
+import { getDefaultPaceUnit } from './pace-input.js';
+import { chartFigureForExport } from './charts.js';
 
 const ACCENT      = [139, 124, 248];   // purple — esMetabolicLab brand
 const ACCENT_ALT  = [0, 137, 123];     // teal — neutral header dividers
@@ -230,7 +232,9 @@ function drawMetricsTable(doc, y, rows) {
 async function drawChart(doc, y, chartId, captionText, heightMm) {
   if (!window.Plotly) return y;
   try {
-    var imgUrl = await window.Plotly.toImage(chartId, {
+    // Rebuild the chart with the light PDF theme (white paper in either site theme).
+    var fig = chartFigureForExport(chartId);
+    var imgUrl = await window.Plotly.toImage(fig || chartId, {
       format: 'png', width: 1100, height: Math.round((heightMm / CONTENT_W) * 1100)
     });
     y = ensure(doc, y, heightMm + 16);
@@ -256,20 +260,40 @@ async function drawChart(doc, y, chartId, captionText, heightMm) {
 // Format helpers
 function fmtPower(w) { return Math.round(w) + ' W'; }
 function fmtPace(mps) {
-  // mps → min:ss / mi
+  // mps → min:ss per mile or km — the unit chosen on screen, so the tables
+  // match the embedded charts.
   if (!isFinite(mps) || mps <= 0) return '—';
-  var secPerMi = 1609.344 / mps;
-  var min = Math.floor(secPerMi / 60);
-  var sec = Math.round(secPerMi - min * 60);
+  var unit = getDefaultPaceUnit() === 'km' ? 'km' : 'mi';
+  var secPerUnit = (unit === 'km' ? 1000 : 1609.344) / mps;
+  var min = Math.floor(secPerUnit / 60);
+  var sec = Math.round(secPerUnit - min * 60);
   if (sec === 60) { min++; sec = 0; }
-  return min + ':' + (sec < 10 ? '0' : '') + sec + '/mi';
+  return min + ':' + (sec < 10 ? '0' : '') + sec + '/' + unit;
 }
 function fmtIntensity(sport, v) { return sport === 'cycling' ? fmtPower(v) : fmtPace(v); }
 function fmtV(v) { return v.toFixed(1) + ' mL/min/kg'; }
 function fmtPct(x) { return Math.round(x * 100) + '%'; }
 function fmtLa(v) { return v.toFixed(1) + ' mmol/L'; }
 function fmtG(v) { return v.toFixed(2) + ' g/min'; }
-function fmtDate(d) { return d.toISOString().slice(0, 10); }
+// "Oct 15, 2026" (local) for the header; local YYYY-MM-DD for filenames.
+function fmtDate(d) { return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+function fileDate(d) {
+  var m = d.getMonth() + 1, day = d.getDate();
+  return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
+}
+function toDate(t) {
+  if (!t) return null;
+  var d = t.toDate ? t.toDate() : (typeof t.seconds === 'number' ? new Date(t.seconds * 1000) : new Date(t));
+  return isNaN(d.getTime()) ? null : d;
+}
+function readPref(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+function fmtMass(kg) {
+  if (!isFinite(kg) || kg <= 0) return '–';
+  return readPref('esml-mass-unit') === 'lb' ? Math.round(kg * 2.2046226218) + ' lb' : (+kg).toFixed(1) + ' kg';
+}
+function fmtAlt(m) {
+  return readPref('esml-alt-unit') === 'ft' ? Math.round(m * 3.2808) + ' ft' : Math.round(m) + ' m';
+}
 function fmtAltSpeed(v, alt_m, mlss_v) {
   if (!isFinite(v) || v <= 0) return '—';
   return fmtPace(v * altitudeFactor(alt_m, v / mlss_v));
@@ -505,15 +529,18 @@ export async function downloadStepTestReport(params) {
   var bodyMass = params.bodyMass;
   var sex = params.sex;
   var sessionId = params.sessionId || '';
+  var testDate = toDate(params.measuredAt) || new Date();   // the test's date, not today
+  var altM = params.altitude_m || 0;
 
   var doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'letter' });
-  var y = drawHeader(doc, 'Lactate Step Test — Metabolic Profile');
+  var y = drawHeader(doc, 'Lactate Profile — Measured Metabolic Profile');
 
   y = drawMeta(doc, y, [
-    'Date: ' + fmtDate(new Date()) +
+    'Date: ' + fmtDate(testDate) +
       '    Sport: ' + sport.charAt(0).toUpperCase() + sport.slice(1) +
       '    Sex: ' + (sex === 'M' ? 'Male' : 'Female') +
-      '    Mass: ' + bodyMass + ' kg' +
+      '    Mass: ' + fmtMass(bodyMass) +
+      (altM ? '    Altitude: ' + fmtAlt(altM) : '') +
       '    Stages: ' + stages.length
   ]);
 
@@ -611,7 +638,7 @@ export async function downloadStepTestReport(params) {
   y = drawDisclaimer(doc, y + 6);
   drawFooter(doc);
 
-  var fn = 'esmetaboliclab-step-test-' + fmtDate(new Date()) + (sessionId ? ('-' + sessionId.slice(-6)) : '') + '.pdf';
+  var fn = 'esmetaboliclab-step-test-' + fileDate(testDate) + (sessionId ? ('-' + sessionId.slice(-6)) : '') + '.pdf';
   doc.save(fn);
 }
 
@@ -622,16 +649,17 @@ export async function downloadPowerProfileReport(params) {
   var sex = params.sex;
   var altitude_m = params.altitude_m || 0;
   var sessionId = params.sessionId || '';
+  var testDate = toDate(params.measuredAt) || new Date();   // the saved profile's date
 
   var doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'letter' });
-  var y = drawHeader(doc, 'Power / Pace-only Profile — Estimate');
+  var y = drawHeader(doc, 'Power Profile — Estimate');
 
   y = drawMeta(doc, y, [
-    'Date: ' + fmtDate(new Date()) +
+    'Date: ' + fmtDate(testDate) +
       '    Sport: ' + sport.charAt(0).toUpperCase() + sport.slice(1) +
       '    Sex: ' + (sex === 'M' ? 'Male' : 'Female') +
-      '    Mass: ' + bodyMass + ' kg' +
-      (altitude_m ? ('    Altitude: ' + Math.round(altitude_m) + ' m') : '')
+      '    Mass: ' + fmtMass(bodyMass) +
+      (altitude_m ? ('    Altitude: ' + fmtAlt(altitude_m)) : '')
   ]);
 
   // Estimate caveat box (auto-sized)
@@ -696,11 +724,11 @@ export async function downloadPowerProfileReport(params) {
   y += 4;
   y = drawCtaBox(doc, y,
     'Want the real numbers?',
-    'A lactate-anchored test pins VLamax, MLSS, and Fatmax directly. Run it yourself at home (upload access from $30) or book an in-person session with a coach ($145, Boulder / Denver area) at endurancesciencelabs.com/esmetaboliclab/pricing/.');
+    'A lactate-anchored test pins VLamax, MLSS, and Fatmax directly. Run it yourself at home (upload access from $30) or book an in-person session with a coach ($145, Broomfield, CO) at endurancesciencelabs.com/esmetaboliclab/pricing/.');
 
   y = drawDisclaimer(doc, y + 4);
   drawFooter(doc);
 
-  var fn = 'esmetaboliclab-power-profile-' + fmtDate(new Date()) + (sessionId ? ('-' + sessionId.slice(-6)) : '') + '.pdf';
+  var fn = 'esmetaboliclab-power-profile-' + fileDate(testDate) + (sessionId ? ('-' + sessionId.slice(-6)) : '') + '.pdf';
   doc.save(fn);
 }

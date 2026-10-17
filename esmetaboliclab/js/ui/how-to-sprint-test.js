@@ -19,15 +19,17 @@
  * arrives at 1 min.
  */
 
+import { pushModal, closeModal } from './modal-stack.js';
+
 const MODAL_ID = 'esml-howto-sprint-modal-root';
 
 const MODAL_HTML = `
 <div class="esml-modal-overlay">
-  <div class="esml-modal" role="dialog" aria-modal="true">
+  <div class="esml-modal" role="dialog" aria-modal="true" aria-labelledby="esml-sprint-title">
     <button class="esml-modal-close" type="button" aria-label="Close">×</button>
     <div class="esml-modal-body">
       <div class="section-label" style="margin-bottom:18px">◈ Sprint VLamax protocol</div>
-      <h2 class="esml-modal-title">How to run a Sprint VLamax test</h2>
+      <h2 class="esml-modal-title" id="esml-sprint-title">How to run a Sprint VLamax test</h2>
       <p class="esml-modal-lede">
         A single 15-second all-out sprint, with a finger-prick lactate sample
         before and several more after, tells us your VLamax — how quickly your
@@ -37,7 +39,7 @@ const MODAL_HTML = `
 
       <h3 class="esml-modal-h3">What you need</h3>
       <ul class="esml-checklist">
-        <li>Handheld lactate meter, strips, lancets, alcohol wipes, gauze — see the <a href="#" data-howto-measure style="color:var(--cyan)">measurement protocol</a></li>
+        <li>Handheld lactate meter, strips, lancets, alcohol wipes, gauze — see the <a href="#" data-howto-measure>measurement protocol</a></li>
         <li>An effort medium: stationary trainer or ergometer for cycling, treadmill or flat track for running</li>
         <li>Stopwatch with a clear 15-second timer (or a partner counting down)</li>
         <li>Fan + towel. Small sips of plain water are fine if you need them — <strong>but no sports drinks, gels, or anything with carbs or electrolytes</strong>, they'll skew your lactate readings.</li>
@@ -116,8 +118,8 @@ const MODAL_HTML = `
       <h3 class="esml-modal-h3">6 — Enter your peak</h3>
       <ol class="esml-steps">
         <li>Take the <strong>highest</strong> reading from your post-sprint samples — whether it landed at 30 seconds or 5 minutes.</li>
-        <li>Record it as "Peak post-sprint lactate" in the form below.</li>
-        <li>Save the session — it becomes your active VLamax for the Lactate Step Test.</li>
+        <li>Enter it as “Peak post-sprint lactate” in Step 2 of the Lactate Profile.</li>
+        <li>It’s saved together with your step test when you run the profile.</li>
       </ol>
 
       <h3 class="esml-modal-h3">Common pitfalls</h3>
@@ -126,7 +128,7 @@ const MODAL_HTML = `
         <li><strong>Sampling gear not ready before the sprint.</strong> Fumbling with alcohol wipes, strips, and lances after the sprint ends costs you the early-peak window. Prep everything during the warm-up.</li>
         <li><strong>Active cool-down between sprint and sampling.</strong> Even gentle spinning or walking accelerates clearance and lowers the measured peak. Sit or stand still.</li>
         <li><strong>Sprint wasn't truly all-out.</strong> Pacing the 15 seconds defeats the purpose. If your post-sprint lactate barely budges from baseline, the effort wasn't maximal — re-test after another warm-up and don't hold anything back.</li>
-        <li><strong>Sweat or moisture on the lancing site.</strong> Towel off and alcohol-wipe before each sample. See the <a href="#" data-howto-measure style="color:var(--cyan)">measurement protocol</a>.</li>
+        <li><strong>Sweat or moisture on the lancing site.</strong> Towel off and alcohol-wipe before each sample. See the <a href="#" data-howto-measure>measurement protocol</a>.</li>
         <li><strong>Sports drinks, gels, or electrolytes during the test.</strong> Anything with carbs or electrolytes will skew your lactate readings. Plain water in small sips is fine.</li>
         <li><strong>Stopping sampling too early.</strong> If your latest reading is still climbing or flat, take another. The only safe stopping point is when a reading comes back lower than the previous one.</li>
         <li><strong>Insufficient warm-up.</strong> A cold sprint produces a smaller lactate response. Don't skip the warm-up.</li>
@@ -163,18 +165,10 @@ export function showSprintProtocolModal() {
 
   const overlay  = root.querySelector('.esml-modal-overlay');
   const closeBtn = root.querySelector('.esml-modal-close');
-  const prevOverflow = document.body.style.overflow;
-  document.body.style.overflow = 'hidden';
-  const close = () => {
-    root.remove();
-    document.body.style.overflow = prevOverflow;
-    window.removeEventListener('keydown', onKey);
-  };
-  const onKey = (e) => { if (e.key === 'Escape') close(); };
-  window.addEventListener('keydown', onKey);
+  const close = () => closeModal(root, 'cancel');
   closeBtn.addEventListener('click', close);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-  closeBtn.focus({ preventScroll: true });
+  pushModal(root, { initialFocus: closeBtn });
 }
 
 /**

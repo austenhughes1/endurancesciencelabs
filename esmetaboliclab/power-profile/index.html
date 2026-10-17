@@ -4,116 +4,92 @@
 <meta charset="UTF-8">
 <script>try{if(localStorage.getItem('esl-theme')==='light')document.documentElement.setAttribute('data-theme','light')}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Power/Pace-only Profile — esMetabolicLab</title>
+<title>Power Profile — Endurance Science Labs</title>
 <meta name="robots" content="noindex,nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/shared/site.css">
-<link rel="stylesheet" href="../css/esmetaboliclab.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/site.css?v=20261016">
+<link rel="stylesheet" href="../css/esmetaboliclab.css?v=20261016">
 <style>
   #app { display: none; }
 
-  /* Accuracy banner — top of page, hard to miss */
+  /* Accuracy banner — top of page, hard to miss (gold callout §3.4) */
   .accuracy-banner {
-    background: linear-gradient(135deg, rgba(245,200,66,.10), rgba(255,107,53,.06));
-    border: 1px solid rgba(245,200,66,.32);
+    background: var(--panel);
+    border: 1px solid var(--border);
     border-left: 4px solid var(--gold);
-    border-radius: 14px;
-    padding: 20px 24px;
+    border-radius: var(--r-lg);
+    padding: 14px 16px;
     margin-bottom: 26px;
   }
-  .accuracy-banner h3 {
-    font-family: var(--display); font-size: 17px; font-weight: 700;
-    color: var(--gold); margin-bottom: 6px;
-  }
-  .accuracy-banner p {
-    color: var(--text); font-size: 14px; line-height: 1.7;
-  }
+  .accuracy-banner h3 { font: 700 15px/1.35 var(--ui); color: var(--gold-ink); margin-bottom: 6px; }
+  .accuracy-banner p { color: var(--text); font-size: 13px; line-height: 1.55; }
   .accuracy-banner p + p { margin-top: 8px; }
-  .accuracy-banner a { color: var(--cyan); }
+  .accuracy-banner a { color: var(--accent-ink); }
 
-  /* Protocol card — how to run the four time trials */
+  /* Protocol card — how to run the four time trials (purple callout;
+     collapses for returning users) */
   .protocol-card {
-    background: linear-gradient(135deg, rgba(139,124,248,.08), rgba(0,229,200,.03));
-    border: 1px solid rgba(139,124,248,.30);
+    background: var(--panel);
+    border: 1px solid var(--border);
     border-left: 4px solid var(--purple);
-    border-radius: 14px;
-    padding: 24px 28px;
+    border-radius: var(--r-lg);
+    padding: 18px 20px;
     margin-bottom: 18px;
   }
+  .protocol-card-sum { list-style: none; cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+  .protocol-card-sum::-webkit-details-marker { display: none; }
+  .protocol-card-sum::after { content: "Show steps ▸"; margin-left: auto; font: 600 13px/1.3 var(--ui); color: var(--muted2); }
+  .protocol-card[open] .protocol-card-sum::after { content: "Hide steps ▾"; }
+  .protocol-card-sum:hover::after { color: var(--accent-ink); }
   .protocol-card-eyebrow {
     display: inline-block;
-    font-family: var(--mono); font-size: 11px; font-weight: 700;
-    letter-spacing: 1px; text-transform: uppercase;
-    color: var(--purple);
-    background: rgba(139,124,248,.12);
-    border: 1px solid rgba(139,124,248,.30);
-    border-radius: 14px;
-    padding: 4px 11px;
-    margin-bottom: 14px;
+    font: 700 10px/1.2 var(--mono); letter-spacing: .8px; text-transform: uppercase;
+    color: var(--purple-ink); background: var(--purple-wash); border: 1px solid var(--purple-line);
+    border-radius: var(--r-pill); padding: 4px 12px;
   }
-  .protocol-card-title {
-    font-family: var(--display); font-weight: 700;
-    font-size: clamp(20px, 2.4vw, 24px); letter-spacing: -.3px;
-    line-height: 1.2; margin-bottom: 8px;
-  }
-  .protocol-card-title em { font-style: italic; color: var(--purple); }
+  .protocol-card-title { flex-basis: 100%; font: 700 15px/1.35 var(--ui); color: var(--text); }
+  .protocol-card[open] .protocol-card-title { flex-basis: auto; }
+  .protocol-card-title em { font-style: italic; color: var(--purple-ink); }
   .protocol-card-sub {
-    color: var(--muted2); font-size: 14px; line-height: 1.65;
-    margin-bottom: 20px; max-width: 640px;
+    color: var(--muted2); font-size: 14px; line-height: 1.6;
+    margin: 12px 0 20px; max-width: 640px;
   }
-  .protocol-steps {
-    list-style: none;
-    margin: 0; padding: 0;
-    counter-reset: step;
-  }
-  .protocol-steps li {
-    position: relative;
-    padding-left: 40px;
-    margin-bottom: 16px;
-    counter-increment: step;
-  }
+  .protocol-steps { list-style: none; margin: 0; padding: 0; counter-reset: step; }
+  .protocol-steps li { position: relative; padding-left: 40px; margin-bottom: 16px; counter-increment: step; }
   .protocol-steps li:last-child { margin-bottom: 0; }
   .protocol-steps li::before {
     content: counter(step);
     position: absolute; left: 0; top: 0;
-    width: 28px; height: 28px;
-    border-radius: 50%;
-    background: rgba(139,124,248,.16);
-    border: 1px solid rgba(139,124,248,.36);
-    color: var(--purple);
-    font-family: var(--mono); font-weight: 700; font-size: 12px;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--purple-wash); border: 1px solid var(--purple-line); color: var(--purple-ink);
+    font: 700 12px/1 var(--mono);
     display: flex; align-items: center; justify-content: center;
-    line-height: 1;
   }
-  .protocol-step-h {
-    font-family: var(--display); font-weight: 600;
-    font-size: 15.5px; color: var(--text);
-    margin-bottom: 4px;
-    line-height: 1.35;
-  }
-  .protocol-steps li p {
-    color: var(--muted2); font-size: 13.5px; line-height: 1.65;
-    margin: 0;
-  }
-  @media (max-width: 560px) {
-    .protocol-card { padding: 20px 18px; }
+  .protocol-step-h { font: 600 15px/1.35 var(--ui); color: var(--text); margin-bottom: 4px; }
+  .protocol-steps li p { color: var(--muted2); font-size: 14px; line-height: 1.6; margin: 0; }
+  @media (max-width: 600px) {
+    .protocol-card { padding: 16px; }
     .protocol-steps li { padding-left: 36px; }
   }
 
-  .plt { width: 100%; min-height: 380px; }
+  /* Plotly container */
+  .plt { width: 100%; max-width: 100%; min-height: 380px; overflow: hidden; }
+  @media (max-width: 600px) { .plt { min-height: 340px; } }
 </style>
 </head>
-<body>
+<body class="esml-tool">
 
 <div id="esml-gate"></div>
 
-<div id="app">
+<!-- Nav sits outside #app so the sign-in gate renders below it (D9). -->
 <nav class="eslabs-nav" id="esml-nav"></nav>
 
-<div class="page">
-  <p style="margin-bottom:12px"><a href="/esmetaboliclab/">← esMetabolicLab</a></p>
-  <div class="section-label">▶ Power / Pace-only Profile</div>
+<div id="app">
+
+<main id="main" class="page">
+  <a class="esl-back" href="/esmetaboliclab/">← esMetabolicLab</a>
+  <div class="section-label">▶ Power Profile</div>
   <h1 class="page-title">A metabolic <em>estimate</em><br>without the needle.</h1>
   <p class="page-sub">
     Enter four of your max efforts — a 15-second sprint, plus 3-minute,
@@ -121,9 +97,11 @@
     VO₂max, and the full metabolic profile that follows from them.
   </p>
 
-  <div class="protocol-card">
-    <div class="protocol-card-eyebrow">◆ Before you start</div>
-    <h3 class="protocol-card-title">How to run your <em>time trials</em></h3>
+  <details class="protocol-card" id="pp-protocol" open>
+    <summary class="protocol-card-sum">
+      <span class="protocol-card-eyebrow">◆ Before you start</span>
+      <h2 class="protocol-card-title">How to run your <em>time trials</em></h2>
+    </summary>
     <p class="protocol-card-sub">
       Four maximum-effort time trials — one each at 15 s, 3 min, 6 min,
       and 12 min. Get these right and the profile follows.
@@ -154,7 +132,7 @@
         <p>Once all four are in, the calculator returns your VO₂max, VLamax, MLSS, training zones, and the full metabolic profile.</p>
       </li>
     </ol>
-  </div>
+  </details>
 
   <div class="accuracy-banner">
     <h3>⚠ These are smart estimates, not direct measurements.</h3>
@@ -178,17 +156,18 @@
     <!-- populated by app.js: sessions list + inline new-session form -->
   </div>
 
-  <footer class="esml">
-    © <span id="footer-year"></span> Endurance Science Labs · esMetabolicLab
-    <div class="disclaimer">Not medical advice. Educational use only. The power-only profile is an estimate, not a measurement.</div>
-  </footer>
-</div>
+</main>
+
+<footer class="esl-app-footer">
+  <p class="esl-app-footer-meta">Not medical advice. Educational use only. The Power Profile is an estimate, not a measurement.</p>
+  <p class="esl-app-footer-meta"><a href="/privacy/">Privacy</a> · © <span id="footer-year"></span> Endurance Science Labs</p>
+</footer>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="/shared/site.js"></script>
+<script src="/shared/site.js?v=20261016"></script>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
@@ -197,14 +176,14 @@
   esLabs.mountNav('#esml-nav', { active: 'esmetlab' });
   esLabs.mountAuthGate('#esml-gate', {
     eyebrow: '▶ Sign in to continue',
-    headline: 'Power / Pace-only Profile',
-    sub: 'Free for everyone — sign in to save your sessions and revisit your profile any time.',
+    headline: 'Power Profile',
+    sub: 'Free with an account — sign in to build and save your profile.',
     bullets: [
       { strong: 'No needles, no equipment', span: '— just four max efforts (15 s, 3 min, 6 min, 12 min).' },
       { strong: 'Full metabolic estimate', span: '— VO₂max, VLamax, MLSS, LT1, Fatmax, and training zones.' },
       { strong: 'Runs in your browser', span: '— your data never leaves your device unless you save it to your account.' }
     ],
-    foot: '<a href="/esmetaboliclab/" style="color:var(--cyan);text-decoration:none">&larr; Back to esMetabolicLab</a>'
+    foot: '<a href="/">&larr; Back to home</a>'
   });
 
   esLabs.onAuthChange(function(user) {

@@ -4,12 +4,12 @@
 <meta charset="UTF-8">
 <script>try{if(localStorage.getItem('esl-theme')==='light')document.documentElement.setAttribute('data-theme','light')}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>In-person lactate testing — esMetabolicLab</title>
+<title>In-person lactate testing — Endurance Science Labs</title>
 <meta name="robots" content="noindex,nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/shared/site.css">
-<link rel="stylesheet" href="../css/esmetaboliclab.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/site.css?v=20261016">
+<link rel="stylesheet" href="../css/esmetaboliclab.css?v=20261016">
 <style>
   #app { display: none; }
 
@@ -18,47 +18,48 @@
     gap: 14px; margin: 18px 0;
   }
   .ip-include {
-    background: var(--panel2); border: 1px solid var(--border); border-radius: 12px;
+    background: var(--panel2); border: 1px solid var(--border); border-radius: var(--r-lg);
     padding: 16px 18px;
   }
-  .ip-include-h { font-family: var(--display); font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .ip-include-h { font: 600 15px/1.35 var(--display); margin-bottom: 4px; }
   .ip-include-p { color: var(--muted2); font-size: 13px; line-height: 1.6; }
-
-  .ip-form-status {
-    padding: 12px 16px; border-radius: 10px; font-size: 14px;
-    margin-top: 14px; display: none; line-height: 1.55;
-  }
-  .ip-form-status.ok { display: block; background: rgba(34,199,138,.10); border: 1px solid rgba(34,199,138,.30); color: var(--good); }
-  .ip-form-status.err { display: block; background: rgba(255,81,99,.10); border: 1px solid rgba(255,81,99,.30); color: var(--bad); }
+  .ip-bring-h { font: 600 15px/1.35 var(--display); margin: 18px 0 8px; }
+  .ip-bring { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+  .ip-bring li { position: relative; padding-left: 22px; font-size: 14px; line-height: 1.55; color: var(--text); }
+  .ip-bring li::before { content: '✓'; position: absolute; left: 0; top: 0; font-weight: 700; color: var(--accent-ink); }
 
   /* Pre-payment "Book — $145" panel */
   .ip-pay-panel {
-    background: linear-gradient(135deg, rgba(139,124,248,.10), rgba(0,229,200,.05));
-    border: 1px solid rgba(139,124,248,.30);
-    border-radius: 14px;
+    background: linear-gradient(135deg, var(--purple-wash), var(--accent-wash));
+    border: 1px solid var(--purple-line);
+    border-radius: var(--r-xl);
     padding: 24px 28px;
   }
+  @media (max-width: 600px) { .ip-pay-panel { padding: 24px 20px; } }
   .ip-pay-row { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-  .ip-pay-price { font-family: var(--display); font-size: 40px; font-weight: 700; letter-spacing: -1px; }
-  .ip-pay-note { font-family: var(--mono); font-size: 11px; color: var(--muted2); letter-spacing: .3px; }
-  .ip-pay-blurb { color: var(--text); font-size: 14.5px; line-height: 1.7; margin: 10px 0 16px; }
+  .ip-pay-price { font: 700 40px/1.05 var(--display); letter-spacing: -1px; }
+  @media (max-width: 600px) { .ip-pay-price { font-size: 34px; } }
+  .ip-pay-note { font: 400 12px/1.45 var(--ui); color: var(--muted2); }
+  .ip-pay-blurb { color: var(--text); font-size: 15px; line-height: 1.7; margin: 10px 0 16px; }
   .ip-pay-cta { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
 
-  /* Post-payment "We received your payment" banner */
+  /* Post-payment banner (good callout) */
   .ip-paid-banner {
-    background: rgba(34,199,138,.10);
-    border: 1px solid rgba(34,199,138,.30);
+    background: var(--panel);
+    border: 1px solid var(--border);
     border-left: 4px solid var(--good);
-    border-radius: 12px; padding: 16px 18px;
-    margin-bottom: 18px; line-height: 1.65;
+    border-radius: var(--r-lg); padding: 14px 16px;
+    margin-bottom: 18px; font-size: 15px; line-height: 1.6;
   }
-  .ip-paid-banner strong { color: var(--good); }
+  .ip-paid-banner strong { color: var(--good-ink); }
+  .ip-paid-banner.is-pending { border-left-color: var(--cyan); }
+  .ip-paid-banner.is-pending strong { color: var(--accent-ink); }
   .ip-paid-banner .small { font-size: 13px; color: var(--muted2); margin-top: 4px; }
 
   .ip-checkout-err {
-    background: rgba(255,81,99,.08); border: 1px solid rgba(255,81,99,.30);
-    border-radius: 10px; padding: 12px 14px; margin-top: 14px;
-    color: var(--bad); font-size: 13.5px; display: none;
+    background: var(--panel2); border: 1px solid var(--border); border-left: 4px solid var(--bad);
+    border-radius: var(--r-md); padding: 12px 14px; margin: 10px 0 0;
+    font: 400 13px/1.55 var(--ui); color: var(--bad-ink); display: none;
   }
   .ip-checkout-err.show { display: block; }
 </style>
@@ -67,22 +68,46 @@
 
 <div id="esml-gate"></div>
 
-<div id="app">
+<!-- Nav sits outside #app so the sign-in gate renders below it (D9). -->
 <nav class="eslabs-nav" id="esml-nav"></nav>
 
-<div class="page">
-  <p style="margin-bottom:12px"><a href="/esmetaboliclab/">← esMetabolicLab</a></p>
+<div id="app">
+
+<main id="main" class="page">
+  <a class="esl-back" href="/esmetaboliclab/">← esMetabolicLab</a>
   <div class="section-label">▷ In-person test</div>
   <h1 class="page-title">Have an Endurance Science Labs coach run your <em>test</em>.</h1>
   <p class="page-sub">
-    If you're in the Boulder or Denver area, an Endurance Science Labs coach
-    can run the full sprint + step-test protocol with you in person. We
-    bring the meter, the strips, the cooling, and the experience to make
-    sure the numbers are clean — and we walk you through your results.
+    An Endurance Science Labs coach runs the full sprint + step-test
+    protocol with you in person in Broomfield, CO. We bring the meter, the
+    strips, and the experience to make sure the numbers are clean — and we
+    walk you through your results.
   </p>
 
+  <!-- Post-payment state: shown when ?paid=1 OR when a recent in-person payment is on file -->
+  <div id="ip-post-payment" style="display:none">
+    <div class="ip-paid-banner" id="ip-paid-banner" role="status">
+      <strong id="ip-paid-title">✓ Payment received.</strong> <span id="ip-paid-text">Thanks — your in-person test is reserved.</span>
+      <div class="small" id="ip-paid-small">Now share your scheduling details below and we'll email you to confirm a time.</div>
+    </div>
+
+    <div class="panel">
+      <h2 class="panel-h">Tell us your scheduling details</h2>
+      <p class="panel-sub">
+        We need a few specifics to confirm your session — preferred dates,
+        cycling vs running, and how to reach you.
+      </p>
+      <button class="btn primary lg" type="button" data-in-person-request>Share scheduling details →</button>
+      <p class="esl-small" style="margin-top:12px">
+        Already shared your details? You can resubmit any time to update them.
+        Booking for someone else, or a second test?
+        <button type="button" class="esl-linkbtn" id="ip-book-another">Book another session</button>
+      </p>
+    </div>
+  </div>
+
   <div class="panel">
-    <div class="panel-h">What's included</div>
+    <h2 class="panel-h">What's included</h2>
     <div class="ip-includes">
       <div class="ip-include">
         <div class="ip-include-h">◆ Equipment provided</div>
@@ -101,14 +126,21 @@
         <div class="ip-include-p">Your VO₂max, sustainable threshold, easy-zone limit, fat-burning sweet spot, and personal training zones — explained in plain language with training implications.</div>
       </div>
     </div>
-    <p style="font-size:13px;color:var(--muted2);line-height:1.65;margin-top:8px">
+    <p class="esl-small">
       Sessions run about 90 minutes including warm-up, both tests, and the
-      results walk-through. Bring a snack and water for after.
+      results walk-through, in Broomfield, CO. Bring a snack and water for after.
     </p>
+    <h3 class="ip-bring-h">What to bring</h3>
+    <ul class="ip-bring">
+      <li>Regular running clothes and shoes</li>
+      <li>Regular workout-day shoes (NOT carbon race shoes)</li>
+      <li>Don't consume any workout-day supplements beforehand</li>
+      <li>Don't consume caffeine beforehand unless you consume it daily</li>
+    </ul>
   </div>
 
   <div class="panel">
-    <div class="panel-h">What you walk away with</div>
+    <h2 class="panel-h">What you walk away with</h2>
     <p class="panel-sub">A full metabolic profile — the same picture lab-grade commercial tests cost coaches several hundred dollars to produce. Built entirely from your own data, not a population average.</p>
     <div class="ip-includes">
       <div class="ip-include">
@@ -134,51 +166,37 @@
   <div class="ip-pay-panel" id="ip-pre-payment">
     <div class="ip-pay-row">
       <div class="ip-pay-price">$145</div>
-      <div class="ip-pay-note">One-time · Boulder / Denver area</div>
+      <div class="ip-pay-note">One-time · Broomfield, CO</div>
     </div>
     <p class="ip-pay-blurb">
       Reserve your session by checking out below. We'll then ask for your scheduling
-      preferences — preferred dates, location, cycling vs running — and reach out by
+      preferences — preferred dates, cycling vs running — and reach out by
       email to confirm a time. If we can't find a workable date, we'll refund in full.
     </p>
     <div class="ip-pay-cta">
-      <button class="btn primary" type="button" id="ip-buy-btn">Book in-person test — $145 →</button>
+      <button class="btn primary lg" type="button" id="ip-buy-btn">Book in-person test — $145 →</button>
       <span class="ip-pay-note">Secure checkout via Stripe</span>
     </div>
-    <div class="ip-checkout-err" id="ip-checkout-err"></div>
+    <div class="ip-checkout-err" id="ip-checkout-err" role="alert"></div>
   </div>
+</main>
 
-  <!-- Post-payment state: shown when ?paid=1 OR when a recent in-person payment is on file -->
-  <div id="ip-post-payment" style="display:none">
-    <div class="ip-paid-banner">
-      <strong>✓ Payment received.</strong> Thanks — your in-person test is reserved.
-      <div class="small">Now share your scheduling details below and we'll email you to confirm a time.</div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-h">Tell us your scheduling details</div>
-      <p class="panel-sub">
-        We need a few specifics to confirm your session — preferred dates, location,
-        cycling vs running, and how to reach you.
-      </p>
-      <button class="btn primary" type="button" data-in-person-request>Share scheduling details →</button>
-      <p style="font-size:12px;color:var(--muted2);line-height:1.6;margin-top:12px">
-        Already shared your details? You can resubmit any time to update them.
-      </p>
-    </div>
+<footer class="esl-footer">
+  <div class="esl-footer-in">
+    <a href="/" aria-label="Endurance Science Labs home"><img src="/images/generic_logo_white_clean.png" alt="Endurance Science Labs" class="footer-logo-img"></a>
+    <nav class="esl-footer-links" aria-label="Footer">
+      <a href="/">Home</a><a href="/esformlab/">esFormLab</a><a href="/esmetaboliclab/">esMetabolicLab</a><a href="/coaching/">Coaching</a><a href="/shockwave/">Shockwave</a><a href="/privacy/">Privacy</a>
+    </nav>
+    <div class="esl-footer-copy">© <span id="footer-year"></span> Endurance Science Labs</div>
+    <div class="esl-footer-disclaimer"><strong>Not medical advice.</strong> Information here is for educational purposes only and does not constitute a medical diagnosis or replace consultation with a qualified healthcare professional.</div>
   </div>
-
-  <footer class="esml" style="margin-top:32px">
-    © <span id="footer-year"></span> Endurance Science Labs · esMetabolicLab
-    <div class="disclaimer">Not medical advice. Educational use only.</div>
-  </footer>
-</div>
+</footer>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="/shared/site.js"></script>
+<script src="/shared/site.js?v=20261016"></script>
 <script>
   window.__esml = { user: null };
 
@@ -187,7 +205,11 @@
     eyebrow: '▷ Sign in to book',
     headline: 'In-person lactate testing',
     sub: 'Sign in or create a free account to reserve your session.',
-    foot: '<a href="/esmetaboliclab/" style="color:var(--cyan);text-decoration:none">&larr; Back to esMetabolicLab</a>'
+    bullets: [
+      { strong: '$145 per session', span: '— about 90 minutes in Broomfield, CO.' },
+      { strong: 'We bring everything', span: '— lactate meter, strips and supplies; results explained 1-on-1.' }
+    ],
+    foot: '<a href="/">&larr; Back to home</a>'
   });
 
   esLabs.onAuthChange(function(user) {
@@ -199,45 +221,79 @@
     }
   });
 
-  // Toggle pre/post-payment view based on URL flag or recorded in-person payment.
+  // Toggle pre/post-payment view: a recorded in-person payment in the last
+  // 14 days (the scheduling window), or ?paid=1 straight back from Stripe.
+  var PAID_WINDOW_SEC = 14 * 24 * 60 * 60;
   var urlPaidFlag = new URLSearchParams(window.location.search).get('paid') === '1';
-  function showPaidView() {
+  var confirmSlow = null;
+  function showPaidView(confirmed) {
     document.getElementById('ip-pre-payment').style.display = 'none';
     document.getElementById('ip-post-payment').style.display = 'block';
+    var banner = document.getElementById('ip-paid-banner');
+    banner.classList.toggle('is-pending', !confirmed);
+    if (confirmed) {
+      if (confirmSlow) { clearTimeout(confirmSlow); confirmSlow = null; }
+      document.getElementById('ip-paid-title').textContent = '✓ Payment received.';
+      document.getElementById('ip-paid-text').textContent = 'Thanks — your in-person test is reserved.';
+    } else {
+      // ?paid=1 alone: the payment record usually lands within seconds.
+      document.getElementById('ip-paid-title').textContent = 'Confirming your payment…';
+      document.getElementById('ip-paid-text').textContent = '';
+      if (!confirmSlow) confirmSlow = setTimeout(function () {
+        document.getElementById('ip-paid-text').innerHTML = 'Still processing — refresh in a minute. If it doesn’t appear, email <a href="mailto:austen@endurancesciencelabs.com">austen@endurancesciencelabs.com</a>.';
+      }, 30000);
+    }
   }
   function showUnpaidView() {
     document.getElementById('ip-pre-payment').style.display = '';
     document.getElementById('ip-post-payment').style.display = 'none';
   }
 
-  if (urlPaidFlag) showPaidView();
+  if (urlPaidFlag) showPaidView(false);
 
   esLabs.onPassChange(function(pass) {
     var m = pass.metlab || {};
-    // Within 24 h of an in-person payment: assume they're still scheduling.
-    var DAY_SEC = 24 * 60 * 60;
     var now = Math.floor(Date.now() / 1000);
-    var recent = m.inPersonLatest && (now - m.inPersonLatest < 30 * DAY_SEC);
-    if (urlPaidFlag || recent) showPaidView();
+    var recent = !!m.inPersonLatest && (now - m.inPersonLatest < PAID_WINDOW_SEC);
+    if (recent) showPaidView(true);
+    else if (urlPaidFlag) showPaidView(false);
     else showUnpaidView();
   });
 
-  // Book button: kick off Stripe checkout with success_url back to this page with ?paid=1.
-  document.getElementById('ip-buy-btn').addEventListener('click', function() {
-    var btn = this;
+  // After the request modal sends, the page reflects it (this session only).
+  window.addEventListener('esml-inperson-sent', function () {
+    var p = document.querySelector('#ip-post-payment .panel');
+    p.querySelector('.panel-h').textContent = '✓ Details sent';
+    p.querySelector('.panel-sub').textContent = 'We’ll email you to confirm a time. Need to change something? Send an update below.';
+    p.querySelector('[data-in-person-request]').textContent = 'Update details →';
+  });
+
+  // Book: Stripe checkout with success_url back here (?paid=1). 20 s timeout.
+  var BUY_LABEL = 'Book in-person test — $145 →';
+  function startInPersonCheckout(btn) {
     var err = document.getElementById('ip-checkout-err');
-    err.classList.remove('show');
-    btn.disabled = true;
-    btn.textContent = 'Loading checkout…';
-    esLabs.startMetlabCheckout('inperson', {
+    err.classList.remove('show'); err.textContent = '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Opening secure checkout…'; }
+    var timeout = new Promise(function (_, rej) { setTimeout(function () { rej(new Error('timeout')); }, 20000); });
+    Promise.race([esLabs.startMetlabCheckout('inperson', {
       successUrl: window.location.origin + '/esmetaboliclab/in-person/?paid=1'
-    }).catch(function(e) {
+    }), timeout]).catch(function(e) {
       console.error('Checkout error:', e);
-      err.textContent = 'Couldn’t start checkout: ' + (e.message || e);
+      if (btn) { btn.disabled = false; btn.textContent = btn.dataset.label || BUY_LABEL; }
+      if (e && e.handled) return;   // e.g. acting as an athlete: site.js already explained
+      err.textContent = (e && e.message === 'timeout')
+        ? 'Checkout is taking longer than usual. Please try again.'
+        : 'Couldn’t start checkout. Please try again — if it keeps failing, email austen@endurancesciencelabs.com.';
       err.classList.add('show');
-      btn.disabled = false;
-      btn.textContent = 'Book in-person test — $145 →';
     });
+  }
+  var buyBtn = document.getElementById('ip-buy-btn');
+  buyBtn.dataset.label = buyBtn.textContent;
+  buyBtn.addEventListener('click', function () { startInPersonCheckout(buyBtn); });
+  document.getElementById('ip-book-another').addEventListener('click', function () {
+    showUnpaidView();
+    buyBtn.scrollIntoView({ block: 'center', behavior: esLabs.prefersReducedMotion && esLabs.prefersReducedMotion() ? 'auto' : 'smooth' });
+    buyBtn.focus({ preventScroll: true });
   });
 
   document.getElementById('footer-year').textContent = new Date().getFullYear();

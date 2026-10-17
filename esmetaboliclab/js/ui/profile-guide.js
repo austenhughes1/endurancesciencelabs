@@ -39,7 +39,7 @@ export function profileGuideHtml(sport) {
   return '' +
     '<div class="profile-guide">' +
       '<div class="profile-guide-eyebrow">★ Your numbers, in plain English</div>' +
-      '<h3>What your profile tells you — and how to train with it</h3>' +
+      '<h3 class="profile-guide-title">What your profile tells you — and how to train with it</h3>' +
       '<ul class="pg-list">' + items + '</ul>' +
     '</div>';
 }

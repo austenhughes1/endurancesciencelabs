@@ -18,11 +18,13 @@
  *     energetic cost of outdoor running. J Sports Sci 1996;14:321–327.
  */
 
+import { pushModal, closeModal } from './modal-stack.js';
+
 const MODAL_ID = 'esml-howto-step-test-modal-root';
 
 const SHARED_HEAD = `
   <div class="section-label" style="margin-bottom:18px">◉ Test protocol</div>
-  <h2 class="esml-modal-title">How to run a lactate step test</h2>
+  <h2 class="esml-modal-title" id="esml-steptest-title">How to run a lactate step test</h2>
   <p class="esml-modal-lede">
     A lactate step test maps how your blood lactate climbs as your effort
     increases — from easy to all-out. The shape of that curve is what
@@ -34,7 +36,7 @@ const SHARED_HEAD = `
 
   <h3 class="esml-modal-h3">What you need (both sports)</h3>
   <ul class="esml-checklist">
-    <li>Handheld lactate meter, strips, lancets, alcohol wipes, gauze — see the <a href="#" data-howto-measure style="color:var(--cyan)">measurement protocol</a></li>
+    <li>Handheld lactate meter, strips, lancets, alcohol wipes, gauze — see the <a href="#" data-howto-measure>measurement protocol</a></li>
     <li>Stopwatch or structured workout file on your bike computer / treadmill</li>
     <li>Fan running at full speed</li>
     <li>Towel — fingertip moisture skews readings</li>
@@ -128,27 +130,27 @@ const CYCLING_PROTOCOL = `
   </p>
   <div style="background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;font-family:var(--mono);font-size:12px;line-height:1.85;color:var(--text)">
     <div style="color:var(--muted2);margin-bottom:6px">10–15 min warm-up at easy spinning</div>
-    <div style="color:var(--gold)">↳ Resting lactate sample</div>
+    <div style="color:var(--gold-ink)">↳ Resting lactate sample</div>
     <div style="color:var(--muted)">────────</div>
     <div>Stage 1 &nbsp;·&nbsp; 5 min @ <strong>150 W</strong></div>
-    <div style="color:var(--gold)">↳ 1 min easy spin, sample immediately upon stopping</div>
+    <div style="color:var(--gold-ink)">↳ 1 min easy spin, sample immediately upon stopping</div>
     <div>Stage 2 &nbsp;·&nbsp; 5 min @ <strong>180 W</strong> &nbsp;<span style="color:var(--muted2)">(+30 W)</span></div>
-    <div style="color:var(--gold)">↳ 1 min easy spin, sample</div>
+    <div style="color:var(--gold-ink)">↳ 1 min easy spin, sample</div>
     <div>Stage 3 &nbsp;·&nbsp; 5 min @ <strong>210 W</strong> &nbsp;<span style="color:var(--muted2)">(+30 W)</span></div>
-    <div style="color:var(--gold)">↳ 1 min easy spin, sample</div>
+    <div style="color:var(--gold-ink)">↳ 1 min easy spin, sample</div>
     <div>Stage 4 &nbsp;·&nbsp; 5 min @ <strong>240 W</strong> &nbsp;<span style="color:var(--muted2)">(+30 W)</span></div>
-    <div style="color:var(--gold)">↳ 1 min easy spin, sample</div>
+    <div style="color:var(--gold-ink)">↳ 1 min easy spin, sample</div>
     <div>Stage 5 &nbsp;·&nbsp; 5 min @ <strong>270 W</strong> &nbsp;<span style="color:var(--muted2)">(+30 W — closing on FTP)</span></div>
-    <div style="color:var(--gold)">↳ 1 min easy spin, sample</div>
+    <div style="color:var(--gold-ink)">↳ 1 min easy spin, sample</div>
     <div style="color:var(--muted)">─── shift to 15 W increments ───</div>
     <div>Stage 6 &nbsp;·&nbsp; 5 min @ <strong>285 W</strong> &nbsp;<span style="color:var(--muted2)">(+15 W)</span></div>
-    <div style="color:var(--gold)">↳ 1 min easy spin, sample</div>
+    <div style="color:var(--gold-ink)">↳ 1 min easy spin, sample</div>
     <div>Stage 7 &nbsp;·&nbsp; 5 min @ <strong>300 W</strong> &nbsp;<span style="color:var(--muted2)">(+15 W)</span></div>
-    <div style="color:var(--gold)">↳ 1 min easy spin, sample</div>
+    <div style="color:var(--gold-ink)">↳ 1 min easy spin, sample</div>
     <div>Stage 8 &nbsp;·&nbsp; 5 min @ <strong>315 W</strong> &nbsp;<span style="color:var(--muted2)">(+15 W)</span></div>
-    <div style="color:var(--gold)">↳ 1 min easy spin, sample</div>
+    <div style="color:var(--gold-ink)">↳ 1 min easy spin, sample</div>
     <div>Stage 9 &nbsp;·&nbsp; 5 min @ <strong>330 W</strong> &nbsp;<span style="color:var(--muted2)">(+15 W)</span></div>
-    <div style="color:var(--gold)">↳ Final sample → done</div>
+    <div style="color:var(--gold-ink)">↳ Final sample → done</div>
   </div>
   <p class="esml-modal-p" style="font-size:13px;color:var(--muted2);margin-top:10px">
     Your numbers will be different — start around 50–60% of <em>your</em>
@@ -222,27 +224,27 @@ const RUNNING_PROTOCOL = `
   </p>
   <div style="background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;font-family:var(--mono);font-size:12px;line-height:1.85;color:var(--text)">
     <div style="color:var(--muted2);margin-bottom:6px">10–15 min warm-up at easy pace</div>
-    <div style="color:var(--gold)">↳ Resting lactate sample</div>
+    <div style="color:var(--gold-ink)">↳ Resting lactate sample</div>
     <div style="color:var(--muted)">────────</div>
     <div>Stage 1 &nbsp;·&nbsp; 5 min @ <strong>8:00/mile</strong></div>
-    <div style="color:var(--gold)">↳ 1 min standing rest, sample immediately upon stopping</div>
+    <div style="color:var(--gold-ink)">↳ 1 min standing rest, sample immediately upon stopping</div>
     <div>Stage 2 &nbsp;·&nbsp; 5 min @ <strong>7:30/mile</strong> &nbsp;<span style="color:var(--muted2)">(+30 s/mi)</span></div>
-    <div style="color:var(--gold)">↳ 1 min standing rest, sample</div>
+    <div style="color:var(--gold-ink)">↳ 1 min standing rest, sample</div>
     <div>Stage 3 &nbsp;·&nbsp; 5 min @ <strong>7:00/mile</strong> &nbsp;<span style="color:var(--muted2)">(+30 s/mi)</span></div>
-    <div style="color:var(--gold)">↳ 1 min standing rest, sample</div>
+    <div style="color:var(--gold-ink)">↳ 1 min standing rest, sample</div>
     <div>Stage 4 &nbsp;·&nbsp; 5 min @ <strong>6:30/mile</strong> &nbsp;<span style="color:var(--muted2)">(+30 s/mi)</span></div>
-    <div style="color:var(--gold)">↳ 1 min standing rest, sample</div>
+    <div style="color:var(--gold-ink)">↳ 1 min standing rest, sample</div>
     <div>Stage 5 &nbsp;·&nbsp; 5 min @ <strong>6:00/mile</strong> &nbsp;<span style="color:var(--muted2)">(+30 s/mi — closing on marathon pace)</span></div>
-    <div style="color:var(--gold)">↳ 1 min standing rest, sample</div>
+    <div style="color:var(--gold-ink)">↳ 1 min standing rest, sample</div>
     <div style="color:var(--muted)">─── shift to 15 s/mile increments ───</div>
     <div>Stage 6 &nbsp;·&nbsp; 5 min @ <strong>5:45/mile</strong> &nbsp;<span style="color:var(--muted2)">(+15 s/mi)</span></div>
-    <div style="color:var(--gold)">↳ 1 min standing rest, sample</div>
+    <div style="color:var(--gold-ink)">↳ 1 min standing rest, sample</div>
     <div>Stage 7 &nbsp;·&nbsp; 5 min @ <strong>5:30/mile</strong> &nbsp;<span style="color:var(--muted2)">(+15 s/mi)</span></div>
-    <div style="color:var(--gold)">↳ 1 min standing rest, sample</div>
+    <div style="color:var(--gold-ink)">↳ 1 min standing rest, sample</div>
     <div>Stage 8 &nbsp;·&nbsp; 5 min @ <strong>5:15/mile</strong> &nbsp;<span style="color:var(--muted2)">(+15 s/mi)</span></div>
-    <div style="color:var(--gold)">↳ 1 min standing rest, sample</div>
+    <div style="color:var(--gold-ink)">↳ 1 min standing rest, sample</div>
     <div>Stage 9 &nbsp;·&nbsp; 5 min @ <strong>5:00/mile</strong> &nbsp;<span style="color:var(--muted2)">(+15 s/mi)</span></div>
-    <div style="color:var(--gold)">↳ Final sample → done</div>
+    <div style="color:var(--gold-ink)">↳ Final sample → done</div>
   </div>
   <p class="esml-modal-p" style="font-size:13px;color:var(--muted2);margin-top:10px">
     Your numbers will be different — start ~30 s/mile slower than <em>your</em>
@@ -274,14 +276,14 @@ const SHARED_FOOTER = `
 
 const MODAL_HTML = `
 <div class="esml-modal-overlay">
-  <div class="esml-modal" role="dialog" aria-modal="true">
+  <div class="esml-modal" role="dialog" aria-modal="true" aria-labelledby="esml-steptest-title">
     <button class="esml-modal-close" type="button" aria-label="Close">×</button>
     <div class="esml-modal-body">
       ${SHARED_HEAD}
 
-      <div class="esml-tabs" role="tablist" style="margin-top:14px">
-        <button class="esml-tab active" type="button" data-tab="running" role="tab">▷ Running</button>
-        <button class="esml-tab" type="button" data-tab="cycling" role="tab">⊙ Cycling</button>
+      <div class="esml-tabs" role="group" aria-label="Sport" style="margin-top:14px">
+        <button class="esml-tab active" type="button" data-tab="running" aria-pressed="true">▷ Running</button>
+        <button class="esml-tab" type="button" data-tab="cycling" aria-pressed="false">⊙ Cycling</button>
       </div>
 
       <div class="esml-tab-pane active" data-pane="running">
@@ -313,7 +315,10 @@ export function showStepTestModal(preselectSport) {
   const tabs  = Array.from(root.querySelectorAll('.esml-tab'));
   const panes = Array.from(root.querySelectorAll('.esml-tab-pane'));
   function selectTab(name) {
-    tabs.forEach((t)  => t.classList.toggle('active', t.dataset.tab === name));
+    tabs.forEach((t)  => {
+      t.classList.toggle('active', t.dataset.tab === name);
+      t.setAttribute('aria-pressed', String(t.dataset.tab === name));
+    });
     panes.forEach((p) => p.classList.toggle('active', p.dataset.pane === name));
   }
   tabs.forEach((t) => t.addEventListener('click', () => selectTab(t.dataset.tab)));
@@ -332,18 +337,10 @@ export function showStepTestModal(preselectSport) {
   // Close handlers
   const overlay  = root.querySelector('.esml-modal-overlay');
   const closeBtn = root.querySelector('.esml-modal-close');
-  const prevOverflow = document.body.style.overflow;
-  document.body.style.overflow = 'hidden';
-  const close = () => {
-    root.remove();
-    document.body.style.overflow = prevOverflow;
-    window.removeEventListener('keydown', onKey);
-  };
-  const onKey = (e) => { if (e.key === 'Escape') close(); };
-  window.addEventListener('keydown', onKey);
+  const close = () => closeModal(root, 'cancel');
   closeBtn.addEventListener('click', close);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-  closeBtn.focus({ preventScroll: true });
+  pushModal(root, { initialFocus: closeBtn });
 }
 
 /**

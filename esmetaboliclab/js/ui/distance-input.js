@@ -70,8 +70,8 @@ export function distanceInputHTML(opts) {
     <div class="pace-input distance-input">
       <input type="text" id="${opts.id}" class="pace-text" data-unit="${unit}" value="${value}" placeholder="${ph}" inputmode="decimal" autocomplete="off" ${phData} ${extraAttrs}>
       <div class="unit-toggle-inline" role="group" aria-label="Distance unit">
-        <button type="button" data-dist-set="m"  class="${unit === 'm'  ? 'active' : ''}" aria-pressed="${unit === 'm'  ? 'true' : 'false'}">m</button>
         <button type="button" data-dist-set="mi" class="${unit === 'mi' ? 'active' : ''}" aria-pressed="${unit === 'mi' ? 'true' : 'false'}">mi</button>
+        <button type="button" data-dist-set="m"  class="${unit === 'm'  ? 'active' : ''}" aria-pressed="${unit === 'm'  ? 'true' : 'false'}">m</button>
       </div>
     </div>
   `;

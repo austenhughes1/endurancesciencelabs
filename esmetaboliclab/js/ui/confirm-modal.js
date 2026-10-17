@@ -10,7 +10,12 @@
  *     cancelLabel: 'Keep it',
  *     danger: true,
  *   });
+ *
+ * Enter activates whichever button has focus (native); initial focus is on
+ * the cancel button, so Enter on open never confirms a destructive action.
  */
+
+import { pushModal, closeModal } from './modal-stack.js';
 
 const MODAL_ID = 'esml-confirm-modal-root';
 
@@ -31,9 +36,9 @@ export function showConfirmModal(opts) {
     root.id = MODAL_ID;
     root.innerHTML =
       '<div class="esml-modal-overlay">' +
-        '<div class="esml-modal" role="dialog" aria-modal="true" style="max-width:480px">' +
+        '<div class="esml-modal" role="dialog" aria-modal="true" aria-labelledby="esml-confirm-title" style="max-width:480px">' +
           '<div class="esml-modal-body">' +
-            '<h2 class="esml-modal-title" style="font-size:22px;margin-bottom:10px">' + title + '</h2>' +
+            '<h2 class="esml-modal-title" id="esml-confirm-title" style="margin-bottom:10px">' + title + '</h2>' +
             (body ? '<p class="esml-modal-lede" style="margin-bottom:0">' + body + '</p>' : '') +
             '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:24px;flex-wrap:wrap">' +
               '<button type="button" class="btn ghost" data-confirm-cancel>' + cancelLabel + '</button>' +
@@ -44,27 +49,13 @@ export function showConfirmModal(opts) {
       '</div>';
     document.body.appendChild(root);
 
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
-    const teardown = (result) => {
-      root.remove();
-      document.body.style.overflow = prevOverflow;
-      window.removeEventListener('keydown', onKey);
-      resolve(!!result);
-    };
-    const onKey = (e) => {
-      if (e.key === 'Escape') teardown(false);
-      else if (e.key === 'Enter') teardown(true);
-    };
-    window.addEventListener('keydown', onKey);
-
-    root.querySelector('[data-confirm-cancel]').addEventListener('click', () => teardown(false));
-    root.querySelector('[data-confirm-ok]').addEventListener('click',     () => teardown(true));
-    const overlay = root.querySelector('.esml-modal-overlay');
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) teardown(false); });
-
+    const cancelBtn = root.querySelector('[data-confirm-cancel]');
     // Keyboard focus on cancel by default — safer for destructive actions
-    root.querySelector('[data-confirm-cancel]').focus({ preventScroll: true });
+    pushModal(root, { initialFocus: cancelBtn, onClose: (reason) => resolve(reason === 'confirm') });
+
+    cancelBtn.addEventListener('click', () => closeModal(root, 'cancel'));
+    root.querySelector('[data-confirm-ok]').addEventListener('click', () => closeModal(root, 'confirm'));
+    const overlay = root.querySelector('.esml-modal-overlay');
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(root, 'cancel'); });
   });
 }

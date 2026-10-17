@@ -84,8 +84,8 @@ export function deriveVLamax({ sport, sprint15s, bodyMass, sex }) {
   } else if (sport === 'running') {
     intensity_per_unit = sprint15s;            // m/s — already "per body mass" in running terms
     raw = VLAMAX_RUNNING.slope_per_m_per_s * sprint15s + VLAMAX_RUNNING.intercept;
-    if (sprint15s < 4) warnings.push('Sprint speed (' + sprint15s.toFixed(1) + ' m/s) is unusually low for a 15-second max effort.');
-    if (sprint15s > 11) warnings.push('Sprint speed (' + sprint15s.toFixed(1) + ' m/s) is above the elite-sprinter range; double-check the inputs.');
+    if (sprint15s < 4) warnings.push('Your 15-second sprint (' + Math.round(sprint15s * 15) + ' m) is unusually short for a max effort.');
+    if (sprint15s > 11) warnings.push('Your 15-second sprint (' + Math.round(sprint15s * 15) + ' m) is above the elite-sprinter range — double-check the distance and its unit.');
   } else {
     throw new Error('Unsupported sport: ' + sport);
   }
@@ -185,10 +185,10 @@ export function derivePowerProfile(input) {
   const p12_over_p6 = p6 > 0 ? p12 / p6 : NaN;
 
   if (isFinite(p3) && isFinite(p6) && p3 <= p6) {
-    warnings.push('Your 3-minute max (' + p3 + ') is not greater than your 6-minute max (' + p6 + '). The 3-min should be ~5–15% higher than 6-min — check the values.');
+    warnings.push('Your 3-minute max isn’t higher than your 6-minute max. It should be about 5–15% higher — check the values.');
   }
   if (isFinite(p12) && isFinite(p6) && p12 >= p6) {
-    warnings.push('Your 12-minute max (' + p12 + ') is not lower than your 6-minute max (' + p6 + '). The 12-min should be ~3–10% lower — check the values.');
+    warnings.push('Your 12-minute max isn’t lower than your 6-minute max. It should be about 3–10% lower — check the values.');
   }
   if (isFinite(p3_over_p6) && (p3_over_p6 < 1.03 || p3_over_p6 > 1.25)) {
     warnings.push('3-min : 6-min ratio of ' + p3_over_p6.toFixed(2) + ' is outside the typical 1.05–1.18 band. Either an effort wasn\'t maximal or the durations are off.');

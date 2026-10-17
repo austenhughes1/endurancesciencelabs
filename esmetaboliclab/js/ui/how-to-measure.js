@@ -8,6 +8,8 @@
  * and tears itself down on close (Escape, backdrop click, or X button).
  */
 
+import { pushModal, closeModal } from './modal-stack.js';
+
 const MODAL_ID = 'esml-howto-modal-root';
 
 const MODAL_HTML = `
@@ -53,11 +55,11 @@ const MODAL_HTML = `
       <div class="esml-modal-callout">
         <h3 class="esml-modal-h3" style="margin-top:0">Prefer to do this in person?</h3>
         <p class="esml-modal-p">
-          If you're in the Boulder or Denver area, the Endurance Science Labs coaches
-          can run the protocol with you — equipment, technique, and a walk-through
-          of your results, all in one session.
+          An Endurance Science Labs coach can run the protocol with you in
+          Broomfield, CO — equipment, technique, and a walk-through of your
+          results, all in one session.
         </p>
-        <button class="btn primary" type="button" data-in-person-request>Request an in-person session →</button>
+        <a class="btn primary" href="/esmetaboliclab/in-person/">In-person test: details &amp; booking →</a>
       </div>
 
       <p class="esml-modal-foot">
@@ -83,38 +85,18 @@ export function showHowToMeasureModal() {
 
   const overlay = root.querySelector('.esml-modal-overlay');
   const closeBtn = root.querySelector('.esml-modal-close');
+  const close = () => closeModal(root, 'cancel');
 
-  const prevOverflow = document.body.style.overflow;
-  document.body.style.overflow = 'hidden';
-
-  const close = () => {
-    root.remove();
-    document.body.style.overflow = prevOverflow;
-    window.removeEventListener('keydown', onKey);
-  };
-  const onKey = (e) => { if (e.key === 'Escape') close(); };
-
-  window.addEventListener('keydown', onKey);
   closeBtn.addEventListener('click', close);
   overlay.addEventListener('click', (e) => {
     // Only close on backdrop click — not click bubbling from inside the modal card
     if (e.target === overlay) close();
   });
 
-  // Wire the in-person CTA inside this modal to open the request modal.
-  // Lazy-load to avoid a hard dependency cycle.
-  root.querySelectorAll('[data-in-person-request]').forEach((el) => {
-    el.addEventListener('click', async (e) => {
-      e.preventDefault();
-      const { showInPersonRequestModal } = await import('./in-person-request.js');
-      // Close this modal first so we don't stack two on top of each other
-      close();
-      showInPersonRequestModal();
-    });
-  });
+  // The in-person CTA is a plain link to /esmetaboliclab/in-person/ (pay first).
 
-  // Move keyboard focus to the close button for accessibility
-  closeBtn.focus({ preventScroll: true });
+  // Keyboard focus starts on the close button; Escape closes only this modal.
+  pushModal(root, { initialFocus: closeBtn });
 }
 
 /**

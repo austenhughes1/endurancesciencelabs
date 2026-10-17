@@ -4,40 +4,47 @@
 <meta charset="UTF-8">
 <script>try{if(localStorage.getItem('esl-theme')==='light')document.documentElement.setAttribute('data-theme','light')}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>esMetabolicLab - Metabolic Testing | Endurance Science Labs</title>
+<title>esMetabolicLab — Endurance Science Labs</title>
 <meta name="robots" content="noindex,nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/shared/site.css">
-<link rel="stylesheet" href="css/esmetaboliclab.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/site.css?v=20261016">
+<link rel="stylesheet" href="css/esmetaboliclab.css?v=20261016">
 <style>
   #app { display: none; }
-  [data-admin-only] { display: none; }
 </style>
 </head>
 <body>
 
 <div id="esml-gate"></div>
 
-<div id="app">
-  <nav class="eslabs-nav" id="esml-nav"></nav>
+<!-- Nav sits outside #app so the sign-in gate renders below it (D9). -->
+<nav class="eslabs-nav" id="esml-nav"></nav>
 
-  <div class="page">
+<div id="app">
+
+  <main id="main" class="page">
     <div class="section-label">⬡ esMetabolicLab</div>
     <h1 class="page-title">Your <em>metabolic</em> profile,<br>without a lab.</h1>
     <p class="page-sub">
-      VO₂max, lactate threshold, training zones, and fueling - the same
+      VO₂max, lactate threshold, training zones, and fueling — the same
       model the sports-science labs use, built entirely from your own data.
-      Start for free with just 4 simple time trial efforts, or go deeper
+      Start for free with four max efforts, or go deeper
       with lactate testing and a coach-run in-person option.
     </p>
+
+    <div class="esl-callout esl-callout--good" id="esml-paid-banner" role="status" hidden style="margin:0 0 28px">
+      <p class="esl-callout-title">✓ Payment received</p>
+      <p id="esml-paid-msg">Finishing up — your upload access usually turns on within a few seconds.</p>
+      <p style="margin-top:12px"><a class="btn primary" id="esml-paid-cta" href="profile/" hidden>Start the Lactate Profile →</a></p>
+    </div>
 
     <!-- ── Free funnel: Power Profile ───────────────────────────── -->
     <section class="free-card">
       <div class="free-card-eyebrow">▶ Start free</div>
-      <h2 class="free-card-title">Build your <em>full profile</em> - free.</h2>
+      <h2 class="free-card-title">Build your free <em>estimated</em> profile.</h2>
       <p class="free-card-sub">
-        Four max efforts (15 s, 3 min, 6 min, 12 min) and your full metabolic profile is built in your browser - VO2max, training paces, and more. No needles, no equipment, no payment. The same model the labs use, estimated from your own power and pace.
+        Four max efforts (15 s, 3 min, 6 min, 12 min) and your full metabolic profile is built in your browser — VO₂max, training paces, and more. No needles, no equipment, no payment. The same model the labs use, estimated from your own power and pace.
       </p>
       <ul class="free-card-list">
         <li>VO₂max + anaerobic-engine estimate</li>
@@ -47,28 +54,31 @@
         <li>Branded PDF report you can keep</li>
         <li>Saved to your account, re-runnable any time</li>
       </ul>
-      <a href="power-profile/" class="btn primary free-card-cta">Build your free profile →</a>
+      <a href="power-profile/" class="btn primary lg free-card-cta">Build your free profile →</a>
       <p class="free-card-foot">Free with your account · estimate, not measurement</p>
     </section>
 
     <!-- ── Go Deeper: paid lactate-anchored profile ─────────────── -->
     <section class="deeper">
       <div class="section-label">◉ Go deeper</div>
-      <h2 class="deeper-title">For the real numbers - <em>measure</em> lactate.</h2>
+      <h2 class="deeper-title">For measured numbers — test your <em>lactate</em>.</h2>
       <p class="deeper-sub">
-        The power-only profile is estimated from sprint power and max
-        effort. The lactate profile is built entirely from your own blood measurements, providing the true data of what's happening in your body. Same model, real measurements underneath, lab-validated accuracy.
+        The Power Profile is estimated from sprint power and max
+        effort. The Lactate Profile is built entirely from your own blood measurements, providing the true data of what's happening in your body. Same model, real measurements underneath, lab-validated accuracy.
       </p>
+      <p class="deeper-sub deeper-compare"><a href="pricing/">Compare all plans →</a></p>
 
       <div class="tile-grid" style="margin-top:22px">
-        <a href="profile/" class="tile">
+        <a href="pricing/" class="tile" id="tile-lactate">
           <div class="tile-icon">◉</div>
           <div class="tile-badges">
             <span class="tile-badge">60–90 min</span>
-            <span class="tile-badge paid">From $30 · or Premium Coaching</span>
+            <span class="tile-badge paid">From $30 · or included with Full Access coaching</span>
+            <span class="tile-badge esl-badge--good" id="tile-lactate-included" hidden>Included with your plan</span>
           </div>
-          <div class="tile-title">Measured-lactate metabolic profile</div>
-          <p class="tile-desc">One unified wizard: athlete inputs, a 15-second all-out sprint, and a 5–9 stage lactate step test. Your lactate response gives us your VO₂max estimate, sustainable threshold, easy-zone limit, fat-burning sweet spot, and personalized training zones - built entirely from your own data.</p>
+          <div class="tile-title">Lactate Profile</div>
+          <p class="tile-desc">One unified wizard: athlete inputs, a 15-second all-out sprint, and a 5–9 stage lactate step test. Your lactate response gives us your VO₂max estimate, sustainable threshold, easy-zone limit, fat-burning sweet spot, and personalized training zones — built entirely from your own data. You'll need your own handheld lactate meter and strips — or book the in-person test below and we bring everything.</p>
+          <span class="tile-cta" id="tile-lactate-cta">See plans — from $30 →</span>
         </a>
       </div>
     </section>
@@ -82,32 +92,29 @@
           An Endurance Science Labs coach brings the meter, the strips,
           and the experience. We run the full sprint + step-test
           protocol with you and walk through your results face-to-face.
-          Boulder/Denver area only.
+          Sessions are in Broomfield, CO.
         </p>
       </div>
       <div class="inperson-band-right">
         <div class="inperson-band-price">$145</div>
         <div class="inperson-band-pricenote">90-minute session · one-time</div>
-        <a href="in-person/" class="btn primary">Book a session →</a>
+        <a href="in-person/" class="btn primary lg">Book a session →</a>
       </div>
     </section>
 
-    <!-- Cross-promo: free running form scan. Same account, complements
-         the metabolic profile with biomechanical numbers. Visible to all
-         signed-in users on this landing. -->
-    <a href="/esformlab/" class="cross-promo-banner" style="display:block;max-width:none;margin:36px 0 0;padding:20px 24px;background:linear-gradient(135deg,rgba(0,229,200,.10),rgba(139,124,248,.04));border:1px solid rgba(0,229,200,.32);border-left:4px solid var(--cyan,#00e5c8);border-radius:14px;text-decoration:none;color:inherit;transition:border-color .15s,background .15s">
-      <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
-        <div style="font-size:28px;line-height:1;color:var(--cyan,#00e5c8)">&#9673;</div>
-        <div style="flex:1;min-width:220px">
-          <div style="font-size:11px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--cyan,#00e5c8);font-family:var(--mono);margin-bottom:4px">&#9670; Also free with your account</div>
-          <div style="font-size:17px;font-weight:700;color:var(--text);margin-bottom:4px">Scan your running form &mdash; 3 short clips, 9 gait phases.</div>
-          <div style="font-size:13.5px;color:var(--muted2);line-height:1.55">Upload side, front, and back-view clips from your phone. Pose detection runs entirely in your browser &mdash; videos never leave your device.</div>
-        </div>
-        <div style="font-size:14px;font-weight:600;color:var(--cyan,#00e5c8);white-space:nowrap">Open esFormLab &rarr;</div>
-      </div>
+    <!-- Cross-promo: esFormLab. Pricing rule: only upload + scan are free;
+         the form report is a paid one-time 90-day pass. -->
+    <a href="/esformlab/" class="cross-promo">
+      <span class="cross-promo-icon" aria-hidden="true">&#9673;</span>
+      <span class="cross-promo-body">
+        <span class="cross-promo-eyebrow">&#9670; Free to try with your account</span>
+        <span class="cross-promo-title">Scan your running form — 3 short clips from your phone.</span>
+        <span class="cross-promo-desc">Upload and scan side, front and back views at no cost — pose detection runs in your browser and your videos never leave your device. The full form report unlocks with a one-time 90-day pass.</span>
+      </span>
+      <span class="cross-promo-cta">Open esFormLab &rarr;</span>
     </a>
 
-    <p class="admin-footer-link" data-admin-only>
+    <p class="admin-footer-link" data-admin-only hidden>
       <a href="tests/">Engine validation (admin) →</a>
     </p>
 
@@ -116,24 +123,28 @@
         <summary>What's the science behind this tool?</summary>
         <div class="body">
           <p>esMetabolicLab implements the Mader/Heck bioenergetic model of human exercise metabolism, first published in 1984 by the German Sport University Cologne group. It's the same family of model that commercial tools like INSCYD, Aerotune, and Sentiero are built on, for a fraction of the cost.</p>
-          <p>What's different here: the math is open, the assumptions are explained, the implementation is documented, and your data stays private. The trade-off is honesty about what the model can and can't tell you - see "What this tool can't tell you" below.</p>
+          <p>What's different here: the math is open, the assumptions are explained, the implementation is documented, and your data stays private. The trade-off is honesty about what the model can and can't tell you — see "What this tool can't tell you" below.</p>
         </div>
       </details>
       <details class="edu">
         <summary>What this tool can't tell you</summary>
         <div class="body">
           <p>The Mader model assumes a standard active-muscle fraction (~28% body mass) and standard Hill kinetic constants. Individuals vary, and the model was calibrated primarily on trained European male cyclists. Sex-specific validation in the published literature is thin.</p>
-          <p>VLamax has known reliability issues - within-subject variability of 5–15% between sessions is typical. A single measurement is a snapshot, not a permanent reading.</p>
+          <p>VLamax has known reliability issues — within-subject variability of 5–15% between sessions is typical. A single measurement is a snapshot, not a permanent reading.</p>
           <p>The model captures the steady-state metabolic balance well. It is more approximate for non-steady-state efforts (intervals, surges, tactical race dynamics).</p>
         </div>
       </details>
     </div>
-  </div>
+  </main>
 
-  <footer class="esml">
-    © <span id="footer-year"></span> Endurance Science Labs · esMetabolicLab
-    <div class="disclaimer">
-      Not medical advice. Information here is for educational purposes only and does not constitute a medical diagnosis or replace consultation with a qualified healthcare professional.
+  <footer class="esl-footer">
+    <div class="esl-footer-in">
+      <a href="/" aria-label="Endurance Science Labs home"><img src="/images/generic_logo_white_clean.png" alt="Endurance Science Labs" class="footer-logo-img"></a>
+      <nav class="esl-footer-links" aria-label="Footer">
+        <a href="/">Home</a><a href="/esformlab/">esFormLab</a><a href="/esmetaboliclab/">esMetabolicLab</a><a href="/coaching/">Coaching</a><a href="/shockwave/">Shockwave</a><a href="/privacy/">Privacy</a>
+      </nav>
+      <div class="esl-footer-copy">© <span id="footer-year"></span> Endurance Science Labs</div>
+      <div class="esl-footer-disclaimer"><strong>Not medical advice.</strong> Information here is for educational purposes only and does not constitute a medical diagnosis or replace consultation with a qualified healthcare professional.</div>
     </div>
   </footer>
 </div>
@@ -141,31 +152,53 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="/shared/site.js"></script>
+<script src="/shared/site.js?v=20261016"></script>
 <script>
   esLabs.mountNav('#esml-nav', { active: 'esmetlab' });
   esLabs.mountAuthGate('#esml-gate', {
     eyebrow: '⬡ Sign in',
     headline: 'esMetabolicLab',
-    sub: 'Build your personal metabolic profile - VO₂max, lactate threshold, training zones, and fat-burning sweet spot.',
+    sub: 'Build your personal metabolic profile — VO₂max, lactate threshold, training zones, and fat-burning sweet spot.',
     bullets: [
-      { strong: 'Free power-only profile', span: '- estimate from four max efforts, no needles, runs in your browser.' },
-      { strong: 'Measured-lactate upgrade', span: '- upload your own step-test data, or book an in-person test with an Endurance Science Labs coach.' }
+      { strong: 'Free Power Profile', span: '— estimate from four max efforts, no needles, runs in your browser.' },
+      { strong: 'Lactate Profile', span: '— upload your own step-test data, or book an in-person test with an Endurance Science Labs coach.' },
+      { strong: 'Prices', span: '— Power Profile free · Lactate Profile $30 per test, $60/year or $90 lifetime · in-person test $145.' }
     ],
-    foot: '<a href="/" style="color:var(--cyan);text-decoration:none">&larr; Back to home</a>'
+    foot: '<a href="/">&larr; Back to home</a>'
   });
 
   esLabs.onAuthChange(function(user) {
     if (user) {
       document.getElementById('app').style.display = 'block';
-      const isAdmin = user.uid === esLabs.ADMIN_UID;
-      document.querySelectorAll('[data-admin-only]').forEach(function (el) {
-        el.style.display = isAdmin ? '' : 'none';
-      });
+      // isAdmin() checks the real account, so the link also shows while acting as someone.
+      document.querySelectorAll('[data-admin-only]').forEach(function (el) { el.hidden = !esLabs.isAdmin(); });
     } else {
       document.getElementById('app').style.display = 'none';
     }
   });
+
+  // Measured-lactate tile: with upload access it opens the tool; without, the plans.
+  esLabs.onPassChange(function (p) {
+    var has = esLabs.isAdmin() || !!(p.metlab && p.metlab.uploadAccess);
+    document.getElementById('tile-lactate').setAttribute('href', has ? 'profile/' : 'pricing/');
+    document.getElementById('tile-lactate-cta').textContent = has ? 'Start your test →' : 'See plans — from $30 →';
+    document.getElementById('tile-lactate-included').hidden = !has;
+  });
+
+  // Stripe success return (?paid=1): confirm the payment until access turns on.
+  if (new URLSearchParams(location.search).get('paid') === '1') {
+    var pb = document.getElementById('esml-paid-banner'); pb.hidden = false;
+    var slow = setTimeout(function () {
+      document.getElementById('esml-paid-msg').innerHTML = 'Still processing — refresh in a minute. If access doesn’t appear, email <a href="mailto:austen@endurancesciencelabs.com">austen@endurancesciencelabs.com</a>.';
+    }, 30000);
+    esLabs.onPassChange(function (p) {
+      if (p.metlab && p.metlab.uploadAccess) {
+        clearTimeout(slow);
+        document.getElementById('esml-paid-msg').textContent = 'Your upload access is active.';
+        document.getElementById('esml-paid-cta').hidden = false;
+      }
+    });
+  }
 
   document.getElementById('footer-year').textContent = new Date().getFullYear();
 </script>

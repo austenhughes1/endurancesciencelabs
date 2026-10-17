@@ -19,11 +19,14 @@
  */
 
 const PRICING_URL = '/esmetaboliclab/pricing/';
-// Grace period before redirecting a no-access user. Firestore's payment
-// and subscription snapshots can take ~hundreds of ms to deliver, and a
-// paying user briefly looks no-access on first paint. If access arrives
-// within this window we cancel the redirect.
-const REDIRECT_GRACE_MS = 1500;
+
+// Has the account's access state finished loading? site.js exposes
+// entitlementsLoaded (user doc + payments + subscriptions each delivered
+// once); older builds only had subscriptionsLoaded.
+function accessKnown(pass) {
+  if (!pass) return false;
+  return ('entitlementsLoaded' in pass) ? !!pass.entitlementsLoaded : !!pass.subscriptionsLoaded;
+}
 
 export function wireUploadPaywall(opts) {
   opts = opts || {};
@@ -36,12 +39,18 @@ export function wireUploadPaywall(opts) {
     console.warn('upload-paywall: missing paywall or app element');
     return;
   }
-  // The paywall slot is no longer rendered into; just keep it hidden in
-  // case existing CSS reserves space for it.
-  paywall.style.display = 'none';
 
   let redirectTimer = null;
   let lastState = null;
+  // Lapsed access: opts.readOnlyCheck(user) → Promise<boolean> (e.g. "has
+  // saved tests"). When true the tool opens read-only instead of redirecting.
+  let roUid = null, roResult = null;   // null = not asked, 'pending', true/false
+  function setReadOnly(on) {
+    window.__esml = window.__esml || {};
+    if (!!window.__esml.readOnly === on) return;
+    window.__esml.readOnly = on;
+    window.dispatchEvent(new CustomEvent('esml-readonly', { detail: { readOnly: on } }));
+  }
   function render() {
     const user = window.esLabs.user;
     const pass = window.esLabs.getPassState();
@@ -52,9 +61,23 @@ export function wireUploadPaywall(opts) {
     const hasAccess = isAdmin || (pass && pass.metlab && pass.metlab.uploadAccess);
 
     let next;
-    if (!user)          next = 'gate';   // gate handles its own UI
-    else if (hasAccess) next = 'app';
-    else                next = 'redirect';
+    if (!user)                   next = 'gate';      // gate handles its own UI
+    else if (hasAccess)          next = 'app';
+    else if (!accessKnown(pass)) next = 'checking';  // never redirect a slow-loading payer
+    else                         next = 'redirect';
+
+    if (next === 'redirect' && typeof opts.readOnlyCheck === 'function') {
+      if (roUid !== user.uid) { roUid = user.uid; roResult = null; }
+      if (roResult === null) {
+        roResult = 'pending';
+        Promise.resolve().then(() => opts.readOnlyCheck(user))
+          .then((v) => { roResult = !!v; }, () => { roResult = false; })
+          .then(render);
+      }
+      if (roResult === 'pending') next = 'checking';
+      else if (roResult === true) next = 'readonly';
+    }
+    setReadOnly(next === 'readonly');
 
     if (next !== 'redirect' && redirectTimer) {
       clearTimeout(redirectTimer);
@@ -66,17 +89,23 @@ export function wireUploadPaywall(opts) {
     // NOTE: must use 'block' (not '') because the host page has a CSS rule
     // `#app { display: none; }` in its <style> block that overrides an
     // empty inline declaration. Setting an explicit value beats the CSS.
-    if (next === 'app') {
+    if (next === 'app' || next === 'readonly') {
+      paywall.style.display = 'none';
       app.style.display = 'block';
-    } else if (next === 'redirect') {
+    } else if (next === 'checking' || next === 'redirect') {
       app.style.display = 'none';
-      if (!redirectTimer) {
-        redirectTimer = setTimeout(function() {
-          window.location.replace(PRICING_URL);
-        }, REDIRECT_GRACE_MS);
+      paywall.style.display = 'block';
+      paywall.innerHTML = '<div class="page"><div class="esl-loading" role="status"><span class="esl-spin" aria-hidden="true"></span>Checking your access…</div></div>';
+      if (next === 'redirect' && !redirectTimer) {
+        // Without the payments-loaded flag keep a longer grace after subscriptions load.
+        const grace = ('entitlementsLoaded' in pass) ? 600 : 2500;
+        redirectTimer = setTimeout(function () {
+          window.location.replace(PRICING_URL + '?from=' + encodeURIComponent(opts.from || 'tool'));
+        }, grace);
       }
     } else {
       app.style.display = 'none';
+      paywall.style.display = 'none';
     }
   }
 

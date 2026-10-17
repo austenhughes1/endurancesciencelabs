@@ -14,11 +14,11 @@ import { computeVLamax } from '../js/lib/mader/sprint.js';
 import { altitudeFactor } from '../js/lib/mader/constants.js';
 import { generateZones } from '../js/ui/zones.js';
 import { minPerKmToPaceString, paceStringToMinPerKm, speedToPaceString } from '../js/lib/mader/sport.js';
-import { paceInputHTML, wirePaceInputs, readPaceMps, getDefaultPaceUnit, setDefaultPaceUnit } from '../js/ui/pace-input.js';
+import { paceInputHTML, wirePaceInputs, readPaceMps, getDefaultPaceUnit, setDefaultPaceUnit, mpsToPaceString } from '../js/ui/pace-input.js';
 import { wireHowToMeasureTriggers } from '../js/ui/how-to-measure.js';
 import { wireStepTestTriggers }    from '../js/ui/how-to-step-test.js';
 import { wireSprintProtocolTriggers } from '../js/ui/how-to-sprint-test.js';
-import { drawLactateChart, drawSubstrateChart } from '../js/ui/charts.js';
+import { drawLactateChart, drawSubstrateChart, redrawAllCharts } from '../js/ui/charts.js';
 import { downloadStepTestReport } from '../js/ui/pdf-report.js';
 import { profileGuideHtml } from '../js/ui/profile-guide.js';
 import { showConfirmModal } from '../js/ui/confirm-modal.js';
@@ -35,6 +35,9 @@ wireHowToMeasureTriggers();
 wireStepTestTriggers();
 wireSprintProtocolTriggers();
 
+// Charts read the theme tokens; recolour them when the theme flips.
+if (window.esLabs && esLabs.onThemeChange) esLabs.onThemeChange(() => redrawAllCharts());
+
 const $   = (sel) => document.querySelector(sel);
 const $$  = (sel) => Array.from(document.querySelectorAll(sel));
 const fmt = {
@@ -46,6 +49,27 @@ const fmt = {
   ms:  (v) => v.toFixed(2) + ' m/s',
   pace:(v) => speedToPaceString(v, getDefaultPaceUnit()),
 };
+
+/* Mass unit handling — canonical storage is kg; display unit (lb | kg) is
+   per-user in localStorage, shared with the power-profile tool. */
+const LB_PER_KG = 2.2046226218;
+function getMassUnit() {
+  try { return localStorage.getItem('esml-mass-unit') === 'lb' ? 'lb' : 'kg'; }
+  catch (e) { return 'kg'; }
+}
+function setMassUnit(u) {
+  try { if (u === 'lb' || u === 'kg') localStorage.setItem('esml-mass-unit', u); }
+  catch (e) { /* private mode — fine */ }
+}
+function kgToDisplay(kg, unit) {
+  if (!isFinite(kg)) return '';
+  return unit === 'lb' ? Math.round(kg * LB_PER_KG * 10) / 10 : Math.round(kg * 10) / 10;
+}
+function displayToKg(val, unit) {
+  const v = String(val).trim() === '' ? NaN : parseFloat(val);
+  if (!isFinite(v)) return NaN;
+  return unit === 'lb' ? v / LB_PER_KG : v;
+}
 
 /* Altitude unit handling — canonical storage is metres; display unit (m | ft)
    is per-user in localStorage, shared with the power-profile tool. */
@@ -79,14 +103,9 @@ const state = {
   VLamax: null,           // set after Firestore load
   VLamax_measured_at: null,
   VLamax_inputs: null,    // {La_pre, La_peak_post, duration_s, t_PCr_s}
-  stages: [
-    // Default to running speeds (8:00, 7:30, 7:00, 6:30, 6:00 per mile)
-    { intensity: 3.35, durationMin: 5, lactate: 1.4, hr: '' },
-    { intensity: 3.58, durationMin: 5, lactate: 2.0, hr: '' },
-    { intensity: 3.83, durationMin: 5, lactate: 3.0, hr: '' },
-    { intensity: 4.13, durationMin: 5, lactate: 4.5, hr: '' },
-    { intensity: 4.47, durationMin: 5, lactate: 7.5, hr: '' },
-  ],
+  // A new test starts empty: the example readings below are shown as
+  // placeholders only (5-min stages are the protocol, so that stays filled).
+  stages: [0, 1, 2, 3, 4].map(() => ({ intensity: NaN, durationMin: 5, lactate: NaN, hr: '' })),
   profile: null,
   sessions: [],            // saved lactate tests, newest-last
   activeSessionId: null,   // test currently being viewed/edited; re-running updates it
@@ -94,8 +113,21 @@ const state = {
 
 // Pristine copy of the default stages, used to reset for a brand-new test.
 const DEFAULT_STAGES = state.stages.map((s) => Object.assign({}, s));
+// Example readings (placeholders): running 8:00 → 6:00 /mi, cycling 150 → 270 W.
+const EX_MPS = [3.35, 3.58, 3.83, 4.13, 4.47];
+const EX_W   = [150, 180, 210, 240, 270];
+const EX_LA  = [1.4, 2.0, 3.0, 4.5, 7.5];
+const readOnly = () => !!(window.__esml && window.__esml.readOnly);
+const PRICING_FROM = '/esmetaboliclab/pricing/?from=lactate';
 
 /* ───────── Helpers ───────── */
+
+// "62.4 mL/min/kg" -> ["62.4","mL/min/kg"]; "6:51/mi" -> ["6:51","/mi"]; "245 W" -> ["245","W"]
+function splitValUnit(s) { const m = String(s).match(/^([\d.:,–-]+)\s*(.*)$/); return m ? [m[1], m[2]] : [s, '']; }
+function metricValueHtml(v) {
+  const [num, unit] = splitValUnit(v);
+  return '<div class="metric-value">' + num + (unit ? '<span class="metric-unit">' + unit + '</span>' : '') + '</div>';
+}
 
 function fmtDate(ts) {
   if (!ts) return '—';
@@ -108,33 +140,28 @@ function fmtDate(ts) {
 /* ───────── Step 2: sprint VLamax (inline, replaces the old separate page) ───────── */
 
 // Default sprint inputs if the user has never run one. Sane mid-range starting values.
-const DEFAULT_VL_INPUTS = { La_pre: 1.4, La_peak_post: 11.0, duration_s: 15, t_PCr_s: 3.5 };
+const DEFAULT_VL_INPUTS = { La_pre: 1.4, La_peak_post: 11.0, duration_s: 15, t_PCr_s: 3.5 };   // examples (placeholders)
+const EMPTY_VL_INPUTS = { La_pre: '', La_peak_post: '', duration_s: 15, t_PCr_s: 3.5 };
 
 function renderVLamaxStep() {
   const body = $('#vlamax-step-body');
   if (!body) return;
-  const inp = state.VLamax_inputs || DEFAULT_VL_INPUTS;
+  const inp = state.VLamax_inputs || EMPTY_VL_INPUTS;
   const hasSaved = typeof state.VLamax === 'number';
 
-  const savedSummary = hasSaved
-    ? '<div class="vlc-summary" style="margin-bottom:18px">' +
-        '<div class="vlc-meta">' +
-          '<div class="vlc-pill">◈ Current VLamax</div>' +
-          '<div class="vlc-val">' + state.VLamax.toFixed(3) +
-            ' <span class="vlc-unit">mmol·L⁻¹·s⁻¹</span></div>' +
-          '<div class="vlc-date">From your most recent test · measured ' + fmtDate(state.VLamax_measured_at) +
-            ' — keep it for this test, or enter a new sprint below. It saves with the step test as one session.</div>' +
-        '</div>' +
-      '</div>'
+  // One VLamax on screen (the live result below); a saved sprint is a note.
+  const savedNote = hasSaved
+    ? '<p class="vlc-note">Pre-filled from your test on ' + fmtDate(state.VLamax_measured_at) +
+      ' (VLamax ' + state.VLamax.toFixed(3) + ' mmol·L⁻¹·s⁻¹). Keep these values, or enter a new sprint — it saves with this step test.</p>'
     : '';
 
   body.innerHTML =
-    savedSummary +
+    savedNote +
     '<div class="grid-3">' +
       '<label class="field"><span class="lab">Pre-sprint La (mmol/L)</span>' +
-        '<input type="number" id="vlc-la-pre" step="0.1" min="0" max="5" value="' + escAttr(inp.La_pre) + '"></label>' +
+        '<input type="number" id="vlc-la-pre" step="0.1" min="0" max="5" placeholder="' + DEFAULT_VL_INPUTS.La_pre + '" value="' + escAttr(inp.La_pre) + '"></label>' +
       '<label class="field"><span class="lab">Peak post-sprint La (mmol/L)</span>' +
-        '<input type="number" id="vlc-la-post" step="0.1" min="2" max="30" value="' + escAttr(inp.La_peak_post) + '"></label>' +
+        '<input type="number" id="vlc-la-post" step="0.1" min="2" max="30" placeholder="' + DEFAULT_VL_INPUTS.La_peak_post.toFixed(1) + '" value="' + escAttr(inp.La_peak_post) + '"></label>' +
       '<label class="field"><span class="lab">Sprint duration (s)</span>' +
         '<input type="number" id="vlc-dur" step="1" min="10" max="30" value="' + escAttr(inp.duration_s) + '"></label>' +
     '</div>' +
@@ -146,33 +173,40 @@ function renderVLamaxStep() {
   recalcLive();
 }
 
+// Blank or unparseable input is missing (NaN), never 0.
+const numOrNaN = (v) => (String(v).trim() === '' ? NaN : +v);
+
 function readVLamaxInputs() {
   return {
-    La_pre:        +$('#vlc-la-pre').value,
-    La_peak_post:  +$('#vlc-la-post').value,
-    duration_s:    +$('#vlc-dur').value,
+    La_pre:        numOrNaN($('#vlc-la-pre').value),
+    La_peak_post:  numOrNaN($('#vlc-la-post').value),
+    duration_s:    numOrNaN($('#vlc-dur').value),
     t_PCr_s:       DEFAULT_VL_INPUTS.t_PCr_s,   // fixed alactic time (3.5 s); not user-adjustable
   };
 }
 
 function recalcLive() {
   const inputs = readVLamaxInputs();
-  const r = computeVLamax(inputs);
-  if (!isFinite(r.VLamax) || r.glycolytic_time_s <= 0) {
+  ['vlc-la-pre', 'vlc-la-post', 'vlc-dur'].forEach((id) => { const el = $('#' + id); if (el) el.removeAttribute('aria-invalid'); });
+  if (![inputs.La_pre, inputs.La_peak_post, inputs.duration_s].every(isFinite)) {
     $('#vlc-result').innerHTML = '<div class="vlc-result-empty">Enter all three sprint values to compute.</div>';
     return;
   }
-  const errHtml = r.errors && r.errors.length
-    ? '<div style="font-size:13px;color:var(--bad);background:rgba(255,81,99,.08);border:1px solid rgba(255,81,99,.30);border-radius:8px;padding:10px 12px;margin-top:10px;line-height:1.55">✕ ' + r.errors.join('<br>✕ ') + '</div>'
+  const r = computeVLamax(inputs);
+  const bad = (r.errors && r.errors.length) || !isFinite(r.VLamax) || !(r.glycolytic_time_s > 0) || r.VLamax < 0;
+  const errList = (r.errors && r.errors.length) ? r.errors : (bad ? ['These sprint values don’t produce a valid VLamax — recheck them.'] : []);
+  const errHtml = errList.length
+    ? '<div class="esl-callout esl-callout--bad" role="alert" style="margin-top:10px">✕ ' + errList.join('<br>✕ ') + '</div>'
     : '';
   const warnHtml = r.warnings.length
-    ? '<div style="font-size:12px;color:var(--gold);margin-top:6px">⚠ ' + r.warnings.join(' ') + '</div>'
+    ? '<div style="font-size:12px;color:var(--warn-ink);margin-top:6px">⚠ ' + r.warnings.join(' ') + '</div>'
     : '';
   $('#vlc-result').innerHTML =
     '<div class="vlc-result-box">' +
-      '<div class="vlc-result-label">YOUR VLAMAX</div>' +
-      '<div class="vlc-result-val">' + r.VLamax.toFixed(3) +
-        ' <span class="vlc-unit">mmol·L⁻¹·s⁻¹</span></div>' +
+      '<div class="vlc-result-label">Your VLamax</div>' +
+      (bad
+        ? '<div class="vlc-result-val"><span class="is-na">–</span></div>'
+        : '<div class="vlc-result-val">' + r.VLamax.toFixed(3) + ' <span class="vlc-unit">mmol·L⁻¹·s⁻¹</span></div>') +
       errHtml +
       warnHtml +
     '</div>';
@@ -185,13 +219,18 @@ function recalcLive() {
 // measurement date for this test.
 function continueFromVLamax() {
   const inputs = readVLamaxInputs();
-  const r = computeVLamax(inputs);
-  if (!isFinite(r.VLamax) || r.glycolytic_time_s <= 0) {
-    alert('Sprint values are not valid — recheck the inputs.');
-    return;
-  }
-  if (r.errors && r.errors.length) {
-    alert(r.errors.join('\n\n'));
+  const ids = { La_pre: 'vlc-la-pre', La_peak_post: 'vlc-la-post', duration_s: 'vlc-dur' };
+  const r = [inputs.La_pre, inputs.La_peak_post, inputs.duration_s].every(isFinite) ? computeVLamax(inputs) : null;
+  if (!r || !isFinite(r.VLamax) || !(r.glycolytic_time_s > 0) || r.VLamax < 0 || (r.errors && r.errors.length)) {
+    recalcLive();
+    // Missing values are the invalid ones; otherwise flag all three (the
+    // engine's error names the relationship, e.g. post below pre).
+    let invalid = Object.keys(ids).filter((k) => !isFinite(inputs[k]));
+    if (!invalid.length) invalid = Object.keys(ids);
+    invalid.forEach((k) => $('#' + ids[k]).setAttribute('aria-invalid', 'true'));
+    const res = $('#vlc-result');
+    if (res) res.insertAdjacentHTML('beforeend', '<p class="esl-field-error" role="alert">Fix the sprint values above to continue.</p>');
+    $('#' + ids[invalid[0]]).focus();
     return;
   }
 
@@ -223,12 +262,36 @@ async function loadVLamax(user) {
       state.VLamax_inputs = esml.vlamax.inputs || null;
       state.VLamax_measured_at = esml.vlamax.measured_at || null;
     }
+    prefillAthlete(data);
   } catch (e) {
     console.error('Failed to load saved tests:', e);
   }
   renderVLamaxStep();
   renderSavedTests();
 }
+
+// Prefill sex / mass / sport for a new test once: latest saved test first,
+// then the account profile (gender, weightLb). Never over a loaded test.
+function prefillAthlete(doc) {
+  if (state.prefilled || state.activeSessionId) return;
+  state.prefilled = true;
+  const latest = state.sessions[state.sessions.length - 1];
+  const li = latest && latest.inputs;
+  const d = doc || {};
+  const sex = li && li.sex ? li.sex : (d.gender === 'female' ? 'F' : d.gender === 'male' ? 'M' : null);
+  const kg = li && li.bodyMass > 0 ? li.bodyMass : (d.weightLb > 0 ? d.weightLb / LB_PER_KG : null);
+  const sport = li && li.sport ? li.sport : null;
+  if (sex) state.sex = sex;
+  if (kg) state.bodyMass = Math.round(kg * 10) / 10;
+  if (sport && sport !== state.sport) {
+    state.sport = sport;
+    if (sport === 'cycling') state.stages.forEach((st) => { st.intensity = NaN; });
+  }
+  syncInputsToUI();
+}
+
+// Lapsed upload access with saved tests: the paywall shows the app read-only.
+window.addEventListener('esml-readonly', () => { renderSavedTests(); syncRunLabel(); });
 
 window.addEventListener('esml-auth', (ev) => loadVLamax(ev.detail.user));
 if (window.__esml && window.__esml.user) loadVLamax(window.__esml.user);
@@ -249,21 +312,141 @@ function gotoStep(n) {
     if (!bar) continue;
     bar.classList.toggle('active', i === n);
     bar.classList.toggle('done',   i < n);
+    if (i === n) bar.setAttribute('aria-current', 'step'); else bar.removeAttribute('aria-current');
   }
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (n === 3) syncRunLabel();
+  syncWizardChrome();
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const wiz = document.getElementById('wizard');
+  if (wiz) wiz.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
 }
-$$('[data-go]').forEach(btn => btn.addEventListener('click', () => gotoStep(+btn.dataset.go)));
+
+// Re-running a loaded test updates it — say so on the Run button.
+function syncRunLabel() {
+  const run = $('#run');
+  const note = $('#run-note');
+  const runNew = $('#run-new');
+  const s = state.activeSessionId && state.sessions.find((x) => x.id === state.activeSessionId);
+  if (readOnly()) {
+    if (run) run.textContent = 'See plans to run →';
+    if (runNew) runNew.hidden = true;
+    if (note) { note.hidden = false; note.textContent = 'Running or updating a test needs upload access. Your saved tests stay viewable.'; }
+    return;
+  }
+  if (run) run.textContent = s ? 'Update this test →' : 'Run profile →';
+  if (runNew) runNew.hidden = !s;
+  if (note) {
+    note.hidden = !s;
+    note.textContent = s ? 'Re-running updates your test from ' + fmtDate(s.measured_at) + ' — or save it as a new test.' : '';
+  }
+}
+
+// Wizard extras: completed steps are links back; a "Saved tests (N)" chip
+// on steps 2–4 jumps to the list on step 1.
+function syncWizardChrome() {
+  for (let i = 1; i <= 4; i++) {
+    const bar = document.getElementById('step-bar-' + i);
+    if (!bar) continue;
+    const lbl = bar.querySelector('.s-lbl');
+    const text = lbl ? lbl.textContent : '';
+    const want = i < state.step ? 'button' : 'span';
+    if (lbl && lbl.tagName.toLowerCase() !== want) {
+      bar.innerHTML = want === 'button'
+        ? '<button type="button" class="s-lbl" data-step-jump="' + i + '">' + text + '</button>'
+        : '<span class="s-lbl">' + text + '</span>';
+    }
+  }
+  const chip = document.getElementById('saved-chip');
+  if (chip) {
+    const n = state.sessions.length;
+    chip.hidden = !(n > 0 && state.step > 1);
+    chip.textContent = 'Saved tests (' + n + ')';
+  }
+}
+document.querySelector('.stepper').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-step-jump]');
+  if (b) gotoStep(+b.dataset.stepJump);
+});
+const savedChip = document.getElementById('saved-chip');
+if (savedChip) savedChip.addEventListener('click', () => gotoStep(1));
+
+// Step 1 → 2 needs a usable body mass (30–160 kg).
+function validateBodyMass() {
+  const bm = $('#bodyMass');
+  const ok = state.bodyMass >= 30 && state.bodyMass <= 160;
+  let err = document.getElementById('bodyMass-err');
+  if (ok) {
+    if (err) err.remove();
+    if (bm) { bm.removeAttribute('aria-invalid'); bm.removeAttribute('aria-describedby'); }
+    return true;
+  }
+  if (!err && bm) {
+    err = document.createElement('p');
+    err.className = 'esl-field-error';
+    err.id = 'bodyMass-err';
+    err.setAttribute('role', 'alert');
+    err.textContent = getMassUnit() === 'lb'
+      ? 'Enter your body mass (' + Math.round(30 * LB_PER_KG) + '–' + Math.round(160 * LB_PER_KG) + ' lb).'
+      : 'Enter your body mass (30–160 kg).';
+    bm.closest('.field').appendChild(err);
+  }
+  if (bm) { bm.setAttribute('aria-invalid', 'true'); bm.setAttribute('aria-describedby', 'bodyMass-err'); bm.focus(); }
+  return false;
+}
+
+$$('[data-go]').forEach(btn => btn.addEventListener('click', () => {
+  const to = +btn.dataset.go;
+  if (to === 2 && state.step === 1 && !validateBodyMass()) return;
+  gotoStep(to);
+}));
 
 /* ───────── Step 1: athlete bindings ───────── */
 
 document.querySelectorAll('input[name=sex]').forEach(r => r.addEventListener('change', e => state.sex = e.target.value));
+// The step-test guide opens on the athlete's sport.
+function syncStepTestSport() {
+  document.querySelectorAll('[data-howto-step-test]').forEach((b) => { b.dataset.stepTestSport = state.sport; });
+}
+syncStepTestSport();
 document.querySelectorAll('input[name=sport]').forEach(r => r.addEventListener('change', e => {
   state.sport = e.target.value;
+  // Pace (m/s) and power (W) aren't interchangeable: clear stage intensities.
+  const had = state.stages.some((s) => isFinite(s.intensity) && s.intensity > 0);
+  state.stages.forEach((s) => { s.intensity = NaN; });
+  state.sportClearedNote = had;
+  syncStepTestSport();
   renderIntensityHeader();
   toggleAltitudeField();
   renderStages();
 }));
-$('#bodyMass').addEventListener('input', e => state.bodyMass = +e.target.value);
+$('#bodyMass').addEventListener('input', e => {
+  state.bodyMass = String(e.target.value).trim() === '' ? NaN : displayToKg(e.target.value, getMassUnit());
+  if (document.getElementById('bodyMass-err')) validateBodyMass();
+});
+
+// Body-mass unit toggle (lb | kg) — converts in place; state.bodyMass stays kg.
+function syncMassUnitUI() {
+  const unit = getMassUnit();
+  const bm = $('#bodyMass');
+  if (bm) {
+    bm.min = unit === 'lb' ? Math.round(30 * LB_PER_KG) : 30;
+    bm.max = unit === 'lb' ? Math.round(160 * LB_PER_KG) : 160;
+    bm.value = kgToDisplay(state.bodyMass, unit);
+  }
+  document.querySelectorAll('[data-mass-toggle] button').forEach((b) => {
+    b.classList.toggle('active', b.dataset.massUnit === unit);
+    b.setAttribute('aria-pressed', String(b.dataset.massUnit === unit));
+  });
+}
+document.querySelectorAll('[data-mass-toggle] button').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const newUnit = btn.dataset.massUnit;
+    if (newUnit === getMassUnit()) return;
+    setMassUnit(newUnit);
+    syncMassUnitUI();
+  });
+});
+syncMassUnitUI();
 
 const altInput = document.getElementById('altitude');
 if (altInput) altInput.addEventListener('input', () => {
@@ -284,7 +467,10 @@ document.querySelectorAll('[data-alt-toggle] button').forEach((btn) => {
       altInput.max  = newUnit === 'ft' ? Math.round(5000 * FT_PER_M) : 5000;
     }
     setAltUnit(newUnit);
-    btn.parentElement.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b === btn));
+    btn.parentElement.querySelectorAll('button').forEach((b) => {
+      b.classList.toggle('active', b === btn);
+      b.setAttribute('aria-pressed', String(b === btn));
+    });
   });
 });
 
@@ -296,8 +482,10 @@ function syncAltitudeUnitUI() {
     altInput.max  = unit === 'ft' ? Math.round(5000 * FT_PER_M) : 5000;
     altInput.value = state.altitude_m > 0 ? String(mToDisplay(state.altitude_m, unit)) : '';
   }
-  document.querySelectorAll('[data-alt-toggle] button').forEach((b) =>
-    b.classList.toggle('active', b.dataset.altUnit === unit));
+  document.querySelectorAll('[data-alt-toggle] button').forEach((b) => {
+    b.classList.toggle('active', b.dataset.altUnit === unit);
+    b.setAttribute('aria-pressed', String(b.dataset.altUnit === unit));
+  });
 }
 syncAltitudeUnitUI();
 
@@ -319,23 +507,25 @@ toggleAltitudeField();
 
 const stagesBody = $('#stages-body');
 
-function intensityPlaceholder() {
-  return state.sport === 'cycling' ? '200' : '7:00';
+function intensityPlaceholder(i) {
+  if (state.sport === 'cycling') return String(EX_W[i] != null ? EX_W[i] : 270 + 30 * (i - 4));
+  const v = EX_MPS[i] != null ? EX_MPS[i] : 4.47 + 0.3 * (i - 4);
+  return mpsToPaceString(v, getDefaultPaceUnit());
 }
 
 function renderStages() {
+  const intensityLbl = state.sport === 'cycling' ? 'Power (W)' : 'Pace';
   stagesBody.innerHTML = state.stages.map((s, i) => `
     <tr>
-      <td style="font-family:var(--mono);color:var(--muted2)">${i + 1}</td>
-      <td>${
+      <td class="st-n"><span class="st-n-lbl">Stage </span>${i + 1}</td>
+      <td class="st-pace" data-label="${intensityLbl}">${
         state.sport === 'running'
-          ? paceInputHTML({ id: 'stage-intensity-' + i, mps: s.intensity, placeholder: intensityPlaceholder(), extraAttrs: 'data-i="' + i + '" data-k="intensity"' })
-          : '<input type="text" data-i="' + i + '" data-k="intensity" value="' + escAttr(s.intensity || '') + '" placeholder="' + intensityPlaceholder() + '">'
+          ? paceInputHTML({ id: 'stage-intensity-' + i, mps: s.intensity, placeholder: intensityPlaceholder(i), extraAttrs: 'data-i="' + i + '" data-k="intensity" aria-label="Stage ' + (i + 1) + ' pace"' })
+          : '<div class="pace-input"><input type="text" class="pace-text" inputmode="decimal" id="stage-intensity-' + i + '" data-i="' + i + '" data-k="intensity" aria-label="Stage ' + (i + 1) + ' power (W)" value="' + escAttr(isFinite(s.intensity) && s.intensity > 0 ? s.intensity : '') + '" placeholder="' + intensityPlaceholder(i) + '"><span class="unit-static">W</span></div>'
       }</td>
-      <td><input type="number" step="0.5" min="2" max="10" data-i="${i}" data-k="durationMin" value="${escAttr(s.durationMin)}"></td>
-      <td><input type="number" step="0.1" min="0"  max="25" data-i="${i}" data-k="lactate" value="${escAttr(s.lactate)}"></td>
-      <td><input type="number" step="1"   min="50" max="220" data-i="${i}" data-k="hr"      value="${escAttr(s.hr)}"></td>
-      <td>${state.stages.length > 3 ? '<button class="row-remove" data-rm="' + i + '">×</button>' : ''}</td>
+      <td data-label="Duration (min)"><input type="number" step="0.5" min="2" max="10" data-i="${i}" data-k="durationMin" aria-label="Stage ${i + 1} duration (min)" placeholder="5" value="${escAttr(isFinite(s.durationMin) ? s.durationMin : '')}"></td>
+      <td data-label="Lactate (mmol/L)"><input type="number" step="0.1" min="0"  max="25" data-i="${i}" data-k="lactate" aria-label="Stage ${i + 1} lactate (mmol/L)" placeholder="${EX_LA[i] != null ? EX_LA[i].toFixed(1) : ''}" value="${escAttr(isFinite(s.lactate) ? s.lactate : '')}"></td>
+      <td class="st-rm">${state.stages.length > 3 ? '<button type="button" class="row-remove" data-rm="' + i + '" aria-label="Remove stage ' + (i + 1) + '">×</button>' : ''}</td>
     </tr>
   `).join('');
 
@@ -344,16 +534,17 @@ function renderStages() {
       const i = +e.target.dataset.i;
       const k = e.target.dataset.k;
       if (!k) return;  // unit-toggle button has no data-k
+      const raw = e.target.value.trim();
+      e.target.removeAttribute('aria-invalid');
       if (k === 'intensity') {
+        state.sportClearedNote = false;
         if (state.sport === 'running') {
-          const mps = readPaceMps(e.target);
-          state.stages[i][k] = isFinite(mps) ? mps : 0;
+          state.stages[i][k] = readPaceMps(e.target);   // NaN on blank
         } else {
-          const v = parseFloat(e.target.value);
-          state.stages[i][k] = isFinite(v) ? v : 0;
+          state.stages[i][k] = parseFloat(raw);          // NaN on blank
         }
       } else if (k === 'hr')   state.stages[i][k] = e.target.value;
-      else                     state.stages[i][k] = +e.target.value;
+      else                     state.stages[i][k] = raw === '' ? NaN : +raw;
       checkStageWarnings();
     });
   });
@@ -377,16 +568,24 @@ function renderStages() {
     checkStageWarnings();
   });
 
+  const add = $('#add-stage');
+  if (add) {
+    add.disabled = state.stages.length >= 9;
+    add.textContent = add.disabled ? 'Maximum 9 stages' : '+ Add stage';
+  }
+
   checkStageWarnings();
 }
 
 $('#add-stage').addEventListener('click', () => {
   if (state.stages.length >= 9) return;
-  const last = state.stages[state.stages.length - 1];
+  const last = state.stages[state.stages.length - 1] || {};
+  const ok = (v) => isFinite(v) && v > 0;
   state.stages.push({
-    intensity: state.sport === 'cycling' ? Math.round(last.intensity + 30) : +(last.intensity + 0.3).toFixed(2),
-    durationMin: last.durationMin,
-    lactate: +(last.lactate + 2).toFixed(1),
+    intensity: !ok(last.intensity) ? NaN
+      : state.sport === 'cycling' ? Math.round(last.intensity + 30) : +(last.intensity + 0.3).toFixed(2),
+    durationMin: ok(last.durationMin) ? last.durationMin : 5,
+    lactate: NaN,
     hr: '',
   });
   renderStages();
@@ -394,9 +593,13 @@ $('#add-stage').addEventListener('click', () => {
 
 function checkStageWarnings() {
   const out = [];
+  const fin = (v) => isFinite(v);
+  const exNote = document.getElementById('stages-example-note');
+  if (exNote) exNote.hidden = !state.stages.some((s) => !(fin(s.intensity) && s.intensity > 0) || !fin(s.lactate));
   if (state.stages.length < 5) out.push('Need at least 5 stages for a meaningful fit (most tests run 5–9).');
   for (let i = 1; i < state.stages.length; i++) {
-    if (state.stages[i].intensity <= state.stages[i - 1].intensity)
+    if (fin(state.stages[i].intensity) && fin(state.stages[i - 1].intensity)
+        && state.stages[i].intensity <= state.stages[i - 1].intensity)
       out.push('Stage ' + (i + 1) + ' intensity should exceed stage ' + i + '.');
   }
   let nonMono = 0;
@@ -405,11 +608,49 @@ function checkStageWarnings() {
   }
   if (nonMono > 0) out.push(nonMono + ' stage(s) have lower lactate than the prior stage — possible sampling error.');
   const last = state.stages[state.stages.length - 1];
-  if (last && last.lactate < 4) out.push('Final stage lactate is ' + last.lactate + ' mmol/L (&lt; 4) — the test may not have reached threshold.');
-  for (const s of state.stages) {
-    if (s.durationMin < 3) out.push('Stage durations &lt; 3 min may not have reached steady state.');
+  if (last && fin(last.lactate) && last.lactate < 4) out.push('Final stage lactate is ' + last.lactate + ' mmol/L (&lt; 4) — the test may not have reached threshold.');
+  if (state.stages.some((s) => fin(s.durationMin) && s.durationMin < 3))
+    out.push('Stage durations &lt; 3 min may not have reached steady state.');
+  // A bare number in a pace box is read as m/s (power-user input): say so.
+  if (state.sport === 'running') {
+    stagesBody.querySelectorAll('input.pace-text[data-k="intensity"]').forEach((inp) => {
+      const raw = inp.value.trim();
+      if (/^\d+(\.\d+)?$/.test(raw)) {
+        const v = +raw;
+        out.push('Stage ' + (+inp.dataset.i + 1) + ': “' + raw + '” is read as ' + v.toFixed(2) + ' m/s ('
+          + speedToPaceString(v, getDefaultPaceUnit()) + '). Type ' + raw + ':00 for a ' + raw + '-minute pace.');
+      }
+    });
   }
-  $('#stage-warnings').innerHTML = out.length ? out.map(w => '<div class="warn">⚠ ' + w + '</div>').join('') : '';
+  state.stageWarnings = out.slice();
+  const cleared = state.sportClearedNote
+    ? '<div class="info">Stage ' + (state.sport === 'cycling' ? 'powers' : 'paces') + ' were cleared — pace and power use different units. Enter your '
+      + (state.sport === 'cycling' ? 'watts' : 'paces') + ' for each stage.</div>'
+    : '';
+  $('#stage-warnings').innerHTML = cleared + (out.length ? out.map(w => '<div class="warn">⚠ ' + w + '</div>').join('') : '');
+}
+
+// Blocking check before Run: every stage needs intensity, duration, lactate.
+function validateBeforeRun() {
+  const errs = [], bad = [];
+  const what = state.sport === 'cycling' ? 'a power' : 'a pace';
+  state.stages.forEach((s, i) => {
+    const row = stagesBody.querySelectorAll('tr')[i];
+    const q = (k) => row && row.querySelector('[data-k="' + k + '"]');
+    if (!(isFinite(s.intensity) && s.intensity > 0)) { errs.push('Stage ' + (i + 1) + ': enter ' + what); bad.push(q('intensity')); }
+    if (!(isFinite(s.durationMin) && s.durationMin > 0)) { errs.push('Stage ' + (i + 1) + ': enter a duration'); bad.push(q('durationMin')); }
+    if (!(isFinite(s.lactate) && s.lactate >= 0)) { errs.push('Stage ' + (i + 1) + ': enter lactate'); bad.push(q('lactate')); }
+  });
+  if (!(state.bodyMass > 0)) errs.push('Enter your body mass on step 1');
+  if (!errs.length) return true;
+  checkStageWarnings();
+  bad.filter(Boolean).forEach((el) => el.setAttribute('aria-invalid', 'true'));
+  $('#stage-warnings').insertAdjacentHTML('afterbegin',
+    '<div class="esl-callout esl-callout--bad" role="alert"><p class="esl-callout-title">Fix these before running</p><ul>'
+    + errs.map((e) => '<li>' + e + '</li>').join('') + '</ul></div>');
+  const first = bad.find(Boolean);
+  if (first) first.focus();
+  return false;
 }
 
 renderStages();
@@ -454,25 +695,32 @@ function stagesToSeaLevel(stages) {
   });
 }
 
-$('#run').addEventListener('click', async () => {
+async function runAndSave(asNew) {
+  if (readOnly()) { window.location.href = PRICING_FROM; return; }   // lapsed: re-runs need access
   if (!state.VLamax) {
-    alert('VLamax not set — go back to step 2 and save your sprint inputs.');
     gotoStep(2);
+    continueFromVLamax();   // shows the inline sprint error
     return;
   }
+  if (!validateBeforeRun()) return;
+  if (asNew) state.activeSessionId = null;
   try {
     const fitStages = stagesToSeaLevel(state.stages);
     state.fitStages = fitStages;
     state.altitudeCorrected = fitStages !== state.stages;
     state.profile = runProfile(fitStages);
+    gotoStep(4);       // visible first, so the charts size to the full width
     renderResults();
-    gotoStep(4);
     await autoSaveSession(state.profile);   // persist (new) or update the active test
   } catch (e) {
-    alert('Profile run failed: ' + e.message);
     console.error(e);
+    $('#stage-warnings').insertAdjacentHTML('afterbegin',
+      '<div class="esl-callout esl-callout--bad" role="alert">Couldn’t compute a profile from these stages. Check the values and try again.</div>');
   }
-});
+}
+$('#run').addEventListener('click', () => runAndSave(false));
+const runNewBtn = $('#run-new');
+if (runNewBtn) runNewBtn.addEventListener('click', () => runAndSave(true));
 
 /* ───────── Saved tests (Firestore sessions) ─────────
  *
@@ -524,11 +772,11 @@ function buildSessionRecord(profile) {
   };
 }
 
-async function persistSessions() {
+async function persistSessions(list) {
   const user = window.__esml && window.__esml.user;
   if (!user) throw new Error('Sign in required.');
   await firebase.firestore().collection('users').doc(user.uid).set(
-    { esmetlab: { lactateSessions: state.sessions } }, { merge: true });
+    { esmetlab: { lactateSessions: list } }, { merge: true });
 }
 
 // Auto-save after a run: update the active test in place, or create a new one.
@@ -539,17 +787,28 @@ async function autoSaveSession(profile) {
   const record = buildSessionRecord(profile);
   const idx = state.activeSessionId
     ? state.sessions.findIndex((s) => s.id === state.activeSessionId) : -1;
+  // Write first; local state changes only once the save succeeded.
+  const next = state.sessions.slice();
+  let id = state.activeSessionId;
   if (idx >= 0) {
-    const prev = state.sessions[idx];
-    state.sessions[idx] = Object.assign({}, prev, record,
+    const prev = next[idx];
+    next[idx] = Object.assign({}, prev, record,
       { id: prev.id, measured_at: prev.measured_at || now, updated_at: now });
   } else {
-    const id = generateId();
-    state.activeSessionId = id;
-    state.sessions.push(Object.assign({ id, measured_at: now }, record));
+    id = generateId();
+    next.push(Object.assign({ id, measured_at: now }, record));
   }
-  try { await persistSessions(); }
-  catch (e) { console.error('Test save failed:', e); }
+  try { await persistSessions(next); }
+  catch (e) {
+    console.error('Test save failed:', e);
+    state.saveError = true;
+    updateSaveStatus();
+    return;
+  }
+  state.sessions = next;
+  state.activeSessionId = id;
+  state.saveError = false;
+  state.justSaved = true;
   renderSavedTests();
   updateSaveStatus();
 }
@@ -561,10 +820,18 @@ async function deleteSession(id) {
     confirmLabel: 'Delete', cancelLabel: 'Keep it', danger: true,
   });
   if (!ok) return;
-  state.sessions = state.sessions.filter((s) => s.id !== id);
+  const next = state.sessions.filter((s) => s.id !== id);
+  try { await persistSessions(next); }
+  catch (e) {
+    console.error(e);
+    renderSavedTests();
+    const root = document.getElementById('saved-tests-root');
+    if (root) root.insertAdjacentHTML('afterbegin',
+      '<div class="esl-callout esl-callout--bad" role="alert" style="margin-bottom:12px">Couldn’t delete that test. Please try again.</div>');
+    return;
+  }
+  state.sessions = next;
   if (state.activeSessionId === id) state.activeSessionId = null;
-  try { await persistSessions(); }
-  catch (e) { console.error(e); alert('Delete failed: ' + e.message); }
   renderSavedTests();
 }
 
@@ -585,14 +852,17 @@ function loadSession(id) {
     lactate: st.lactate, hr: st.hr || '',
   }));
   state.activeSessionId = id;
+  state.justSaved = false;
+  state.saveError = false;
+  state.sportClearedNote = false;
   syncInputsToUI();
   try {
     const fitStages = stagesToSeaLevel(state.stages);
     state.fitStages = fitStages;
     state.altitudeCorrected = fitStages !== state.stages;
     state.profile = runProfile(fitStages);
+    gotoStep(4);       // visible first, so the charts size to the full width
     renderResults();
-    gotoStep(4);
   } catch (e) {
     alert('Could not load that test: ' + e.message);
     console.error(e);
@@ -603,12 +873,17 @@ function loadSession(id) {
 // inputs (stages, altitude). Athlete details and VLamax carry over.
 function newTest() {
   state.activeSessionId = null;
+  state.justSaved = false;
+  state.saveError = false;
+  state.sportClearedNote = false;
   state.stages = DEFAULT_STAGES.map((s) => Object.assign({}, s));
+  if (state.sport === 'cycling') state.stages.forEach((s) => { s.intensity = NaN; });
   state.altitude_m = 0;
   state.profile = null;
   state.fitStages = null;
   applyLatestSessionVLamax();   // default VLamax = most recent test's sprint
   syncInputsToUI();
+  syncRunLabel();
   gotoStep(1);
 }
 
@@ -616,8 +891,9 @@ function newTest() {
 function syncInputsToUI() {
   document.querySelectorAll('input[name=sex]').forEach((r) => { r.checked = (r.value === state.sex); });
   document.querySelectorAll('input[name=sport]').forEach((r) => { r.checked = (r.value === state.sport); });
-  const bm = $('#bodyMass'); if (bm) bm.value = state.bodyMass;
+  syncMassUnitUI();
   syncAltitudeUnitUI();
+  syncStepTestSport();
   renderIntensityHeader();
   toggleAltitudeField();
   renderStages();
@@ -632,51 +908,76 @@ function sessionCardHTML(s) {
   const sport = inp.sport || 'running';
   const nStages = (inp.stages || []).length;
   const meta = (sport === 'cycling' ? 'Cycling' : 'Running') + ' · ' + nStages + ' stages'
-    + (inp.altitude_m > 0 ? ' · ' + Math.round(inp.altitude_m) + ' m' : '');
-  return '<div class="sess-card ' + (isActive ? 'latest' : '') + '" data-session-load="' + escAttr(s.id) + '" style="cursor:pointer">' +
-    '<button type="button" class="sess-delete" data-session-delete="' + escAttr(s.id) + '" title="Delete this test" aria-label="Delete this test">Delete</button>' +
-    '<div><div class="sess-card-date">' + fmtDate(s.measured_at) + ' ' + activePill + '</div></div>' +
-    '<div style="text-align:right">' +
-      '<div style="font-family:var(--display);font-size:18px;font-weight:700;color:var(--text);line-height:1.1">VO₂max ' +
-        (d.VO2max ?? 0).toFixed(1) + ' <span style="font-family:var(--mono);font-size:10px;color:var(--muted2);font-weight:400">mL/min/kg</span></div>' +
-      '<div style="font-family:var(--display);font-size:14px;font-weight:600;color:var(--muted2);margin-top:2px">VLamax ' +
-        (d.VLamax ?? 0).toFixed(3) + '</div>' +
+    + (inp.altitude_m > 0 ? ' · ' + mToDisplay(inp.altitude_m, getAltUnit()) + ' ' + getAltUnit() : '');
+  return '<div class="sess-card ' + (isActive ? 'latest' : '') + '" data-session-load="' + escAttr(s.id) + '" tabindex="0" role="button" aria-label="View test from ' + escAttr(fmtDate(s.measured_at)) + '">' +
+    '<div><div class="sess-card-date"><span>' + fmtDate(s.measured_at) + '</span>' + activePill + '</div></div>' +
+    '<div class="sess-card-vals">' +
+      '<div class="sess-card-val">VO₂max ' + (d.VO2max ?? 0).toFixed(1) + '<span class="unit">mL/min/kg</span></div>' +
+      '<div class="sess-card-sub">VLamax ' + (d.VLamax ?? 0).toFixed(3) + '</div>' +
     '</div>' +
-    '<div class="sess-card-meta">' + meta + '</div>' +
+    '<div class="sess-card-meta"><span>' + meta + '</span>' +
+      '<button type="button" class="sess-delete" data-session-delete="' + escAttr(s.id) + '" aria-label="Delete the test from ' + escAttr(fmtDate(s.measured_at)) + '">Delete</button></div>' +
   '</div>';
 }
 
 function renderSavedTests() {
   const root = document.getElementById('saved-tests-root');
   if (!root) return;
+  syncWizardChrome();
   if (!state.sessions.length) { root.innerHTML = ''; return; }
   const reversed = [...state.sessions].reverse();
+  const ro = readOnly();
   root.innerHTML =
+    (ro ? '<div class="esl-callout" role="status" style="margin-bottom:14px"><p class="esl-callout-title">Your upload access has ended</p>'
+        + '<p>Your saved tests and their PDFs stay available to view. <a href="' + PRICING_FROM + '">See plans</a> to run a new test or update one.</p></div>' : '') +
     '<div class="panel" style="margin-bottom:18px">' +
       '<div class="sess-panel-h">' +
-        '<div class="panel-h">Your saved tests</div>' +
-        '<button type="button" class="btn primary" id="new-test-btn" style="padding:9px 18px;font-size:13px">+ New test</button>' +
+        '<h2 class="panel-h">Your saved tests</h2>' +
+        (ro ? '<a class="btn primary" id="new-test-btn" href="' + PRICING_FROM + '">New test — see plans →</a>'
+            : '<button type="button" class="btn primary" id="new-test-btn">+ New test</button>') +
       '</div>' +
       '<div class="sess-list">' + reversed.map(sessionCardHTML).join('') + '</div>' +
       '<div class="sess-foot">Click a test to view it. Editing the inputs and re-running updates that same test; use “+ New test” to start a fresh one.</div>' +
     '</div>';
-  root.querySelectorAll('[data-session-load]').forEach((el) =>
-    el.addEventListener('click', () => loadSession(el.dataset.sessionLoad)));
+  root.querySelectorAll('[data-session-load]').forEach((el) => {
+    el.addEventListener('click', () => loadSession(el.dataset.sessionLoad));
+    el.addEventListener('keydown', (e) => {
+      if (e.target !== el || (e.key !== 'Enter' && e.key !== ' ')) return;
+      e.preventDefault();
+      loadSession(el.dataset.sessionLoad);
+    });
+  });
   root.querySelectorAll('[data-session-delete]').forEach((btn) =>
     btn.addEventListener('click', (e) => { e.stopPropagation(); deleteSession(btn.dataset.sessionDelete); }));
   const nb = document.getElementById('new-test-btn');
-  if (nb) nb.addEventListener('click', newTest);
+  if (nb && !ro) nb.addEventListener('click', newTest);
 }
 
 function updateSaveStatus() {
   const el = document.getElementById('save-status');
   if (!el) return;
+  syncRunLabel();
+  if (state.saveError) {
+    el.className = 'esl-callout esl-callout--bad';
+    el.setAttribute('role', 'alert');
+    el.style.display = '';
+    el.innerHTML = '<p><strong>Couldn’t save this test.</strong> Your results are shown below but aren’t stored yet.</p>'
+      + '<p style="margin-top:10px"><button type="button" class="btn" id="save-retry">Retry</button></p>';
+    const retry = document.getElementById('save-retry');
+    if (retry) retry.addEventListener('click', () => {
+      retry.disabled = true; retry.textContent = 'Saving…';
+      autoSaveSession(state.profile);
+    });
+    return;
+  }
+  el.className = 'info';
+  el.removeAttribute('role');
   const s = state.activeSessionId && state.sessions.find((x) => x.id === state.activeSessionId);
   if (!s) { el.style.display = 'none'; return; }
   el.style.display = '';
-  el.innerHTML = '✓ Saved to <strong>Your saved tests</strong>'
-    + (s.updated_at ? ' (updated)' : '')
-    + '. It’s listed on the Athlete step — edit any input and re-run to update this same test.';
+  el.innerHTML = state.justSaved
+    ? '✓ Saved to <strong>Your saved tests</strong>. Edit any input and re-run to update this same test.'
+    : 'Viewing your test from ' + fmtDate(s.measured_at) + '.' + (readOnly() ? '' : ' Edit any input and re-run to update it.');
 }
 
 /* ───────── Results renderer ───────── */
@@ -705,7 +1006,7 @@ function renderResults() {
   ];
   const metricsHtml = metrics.map(m =>
     '<div class="metric"><div class="metric-label">' + m.label + '</div>' +
-    '<div class="metric-value">' + m.value + '</div>' +
+    metricValueHtml(m.value) +
     (m.meaning ? '<div class="metric-meaning">' + m.meaning + '</div>' : '') +
     (m.detail  ? '<div class="metric-note">'    + m.detail  + '</div>' : '') +
     '</div>').join('');
@@ -746,34 +1047,38 @@ function renderResults() {
   // Running pages show all paces in one unit at a time; cycling has no toggle.
   const u = getDefaultPaceUnit();
   const paceTogglePillHtml = sport === 'running'
-    ? '<div class="unit-pill" id="pace-unit-pill" role="tablist" aria-label="Pace display unit">'
-      + '<button type="button" data-pace-unit="mi" class="' + (u === 'mi' ? 'active' : '') + '">min/mi</button>'
-      + '<button type="button" data-pace-unit="km" class="' + (u === 'km' ? 'active' : '') + '">min/km</button>'
+    ? '<div class="unit-pill" id="pace-unit-pill" role="group" aria-label="Pace display unit">'
+      + '<button type="button" data-pace-unit="mi" class="' + (u === 'mi' ? 'active' : '') + '" aria-pressed="' + (u === 'mi') + '">min/mi</button>'
+      + '<button type="button" data-pace-unit="km" class="' + (u === 'km' ? 'active' : '') + '" aria-pressed="' + (u === 'km') + '">min/km</button>'
     + '</div>'
     : '';
 
+  const stageWarnHtml = (state.stageWarnings || []).map((w) => '<div class="warn">⚠ ' + w + '</div>').join('');
+
   $('#results-root').innerHTML =
+    '<h2 class="results-h">Your metabolic profile</h2>' +
     profileGuideHtml(sport) +
     paceTogglePillHtml +
     '<div class="metric-grid">' + metricsHtml + '</div>' +
+    ((stageWarnHtml || warnHtml) ? '<div class="results-warnings">' + stageWarnHtml + warnHtml + '</div>' : '') +
     altHtml +
     '<div id="save-status" class="info" style="display:none"></div>' +
     '<div class="report-actions">' +
       '<button class="btn-download-report" id="export-pdf-big" type="button">' +
         '<span class="bdr-icon">⬇</span>' +
-        '<span>Download full report as PDF</span>' +
+        '<span>Download PDF report</span>' +
         '<span class="bdr-sub">save · share · print</span>' +
       '</button>' +
     '</div>' +
     precisionExpandableHtml() +
-    sensHtml + warnHtml +
-    '<div class="panel"><div class="panel-h">Training zones</div>' + zonesHtml + '</div>' +
-    '<div class="chart-block"><div class="chart-title">Lactate response across intensities</div>' +
+    sensHtml +
+    '<div class="panel"><h2 class="panel-h">Training zones</h2>' + zonesHtml + '</div>' +
+    '<div class="chart-block"><h3 class="chart-title">Lactate response across intensities</h3>' +
       '<div class="chart-sub">How your blood lactate behaves — and how fast you produce and clear it — at every effort level. Your measured stages are overlaid as yellow dots.</div>' +
       '<div id="chart-lactate" class="plt"></div>' +
       lactateChartExplainerHtml() +
     '</div>' +
-    '<div class="chart-block"><div class="chart-title">Fat vs carbohydrate burning</div>' +
+    '<div class="chart-block"><h3 class="chart-title">Fat vs carbohydrate burning</h3>' +
       '<div class="chart-sub">Grams of fat and carbs burned per minute at each intensity. Fatmax (yellow dashed line) is where fat-burning peaks.</div>' +
       '<div id="chart-substrate" class="plt"></div>' +
       substrateChartExplainerHtml() +
@@ -807,18 +1112,19 @@ function zoneTableHtml(title, rows, sport, opts) {
   // altitude is set we add a column showing the equivalent paces to actually
   // run at altitude. Same model/treatment as the power-profile tool.
   const showAlt = sport === 'running' && altitude_m > 800 && mlss_speed > 0;
+  const pc = (v) => fmt.pace(v).replace(/\/(mi|km)$/, '');   // unit is in the header
 
   const fmtRange = (lo, hi) => {
     const loDef = !(lo === 0 || !isFinite(lo));
     const hiDef = isFinite(hi);
     if (sport === 'cycling') {
-      if (!loDef && hiDef) return 'less than ' + Math.round(hi) + ' W';
-      if (loDef && !hiDef) return 'more than ' + Math.round(lo) + ' W';
-      return Math.round(lo) + ' – ' + Math.round(hi) + ' W';
+      if (!loDef && hiDef) return 'less than ' + Math.round(hi);
+      if (loDef && !hiDef) return 'more than ' + Math.round(lo);
+      return Math.round(lo) + ' – ' + Math.round(hi);
     }
-    if (!loDef && hiDef) return 'slower than ' + fmt.pace(hi);
-    if (loDef && !hiDef) return 'faster than ' + fmt.pace(lo);
-    return fmt.pace(lo) + ' – ' + fmt.pace(hi);
+    if (!loDef && hiDef) return 'slower than ' + pc(hi);
+    if (loDef && !hiDef) return 'faster than ' + pc(lo);
+    return pc(lo) + ' – ' + pc(hi);
   };
 
   // Altitude-adjusted speed for a sea-level boundary: each bound gets its own
@@ -830,20 +1136,22 @@ function zoneTableHtml(title, rows, sport, opts) {
   const fmtAltRange = (lo, hi) => {
     const loDef = !(lo === 0 || !isFinite(lo));
     const hiDef = isFinite(hi);
-    if (!loDef && hiDef) return 'slower than ' + fmt.pace(altSpeed(hi));
-    if (loDef && !hiDef) return 'faster than ' + fmt.pace(altSpeed(lo));
-    return fmt.pace(altSpeed(lo)) + ' – ' + fmt.pace(altSpeed(hi));
+    if (!loDef && hiDef) return 'slower than ' + pc(altSpeed(hi));
+    if (loDef && !hiDef) return 'faster than ' + pc(altSpeed(lo));
+    return pc(altSpeed(lo)) + ' – ' + pc(altSpeed(hi));
   };
 
-  const altHeaderCell = showAlt ? '<th>At altitude</th>' : '';
+  // Units live in the header so every range stays on one line on phones.
+  const uLbl = sport === 'cycling' ? 'W' : (getDefaultPaceUnit() === 'km' ? 'min/km' : 'min/mi');
+  const altHeaderCell = showAlt ? '<th>At altitude (' + uLbl + ')</th>' : '';
   const altDataCell = (r) => showAlt
-    ? '<td class="num" style="color:var(--muted2)">' + fmtAltRange(r.lo, r.hi) + '</td>'
+    ? '<td class="num alt">' + fmtAltRange(r.lo, r.hi) + '</td>'
     : '';
 
-  return '<h3 style="font-family:var(--display);font-size:16px;font-weight:600;margin:14px 0 8px">' + title + '</h3>' +
-         '<table class="zones"><tr><th>Zone</th><th>Label</th><th>' + (showAlt ? 'Sea level' : 'Range') + '</th>' + altHeaderCell + '</tr>' +
-         rows.map(r => '<tr><td>Z' + r.zone + '</td><td>' + r.label + '</td><td class="num">' + fmtRange(r.lo, r.hi) + '</td>' + altDataCell(r) + '</tr>').join('') +
-         '</table>';
+  return '<h3 class="zone-h">' + title + '</h3>' +
+         '<div class="zones-wrap"><table class="zones"><thead><tr><th>Zone</th><th>Label</th><th>' + (showAlt ? 'Sea level' : 'Range') + ' (' + uLbl + ')</th>' + altHeaderCell + '</tr></thead><tbody>' +
+         rows.map((r) => '<tr><td>Z' + r.zone + '</td><td>' + r.label + '</td><td class="num">' + fmtRange(r.lo, r.hi) + '</td>' + altDataCell(r) + '</tr>').join('') +
+         '</tbody></table></div>';
 }
 
 function lactateChartExplainerHtml() {
@@ -852,12 +1160,12 @@ function lactateChartExplainerHtml() {
     '<div class="body">' +
       '<p>Three curves and two reference markers, all plotted against your effort level (x-axis).</p>' +
       '<ul style="margin:0 0 10px 18px;padding:0">' +
-        '<li><strong style="color:#8b7cf8">Purple solid line — Predicted blood lactate</strong>. The lactate concentration in your blood you\'d settle at if you held each pace for several minutes. It stays low and flat through easy and moderate efforts, then sweeps upward as you approach threshold.</li>' +
-        '<li><strong style="color:#ff6b35">Orange solid line — Lactate production rate</strong>. How fast your muscles are pumping lactate into the blood at each pace. Reads on the right y-axis (mmol per liter per second). Small at easy pace; ramps up steeply once glycolysis kicks in. (Technical name: <em>vLass</em>.)</li>' +
-        '<li><strong style="color:#00e5c8">Cyan dotted line — Max lactate clearance rate</strong>. The fastest your body can remove lactate from the blood via oxidation. Also on the right y-axis. Mostly limited by your aerobic capacity. (Technical: <em>vLaoxmax</em>.)</li>' +
-        '<li><strong style="color:#f5c842">Yellow dots — Your measured samples</strong>. The lactate readings you recorded at each step-test stage, plotted at the stage\'s pace. These are how the curve gets fit to your physiology.</li>' +
-        '<li><strong style="color:#22c78a">Green dashed vertical — MLSS</strong>. The intensity where production meets clearance. Below this you can hold pace indefinitely; above it lactate accumulates without bound and you fade.</li>' +
-        '<li><strong style="color:#8b7cf8">Purple dashed vertical — LT1</strong>. Where blood lactate first rises noticeably above resting. The upper edge of your "all-day easy" zone.</li>' +
+        '<li><strong style="color:var(--purple-ink)">Purple solid line — Predicted blood lactate</strong>. The lactate concentration in your blood you\'d settle at if you held each pace for several minutes. It stays low and flat through easy and moderate efforts, then sweeps upward as you approach threshold.</li>' +
+        '<li><strong style="color:var(--coral-ink)">Orange solid line — Lactate production rate</strong>. How fast your muscles are pumping lactate into the blood at each pace. Reads on the right y-axis (mmol per liter per second). Small at easy pace; ramps up steeply once glycolysis kicks in. (Technical name: <em>vLass</em>.)</li>' +
+        '<li><strong style="color:var(--accent-ink)">Cyan dotted line — Max lactate clearance rate</strong>. The fastest your body can remove lactate from the blood via oxidation. Also on the right y-axis. Mostly limited by your aerobic capacity. (Technical: <em>vLaoxmax</em>.)</li>' +
+        '<li><strong style="color:var(--gold-ink)">Yellow dots — Your measured samples</strong>. The lactate readings you recorded at each step-test stage, plotted at the stage\'s pace. These are how the curve gets fit to your physiology.</li>' +
+        '<li><strong style="color:var(--good-ink)">Green dashed vertical — MLSS</strong>. The intensity where production meets clearance. Below this you can hold pace indefinitely; above it lactate accumulates without bound and you fade.</li>' +
+        '<li><strong style="color:var(--purple-ink)">Purple dashed vertical — LT1</strong>. Where blood lactate first rises noticeably above resting. The upper edge of your "all-day easy" zone.</li>' +
       '</ul>' +
       '<p>The key insight: <strong>MLSS is where the production curve crosses the clearance curve.</strong> Push faster and you\'re making lactate faster than you can clear it.</p>' +
     '</div></details>';
@@ -869,9 +1177,9 @@ function substrateChartExplainerHtml() {
     '<div class="body">' +
       '<p>How much fat vs carbohydrate you burn per minute at each effort.</p>' +
       '<ul style="margin:0 0 10px 18px;padding:0">' +
-        '<li><strong style="color:#f5c842">Yellow area — Fat burned</strong>. Grams of fat oxidized per minute. Rises through easy and moderate paces, peaks around <strong>Fatmax</strong>, then falls as harder efforts force a shift to carbohydrate.</li>' +
-        '<li><strong style="color:#ff6b35">Orange area — Carbs burned</strong>. Grams of carbohydrate (mostly muscle glycogen) oxidized per minute. Small at easy pace; climbs steeply as you push past tempo into threshold and above.</li>' +
-        '<li><strong style="color:#f5c842">Yellow dashed vertical — Fatmax</strong>. The intensity where fat-burning is highest in g/min. Long-run / aerobic-base territory.</li>' +
+        '<li><strong style="color:var(--gold-ink)">Yellow area — Fat burned</strong>. Grams of fat oxidized per minute. Rises through easy and moderate paces, peaks around <strong>Fatmax</strong>, then falls as harder efforts force a shift to carbohydrate.</li>' +
+        '<li><strong style="color:var(--coral-ink)">Orange area — Carbs burned</strong>. Grams of carbohydrate (mostly muscle glycogen) oxidized per minute. Small at easy pace; climbs steeply as you push past tempo into threshold and above.</li>' +
+        '<li><strong style="color:var(--gold-ink)">Yellow dashed vertical — Fatmax</strong>. The intensity where fat-burning is highest in g/min. Long-run / aerobic-base territory.</li>' +
       '</ul>' +
       '<p>Why this matters: <strong>fat is essentially unlimited fuel</strong> (most people carry tens of thousands of calories as body fat). Carbohydrate is limited — you store maybe 1,500–2,000 calories as muscle glycogen, and once you burn through that you crash. The fitter you are aerobically, the higher your Fatmax intensity — meaning you can burn fat at faster paces and save carb stores for surges and finishing kicks.</p>' +
     '</div></details>';
@@ -903,7 +1211,7 @@ function educationHtml() {
     '<details class="edu"><summary>Why we chose the Mader model</summary>' +
     '<div class="body">' +
     '<p>The Mader/Heck bioenergetic model has been refined continuously since 1976 by the German Sport University Cologne group. It treats the muscle cell as having two parallel ATP-resynthesis pathways — glycolysis and oxidation — each modulated by free [ADP] via Hill-type kinetics. From only two physiological parameters (VO₂max and VLamax) plus body composition, the model derives the complete lactate curve, MLSS, LT1, fat/CHO oxidation rates, and Fatmax.</p>' +
-    '<p>It\'s the same family of model used commercially by INSCYD and Aerotune. Our implementation is open and inspectable — see the engine source under <code>js/lib/mader/</code>.</p>' +
+    '<p>It\'s the same family of model used commercially by INSCYD and Aerotune. Our implementation follows the published equations, and its assumptions are spelled out in “What this tool can’t tell you” below.</p>' +
     '</div></details>' +
     '<details class="edu"><summary>What this tool can\'t tell you</summary>' +
     '<div class="body">' +
@@ -948,6 +1256,7 @@ async function triggerPdfExport(btn) {
       bodyMass:    state.bodyMass,
       sex:         state.sex,
       altitude_m:  state.altitude_m || 0,
+      measuredAt:  (state.sessions.find((s) => s.id === state.activeSessionId) || {}).measured_at || null,
     });
   } catch (e) {
     console.error('PDF export failed:', e);

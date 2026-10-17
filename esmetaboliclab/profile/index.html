@@ -4,39 +4,51 @@
 <meta charset="UTF-8">
 <script>try{if(localStorage.getItem('esl-theme')==='light')document.documentElement.setAttribute('data-theme','light')}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Lactate Step Test — esMetabolicLab</title>
+<title>Lactate Profile — Endurance Science Labs</title>
 <meta name="robots" content="noindex,nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/shared/site.css">
-<link rel="stylesheet" href="../css/esmetaboliclab.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/site.css?v=20261016">
+<link rel="stylesheet" href="../css/esmetaboliclab.css?v=20261016">
 <style>
   #app { display: none; }
-  .stepper { display: flex; gap: 4px; margin-bottom: 28px; }
-  .stepper .s {
-    flex: 1; height: 5px; background: var(--panel2); border-radius: 3px;
-    transition: background .2s;
-  }
-  .stepper .s.done { background: var(--purple); }
-  .stepper .s.active { background: var(--cyan); }
+  #wizard { scroll-margin-top: 72px; }
+  .stepper { display: flex; gap: 4px; margin: 0 0 28px; padding: 0; list-style: none; }
+  .stepper .s { flex: 1; min-width: 0; }
+  .stepper .s::before { content: ""; display: block; height: 5px; margin-bottom: 6px; border-radius: 3px; background: var(--border2); transition: background .2s; }
+  .stepper .s.done::before { background: var(--purple); }
+  .stepper .s.active::before { background: var(--cyan); }
+  .s-lbl { font: 600 12px/1.3 var(--ui); color: var(--muted2); }
+  button.s-lbl { background: none; border: 0; padding: 0; cursor: pointer; color: var(--accent-ink); text-decoration: underline; text-underline-offset: 2px; }
+  .wizard-top { display: flex; justify-content: flex-end; min-height: 0; margin-bottom: 8px; }
+  .wizard-top:has(#saved-chip[hidden]) { display: none; }
+  .run-actions { display: inline-flex; flex-wrap: wrap; gap: 12px; }
+  #run-new[hidden] { display: none; }
+  @media (max-width: 600px) { .run-actions { flex: 1 1 100%; } .run-actions .btn { flex: 1 1 auto; } }
+  #stages-example-note { margin: 8px 0 4px; }
+  .stepper .s.active .s-lbl { color: var(--text); }
+  @media (prefers-reduced-motion: reduce) { .stepper .s::before { transition: none; } }
   .step-section { display: none; }
   .step-section.active { display: block; }
-  .nav-actions { display: flex; gap: 12px; justify-content: space-between; margin-top: 20px; }
+  .nav-actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; margin-top: 20px; }
+  @media (max-width: 600px) { .nav-actions .btn { flex: 1 1 auto; } }
   /* Plotly container */
-  .plt { width: 100%; min-height: 380px; }
+  .plt { width: 100%; max-width: 100%; min-height: 380px; overflow: hidden; }
+  @media (max-width: 600px) { .plt { min-height: 340px; } }
 </style>
 </head>
-<body>
+<body class="esml-tool">
 
+<!-- Nav sits outside #app so the sign-in gate renders below it (D9). -->
+<nav class="eslabs-nav" id="esml-nav"></nav>
 <div id="esml-gate"></div>
 <div id="esml-paywall"></div>
 
 <div id="app" style="display:none">
-<nav class="eslabs-nav" id="esml-nav"></nav>
 
-<div class="page">
-  <p style="margin-bottom:12px"><a href="/esmetaboliclab/">← esMetabolicLab</a></p>
-  <div class="section-label">◉ Lactate-anchored metabolic profile</div>
+<main id="main" class="page">
+  <a class="esl-back" href="/esmetaboliclab/">← esMetabolicLab</a>
+  <div class="section-label">◉ Lactate Profile</div>
   <h1 class="page-title">Lactate <em>test</em> → full metabolic profile</h1>
   <p class="page-sub">
     One unified wizard: athlete inputs, a 15-second sprint VLamax,
@@ -62,20 +74,21 @@
        this page to run a separate test first. -->
   <div id="wizard">
 
-  <div class="stepper">
-    <div class="s active" id="step-bar-1"></div>
-    <div class="s"        id="step-bar-2"></div>
-    <div class="s"        id="step-bar-3"></div>
-    <div class="s"        id="step-bar-4"></div>
-  </div>
+  <div class="wizard-top"><button type="button" class="esl-linkbtn" id="saved-chip" hidden></button></div>
+  <ol class="stepper" aria-label="Steps">
+    <li class="s active" id="step-bar-1" aria-current="step"><span class="s-lbl">Athlete</span></li>
+    <li class="s" id="step-bar-2"><span class="s-lbl">Sprint</span></li>
+    <li class="s" id="step-bar-3"><span class="s-lbl">Stages</span></li>
+    <li class="s" id="step-bar-4"><span class="s-lbl">Results</span></li>
+  </ol>
 
   <!-- ───────── Step 1: Athlete ───────── -->
   <section class="step-section active" data-step="1">
     <!-- Saved-test list (populated by app.js when the athlete has saved tests) -->
     <div id="saved-tests-root"></div>
     <div class="panel">
-      <div class="panel-h">1. Athlete</div>
-      <p class="panel-sub">Body mass scales the absolute substrate values (g/min). Sex influences reference-range comparisons only.</p>
+      <h2 class="panel-h">1. Athlete</h2>
+      <p class="panel-sub">Body mass scales the absolute substrate values (g/min). Sex is recorded on your PDF report.</p>
 
       <div class="grid-2">
         <div class="field">
@@ -94,8 +107,14 @@
         </div>
       </div>
       <label class="field" style="max-width:280px">
-        <span class="lab">Body mass (kg)</span>
-        <input type="number" id="bodyMass" step="0.1" min="30" max="160" value="70">
+        <span class="lab">Body mass</span>
+        <div class="pace-input">
+          <input type="number" class="pace-text" id="bodyMass" step="0.1" min="30" max="160" value="70">
+          <div class="unit-toggle-inline" data-mass-toggle role="group" aria-label="Mass unit">
+            <button type="button" data-mass-unit="lb">lb</button>
+            <button type="button" data-mass-unit="kg">kg</button>
+          </div>
+        </div>
       </label>
     </div>
     <div class="nav-actions">
@@ -107,7 +126,7 @@
   <!-- ───────── Step 2: Sprint VLamax ───────── -->
   <section class="step-section" data-step="2">
     <div class="panel">
-      <div class="panel-h">2. Sprint VLamax</div>
+      <h2 class="panel-h">2. Sprint VLamax</h2>
       <p class="panel-sub">
         A 15-second all-out sprint with pre- and post-sprint blood lactate gives us your maximum glycolytic rate (VLamax) — the input that anchors the rest of your metabolic profile.
       </p>
@@ -125,7 +144,7 @@
   <!-- ───────── Step 3: Step Test Stages ───────── -->
   <section class="step-section" data-step="3">
     <div class="panel">
-      <div class="panel-h">3. Step test stages</div>
+      <h2 class="panel-h">3. Step test stages</h2>
       <p class="panel-sub">
         Add 5–9 stages. Each stage is 5 minutes at a fixed effort, with a 1-minute standing rest to sample lactate. Final stage should land in the 7–10 mmol/L range to anchor the upper curve.
       </p>
@@ -134,7 +153,7 @@
         <span class="lab">Testing altitude <span style="font-weight:400;text-transform:none">— optional</span></span>
         <div class="pace-input">
           <input type="number" class="pace-text" id="altitude" step="50" min="0" max="5000" placeholder="0">
-          <div class="unit-toggle-inline" data-alt-toggle role="tablist" aria-label="Altitude unit">
+          <div class="unit-toggle-inline" data-alt-toggle role="group" aria-label="Altitude unit">
             <button type="button" data-alt-unit="ft">ft</button>
             <button type="button" data-alt-unit="m">m</button>
           </div>
@@ -142,6 +161,7 @@
         <span class="hint">Above ~800&nbsp;m / 2,600&nbsp;ft, paces are converted to sea-level equivalents before fitting, so VO₂max and zones match a sea-level test (Faulkner&nbsp;1968 / Daniels&nbsp;1979); the zone table also shows altitude-equivalent paces. Boulder ≈ 1650&nbsp;m, Denver ≈ 1600&nbsp;m.</span>
       </label>
 
+      <div class="stages-wrap">
       <table class="stages" id="stages">
         <thead>
           <tr>
@@ -149,20 +169,25 @@
             <th><span id="intensity-header">Pace</span></th>
             <th>Duration (min)</th>
             <th>Lactate (mmol/L)</th>
-            <th>HR (bpm) <span style="font-weight:400; text-transform:none">— optional</span></th>
             <th></th>
           </tr>
         </thead>
         <tbody id="stages-body"></tbody>
       </table>
+      </div>
+      <p class="esl-caption" id="stages-example-note" hidden>Grey values are examples — replace them with your readings.</p>
       <button class="btn ghost row-add" id="add-stage">+ Add stage</button>
 
       <div id="stage-warnings"></div>
     </div>
     <div class="nav-actions">
       <button class="btn ghost"   data-go="2">← Back</button>
-      <button class="btn primary" id="run">Run profile →</button>
+      <span class="run-actions">
+        <button class="btn" id="run-new" type="button" hidden>Save as new test</button>
+        <button class="btn primary" id="run">Run profile →</button>
+      </span>
     </div>
+    <p class="esl-caption" id="run-note" style="margin-top:8px" hidden></p>
   </section>
 
   <!-- ───────── Step 4: Results ───────── -->
@@ -170,18 +195,23 @@
     <div id="results-root"></div>
     <div class="nav-actions">
       <button class="btn ghost" data-go="3">← Edit inputs</button>
-      <button class="btn cyan"  id="export-pdf">Download PDF →</button>
+      <button class="btn"       id="export-pdf">Download PDF report</button>
     </div>
   </section>
 
   </div><!-- /#wizard -->
-</div>
+</main>
+
+<footer class="esl-app-footer">
+  <p class="esl-app-footer-meta">Not medical advice. Educational use only.</p>
+  <p class="esl-app-footer-meta"><a href="/privacy/">Privacy</a> · © <span id="footer-year"></span> Endurance Science Labs</p>
+</footer>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="/shared/site.js"></script>
+<script src="/shared/site.js?v=20261016"></script>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
@@ -190,9 +220,9 @@
   esLabs.mountNav('#esml-nav', { active: 'esmetlab' });
   esLabs.mountAuthGate('#esml-gate', {
     eyebrow: '◉ Sign in to continue',
-    headline: 'Lactate Step Test',
-    sub: 'Sign in to run a full lactate step test. Upload access required — see pricing.',
-    foot: '<a href="/esmetaboliclab/" style="color:var(--cyan);text-decoration:none">&larr; Back to esMetabolicLab</a>'
+    headline: 'Lactate Profile',
+    sub: 'Sign in to run a full lactate step test. Upload access required.',
+    foot: '<a href="/esmetaboliclab/pricing/" style="color:var(--accent-ink);text-decoration:none">See pricing</a> · <a href="/" style="color:var(--accent-ink);text-decoration:none">&larr; Back to home</a>'
   });
 
   esLabs.onAuthChange(function(user) {
@@ -201,11 +231,22 @@
       window.dispatchEvent(new CustomEvent('esml-auth', { detail: { user: user } }));
     }
   });
+
+  document.getElementById('footer-year').textContent = new Date().getFullYear();
 </script>
 
 <script type="module">
   import { wireUploadPaywall } from '../js/ui/upload-paywall.js';
-  wireUploadPaywall({ toolName: 'the Lactate Step Test', appEl: '#app', paywallEl: '#esml-paywall' });
+  wireUploadPaywall({
+    toolName: 'the Lactate Profile', from: 'lactate', appEl: '#app', paywallEl: '#esml-paywall',
+    // D12 #19: lapsed users keep read-only access to the tests they paid for.
+    readOnlyCheck: function (user) {
+      return firebase.firestore().collection('users').doc(user.uid).get().then(function (d) {
+        var e = d.exists ? (d.data().esmetlab || {}) : {};
+        return Array.isArray(e.lactateSessions) && e.lactateSessions.length > 0;
+      });
+    },
+  });
 </script>
 
 <script type="module" src="./app.js"></script>
