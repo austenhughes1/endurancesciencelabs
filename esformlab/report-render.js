@@ -52,6 +52,47 @@ function buildBellCurveSVG(val, metricKey, phaseKey, fmtFn) {
   '</svg>';
 }
 
+// -- Coverage (display only; mirrors which inputs each check reads in detectIssues) --
+function eflNum(v) { return v !== null && v !== undefined && isFinite(v); }
+function eflPhaseUsable(def) {
+  var ph = phases[def.key];
+  if (!ph || ph.noPose) return false;
+  if (def.videoKey === 'side') return !!ph.metrics && ph.sideView !== false;
+  return !!(ph.frontBackMetrics || ph.metrics);
+}
+function eflUnusablePhaseCount() {
+  return PHASE_DEFS.filter(function(d) { return !eflPhaseUsable(d); }).length;
+}
+// True when detectIssues had at least one input for the check.
+function eflCheckMeasured(key) {
+  function m(pk) { return phases[pk] && phases[pk].metrics ? phases[pk].metrics : null; }
+  function fb(pk) { return phases[pk] && phases[pk].frontBackMetrics ? phases[pk].frontBackMetrics : null; }
+  if (key === 'overstriding') {
+    return ['l_foot', 'r_foot'].some(function(pk, i) {
+      var mm = m(pk); if (!mm) return false;
+      if (mm.leadFoot !== undefined) return eflNum(mm.leadFoot);
+      return eflNum(i === 0 ? mm.lFoot : mm.rFoot);
+    });
+  }
+  if (key === 'torsoPosition') return ['l_foot','r_foot','l_toe','r_toe','mid'].some(function(pk) { var mm = m(pk); return !!mm && mm.trunk !== undefined; });
+  if (key === 'armAngle') return ['l_toe','r_toe'].some(function(pk) { var mm = m(pk); return !!mm && (eflNum(mm.nearElbow) || eflNum(mm.lElbow) || eflNum(mm.rElbow)); });
+  if (key === 'hipDrop') return ['mid_front_l','mid_front_r','mid_back_l','mid_back_r'].some(function(pk) { var f = fb(pk); return !!f && eflNum(f.hipDropDeg); });
+  if (key === 'armsCrossing') return !!(fb('mid_front_l') || fb('mid_front_r'));
+  if (key === 'kneeValgus') {
+    var fl = fb('mid_front_l'), fr = fb('mid_front_r');
+    return !!((fl && eflNum(fl.lKneeValgusDeg)) || (fr && eflNum(fr.rKneeValgusDeg)));
+  }
+  return true;
+}
+var EFL_CHECK_INPUTS = {
+  overstriding: 'the L and R foot-strike frames',
+  torsoPosition: 'the side-view frames',
+  armAngle: 'the L and R toe-off frames',
+  hipDrop: 'the front and back mid-stance frames',
+  armsCrossing: 'the front mid-stance frames',
+  kneeValgus: 'the front mid-stance frames'
+};
+
 function renderAnomalyBanner(issues) {
   var banner = document.getElementById('anomaly-banner');
   if (!banner) return;
@@ -67,24 +108,32 @@ function renderAnomalyBanner(issues) {
     });
   }
   var tone, icon, headline, sub;
-  if (total === 0) {
+  var unusable = eflUnusablePhaseCount();
+  var reviewLink = isViewingSaved ? '' : ' <a href="#phase-groups" class="ab-link" onclick="event.preventDefault();var pg=document.getElementById(\'phase-groups\');if(pg)pg.scrollIntoView({block:\'start\'})">Review the phase cards</a>';
+  if (total === 0 && unusable > 0) {
+    tone = 'warn';
+    icon = '&#9888;';
+    headline = 'Your scan is incomplete &mdash; <em>' + unusable + '</em> of ' + PHASE_DEFS.length + ' phases have no usable frame';
+    sub = 'Some checks couldn&rsquo;t run, so &ldquo;no issues&rdquo; isn&rsquo;t a clean result yet. ' + (isViewingSaved ? 'Start a new analysis with clearer clips before you rely on this report.' : 'Pick a usable frame on each flagged card (or re-film that view) before you rely on this report.' + reviewLink);
+  } else if (total === 0) {
     tone = 'clear';
     icon = '&#10003;';
     headline = 'Clean run &mdash; but there&rsquo;s more behind that result';
-    sub = '<em>&ldquo;No issues flagged&rdquo;</em> is the headline, not the full story. Unlock the report to see <strong>exactly where each of your angles sits on the bell curve vs. elite runners</strong> &mdash; being <em>in range</em> doesn&rsquo;t mean <em>optimal</em>, and runners closest to the edge of a band are where small tweaks pay off most. Your pass is also <strong>90 days of unlimited analyses</strong> &mdash; film a 5K-effort or fatigued-legs clip and compare. Clean form at easy pace often hides issues at race effort.';
+    sub = '<em>&ldquo;No issues flagged&rdquo;</em> is the headline, not the full story. Unlock the report to see <strong>exactly where each of your angles sits against elite reference ranges</strong> (with bell curves in the PDF) &mdash; being <em>in range</em> doesn&rsquo;t mean <em>optimal</em>, and runners closest to the edge of a band are where small tweaks pay off most. Your pass is also <strong>90 days of unlimited analyses</strong> &mdash; film a 5K-effort or fatigued-legs clip and compare. Clean form at easy pace often hides issues at race effort.';
   } else {
-    var noun = total === 1 ? 'anomaly' : 'anomalies';
+    var noun = total === 1 ? 'issue' : 'issues';
     if (notable > 0) {
       tone = 'alert';
       icon = '&#9888;';
       headline = '<em>' + total + '</em> ' + noun + ' detected in your form';
-      sub = 'Unlock the full report to see <strong>exactly what they are</strong>, why each one matters for performance and injury risk, and the <strong>specific coaching cues and drills</strong> to fix each one.';
+      sub = 'Unlock the full report to see <strong>exactly what they are</strong>, why each one matters for performance and injury risk, and the <strong>specific form cues</strong> to work on for each one.';
     } else {
       tone = 'warn';
       icon = '&#9888;';
       headline = '<em>' + total + '</em> ' + noun + ' detected in your form';
-      sub = 'Mild but worth addressing. Unlock the full report for the <strong>coaching cues, drills, and personalized PDF</strong> showing exactly what to work on before they get worse.';
+      sub = 'Mild but worth addressing. Unlock the full report for the <strong>form cues and personalized PDF</strong> showing exactly what to work on before they get worse.';
     }
+    if (unusable > 0) sub += ' <span class="ab-incomplete">Note: ' + unusable + ' of ' + PHASE_DEFS.length + ' phases have no usable frame, so some checks couldn&rsquo;t run.</span>' + reviewLink;
   }
   banner.className = 'anomaly-banner ' + tone;
   banner.innerHTML =
@@ -117,6 +166,7 @@ function renderReport(issues) {
   var cardsHtml = '';
   var detailsHtml = '';
   var detectedCount = 0;
+  var unmeasuredCount = 0;
 
   issueList.forEach(function(item, idx) {
     var issue = issues[item.key];
@@ -133,8 +183,12 @@ function renderReport(issues) {
     if(!rd) return;
 
     var summaryText = '';
+    // A clear result with no input is "Not measured", never "Clear" (display only).
+    var unmeasured = !detected && !eflCheckMeasured(item.key);
     if(detected && severity && rd.summary[severity]) {
       summaryText = rd.summary[severity];
+    } else if(unmeasured) {
+      summaryText = 'This check couldn&rsquo;t run &mdash; ' + (EFL_CHECK_INPUTS[item.key] || 'its frames') + ' had no usable measurement.';
     } else if(!detected) {
       summaryText = rd.clear;
     }
@@ -144,6 +198,8 @@ function renderReport(issues) {
       severityIndicator = '<span class="issue-severity notable">Notable</span>';
     } else if(detected && severity === 'mild') {
       severityIndicator = '<span class="issue-severity mild">Mild</span>';
+    } else if(unmeasured) {
+      severityIndicator = '<span class="issue-severity unmeasured">Not measured</span>';
     } else {
       severityIndicator = '<span class="issue-severity clear">&#10003; Clear</span>';
     }
@@ -167,18 +223,19 @@ function renderReport(issues) {
       detectedCount++;
     } else {
       cardClass += ' not-detected';
+      if(unmeasured) { cardClass += ' not-measured'; unmeasuredCount++; }
     }
 
     // -- Summary card (grid) --
     cardsHtml += '<div class="'+cardClass+'">';
     cardsHtml += '<div class="issue-card-hdr">';
-    cardsHtml += '<div class="issue-card-title">'+rd.title+'</div>';
+    cardsHtml += '<h3 class="issue-card-title">'+rd.title+'</h3>';
     cardsHtml += severityIndicator;
     cardsHtml += sideTag;
     cardsHtml += '</div>';
     cardsHtml += '<div class="issue-card-summary">'+summaryText+'</div>';
     if(detected) {
-      cardsHtml += '<div class="issue-card-detail-link" onclick="scrollToDetail(\'detail-'+idx+'\')">View full breakdown &#8595;</div>';
+      cardsHtml += '<a class="issue-card-detail-link" href="#detail-'+idx+'" onclick="event.preventDefault();scrollToDetail(\'detail-'+idx+'\')">View full breakdown &#8595;</a>';
     }
     cardsHtml += '</div>';
 
@@ -186,12 +243,12 @@ function renderReport(issues) {
     if(detected) {
       var detailClass = 'issue-detail' + (severity === 'notable' ? ' notable' : severity === 'mild' ? ' mild' : '');
       detailsHtml += '<div class="'+detailClass+'" id="detail-'+idx+'">';
-      detailsHtml += '<div class="issue-detail-hdr" onclick="toggleDetail(\'detail-body-'+idx+'\',this)">';
-      detailsHtml += '<div class="issue-detail-title">'+rd.title+'</div>';
+      detailsHtml += '<h3 class="issue-detail-h"><button type="button" class="issue-detail-hdr" aria-expanded="false" aria-controls="detail-body-'+idx+'" onclick="toggleDetail(\'detail-body-'+idx+'\',this)">';
+      detailsHtml += '<span class="issue-detail-title">'+rd.title+'</span>';
       detailsHtml += severityIndicator;
       detailsHtml += sideTag;
       detailsHtml += '<span class="issue-detail-toggle">&#9660; Expand</span>';
-      detailsHtml += '</div>';
+      detailsHtml += '</button></h3>';
       detailsHtml += '<div class="issue-detail-body" id="detail-body-'+idx+'">';
 
       // What this means
@@ -240,22 +297,64 @@ function renderReport(issues) {
   });
 
   // No flags banner
-  if(detectedCount === 0) {
-    cardsHtml = '<div style="grid-column:1/-1;background:var(--panel);border:1px solid rgba(0,229,200,.2);border-radius:16px;padding:28px 26px;margin-bottom:4px">' +
-      '<div style="font-size:18px;font-weight:800;margin-bottom:10px;color:var(--text)">No major gait-pattern flags detected</div>' +
-      '<div style="font-size:14px;color:var(--muted2);line-height:1.85;margin-bottom:14px">Your stride did not show meaningful signs of overstriding, hip drop, excessive arm crossover, overly upright torso position, overly open arm angle, or knee valgus in the analyzed clips. Most measured angles fell within the reference ranges used by this tool.</div>' +
-      '<div style="font-size:13px;color:var(--muted);line-height:1.8">This does not mean your running form is &quot;perfect&quot; or that no improvement is possible. It means this analysis did not detect clear issues in these specific categories from the selected videos and frames. Small differences can still exist, and results can vary with speed, fatigue, camera angle, treadmill vs. overground running, and frame selection.</div>' +
+  if(detectedCount === 0 && unmeasuredCount > 0) {
+    cardsHtml = '<div class="no-flags incomplete">' +
+      '<h3 class="no-flags-title">' + unmeasuredCount + ' of ' + issueList.length + ' checks couldn&rsquo;t be run</h3>' +
+      '<div class="no-flags-body">The checks that did run found no clear issues, but the ones marked &ldquo;Not measured&rdquo; had no usable frame. ' + (isViewingSaved ? 'Start a new analysis with clearer clips to complete them.' : 'Pick a usable frame on those phase cards, or re-film that view, to complete them.') + '</div>' +
+    '</div>' + cardsHtml;
+  } else if(detectedCount === 0) {
+    cardsHtml = '<div class="no-flags">' +
+      '<h3 class="no-flags-title">No major gait-pattern flags detected</h3>' +
+      '<div class="no-flags-body">Your stride did not show meaningful signs of overstriding, hip drop, excessive arm crossover, overly upright torso position, overly open arm angle, or knee valgus in the analyzed clips. Most measured angles fell within the reference ranges used by this tool.</div>' +
+      '<div class="no-flags-foot">This does not mean your running form is &quot;perfect&quot; or that no improvement is possible. It means this analysis did not detect clear issues in these specific categories from the selected videos and frames. Small differences can still exist, and results can vary with speed, fatigue, camera angle, treadmill vs. overground running, and frame selection.</div>' +
     '</div>' + cardsHtml;
   }
 
   grid.innerHTML = cardsHtml;
-  if(details) details.innerHTML = detectedCount > 0 ? '<div style="font-size:16px;font-weight:800;margin-bottom:12px">Detailed breakdowns</div>' + detailsHtml : '';
+  if(details) details.innerHTML = detectedCount > 0 ? '<h3 class="report-subhead">Detailed breakdowns</h3>' + detailsHtml : '';
+  renderFrontBackTable();
+}
+
+// Front/back view measurements (live + saved sessions), from frontBackMetrics.
+function renderFrontBackTable() {
+  var host = document.getElementById('fb-summary');
+  if (!host) return;
+  var cols = ['mid_front_l', 'mid_front_r', 'mid_back_l', 'mid_back_r'];
+  var any = false;
+  var fbs = cols.map(function(k) { var ph = phases[k]; var f = ph && ph.frontBackMetrics ? ph.frontBackMetrics : null; if (f) any = true; return f; });
+  if (!any) { host.innerHTML = ''; host.hidden = true; return; }
+  var dash = '<span class="sv na" title="Not measured" aria-label="Not measured">&ndash;</span>';
+  var deg = function(v) { return eflNum(v) ? '<span class="sv">' + v.toFixed(1) + '&deg;</span>' : dash; };
+  var pct = function(v) { return eflNum(v) ? '<span class="sv">' + (v * 100).toFixed(1) + '%</span>' : dash; };
+  var colSide = function(i) { var def = PHASE_DEFS.find(function(d) { return d.key === cols[i]; }); return def ? def.side : null; };
+  var cap = function(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; };
+  var rows = [
+    ['Stance side', function(f, i) { var sd = f ? (f.stanceSide || colSide(i)) : null; return sd ? '<span class="sv">' + cap(sd) + '</span>' : dash; }],
+    ['Hip drop', function(f) { return f ? deg(f.hipDropDeg) : dash; }],
+    ['Stance-knee FPPA', function(f, i) { if (!f) return dash; var sd = f.stanceSide || colSide(i); return deg(sd === 'left' ? f.lKneeValgusDeg : sd === 'right' ? f.rKneeValgusDeg : null); }],
+    ['L wrist crossing (% of shoulder width)', function(f, i) { return f && i < 2 ? pct(f.lWristCross) : (i >= 2 ? '<span class="sv na" title="Front view only" aria-label="Not applicable">&ndash;</span>' : dash); }],
+    ['R wrist crossing (% of shoulder width)', function(f, i) { return f && i < 2 ? pct(f.rWristCross) : (i >= 2 ? '<span class="sv na" title="Front view only" aria-label="Not applicable">&ndash;</span>' : dash); }]
+  ];
+  var head = '<tr><th>Metric</th>' + cols.map(function(k) {
+    var idx = PHASE_DEFS.findIndex(function(d) { return d.key === k; });
+    var def = PHASE_DEFS[idx];
+    var side = def && def.side === 'left' ? ' class="th-left"' : def && def.side === 'right' ? ' class="th-right"' : '';
+    return '<th' + side + '>' + (idx + 1) + '. ' + (def ? def.label : k) + '</th>';
+  }).join('') + '</tr>';
+  var body = rows.map(function(r) {
+    return '<tr><td class="row-label">' + r[0] + '</td>' + fbs.map(function(f, i) { return '<td>' + r[1](f, i) + '</td>'; }).join('') + '</tr>';
+  }).join('');
+  host.hidden = false;
+  host.innerHTML = '<h3 class="report-subhead fb-title">Front/back view measurements</h3>' +
+    '<div class="summary-sub">Hip drop and knee angle (FPPA) in degrees at mid-stance; wrist crossing as a share of shoulder width (front view only). Hip drop blends the front and back views in your results; knee valgus uses the front view.</div>' +
+    '<div class="summary-scroll"><table class="stbl fb-table"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>';
 }
 
 function scrollToDetail(id) {
   var el = document.getElementById(id);
   if(!el) return;
-  el.scrollIntoView({behavior:'smooth', block:'start'});
+  var reduce=false;try{reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}
+  el.scrollIntoView({behavior:reduce?'auto':'smooth', block:'start'});
   // Auto-expand it
   var body = el.querySelector('.issue-detail-body');
   var toggle = el.querySelector('.issue-detail-toggle');
@@ -263,6 +362,8 @@ function scrollToDetail(id) {
     body.classList.add('open');
     if(toggle) toggle.innerHTML = '&#9650; Collapse';
   }
+  var hdrBtn = el.querySelector('.issue-detail-hdr');
+  if(hdrBtn) hdrBtn.setAttribute('aria-expanded', 'true');
 }
 
 function toggleDetail(bodyId, hdr) {
@@ -271,6 +372,7 @@ function toggleDetail(bodyId, hdr) {
   var isOpen = body.classList.toggle('open');
   var toggle = hdr.querySelector('.issue-detail-toggle');
   if(toggle) toggle.innerHTML = isOpen ? '&#9650; Collapse' : '&#9660; Expand';
+  if(hdr && hdr.setAttribute) hdr.setAttribute('aria-expanded', String(isOpen));
 }
 
 function buildSummaryTable(){
@@ -279,12 +381,14 @@ function buildSummaryTable(){
   tbl.querySelector('thead').innerHTML = '<tr><th>Metric</th>' + SUMMARY_COL_ORDER.map(function(k) {
     var ph = phases[k]; var idx = PHASE_DEFS.findIndex(function(d) { return d.key === k; });
     var side = ph && ph.side === 'left' ? ' th-left' : ph && ph.side === 'right' ? ' th-right' : '';
-    return '<th class="' + side + '" onclick="openExpand(\'' + k + '\')">' + (idx + 1) + '. ' + (ph ? ph.label : k) + (ph && !ph.detected ? ' &#9888;' : '') + '</th>';
+    var lbl = (idx + 1) + '. ' + (ph ? ph.label : k) + (ph && !ph.detected ? ' &#9888;' : '');
+    if (isViewingSaved) return '<th class="' + side + '">' + lbl + '</th>';
+    return '<th class="' + side + '"><button type="button" class="th-btn" onclick="openExpand(\'' + k + '\')">' + lbl + '</button></th>';
   }).join('') + '</tr>';
   var activeRows = METRIC_ROWS.filter(function(r) { return SUMMARY_COL_ORDER.some(function(pk) { return isRelevant(pk, r.key); }); });
   tbl.querySelector('tbody').innerHTML = activeRows.map(function(r) {
     return '<tr><td class="row-label">' + r.label + '</td>' + SUMMARY_COL_ORDER.map(function(k) {
-      return '<td id="sc-' + k + '-' + r.key + '"><span class="sv na">--</span></td>';
+      return '<td id="sc-' + k + '-' + r.key + '">' + (isRelevant(k, r.key) ? '<span class="sv na pending">not analyzed</span>' : '<span class="sv na" title="Not applicable for this phase" aria-label="Not applicable">&ndash;</span>') + '</td>';
     }).join('') + '</tr>';
   }).join('');
 }
@@ -295,8 +399,8 @@ function updateSummaryCol(key){
   if(SUMMARY_COL_ORDER.indexOf(key) === -1) return;
   METRIC_ROWS.forEach(function(r){
     var cell=document.getElementById('sc-'+key+'-'+r.key);if(!cell)return;
-    if(!isRelevant(key,r.key)){cell.innerHTML='<span class="sv na" title="Not applicable for this phase">--</span>';return;}
+    if(!isRelevant(key,r.key)){cell.innerHTML='<span class="sv na" title="Not applicable for this phase" aria-label="Not applicable">&ndash;</span>';return;}
     var v=m[r.key],d=v!=null?r.fmt(v):'--';var pos=v!=null?positionLabel(v,r.key,key):'';var sym=v!=null?positionSymbol(v,r.key,key):'';
-    cell.innerHTML=v!=null?'<span class="sv">'+sym+' '+d+'<span class="sv-pos">'+pos+'</span></span>':'<span class="sv na">--</span>';
+    cell.innerHTML=v!=null?'<span class="sv">'+sym+' '+d+'<span class="sv-pos">'+pos+'</span></span>':'<span class="sv na pending">not analyzed</span>';
   });
 }

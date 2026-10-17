@@ -15,6 +15,16 @@
 //  SAVE / LOAD / COMPARE
 // ==============================================================
 
+// "2026-10-04" -> "Oct 4, 2026" for display (falls back to the raw value).
+function eflFmtDate(raw) {
+  if (!raw) return '';
+  try {
+    var dt = new Date(String(raw) + 'T12:00:00');
+    if (isNaN(dt.getTime())) return String(raw);
+    return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  } catch (e) { return String(raw); }
+}
+
 // Saved-analysis names/dates/ids are free text from the user's own doc, and
 // the admin views them too when acting as that user -- escape before any
 // innerHTML (text or quoted attribute).
@@ -47,8 +57,8 @@ async function saveAnalysis() {
   var nameVal = document.getElementById('save-name').value.trim();
   var dateVal = document.getElementById('save-date').value;
   var statusEl = document.getElementById('save-status');
-  if (!nameVal) { statusEl.textContent = 'Please enter a session name.'; statusEl.style.color = 'var(--warn)'; return; }
-  if (!dateVal) { statusEl.textContent = 'Please select a date.'; statusEl.style.color = 'var(--warn)'; return; }
+  if (!nameVal) { statusEl.textContent = 'Please enter a session name.'; statusEl.style.color = 'var(--warn-ink)'; return; }
+  if (!dateVal) { statusEl.textContent = 'Please select a date.'; statusEl.style.color = 'var(--warn-ink)'; return; }
 
   var btn = document.getElementById('btn-save');
   btn.disabled = true; btn.textContent = 'Saving...';
@@ -100,24 +110,34 @@ async function saveAnalysis() {
   try {
     var db = firebase.firestore();
     await db.collection('users').doc(currentUser.uid).collection('analyses').add(stripUndefinedDeep(data));
+    window.__eflSavedThisRun = true;
     statusEl.textContent = 'Saved successfully!';
-    statusEl.style.color = 'var(--good)';
+    statusEl.style.color = 'var(--good-ink)';
     btn.textContent = 'Saved';
     btn.disabled = true;
     await loadAnalysesList();
     setTimeout(function() { btn.textContent = 'Save analysis'; btn.disabled = false; }, 3000);
   } catch(e) {
     statusEl.textContent = 'Save failed: ' + e.message;
-    statusEl.style.color = 'var(--bad)';
+    statusEl.style.color = 'var(--bad-ink)';
     btn.textContent = 'Save analysis';
     btn.disabled = false;
   }
 }
 
 function startNewSession() {
+  var wasSaved = isViewingSaved;
+  currentSavedId = null;
+  // Mid-scan: the scan loop can't be stopped in place, so start over with a reload.
+  if (typeof scanInProgress !== 'undefined' && scanInProgress) {
+    if (confirm('Stop the scan and start over? The page will reload and you\u2019ll pick your videos again.')) window.location.reload();
+    return;
+  }
   if (!isViewingSaved) {
     var hasAnalysis = PHASE_DEFS.some(function(d) { return phases[d.key] && phases[d.key].metrics; });
-    if (hasAnalysis && !confirm('Start a new session? This will discard your current analysis if it has not been saved.')) return;
+    if (IS_MOBILE_RUNNER) {
+      if (hasAnalysis && !confirm('Start a new analysis? The page will reload \u2014 save first if you want to keep this analysis. You\u2019ll need to pick your videos again.')) return;
+    } else if (hasAnalysis && !confirm('Start a new analysis? This discards your current analysis if it hasn\u2019t been saved.')) return;
   }
   // Mobile only: hard-reload instead of in-place reset. The previous scan leaves
   // accumulated TF.js / WebGL / decoder state that dramatically slows subsequent
@@ -148,18 +168,36 @@ function startNewSession() {
   if (phaseGroupsEl) phaseGroupsEl.style.display = '';
   var scanSummaryBar = document.getElementById('scan-summary-bar');
   if (scanSummaryBar) scanSummaryBar.style.display = '';
+  var reviewActions = document.getElementById('review-actions');
+  if (reviewActions) reviewActions.style.display = '';
   closeMyAnalyses();
   closeCompare();
   resetApp();
+  var clickHintNS = document.getElementById('summary-click-hint');
+  if (clickHintNS) clickHintNS.textContent = 'Click any column header to open and re-examine that phase.';
+  // Viewing a saved session switched the grading sex; restore the live choice.
+  if (wasSaved) setSex(window.__eflLiveSex || null);
 }
 
 function openMyAnalyses() {
-  document.getElementById('my-analyses-overlay').classList.add('open');
+  var maOv = document.getElementById('my-analyses-overlay');
+  var wasOpen = maOv.classList.contains('open');
+  maOv.classList.add('open');
+  if (!wasOpen) esLabs.openDialog(maOv, { initialFocus: maOv.querySelector('.ma-hdr .ep-close'), onClose: closeMyAnalyses });
   if (currentUser) loadAnalysesList();
-  else document.getElementById('ma-list').innerHTML = '<div style="text-align:center;padding:40px"><div style="font-size:15px;font-weight:700;margin-bottom:6px">Save your sessions — free</div><div style="font-size:12px;color:var(--muted2);margin-bottom:14px">One-tap signup. Your videos never leave your browser.</div><button class="btn-main" onclick="signInWithGoogle()">Continue with Google</button></div>';
+  else {
+    // Google popups fail in in-app browsers / without sessionStorage: offer the email sign-in instead.
+    var signInBtn = (esLabs.googleOAuthAvailable && esLabs.googleOAuthAvailable())
+      ? '<button class="btn-main" onclick="signInWithGoogle()">Continue with Google</button>'
+      : '<button class="btn-main" onclick="closeMyAnalyses();signInWithGoogle()">Sign in</button>';
+    document.getElementById('ma-list').innerHTML = '<div style="text-align:center;padding:40px"><div style="font-size:15px;font-weight:700;margin-bottom:6px">Save your sessions — free</div><div style="font-size:12px;color:var(--muted2);margin-bottom:14px">One-tap signup. Your videos never leave your browser.</div>' + signInBtn + '</div>';
+  }
 }
 function closeMyAnalyses() {
-  document.getElementById('my-analyses-overlay').classList.remove('open');
+  var maOv = document.getElementById('my-analyses-overlay');
+  if (!maOv.classList.contains('open')) return;
+  maOv.classList.remove('open');
+  esLabs.closeDialog(maOv);
 }
 
 async function loadAnalysesList() {
@@ -184,16 +222,17 @@ async function loadAnalysesList() {
         Object.keys(d.issues).forEach(function(k) { if (d.issues[k] && d.issues[k].detected) issueCount++; });
       }
       var issueSummary = issueCount > 0 ? issueCount + ' issue' + (issueCount > 1 ? 's' : '') + ' detected' : 'No issues detected';
-      return '<div class="ma-item" style="display:flex;align-items:center;gap:12px">' +
-        '<input type="checkbox" class="ma-compare-check" data-id="' + escSaved(item.id) + '" style="width:18px;height:18px;accent-color:#00e5c8;cursor:pointer;flex-shrink:0" onchange="updateCompareSelection()">' +
-        '<div class="ma-item-info" style="flex:1;min-width:0">' +
-          '<div class="ma-item-name">' + escSaved(d.name || 'Untitled') + '</div>' +
-          '<div class="ma-item-date">' + escSaved(d.date || '') + (d.sex ? ' -- ' + escSaved(d.sex) : '') + '</div>' +
+      var nameEsc = escSaved(d.name || 'Untitled');
+      return '<div class="ma-item">' +
+        '<input type="checkbox" class="ma-compare-check" data-id="' + escSaved(item.id) + '" aria-label="Compare ' + nameEsc + '" onchange="updateCompareSelection(this)">' +
+        '<div class="ma-item-info">' +
+          '<div class="ma-item-name">' + nameEsc + '</div>' +
+          '<div class="ma-item-date">' + escSaved(eflFmtDate(d.date)) + (d.sex ? ' · ' + escSaved(d.sex.charAt(0).toUpperCase() + d.sex.slice(1)) : '') + '</div>' +
           '<div class="ma-item-issues">' + issueSummary + '</div>' +
         '</div>' +
-        '<div style="display:flex;gap:6px;flex-shrink:0">' +
-          '<button class="ma-action-btn" data-action="view" data-id="' + escSaved(item.id) + '" style="padding:8px 18px;font-size:13px;font-weight:700;border-radius:8px;border:1px solid rgba(0,229,200,.35);background:rgba(0,229,200,.1);color:#00e5c8;cursor:pointer">View</button>' +
-          '<button class="ma-action-btn" data-action="delete" data-id="' + escSaved(item.id) + '" style="padding:8px 18px;font-size:13px;font-weight:700;border-radius:8px;border:1px solid rgba(245,80,80,.3);background:rgba(245,80,80,.06);color:#f55050;cursor:pointer">Delete</button>' +
+        '<div class="ma-item-actions">' +
+          '<button type="button" class="ma-action-btn view esl-btn esl-btn--sm esl-btn--outline" data-action="view" data-id="' + escSaved(item.id) + '">View</button>' +
+          '<button type="button" class="ma-action-btn delete esl-btn esl-btn--sm esl-btn--danger" data-action="delete" data-id="' + escSaved(item.id) + '">Delete</button>' +
         '</div>' +
       '</div>';
     }).join('');
@@ -201,13 +240,14 @@ async function loadAnalysesList() {
     // Show compare bar if 2+ sessions exist
     var compareBar = document.getElementById('ma-compare-bar');
     if (compareBar) compareBar.style.display = savedAnalysesList.length >= 2 ? 'block' : 'none';
+    eflCompareOrder = [];
     updateCompareSelection();
 
     // Attach event delegation for action buttons
     listEl.removeEventListener('click', handleAnalysisAction);
     listEl.addEventListener('click', handleAnalysisAction);
   } catch(e) {
-    listEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--bad)">Failed to load: ' + e.message + '</div>';
+    listEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--bad-ink)">Failed to load: ' + e.message + '</div>';
   }
 }
 
@@ -221,42 +261,41 @@ function handleAnalysisAction(e) {
   else if (action === 'delete') deleteAnalysis(id);
 }
 
-function updateCompareSelection() {
-  var checks = document.querySelectorAll('.ma-compare-check:checked');
+// Ticked rows in click order: a third tick replaces the oldest click (esflpdf-11).
+var eflCompareOrder = [];
+function updateCompareSelection(el) {
+  if (el && el.dataset && el.dataset.id) {
+    var id = el.dataset.id;
+    eflCompareOrder = eflCompareOrder.filter(function(x) { return x !== id; });
+    if (el.checked) eflCompareOrder.push(id);
+  }
+  // Drop ids whose box is no longer ticked (e.g. after a list reload).
+  eflCompareOrder = eflCompareOrder.filter(function(x) {
+    var cb = document.querySelector('.ma-compare-check[data-id="' + (window.CSS && CSS.escape ? CSS.escape(x) : x) + '"]');
+    return cb && cb.checked;
+  });
+  // Ticked boxes we haven't seen a click for (set programmatically) join at the end.
+  Array.prototype.forEach.call(document.querySelectorAll('.ma-compare-check:checked'), function(cb) {
+    var cid = cb.getAttribute('data-id');
+    if (cid && eflCompareOrder.indexOf(cid) === -1) eflCompareOrder.push(cid);
+  });
+  while (eflCompareOrder.length > 2) {
+    var oldest = eflCompareOrder.shift();
+    var ocb = document.querySelector('.ma-compare-check[data-id="' + (window.CSS && CSS.escape ? CSS.escape(oldest) : oldest) + '"]');
+    if (ocb) ocb.checked = false;
+  }
+  var count = eflCompareOrder.length;
   var btn = document.getElementById('ma-compare-btn');
   var hint = document.getElementById('ma-compare-hint');
   if (!btn) return;
-  if (checks.length === 2) {
-    btn.style.opacity = '1';
-    btn.style.pointerEvents = 'auto';
-    if (hint) hint.textContent = '2 sessions selected';
-  } else if (checks.length > 2) {
-    // Uncheck the oldest selection (first checked that isn't the latest)
-    var allChecks = document.querySelectorAll('.ma-compare-check');
-    for (var ci = 0; ci < allChecks.length; ci++) {
-      if (allChecks[ci].checked) {
-        var isLatest = false;
-        for (var cj = 0; cj < checks.length; cj++) {
-          if (checks[cj] === allChecks[ci] && cj === checks.length - 1) isLatest = true;
-        }
-        if (!isLatest) { allChecks[ci].checked = false; break; }
-      }
-    }
-    btn.style.opacity = '1';
-    btn.style.pointerEvents = 'auto';
-    if (hint) hint.textContent = '2 sessions selected';
-  } else {
-    btn.style.opacity = '.4';
-    btn.style.pointerEvents = 'none';
-    if (hint) hint.textContent = checks.length === 1 ? '1 selected -- pick one more to compare' : 'Select 2 sessions to compare';
-  }
+  btn.disabled = count !== 2;
+  if (hint) hint.textContent = count === 2 ? '2 sessions selected' : count === 1 ? '1 selected \u2014 pick one more to compare' : 'Select 2 sessions to compare';
 }
 
 function compareSelected() {
-  var checks = document.querySelectorAll('.ma-compare-check:checked');
-  if (checks.length !== 2) return;
-  var idA = checks[0].getAttribute('data-id');
-  var idB = checks[1].getAttribute('data-id');
+  if (eflCompareOrder.length !== 2) return;
+  var idA = eflCompareOrder[0];
+  var idB = eflCompareOrder[1];
   closeMyAnalyses();
   openCompare(idA, idB);
 }
@@ -273,9 +312,20 @@ async function deleteAnalysis(id) {
 }
 
 async function viewSavedAnalysis(id) {
+  if (typeof tourState !== 'undefined' && tourState.active) endTour(true);
   var item = savedAnalysesList.find(function(a) { return a.id === id; });
   if (!item) return;
+  // Unsaved live work (a report, or analysed phases) would be replaced: ask first.
+  var hasLiveWork = lastIssues !== null || PHASE_DEFS.some(function(pd) { return phases[pd.key] && phases[pd.key].metrics; });
+  if (!isViewingSaved && hasLiveWork && !window.__eflSavedThisRun &&
+      !confirm('Open this saved session? Your current analysis hasn\u2019t been saved and will be replaced.')) return;
   var d = item.data;
+  if (!isViewingSaved) window.__eflLiveSex = selectedSex;
+  currentSavedId = id;
+  var rpmVS = document.getElementById('report-print-meta');
+  if (rpmVS) rpmVS.textContent = '';
+  var saveNameVS = document.getElementById('save-name');
+  if (saveNameVS) saveNameVS.value = '';
 
   closeMyAnalyses();
   isViewingSaved = true;
@@ -289,6 +339,13 @@ async function viewSavedAnalysis(id) {
   if (instrBanner) instrBanner.style.display = 'none';
   var scanSummaryBar = document.getElementById('scan-summary-bar');
   if (scanSummaryBar) scanSummaryBar.style.display = 'none';
+  var reviewActions = document.getElementById('review-actions');
+  if (reviewActions) reviewActions.style.display = 'none';
+  var scanWarnBox = document.getElementById('scan-warnings');
+  if (scanWarnBox) scanWarnBox.hidden = true;
+  var clickHint = document.getElementById('summary-click-hint');
+  if (clickHint) clickHint.textContent = 'Open a live analysis to re-examine phases.';
+  document.body.classList.add('esfl-has-session');
   var phaseGroupsEl = document.getElementById('phase-groups');
   if (phaseGroupsEl) phaseGroupsEl.style.display = 'none';
   var bar = document.getElementById('complete-analysis-bar');
@@ -297,11 +354,11 @@ async function viewSavedAnalysis(id) {
   // Show saved view banner
   var banner = document.getElementById('saved-view-banner');
   document.getElementById('saved-view-name').textContent = d.name || 'Untitled';
-  document.getElementById('saved-view-date').textContent = d.date || '';
+  document.getElementById('saved-view-date').textContent = eflFmtDate(d.date);
   banner.style.display = 'flex';
 
   // Set sex
-  selectedSex = d.sex || null;
+  setSex(d.sex || null);
 
   // Populate phases from saved data
   PHASE_DEFS.forEach(function(def) {
@@ -353,24 +410,47 @@ async function viewSavedAnalysis(id) {
 
 
 
+// Chronological order for Compare: user-entered date, then save time (esflpdf-02).
+function eflOrderKey(item) {
+  var d = (item && item.data) || {};
+  var ca = d.createdAt;
+  var ts = ca && ca.toMillis ? ca.toMillis() : (ca && ca.seconds ? ca.seconds * 1000 : 0);
+  return [d.date || '', ts];
+}
+function isLater(a, b) {
+  var ka = eflOrderKey(a), kb = eflOrderKey(b);
+  return ka[0] > kb[0] || (ka[0] === kb[0] && ka[1] > kb[1]);
+}
+
 function openCompare(idA, idB) {
   document.getElementById('compare-overlay').classList.add('open');
+  document.body.classList.add('compare-open');
   var picker = document.getElementById('compare-picker');
   if (savedAnalysesList.length < 2) {
     picker.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted2)">You need at least 2 saved sessions to compare.</div>';
     document.getElementById('compare-results').innerHTML = '';
+    eflOpenCompareDialog();
     return;
   }
 
+  // Sessions sharing a date also show the save time so the two can be told apart.
+  var dateCounts = {};
+  savedAnalysesList.forEach(function(item) { var k = item.data.date || ''; dateCounts[k] = (dateCounts[k] || 0) + 1; });
   var optionsHtml = savedAnalysesList.map(function(item) {
-    return '<option value="' + escSaved(item.id) + '">' + escSaved(item.data.name || 'Untitled') + ' (' + escSaved(item.data.date || '') + ')</option>';
+    var label = eflFmtDate(item.data.date);
+    if (dateCounts[item.data.date || ''] > 1) {
+      var ts = eflOrderKey(item)[1];
+      if (ts) label += ' \u00b7 ' + new Date(ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    }
+    return '<option value="' + escSaved(item.id) + '">' + escSaved(item.data.name || 'Untitled') + (label ? ' (' + escSaved(label) + ')' : '') + '</option>';
   }).join('');
 
-  picker.innerHTML = '<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">' +
-    '<div style="flex:1;min-width:200px"><label style="font-size:11px;font-family:var(--mono);color:var(--muted2);display:block;margin-bottom:4px">Session A (earlier)</label><select class="save-input" id="compare-a" onchange="runCompare()">' + optionsHtml + '</select></div>' +
-    '<div style="font-size:18px;color:var(--muted)">vs</div>' +
-    '<div style="flex:1;min-width:200px"><label style="font-size:11px;font-family:var(--mono);color:var(--muted2);display:block;margin-bottom:4px">Session B (later)</label><select class="save-input" id="compare-b" onchange="runCompare()">' + optionsHtml + '</select></div>' +
-  '</div>';
+  picker.innerHTML = '<div class="compare-pick-row">' +
+    '<div class="compare-pick"><label for="compare-a">Session A (earlier)</label><select class="save-input" id="compare-a" onchange="runCompare()">' + optionsHtml + '</select></div>' +
+    '<div class="compare-vs">vs</div>' +
+    '<div class="compare-pick"><label for="compare-b">Session B (later)</label><select class="save-input" id="compare-b" onchange="runCompare()">' + optionsHtml + '</select></div>' +
+  '</div>' +
+  '<p class="compare-swap-hint esl-caption" id="compare-swap-hint" role="status" hidden></p>';
 
   if (!idA || !idB) {
     // Default to the two most-recently-saved sessions when no IDs are supplied.
@@ -383,20 +463,27 @@ function openCompare(idA, idB) {
   // sort here rather than asking each caller to.
   var aItem = savedAnalysesList.find(function(x) { return x.id === idA; });
   var bItem = savedAnalysesList.find(function(x) { return x.id === idB; });
-  if (aItem && bItem) {
-    var aDate = (aItem.data && aItem.data.date) || '';
-    var bDate = (bItem.data && bItem.data.date) || '';
-    if (aDate && bDate && aDate > bDate) {
-      var tmp = idA; idA = idB; idB = tmp;
-    }
+  if (aItem && bItem && isLater(aItem, bItem)) {
+    var tmp = idA; idA = idB; idB = tmp;
   }
   document.getElementById('compare-a').value = idA;
   document.getElementById('compare-b').value = idB;
   runCompare();
+  eflOpenCompareDialog();
+}
+
+// Compare dialog semantics (a11y-13): focus the first picker, trap Tab, Escape closes.
+function eflOpenCompareDialog() {
+  var cOv = document.getElementById('compare-overlay');
+  esLabs.openDialog(cOv, { initialFocus: document.getElementById('compare-a') || cOv.querySelector('.compare-hdr .ep-close'), onClose: closeCompare });
 }
 
 function closeCompare() {
-  document.getElementById('compare-overlay').classList.remove('open');
+  var cOv = document.getElementById('compare-overlay');
+  if (!cOv.classList.contains('open')) return;
+  cOv.classList.remove('open');
+  document.body.classList.remove('compare-open');
+  esLabs.closeDialog(cOv);
 }
 
 // For non-side-specific phases (mid), the L/R assignments
@@ -418,6 +505,15 @@ function runCompare() {
   var itemA = savedAnalysesList.find(function(a) { return a.id === idA; });
   var itemB = savedAnalysesList.find(function(a) { return a.id === idB; });
   if (!itemA || !itemB) return;
+  // Keep the "A = earlier" promise when the user picks them the other way round.
+  var swapHint = document.getElementById('compare-swap-hint');
+  if (isLater(itemA, itemB)) {
+    var tmpItem = itemA; itemA = itemB; itemB = tmpItem;
+    idA = itemA.id; idB = itemB.id;
+    document.getElementById('compare-a').value = idA;
+    document.getElementById('compare-b').value = idB;
+    if (swapHint) { swapHint.textContent = 'Swapped so Session A is the earlier one'; swapHint.hidden = false; }
+  } else if (swapHint) { swapHint.hidden = true; }
 
   var dA = itemA.data, dB = itemB.data;
   var issuesA = dA.issues || {};
@@ -431,10 +527,9 @@ function runCompare() {
   }
 
   function sevLabel(issue) {
-    if (!issue || !issue.detected) return '<span style="color:var(--muted2)">Clear</span>';
-    if (issue.severity === 'notable') return '<span style="color:var(--text)">&#9679; Notable</span>';
-    if (issue.severity === 'mild') return '<span style="color:var(--muted2)">&#9675; Mild</span>';
-    return '<span style="color:var(--muted2)">Clear</span>';
+    if (issue && issue.detected && issue.severity === 'notable') return '<span class="esl-badge esl-badge--bad">Notable</span>';
+    if (issue && issue.detected && issue.severity === 'mild') return '<span class="esl-badge esl-badge--warn">Mild</span>';
+    return '<span class="esl-badge">Clear</span>';
   }
 
   var issueKeys = [
@@ -446,15 +541,20 @@ function runCompare() {
     { key: 'kneeValgus', title: 'Knee valgus' }
   ];
 
-  var html = '<div style="margin-top:20px">';
+  var nameA = escSaved(dA.name || 'Session A'), nameB = escSaved(dB.name || 'Session B');
+  var passOk = !(window.esLabs && esLabs.getPassState) || !!(esLabs.getPassState() || {}).unlocked;
+  var html = '<div class="compare-results-inner">';
 
-  html += '<div style="text-align:center;margin:8px 0 24px"><button class="btn-download-report" onclick="downloadComparisonPDF()">' +
+  html += '<div class="compare-dl"><button class="btn-download-report" onclick="downloadComparisonPDF()">' +
             '<span class="bdr-icon">&#11015;</span>' +
             '<span>Download comparison report as PDF</span>' +
             '<span class="bdr-sub">save &middot; share &middot; print</span>' +
-          '</button></div>';
-  html += '<div style="font-size:14px;font-weight:700;margin-bottom:12px;padding:0 22px">Issue changes</div>';
+          '</button>' +
+          (passOk ? '' : '<p class="esl-caption compare-pass-hint">Requires an active 90-day pass</p>') +
+          '</div>';
+  html += '<h3 class="compare-subhead">Issue changes</h3>';
   html += '<div class="compare-grid">';
+  html += '<div class="cmp-head" aria-hidden="true"><span>Issue</span><span>' + nameA + '</span><span>Change</span><span>' + nameB + '</span></div>';
 
   issueKeys.forEach(function(ik) {
     var a = issuesA[ik.key], b = issuesB[ik.key];
@@ -464,20 +564,21 @@ function runCompare() {
     var dirClass = 'direction-' + dir;
 
     html += '<div class="compare-issue-row">' +
-      '<div class="compare-issue-card"><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:4px">' + escSaved(dA.name || 'A') + '</div>' + sevLabel(a) + '</div>' +
-      '<div class="compare-direction"><div class="' + dirClass + '">' + dirLabel + '</div><div style="font-size:10px;color:var(--muted);margin-top:2px">' + ik.title + '</div></div>' +
-      '<div class="compare-issue-card"><div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:4px">' + escSaved(dB.name || 'B') + '</div>' + sevLabel(b) + '</div>' +
+      '<span class="cmp-issue">' + ik.title + '</span>' +
+      '<span class="cmp-a"><span class="cmp-sess">Session A</span>' + sevLabel(a) + '</span>' +
+      '<span class="cmp-dir ' + dirClass + '">' + dirLabel + '</span>' +
+      '<span class="cmp-b"><span class="cmp-sess">Session B</span>' + sevLabel(b) + '</span>' +
     '</div>';
   });
 
   html += '</div>';
 
-  html += '<div style="margin-top:20px">';
+  html += '<div class="compare-details-wrap">';
   html += '<button class="compare-details-toggle" onclick="this.classList.toggle(\'open\');document.getElementById(\'compare-detail-table\').classList.toggle(\'open\')">Angle measurements detail <span class="toggle-arrow">&#9660;</span></button>';
   html += '<div class="compare-details-table" id="compare-detail-table">';
 
   var sidePhases = ['l_foot','r_foot','l_toe','r_toe','mid'];
-  html += '<table class="stbl" style="min-width:500px"><thead><tr><th>Phase</th><th>Metric</th><th>' + escSaved(dA.name || 'A') + '</th><th>' + escSaved(dB.name || 'B') + '</th><th>Change</th></tr></thead><tbody>';
+  html += '<table class="stbl" style="min-width:500px"><thead><tr><th>Phase</th><th>Metric</th><th>' + nameA + '</th><th>' + nameB + '</th><th>Change</th></tr></thead><tbody>';
 
   sidePhases.forEach(function(pk) {
     var phA = dA.phases ? dA.phases[pk] : null;
@@ -493,8 +594,8 @@ function runCompare() {
         if (!isRelevant(pk, r.key)) return;
         var vA = mA ? mA[r.key] : null;
         var vB = mB ? mB[r.key] : null;
-        var fA = vA != null ? r.fmt(vA) : '--';
-        var fB = vB != null ? r.fmt(vB) : '--';
+        var fA = vA != null ? r.fmt(vA) : '\u2013';
+        var fB = vB != null ? r.fmt(vB) : '\u2013';
         var delta = '';
         var deltaStyle = 'color:var(--muted2)';
         if (vA != null && vB != null) {
@@ -504,16 +605,18 @@ function runCompare() {
           var center = (rng.green[0] + rng.green[1]) / 2;
           var distA = Math.abs(vA - center);
           var distB = Math.abs(vB - center);
-          if (Math.abs(diff) < 0.5) deltaStyle = 'color:var(--muted)';
-          else if (distB < distA) deltaStyle = 'color:var(--good)';
-          else deltaStyle = 'color:var(--warn)';
+          if (Math.abs(diff) < 0.5) deltaStyle = 'color:var(--muted2)';
+          else if (distB < distA) deltaStyle = 'color:var(--good-ink)';
+          else deltaStyle = 'color:var(--warn-ink)';
         }
         html += '<tr><td class="row-label">' + phaseLabel + '</td><td class="row-label">' + r.label + '</td><td style="font-family:var(--mono);font-size:12px">' + fA + '</td><td style="font-family:var(--mono);font-size:12px">' + fB + '</td><td style="font-family:var(--mono);font-size:12px;font-weight:700;' + deltaStyle + '">' + delta + '</td></tr>';
       });
     }
   });
 
-  html += '</tbody></table></div></div>';
+  html += '</tbody></table>';
+  html += '<p class="cmp-legend">Change: green = closer to the middle of the reference range than in Session A \u00b7 amber = further from it \u00b7 grey = changed by less than 0.5.</p>';
+  html += '</div></div>';
   html += '</div>';
 
   resultsEl.innerHTML = html;
@@ -535,7 +638,10 @@ async function downloadComparisonPDF() {
   try {
     var fns = firebase.app().functions('us-central1');
     var call = fns.httpsCallable('generateComparisonReport');
-    var res = await call({ idA: idA, idB: idB });
+    var payload = { idA: idA, idB: idB };
+    // Admin acting as an athlete: the server reads the athlete's analyses (functions allow admin ownerUid).
+    if (esLabs.isActingAs && esLabs.isActingAs() && currentUser && currentUser.uid) payload.ownerUid = currentUser.uid;
+    var res = await call(payload);
     var data = res && res.data ? res.data : {};
     if (!data.pdfBase64) throw new Error('Empty response from comparison renderer.');
 

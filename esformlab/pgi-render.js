@@ -47,27 +47,35 @@
       'border-radius:10px;background:var(--panel2,#121724);' + (extra || '') + '">' + inner + '</div>';
   }
   function label(text) {
-    return '<div style="font-size:10px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;' +
+    return '<div style="font-size:11px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;' +
       'color:var(--muted2,#8aa0c0);margin-bottom:8px">' + text + '</div>';
   }
   function stat(title, value, sub) {
     return '<div style="flex:1 1 130px;min-width:120px;padding:9px 11px;border-radius:8px;' +
       'border:1px solid var(--border2,#2a3550)">' +
-      '<div style="font-size:10px;color:var(--muted2,#8aa0c0);text-transform:uppercase;' +
+      '<div style="font-size:11px;color:var(--muted2,#8aa0c0);text-transform:uppercase;' +
       'letter-spacing:.5px;margin-bottom:3px">' + esc(title) + '</div>' +
       '<div style="font-size:17px;font-weight:700;line-height:1.2">' + value + '</div>' +
-      (sub ? '<div style="font-size:10.5px;color:var(--muted2,#8aa0c0);margin-top:3px;line-height:1.4">' +
+      (sub ? '<div style="font-size:12px;color:var(--muted2,#8aa0c0);margin-top:3px;line-height:1.4">' +
         esc(sub) + '</div>' : '') + '</div>';
   }
   function row(inner) {
     return '<div style="display:flex;flex-wrap:wrap;gap:8px">' + inner + '</div>';
   }
+  // Display title for a pattern card: "Left · Well-prepared touchdown" (pattern object untouched).
+  function patternTitle(p) {
+    var sideM = /^(left|right)\s*:/i.exec((p.observations || [])[0] || '');
+    var name = String(p.pattern).replace(/_/g, ' ');
+    name = name.charAt(0).toUpperCase() + name.slice(1);
+    name = (' ' + name + ' ').replace(/ well prepared /i, function (m) { return m.charAt(1) === 'W' ? ' Well-prepared ' : ' well-prepared '; }).trim();
+    return (sideM ? sideM[1].charAt(0).toUpperCase() + sideM[1].slice(1).toLowerCase() + ' \u00b7 ' : '') + name;
+  }
   function note(text) {
-    return '<div style="font-size:11px;color:var(--muted2,#8aa0c0);line-height:1.6;margin-top:9px">' +
+    return '<div style="font-size:12px;color:var(--muted2,#8aa0c0);line-height:1.6;margin-top:9px">' +
       esc(text) + '</div>';
   }
   function unavailable(text) {
-    return '<div style="font-size:11.5px;color:var(--muted2,#8aa0c0);line-height:1.6;padding:8px 0">' +
+    return '<div style="font-size:12px;color:var(--muted2,#8aa0c0);line-height:1.6;padding:8px 0">' +
       esc(text) + '</div>';
   }
 
@@ -81,10 +89,10 @@
       'var(--border2,#2a3550);border-radius:10px;background:var(--panel2,#121724)">' +
       '<summary style="cursor:pointer;padding:12px 14px;list-style:none;display:flex;' +
       'justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap">' +
-      '<span style="font-size:10px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;' +
+      '<span style="font-size:11px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;' +
       'color:var(--muted2,#8aa0c0)">' + labelText +
       ' <span style="font-weight:400;letter-spacing:0;text-transform:none">&#9662;</span></span>' +
-      (takeaway ? '<span style="font-size:11.5px;line-height:1.5;flex:1 1 260px;text-align:right;' +
+      (takeaway ? '<span style="font-size:12px;line-height:1.5;flex:1 1 260px;text-align:right;' +
         'min-width:200px">' + takeaway + '</span>' : '') +
       '</summary><div style="padding:0 14px 14px">' + innerHtml + '</div></details>';
   }
@@ -279,7 +287,7 @@
     parts.push('<text x="4" y="' + (padT + 6) + '" font-size="9" fill="var(--muted2,#8aa0c0)">height</text>');
 
     return '<div style="margin-top:10px">' + svgFrame(W, H, parts.join('')) +
-      '<div style="font-size:10.5px;color:var(--muted2,#8aa0c0);line-height:1.5;margin-top:2px">' +
+      '<div style="font-size:12px;color:var(--muted2,#8aa0c0);line-height:1.5;margin-top:2px">' +
       'Foot path relative to the centre of mass, 150 ms before to 100 ms after contact. ' +
       'Dots darken with time; the amber dot is touchdown. Ankle-anchored.</div></div>';
   }
@@ -367,7 +375,7 @@
     parts.push('<text x="4" y="' + (padT + 4) + '" font-size="9" fill="var(--muted2,#8aa0c0)">height</text>');
 
     return '<div style="margin-top:10px">' + svgFrame(W, H, parts.join('')) +
-      '<div style="font-size:10.5px;color:var(--muted2,#8aa0c0);line-height:1.5;margin-top:2px">' +
+      '<div style="font-size:12px;color:var(--muted2,#8aa0c0);line-height:1.5;margin-top:2px">' +
       'Centre-of-mass height across one step, in leg lengths. Shaded: loading/compression ' +
       '(touchdown &#8594; minimum COM) and rebound/projection (minimum COM &#8594; toe-off).</div></div>';
   }
@@ -495,7 +503,7 @@
       var pct = ms / total * 100;
       return '<div style="flex:0 0 ' + pct.toFixed(1) + '%;background:' + color +
         ';padding:7px 4px;text-align:center;min-width:0;overflow:hidden">' +
-        '<div style="font-size:9px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;' +
+        '<div style="font-size:11px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;' +
         'color:rgba(10,13,20,.85);white-space:nowrap">' + labelText + '</div>' +
         '<div style="font-size:12px;font-weight:700;color:rgba(10,13,20,.95)">' +
         Math.round(ms) + ' ms</div></div>';
@@ -507,11 +515,11 @@
       seg(rebMs, 'var(--good,#3ddc97)', 'Rebound') +
       seg(flightMs, 'var(--accent,#4da3ff)', 'Flight') +
       '</div>' +
-      '<div style="display:flex;justify-content:space-between;font-size:9.5px;' +
+      '<div style="display:flex;justify-content:space-between;font-size:11px;' +
       'color:var(--muted2,#8aa0c0);margin-top:4px">' +
       '<span>touchdown</span><span>minimum COM</span><span>toe-off</span><span>next contact</span></div>' +
-      note('Measured from this clip&#8217;s strides — the proportions change between runners and ' +
-           'between conditions. Minimum COM is the vertical reversal point of the body&#8217;s ' +
+      note('Measured from this clip’s strides — the proportions change between runners and ' +
+           'between conditions. Minimum COM is the vertical reversal point of the body’s ' +
            'centre of mass, not the start of force production.'));
   }
 
@@ -604,7 +612,7 @@
     var warn = '';
     if (mc && mc.reliability && mc.reliability.unreliable) {
       warn = '<div style="margin-top:8px;padding:8px 11px;border-radius:8px;border-left:3px solid ' +
-        'var(--warn,#ffb020);background:rgba(255,176,32,.10);font-size:11px;line-height:1.6">' +
+        'var(--warn,#ffb020);background:rgba(255,176,32,.10);font-size:12px;line-height:1.6">' +
         'The minimum-COM point could not be reliably located on most steps, so these phase figures ' +
         'are low-confidence and no strong rebound interpretation is offered.</div>';
     }
@@ -643,7 +651,7 @@
     var chainItems = [];
     function chainItem(labelText, value) {
       if (value == null) return;
-      chainItems.push('<span style="font-size:10.5px;padding:4px 9px;border-radius:8px;' +
+      chainItems.push('<span style="font-size:12px;padding:4px 9px;border-radius:8px;' +
         'border:1px solid var(--border2,#2a3550);white-space:nowrap">' +
         '<span style="color:var(--muted2,#8aa0c0)">' + esc(labelText) + '</span> ' +
         '<strong>' + value + '</strong></span>');
@@ -676,7 +684,7 @@
       body += '<div style="margin-top:12px;padding:10px 12px;border-radius:8px;' +
         'border:1px solid var(--border2,#2a3550);font-size:12px;line-height:1.65">' +
         esc(ms.text) +
-        (ms.patternNote ? '<div style="font-size:11px;color:var(--muted2,#8aa0c0);margin-top:6px">' +
+        (ms.patternNote ? '<div style="font-size:12px;color:var(--muted2,#8aa0c0);margin-top:6px">' +
           esc(ms.patternNote) + '</div>' : '') + '</div>';
     }
 
@@ -818,7 +826,7 @@
         comTrajectorySvg(com, comSvgContext(result)) + '</div>';
     }
     if (vs && vs.caveats && vs.caveats.length) {
-      body += '<ul style="font-size:11px;color:var(--muted2,#8aa0c0);line-height:1.6;margin:9px 0 0 16px;padding:0">' +
+      body += '<ul style="font-size:12px;color:var(--muted2,#8aa0c0);line-height:1.6;margin:9px 0 0 16px;padding:0">' +
         vs.caveats.map(function (c) { return '<li>' + esc(c) + '</li>'; }).join('') + '</ul>';
     }
     return panel(label('D · Flight &amp; projection') + body);
@@ -850,16 +858,16 @@
         return KFO.formatAngle(p.angle.median, p.uncertaintyDegrees);
       }
       rows += '<tr>' +
-        '<td style="padding:5px 8px 5px 0;font-size:11.5px">' + esc(spec[1]) +
-        '<div style="font-size:10px;color:var(--muted2,#8aa0c0)">' + esc(spec[2]) + '</div></td>' +
+        '<td style="padding:5px 8px 5px 0;font-size:12px">' + esc(spec[1]) +
+        '<div style="font-size:11px;color:var(--muted2,#8aa0c0)">' + esc(spec[2]) + '</div></td>' +
         '<td style="padding:5px 8px;font-size:12px;font-variant-numeric:tabular-nums">' + cell(l) + '</td>' +
         '<td style="padding:5px 8px;font-size:12px;font-variant-numeric:tabular-nums">' + cell(r) + '</td>' +
         '</tr>';
     });
     var table = '<table style="border-collapse:collapse;width:100%;max-width:420px">' +
-      '<tr><th style="text-align:left;font-size:10px;color:var(--muted2,#8aa0c0);padding-bottom:4px"></th>' +
-      '<th style="text-align:left;font-size:10px;color:var(--muted2,#8aa0c0);padding-bottom:4px">LEFT</th>' +
-      '<th style="text-align:left;font-size:10px;color:var(--muted2,#8aa0c0);padding-bottom:4px">RIGHT</th></tr>' +
+      '<tr><th style="text-align:left;font-size:11px;color:var(--muted2,#8aa0c0);padding-bottom:4px"></th>' +
+      '<th style="text-align:left;font-size:11px;color:var(--muted2,#8aa0c0);padding-bottom:4px">LEFT</th>' +
+      '<th style="text-align:left;font-size:11px;color:var(--muted2,#8aa0c0);padding-bottom:4px">RIGHT</th></tr>' +
       rows + '</table>';
 
     var patterns = '';
@@ -868,7 +876,7 @@
       ['left', 'right'].forEach(function (k) {
         var s = td[k];
         if (!s || !s.brakingPattern || !s.brakingPattern.pattern) return;
-        patterns += '<div style="margin-top:6px;font-size:11.5px">' +
+        patterns += '<div style="margin-top:6px;font-size:12px">' +
           '<strong>' + (k === 'left' ? 'Left' : 'Right') + ':</strong> ' +
           esc(String(s.brakingPattern.pattern).replace(/_/g, ' ')) + '</div>';
       });
@@ -928,16 +936,16 @@
       return '<div style="margin-top:10px;padding:11px;border-radius:8px;' +
         'border:1px solid var(--border2,#2a3550)">' +
         '<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">' +
-        '<div style="font-size:12.5px;font-weight:700">' +
-        esc(String(p.pattern).replace(/_/g, ' ')) + '</div>' +
-        (confPct != null ? '<div style="font-size:10px;color:var(--muted2,#8aa0c0)">confidence ' +
+        '<div style="font-size:13px;font-weight:700">' +
+        esc(patternTitle(p)) + '</div>' +
+        (confPct != null ? '<div style="font-size:11px;color:var(--muted2,#8aa0c0)">confidence ' +
           confPct + '%</div>' : '') + '</div>' +
-        '<div style="font-size:11.5px;line-height:1.6;margin-top:5px">' + esc(p.interpretation) + '</div>' +
-        ((obs || alts) ? '<details style="margin-top:6px"><summary style="cursor:pointer;font-size:10.5px;' +
+        '<div style="font-size:12px;line-height:1.6;margin-top:5px">' + esc(p.interpretation) + '</div>' +
+        ((obs || alts) ? '<details style="margin-top:6px"><summary style="cursor:pointer;font-size:12px;' +
           'color:var(--muted2,#8aa0c0);list-style:none">evidence &amp; alternatives &#9662;</summary>' +
-          (obs ? '<ul style="font-size:11px;color:var(--muted2,#8aa0c0);line-height:1.55;' +
+          (obs ? '<ul style="font-size:12px;color:var(--muted2,#8aa0c0);line-height:1.55;' +
             'margin:7px 0 0 16px;padding:0">' + obs + '</ul>' : '') +
-          (alts ? '<div style="font-size:10.5px;color:var(--muted2,#8aa0c0);margin-top:7px;line-height:1.5">' +
+          (alts ? '<div style="font-size:12px;color:var(--muted2,#8aa0c0);margin-top:7px;line-height:1.5">' +
             '<strong>Could also be:</strong> ' + alts + '</div>' : '') +
           '</details>' : '') +
         '</div>';
@@ -964,16 +972,16 @@
     }).join('');
     return panel(
       label('Data quality and limits') +
-      '<div style="font-size:11.5px;line-height:1.6">Confidence: <strong>' +
+      '<div style="font-size:12px;line-height:1.6">Confidence: <strong>' +
       esc(q.confidenceBand || 'unknown') + '</strong>' +
       (isNum(q.stepsAnalyzed) ? ' &middot; ' + q.stepsAnalyzed + ' steps analysed' : '') + '</div>' +
-      (flags ? '<div style="font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;' +
+      (flags ? '<div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;' +
         'color:var(--muted2,#8aa0c0);margin-top:9px">Conditions affecting this analysis</div>' +
-        '<ul style="font-size:11px;color:var(--muted2,#8aa0c0);line-height:1.55;margin:5px 0 0 16px;padding:0">' +
+        '<ul style="font-size:12px;color:var(--muted2,#8aa0c0);line-height:1.55;margin:5px 0 0 16px;padding:0">' +
         flags + '</ul>' : '') +
-      (lim ? '<div style="font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;' +
+      (lim ? '<div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;' +
         'color:var(--muted2,#8aa0c0);margin-top:10px">Limitations</div>' +
-        '<ul style="font-size:11px;color:var(--muted2,#8aa0c0);line-height:1.55;margin:5px 0 0 16px;padding:0">' +
+        '<ul style="font-size:12px;color:var(--muted2,#8aa0c0);line-height:1.55;margin:5px 0 0 16px;padding:0">' +
         lim + '</ul>' : ''));
   }
 
@@ -995,13 +1003,13 @@
     } else if (v && !result.isLegacyView) {
       verifyBadge = '<span style="font-size:10px;padding:2px 7px;border-radius:99px;' +
         'background:rgba(255,176,32,.14);color:var(--warn,#ffb020);margin-left:8px">' +
-        'stance frames not confirmed on the phase cards</span>';
+        'stance frames not confirmed on the phase cards — re-check the L/R foot-strike and toe-off cards</span>';
     }
     return '<div style="margin-top:22px">' +
       '<div style="font-size:15px;font-weight:800;letter-spacing:.2px">' + TITLE + legacyBadge + verifyBadge + '</div>' +
-      '<div style="font-size:11.5px;color:var(--muted2,#8aa0c0);line-height:1.6;margin-top:4px;' +
+      '<div style="font-size:12px;color:var(--muted2,#8aa0c0);line-height:1.6;margin-top:4px;' +
       'max-width:620px">' + esc(SUBTITLE) + '</div>' +
-      '<div style="font-size:11px;color:var(--muted2,#8aa0c0);line-height:1.6;margin-top:7px;' +
+      '<div style="font-size:12px;color:var(--muted2,#8aa0c0);line-height:1.6;margin-top:7px;' +
       'padding:7px 10px;border-left:3px solid var(--border2,#2a3550);background:rgba(125,150,190,.06);' +
       'border-radius:0 6px 6px 0;max-width:620px">' + esc(PGI.DISCLAIMER) + '</div></div>';
   }
@@ -1097,7 +1105,7 @@
       '<text x="10" y="14" font-size="9.5" fill="var(--muted2,#8aa0c0)">the angle = contact point ' +
       '&#8594; centre of mass, measured from vertical</text>';
     return '<div style="margin-top:10px">' + svgFrame(W, H, inner) +
-      '<div style="font-size:10.5px;color:var(--muted2,#8aa0c0);line-height:1.6;margin-top:2px">' +
+      '<div style="font-size:12px;color:var(--muted2,#8aa0c0);line-height:1.6;margin-top:2px">' +
       'Early in stance the body is still behind the planted foot, so the line tilts back (negative). ' +
       'It passes vertical near mid-stance and tilts forward (positive) as the body travels over and ' +
       'past the foot. How far it tilts each way describes how much of stance is spent behind vs ' +
@@ -1156,7 +1164,7 @@
         (cmp.note ? ' ' + cmp.note : '')));
     }
     var head = '<div style="font-size:15px;font-weight:800;margin-top:22px">Condition comparison</div>' +
-      '<div style="font-size:11.5px;color:var(--muted2,#8aa0c0);margin-top:4px">' +
+      '<div style="font-size:12px;color:var(--muted2,#8aa0c0);margin-top:4px">' +
       esc(cmp.labels.a) + ' &rarr; ' + esc(cmp.labels.b) + '</div>';
 
     // The speed warning is deliberately prominent and never collapsed.
@@ -1165,7 +1173,7 @@
       var isHard = cmp.speed.severity === 'warning';
       speedWarn = '<div style="margin-top:10px;padding:10px 12px;border-radius:8px;border-left:3px solid ' +
         (isHard ? 'var(--warn,#ffb020)' : 'var(--border2,#2a3550)') + ';background:' +
-        (isHard ? 'rgba(255,176,32,.10)' : 'rgba(125,150,190,.06)') + ';font-size:11.5px;line-height:1.6">' +
+        (isHard ? 'rgba(255,176,32,.10)' : 'rgba(125,150,190,.06)') + ';font-size:12px;line-height:1.6">' +
         '<strong>' + (isHard ? 'Speeds differed' : 'Speed unknown') + '.</strong> ' +
         esc(cmp.speed.warning) +
         (isNum(cmp.speed.speedA) && isNum(cmp.speed.speedB)
@@ -1176,29 +1184,32 @@
     var groups = Object.keys(GROUP_LABEL).map(function (g) {
       var rows = (cmp.groups[g] || []).filter(function (dd) { return dd.available; }).map(function (dd) {
         var dp = isNum(dd.decimals) ? dd.decimals : 2;
-        var arrow = dd.absolute > 0 ? '&uarr;' : dd.absolute < 0 ? '&darr;' : '&rarr;';
+        var absV = dd.absolute;
+        if (Math.abs(absV) < Math.pow(10, -dp) / 2) absV = 0;   // never print "-0.00"
+        var arrow = absV > 0 ? '&uarr;' : absV < 0 ? '&darr;' : '&rarr;';
         var strong = dd.exceedsVariability === true;
         return '<tr>' +
-          '<td style="padding:4px 8px 4px 0;font-size:11.5px">' + esc(dd.label) + '</td>' +
-          '<td style="padding:4px 8px;font-size:11.5px;font-variant-numeric:tabular-nums">' +
+          '<td style="padding:4px 8px 4px 0;font-size:12px">' + esc(dd.label) + (dd.unit ? ' (' + esc(dd.unit) + ')' : '') + '</td>' +
+          '<td style="padding:4px 8px;font-size:12px;font-variant-numeric:tabular-nums">' +
             dd.conditionA.toFixed(dp) + '</td>' +
-          '<td style="padding:4px 8px;font-size:11.5px;font-variant-numeric:tabular-nums">' +
+          '<td style="padding:4px 8px;font-size:12px;font-variant-numeric:tabular-nums">' +
             dd.conditionB.toFixed(dp) + '</td>' +
-          '<td style="padding:4px 8px;font-size:11.5px;font-variant-numeric:tabular-nums;' +
+          '<td style="padding:4px 8px;font-size:12px;font-variant-numeric:tabular-nums;' +
             (strong ? 'font-weight:700' : 'opacity:.7') + '">' + arrow + ' ' +
-            (dd.absolute > 0 ? '+' : '') + dd.absolute.toFixed(dp) +
-            (isNum(dd.percent) ? ' <span style="font-size:10px;opacity:.75">(' +
+            (absV > 0 ? '+' : '') + absV.toFixed(dp) +
+            (isNum(dd.percent) ? ' <span style="font-size:11px;opacity:.75">(' +
               (dd.percent > 0 ? '+' : '') + dd.percent.toFixed(1) + '%)</span>' : '') + '</td>' +
           '</tr>';
       }).join('');
       if (!rows) return '';
       return '<div style="margin-top:12px">' +
         '<div style="font-size:12px;font-weight:700;margin-bottom:4px">' + GROUP_LABEL[g] + '</div>' +
-        '<table style="border-collapse:collapse;width:100%">' +
-        '<tr><th style="text-align:left;font-size:10px;color:var(--muted2,#8aa0c0)"></th>' +
-        '<th style="text-align:left;font-size:10px;color:var(--muted2,#8aa0c0)">' + esc(cmp.labels.a) + '</th>' +
-        '<th style="text-align:left;font-size:10px;color:var(--muted2,#8aa0c0)">' + esc(cmp.labels.b) + '</th>' +
-        '<th style="text-align:left;font-size:10px;color:var(--muted2,#8aa0c0)">CHANGE</th></tr>' +
+        '<table style="border-collapse:collapse;width:100%;table-layout:fixed">' +
+        '<colgroup><col style="width:40%"><col style="width:18%"><col style="width:18%"><col style="width:24%"></colgroup>' +
+        '<tr><th style="text-align:left;font-size:11px;color:var(--muted2,#8aa0c0)"></th>' +
+        '<th style="text-align:left;font-size:11px;color:var(--muted2,#8aa0c0)">' + esc(cmp.labels.a) + '</th>' +
+        '<th style="text-align:left;font-size:11px;color:var(--muted2,#8aa0c0)">' + esc(cmp.labels.b) + '</th>' +
+        '<th style="text-align:left;font-size:11px;color:var(--muted2,#8aa0c0)">Change</th></tr>' +
         rows + '</table></div>';
     }).join('');
 
@@ -1206,9 +1217,9 @@
       var obs = (p.observations || []).map(function (o) {
         return '<li style="margin-bottom:2px">' + esc(o) + '</li>'; }).join('');
       return '<div style="margin-top:10px;padding:11px;border-radius:8px;border:1px solid var(--border2,#2a3550)">' +
-        '<div style="font-size:12.5px;font-weight:700">' + esc(String(p.pattern).replace(/_/g, ' ')) + '</div>' +
-        '<div style="font-size:11.5px;line-height:1.6;margin-top:5px">' + esc(p.interpretation) + '</div>' +
-        (obs ? '<ul style="font-size:11px;color:var(--muted2,#8aa0c0);line-height:1.55;margin:7px 0 0 16px;' +
+        '<div style="font-size:13px;font-weight:700">' + esc(patternTitle(p)) + '</div>' +
+        '<div style="font-size:12px;line-height:1.6;margin-top:5px">' + esc(p.interpretation) + '</div>' +
+        (obs ? '<ul style="font-size:12px;color:var(--muted2,#8aa0c0);line-height:1.55;margin:7px 0 0 16px;' +
           'padding:0">' + obs + '</ul>' : '') + '</div>';
     }).join('');
 

@@ -56,7 +56,16 @@ function loadUserProfile(uid) {
 
 // Inline onclick="" handlers still call these by name -- keep as
 // thin wrappers over esLabs.
-function signInWithGoogle() { esLabs.signInGoogle(); }
+function signInWithGoogle() {
+  if (esLabs.user) { currentUser = esLabs.user; updateAuthUI(); return; }
+  var showGate = function () {
+    if (typeof esLabs.openSignIn === 'function') { esLabs.openSignIn(); return; }
+    if (typeof esflGate !== 'undefined' && esflGate && esflGate.show) esflGate.show();
+  };
+  if (!esLabs.googleOAuthAvailable()) { showGate(); return; }
+  var p = esLabs.signInGoogle();
+  if (p && p.catch) p.catch(function (e) { console.warn('Google sign-in failed:', e && e.message); showGate(); });
+}
 function signOutUser() { esLabs.signOut(); }
 function openCustomerPortal() { return esLabs.openCustomerPortal(); }
 
@@ -64,6 +73,7 @@ function openCustomerPortal() { return esLabs.openCustomerPortal(); }
 esLabs.onAuthChange(async function (user) {
   currentUser = user;
   updateAuthUI();
+  eflHandlePaidReturn();
   if (user) {
     await loadAnalysesList();
     loadUserProfile(user.uid);
@@ -73,28 +83,96 @@ esLabs.onAuthChange(async function (user) {
   }
 });
 
-esLabs.onPassChange(function () { applyPaywallState(); });
+esLabs.onPassChange(function () { applyPaywallState(); eflHandlePaidReturn(); });
+
+// -- Ownership-aware UI (D7): pass chip, owned upsells, post-checkout toast --
+function eflPassChipText(ps) {
+  if (!ps || !ps.unlocked) return '';
+  if (ps.source === 'coaching-bundle') return 'Pass active \u00b7 Full Access';
+  if (ps.until) {
+    try {
+      var d = new Date(ps.until * 1000);
+      if (!isNaN(d.getTime())) return 'Pass active \u00b7 until ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch (e) {}
+  }
+  return 'Pass active';
+}
+function eflUpdateOwnedUI() {
+  var ps = esLabs.getPassState ? esLabs.getPassState() : null;
+  var chip = document.getElementById('esfl-pass-chip');
+  if (chip) {
+    var txt = (typeof currentUser !== 'undefined' && currentUser) ? eflPassChipText(ps) : '';
+    chip.textContent = txt;
+    chip.hidden = !txt;
+  }
+  // "No pass yet? Save it anyway." only for people without a pass.
+  var note = document.getElementById('save-pass-note');
+  if (note) note.hidden = !!(ps && ps.unlocked);
+  // Coaching subscribers: no upsell to coaching they already have.
+  var cca = document.getElementById('coaching-cta-section');
+  if (cca) {
+    if (cca.__eflSellHtml == null) cca.__eflSellHtml = cca.innerHTML;
+    var coached = !!(ps && ps.hasCoaching);
+    if (coached && !cca.__eflCoachMode) {
+      cca.innerHTML = '<div class="cca-eyebrow">&#9670; You have a coach</div>' +
+        '<h2 class="cca-title">Talk it through with your coach</h2>' +
+        '<div class="cca-body">Bring these findings to your next check-in and work through the cues together.</div>' +
+        '<a href="/coaching/" class="cca-btn">Go to coaching <span class="cca-arrow">&#8594;</span></a>';
+      cca.__eflCoachMode = true;
+    } else if (!coached && cca.__eflCoachMode) {
+      cca.innerHTML = cca.__eflSellHtml;
+      cca.__eflCoachMode = false;
+    }
+  }
+}
+// Back from Stripe (?paid=1): acknowledge now, confirm once the webhook has granted the pass.
+var eflPaidToast = null;
+function eflHandlePaidReturn() {
+  var params;
+  try { params = new URLSearchParams(window.location.search); } catch (e) { return; }
+  if (params.get('paid') !== '1') return;
+  var ps = esLabs.getPassState ? esLabs.getPassState() : null;
+  if (ps && ps.unlocked) {
+    if (eflPaidToast) eflPaidToast.dismiss();
+    eflPaidToast = null;
+    esLabs.toast('Pass unlocked \u2014 your full report is ready.');
+    try {
+      params.delete('paid');
+      var qs = params.toString();
+      history.replaceState(history.state, '', window.location.pathname + (qs ? '?' + qs : '') + window.location.hash);
+    } catch (e) {}
+  } else if (!eflPaidToast && esLabs.user) {
+    eflPaidToast = esLabs.toast('Pass unlocked \u2014 finishing setup\u2026', { timeout: 10 * 60 * 1000 });
+  }
+}
 
 // -- Paywall blur toggle ------------------------------------------
 function applyPaywallState() {
+  eflUpdateOwnedUI();
   var locked = document.getElementById('report-locked-content');
   var summary = document.getElementById('summary-section');
   var coachingCta = document.getElementById('coaching-cta-section');
   var footnotes = document.getElementById('report-footnotes');
   var paywall = document.getElementById('paywall-card');
   var anomalyBanner = document.getElementById('anomaly-banner');
+  // The disclaimer footnotes always stay readable; the intro matches what a locked user sees.
+  if (footnotes) footnotes.classList.remove('paywall-blur');
+  var reportSub = document.getElementById('report-section-sub');
+  if (reportSub) {
+    if (reportSub.__eflUnlockedHtml == null) reportSub.__eflUnlockedHtml = reportSub.innerHTML;
+    if (esLabs.getPassState().unlocked) reportSub.innerHTML = reportSub.__eflUnlockedHtml;
+    else reportSub.textContent = 'Unlock your full report to see what each finding means, why it might matter, and the form cues to work on.';
+  }
   if (esLabs.getPassState().unlocked) {
     if (locked) locked.classList.remove('paywall-blur');
     if (summary) summary.classList.remove('paywall-blur');
     if (coachingCta) coachingCta.classList.remove('paywall-blur');
-    if (footnotes) footnotes.classList.remove('paywall-blur');
     if (paywall) paywall.style.display = 'none';
     if (anomalyBanner) anomalyBanner.style.display = 'none';
   } else {
     if (locked) locked.classList.add('paywall-blur');
     if (summary) summary.classList.add('paywall-blur');
     if (coachingCta) coachingCta.classList.add('paywall-blur');
-    if (footnotes) footnotes.classList.add('paywall-blur');
     if (paywall) paywall.style.display = 'block';
     if (anomalyBanner && anomalyBanner.getAttribute('data-populated') === '1') {
       anomalyBanner.style.display = 'flex';
@@ -129,13 +207,15 @@ async function startPassCheckout() {
 }
 
 async function autosaveAnalysisForResume() {
+  // Unlocking from a saved session resumes that session instead of saving a copy.
+  if (isViewingSaved && typeof currentSavedId !== 'undefined' && currentSavedId) return currentSavedId;
   if (!currentUser) return null;
   var hasData = PHASE_DEFS.some(function (d) { return phases[d.key] && phases[d.key].metrics; });
   if (!hasData) return null;
   var now = new Date();
   var data = {
     name: 'Pre-checkout autosave',
-    date: now.toISOString().slice(0, 10),
+    date: now.toLocaleDateString('en-CA'),
     createdAt: esLabs.firebase.firestore.FieldValue.serverTimestamp(),
     sex: selectedSex,
     phases: {},
@@ -205,14 +285,18 @@ function updateAuthUI() {
   var myAnalysesBtn = document.getElementById('btn-my-analyses');
   var saveBtn = document.getElementById('btn-save');
   var signInSaveBtn = document.getElementById('btn-sign-in-save');
+  var mobileMyAnalyses = document.getElementById('nav-mobile-my-analyses');
 
   if (currentUser) {
     if (myAnalysesBtn) myAnalysesBtn.style.display = 'inline-flex';
+    if (mobileMyAnalyses) mobileMyAnalyses.style.display = 'block';
     if (saveBtn) saveBtn.style.display = 'inline-flex';
     if (signInSaveBtn) signInSaveBtn.style.display = 'none';
   } else {
     if (myAnalysesBtn) myAnalysesBtn.style.display = 'none';
+    if (mobileMyAnalyses) mobileMyAnalyses.style.display = 'none';
     if (saveBtn) saveBtn.style.display = 'none';
     if (signInSaveBtn) signInSaveBtn.style.display = 'inline-flex';
   }
+  eflUpdateOwnedUI();
 }

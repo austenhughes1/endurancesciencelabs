@@ -7,8 +7,8 @@
 <title>esFormLab — Endurance Science Labs</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/shared/site.css">
-<link rel="stylesheet" href="esformlab.css">
+<link rel="stylesheet" href="/shared/site.css?v=20261016">
+<link rel="stylesheet" href="esformlab.css?v=20261016b">
 </head>
 <body>
 
@@ -24,39 +24,45 @@
 <!-- Nav (rendered by /shared/site.js) -->
 <nav class="eslabs-nav" id="esfl-nav"></nav>
 
+<main id="main">
 <!-- Upload -->
 <div id="screen-upload">
   <div class="upload-card">
+
+    <div class="upload-head">
+      <h1 class="upload-h1">Analyze your running form</h1>
+      <p class="upload-sub">Upload a side, front and back clip. The scan runs in your browser — nothing is uploaded.</p>
+    </div>
 
     <!-- Mobile-only perf / accuracy notice. CSS hides this on desktop. -->
     <div class="mobile-perf-notice" role="note" aria-label="Mobile performance notice">
       <div class="mpn-icon">&#9888;</div>
       <div>
-        <div class="mpn-title">Works on your phone -- desktop is a little more precise</div>
-        <div class="mpn-body">Everything runs on your phone -- nothing is uploaded. Each clip plays through once while its frames load, then the pose scan runs. Phones check fewer frames when auto-picking each gait phase (and step 60fps clips two frames at a time), so a laptop or desktop gives slightly more precise picks. Back-to-back scans can run slower on a warm phone -- give it a minute between runs.</div>
+        <div class="mpn-title">Works on your phone — desktop is a little more precise</div>
+        <div class="mpn-body">Everything runs on your phone — nothing is uploaded. Each clip plays through once while its frames load, then the pose scan runs. Phones check fewer frames when auto-picking each gait phase (and step 60fps clips two frames at a time), so a laptop or desktop gives slightly more precise picks. Back-to-back scans can run slower on a warm phone — give it a minute between runs.</div>
       </div>
     </div>
 
     <!-- Gender selector -->
     <div class="sex-select-section">
-      <span class="sex-select-label">Step 1 -- Select athlete gender for grading ranges</span>
+      <h2 class="sex-select-label">Step 1 — Select athlete gender for grading ranges</h2>
       <div class="sex-select-row">
-        <div class="sex-card" id="sex-card-male" onclick="setSex('male')">
-          <div class="sex-card-icon">&#9794;</div>
-          <div class="sex-card-label">Male</div>
-          <div class="sex-card-sub">Uses male reference ranges</div>
-        </div>
-        <div class="sex-card" id="sex-card-female" onclick="setSex('female')">
-          <div class="sex-card-icon">&#9792;</div>
-          <div class="sex-card-label">Female</div>
-          <div class="sex-card-sub">Uses female reference ranges</div>
-        </div>
+        <button type="button" class="sex-card" id="sex-card-male" aria-pressed="false" onclick="setSex('male')">
+          <span class="sex-card-icon" aria-hidden="true">&#9794;</span>
+          <span class="sex-card-label">Male</span>
+          <span class="sex-card-sub">Uses male reference ranges</span>
+        </button>
+        <button type="button" class="sex-card" id="sex-card-female" aria-pressed="false" onclick="setSex('female')">
+          <span class="sex-card-icon" aria-hidden="true">&#9792;</span>
+          <span class="sex-card-label">Female</span>
+          <span class="sex-card-sub">Uses female reference ranges</span>
+        </button>
       </div>
       <div class="sex-skip">
-        <button class="sex-skip-btn" onclick="setSex(null)">Skip -- use general defaults</button>
+        <button class="sex-skip-btn" onclick="setSex(null)">Skip — use general defaults</button>
       </div>
-      <div style="margin:14px auto 0;max-width:680px;padding:12px 16px;background:rgba(0,229,200,.06);border:1px solid rgba(0,229,200,.25);border-left:3px solid var(--cyan);border-radius:10px;font-size:12.5px;color:var(--muted2);line-height:1.65">
-        <strong style="color:var(--cyan)">Why pick your gender?</strong> Male and female runners differ meaningfully in average gait mechanics &mdash; stride length, hip drop, foot-strike pattern, knee mechanics, and arm carriage all trend differently. esFormLab grades your angles against a reference dataset of runners <strong style="color:var(--text)">of the same gender</strong>, so the bell curves, ranges, and severity scores you see are tailored to your body &mdash; not averaged across everyone.
+      <div class="sex-why">
+        <strong class="sex-why-title">Why pick your gender?</strong> Male and female runners differ meaningfully in average gait mechanics &mdash; stride length, hip drop, foot-strike pattern, knee mechanics, and arm carriage all trend differently. esFormLab grades your angles against a reference dataset of runners <strong>of the same gender</strong>, so the ranges and severity scores in your report are tailored to your body &mdash; not averaged across everyone.
       </div>
       <div class="sex-range-note" id="ranges-status">Selecting a gender loads the relevant reference dataset for angle grading.</div>
     </div>
@@ -65,7 +71,7 @@
 
     <!-- Drop zones - 3 in a row -->
     <div class="drop-zone-inner">
-      <span class="sex-select-label">Step 2 -- Upload videos (all three required)</span>
+      <h2 class="sex-select-label">Step 2 — Upload videos (all three required)</h2>
 
       <!-- Must-read prep instructions. Kept above the drop zones on purpose:
            these three points prevent the most common causes of bad scans. -->
@@ -77,31 +83,33 @@
 
       <div class="drop-zones-row">
 
-        <div class="drop-zone" id="drop-zone-side" onclick="document.getElementById('file-input-side').click()" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="handleDrop(event,'side')">
+        <div class="drop-zone" id="drop-zone-side" tabindex="0" role="button" aria-label="Choose side-view video" onclick="document.getElementById('file-input-side').click()" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="handleDrop(event,'side')">
           <div class="dz-icon">&#9654;</div>
           <div class="dz-check">&#10003;</div>
           <div class="dz-title">Side view</div>
           <p class="dz-sub">Film from directly beside the runner</p>
-          <div class="dz-tip"><strong>Best:</strong> Someone moving alongside you at the same pace.<br><strong>Good:</strong> Someone panning the camera to follow you.<br><strong>OK:</strong> Stationary camera, you run past it.<br>Wear clothes that contrast with the background.<br><br><strong style="color:var(--warn)">&#9888; Important during review:</strong> Side-view phases must be analyzed on a frame where the runner is <strong>dead-on perpendicular to the camera</strong>, not approaching or leaving it at an angle. Stationary-camera clips will only have a few good frames in the middle of the pass - make sure to use to those.</div>
+          <div class="dz-tip"><strong>Best:</strong> Someone moving alongside you at the same pace.<br><strong>Good:</strong> Someone panning the camera to follow you.<br><strong>OK:</strong> Stationary camera, you run past it.<br>Wear clothes that contrast with the background.<br><br><strong style="color:var(--warn-ink)">&#9888; Important during review:</strong> Side-view phases must be analyzed on a frame where the runner is <strong>dead-on perpendicular to the camera</strong>, not approaching or leaving it at an angle. Stationary-camera clips will only have a few good frames in the middle of the pass — make sure to use those.</div>
           <div class="dz-required">REQUIRED</div>
           <div class="dz-loaded-status">Video loaded</div>
           <div class="dz-loaded-info" id="dz-info-side"></div>
           <div class="dz-loaded-replace">Click to replace</div>
+          <div class="dz-error" id="dz-error-side" role="alert" hidden></div>
         </div>
 
-        <div class="drop-zone" id="drop-zone-front" onclick="document.getElementById('file-input-front').click()" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="handleDrop(event,'front')">
+        <div class="drop-zone" id="drop-zone-front" tabindex="0" role="button" aria-label="Choose front-view video" onclick="document.getElementById('file-input-front').click()" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="handleDrop(event,'front')">
           <div class="dz-icon">&#9673;</div>
           <div class="dz-check">&#10003;</div>
           <div class="dz-title">Front view</div>
           <p class="dz-sub">Film from directly in front</p>
-          <div class="dz-tip"><strong>Run straight toward the camera.</strong> Do not run at an angle -- even a slight angle will skew hip drop and knee alignment measurements. Wear contrasting clothes against the background.</div>
+          <div class="dz-tip"><strong>Run straight toward the camera.</strong> Do not run at an angle — even a slight angle will skew hip drop and knee alignment measurements. Wear contrasting clothes against the background.</div>
           <div class="dz-required">REQUIRED</div>
           <div class="dz-loaded-status">Video loaded</div>
           <div class="dz-loaded-info" id="dz-info-front"></div>
           <div class="dz-loaded-replace">Click to replace</div>
+          <div class="dz-error" id="dz-error-front" role="alert" hidden></div>
         </div>
 
-        <div class="drop-zone" id="drop-zone-back" onclick="document.getElementById('file-input-back').click()" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="handleDrop(event,'back')">
+        <div class="drop-zone" id="drop-zone-back" tabindex="0" role="button" aria-label="Choose back-view video" onclick="document.getElementById('file-input-back').click()" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="handleDrop(event,'back')">
           <div class="dz-icon">&#9679;</div>
           <div class="dz-check">&#10003;</div>
           <div class="dz-title">Back view</div>
@@ -111,9 +119,15 @@
           <div class="dz-loaded-status">Video loaded</div>
           <div class="dz-loaded-info" id="dz-info-back"></div>
           <div class="dz-loaded-replace">Click to replace</div>
+          <div class="dz-error" id="dz-error-back" role="alert" hidden></div>
         </div>
 
       </div>
+
+      <div class="analyze-row">
+        <button class="btn-main" id="btn-analyze-all" onclick="startAllVideos()" disabled>Analyze all three &#8594;</button>
+      </div>
+      <p class="dz-hint analyze-hint">MP4 / MOV / WebM · fully private · no data uploaded</p>
 
       <!-- General video tips -->
       <div class="video-tips">
@@ -122,21 +136,17 @@
           <div class="video-tip-item"><span class="vt-icon">&#9201;</span><span><strong>Keep clips 8 seconds or less.</strong> Each clip plays through once while its frames load, so longer clips take longer, and the scan spreads a fixed number of samples across the whole clip, so extra footage means fewer samples per stride. A few seconds of steady running is ideal.</span></div>
           <div class="video-tip-item"><span class="vt-icon">&#128247;</span><span><strong>Stay close to the camera.</strong> The runner should fill most of the frame. If you are too far away, the pose model cannot accurately identify joint positions.</span></div>
           <div class="video-tip-item"><span class="vt-icon">&#9888;</span><span><strong>Nothing should block your body.</strong> Treadmill handrails, other runners, or objects in front of you will hide joints and reduce detection accuracy. If filming on a treadmill, position the camera so the display and handrails are not covering your arms or legs.</span></div>
-          <div class="video-tip-item"><span class="vt-icon">&#127939;</span><span><strong>Consider filming both outdoors and on a treadmill.</strong> Treadmill running can change your form -- your stride length, foot strike, and trunk lean may differ from outdoor running. If you want a complete picture, analyze one of each and compare the results.</span></div>
-          <div class="video-tip-item"><span class="vt-icon">&#128202;</span><span><strong>Analyze multiple paces, not just one.</strong> Form changes with effort. Cadence rises, stride length grows, trunk lean increases, and asymmetries that hide at easy pace often show up at 5K effort. Run the tool at easy pace, marathon pace, and 5K pace to see how your mechanics shift across efforts -- that contrast is where the most useful coaching cues come from.</span></div>
+          <div class="video-tip-item"><span class="vt-icon">&#127939;</span><span><strong>Consider filming both outdoors and on a treadmill.</strong> Treadmill running can change your form — your stride length, foot strike, and trunk lean may differ from outdoor running. If you want a complete picture, analyze one of each and compare the results.</span></div>
+          <div class="video-tip-item"><span class="vt-icon">&#128202;</span><span><strong>Analyze multiple paces, not just one.</strong> Form changes with effort. Cadence rises, stride length grows, trunk lean increases, and asymmetries that hide at easy pace often show up at 5K effort. Run the tool at easy pace, marathon pace, and 5K pace to see how your mechanics shift across efforts — that contrast is where the most useful coaching cues come from.</span></div>
           <div class="video-tip-item"><span class="vt-icon">&#127912;</span><span><strong>Use a uniform background that contrasts with your clothing.</strong> The pose model works by identifying your body against the background. If your clothes blend into the background (e.g., dark clothes on a dark track, or grey clothes against concrete), detection will suffer. A turf field, a plain wall, or any backdrop that is a clearly different color from what you are wearing will give much better results.</span></div>
           <div class="video-tip-item"><span class="vt-icon">&#9728;</span><span><strong>Avoid very bright or very dark lighting.</strong> Overexposed (washed out) or underexposed (too dark) video makes it harder for the model to distinguish your body from the background. Even, natural lighting works best. Avoid filming directly into the sun or in deep shadow.</span></div>
         </div>
         <div class="video-tips-note">All video processing happens locally in your browser. Nothing is uploaded or stored anywhere.</div>
       </div>
 
-      <input type="file" id="file-input-side" accept="video/*" style="display:none">
-      <input type="file" id="file-input-front" accept="video/*" style="display:none">
-      <input type="file" id="file-input-back" accept="video/*" style="display:none">
-      <div style="text-align:center;margin-top:18px">
-        <button class="btn-main" id="btn-analyze-all" onclick="startAllVideos()" disabled>Analyze all three &#8594;</button>
-        <p class="dz-hint">MP4 / MOV / WebM -- Fully private -- No data uploaded</p>
-      </div>
+      <input type="file" id="file-input-side" accept="video/*" class="esl-sr-only" tabindex="-1" aria-hidden="true">
+      <input type="file" id="file-input-front" accept="video/*" class="esl-sr-only" tabindex="-1" aria-hidden="true">
+      <input type="file" id="file-input-back" accept="video/*" class="esl-sr-only" tabindex="-1" aria-hidden="true">
     </div>
 
   </div>
@@ -145,15 +155,15 @@
        the form scan with metabolic numbers (VO2max, zones). Placed outside
        the upload card so it doesn't crowd Step 1-3 but is visible to anyone
        who scrolls past the workflow. -->
-  <a href="/esmetaboliclab/power-profile/" class="cross-promo-banner" style="display:block;max-width:880px;margin:28px auto 0;padding:20px 24px;background:linear-gradient(135deg,rgba(139,124,248,.10),rgba(0,229,200,.04));border:1px solid rgba(139,124,248,.32);border-left:4px solid var(--purple,#8b7cf8);border-radius:14px;text-decoration:none;color:inherit;transition:border-color .15s,background .15s">
-    <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">
-      <div style="font-size:28px;line-height:1;color:var(--purple,#8b7cf8)">&#x2B22;</div>
-      <div style="flex:1;min-width:220px">
-        <div style="font-size:11px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--purple,#8b7cf8);font-family:var(--mono);margin-bottom:4px">&#9670; Also free with your account</div>
-        <div style="font-size:17px;font-weight:700;color:var(--text);margin-bottom:4px">Build your metabolic power profile &mdash; 30 minutes, no needles.</div>
-        <div style="font-size:13.5px;color:var(--muted2);line-height:1.55">Four max efforts (15 s, 3 min, 6 min, 12 min) and you get VO&#8322;max, lactate threshold, training zones, and your fat-burning sweet spot &mdash; all free, all in your browser.</div>
+  <a href="/esmetaboliclab/power-profile/" class="cross-promo-banner">
+    <div class="cpb-row">
+      <div class="cpb-icon" aria-hidden="true">&#x2B22;</div>
+      <div class="cpb-text">
+        <div class="cpb-eyebrow">&#9670; Also free with your account</div>
+        <div class="cpb-title">Build your metabolic power profile &mdash; 30 minutes, no needles.</div>
+        <div class="cpb-body">Four max efforts (15 s, 3 min, 6 min, 12 min) and you get VO&#8322;max, lactate threshold, training zones, and your fat-burning sweet spot &mdash; all free, all in your browser.</div>
       </div>
-      <div style="font-size:14px;font-weight:600;color:var(--purple,#8b7cf8);white-space:nowrap">Build profile &rarr;</div>
+      <div class="cpb-cta">Build profile &rarr;</div>
     </div>
   </a>
 </div>
@@ -161,17 +171,19 @@
 <!-- Scanning -->
 <div id="screen-scanning">
   <div class="scan-card">
-    <div class="scan-title">Scanning stride phases</div>
-    <div class="scan-sub" id="scan-sub-text">Analyzing your videos for key moments of the running gait cycle.</div>
-    <div class="scan-hint">Each clip first plays through once while its frames load (about as long as the clip itself), then the pose scan runs. Everything happens on your device -- nothing is uploaded.</div>
+    <h1 class="scan-title">Scanning stride phases</h1>
+    <div class="scan-sub" id="scan-sub-text" aria-live="polite">Analyzing your videos for key moments of the running gait cycle.</div>
+    <div class="scan-hint">Each clip first plays through once while its frames load (about as long as the clip itself), then the pose scan runs. Everything happens on your device — nothing is uploaded.</div>
     <div class="scan-preview">
       <!-- The one decoder: each clip plays through here once while its frames are captured (frame-store.js). -->
       <video id="capture-video" muted playsinline webkit-playsinline disablepictureinpicture disableremoteplayback preload="auto"></video>
       <canvas id="scan-canvas"></canvas>
       <div class="scan-preview-label" id="scan-label">Preparing...</div>
     </div>
-    <div class="scan-bar-track"><div class="scan-bar-fill" id="scan-bar"></div></div>
+    <div class="scan-bar-track" role="progressbar" aria-label="Scan progress"><div class="scan-bar-fill" id="scan-bar"></div></div>
     <div class="scan-step" id="scan-step">Preparing...</div>
+    <div class="scan-actions"><button type="button" class="esl-btn esl-btn--sm esl-btn--outline" id="btn-cancel-scan" onclick="cancelScan()">Cancel scan</button></div>
+    <div class="scan-warn-live" id="scan-warn-live" role="status" aria-live="polite"></div>
     <div class="scan-phase-list" id="scan-phase-list"></div>
     <div id="scan-diag"></div>
   </div>
@@ -179,59 +191,67 @@
 
 <!-- Phases -->
 <div id="screen-phases">
+  <!-- Saved view banner (first child; sticky under the nav) -->
+  <div id="saved-view-banner" class="saved-view-banner" style="display:none">
+    <div class="svb-id">
+      <span class="svb-badge esl-badge">Saved session</span>
+      <h1 id="saved-view-name" class="svb-name"></h1>
+      <span id="saved-view-date" class="svb-date"></span>
+    </div>
+    <div class="svb-actions">
+      <button type="button" class="btn-ghost" onclick="closeMyAnalyses();openMyAnalyses()">All sessions</button>
+      <button type="button" class="btn-ghost" onclick="startNewSession()">New analysis</button>
+    </div>
+  </div>
   <div class="instr-banner">
-    <div class="instr-headline">Before you finish: <em>review every card below</em></div>
-    <div class="instr-subhead">We made a first pass at detecting each phase of your running gait. Now you need to open each card, check the frame, and make sure detection is strong. This is what makes your results accurate.</div>
-
-    <div style="margin:14px 0 18px;background:rgba(245,166,35,.10);border:1.5px solid rgba(245,166,35,.55);border-left:4px solid var(--warn);border-radius:12px;padding:14px 18px;color:var(--text);line-height:1.6;font-size:14px">
-      <div style="font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--warn);margin-bottom:6px;font-family:var(--mono)">&#9888; Finish the walkthrough first</div>
-      A guided walkthrough will pop up below. <strong>Step through every bubble before you touch any of the cards or frame controls.</strong> It only takes about 60 seconds and shows you exactly how to open a card, step to the correct frame, and use the example helper photos. Trying to adjust frames before completing the walkthrough is the #1 way to get confused on this screen.
+    <h1 class="instr-headline">Before you finish: <em>review every card below</em></h1>
+    <div class="instr-subhead">Open each card, check the frame matches its description and aim for <strong>Strong detection</strong> &mdash; then press <strong>Complete analysis</strong>.</div>
+    <p class="instr-walkthrough-line" id="instr-walkthrough-line">A 60-second walkthrough starts below &mdash; step through it before you adjust any frames.</p>
+    <div class="instr-tools">
+      <button class="instr-help-btn" onclick="startTour()">&#9432; Show me how this works (guided tour)</button>
     </div>
-
-    <div class="instr-steps">
-      <div class="instr-step">
-        <div class="instr-step-num">1</div>
-        <div class="instr-step-text">
-          <div class="instr-step-title">Click on every card below</div>
-          <div class="instr-step-desc">Each card represents a specific moment in your stride. <strong>Click on each one</strong> to open it. You will see a skeleton overlay on your video and a detection quality reading.</div>
+    <details class="instr-how" id="instr-how">
+      <summary>How this works</summary>
+      <div class="instr-steps">
+        <div class="instr-step">
+          <div class="instr-step-num">1</div>
+          <div class="instr-step-text">
+            <div class="instr-step-title">Click on every card below</div>
+            <div class="instr-step-desc">Each card represents a specific moment in your stride. <strong>Click on each one</strong> to open it. You will see a skeleton overlay on your video and a detection quality reading.</div>
+          </div>
+        </div>
+        <div class="instr-step">
+          <div class="instr-step-num">2</div>
+          <div class="instr-step-text">
+            <div class="instr-step-title">Get every card to "Strong detection"</div>
+            <div class="instr-step-desc">The detection badge on each card (and the quality card at the top of the inspector) should read <strong>"Strong detection"</strong> in green. If it does not, click the <strong>Analyze</strong> button again, or use the <strong>&#8722;1f / +1f / &#8722;5f / +5f / &#8722;1s / +1s</strong> frame step buttons to pick a clearer frame.</div>
+          </div>
+        </div>
+        <div class="instr-step">
+          <div class="instr-step-num">3</div>
+          <div class="instr-step-text">
+            <div class="instr-step-title">Make sure each frame matches its description</div>
+            <div class="instr-step-desc">Each card describes what the frame should look like (for example, "the moment the left foot contacts the ground"). If the auto-selected frame does not match, <strong>use the frame step buttons (&#8722;1f / +1f / &#8722;5f / +5f / &#8722;1s / +1s) to find the right moment</strong> and click Analyze again.</div>
+          </div>
+        </div>
+        <div class="instr-step">
+          <div class="instr-step-num">4</div>
+          <div class="instr-step-text">
+            <div class="instr-step-title">Then click "Complete analysis"</div>
+            <div class="instr-step-desc">Once every card shows Strong detection and the correct frame, click <strong>Complete analysis</strong> in the bar at the bottom of the screen to generate your full report with coaching recommendations.</div>
+          </div>
         </div>
       </div>
-      <div class="instr-step">
-        <div class="instr-step-num">2</div>
-        <div class="instr-step-text">
-          <div class="instr-step-title">Get every card to "Strong detection"</div>
-          <div class="instr-step-desc">The large detection quality indicator at the top of each card should read <strong>"Strong detection"</strong> in green. If it does not, click the <strong>Analyze</strong> button again, or use the <strong>&#8722;1f / +1f / &#8722;5f / +5f / &#8722;1s / +1s</strong> frame step buttons to pick a clearer frame.</div>
+
+      <div class="instr-callout">
+        <div class="instr-callout-icon">&#9432;</div>
+        <div class="instr-callout-text">
+          <strong>Why does this matter?</strong> The accuracy of your final report depends entirely on the quality of these frames. A frame with weak detection or the wrong moment selected will produce inaccurate angles and unreliable coaching cues. Taking a minute to check each card is the difference between useful feedback and noise.
+          <br><br>If you are consistently getting weak detection across multiple cards, the issue is usually the video itself — the runner may be too far from the camera, partially blocked by equipment, the clip may have too much motion blur, or the clothing may blend into the background. Wearing clothes that contrast with the background (e.g., a bright shirt on a green turf field) and filming in even lighting will make the biggest difference. Re-recording a short, close, well-lit clip with good contrast will help more than adjusting frames.
         </div>
       </div>
-      <div class="instr-step">
-        <div class="instr-step-num">3</div>
-        <div class="instr-step-text">
-          <div class="instr-step-title">Make sure each frame matches its description</div>
-          <div class="instr-step-desc">Each card describes what the frame should look like (for example, "the moment the left foot contacts the ground"). If the auto-selected frame does not match, <strong>use the frame step buttons (&#8722;1f / +1f / &#8722;5f / +5f / &#8722;1s / +1s) to find the right moment</strong> and click Analyze again.</div>
-        </div>
-      </div>
-      <div class="instr-step">
-        <div class="instr-step-num">4</div>
-        <div class="instr-step-text">
-          <div class="instr-step-title">Then click "Complete analysis"</div>
-          <div class="instr-step-desc">Once every card shows Strong detection and the correct frame, scroll to the bottom and click <strong>Complete analysis</strong> to generate your full report with coaching recommendations.</div>
-        </div>
-      </div>
-    </div>
 
-    <button class="instr-help-btn" onclick="startTour()">&#9432; Show me how this works (guided tour)</button>
-
-    <div class="instr-callout">
-      <div class="instr-callout-icon">&#9432;</div>
-      <div class="instr-callout-text">
-        <strong>Why does this matter?</strong> The accuracy of your final report depends entirely on the quality of these frames. A frame with weak detection or the wrong moment selected will produce inaccurate angles and unreliable coaching cues. Taking a minute to check each card is the difference between useful feedback and noise.
-        <br><br>If you are consistently getting weak detection across multiple cards, the issue is usually the video itself -- the runner may be too far from the camera, partially blocked by equipment, the clip may have too much motion blur, or the clothing may blend into the background. Wearing clothes that contrast with the background (e.g., a bright shirt on a green turf field) and filming in even lighting will make the biggest difference. Re-recording a short, close, well-lit clip with good contrast will help more than adjusting frames.
-      </div>
-    </div>
-
-    <div style="margin-top:14px;background:rgba(245,166,35,.06);border:1px solid rgba(245,166,35,.35);border-left:3px solid var(--warn);border-radius:10px;padding:12px 16px;font-size:12px;color:var(--muted2);line-height:1.7">
-      <strong style="color:var(--warn)">&#9888; Not medical advice.</strong> esFormLab provides educational information only. Results are not a medical diagnosis and are not intended to diagnose, treat, cure, or prevent any disease or injury. Use of this tool does not create a doctor&ndash;patient relationship. Consult a qualified healthcare professional before changing your training based on these results.
-    </div>
+    </details>
 
     <div class="instr-legend">
       <div class="il-item"><div class="il-swatch" style="background:var(--left)"></div>Left side</div>
@@ -242,13 +262,15 @@
       <div class="il-item">&#9662; Below range</div>
     </div>
   </div>
+  <div id="scan-warnings" class="scan-warnings" role="note" hidden><p class="sw-title">Check these before you review</p><ul id="scan-warnings-list"></ul></div>
+  <div class="review-actions" id="review-actions"><button class="btn-ghost" id="btn-rescan" onclick="rescan()" style="display:none">&#10227; Re-scan videos</button></div>
   <div id="scan-summary-bar" class="scan-summary"></div>
   <div class="phase-groups" id="phase-groups"></div>
 <!-- Complete Analysis sticky bar -->
 <div id="complete-analysis-bar">
-  <div class="ca-left">
-    <div class="ca-title">All phases analyzed -- ready to complete</div>
-    <div class="ca-sub" id="ca-sub">Review the report below to finalize your analysis</div>
+  <div class="ca-left" role="status">
+    <div class="ca-title" id="ca-title">Review your 9 frames</div>
+    <div class="ca-sub" id="ca-sub">Press Complete analysis to build your report</div>
   </div>
   <button class="btn-complete" onclick="completeAnalysis()">&#9673; Complete analysis &#8594;</button>
 </div>
@@ -259,7 +281,7 @@
       <div style="flex:1">
         <div class="save-form-title">Save this analysis</div>
         <div class="save-form-sub">Give this session a name so you can find it later and compare it to future sessions.</div>
-        <div class="save-form-note">
+        <div class="save-form-note" id="save-pass-note">
           <span class="save-form-note-icon">◉</span>
           <span><strong>No pass yet? Save it anyway.</strong> Your analysis stays on your account — unlock the full report whenever you're ready.</span>
         </div>
@@ -268,19 +290,20 @@
         <input type="text" class="save-input" id="save-name" placeholder="Session name (e.g. first session, post-cue check)">
         <input type="date" class="save-date-input" id="save-date">
         <button class="btn-save-analysis" id="btn-save" onclick="saveAnalysis()">Save analysis</button>
-        <button class="btn-ghost" id="btn-sign-in-save" onclick="signInWithGoogle()" style="display:none">Save your session - free account</button>
+        <button class="btn-ghost" id="btn-sign-in-save" onclick="signInWithGoogle()" style="display:none">Save your session — free account</button>
       </div>
       <div class="save-status" id="save-status"></div>
     </div>
     <div style="text-align:center;margin-top:16px">
-      <button class="btn-new-session" onclick="startNewSession()">Start new session (discard current)</button>
+      <button class="btn-new-session" onclick="startNewSession()">Start a new analysis</button>
     </div>
   </div>
 
   <!-- Report: What we found -->
   <div id="report-section" class="report-section" style="display:none">
-    <div class="report-section-title">Your running form report</div>
-    <div class="report-section-sub">Based on your video analysis, here is what we found. Detected issues include an explanation of what it means, why it might matter, what could be causing it, and specific cues to work on. Click any detected issue to expand the full breakdown.</div>
+    <div class="print-only report-print-meta" id="report-print-meta"></div>
+    <h2 class="report-section-title">Your running form report</h2>
+    <div class="report-section-sub" id="report-section-sub">Based on your video analysis, here is what we found. Detected issues include an explanation of what it means, why it might matter, what could be causing it, and specific cues to work on. <span class="screen-only">Click any detected issue to expand the full breakdown.</span></div>
 
     <!-- Anomaly banner: locked users only, sits above the paywall as an incentive.
          Populated by renderAnomalyBanner(); shown/hidden by applyPaywallState(). -->
@@ -289,14 +312,14 @@
     <!-- Paywall card: shown while user has no active 90-day pass -->
     <div id="paywall-card" class="paywall-card" style="display:none">
       <div class="pw-title">Unlock your full report</div>
-      <div class="pw-sub">See every detected issue with coaching cues, your bell-curve placement against elite reference data, and download the PDF. One pass covers as many videos as you want for 90 days -- film, drill, refilm, iterate.</div>
+      <div class="pw-sub">See every detected issue with coaching cues and download the PDF report, including your bell-curve placement against elite reference data. One pass covers as many videos as you want for 90 days — film, drill, refilm, iterate.</div>
       <div class="pw-price">$90</div>
       <div class="pw-price-sub">90-DAY PASS &middot; UNLIMITED ANALYSES</div>
       <div class="pw-value-note">
         <strong>Less than a new pair of running shoes &mdash; and less than a single visit to a physical therapist.</strong> Unlike shoes, the insights don't wear out. The form changes you make from this report can pay off for every mile after: better running performance, and possibly lower injury risk.
       </div>
       <button id="paywall-cta-btn" class="pw-btn" onclick="startPassCheckout()">Unlock pass</button>
-      <div class="pw-foot">$29/mo equivalent &middot; 3-month access &middot; secure checkout via Stripe</div>
+      <div class="pw-foot">$30/mo equivalent &middot; 3-month access &middot; secure checkout via Stripe</div>
     </div>
 
     <div id="report-locked-content">
@@ -315,7 +338,7 @@
          behind an expand toggle. -->
     <div class="principles-card">
       <div class="pr-eyebrow">&#9670; The Fundamentals</div>
-      <div class="pr-title">Four universal principles</div>
+      <h3 class="pr-title">Four universal principles</h3>
       <div class="pr-intro">These apply whether your run came back clean or flagged a long list. Every runner benefits from optimizing for them &mdash; they&rsquo;re the lens for interpreting your numbers and the cards above.</div>
       <div class="pr-grid">
         <div class="pr-card">
@@ -387,21 +410,22 @@
 
   <!-- Summary table (side view measurements) -->
   <div class="summary" id="summary-section" style="display:none">
-    <div class="summary-title" id="summary-title" style="font-size:22px">Side view measurements</div>
-    <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:20px;font-size:13px;color:var(--muted2);line-height:1.8">
-      <strong style="color:var(--text)">A note about these reference ranges:</strong> The bell curves and ranges below are based on data from elite-level marathoners. Very few recreational runners will match these ranges across every metric, and that is completely normal. A value outside the elite range does not mean something is wrong or needs to be changed. Running mechanics are highly individual, and what matters most is efficiency and comfort within your own body. This data is provided for informational context only -- not as a target to chase or a diagnosis of a problem.
+    <h2 class="summary-title" id="summary-title">Side view measurements</h2>
+    <div class="ref-note">
+      <strong>A note about these reference ranges:</strong> The ranges below are based on data from elite-level marathoners. Very few recreational runners will match these ranges across every metric, and that is completely normal. A value outside the elite range does not mean something is wrong or needs to be changed. Running mechanics are highly individual, and what matters most is efficiency and comfort within your own body. This data is provided for informational context only — not as a target to chase or a diagnosis of a problem.
     </div>
 
-    <div class="summary-sub" style="font-size:15px">All angles below are measured in degrees and compared to reference ranges from elite runners. Only the angles relevant for each gait phase are shown -- a dash indicates the metric is not applicable for that phase. Click any column header to open and re-examine that phase.</div>
+    <div class="summary-sub">All angles below are measured in degrees and compared to reference ranges from elite runners. Only the angles relevant for each gait phase are shown — a dash indicates the metric is not applicable for that phase. <span id="summary-click-hint" class="screen-only">Click any column header to open and re-examine that phase.</span></div>
     <div class="summary-scroll">
       <table class="stbl" id="summary-table"><thead></thead><tbody></tbody></table>
     </div>
     <div class="legend-strip">
-      <div class="ls-item"><span style="font-family:var(--mono);font-size:10px;color:var(--muted2)">&#9656; Within range</span> -- value falls inside elite reference band</div>
-      <div class="ls-item"><span style="font-family:var(--mono);font-size:10px;color:var(--muted2)">&#9652; Above range</span> -- value is above elite reference band</div>
-      <div class="ls-item"><span style="font-family:var(--mono);font-size:10px;color:var(--muted2)">&#9662; Below range</span> -- value is below elite reference band</div>
-      <div class="ls-item"><span style="font-family:var(--mono);font-size:10px;color:var(--muted)">-- Not analyzed</span></div>
+      <div class="ls-item"><span class="ls-key">&#9656; Within range</span> — value falls inside elite reference band</div>
+      <div class="ls-item"><span class="ls-key">&#9652; Above range</span> — value is above elite reference band</div>
+      <div class="ls-item"><span class="ls-key">&#9662; Below range</span> — value is below elite reference band</div>
+      <div class="ls-item"><span class="ls-key">– Not applicable</span> · <span class="ls-key">not analyzed</span> · <span class="ls-key ls-warn">side view needed</span></div>
     </div>
+    <div id="fb-summary" class="fb-summary" hidden></div>
   </div>
 
   <!-- Coaching CTA: pushes unlocked users toward personalized coach review.
@@ -409,7 +433,7 @@
        of the gated report content. -->
   <div id="coaching-cta-section" class="coaching-cta" style="display:none">
     <div class="cca-eyebrow">&#9670; Want more from this analysis?</div>
-    <div class="cca-title">Get a coach to walk you through your form</div>
+    <h2 class="cca-title">Get a coach to walk you through your form</h2>
     <div class="cca-body">Our <strong>premium Full Access coaching</strong> pairs you with one of our coaches who watches your videos with you, talks through every flagged issue, gives you cues that fit <em>your</em> body and stride, and builds a plan to act on what you saw above &mdash; in person or over video chat. Already have a coach? Not looking for a long-term commitment? Subscribe for a single month, cancel anytime, and we&rsquo;ll still work with you one-on-one for that month.</div>
     <a href="/coaching/" class="cca-btn">See coaching plans <span class="cca-arrow">&#8594;</span></a>
     <div class="cca-foot">Includes esFormLab full access &middot; Free Endurance Science Labs racing kit &middot; Cancel anytime</div>
@@ -429,16 +453,28 @@
     </div>
   </div>
 </div>
+</main>
 
 <!-- Expand overlay -->
 <div id="expand-overlay">
-  <div class="expand-panel">
+  <div class="expand-panel" role="dialog" aria-modal="true" aria-labelledby="ep-name">
     <div class="ep-hdr" id="ep-hdr">
       <div class="ep-num" id="ep-num">1</div>
-      <div style="flex:1"><div class="ep-name" id="ep-name">Phase</div><div class="ep-desc" id="ep-desc"></div></div>
+      <div style="flex:1"><h2 class="ep-name" id="ep-name">Phase</h2><div class="ep-desc" id="ep-desc"></div></div>
       <div class="ep-undetected-badge">&#9888; Not auto-detected</div>
-      <button class="ep-close" onclick="closeExpand()">&#10005;</button>
+      <button type="button" class="ep-close" onclick="eflRequestLeaveExpand(closeExpand)" aria-label="Close">&#10005;</button>
     </div>
+    <div class="ep-commit-prompt" id="ep-commit-prompt" role="alertdialog" aria-modal="true" aria-labelledby="ep-commit-title" aria-describedby="ep-commit-text" hidden>
+      <div class="ep-commit-card">
+        <h3 class="ep-commit-title" id="ep-commit-title">Use this new frame?</h3>
+        <p class="ep-commit-text" id="ep-commit-text">You moved to a different frame but haven’t analyzed it yet. The card still uses the previous frame.</p>
+        <div class="ep-commit-actions">
+          <button type="button" class="esl-btn esl-btn--sm" id="ep-commit-analyze">&#8635; Analyze this frame</button>
+          <button type="button" class="esl-btn esl-btn--sm esl-btn--outline" id="ep-commit-keep">Keep the previous frame</button>
+        </div>
+      </div>
+    </div>
+    <div class="ep-undetected-notice" id="ep-failed-notice"><div class="eun-title">This video couldn’t be loaded</div><div class="eun-text" id="ep-failed-text"></div></div>
     <div class="ep-undetected-notice" id="ep-undetected-notice">
       <div class="eun-title">&#9888; Not automatically detected</div>
       <div class="eun-text">Use the frame step buttons (&#8722;1f / +1f / &#8722;5f / +5f / &#8722;1s / +1s) to find the best matching frame, then click &#8635; Analyze.</div>
@@ -452,7 +488,7 @@
         <div class="scrub-section">
           <div class="scrub-label">
             <span>Frame adjustment</span>
-            <span id="ep-quality-pill" class="dq-pill" style="display:none"></span>
+            <span id="ep-quality-pill" class="dq-pill" style="display:none" role="button" tabindex="0" title="Show detection details"></span>
           </div>
           <div class="scrub-stepper-row">
             <button class="step-btn-big" onclick="epStepSeconds(-1)" title="Back 1 second">&#8722;1s</button>
@@ -464,6 +500,7 @@
             <button class="step-btn-big" onclick="epStepSeconds(1)" title="Forward 1 second">+1s</button>
           </div>
           <div class="scrub-hint"><span class="sh-long">Step through the clip with these buttons - <strong>&#8722;1f</strong> / <strong>+1f</strong> nudge one frame at a time, <strong>&#8722;5f</strong> / <strong>+5f</strong> skip five frames, <strong>&#8722;1s</strong> / <strong>+1s</strong> jump a full second. After landing on the right frame, click <strong>&#8635; Analyze</strong> below to re-measure.</span><span class="sh-short"><strong>1f</strong> = one frame, <strong>5f</strong> = five, <strong>1s</strong> = one second. Then tap <strong>&#8635; Analyze</strong>.</span></div>
+          <div class="ep-stale-note" id="ep-stale-note" role="status" hidden></div>
           <div class="scrub-actions-row">
             <button class="re-btn" id="ep-re-btn" onclick="epReanalyze()">&#8635; Analyze this frame</button>
             <button class="swap-btn" id="ep-swap-btn" onclick="swapLegs()" title="Swap left/right leg assignments">&#8644; Swap L/R</button>
@@ -473,16 +510,19 @@
             <span class="scrub-nav-label">jump to:</span>
             <div class="nav-phase-btns" id="nav-phase-btns"></div>
           </div>
-          <div id="ep-label-panel" style="display:none;margin-top:10px;padding:10px 12px;background:var(--panel2);border:1px solid var(--border);border-radius:10px">
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-              <span style="font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);font-family:var(--mono)">Admin label</span>
-              <button class="step-btn" id="ep-label-good-btn" onclick="labelCorrectFrame()" style="font-size:11px;padding:5px 10px;color:#0f2a24;background:#00e5c8;border-color:#00e5c8">&#10003; Correct frame <span style="opacity:.7;font-weight:400">(auto-saves 6 neighbors as bad)</span></button>
-              <span id="ep-label-status" style="font-size:11px;color:var(--muted2);margin-left:4px"></span>
+          <div id="ep-label-panel" class="ep-label-panel" style="display:none">
+            <div class="ep-label-row">
+              <span class="ep-label-title">Admin label</span>
+              <button class="step-btn" id="ep-label-good-btn" onclick="labelCorrectFrame()">&#10003; Correct frame <span class="ep-label-hint">(auto-saves 6 neighbors as bad)</span></button>
+              <span id="ep-label-status" class="ep-label-status"></span>
             </div>
           </div>
         </div>
       </div>
       <div class="ep-info-side">
+        <!-- Detection quality — compact, default-collapsed tips (first in the sidebar) -->
+        <div id="ep-quality-card" style="display:none"></div>
+
         <!-- Leg swap warning (if applicable) -->
         <div class="leg-swap-warn-expand" id="ep-leg-swap-warning" style="display:none"></div>
 
@@ -500,16 +540,13 @@
              from EXAMPLE_SETS. -->
         <div class="inline-helper" id="ep-inline-helper" style="display:none"></div>
 
-        <!-- Detection quality — compact, default-collapsed tips -->
-        <div id="ep-quality-card" style="display:none"></div>
-
         <!-- Skeleton overlay key -->
-        <div style="background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center">
-          <span style="font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);font-family:var(--mono)">Overlay key</span>
-          <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted2)"><span style="width:10px;height:3px;border-radius:2px;background:#00d4aa;display:inline-block"></span> Left side</span>
-          <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted2)"><span style="width:10px;height:3px;border-radius:2px;background:#ff6b35;display:inline-block"></span> Right side</span>
-          <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted2)"><span style="width:10px;height:3px;border-radius:2px;background:#f5c842;display:inline-block"></span> Trunk lean</span>
-          <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted2)"><span style="width:10px;height:3px;border-radius:2px;background:#8b7cf8;display:inline-block"></span> Center</span>
+        <div class="ep-key">
+          <span class="ep-key-label">Overlay key</span>
+          <span class="ep-key-item"><span class="ep-key-sw" style="background:var(--left)"></span> Left side</span>
+          <span class="ep-key-item"><span class="ep-key-sw" style="background:var(--right)"></span> Right side</span>
+          <span class="ep-key-item"><span class="ep-key-sw" style="background:var(--gold)"></span> Trunk lean</span>
+          <span class="ep-key-item"><span class="ep-key-sw" style="background:var(--purple)"></span> Center</span>
         </div>
 
         <!-- Measurements -->
@@ -530,13 +567,13 @@
 
 <!-- Frame examples modal (correct vs wrong screenshots per phase) -->
 <div id="examples-overlay" onclick="if(event.target===this)closeExamples()">
-  <div class="examples-panel">
+  <div class="examples-panel" role="dialog" aria-modal="true" aria-labelledby="ex-title">
     <div class="ex-hdr">
       <div>
-        <div class="ex-title" id="ex-title">Frame examples</div>
+        <h2 class="ex-title" id="ex-title">Frame examples</h2>
         <div class="ex-sub" id="ex-sub"></div>
       </div>
-      <button class="ex-close" onclick="closeExamples()">&#10005;</button>
+      <button type="button" class="ex-close" onclick="closeExamples()" aria-label="Close">&#10005;</button>
     </div>
     <div class="ex-body" id="ex-body"></div>
   </div>
@@ -550,17 +587,16 @@
   <div class="tour-mask-piece" id="tour-mask-right"></div>
   <div class="tour-ring" id="tour-ring" style="display:none"></div>
   <div class="tour-arrow" id="tour-arrow" style="display:none">&#9660;</div>
-  <div class="tour-bubble" id="tour-bubble">
+  <div class="tour-bubble" id="tour-bubble" role="dialog" aria-modal="false" aria-labelledby="tb-title" aria-describedby="tb-desc">
     <div class="tb-header">
-      <div class="tb-step" id="tb-step">Step 1 of 5</div>
+      <div class="tb-step" id="tb-step">Step 1 of 6</div>
       <button class="tb-skip-tour" onclick="endTour(true)" title="Exit the walkthrough">Skip walkthrough &times;</button>
     </div>
-    <div class="tb-title" id="tb-title">Welcome</div>
+    <h2 class="tb-title" id="tb-title">Welcome</h2>
     <div class="tb-desc"  id="tb-desc"></div>
     <div class="tb-actions">
       <div class="tb-dots" id="tb-dots"></div>
       <button class="tb-btn"  id="tb-back" onclick="tourBack()">Back</button>
-      <button class="tb-skip" onclick="tourNext()">Skip step</button>
       <button class="tb-btn primary" id="tb-next" onclick="tourNext()">Next &#8594;</button>
     </div>
   </div>
@@ -568,56 +604,47 @@
 
 <!-- My Analyses overlay -->
 <div id="my-analyses-overlay" class="my-analyses-overlay" onclick="if(event.target===this)closeMyAnalyses()">
-  <div class="ma-panel">
+  <div class="ma-panel" role="dialog" aria-modal="true" aria-labelledby="ma-title">
     <div class="ma-hdr">
-      <div class="ma-title">My Sessions</div>
-      <button class="ep-close" onclick="closeMyAnalyses()">X</button>
+      <h2 class="ma-title" id="ma-title">My Sessions</h2>
+      <button type="button" class="ep-close" onclick="closeMyAnalyses()" aria-label="Close">&#10005;</button>
     </div>
     <div id="ma-list" class="ma-list">Create your free account to save and revisit sessions.</div>
-    <div id="ma-compare-bar" style="display:none;padding:14px 22px;border-top:1px solid var(--border);background:var(--panel);position:sticky;bottom:0;z-index:10;text-align:center">
-      <div style="font-size:12px;color:var(--muted2);margin-bottom:8px" id="ma-compare-hint">Select 2 sessions to compare</div>
-      <button id="ma-compare-btn" style="padding:10px 28px;font-size:14px;font-weight:700;border-radius:9px;border:none;background:var(--cyan);color:#000;cursor:pointer;opacity:.4;pointer-events:none" onclick="compareSelected()">Compare selected sessions</button>
+    <div id="ma-compare-bar" class="ma-compare-bar" style="display:none">
+      <div class="ma-compare-hint" id="ma-compare-hint" role="status">Select 2 sessions to compare</div>
+      <button type="button" id="ma-compare-btn" class="ma-compare-btn esl-btn" disabled onclick="compareSelected()">Compare selected sessions</button>
     </div>
   </div>
 </div>
 
 <!-- Compare overlay -->
 <div id="compare-overlay" class="compare-overlay">
-  <div class="compare-panel">
+  <div class="compare-panel" role="dialog" aria-modal="true" aria-labelledby="compare-title">
     <div class="compare-hdr">
-      <div class="ma-title">Compare analyses</div>
-      <button class="ep-close" onclick="closeCompare()">X</button>
+      <h2 class="ma-title" id="compare-title">Compare analyses</h2>
+      <button type="button" class="ep-close" onclick="closeCompare()" aria-label="Close">&#10005;</button>
     </div>
     <div class="compare-picker" id="compare-picker"></div>
     <div id="compare-results"></div>
   </div>
 </div>
 
-<!-- Saved view banner -->
-<div id="saved-view-banner" class="saved-view-banner" style="display:none">
-  <div>
-    <strong id="saved-view-name"></strong>
-    <span id="saved-view-date" style="color:var(--muted2);font-family:var(--mono);margin-left:8px"></span>
-  </div>
-  <div style="display:flex;gap:8px">
-    <button class="btn-ghost" onclick="closeMyAnalyses();openMyAnalyses()">Back to list</button>
-  </div>
-</div>
-
-<div class="feedback-footer">
-  <button class="feedback-footer-btn" onclick="openFeedbackModal('contact')">✉ Contact Endurance Science Labs</button>
-  <button class="feedback-footer-btn bug" onclick="openFeedbackModal('bug')">🐛 See a Bug? Report it Here</button>
-</div>
+<footer class="feedback-footer esl-app-footer">
+  <button type="button" class="feedback-footer-btn" onclick="openFeedbackModal('contact')">✉ Contact Endurance Science Labs</button>
+  <button type="button" class="feedback-footer-btn bug" onclick="openFeedbackModal('bug')">🐛 Report a bug</button>
+  <div class="esl-app-footer-meta"><a href="/privacy/">Privacy</a> · © 2026 Endurance Science Labs</div>
+</footer>
 
 <div class="feedback-modal-overlay" id="feedback-modal">
-  <div class="feedback-modal">
-    <div class="feedback-modal-title" id="feedback-modal-title">Contact Us</div>
+  <div class="feedback-modal" role="dialog" aria-modal="true" aria-labelledby="feedback-modal-title">
+    <h2 class="feedback-modal-title" id="feedback-modal-title">Contact Us</h2>
     <div class="feedback-modal-sub" id="feedback-modal-sub">We'd love to hear from you.</div>
+    <label for="feedback-text" class="esl-sr-only">Message</label>
     <textarea class="feedback-modal-textarea" id="feedback-text" placeholder="Type your message here…"></textarea>
     <div class="feedback-modal-actions">
-      <span class="feedback-modal-status" id="feedback-status"></span>
-      <button style="display:inline-flex;align-items:center;gap:6px;padding:6px 13px;font-size:11px;font-weight:600;font-family:var(--ui);border-radius:7px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer" onclick="closeFeedbackModal()">Cancel</button>
-      <button style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;font-size:12px;font-weight:700;font-family:var(--ui);border-radius:8px;border:none;background:var(--cyan);color:#000;cursor:pointer" id="feedback-submit" onclick="submitFeedback()">Send</button>
+      <span class="feedback-modal-status" id="feedback-status" role="status"></span>
+      <button type="button" class="fm-cancel" onclick="closeFeedbackModal()">Cancel</button>
+      <button type="button" class="fm-send" id="feedback-submit" onclick="submitFeedback()">Send</button>
     </div>
   </div>
 </div>
@@ -628,7 +655,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
-<script src="/shared/site.js"></script>
+<script src="/shared/site.js?v=20261016"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
 
@@ -638,10 +665,10 @@
      execute anything at top-level beyond declarations, so they have no
      ordering dependency on the main script. -->
 <script src="frame-store.js"></script>
-<script src="report-render.js"></script>
-<script src="saved-analyses.js"></script>
-<script src="auth-paywall.js"></script>
-<script src="gait-data.js"></script>
+<script src="report-render.js?v=20261016b"></script>
+<script src="saved-analyses.js?v=20261016b"></script>
+<script src="auth-paywall.js?v=20261016b"></script>
+<script src="gait-data.js?v=20261016b"></script>
 <script src="gait-engine.js"></script>
 <!-- Kinematic Force-Orientation (admin-only, flag-gated; no effect for users).
      force-vector*.js are the superseded V1 prototype, kept for comparison behind
@@ -667,7 +694,8 @@
 <script src="pgi-patterns.js"></script>
 <script src="pgi-compare.js"></script>
 <script src="pgi-analysis.js"></script>
-<script src="pgi-render.js"></script>
+<script src="pgi-anchors.js"></script>
+<script src="pgi-render.js?v=20261016b"></script>
 <script src="pgi-export.js"></script>
 <script src="pgi-app.js"></script>
 
@@ -681,32 +709,35 @@ esLabs.mountNav('#esfl-nav', {
   active: 'esformlab',
   extrasHtml: ''
     + '<span id="hdr-file"></span>'
+    + '<span class="esfl-pass-chip esl-badge esl-badge--good" id="esfl-pass-chip" hidden></span>'
     + '<button class="btn-ghost" id="btn-my-analyses" onclick="openMyAnalyses()" style="display:none">My Sessions</button>'
-    + '<button class="btn-ghost" id="btn-rescan" onclick="rescan()" style="display:none">&#10227; Re-scan</button>'
-    + '<button class="btn-ghost" onclick="startNewSession()">&#8617; New video</button>',
+    + '<button class="btn-ghost" id="btn-new-analysis" onclick="startNewSession()">&#8617; New analysis</button>',
   mobileExtrasHtml: ''
-    + '<button class="nav-mobile-action" id="nav-mobile-my-analyses" onclick="openMyAnalyses()" style="display:none">My Sessions</button>',
+    + '<button class="nav-mobile-action" id="nav-mobile-my-analyses" onclick="openMyAnalyses()" style="display:none">My Sessions</button>'
+    + '<button class="nav-mobile-action" id="nav-mobile-new-analysis" onclick="startNewSession()">New analysis</button>',
+  // Hamburger up to 1140px: the page extras don't fit beside the links below that.
+  collapse: 'wide',
   onRender: function (nav, user) {
     // updateAuthUI in auth-paywall.js toggles the My Sessions / Save / Sign-in-to-save buttons.
     if (typeof updateAuthUI === 'function') updateAuthUI();
   }
 });
 
-esLabs.mountAuthGate('#esfl-gate', {
+var esflGate = esLabs.mountAuthGate('#esfl-gate', {
   logo: '/images/formlab_logo_white_clean.png',
   eyebrow: '◉ Free to try',
   headline: 'Try esFormLab on your run',
   sub: 'Create a free account in one tap, then upload your videos and run the gait-phase scan — at no cost. The full running form report and PDF unlock with a one-time pass.',
   bullets: [
-    { strong: 'Upload & scan, free', span: '— pose detection runs on your videos at no cost, all 9 gait phases detected' },
-    { strong: 'Gender-specific reference data', span: '— your angles are graded against runners of the same gender, so the bell curves and severity scores are tailored to your body, not averaged across everyone' },
+    { strong: 'Upload & scan, free', span: '— pose detection runs on your videos at no cost, all 9 gait phases scanned' },
+    { strong: 'Gender-specific reference data', span: '— your angles are graded against runners of the same gender, so the ranges and severity scores are tailored to your body, not averaged across everyone' },
     { strong: 'Save your sessions', span: '— come back any time and pick up where you left off' },
     { strong: '100% private', span: '— videos never leave your browser; pose detection runs locally' }
   ],
   microcopy: '<strong>Free to try</strong> · No card to start · 1-tap signup',
   emailDefault: 'signup',
-  foot: 'The full running form report — every detected issue with coaching cues, bell-curve placement vs elite reference data, and the PDF — unlocks with a one-time 90-day pass. No subscription.'
-    + '<div style="border-top:none;padding-top:8px;margin-top:10px"><strong style="color:var(--warn)">&#9888; Not medical advice.</strong> esFormLab is provided for educational and informational purposes only. Consult a qualified healthcare professional before changing your training based on these results.</div>'
+  foot: 'The full running form report — every detected issue with coaching cues, plus the PDF with your bell-curve placement vs elite reference data — unlocks with a one-time 90-day pass. No subscription.'
+    + '<div style="border-top:none;padding-top:8px;margin-top:10px"><strong style="color:var(--warn-ink)">&#9888; Not medical advice.</strong> esFormLab is provided for educational and informational purposes only. Consult a qualified healthcare professional before changing your training based on these results.</div>'
 });
 
 // -- Video elements & file management --
@@ -760,15 +791,21 @@ var epPoseFreshAt = 0;
 // Auth/user state -- populated by esLabs.onAuthChange in auth-paywall.js.
 // The rest of this file reads these globals; treat them as read-only.
 var auth2 = esLabs.auth;
-var currentUser = null;
+// Seeded from the act-as-aware effective user: the auth listener in
+// auth-paywall.js can fire before this script runs (ef-04 / nt-01).
+var currentUser = (window.esLabs && esLabs.user) || null;
 var lastIssues = null;
 var isViewingSaved = false;
 var savedAnalysesList = [];
+// Re-sync anything the early listener call could not finish (phases did not exist yet).
+if (currentUser) { try { loadUserProfile(currentUser.uid); updateAuthUI(); } catch(e) {} }
 const epDbt={};
 // Phase-label tracking (admin-only "is this frame correct?" feedback).
 var SESSION_ID = (function(){ try { return (crypto.randomUUID && crypto.randomUUID()) || String(Date.now())+'-'+Math.random().toString(36).slice(2,10); } catch(e){ return String(Date.now())+'-'+Math.random().toString(36).slice(2,10); } })();
 var phaseLabels = {}; // key -> {status:'correct'|'corrected'|'no_good', trueT?, docId?}
 function isAdmin(){ return esLabs.isAdmin(); }
+// Smooth scrolling unless the user asked for reduced motion (efd-25).
+function eflScrollBehavior(){try{return matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'}catch(e){return 'smooth'}}
 
 function getVideoElForPhase(key) {
   var def = PHASE_DEFS.find(function(d){return d.key===key;});
@@ -804,7 +841,7 @@ function getDetectionQuality(kps){
   var avg = scores.reduce(function(a,b){return a+b;},0)/scores.length;
   var min = Math.min.apply(null, scores);
   if(avg>=0.72&&min>=0.4)  return {level:'strong',label:'Strong detection', note:'All major joints are clearly identified. Measurements for this frame are reliable.'};
-  if(avg>=0.5 &&min>=0.25) return {level:'fair',  label:'Fair detection',   note:'Fair detection is still usable -- the measurements are reasonable but may have wider error margins than Strong detection.'};
+  if(avg>=0.5 &&min>=0.25) return {level:'fair',  label:'Fair detection',   note:'Fair detection is still usable — the measurements are reasonable but may have wider error margins than Strong detection.'};
   return                          {level:'weak',   label:'Weak detection',   note:'Multiple joints could not be reliably identified. Measurements from this frame are not reliable.'};
 }
 
@@ -847,14 +884,14 @@ function renderQualityCard(kps){
       'Fair detection is usually fine to use. If you want to push it to Strong:' +
       '<br>&#8226; Click <strong>&#8635; Analyze</strong> again — a second pass often improves things.' +
       '<br>&#8226; Step <strong>&#8722;1f / +1f</strong> to a nearby frame with less motion blur.' +
-      '<br><br><span style="color:var(--muted2);font-size:11px">Common causes of fair-vs-strong: clothing blending into the background, very bright/dark lighting, runner far from camera, or limbs overlapping.</span>';
+      '<div class="dq-note">Common causes of fair-vs-strong: clothing blending into the background, very bright/dark lighting, runner far from camera, or limbs overlapping.</div>';
   } else {
     tipsHTML =
       '<strong>Try this:</strong>' +
       '<br>1. Click <strong>&#8635; Analyze</strong> again — sometimes a second or third pass produces a better result.' +
       '<br>2. Step to a different frame where the runner is clearly visible with no limb overlap and minimal motion blur.' +
       '<br>3. Make sure the frame matches the phase described in "What to look for".' +
-      '<br><br><span style="color:var(--muted2);font-size:11px">If detection stays weak across multiple frames, the video itself is the issue: clothing too close in color to background, lighting too bright/dark, or runner too far from camera. Better contrast (different-colored clothes on a uniform background like turf or a plain wall) will make the biggest difference.</span>';
+      '<div class="dq-note">If detection stays weak across multiple frames, the video itself is the issue: clothing too close in color to background, lighting too bright/dark, or runner too far from camera. Better contrast (different-colored clothes on a uniform background like turf or a plain wall) will make the biggest difference.</div>';
   }
 
   qCard.innerHTML = '<div class="dq-compact '+q.level+'">' +
@@ -895,10 +932,10 @@ function toggleQualityDetails(btn){
 
 function renderSideViewWarning(key){
   var el=document.getElementById('metrics-mini-'+key);
-  if(el) el.innerHTML='<span class="mm-item" style="color:var(--warn);border-color:rgba(245,166,35,.3);background:rgba(245,166,35,.05)">&#9888; Side view required for angle analysis</span>';
+  if(el) el.innerHTML='<span class="mm-item" style="color:var(--warn-ink);border-color:var(--warn-line);background:var(--warn-wash)">&#9888; Side view required for angle analysis</span>';
   METRIC_ROWS.forEach(function(r){
     var cell=document.getElementById('sc-'+key+'-'+r.key);
-    if(cell) cell.innerHTML='<span class="sv na" title="Front/back view -- angle not meaningful">--</span>';
+    if(cell) cell.innerHTML='<span class="sv na warn" title="This frame looks front- or back-facing">side view needed</span>';
   });
 }
 
@@ -913,23 +950,23 @@ function checkLegSwap(key, m) {
     // Proxy: left foot offset should be more positive/forward than right (or at least similar).
     // More reliable: left knee should be more extended (larger angle) than right at contact.
     if(m.lKnee != null && m.rKnee != null && m.rKnee > m.lKnee + 20) {
-      return 'This looks like a right foot strike, not left. The right knee is more extended than the left, which usually means the right foot is the one contacting the ground. Use the frame step buttons to find the moment when the left foot hits.';
+      return 'This looks like a right foot strike, not left. The right knee is more extended than the left, which usually means the right foot is the one contacting the ground. If the overlay colours look swapped, press \u21c4 Swap L/R; otherwise step to the moment the left foot hits.';
     }
   }
   if(key === 'r_foot') {
     if(m.lKnee != null && m.rKnee != null && m.lKnee > m.rKnee + 20) {
-      return 'This looks like a left foot strike, not right. The left knee is more extended than the right. Use the frame step buttons to find the moment when the right foot hits.';
+      return 'This looks like a left foot strike, not right. The left knee is more extended than the right. If the overlay colours look swapped, press \u21c4 Swap L/R; otherwise step to the moment the right foot hits.';
     }
   }
   if(key === 'l_toe') {
     // At L toe-off, left hip should be more extended (larger angle) than right.
     if(m.lHip != null && m.rHip != null && m.rHip > m.lHip + 15) {
-      return 'This looks like a right-side toe-off, not left. The right hip is more extended than the left, which means the right leg is pushing off. Use the frame step buttons to find the moment when the left foot leaves the ground.';
+      return 'This looks like a right-side toe-off, not left. The right hip is more extended than the left, which means the right leg is pushing off. If the overlay colours look swapped, press \u21c4 Swap L/R; otherwise step to the moment the left foot leaves the ground.';
     }
   }
   if(key === 'r_toe') {
     if(m.lHip != null && m.rHip != null && m.lHip > m.rHip + 15) {
-      return 'This looks like a left-side toe-off, not right. The left hip is more extended than the right. Use the frame step buttons to find the moment when the right foot leaves the ground.';
+      return 'This looks like a left-side toe-off, not right. The left hip is more extended than the right. If the overlay colours look swapped, press \u21c4 Swap L/R; otherwise step to the moment the right foot leaves the ground.';
     }
   }
   return null;
@@ -947,11 +984,11 @@ function renderLegSwapWarning(key, m) {
         var div = document.createElement('div');
         div.className = 'leg-swap-warn';
         div.id = 'leg-swap-'+key;
-        div.innerHTML = '&#9888; '+warn;
+        div.innerHTML = '&#9888; Possible wrong leg \u2014 open to check';
         card.appendChild(div);
       }
     } else {
-      warnEl.innerHTML = '&#9888; '+warn;
+      warnEl.innerHTML = '&#9888; Possible wrong leg \u2014 open to check';
       warnEl.style.display = 'block';
     }
   } else {
@@ -1032,16 +1069,15 @@ function checkAllAnalyzed(){
   var bar = document.getElementById('complete-analysis-bar');
   var sub = document.getElementById('ca-sub');
   if(!bar) return;
-  var total = PHASE_DEFS.length; // 9
+  var total = PHASE_DEFS.length;
   var done = frontBackAnalyzed.length;
-  if(done>=9){
+  var strong = PHASE_DEFS.filter(function(d){ var p=phases[d.key]; var q=p&&p.kps&&!p.noPose&&getDetectionQuality(p.kps); return q&&q.level==='strong'; }).length;
+  var titleEl = document.getElementById('ca-title');
+  if(done>=3){
     bar.classList.add('show');
     document.body.classList.add('bar-showing');
-    if(sub) sub.textContent='All 11 phases analyzed -- scroll down to see your full report';
-  } else if(done>=3){
-    bar.classList.add('show');
-    document.body.classList.add('bar-showing');
-    if(sub) sub.textContent=done+' of 11 phases analyzed -- keep refining or complete now';
+    if(titleEl) titleEl.textContent = done>=total ? 'All '+total+' phases analyzed \u2014 ready to build your report' : done+' of '+total+' phases analyzed \u2014 '+(total-done)+' still need a frame';
+    if(sub) sub.textContent = strong+' of '+total+' have strong detection \u00b7 press Complete analysis to build your report';
   } else {
     bar.classList.remove('show');
     document.body.classList.remove('bar-showing');
@@ -1049,6 +1085,9 @@ function checkAllAnalyzed(){
 }
 
 function completeAnalysis(){
+  var rpm=document.getElementById('report-print-meta'); if(rpm) rpm.textContent='Running form report \u00b7 '+new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+(selectedSex?' \u00b7 '+selectedSex+' ranges':'');
+  var sch=document.getElementById('summary-click-hint'); if(sch) sch.textContent='Click any column header to open and re-examine that phase.';
+  if (typeof tourState!=='undefined' && tourState.active) endTour(true);
   // Close expand overlay if open
   closeExpand();
   // Run detection rules
@@ -1074,12 +1113,12 @@ function completeAnalysis(){
   var saveEl = document.getElementById('save-section');
   if (saveEl && !isViewingSaved) {
     saveEl.style.display = 'block';
-    document.getElementById('save-date').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('save-date').value = new Date().toLocaleDateString('en-CA');
     updateAuthUI();
   }
   // Scroll to report
   if(reportEl){
-    reportEl.scrollIntoView({behavior:'smooth',block:'start'});
+    reportEl.scrollIntoView({behavior:eflScrollBehavior(),block:'start'});
     reportEl.style.transition='box-shadow .4s';
     reportEl.style.boxShadow='0 0 0 2px rgba(0,229,200,.4)';
     setTimeout(function(){reportEl.style.boxShadow='none';},1800);
@@ -1126,21 +1165,60 @@ async function initModel(){
     detector=await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,{modelType:poseDetection.movenet.modelType.SINGLEPOSE_THUNDER});
     document.getElementById('loader').style.display='none';
   }catch(e){
-    document.getElementById('loader').innerHTML='<div style="color:var(--bad);font-size:14px;font-weight:600">Model failed to load</div><div style="font-size:11px;color:var(--muted2);margin-top:8px">'+e.message+'</div><div style="font-size:11px;color:var(--muted);margin-top:6px">Check your internet connection and reload.</div>';
+    // Friendly failure state (efd-16): sits below the nav so the site stays usable.
+    var ldr = document.getElementById('loader');
+    ldr.classList.add('failed');
+    ldr.innerHTML = '<div class="ld-title" role="alert">Couldn\u2019t load the pose model</div>'
+      + '<div class="ld-sub">This is usually a network problem or a content blocker. Check your connection, then reload the page.</div>'
+      + '<button type="button" class="btn-main" onclick="location.reload()">Reload page</button>'
+      + '<details class="ld-details"><summary>Technical details</summary><code></code></details>';
+    var ldCode = ldr.querySelector('.ld-details code');
+    if (ldCode) ldCode.textContent = (e && e.message) || String(e);
   }
 }
 
 // -- File handling for 3 drop zones --
-document.getElementById('file-input-side').addEventListener('change',function(e){if(e.target.files[0])loadFile('side',e.target.files[0]);});
-document.getElementById('file-input-front').addEventListener('change',function(e){if(e.target.files[0])loadFile('front',e.target.files[0]);});
-document.getElementById('file-input-back').addEventListener('change',function(e){if(e.target.files[0])loadFile('back',e.target.files[0]);});
+function isVideoFile(f){ return !!f && ((f.type||'').indexOf('video/')===0 || /\.(mp4|mov|m4v|webm)$/i.test(f.name||'')); }
+function showZoneError(viewKey, msg, isWarn){
+  var el = document.getElementById('dz-error-'+viewKey);
+  if(!el) return;
+  if(!msg){ el.hidden = true; el.textContent = ''; el.classList.remove('warn'); return; }
+  el.textContent = msg; el.hidden = false; el.classList.toggle('warn', !!isWarn);
+}
+function acceptPickedFile(viewKey, f, input){
+  if(!f) return;
+  if(!isVideoFile(f)){
+    showZoneError(viewKey, 'That file isn\u2019t a video \u2014 choose the '+viewKey+'-view clip (MP4, MOV or WebM).');
+    if(input) input.value = '';
+    return;
+  }
+  loadFile(viewKey, f);
+}
+['side','front','back'].forEach(function(vk){
+  var inp = document.getElementById('file-input-'+vk);
+  inp.addEventListener('change',function(e){ acceptPickedFile(vk, e.target.files[0], e.target); });
+  var zone = document.getElementById('drop-zone-'+vk);
+  if(zone) zone.addEventListener('keydown', function(e){
+    if(e.target !== zone) return;
+    if(e.key==='Enter'||e.key===' '){ e.preventDefault(); zone.click(); }
+  });
+});
+// Sex cards are buttons: keep aria-pressed in sync (setSex lives in gait-data.js, unedited).
+(function(){
+  var _setSex = setSex;
+  setSex = function(s){
+    _setSex(s);
+    ['male','female'].forEach(function(k){ var el=document.getElementById('sex-card-'+k); if(el) el.setAttribute('aria-pressed', String(s===k)); });
+  };
+  ['male','female'].forEach(function(k){ var el=document.getElementById('sex-card-'+k); if(el) el.setAttribute('aria-pressed', String(selectedSex===k)); });
+})();
 
 function handleDrop(event, viewKey) {
   event.preventDefault();
   var zone = document.getElementById('drop-zone-'+viewKey);
   if(zone) zone.classList.remove('over');
   var f = event.dataTransfer.files[0];
-  if(f && f.type.startsWith('video/')) loadFile(viewKey, f);
+  acceptPickedFile(viewKey, f, null);
 }
 
 function loadFile(viewKey, file) {
@@ -1149,22 +1227,85 @@ function loadFile(viewKey, file) {
   var info = document.getElementById('dz-info-'+viewKey);
   if(zone) zone.classList.add('loaded');
   if(info) info.textContent = file.name;
+  var VIEW_LBL = {side:'Side', front:'Front', back:'Back'};
+  if(zone) zone.setAttribute('aria-label', VIEW_LBL[viewKey]+'-view video: '+file.name+'. Press to replace');
+  showZoneError(viewKey, '');
+  ['side','front','back'].forEach(function(other){
+    if(other!==viewKey && uploadedFiles[other] && uploadedFiles[other].name===file.name && uploadedFiles[other].size===file.size){
+      showZoneError(viewKey, 'This looks like the same file as the '+other+'-view clip \u2014 each view needs its own video.', true);
+    }
+  });
   checkAllUploaded();
 }
 
 function checkAllUploaded() {
   var btn = document.getElementById('btn-analyze-all');
   if(btn) btn.disabled = !(uploadedFiles.side && uploadedFiles.front && uploadedFiles.back);
+  document.body.classList.toggle('esfl-ready', !!btn && !btn.disabled);
 }
 
 function startAllVideos() {
   document.getElementById('screen-upload').style.display='none';
   document.getElementById('hdr-file').textContent = uploadedFiles.side.name + ' + 2 more';
+  document.body.classList.add('esfl-has-session');
   document.getElementById('screen-scanning').style.display='flex';
   var vid = document.getElementById('capture-video');
   // Must run inside this click, before anything awaits (see FrameStore.prime).
   FrameStore.prime(vid);
-  loadAllVideos(vid).then(autoScanAll).catch(function(e){ console.error('esFormLab: video load failed', e); });
+  scanInProgress = true;
+  eflResetCancel();
+  loadAllVideos(vid).then(autoScanAll).catch(function(e){
+    if(eflScanCancelled(e)) return;
+    console.error('esFormLab: video load failed', e);
+  });
+}
+
+// -- Cancel scan (D6-B): a flag checked between frames and views; nothing inside
+// the detection maths changes. The scan unwinds by throwing a sentinel.
+var scanCancelRequested = false;
+var eflTfScopeOpen = false;
+var EFL_SCAN_CANCELLED = { eflCancelled: true };
+function eflCheckCancel(){ if(scanCancelRequested) throw EFL_SCAN_CANCELLED; }
+function eflResetCancel(){
+  scanCancelRequested = false;
+  var b = document.getElementById('btn-cancel-scan');
+  if(b){ b.disabled = false; b.textContent = 'Cancel scan'; }
+}
+function cancelScan(){
+  if(!scanInProgress || scanCancelRequested) return;
+  scanCancelRequested = true;
+  var b = document.getElementById('btn-cancel-scan');
+  if(b){ b.disabled = true; b.textContent = 'Cancelling\u2026'; }
+  var st = document.getElementById('scan-step');
+  if(st) st.textContent = 'Stopping the scan\u2026';
+}
+function eflScanCancelled(e){
+  if(!(e && e.eflCancelled)) return false;
+  scanInProgress = false;
+  eflResetCancel();
+  if(eflTfScopeOpen){ try{ tf.engine().endScope(); }catch(err){} eflTfScopeOpen = false; }
+  ['side','front','back'].forEach(function(vk){
+    if(videoEls[vk]){ try{ videoEls[vk].release(); }catch(err){} }
+    videoEls[vk] = null;
+  });
+  phases = {};
+  lastIssues = null;
+  clearScanWarnings();
+  var preview = document.querySelector('#screen-scanning .scan-preview');
+  if(preview) preview.classList.remove('loading');
+  document.getElementById('scan-bar').style.width = '0%';
+  document.getElementById('scan-phase-list').innerHTML = '';
+  document.getElementById('scan-step').textContent = 'Preparing...';
+  document.getElementById('screen-scanning').style.display = 'none';
+  document.getElementById('screen-phases').style.display = 'none';
+  document.getElementById('phase-groups').innerHTML = '';
+  document.getElementById('screen-upload').style.display = 'flex';
+  document.getElementById('hdr-file').textContent = '';
+  document.body.classList.remove('esfl-has-session');
+  checkAllUploaded();
+  if(window.esLabs && esLabs.toast) esLabs.toast('Scan cancelled \u2014 your videos are still selected.');
+  try{ document.getElementById('btn-analyze-all').focus({preventScroll:true}); }catch(err){}
+  return true;
 }
 
 // Decode each clip once into the frame stores that everything else reads.
@@ -1176,6 +1317,7 @@ async function loadAllVideos(vid){
   document.getElementById('scan-sub-text').textContent = 'Loading your videos frame by frame...';
   if(preview) preview.classList.add('loading');
   for(var i = 0; i < views.length; i++){
+    eflCheckCancel();
     var key = views[i][0], label = views[i][1];
     document.getElementById('scan-label').textContent = label + ' video';
     document.getElementById('scan-step').textContent = label + ' video: loading frames (' + (i+1) + ' of 3)...';
@@ -1184,11 +1326,36 @@ async function loadAllVideos(vid){
       onProgress: function(p){ bar.style.width = Math.round((i + p) / views.length * LOAD_BAR_PCT) + '%'; }
     }, FRAME_STORE_OPTS));
   }
+  eflCheckCancel();
   if(preview) preview.classList.remove('loading');
 }
 
 // -- Auto scan all 3 videos sequentially --
+// Scan warnings stay visible on the scanning card and are summarised on the review screen.
+var scanWarnings = [];
+var scanInProgress = false;
+function clearScanWarnings(){
+  scanWarnings = [];
+  var live = document.getElementById('scan-warn-live'); if(live) live.innerHTML = '';
+  var box = document.getElementById('scan-warnings'); if(box) box.hidden = true;
+  var list = document.getElementById('scan-warnings-list'); if(list) list.innerHTML = '';
+}
+function pushScanWarning(msg){
+  scanWarnings.push(msg);
+  var live = document.getElementById('scan-warn-live');
+  if(live){ var p = document.createElement('p'); p.textContent = '\u26A0 ' + msg; live.appendChild(p); }
+}
+function showScanWarningsSummary(){
+  var box = document.getElementById('scan-warnings');
+  var list = document.getElementById('scan-warnings-list');
+  if(!box || !list) return;
+  list.innerHTML = '';
+  scanWarnings.forEach(function(m){ var li = document.createElement('li'); li.textContent = m; list.appendChild(li); });
+  box.hidden = !scanWarnings.length;
+}
+
 async function autoScanAll(){
+  clearScanWarnings();
   // Mobile only: make sure the Lightning scan detector is ready before we start the
   // (heavy) loop. We started it in parallel with Thunder at init, so this usually
   // resolves immediately; only matters if the user uploaded videos blazingly fast.
@@ -1209,6 +1376,7 @@ async function autoScanAll(){
       tfMemPre = (tf.memory && tf.memory().numBytes) || 0;
       tf.engine().startScope();
       tfScopeOpen = true;
+      eflTfScopeOpen = true;
     } catch(e){
       console.warn('[esfl] could not open tf scope:', e && e.message);
     }
@@ -1230,13 +1398,9 @@ async function autoScanAll(){
   if(!loadStatus.front) failedLabels.push('Front');
   if(!loadStatus.back)  failedLabels.push('Back');
   if(failedLabels.length){
-    var step = document.getElementById('scan-step');
-    if(step){
-      step.innerHTML = '&#9888; ' + failedLabels.join(' &amp; ') + ' video' +
-        (failedLabels.length>1?'s':'') + ' could not be decoded by this browser (phone clips are often HEVC / H.265). ' +
-        'Re-export as H.264 .mp4 or try Safari / Chrome -- scanning will continue with whatever did load.';
-      step.style.color = 'var(--bad)';
-    }
+    pushScanWarning(failedLabels.join(' & ') + ' video' + (failedLabels.length>1?'s':'') +
+      ' couldn\u2019t be decoded by this browser (phone clips are often HEVC / H.265). ' +
+      'Re-export as H.264 .mp4 or try Safari / Chrome \u2014 scanning continues with whatever loaded.');
     console.warn('[esfl] video load failure:', failedLabels.join(', '));
   }
 
@@ -1245,6 +1409,16 @@ async function autoScanAll(){
   if(!isFinite(sideDur)||isNaN(sideDur)||sideDur<=0) sideDur=30;
 
   initPhases(sideDur/2);
+
+  // Very short clips leave few full strides to pick from (display only; the scan carries on).
+  [['side','Side',sideVid],['front','Front',frontVid],['back','Back',backVid]].forEach(function(c){
+    var st = c[2];
+    if(!st || !st.ok) return;
+    var dur = st.duration;
+    if(st.frameCount() < 45 || (isFinite(dur) && dur < 2)){
+      pushScanWarning('The '+c[1].toLowerCase()+' clip is very short ('+(isFinite(dur)?dur:0).toFixed(1)+' s) \u2014 a few seconds of steady running gives the scan full strides to work with.');
+    }
+  });
 
   // Set front/back phase times to midpoint of their respective videos
   var frontDur = frontVid.duration;
@@ -1262,7 +1436,7 @@ async function autoScanAll(){
   }).join('');
 
   // ---- STEP 1: Scan side video (7 side phases) ----
-  document.getElementById('scan-sub-text').textContent = 'Scanning side view for 7 gait phases...';
+  document.getElementById('scan-sub-text').textContent = 'Scanning side view for '+PHASE_DEFS.filter(function(d){return d.videoKey==='side';}).length+' gait phases\u2026';
   // Mobile gets half as many sample frames -- still ~7.5fps on a 10s clip, which is
   // plenty to find phase extrema, and it linearly reduces inference work + thermal load.
   var N = IS_MOBILE_RUNNER ? 75 : 150, samples=[];
@@ -1273,6 +1447,7 @@ async function autoScanAll(){
   var sideScanDet = scanDetector || detector;
 
   for(var i=0;i<N;i++){
+    eflCheckCancel();
     // Mobile only: every 10 frames, yield to the browser so it can paint,
     // collect garbage, and let the SoC breathe between inference bursts.
     if(IS_MOBILE_RUNNER && i>0 && (i%10)===0){
@@ -1292,7 +1467,7 @@ async function autoScanAll(){
     if(!poses||!poses.length)continue;
     posesFound++;
     if(posesFound===1 && !isSideView(poses[0].keypoints)){
-      document.getElementById('scan-step').textContent='Side view: front or back view detected -- side view gives best results';
+      pushScanWarning('The side clip\u2019s first poses look front- or back-facing \u2014 side-view angles need a dead-on side view.');
     }
     var kps=poses[0].keypoints;
     drawMiniSkeleton(sctx,kps,1,1); // poses were estimated on sc itself
@@ -1356,6 +1531,7 @@ async function autoScanAll(){
   // ±0.20s window around each leg's coarse plateau. Removes the coarse-sampling
   // resolution ceiling on the four side-stride phases. Mid-stance keeps its coarse
   // pick (its acceptance band is wide enough that resolution isn't the bottleneck).
+  eflCheckCancel();
   document.getElementById('scan-step').textContent='Side view: refining foot-strike + toe-off edges...';
   try { await refineLegPlateau('left',  sideVid); } catch(e){ console.error('refine L plateau:',e); }
   try { await refineLegPlateau('right', sideVid); } catch(e){ console.error('refine R plateau:',e); }
@@ -1371,6 +1547,7 @@ async function autoScanAll(){
     }
   } catch(e){ console.warn('[pgi] dense pre-contact scan skipped:', e && e.message); }
 
+  eflCheckCancel();
   // Update side phase UI items
   var sidePhaseKeys = ['l_foot','r_foot','l_toe','r_toe','mid'];
   sidePhaseKeys.forEach(function(key){
@@ -1384,10 +1561,12 @@ async function autoScanAll(){
   // to-back stages of pose estimation thermally throttle the chip and slow
   // the rest of the scan (and any subsequent scan in the same session).
   if(IS_MOBILE_RUNNER){
-    document.getElementById('scan-sub-text').textContent = 'Brief cool-down between scans...';
+    document.getElementById('scan-sub-text').textContent = 'Brief cool-down between scans\u2026';
+    document.getElementById('scan-step').textContent = 'Pausing briefly between scans\u2026';
     await new Promise(function(r){ setTimeout(r, 1500); });
   }
 
+  eflCheckCancel();
   // ---- STEP 2: Scan front video for L and R stance frames ----
   document.getElementById('scan-sub-text').textContent = 'Scanning front view for L and R mid-stance frames...';
   var frontBest = await scanBestStanceFrames(frontVid, 'front', 75, 87);
@@ -1396,10 +1575,12 @@ async function autoScanAll(){
 
   // Same cool-down between front and back scans on mobile.
   if(IS_MOBILE_RUNNER){
-    document.getElementById('scan-sub-text').textContent = 'Brief cool-down between scans...';
+    document.getElementById('scan-sub-text').textContent = 'Brief cool-down between scans\u2026';
+    document.getElementById('scan-step').textContent = 'Pausing briefly between scans\u2026';
     await new Promise(function(r){ setTimeout(r, 1500); });
   }
 
+  eflCheckCancel();
   // ---- STEP 3: Scan back video for L and R stance frames ----
   document.getElementById('scan-sub-text').textContent = 'Scanning back view for L and R mid-stance frames...';
   var backBest = await scanBestStanceFrames(backVid, 'back', 87, 100);
@@ -1408,7 +1589,8 @@ async function autoScanAll(){
 
   // Finalize
   document.getElementById('scan-bar').style.width='100%';
-  document.getElementById('scan-step').textContent='Done -- all 3 videos scanned';
+  document.getElementById('scan-step').textContent='Done — all 3 videos scanned';
+  document.getElementById('scan-sub-text').textContent = 'Scan complete';
 
   var diag=document.getElementById('scan-diag');diag.style.display='block';
   var fmtClip = function(v){ return v.ok ? (v.nativeWidth+'x'+v.nativeHeight+(v.fps?' '+v.fps+'fps':'')) : 'failed'; };
@@ -1417,16 +1599,22 @@ async function autoScanAll(){
   // Frames the browser couldn't decode leave holes the scrubber steps across.
   var partial = [['Side',sideVid],['Front',frontVid],['Back',backVid]].filter(function(p){ return p[1].ok && p[1].coverage < 0.9; });
   if(partial.length){
-    diag.innerHTML += '<br>&#9888; Only part of the ' + partial.map(function(p){ return p[0].toLowerCase()+' ('+Math.round(p[1].coverage*100)+'% of frames)'; }).join(', ') +
-      ' video could be loaded -- re-exporting as H.264 .mp4 usually fixes this.';
-    diag.style.borderLeft = '3px solid var(--warn)';
-    diag.style.paddingLeft = '10px';
+    var partialMsg = 'Only part of the ' + partial.map(function(p){ return p[0].toLowerCase()+' ('+Math.round(p[1].coverage*100)+'% of frames)'; }).join(', ') +
+      ' video could be loaded \u2014 re-exporting as H.264 .mp4 usually fixes this.';
+    diag.innerHTML += '<br>&#9888; ' + partialMsg;
+    pushScanWarning(partialMsg);
   }
 
+  eflCheckCancel();
   await new Promise(function(r){setTimeout(r,700);});
+  eflCheckCancel();
   document.getElementById('screen-scanning').style.display='none';
   document.getElementById('screen-phases').style.display='block';
-  document.getElementById('btn-rescan').style.display='inline-flex';
+  // Phones: Re-scan only reloads the page, which "New analysis" already does.
+  document.getElementById('btn-rescan').style.display = IS_MOBILE_RUNNER ? 'none' : 'inline-flex';
+  var reviewActionsEl = document.getElementById('review-actions');
+  if(reviewActionsEl) reviewActionsEl.style.display = IS_MOBILE_RUNNER ? 'none' : '';
+  showScanWarningsSummary();
   var detected=PHASE_DEFS.filter(function(d){return phases[d.key] && phases[d.key].detected;}).length;
   var sb=document.getElementById('scan-summary-bar');sb.style.display='flex';
   var sexInfo=selectedSex?'<span class="ss-item '+selectedSex+'">Ranges: <strong>'+selectedSex+'</strong></span>':'<span class="ss-item">Ranges: <strong>default</strong></span>';
@@ -1436,15 +1624,16 @@ async function autoScanAll(){
   var sideFailed  = (sideVid.videoWidth ||0) === 0;
   var frontFailed = (frontVid.videoWidth||0) === 0;
   var backFailed  = (backVid.videoWidth ||0) === 0;
-  sb.innerHTML =
+  var ssWarn = sideFailed || frontFailed || backFailed || posesFound<15;
+  sb.innerHTML = '<details class="ss-details"'+(ssWarn?' open':'')+'><summary>Scan details &middot; '+detected+' of '+PHASE_DEFS.length+' auto-detected'+(ssWarn?' &middot; <span class="ss-warn-flag">check these</span>':'')+'</summary><div class="ss-items">'+
     '<span class="ss-item '+(sideFailed?'warn':'')+'">Side: <strong>'+fmtDim(sideVid)+'</strong></span>'+
     '<span class="ss-item '+(frontFailed?'warn':'')+'">Front: <strong>'+fmtDim(frontVid)+'</strong></span>'+
     '<span class="ss-item '+(backFailed?'warn':'')+'">Back: <strong>'+fmtDim(backVid)+'</strong></span>'+
     '<span class="ss-item">Duration: <strong>'+sideDur.toFixed(1)+'s</strong></span>'+
     '<span class="ss-item '+(posesFound<15?'warn':'')+'">Side poses: <strong>'+posesFound+'/'+N+'</strong></span>'+
-    '<span class="ss-item">Auto-detected: <strong>'+detected+'/9</strong></span>'+sexInfo;
+    '<span class="ss-item">Auto-detected: <strong>'+detected+'/'+PHASE_DEFS.length+'</strong></span>'+sexInfo+'</div></details>';
   if(sideFailed || frontFailed || backFailed){
-    sb.innerHTML += '<span class="ss-item warn" style="flex-basis:100%">&#9888; A video could not be decoded by this browser (phone clips are often HEVC / H.265) -- re-export it as H.264 .mp4 or try Safari / Chrome.</span>';
+    sb.innerHTML += '<span class="ss-item warn" style="flex-basis:100%">&#9888; A video could not be decoded by this browser (phone clips are often HEVC / H.265) — re-export it as H.264 .mp4 or try Safari / Chrome.</span>';
   }
   buildPhaseGroups();buildSummaryTable();
   for(var di=0;di<PHASE_DEFS.length;di++){
@@ -1459,14 +1648,18 @@ async function autoScanAll(){
     try {
       var tfMemBefore = (tf.memory && tf.memory().numBytes) || 0;
       tf.engine().endScope();
+      eflTfScopeOpen = false;
       var tfMemAfter = (tf.memory && tf.memory().numBytes) || 0;
       console.log('[esfl] tf memory bytes  pre-scan='+tfMemPre+'  end-of-scan='+tfMemBefore+'  after-cleanup='+tfMemAfter);
     } catch(e){ console.warn('[esfl] tf scope close failed:', e && e.message); }
   }
-  // First-time users: walk them through the review process. Skipped if previously dismissed.
-  if(!isViewingSaved){
+  // First-time users: walk them through the review process once per browser
+  // (finishing or skipping sets 'esfl-tour-done'; the guided-tour button replays it).
+  eflSyncWalkthroughLine();
+  if(!isViewingSaved && !eflTourDone()){
     setTimeout(function(){ startTour(); }, 600);
   }
+  scanInProgress = false;
 }
 
 // Scan ~20 frames of a video, return the one with best avg confidence
@@ -1491,6 +1684,7 @@ async function scanBestStanceFrames(vidEl, viewLabel, barStart, barEnd) {
   var frames = [];
 
   for(var i=0;i<NFRAMES;i++){
+    eflCheckCancel();
     // Mobile only: yield to the browser every 10 frames -- same reason as
     // the side-scan loop. With NFRAMES=25 on mobile this fires twice.
     if(IS_MOBILE_RUNNER && i>0 && (i%10)===0){
@@ -1929,11 +2123,43 @@ async function refineLegPlateau(side, sideVid){
 }
 
 // Phase grid
+// Phase cards are keyboard-operable (role=button). Wired once per element.
+function eflWireCard(card, key){
+  card.tabIndex = 0;
+  card.setAttribute('role','button');
+  eflCardLabel(key);
+  if(card.dataset.eflKb) return;
+  card.dataset.eflKb = '1';
+  card.addEventListener('keydown', function(e){
+    if(e.target !== card) return;
+    if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openExpand(key); }
+  });
+}
+function eflCardLabel(key){
+  var card = document.getElementById('card-'+key); var ph = phases[key];
+  if(!card || !ph) return;
+  var idx = PHASE_DEFS.findIndex(function(d){return d.key===key;});
+  var badge = document.getElementById('badge-'+key);
+  var state = card.classList.contains('clip-failed') ? 'video couldn\u2019t be loaded, open for details'
+    : (!ph.detected || ph.noPose) ? 'not auto-detected, open to pick a frame'
+    : 'open to check the frame' + (badge && badge.textContent ? ' (detection: '+badge.textContent+')' : '');
+  card.setAttribute('aria-label', (idx+1)+'. '+ph.label+' \u2014 '+state);
+}
+// Card badge shows detection quality (pure read of getDetectionQuality) or "Needs side view".
+function setCardQualityBadge(key, kps, needsSide){
+  var b = document.getElementById('badge-'+key); if(!b) return;
+  if(needsSide){ b.className='pc-badge manual'; b.textContent='Needs side view'; eflCardLabel(key); return; }
+  var q = getDetectionQuality(kps);
+  b.className = 'pc-badge ok q-'+(q?q.level:'strong');
+  b.textContent = q ? (q.level.charAt(0).toUpperCase()+q.level.slice(1)) : 'analyzed';
+  eflCardLabel(key);
+}
+
 function buildPhaseGroups(){
   var container=document.getElementById('phase-groups');container.innerHTML='';
   PHASE_GROUPS.forEach(function(grp){
     var section=document.createElement('div');section.className='phase-group';
-    var labelDiv=document.createElement('div');labelDiv.className='phase-group-label';labelDiv.textContent=grp.label;
+    var labelDiv=document.createElement('h2');labelDiv.className='phase-group-label';labelDiv.textContent=grp.label;
     var cardRow=document.createElement('div');cardRow.className='phase-group-cards';
     section.appendChild(labelDiv);section.appendChild(cardRow);container.appendChild(section);
     grp.keys.forEach(function(key){
@@ -1944,8 +2170,15 @@ function buildPhaseGroups(){
         var badgeClass = vKey==='front'?'front-badge':vKey==='back'?'back-badge':'side-badge';
         var badgeLabel = vKey.charAt(0).toUpperCase()+vKey.slice(1);
         var card=document.createElement('div');
-        card.className='phase-card'+(ph.detected?'':' undetected');card.id='card-'+key;
-        if(ph.detected){
+        var clipOk = !!(vidEl && vidEl.ok);
+        card.className='phase-card'+(ph.detected && clipOk?'':' undetected')+(clipOk?'':' clip-failed');card.id='card-'+key;
+        if(!clipOk){
+          card.innerHTML='<div class="pc-hdr"><div class="pc-num">'+(idx+1)+'</div><div class="pc-name-wrap"><div class="pc-name">'+ph.label+'</div><div class="pc-desc">'+ph.desc+'</div></div><span class="pc-video-badge '+badgeClass+'">'+badgeLabel+'</span><div class="pc-badge manual" id="badge-'+key+'">no video</div></div>'+
+            '<div class="pc-detects">Detects: '+ph.detectsIssue+'</div>'+
+            '<div class="pc-placeholder"><div class="pc-placeholder-icon">&#9888;</div><div class="pc-placeholder-text">Video couldn\u2019t be loaded</div><div class="pc-placeholder-sub">Re-export as H.264 .mp4 and start a new analysis</div></div>'+
+            '<div class="pc-footer"><span class="pc-time-display" id="ptime-'+key+'">--</span><span class="pc-expand-hint pc-hint-warn">&#8599; Details</span></div>'+
+            '<div class="pc-metrics-mini" id="metrics-mini-'+key+'"></div>';
+        }else if(ph.detected){
           card.innerHTML='<div class="pc-hdr"><div class="pc-num">'+(idx+1)+'</div><div class="pc-name-wrap"><div class="pc-name">'+ph.label+'</div><div class="pc-desc">'+ph.desc+'</div></div><span class="pc-video-badge '+badgeClass+'">'+badgeLabel+'</span><div class="pc-badge pending" id="badge-'+key+'">pending</div></div>'+
             '<div class="pc-detects">Detects: '+ph.detectsIssue+'</div>'+
             '<div class="pc-canvas-wrap"><canvas class="pc-canvas" id="canvas-'+key+'"></canvas><div class="pc-loading" id="loading-'+key+'"><div class="pc-mini-spinner"></div></div></div>'+
@@ -1960,10 +2193,11 @@ function buildPhaseGroups(){
           card.innerHTML='<div class="pc-hdr"><div class="pc-num">'+(idx+1)+'</div><div class="pc-name-wrap"><div class="pc-name">'+ph.label+'</div><div class="pc-desc">'+ph.desc+'</div></div><span class="pc-video-badge '+badgeClass+'">'+badgeLabel+'</span><div class="pc-badge manual" id="badge-'+key+'">manual</div></div>'+
             '<div class="pc-detects">Detects: '+ph.detectsIssue+'</div>'+
             '<div class="pc-placeholder"><div class="pc-placeholder-icon">&#9888;</div><div class="pc-placeholder-text">Not auto-detected</div><div class="pc-placeholder-sub">Click to manually select a frame</div></div>'+
-            '<div class="pc-footer"><span class="pc-time-display" id="ptime-'+key+'">--</span><span class="pc-expand-hint" style="color:var(--warn);font-weight:600">&#8599; Select frame</span></div>'+
+            '<div class="pc-footer"><span class="pc-time-display" id="ptime-'+key+'">--</span><span class="pc-expand-hint pc-hint-warn">&#8599; Select frame</span></div>'+
             '<div class="pc-metrics-mini" id="metrics-mini-'+key+'"></div>';
         }
         card.addEventListener('click',(function(k){return function(){openExpand(k);};})(key));cardRow.appendChild(card);
+        eflWireCard(card, key);
       }catch(e){console.error('card error',key,e);}
     });
   });
@@ -1986,7 +2220,15 @@ async function analyzeCard(key){
   canvas.width=W;canvas.height=H;var ctx=canvas.getContext('2d');
   if(frameImg){try{ctx.drawImage(frameImg,0,0,W,H);}catch(e){}}
   var poses=null;try{poses=await detector.estimatePoses(canvas);}catch(e){}
-  if(!poses||!poses.length){if(badge){badge.className='pc-badge manual';badge.textContent='no pose';}if(loading)loading.classList.remove('show');return;}
+  if(!poses||!poses.length){
+    if(badge){badge.className='pc-badge manual';badge.textContent='no pose';}if(loading)loading.classList.remove('show');
+    // UI-only flag (never saved): ph.detected / ph.kps stay as they were.
+    ph.noPose = true;
+    var npCard=document.getElementById('card-'+key);
+    if(npCard){ npCard.classList.add('undetected'); var npHint=npCard.querySelector('.pc-expand-hint'); if(npHint){ npHint.textContent='Pose not found \u2014 open to pick another frame'; npHint.classList.add('pc-hint-warn'); } }
+    eflCardLabel(key);
+    return;
+  }
   var kps=poses[0].keypoints;
   // If weak, retry with brightness-normalized image
   if(isWeakDetection(kps)){
@@ -1995,6 +2237,7 @@ async function analyzeCard(key){
     if(poses2&&poses2.length&&!isWeakDetection(poses2[0].keypoints)){kps=poses2[0].keypoints;}
   }
   ph.kps=kps;
+  ph.analyzedT=ph.t; // UI-only: which time the shown pose/metrics belong to
 
   if(isFrontBack){
     ph.frontBackMetrics = computeFrontBackMetrics(kps);
@@ -2010,7 +2253,7 @@ async function analyzeCard(key){
     drawPose(ctx,kps,W,H);
     if(!ph.sideView){renderSideViewWarning(key);}else{renderMiniMetrics(key,ph.metrics);updateSummaryCol(key);renderLegSwapWarning(key,ph.metrics);}
   }
-  if(badge){badge.className='pc-badge ok';badge.textContent='analyzed';}if(loading)loading.classList.remove('show');
+  setCardQualityBadge(key, kps, !isFrontBack && !ph.sideView);if(loading)loading.classList.remove('show');
   // Keep the Results report in sync with the displayed metrics. Detection
   // runs once at completeAnalysis() and stores lastIssues; without this,
   // refining a frame afterward updates the on-card numbers but leaves the
@@ -2057,7 +2300,24 @@ function renderMiniMetricsFrontBack(key, fbm) {
 }
 
 // Expand panel
+// Inspector dialog focus (a11y-13): remember what opened it, trap Tab only while
+// the tour is NOT running (its bubble lives outside the panel), restore on close.
+var eflInspectorTrigger = null;
+function eflInspectorTrap(e){
+  if(e.key!=='Tab' || (typeof tourState!=='undefined' && tourState.active)) return;
+  var cp=document.getElementById('ep-commit-prompt');
+  var panel=(cp && !cp.hidden) ? cp : document.querySelector('#expand-overlay .expand-panel'); if(!panel) return;
+  var f=[].filter.call(panel.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'),function(el){ return el.getClientRects().length>0; });
+  if(!f.length) return;
+  var first=f[0], last=f[f.length-1], a=document.activeElement;
+  if(e.shiftKey ? (a===first || !panel.contains(a)) : (a===last || !panel.contains(a))){ e.preventDefault(); (e.shiftKey?last:first).focus(); }
+}
+document.getElementById('expand-overlay').addEventListener('keydown', eflInspectorTrap);
 function openExpand(key){
+  if(!getVideoElForPhase(key)) return; // saved view: no clips to inspect
+  var eflWasOpen = document.getElementById('expand-overlay').classList.contains('open');
+  var cpO=document.getElementById('ep-commit-prompt'); if(cpO) cpO.hidden=true;
+  if(!eflWasOpen){ var eflA=document.activeElement; eflInspectorTrigger=(eflA && eflA!==document.body)?eflA:document.getElementById('card-'+key); }
   expandKey=key;var ph=phases[key];var idx=PHASE_DEFS.findIndex(function(d){return d.key===key;});epCurrentT=ph.t||0;
   // Snapshot the auto-picked frame so we can tell later whether the reviewer accepted or moved it.
   epAutoT = ph.t || 0;
@@ -2068,10 +2328,25 @@ function openExpand(key){
   var vidEl = getVideoElForPhase(key);
   document.getElementById('expand-overlay').classList.add('open');
   document.body.classList.add('expand-open');
-  var isUndet=!ph.detected||!ph.kps;
+  var clipOk = !!(vidEl && vidEl.ok);
+  var isUndet=!ph.detected||!ph.kps||!!ph.noPose||!clipOk;
   document.getElementById('ep-hdr').className='ep-hdr'+(isUndet?' undetected':'');
   document.getElementById('ep-num').textContent=idx+1;document.getElementById('ep-name').textContent=ph.label;document.getElementById('ep-desc').textContent=ph.desc;
-  document.getElementById('ep-undetected-notice').className='ep-undetected-notice'+(isUndet?' show':'');
+  document.getElementById('ep-undetected-notice').className='ep-undetected-notice'+(isUndet&&clipOk?' show':'');
+  var eunT=document.querySelector('#ep-undetected-notice .eun-title'), eunX=document.querySelector('#ep-undetected-notice .eun-text');
+  if(eunT&&eunX){
+    if(ph.noPose){ eunT.textContent='No pose found on this frame'; eunX.textContent='Step to a nearby frame where the whole body is visible, then press \u21bb Analyze this frame.'; }
+    else { eunT.textContent='We couldn\u2019t find this moment automatically'; eunX.textContent='We\u2019ve started you mid-clip. Step to the right moment with the frame buttons, then press \u21bb Analyze this frame.'; }
+  }
+  // Phones: open each phase at the top so its name and the close button are visible.
+  var epPanel=document.querySelector('#expand-overlay .expand-panel'); if(epPanel) epPanel.scrollTop=0;
+  var failedNotice=document.getElementById('ep-failed-notice');
+  if(failedNotice){
+    failedNotice.className='ep-undetected-notice'+(clipOk?'':' show');
+    if(!clipOk) document.getElementById('ep-failed-text').textContent='This browser couldn\u2019t decode the '+getVideoKeyForPhase(key)+' clip (phone clips are often HEVC / H.265). Re-export it as H.264 .mp4, then start a new analysis.';
+  }
+  document.querySelectorAll('#expand-overlay .scrub-stepper-row button, #ep-re-btn, #ep-swap-btn').forEach(function(b){ b.disabled = !clipOk; });
+  document.getElementById('ep-swap-btn').disabled = !clipOk || !ph.kps || !!ph.noPose;
   var dur=vidEl.duration||30;
   epDuration = isFinite(dur)?dur:30;
   document.getElementById('ep-time').textContent=epCurrentT.toFixed(2)+'s';
@@ -2086,28 +2361,36 @@ function openExpand(key){
   ) : '';
   document.getElementById('ep-guide-desc').innerHTML = guide.desc + sideAngleWarnHTML;
   document.getElementById('ep-guide-checks').innerHTML =
-    '<div style="font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;font-family:var(--mono)">Confirm this frame shows:</div>' +
+    '<div class="pi-checks-label">Confirm this frame shows:</div>' +
     guide.checks.map(function(c){return '<div class="pi-check"><span class="pi-check-icon">&#9670;</span><span>'+c+'</span></div>';}).join('');
   document.getElementById('ep-guide-tip').textContent='Tip: '+guide.tip;
   renderInlineHelper(key);
-  document.getElementById('nav-phase-btns').innerHTML=PHASE_DEFS.map(function(def,i){return '<button class="nav-phase-btn '+(def.key===key?'cur':'')+' '+(!(phases[def.key]&&phases[def.key].detected)?'undetected':'')+'" onclick="openExpand(\''+def.key+'\')">'+(i+1)+'. '+def.label+'</button>';}).join('');
+  document.getElementById('nav-phase-btns').innerHTML=PHASE_DEFS.map(function(def,i){return '<button class="nav-phase-btn '+(def.key===key?'cur':'')+' '+(!(phases[def.key]&&phases[def.key].detected)?'undetected':'')+'" onclick="eflRequestLeaveExpand(function(){openExpand(\''+def.key+'\');})">'+(i+1)+'. '+def.label+'</button>';}).join('');
 
   var vKey = getVideoKeyForPhase(key);
   var isFrontBack = (vKey==='front'||vKey==='back');
 
   if(isFrontBack && ph.frontBackMetrics){
     renderExpandMetricsFrontBack(ph.frontBackMetrics);
+  } else if(ph.metrics && !isFrontBack && ph.sideView===false){
+    document.getElementById('ep-metrics').innerHTML=
+      '<div class="ep-no-data ep-no-data-warn">&#9888; Side view required for angle analysis \u2014 this frame appears to be front or back facing</div>';
   } else if(ph.metrics && !isFrontBack){
     renderExpandMetrics(ph.metrics);
   } else {
     document.getElementById('ep-metrics').innerHTML='<div class="ep-no-data">Click &#8635; Analyze to measure angles</div>';
   }
-  drawExpandFrame(epCurrentT,ph.kps);
-  renderQualityCard(ph.kps);
+  drawExpandFrame(epCurrentT,ph.noPose?null:ph.kps);
+  renderQualityCard(ph.noPose?null:ph.kps);
   renderExpandLegSwapWarning(key);
   renderLabelPanel();
+  syncStale();
   document.querySelectorAll('.phase-card').forEach(function(c){c.classList.toggle('dimmed',c.id!=='card-'+key);});
   document.addEventListener('keydown',onExpandKey);
+  // Move focus into the dialog on a fresh open -- but never while the tour drives it.
+  if(!eflWasOpen && !(typeof tourState!=='undefined' && tourState.active)){
+    var epClose=document.querySelector('#expand-overlay .ep-close'); if(epClose){ try{ epClose.focus(); }catch(e){} }
+  }
 }
 
 function renderLabelPanel(){
@@ -2119,7 +2402,7 @@ function renderLabelPanel(){
   var lbl = phaseLabels[expandKey] || {good:[], bad:[]};
   var parts = [lbl.good.length + ' good', lbl.bad.length + ' bad'];
   status.textContent = parts.join(' \u00b7 ');
-  status.style.color = (lbl.good.length || lbl.bad.length) ? 'var(--good)' : 'var(--muted2)';
+  status.style.color = (lbl.good.length || lbl.bad.length) ? 'var(--good-ink, var(--good))' : 'var(--muted2)';
 }
 
 function updatePhaseCardLabelBadge(key){
@@ -2208,8 +2491,8 @@ async function labelCorrectFrame(){
       correctData = await analyzePoseAtT(originalT, phaseKey);
     }
     if(!correctData){
-      status.textContent = 'Pose not detected at correct frame -- aborted';
-      status.style.color = 'var(--bad)';
+      status.textContent = 'Pose not detected at correct frame — aborted';
+      status.style.color = 'var(--bad-ink)';
       return;
     }
 
@@ -2246,25 +2529,73 @@ async function labelCorrectFrame(){
     document.getElementById('ep-time').textContent = originalT.toFixed(2) + 's';
     if(phases[phaseKey]){
       phases[phaseKey].t = originalT;
+      phases[phaseKey].analyzedT = originalT;
       phases[phaseKey].kps = correctData.kps;
       phases[phaseKey].metrics = correctData.metrics;
     }
     epPoseFreshAt = originalT;
+    var ptL=document.getElementById('ptime-'+phaseKey); if(ptL) ptL.textContent=originalT.toFixed(2)+'s';
     try { await drawExpandFrame(originalT, correctData.kps); } catch(e){}
 
     status.textContent = 'Saved ' + saved + '/7 frames' + (failed ? ' (' + failed + ' failed)' : '');
-    status.style.color = 'var(--good)';
+    status.style.color = 'var(--good-ink)';
   } catch(e){
     console.error('labelCorrectFrame failed', e);
-    status.textContent = 'Label failed -- see console';
-    status.style.color = 'var(--bad)';
+    status.textContent = 'Label failed — see console';
+    status.style.color = 'var(--bad-ink)';
   } finally {
     btnG.disabled = false;
   }
 }
-function closeExpand(){document.getElementById('expand-overlay').classList.remove('open');document.body.classList.remove('expand-open');document.querySelectorAll('.phase-card').forEach(function(c){c.classList.remove('dimmed');});expandKey=null;document.removeEventListener('keydown',onExpandKey);}
-function onExpandKey(e){if(e.key==='Escape'){ if(document.getElementById('examples-overlay').classList.contains('open')){ closeExamples(); return; } if(document.getElementById('tour-overlay').classList.contains('open')) return; closeExpand(); }}
-document.getElementById('expand-overlay').addEventListener('click',function(e){if(e.target===document.getElementById('expand-overlay'))closeExpand();});
+function closeExpand(){
+  var cpX=document.getElementById('ep-commit-prompt'); if(cpX) cpX.hidden=true; eflCommitPending=null;
+  var ov=document.getElementById('expand-overlay'); var wasOpen=ov.classList.contains('open'); var lastKey=expandKey;
+  ov.classList.remove('open');document.body.classList.remove('expand-open');document.querySelectorAll('.phase-card').forEach(function(c){c.classList.remove('dimmed');});expandKey=null;document.removeEventListener('keydown',onExpandKey);
+  if(wasOpen){
+    // Return focus: to the card now shown when the inspector was opened from a card, else to the opener.
+    var t=eflInspectorTrigger; eflInspectorTrigger=null;
+    if(t && t.classList && t.classList.contains('phase-card') && lastKey){ t=document.getElementById('card-'+lastKey)||t; }
+    if(t && document.body.contains(t) && t.getClientRects().length && !(typeof tourState!=='undefined' && tourState.active)){ try{ t.focus(); }catch(e){} }
+  }
+}
+function onExpandKey(e){if(e.key==='Escape'){ if(document.getElementById('examples-overlay').classList.contains('open')){ closeExamples(); return; } if(document.getElementById('tour-overlay').classList.contains('open')) return; if(eflCommitPromptOpen()){ eflHideCommitPrompt(true); return; } eflRequestLeaveExpand(closeExpand); }}
+document.getElementById('expand-overlay').addEventListener('click',function(e){if(e.target===document.getElementById('expand-overlay'))eflRequestLeaveExpand(closeExpand);});
+
+// Commit on Analyze (D12 #5): the card's frame (ph.t) only changes when Analyze succeeds.
+// Leaving the inspector on a moved, unanalyzed frame asks: analyze it, or keep the previous one.
+var eflCommitPending = null;
+function eflCommitPromptOpen(){ var p=document.getElementById('ep-commit-prompt'); return !!(p && !p.hidden); }
+function eflHasUncommittedFrame(){
+  if(!expandKey || !phases[expandKey]) return false;
+  if(typeof tourState!=='undefined' && tourState.active) return false;
+  var vidEl=getVideoElForPhase(expandKey); if(!(vidEl && vidEl.ok)) return false;
+  return Math.abs(epCurrentT - (phases[expandKey].t||0)) > 1e-3;
+}
+function eflRequestLeaveExpand(next){
+  if(!eflHasUncommittedFrame()){ next(); return; }
+  eflCommitPending = next;
+  var p=document.getElementById('ep-commit-prompt'); p.hidden=false;
+  try{ document.getElementById('ep-commit-analyze').focus(); }catch(e){}
+}
+function eflHideCommitPrompt(cancelled){
+  var p=document.getElementById('ep-commit-prompt'); if(p) p.hidden=true;
+  if(cancelled){ eflCommitPending=null; try{ document.getElementById('ep-re-btn').focus(); }catch(e){} }
+}
+(function(){
+  var a=document.getElementById('ep-commit-analyze'), k=document.getElementById('ep-commit-keep');
+  if(a) a.addEventListener('click', async function(){
+    var next=eflCommitPending; eflHideCommitPrompt(false); eflCommitPending=null;
+    var before=expandKey;
+    await epReanalyze();
+    // Leave only when the frame was committed (Analyze found a pose).
+    if(next && expandKey===before && phases[before] && Math.abs(epCurrentT-(phases[before].t||0))<=1e-3) next();
+  });
+  if(k) k.addEventListener('click', function(){
+    var next=eflCommitPending; eflHideCommitPrompt(false); eflCommitPending=null;
+    if(expandKey && phases[expandKey]){ epCurrentT=phases[expandKey].t||0; var te=document.getElementById('ep-time'); if(te) te.textContent=epCurrentT.toFixed(2)+'s'; syncStale(); }
+    if(next) next();
+  });
+})();
 
 // ---------- Frame examples modal ----------
 // Map each phase key to its example-image set. Foot strike images intentionally cover
@@ -2393,10 +2724,15 @@ function openExamples(){
     '<div class="ex-grid">'+renderCards(set.good,'good')+'</div>'+
     '<div class="ex-section-label bad"><span class="es-dot"></span>Avoid frames that look like these</div>'+
     '<div class="ex-grid">'+renderCards(set.bad,'bad')+'</div>';
-  document.getElementById('examples-overlay').classList.add('open');
+  var exOv=document.getElementById('examples-overlay');
+  exOv.classList.add('open');
+  // Escape stays with onExpandKey (examples → tour → inspector order).
+  esLabs.openDialog(exOv, { initialFocus: exOv.querySelector('.ex-close'), dismissable: false });
 }
 function closeExamples(){
-  document.getElementById('examples-overlay').classList.remove('open');
+  var exOv=document.getElementById('examples-overlay');
+  exOv.classList.remove('open');
+  esLabs.closeDialog(exOv);
 }
 
 // ---------- Guided tour ----------
@@ -2409,20 +2745,8 @@ var tourState = { active:false, idx:0, steps:null, raf:null };
 function getTourSteps(){
   return [
     {
-      title: 'Finish this walkthrough first, then adjust your frames',
-      desc: '<strong style="color:var(--warn)">Please do not click on any cards or frame controls yet.</strong> Take 60 seconds to step through the rest of this walkthrough — it explains exactly how to open a card, step to the right frame, re-analyze, and use the helper photos. Once you finish the walkthrough, come back and review every card with this knowledge in hand. People who try to adjust frames before finishing this walkthrough almost always get stuck.',
-      target: function(){ return document.querySelector('#phase-groups .phase-card'); },
-      align: 'auto'
-    },
-    {
-      title: 'Review your frames before you finish',
-      desc: 'We picked a frame for each phase of your stride. Your job is to <strong>open every card</strong>, confirm the right moment was caught, and re-analyze if not. A few quick tools make that easy.',
-      target: function(){ return document.querySelector('#phase-groups .phase-card'); },
-      align: 'auto'
-    },
-    {
-      title: 'Open a card to inspect the frame',
-      desc: 'Each card holds one phase of your stride. Click any card to open the inspector with the chosen frame, a pose overlay, and the detection quality.',
+      title: 'Review every card before you finish',
+      desc: 'We picked a frame for each phase of your stride. <strong>Click any card</strong> to open the inspector with the chosen frame, a pose overlay and the detection quality, confirm the right moment was caught, and re-analyze if not. This 60-second walkthrough shows you the tools &mdash; <strong>finish it before you adjust any frames</strong>.',
       setup: function(){ if(document.getElementById('expand-overlay').classList.contains('open')) closeExpand(); },
       target: function(){ return document.querySelector('#phase-groups .phase-card'); },
       align: 'auto'
@@ -2436,14 +2760,14 @@ function getTourSteps(){
     },
     {
       title: 'Compare to correct vs. wrong reference frames',
-      desc: 'Each open card shows compact reference photos right here in the sidebar — what a correct frame for this phase looks like, and frames you should avoid. Match your selected frame as closely as you can. Tap <strong>See full annotated guide</strong> for the bigger version with extra notes.',
+      desc: 'Each open card shows compact reference photos right here next to your frame (below it on phones) — what a correct frame for this phase looks like, and frames you should avoid. Match your selected frame as closely as you can. Tap <strong>See full annotated guide</strong> for the bigger version with extra notes.',
       setup: function(){ ensureTourCardOpen(); },
       target: function(){ return document.getElementById('ep-inline-helper'); },
       align: 'auto'
     },
     {
       title: 'Click Analyze as many times as needed',
-      desc: 'Each click re-analyzes the current frame. Pose detection has some randomness, so a second or third pass on the same frame can sometimes bump detection quality from <em>medium</em> to <em>strong</em>. If multiple re-analyses still don’t improve it, use the frame step buttons or the examples helper to pick a clearer frame.',
+      desc: 'Each click re-analyzes the current frame. Pose detection has some randomness, so a second or third pass on the same frame can sometimes bump detection quality from <em>Fair</em> to <em>Strong</em>. If multiple re-analyses still don’t improve it, use the frame step buttons or the examples helper to pick a clearer frame.',
       setup: function(){ ensureTourCardOpen(); },
       target: function(){ return document.getElementById('ep-re-btn'); },
       align: 'auto'
@@ -2470,7 +2794,7 @@ function getTourSteps(){
         // Give layout a beat to settle (display:none -> flex), then scroll into view.
         setTimeout(function(){
           var b2 = document.getElementById('complete-analysis-bar');
-          if(b2){ try{ b2.scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){} }
+          if(b2){ try{ b2.scrollIntoView({behavior:eflScrollBehavior(),block:'center'}); }catch(e){} }
         }, 60);
       },
       target: function(){
@@ -2489,15 +2813,21 @@ function ensureTourCardOpen(){
   if(document.getElementById('expand-overlay').classList.contains('open')) return;
   var firstDetected = PHASE_DEFS.find(function(d){return phases[d.key] && phases[d.key].detected;});
   var key = firstDetected ? firstDetected.key : (PHASE_DEFS[0] && PHASE_DEFS[0].key);
-  if(key && phases[key]) openExpand(key);
+  if(key && phases[key]){ openExpand(key); tourState.openedCard = true; }
 }
 
+function eflTourDone(){ try{ return localStorage.getItem('esfl-tour-done') === '1'; }catch(e){ return false; } }
+function eflSyncWalkthroughLine(){
+  var l = document.getElementById('instr-walkthrough-line');
+  if(l) l.hidden = eflTourDone();
+}
 function startTour(){
   if(tourState.active) return;
   tourState.steps = getTourSteps();
   tourState.idx = 0;
   tourState.active = true;
   tourState.forcedBarShow = false;
+  tourState.returnFocus = document.activeElement;
   document.getElementById('tour-overlay').classList.add('open');
   document.addEventListener('keydown', onTourKey);
   window.addEventListener('resize', positionTour, {passive:true});
@@ -2508,7 +2838,9 @@ function startTour(){
   showTourStep(0);
 }
 function endTour(skipped){
+  if(tourState.active){ try{ localStorage.setItem('esfl-tour-done','1'); }catch(e){} }
   tourState.active = false;
+  eflSyncWalkthroughLine();
   document.getElementById('tour-overlay').classList.remove('open');
   document.removeEventListener('keydown', onTourKey);
   window.removeEventListener('resize', positionTour);
@@ -2521,11 +2853,23 @@ function endTour(skipped){
     if(bar) bar.classList.remove('show');
     tourState.forcedBarShow = false;
   }
-  // Leave whatever the user has open as-is; don't force-close their card.
+  // Close the inspector only if the tour opened it; never force-close the user's own card.
+  if(tourState.openedCard){
+    tourState.openedCard = false;
+    if(document.getElementById('expand-overlay').classList.contains('open')) closeExpand();
+  }
+  // Return focus to where the user was (or the first card).
+  var rf = tourState.returnFocus; tourState.returnFocus = null;
+  if(!(rf && document.contains(rf) && rf !== document.body)) rf = document.querySelector('#phase-groups .phase-card');
+  if(rf && rf.focus && !document.getElementById('expand-overlay').classList.contains('open')){ try{ rf.focus({preventScroll:true}); }catch(e){} }
 }
 function onTourKey(e){
   if(e.key==='Escape'){ endTour(true); return; }
-  if(e.key==='ArrowRight' || e.key==='Enter'){ tourNext(); return; }
+  // Focused controls handle their own keys (Enter on #tb-next clicks it once).
+  var t = e.target;
+  var interactive = t && t.closest && t.closest('button,input,select,textarea,a,[role=button]');
+  if(interactive) return;
+  if(e.key==='ArrowRight'){ tourNext(); return; }
   if(e.key==='ArrowLeft'){ tourBack(); return; }
 }
 function tourNext(){
@@ -2556,6 +2900,7 @@ function showTourStep(i){
   document.getElementById('tb-next').textContent = (i===tourState.steps.length-1) ? 'Got it ✓' : 'Next →';
   var dots = tourState.steps.map(function(_,k){return '<div class="tb-dot '+(k===i?'cur':'')+'"></div>';}).join('');
   document.getElementById('tb-dots').innerHTML = dots;
+  try{ document.getElementById('tb-next').focus({preventScroll:true}); }catch(e){}
   // Auto-scroll the target into view ONCE per step (not on every scroll event --
   // that fought the user when they tried to scroll the expand panel themselves).
   // scrollIntoView walks up the ancestor chain and scrolls the nearest scrollable
@@ -2570,7 +2915,7 @@ function showTourStep(i){
       // Top-align the target (scroll-margin keeps it clear of the nav) so the
       // bubble has the rest of the screen beneath it.
       var block = window.innerWidth <= 700 ? 'start' : 'center';
-      try{ firstEl.scrollIntoView({behavior:'smooth', block:block}); }catch(e){}
+      try{ firstEl.scrollIntoView({behavior:eflScrollBehavior(), block:block}); }catch(e){}
     }
     // Position the spotlight after the scroll has had a moment to settle. While
     // the smooth scroll animates, the capture-phase scroll listener will keep
@@ -2647,7 +2992,7 @@ function positionTour(){
   // card, the examples helper) is spotlit from its top down to where the bubble
   // starts, so the bubble never sits on what it describes.
   var roomBottom = vh - bh - 30;
-  if(vw <= 700 && step.align !== 'above' && bottom > roomBottom && roomBottom - top >= 80) bottom = roomBottom;
+  if((vw <= 700 || vh <= 500) && step.align !== 'above' && bottom > roomBottom && roomBottom - top >= 80) bottom = roomBottom;
   // Four dark rectangles surround the target rect, leaving a transparent spotlight in the middle.
   mT.style.left='0px'; mT.style.top='0px'; mT.style.width=vw+'px'; mT.style.height=top+'px';
   mB.style.left='0px'; mB.style.top=bottom+'px'; mB.style.width=vw+'px'; mB.style.height=Math.max(0,vh-bottom)+'px';
@@ -2729,10 +3074,26 @@ async function drawExpandFrame(t,kps){
 }
 function epScrub(val){
   epCurrentT=parseFloat(val);document.getElementById('ep-time').textContent=epCurrentT.toFixed(2)+'s';
-  if(phases[expandKey])phases[expandKey].t=epCurrentT;
-  var ptEl=document.getElementById('ptime-'+expandKey);if(ptEl)ptEl.textContent=epCurrentT.toFixed(2)+'s';
+  // The card keeps its committed frame (ph.t) until Analyze succeeds on the new one.
   clearTimeout(epDbt.t);epDbt.t=setTimeout(function(){drawExpandFrame(epCurrentT,null);},100);
   if(isAdmin()) renderLabelPanel();
+  syncStale();
+}
+// The quality pill jumps to the quality card.
+(function(){
+  var pill=document.getElementById('ep-quality-pill'); if(!pill) return;
+  function jump(){ var c=document.getElementById('ep-quality-card'); if(c) try{ c.scrollIntoView({block:'nearest',behavior:eflScrollBehavior()}); }catch(e){} }
+  pill.addEventListener('click', jump);
+  pill.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); jump(); } });
+})();
+// Display-only: flag measurements that belong to a different frame than the one shown.
+function syncStale(){
+  var ph=phases[expandKey];
+  var stale=!!(ph&&ph.metrics&&isFinite(ph.analyzedT)&&Math.abs(epCurrentT-ph.analyzedT)>1e-3);
+  ['ep-quality-pill','ep-metrics','ep-quality-card'].forEach(function(id){var e=document.getElementById(id); if(e) e.classList.toggle('stale',stale);});
+  var rb=document.getElementById('ep-re-btn'); if(rb) rb.classList.toggle('needs-analyze',stale);
+  var n=document.getElementById('ep-stale-note');
+  if(n){ n.hidden=!stale; if(stale) n.textContent='Frame changed \u2014 press \u21bb Analyze this frame to use it. Until then the card keeps the '+ph.analyzedT.toFixed(2)+' s frame, and the angles and quality below are from that frame.'; }
 }
 // Steps whole frames of the actual clip (30fps clip: 33ms, 60fps: 17ms).
 function epStep(frames){
@@ -2761,7 +3122,7 @@ async function epReanalyze(){
   if(frameImg){try{ctx.drawImage(frameImg,0,0,W,H);}catch(e){}}
   var poses=null;try{poses=await detector.estimatePoses(canvas);}catch(e){}
   loading.classList.remove('show');
-  if(!poses||!poses.length){document.getElementById('ep-metrics').innerHTML='<div class="ep-no-data">No pose detected -- try a different frame</div>';btn.disabled=false;btn.textContent='\u21bb Analyze';epAnalyzing=false;return;}
+  if(!poses||!poses.length){document.getElementById('ep-metrics').innerHTML='<div class="ep-no-data">No pose detected — try a different frame</div>';btn.disabled=false;btn.textContent='\u21bb Analyze this frame';epAnalyzing=false;return;}
   var kps=poses[0].keypoints;
   // If weak, retry with brightness-normalized image
   if(isWeakDetection(kps)){
@@ -2769,7 +3130,32 @@ async function epReanalyze(){
     var poses2=null;try{poses2=await detector.estimatePoses(normCanvas);}catch(e){}
     if(poses2&&poses2.length&&!isWeakDetection(poses2[0].keypoints)){kps=poses2[0].keypoints;}
   }
-  var ph=phases[expandKey];ph.kps=kps;ph.detected=true;
+  var ph=phases[expandKey];ph.t=epCurrentT;ph.kps=kps;ph.detected=true;ph.noPose=false;ph.analyzedT=epCurrentT;
+  var ptC=document.getElementById('ptime-'+expandKey); if(ptC) ptC.textContent=epCurrentT.toFixed(2)+'s';
+  // The frame now has a pose: clear the undetected/failed state in the inspector.
+  document.getElementById('ep-hdr').className='ep-hdr';
+  document.getElementById('ep-undetected-notice').className='ep-undetected-notice';
+  var fnR=document.getElementById('ep-failed-notice'); if(fnR) fnR.classList.remove('show');
+  var swapR=document.getElementById('ep-swap-btn'); if(swapR) swapR.disabled=false;
+
+  // Rebuild an undetected card first, so the mini metrics and leg-swap warning land in it.
+  // (The card element keeps its click/keydown listeners from buildPhaseGroups.)
+  var ovCard=document.getElementById('card-'+expandKey);if(ovCard){ovCard.classList.remove('undetected');ovCard.classList.remove('clip-failed');}
+  var ovCanvas=document.getElementById('canvas-'+expandKey);
+  if(!ovCanvas&&ovCard){
+    var def=PHASE_DEFS.find(function(d){return d.key===expandKey;});var idx=PHASE_DEFS.findIndex(function(d){return d.key===expandKey;});
+    var vk2 = getVideoKeyForPhase(expandKey);
+    var bc2 = vk2==='front'?'front-badge':vk2==='back'?'back-badge':'side-badge';
+    var bl2 = vk2.charAt(0).toUpperCase()+vk2.slice(1);
+    ovCard.innerHTML='<div class="pc-hdr"><div class="pc-num">'+(idx+1)+'</div><div class="pc-name-wrap"><div class="pc-name">'+def.label+'</div><div class="pc-desc">'+def.desc+'</div></div><span class="pc-video-badge '+bc2+'">'+bl2+'</span><div class="pc-badge ok" id="badge-'+expandKey+'">analyzed</div></div>'+
+      '<div class="pc-detects">Detects: '+def.detectsIssue+'</div>'+
+      '<div class="pc-canvas-wrap"><canvas class="pc-canvas" id="canvas-'+expandKey+'"></canvas><div class="pc-loading" id="loading-'+expandKey+'"><div class="pc-mini-spinner"></div></div></div>'+
+      '<div class="pc-footer"><span class="pc-time-display" id="ptime-'+expandKey+'">'+epCurrentT.toFixed(2)+'s</span><span class="pc-expand-hint">&#8599; Click to adjust</span></div>'+
+      '<div class="pc-metrics-mini" id="metrics-mini-'+expandKey+'"></div>';
+    ovCanvas=document.getElementById('canvas-'+expandKey);
+  } else if(ovCard){
+    var hintR=ovCard.querySelector('.pc-expand-hint'); if(hintR){ hintR.textContent='↗ Click to adjust'; hintR.classList.remove('pc-hint-warn'); }
+  }
 
   if(isFrontBack){
     ph.frontBackMetrics = computeFrontBackMetrics(kps);
@@ -2786,40 +3172,23 @@ async function epReanalyze(){
     drawPose(ctx,kps,W,H);
     if(!ph.sideView){
       document.getElementById('ep-metrics').innerHTML=
-        '<div class="ep-no-data" style="color:var(--warn)">&#9888; Side view required for angle analysis -- this frame appears to be front or back facing</div>';
+        '<div class="ep-no-data ep-no-data-warn">&#9888; Side view required for angle analysis — this frame appears to be front or back facing</div>';
+      renderSideViewWarning(expandKey);
     } else {
       renderExpandMetrics(ph.metrics);
+      renderMiniMetrics(expandKey,ph.metrics);updateSummaryCol(expandKey);
     }
-    renderMiniMetrics(expandKey,ph.metrics);updateSummaryCol(expandKey);
     renderLegSwapWarning(expandKey,ph.metrics);
   }
   renderExpandLegSwapWarning(expandKey);
 
-  var ovCard=document.getElementById('card-'+expandKey);if(ovCard)ovCard.classList.remove('undetected');
-  var ovCanvas=document.getElementById('canvas-'+expandKey);
-  if(!ovCanvas&&ovCard){
-    var def=PHASE_DEFS.find(function(d){return d.key===expandKey;});var idx=PHASE_DEFS.findIndex(function(d){return d.key===expandKey;});
-    var vk2 = getVideoKeyForPhase(expandKey);
-    var bc2 = vk2==='front'?'front-badge':vk2==='back'?'back-badge':'side-badge';
-    var bl2 = vk2.charAt(0).toUpperCase()+vk2.slice(1);
-    ovCard.innerHTML='<div class="pc-hdr"><div class="pc-num">'+(idx+1)+'</div><div class="pc-name-wrap"><div class="pc-name">'+def.label+'</div><div class="pc-desc">'+def.desc+'</div></div><span class="pc-video-badge '+bc2+'">'+bl2+'</span><div class="pc-badge ok" id="badge-'+expandKey+'">analyzed</div></div>'+
-      '<div class="pc-detects">Detects: '+def.detectsIssue+'</div>'+
-      '<div class="pc-canvas-wrap"><canvas class="pc-canvas" id="canvas-'+expandKey+'"></canvas><div class="pc-loading" id="loading-'+expandKey+'"><div class="pc-mini-spinner"></div></div></div>'+
-      '<div class="pc-footer"><span class="pc-time-display" id="ptime-'+expandKey+'">'+epCurrentT.toFixed(2)+'s</span><span class="pc-expand-hint">&#8599; Click to adjust</span></div>'+
-      '<div class="pc-metrics-mini" id="metrics-mini-'+expandKey+'"></div>';
-    ovCard.addEventListener('click',(function(k){return function(){openExpand(k);};})(expandKey));ovCanvas=document.getElementById('canvas-'+expandKey);
-  }
   if(ovCanvas){ovCanvas.width=W;ovCanvas.height=H;try{ovCanvas.getContext('2d').drawImage(canvas,0,0);}catch(e){}}
-  var badge=document.getElementById('badge-'+expandKey);if(badge){badge.className='pc-badge ok';badge.textContent='analyzed';}
-  if(!isFrontBack){
-    renderMiniMetrics(expandKey,ph.metrics);updateSummaryCol(expandKey);
-  } else {
-    renderMiniMetricsFrontBack(expandKey, ph.frontBackMetrics);
-  }
-  var ptEl=document.getElementById('ptime-'+expandKey);if(ptEl){ptEl.textContent=epCurrentT.toFixed(2)+'s';ptEl.style.color='var(--cyan)';}
+  setCardQualityBadge(expandKey, kps, !isFrontBack && !ph.sideView);
+  var ptEl=document.getElementById('ptime-'+expandKey);if(ptEl){ptEl.textContent=epCurrentT.toFixed(2)+'s';ptEl.style.color='var(--accent-ink)';}
   renderQualityCard(kps);
   epPoseFreshAt = epCurrentT;
-  btn.disabled=false;btn.textContent='\u21bb Analyze';epAnalyzing=false;
+  btn.disabled=false;btn.textContent='↻ Analyze this frame';epAnalyzing=false;
+  syncStale();
   checkAllAnalyzed();
 }
 
@@ -2847,7 +3216,7 @@ function renderExpandMetricsFrontBack(fbm) {
   html += '<div class="ep-ml" style="margin-bottom:6px"><div class="ep-dot" style="background:var(--purple)"></div><strong>Hip drop' + stanceLabel + '</strong></div>';
   html += '<div class="ep-metric-bio">Contralateral pelvis drop during single-leg stance, indicating glute medius strength.'+(isFront?'':' This back view is used to confirm hip drop findings from the front view.')+'</div>';
   html += '<div class="ep-metric-measured">Value: <span class="ep-mv">'+(fbm.hipDropDeg!==null?fbm.hipDropDeg.toFixed(1)+'\u00b0':'--')+'</span>';
-  if(fbm.hipDrop!==null) html += ' -- <span style="color:var(--muted2)">'+(fbm.hipDrop>0?'Left hip lower':'Right hip lower')+'</span>';
+  if(fbm.hipDrop!==null) html += ' — <span style="color:var(--muted2)">'+(fbm.hipDrop>0?'Left hip lower':'Right hip lower')+'</span>';
   html += '</div></div>';
 
   if(isFront) {
@@ -2932,7 +3301,10 @@ async function downloadReport() {
   // Pull the athlete name from the save-name input, with the same fallback
   // the old client renderer used.
   var saveNameEl = document.getElementById('save-name');
-  var athleteName = (saveNameEl && saveNameEl.value.trim()) ? saveNameEl.value.trim() : '';
+  var svData = (isViewingSaved && currentSavedId) ? ((savedAnalysesList.find(function(a){return a.id===currentSavedId;})||{}).data||null) : null;
+  var athleteName = svData ? (svData.name || '') : ((saveNameEl && saveNameEl.value.trim()) ? saveNameEl.value.trim() : '');
+  var saveDateEl = document.getElementById('save-date');
+  var sessionDate = svData ? (svData.date || '') : ((saveDateEl && saveDateEl.value) || new Date().toLocaleDateString('en-CA'));
 
   // Strip phases down to just the fields the renderer needs (metrics map);
   // skips bulky per-frame keypoint arrays and PHASE_DEFS-derived fields
@@ -2965,7 +3337,9 @@ async function downloadReport() {
       selectedSex: selectedSex,
       phases: phasePayload,
       lastIssues: lastIssues,
-      images: phaseImages
+      images: phaseImages,
+      sessionName: athleteName,
+      sessionDate: sessionDate
     });
 
     var data = res && res.data ? res.data : {};
@@ -2981,7 +3355,7 @@ async function downloadReport() {
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
-    a.download = data.filename || ('esformlab-report-' + new Date().toISOString().slice(0,10) + '.pdf');
+    a.download = data.filename || ('esformlab-report-' + new Date().toLocaleDateString('en-CA') + '.pdf');
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -3016,7 +3390,15 @@ async function rescan(){
     }
     return;
   }
+  if (typeof tourState!=='undefined' && tourState.active) endTour(true);
+  var hasWork = lastIssues !== null || PHASE_DEFS.some(function(d){ return phases[d.key] && phases[d.key].metrics; });
+  if(hasWork && !confirm('Re-scan the videos? This replaces every frame you picked and your report.')) return;
   closeExpand();phases={};
+  lastIssues = null;
+  var saveSecR = document.getElementById('save-section');
+  if(saveSecR) saveSecR.style.display='none';
+  clearScanWarnings();
+  scanInProgress = true;
   document.getElementById('screen-phases').style.display='none';
   document.getElementById('scan-bar').style.width='0%';
   document.getElementById('scan-phase-list').innerHTML='';
@@ -3034,17 +3416,25 @@ async function rescan(){
   var bar = document.getElementById('complete-analysis-bar');
   if(bar) bar.classList.remove('show');
   document.body.classList.remove('bar-showing');
-  await autoScanAll();
+  eflResetCancel();
+  try { await autoScanAll(); }
+  catch(e){ if(!eflScanCancelled(e)) throw e; }
 }
 
+var currentSavedId = null; // id of the saved session being viewed (P9/P10)
 function resetApp(){
+  currentSavedId = null;
+  window.__eflSavedThisRun = false;
+  if (typeof tourState!=='undefined' && tourState.active) endTour(true);
   closeExpand();phases={};
   lastIssues = null;
+  clearScanWarnings();
   isViewingSaved = false;
   document.getElementById('screen-phases').style.display='none';
   document.getElementById('screen-scanning').style.display='none';
   document.getElementById('screen-upload').style.display='flex';
   document.getElementById('hdr-file').textContent='';
+  document.body.classList.remove('esfl-has-session');
   document.getElementById('btn-rescan').style.display='none';
   document.getElementById('phase-groups').innerHTML='';
   document.getElementById('scan-summary-bar').style.display='none';
@@ -3081,9 +3471,14 @@ function resetApp(){
     if(zone) zone.classList.remove('loaded');
     var info = document.getElementById('dz-info-'+vk);
     if(info) info.innerHTML='';
+    if(zone) zone.setAttribute('aria-label', 'Choose '+vk+'-view video');
+    var inp = document.getElementById('file-input-'+vk);
+    if(inp) inp.value='';
+    showZoneError(vk, '');
   });
   var btn = document.getElementById('btn-analyze-all');
   if(btn) btn.disabled = true;
+  document.body.classList.remove('esfl-ready');
 }
 
 
@@ -3095,28 +3490,33 @@ var feedbackType = 'contact';
 
 function openFeedbackModal(type) {
   feedbackType = type;
-  document.getElementById('feedback-modal-title').textContent = type === 'bug' ? 'Report a Bug' : 'Contact Endurance Science Labs';
+  document.getElementById('feedback-modal-title').textContent = type === 'bug' ? 'Report a bug' : 'Contact Endurance Science Labs';
   document.getElementById('feedback-modal-sub').textContent = type === 'bug'
     ? 'Describe what happened and what you expected. Include steps to reproduce if possible.'
     : "We'd love to hear from you. Questions, feedback, or feature requests — send it our way.";
   document.getElementById('feedback-text').value = '';
   document.getElementById('feedback-status').textContent = '';
   document.getElementById('feedback-status').style.color = '';
+  document.getElementById('feedback-status').setAttribute('role', 'status');
   document.getElementById('feedback-submit').disabled = false;
   document.getElementById('feedback-submit').textContent = 'Send';
-  document.getElementById('feedback-modal').classList.add('open');
-  document.getElementById('feedback-text').focus();
+  var fbOv = document.getElementById('feedback-modal');
+  fbOv.classList.add('open');
+  esLabs.openDialog(fbOv, { initialFocus: document.getElementById('feedback-text'), onClose: closeFeedbackModal });
 }
 
 function closeFeedbackModal() {
-  document.getElementById('feedback-modal').classList.remove('open');
+  var fbOv = document.getElementById('feedback-modal');
+  if (!fbOv.classList.contains('open')) return;
+  fbOv.classList.remove('open');
+  esLabs.closeDialog(fbOv);
 }
 
 async function submitFeedback() {
   var text = document.getElementById('feedback-text').value.trim();
   if (!text) {
     document.getElementById('feedback-status').textContent = 'Please enter a message.';
-    document.getElementById('feedback-status').style.color = 'var(--bad)';
+    document.getElementById('feedback-status').style.color = 'var(--bad-ink)';
     return;
   }
   var btn = document.getElementById('feedback-submit');
@@ -3125,8 +3525,9 @@ async function submitFeedback() {
 
   try {
     var fbDb = esLabs.db;
-    var senderName = currentUser ? (currentUser.displayName || currentUser.email) : 'Anonymous';
-    var senderUid = currentUser ? currentUser.uid : 'anonymous';
+    var u = esLabs.user || currentUser;
+    var senderName = u ? (u.displayName || u.email) : 'Anonymous';
+    var senderUid = u ? u.uid : 'anonymous';
 
     await fbDb.collection('notifications').add({
       recipientUid: ADMIN_UID,
@@ -3138,13 +3539,14 @@ async function submitFeedback() {
     });
 
     document.getElementById('feedback-status').textContent = 'Sent! Thank you.';
-    document.getElementById('feedback-status').style.color = 'var(--good)';
+    document.getElementById('feedback-status').style.color = 'var(--good-ink)';
     btn.textContent = 'Sent ✓';
     setTimeout(closeFeedbackModal, 1500);
   } catch(e) {
     console.error('Feedback submit failed:', e);
+    document.getElementById('feedback-status').setAttribute('role', 'alert');
     document.getElementById('feedback-status').textContent = 'Failed to send. Try again.';
-    document.getElementById('feedback-status').style.color = 'var(--bad)';
+    document.getElementById('feedback-status').style.color = 'var(--bad-ink)';
     btn.disabled = false;
     btn.textContent = 'Send';
   }
