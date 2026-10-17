@@ -9,179 +9,183 @@
 <meta name="robots" content="noindex, nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/shared/site.css">
+<link rel="stylesheet" href="/shared/site.css?v=20261016">
 <style>
-  body { font-family: var(--ui); background: var(--bg); color: var(--text); min-height: 100vh; margin: 0; padding-bottom: 60px; }
-
-  .mu-wrap { max-width: 1180px; margin: 0 auto; padding: 32px 24px; }
-  .mu-eyebrow { display:inline-block;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--purple);font-family:var(--mono);background:rgba(139,124,248,.10);border:1px solid rgba(139,124,248,.28);border-radius:20px;padding:4px 12px;margin-bottom:12px }
-  .mu-title { font-size:28px;font-weight:800;letter-spacing:-.5px;margin:0 0 8px;color:var(--text) }
-  .mu-sub { font-size:14px;color:var(--muted2);line-height:1.6;margin:0 0 24px;max-width:680px }
-
-  /* ── Stat strip ─────────────────────────────────────── */
-  .mu-stats { display:flex;gap:12px;flex-wrap:wrap;margin-bottom:22px }
-  .mu-stat { flex:1;min-width:130px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 18px }
-  .mu-stat-num { font-size:24px;font-weight:800;letter-spacing:-.5px;line-height:1 }
-  .mu-stat-label { font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono);margin-top:6px }
-  .mu-stat.coaches .mu-stat-num { color:var(--purple) }
-  .mu-stat.athletes .mu-stat-num { color:var(--cyan) }
-  .mu-stat.unassigned .mu-stat-num { color:var(--warn) }
-
-  /* ── Toolbar ────────────────────────────────────────── */
-  .mu-toolbar { display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 14px }
-  .mu-search { flex:1;min-width:200px;position:relative }
-  .mu-search input { width:100%;box-sizing:border-box;padding:9px 12px 9px 32px;background:var(--panel2);border:1px solid var(--border2);border-radius:9px;color:var(--text);font-family:var(--ui);font-size:13px;outline:none;transition:border-color .15s }
-  .mu-search input:focus { border-color:var(--cyan) }
-  .mu-search .mu-search-icon { position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted2);font-size:13px;pointer-events:none }
-  .mu-filter { display:flex;align-items:center;gap:6px }
-  .mu-filter label { font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono) }
-  .mu-filter select { padding:8px 10px;background:var(--panel2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--ui);font-size:13px;cursor:pointer;outline:none;transition:border-color .15s }
-  .mu-filter select:focus { border-color:var(--cyan) }
-  .mu-clear { padding:8px 12px;background:transparent;border:1px solid var(--border2);border-radius:8px;color:var(--muted2);font-family:var(--ui);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s }
-  .mu-clear:hover { border-color:var(--bad);color:var(--bad) }
-
-  /* ── Table ──────────────────────────────────────────── */
-  .mu-table-wrap { background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden }
-  .mu-table-scroll { overflow-x:auto }
-  table.mu-table { width:100%;border-collapse:collapse;min-width:980px }
-  .mu-table thead th { position:sticky;top:0;background:var(--panel2);text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted2);font-family:var(--mono);padding:12px 16px;border-bottom:1px solid var(--border2);white-space:nowrap }
-  .mu-table thead th.sortable { cursor:pointer;user-select:none }
-  .mu-table thead th.sortable:hover { color:var(--text) }
-  .mu-table thead th .sort-arrow { color:var(--cyan);margin-left:4px }
-  .mu-table tbody td { padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle }
-  .mu-table tbody tr:last-child td { border-bottom:none }
-  .mu-table tbody tr:hover { background:rgba(255,255,255,.015) }
-
-  /* User cell */
-  .mu-user { display:flex;align-items:center;gap:11px;min-width:0 }
-  .mu-avatar { flex-shrink:0;width:34px;height:34px;border-radius:9px;background:var(--panel2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--muted2);font-family:var(--mono) }
-  .mu-user-name { font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis }
-  .mu-user-email { font-size:11px;color:var(--muted2);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis }
-  .mu-you-tag { font-size:8.5px;font-weight:700;letter-spacing:.4px;color:var(--cyan);background:rgba(0,229,200,.12);border:1px solid rgba(0,229,200,.3);border-radius:4px;padding:1px 5px;margin-left:6px;font-family:var(--mono);vertical-align:1px }
-  .mu-flag-tag { font-size:8.5px;font-weight:700;letter-spacing:.4px;border-radius:4px;padding:1px 5px;margin-left:6px;font-family:var(--mono);vertical-align:1px;white-space:nowrap }
-  .mu-flag-tag.noprofile { color:var(--warn);background:rgba(245,166,35,.12);border:1px solid rgba(245,166,35,.3) }
-  .mu-flag-tag.disabled { color:var(--bad);background:rgba(245,80,80,.12);border:1px solid rgba(245,80,80,.3) }
-  .mu-actas-btn { display:inline-block;margin-top:4px;font-size:9.5px;font-weight:700;letter-spacing:.4px;font-family:var(--mono);color:var(--warn);background:transparent;border:1px solid rgba(245,166,35,.4);border-radius:5px;padding:2px 8px;cursor:pointer;transition:all .15s }
-  .mu-actas-btn:hover { background:rgba(245,166,35,.14);border-color:var(--warn) }
-  .mu-delete-btn { display:inline-block;margin-top:4px;margin-left:6px;font-size:9.5px;font-weight:700;letter-spacing:.4px;font-family:var(--mono);color:var(--bad);background:transparent;border:1px solid rgba(245,80,80,.4);border-radius:5px;padding:2px 8px;cursor:pointer;transition:all .15s }
-  .mu-delete-btn:hover { background:rgba(245,80,80,.14);border-color:var(--bad) }
-  .mu-delete-btn[disabled] { opacity:.5;cursor:wait }
-
-  /* Role pill */
-  .mu-role-pill { display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:7px;font-size:10px;font-weight:700;font-family:var(--mono);letter-spacing:.5px;cursor:pointer;transition:all .15s;user-select:none;text-transform:uppercase;white-space:nowrap }
-  .mu-role-pill.coach { background:rgba(139,124,248,.16);border:1px solid rgba(139,124,248,.34);color:var(--purple) }
-  .mu-role-pill.athlete { background:rgba(0,229,200,.12);border:1px solid rgba(0,229,200,.3);color:var(--cyan) }
-  .mu-role-pill:hover { filter:brightness(1.18) }
-  .mu-role-pill[disabled] { opacity:.5;cursor:wait }
-  .mu-role-pill .swap { opacity:.6;font-size:9px }
-
-  /* Coach assignment */
-  .mu-coach-select { max-width:190px;padding:7px 9px;background:var(--panel2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--ui);font-size:12px;cursor:pointer;outline:none;transition:border-color .15s }
-  .mu-coach-select:focus { border-color:var(--cyan) }
-  .mu-coach-select.unassigned { border-color:rgba(245,166,35,.4);color:var(--warn) }
-  .mu-coach-na { font-size:11px;color:var(--muted);font-family:var(--mono);font-style:italic }
-
-  /* Feature toggles */
-  .mu-feats { display:flex;gap:6px;flex-wrap:wrap }
-  .mu-feat { display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border-radius:7px;border:1px solid var(--border2);font-size:10px;font-weight:600;font-family:var(--mono);cursor:pointer;transition:all .15s;user-select:none;white-space:nowrap }
-  .mu-feat.on { background:rgba(0,229,200,.12);border-color:rgba(0,229,200,.3);color:var(--cyan) }
-  .mu-feat.off { background:transparent;color:var(--muted2) }
-  .mu-feat:hover { border-color:var(--cyan) }
-  .mu-feat[disabled] { opacity:.5;cursor:wait }
-  .mu-feat-dot { width:7px;height:7px;border-radius:50%;transition:background .15s }
-  .mu-feat.on .mu-feat-dot { background:var(--cyan) }
-  .mu-feat.off .mu-feat-dot { background:var(--muted) }
-
-  /* Strava connection badge + admin unlink */
-  .mu-strava { display:flex;align-items:center;gap:8px;white-space:nowrap }
-  .mu-strava-badge { display:inline-flex;align-items:center;gap:5px;font-size:9.5px;font-weight:800;letter-spacing:.5px;color:#FC5200;font-family:var(--mono);padding:4px 9px;background:rgba(252,82,0,.08);border:1px solid rgba(252,82,0,.22);border-radius:6px }
-  .mu-strava-badge .strava-logo { display:inline-block;width:10px;height:10px;fill:currentColor;flex-shrink:0 }
-  .mu-strava-unlink { padding:5px 10px;background:transparent;border:1px solid var(--border2);border-radius:7px;color:var(--muted2);font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;transition:all .15s;white-space:nowrap }
-  .mu-strava-unlink:hover { border-color:var(--bad);color:var(--bad) }
-  .mu-strava-unlink[disabled] { opacity:.5;cursor:wait }
-
-  .mu-joined { font-size:11px;color:var(--muted2);font-family:var(--mono);white-space:nowrap }
-
-  .mu-empty { padding:50px 20px;text-align:center;color:var(--muted2);font-size:13px;font-family:var(--mono) }
-  .mu-loading { padding:60px 20px;text-align:center;color:var(--muted2);font-size:13px;font-family:var(--mono) }
-
-  /* Toast */
-  .mu-toast { position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--panel2);border:1px solid var(--border2);border-radius:10px;padding:11px 18px;font-size:12.5px;font-family:var(--ui);color:var(--text);box-shadow:0 10px 30px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:500 }
-  .mu-toast.show { opacity:1;transform:translateX(-50%) translateY(0) }
-  .mu-toast.error { border-color:rgba(245,80,80,.5);color:var(--bad) }
-  .mu-toast.success { border-color:rgba(34,199,138,.5) }
-
+  body { min-height:100vh; margin:0 }
   #mu-app { display:none }
   #mu-app.show { display:block }
 
-  @media (max-width:640px) {
-    .mu-wrap { padding:22px 14px }
-    .mu-title { font-size:23px }
+  /* ── Stat tiles (also filter buttons) ───────────────── */
+  .mu-stats { display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:12px; margin-bottom:20px }
+  .mu-stat { box-sizing:border-box; min-width:0; padding:14px 16px; text-align:left; font:inherit; color:var(--text); background:var(--panel); border:1px solid var(--border); border-radius:var(--r-lg) }
+  button.mu-stat { cursor:pointer; transition:border-color .15s, background .15s }
+  button.mu-stat:hover { border-color:var(--border2); background:var(--hover) }
+  button.mu-stat[aria-pressed="true"] { border-color:var(--accent-line); background:var(--accent-wash) }
+  .mu-stat-label { display:block; font:600 12px/1.3 var(--ui); color:var(--muted2) }
+  .mu-stat-num { display:block; margin-top:8px; font:700 24px/1.1 var(--mono); font-variant-numeric:tabular-nums; color:var(--text) }
+  .mu-stat-of { font-size:15px; color:var(--muted2) }
+  .mu-stat.awaiting .mu-stat-num.has-some { color:var(--warn-ink) }
+  .mu-stat.strava.near-cap .mu-stat-num { color:var(--warn-ink) }
+  .mu-stat.strava.at-cap .mu-stat-num { color:var(--bad-ink) }
+  @media (max-width:900px) { .mu-stats { grid-template-columns:repeat(3, minmax(0, 1fr)) } }
+  @media (max-width:600px) { .mu-stats { grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px } .mu-stat { padding:12px 14px } .mu-stat-num { font-size:22px } .mu-stat.strava { grid-column:span 2 } }
+
+  /* ── Toolbar ────────────────────────────────────────── */
+  .mu-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; margin-bottom:12px; padding:12px 14px; background:var(--panel); border:1px solid var(--border); border-radius:var(--r-lg) }
+  .mu-search { position:relative; flex:1 1 220px; min-width:0 }
+  .mu-search .esl-input { padding-left:32px }
+  .mu-search-icon { position:absolute; left:11px; top:50%; transform:translateY(-50%); font-size:13px; color:var(--muted2); pointer-events:none }
+  .mu-filter { display:flex; align-items:center; gap:6px }
+  .mu-filter .esl-select { width:auto; min-width:120px }
+  .mu-count { margin:0 0 8px }
+  .mu-legend { max-width:var(--w-prose); margin:0 0 12px }
+  #mu-notice:not(:empty) { margin-bottom:12px }
+  @media (max-width:600px) {
+    .mu-search { flex-basis:100% }
+    .mu-filter { flex:1 1 0; flex-direction:column; align-items:stretch; gap:4px; min-width:0 }
+    .mu-filter .esl-select { width:100%; min-width:0 }
+    #mu-clear-btn { align-self:flex-end }
   }
+
+  /* ── Table ──────────────────────────────────────────── */
+  .mu-table-wrap { overflow-x:auto; background:var(--panel); border:1px solid var(--border); border-radius:var(--r-lg) }
+  table.mu-table { width:100%; min-width:960px; border-collapse:collapse; font:400 13px/1.45 var(--ui); color:var(--text) }
+  .mu-table th, .mu-table td { padding:10px 14px; text-align:left; vertical-align:middle; border-bottom:1px solid var(--border) }
+  .mu-table thead th { font-size:12px; font-weight:600; line-height:1.35; color:var(--muted2); background:var(--panel2); vertical-align:middle; white-space:nowrap }
+  .mu-table tbody tr:last-child > td { border-bottom:0 }
+  .mu-table tbody tr:hover > td { background:var(--hover) }
+  .mu-table tr > :first-child { position:sticky; left:0; z-index:1; background:var(--panel); box-shadow:inset -1px 0 0 var(--border) }
+  .mu-table thead tr > :first-child, .mu-table tbody tr:hover > :first-child { background:var(--panel2) }
+  @media (max-width:600px) { .mu-table { font-size:12px } .mu-table th, .mu-table td { padding:8px 10px } }
+
+  /* Sortable headers */
+  .mu-sort-btn { display:flex; align-items:center; gap:4px; width:100%; min-height:24px; padding:0; font:inherit; color:inherit; text-align:left; background:none; border:0; cursor:pointer }
+  .mu-sort-btn:hover { color:var(--text) }
+  .sort-arrow { color:var(--accent-ink) }
+
+  /* User cell */
+  .mu-user { display:flex; align-items:center; gap:10px; min-width:0; max-width:248px }
+  .mu-user-main { flex:1; min-width:0 }
+  .mu-avatar { flex-shrink:0; width:34px; height:34px; display:flex; align-items:center; justify-content:center; font:700 12px/1 var(--ui); color:var(--muted2); background:var(--panel2); border:1px solid var(--border2); border-radius:var(--r-md) }
+  .mu-user-line { display:flex; align-items:center; gap:6px; min-width:0 }
+  .mu-user-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; color:var(--text) }
+  .mu-user-line .esl-badge { flex:none }
+  .mu-user-email { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:400 12px/1.45 var(--ui); color:var(--muted2) }
+  .mu-row-actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px }
+  @media (max-width:600px) { .mu-avatar { display:none } .mu-user { max-width:168px } }
+
+  /* Role control */
+  .mu-role-pill { display:inline-flex; align-items:center; gap:6px; box-sizing:border-box; min-height:30px; padding:5px 12px; font:600 12px/1.2 var(--ui); white-space:nowrap; color:var(--text); background:var(--panel2); border:1px solid var(--border2); border-radius:var(--r-pill); cursor:pointer; transition:border-color .15s, color .15s, background .15s }
+  .mu-role-pill.coach { color:var(--accent-ink); background:var(--accent-wash); border-color:var(--accent-line) }
+  button.mu-role-pill:hover:not(:disabled) { border-color:var(--accent-ink) }
+  .mu-role-pill:disabled { opacity:.5; cursor:wait }
+  .mu-role-pill.is-static { cursor:default }
+  .mu-role-pill .swap { color:var(--muted2) }
+
+  /* Coach assignment */
+  .mu-coach-select { width:auto; min-width:150px; max-width:200px }
+  .mu-coach-select.unassigned { color:var(--warn-ink); border-color:var(--warn-line) }
+  .mu-coach-na { white-space:nowrap; font:400 12px/1.45 var(--ui); color:var(--muted2) }
+
+  /* Coaching status (under the coach select) */
+  .mu-status { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; max-width:200px }
+
+  /* Access-grant chips */
+  .mu-feats { display:grid; grid-template-columns:repeat(2, max-content); gap:6px }
+  .mu-feat { display:inline-flex; align-items:center; gap:6px; box-sizing:border-box; min-height:28px; padding:5px 12px; font:600 12px/1.3 var(--ui); white-space:nowrap; color:var(--muted2); background:var(--panel2); border:1px solid var(--border2); border-radius:var(--r-pill); cursor:pointer; transition:background .12s, border-color .12s, color .12s }
+  .mu-feat:hover:not(:disabled) { color:var(--text) }
+  .mu-feat.on { color:var(--accent-ink); background:var(--accent-wash); border-color:var(--accent-line) }
+  .mu-feat:disabled { opacity:.5; cursor:wait }
+  .mu-feat-dot { width:6px; height:6px; border-radius:50%; background:var(--muted) }
+  .mu-feat.on .mu-feat-dot { background:var(--cyan) }
+  .mu-feats-note { margin-top:4px; font:400 12px/1.45 var(--ui); color:var(--muted2) }
+
+  /* Strava */
+  .mu-strava { display:flex; flex-direction:column; align-items:flex-start; gap:6px; white-space:nowrap }
+  .mu-strava-badge { color:var(--strava); background:color-mix(in srgb, var(--strava) 8%, transparent); border-color:color-mix(in srgb, var(--strava) 35%, transparent) }
+  .mu-strava-badge .strava-logo { width:10px; height:10px; fill:currentColor; flex-shrink:0 }
+
+  .mu-joined { white-space:nowrap; font:400 12px/1.45 var(--ui); color:var(--muted2) }
+  .mu-error-text { margin:0 0 12px }
+
+  #mu-toast:empty { display:none }
 </style>
 </head>
 <body>
+
+<!-- Nav sits outside the admin container so the sign-in gate opens below it (D9) -->
+<nav class="eslabs-nav" id="mu-nav"></nav>
 
 <!-- Sign-in gate (admin-only — mounted by /shared/site.js) -->
 <div id="mu-gate"></div>
 
 <!-- App (shown only to the signed-in admin) -->
 <div id="mu-app">
-  <nav class="eslabs-nav" id="mu-nav"></nav>
+  <main id="main" class="esl-wrap mu-wrap">
+    <header class="esl-page-head">
+      <span class="esl-eyebrow">&#9673; Admin</span>
+      <h1 class="esl-h1">Manage Users</h1>
+      <p class="esl-sub">Search and filter every Endurance Science Labs account. Assign athletes to coaches, switch roles, and toggle which features each user can access, or delete an account. Changes save instantly.</p>
+    </header>
 
-  <div class="mu-wrap">
-    <div class="mu-eyebrow">&#9673; Admin</div>
-    <h1 class="mu-title">Manage Users</h1>
-    <p class="mu-sub">Search and filter every Endurance Science Labs account. Assign athletes to coaches, switch roles, and toggle which features each user can access, or delete an account. Changes save instantly.</p>
-
-    <div class="mu-stats" id="mu-stats"></div>
+    <div class="mu-stats" id="mu-stats" role="group" aria-label="User counts (click to filter)"></div>
 
     <div class="mu-toolbar">
       <div class="mu-search">
-        <span class="mu-search-icon">&#9906;</span>
-        <input type="text" id="mu-search-input" placeholder="Search by name or email…" autocomplete="off">
+        <label for="mu-search-input" class="esl-sr-only">Search users</label>
+        <span class="mu-search-icon" aria-hidden="true">&#9906;</span>
+        <input type="text" id="mu-search-input" class="esl-input esl-input--sm" placeholder="Search by name or email…" autocomplete="off">
       </div>
       <div class="mu-filter">
-        <label for="mu-role-filter">Role</label>
-        <select id="mu-role-filter">
+        <label for="mu-role-filter" class="esl-label">Role</label>
+        <select id="mu-role-filter" class="esl-select esl-select--sm">
           <option value="all">All</option>
           <option value="coach">Coaches</option>
           <option value="athlete">Athletes</option>
         </select>
       </div>
       <div class="mu-filter">
-        <label for="mu-coach-filter">Coach</label>
-        <select id="mu-coach-filter">
+        <label for="mu-coach-filter" class="esl-label">Coach</label>
+        <select id="mu-coach-filter" class="esl-select esl-select--sm">
           <option value="all">All</option>
           <option value="unassigned">Unassigned</option>
+          <option value="awaiting">Awaiting a coach</option>
         </select>
       </div>
-      <button class="mu-clear" id="mu-clear-btn">Clear</button>
+      <button type="button" class="esl-btn esl-btn--outline esl-btn--sm" id="mu-clear-btn">Clear</button>
     </div>
+
+    <div id="mu-notice"></div>
+    <p class="esl-caption mu-count" id="mu-count" aria-live="polite"></p>
+    <p class="esl-small mu-legend">Access grants turn a feature on without payment. Coaching: coaching access and the Training Plan tab. Lifting: the Lifting tab. esFormLab: full reports, no expiry. esMetabolicLab: unlimited uploads, no expiry. Paid subscriptions aren&rsquo;t shown as grants.</p>
 
     <div class="mu-table-wrap">
       <div class="mu-table-scroll">
-        <table class="mu-table">
+        <table class="mu-table" id="mu-table" aria-busy="true">
           <thead>
             <tr id="mu-head-row"></tr>
           </thead>
           <tbody id="mu-body">
-            <tr><td colspan="6"><div class="mu-loading">Loading users…</div></td></tr>
+            <tr><td colspan="6"><div class="esl-loading" role="status"><span class="esl-spin" aria-hidden="true"></span>Loading users&hellip;</div></td></tr>
           </tbody>
         </table>
       </div>
     </div>
-  </div>
+  </main>
+
+  <footer class="esl-app-footer">
+    <div class="esl-app-footer-meta"><a href="/privacy/">Privacy</a> &middot; <a href="mailto:austen@endurancesciencelabs.com">Contact</a> &middot; &copy; 2026 Endurance Science Labs</div>
+  </footer>
 </div>
 
-<div class="mu-toast" id="mu-toast"></div>
+<div class="esl-toast" id="mu-toast" role="status" aria-live="polite"></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
-<script src="/shared/site.js"></script>
-<script src="./app.js"></script>
+<script src="/shared/site.js?v=20261016"></script>
+<script src="./app.js?v=20261016"></script>
 
 </body>
 </html>
