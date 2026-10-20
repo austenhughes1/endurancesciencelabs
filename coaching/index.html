@@ -1071,7 +1071,7 @@ select.modal-field{appearance:auto;cursor:pointer}
 <script src="/shared/run-load-model.js?v=29"></script>
 <script src="/shared/injury-patterns.js?v=8"></script>
 <script src="/shared/device-matrix.js?v=2"></script>
-<script src="/shared/run-dynamics.js?v=42"></script>
+<script src="/shared/run-dynamics.js?v=43"></script>
 
 <script>
 'use strict';
@@ -3543,25 +3543,29 @@ async function syncStrava() {
   return syncStravaFor('athlete');
 }
 
-// Returns true if the timestamp is from today's local-calendar date.
+// Client auto-sync at most once an hour per athlete (new uploads in between
+// arrive through the Strava webhook's queued import).
+const STRAVA_AUTOSYNC_MIN_MS = 60 * 60 * 1000;
+
+// Returns true if the timestamp is less than STRAVA_AUTOSYNC_MIN_MS old.
 // Accepts Firestore Timestamp, Date, or null/undefined.
-function isFromToday(ts) {
+function isRecentSync(ts) {
   const d = tsToDate(ts);
-  return !!d && dateToStr(d) === dateToStr(new Date());
+  return !!d && Date.now() - d.getTime() < STRAVA_AUTOSYNC_MIN_MS;
 }
 
-// Auto-sync Strava once per local-calendar day per athlete on page load /
+// Auto-sync Strava at most once an hour per athlete on page load /
 // athlete-select. Fires in the background after the dashboard renders with
 // cached data; on success, refreshes the strava cache and re-renders the
 // dashboard so fresh activities appear without a manual Sync click.
 //
 // Server-side syncStravaActivities stamps users/{uid}.stravaLastSyncedAt,
-// so the day-bucket throttle is authoritative across devices.
+// so the hourly throttle is authoritative across devices.
 async function maybeAutoSyncStrava(role) {
   const data = role === 'coach' ? selectedAthleteData : userDoc;
   const uid = role === 'coach' ? selectedAthleteUid : currentUser?.uid;
   if (!data?.stravaConnected || !uid) return;
-  if (isFromToday(data.stravaLastSyncedAt)) return;
+  if (isRecentSync(data.stravaLastSyncedAt)) return;
   // Non-admin coaches: the deployed server may not accept athleteUid from them yet;
   // new runs still arrive through the Strava webhook, so don't fire a doomed call.
   if (role === 'coach' && !esLabs.isAdmin()) return;
@@ -3648,6 +3652,9 @@ async function syncStravaFor(role, btn, opts = {}) {
       if (!opts.silent || opts.okText) setDashSyncStatus(uid, 'ok', opts.okText || '✓ Synced · just now');
     }
     rerenderStravaViews(role);
+    // Refresh an open Training Analysis / Injury Patterns view (no-op unless
+    // it's mounted for this athlete).
+    if (window.RunDynamics && RunDynamics.reload) RunDynamics.reload(uid);
   } catch(e) {
     const code = String(e?.code || '').replace(/^functions\//, '');
     console.warn('Strava sync failed:', e);

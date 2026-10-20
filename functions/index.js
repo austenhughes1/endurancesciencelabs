@@ -318,6 +318,15 @@ exports.syncStravaActivities = onCall({ cors: true, timeoutSeconds: 300 }, async
     uid = targetUid;
   }
 
+  return runStravaSync(uid, { backfill: request.data?.backfill === true });
+});
+
+// The sync itself, for one athlete whose access has already been checked.
+// Shared by the syncStravaActivities callable and the webhook-driven
+// onStravaSyncQueued trigger. Throws HttpsError on the same conditions the
+// callable always reported (not connected, revoked access, Strava down) and
+// returns the same result objects (incl. the rateLimited one).
+async function runStravaSync(uid, opts = {}) {
   // Read stored tokens
   const tokenDoc = await db.collection("users").doc(uid).collection("private").doc("strava").get();
   if (!tokenDoc.exists) {
@@ -375,7 +384,7 @@ exports.syncStravaActivities = onCall({ cors: true, timeoutSeconds: 300 }, async
   // history. Both use only the list endpoint at Strava's 200/page maximum —
   // the cheapest way to cover a history (1 request per 200 activities, no
   // per-activity detail calls).
-  const isBackfill = request.data?.backfill === true;
+  const isBackfill = opts.backfill === true;
   const after = Math.floor(Date.now() / 1000) - STRAVA_LOOKBACK_DAYS * 24 * 60 * 60;
   const maxPages = isBackfill ? 40 : 15; // 8,000 vs 3,000 activities
   let allActivities = [];
@@ -619,7 +628,7 @@ exports.syncStravaActivities = onCall({ cors: true, timeoutSeconds: 300 }, async
     runSkipped,
     message: `Synced ${count} activities; ${runWrites.length} runs added to Run Dynamics (${runSkipped} days already covered by watch imports).`,
   };
-});
+}
 
 // ═══════════════════════════════════════════════════════════
 //  purgeStravaData — deletes everything we hold that came from
@@ -632,6 +641,9 @@ exports.syncStravaActivities = onCall({ cors: true, timeoutSeconds: 300 }, async
 async function purgeStravaData(uid) {
   // Tokens
   await db.collection("users").doc(uid).collection("private").doc("strava").delete();
+
+  // Any webhook-queued import (holds Strava activity ids)
+  await db.collection("stravaSyncQueue").doc(uid).delete();
 
   // Connection flags + disconnect time for audit
   // stravaLastSyncedAt goes too, so a same-day reconnect isn't treated as
@@ -707,6 +719,8 @@ async function purgeStravaData(uid) {
 //        → purge all Strava data for that athlete immediately
 //    • activity delete → remove our synced copy
 //    • activity update (title/type) → update our synced copy
+//    • activity create (or re-typed as a run) → queue an import in
+//        stravaSyncQueue/{uid}, run by onStravaSyncQueued
 //  so stored data always respects the athlete's choices on
 //  Strava, per the API Agreement.
 //
@@ -753,6 +767,20 @@ exports.stravaWebhook = onRequest({ cors: false }, async (req, res) => {
         const deleted = await purgeStravaData(uid);
         console.log(`Webhook: athlete ${athleteId} deauthorized — purged tokens + ${deleted} activities for uid ${uid}`);
       } else if (event.object_type === "activity" && event.object_id) {
+        // New upload (or an activity re-typed as a run): queue an import for
+        // onStravaSyncQueued instead of syncing here — Strava wants a fast
+        // 2xx, and a full sync can take far longer than that.
+        const becameRun = event.aspect_type === "update" && event.updates &&
+          typeof event.updates.type === "string" && /run/i.test(event.updates.type);
+        if ((event.aspect_type === "create" || becameRun) &&
+            userDocSnap.get("stravaConnected") === true) {
+          await db.collection("stravaSyncQueue").doc(uid).set({
+            uid,
+            activityIds: admin.firestore.FieldValue.arrayUnion(event.object_id),
+            requestedAt: admin.firestore.FieldValue.serverTimestamp(),
+          }, { merge: true });
+        }
+
         const planSnap = await db.collection("trainingPlans")
           .where("athleteUid", "==", uid)
           .limit(1)
@@ -808,6 +836,72 @@ exports.stravaWebhook = onRequest({ cors: false }, async (req, res) => {
 
   res.status(200).send("EVENT_RECEIVED");
 });
+
+// ═══════════════════════════════════════════════════════════
+//  onStravaSyncQueued — runs the Strava sync for an athlete
+//  whose webhook queued one (stravaSyncQueue/{uid}), so a run
+//  uploaded to Strava reaches Run Dynamics / Training Analysis
+//  without waiting for the next client-side sync.
+//  The queue doc is deleted only if requestedAt is unchanged
+//  since we read it: an upload that lands mid-sync re-stamps it
+//  and the write fires this trigger again for another pass.
+//  A rate-limited sync leaves the doc in place; the next queued
+//  event (or client sync) picks the work up.
+// ═══════════════════════════════════════════════════════════
+exports.onStravaSyncQueued = onDocumentWritten(
+  { document: "stravaSyncQueue/{uid}", timeoutSeconds: 300 },
+  async (event) => {
+    const after = event.data && event.data.after;
+    // Deletion (incl. our own cleanup below) — nothing to do; no loop.
+    if (!after || !after.exists) return;
+    const uid = event.params.uid;
+    const queueRef = db.collection("stravaSyncQueue").doc(uid);
+
+    // Re-read now: retries/duplicates may arrive after the doc is gone.
+    const snap = await queueRef.get();
+    if (!snap.exists) return;
+    const requestedAt = snap.get("requestedAt");
+
+    const clearIfUnchanged = () => db.runTransaction(async (tx) => {
+      const cur = await tx.get(queueRef);
+      if (!cur.exists) return false;
+      const t = cur.get("requestedAt");
+      const same = (t && requestedAt && typeof t.isEqual === "function")
+        ? t.isEqual(requestedAt)
+        : t === requestedAt;
+      if (!same) return false;
+      tx.delete(queueRef);
+      return true;
+    });
+
+    // Still connected? A deauth/disconnect after queueing means we must not
+    // read anything more from Strava for this athlete.
+    const userSnap = await db.collection("users").doc(uid).get();
+    if (!userSnap.exists || userSnap.get("stravaConnected") !== true) {
+      await queueRef.delete();
+      return;
+    }
+
+    let result;
+    try {
+      result = await runStravaSync(uid);
+    } catch (e) {
+      // Not connected / revoked (tokens already purged) / Strava down: drop
+      // this request — the client's own sync retries on the next visit.
+      console.warn(`onStravaSyncQueued: sync failed for uid ${uid}:`, e && (e.code || ""), e && e.message);
+      await clearIfUnchanged();
+      return;
+    }
+
+    if (result && result.rateLimited && !result.runDocs) {
+      console.warn(`onStravaSyncQueued: Strava rate limit for uid ${uid}; leaving queue doc for the next event/sync.`);
+      return;
+    }
+
+    const cleared = await clearIfUnchanged();
+    console.log(`onStravaSyncQueued: uid ${uid} — ${result && result.message}${cleared ? "" : " (re-queued mid-sync; another pass follows)"}`);
+  }
+);
 
 // ═══════════════════════════════════════════════════════════
 //  deauthorizeStrava — Callable function that fully revokes

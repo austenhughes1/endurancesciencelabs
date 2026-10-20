@@ -3538,6 +3538,7 @@ function syncActor(){
   var L=window.esLabs, real=(L && ('realUser' in L)) ? ((L.realUser&&L.realUser.uid)||null) : UID, admin=!!real && !!L && real===L.ADMIN_UID;
   return {real:real, admin:admin, canSync:real===UID || admin};
 }
+var STRAVA_SYNC_MIN_MS=60*60*1000;   // client auto-sync at most once an hour per athlete
 function maybeSyncStrava(){
   if(ROLE==='coach' || DEMO) return;   // the coaching page runs its own athlete-scoped sync in the coach view
   if(!STRAVA_SYNC.connected) return;
@@ -3546,7 +3547,7 @@ function maybeSyncStrava(){
   var last=STRAVA_SYNC.last;
   if(last){
     var d=last.toDate?last.toDate():new Date(last);
-    if(d.toDateString()===new Date().toDateString()) return;
+    if(Date.now()-d.getTime() < STRAVA_SYNC_MIN_MS) return;   // synced within the hour (webhook covers uploads in between)
   }
   var container=ROOT, my=MOUNT;
   firebase.functions().httpsCallable('syncStravaActivities',{timeout:300000})(who.real!==UID?{athleteUid:UID}:{}).then(function(res){

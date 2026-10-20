@@ -266,6 +266,14 @@ service cloud.firestore {
       }
     }
 
+    // ── Strava webhook import queue ─────────────────────────
+    // stravaSyncQueue/{uid} is written by the stravaWebhook function
+    // and consumed by onStravaSyncQueued (admin SDK only). It holds
+    // Strava activity ids, so no client may read or write it.
+    match /stravaSyncQueue/{uid} {
+      allow read, write: if false;
+    }
+
     // ── Deny everything else ─────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
