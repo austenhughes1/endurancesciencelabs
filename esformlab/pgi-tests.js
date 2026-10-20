@@ -830,7 +830,6 @@
     // With 70 ms of heel rise, the ankle-Y plateau ends ~70 ms early. The
     // refinement reads the ankle\u2019s hip-relative forward offset, which keeps
     // falling until the foot actually leaves, and recovers the true edge.
-    var KFOAnalysis = require ? null : null;
     var withHeel = analyze({ heelOffMs: 70 });
     var without = analyze({});
     var a = withHeel.strideTiming.overall.contactSeconds.median;
