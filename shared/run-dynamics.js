@@ -299,29 +299,38 @@ html[data-theme="light"] .rdx input[type=date]{color-scheme:light}
 /* #sec-hero is the hero's size container — never ROOT: containment would trap the fixed toast/modal */
 .rdx #sec-hero{container:rdx-hero/inline-size}
 .rdx-hero{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 20px;border-left:4px solid var(--muted2)}
-.rdx-hero-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:18px 36px}
-.rdx-hero-one>*{max-width:760px}   /* "Building your baseline": one column at reading width at any size */
-.rdx-hero-one>.rdx-hero-side{max-width:520px}
-.rdx-hero-eyebrow{font-size:12px;color:var(--muted2);line-height:1.4;margin:0 0 4px}
+/* Today card: headline + date, one instruction line, two numbers, then a closed "Details" disclosure */
+.rdx-today-top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 16px}
+.rdx-today-top>.rdx-hero-head{flex:1 1 260px;min-width:0}
+.rdx-today-date{font-size:12px;font-weight:600;line-height:1.3;color:var(--muted2);white-space:nowrap}
 .rdx-hero-head{display:flex;align-items:flex-start;gap:10px;font-family:var(--ui);font-size:22px;font-weight:800;letter-spacing:-.3px;line-height:1.25;color:var(--text);margin:0}
 .rdx-hero-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:calc(.625em - 5px)}   /* centred on the first line */
-.rdx-hero-read{font-size:15px;line-height:1.55;color:var(--text);margin-top:10px;max-width:640px}
-/* "What to do next": the doHtml strings are locked, so the layout is CSS-only (the options' <b> distance
-   and its label text become the two grid columns) */
-.rdx-hero-do{margin-top:16px;font-size:14px;line-height:1.6;color:var(--muted2)}
-.rdx-hero-do .do-hd{display:block;font-size:12px;font-weight:600;color:var(--muted2);margin-bottom:6px}
-.rdx-hero-do b{color:var(--text);font-weight:700}
-.rdx-hero-do .lever{color:var(--rdx-accent-ink);font-weight:700}
-.rdx-do-line{font-size:15px;line-height:1.55;color:var(--text);margin-bottom:12px}
-.rdx-do-vol{margin-bottom:4px}
+.rdx-today-do{margin:6px 0 0 20px;font-size:15px;line-height:1.55;color:var(--text);max-width:640px}   /* 20px = dot + gap: aligns under the headline text */
+.rdx-today-top~.rdx-hero-notes{margin:4px 0 0 20px}
+.rdx-today-nums{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 32px;margin:16px 0 0 20px;max-width:640px}
+.rdx-today-num{min-width:0}
+.rdx-today-num .k{font-size:12px;font-weight:600;line-height:1.3;color:var(--muted2)}
+.rdx-today-num .v{margin-top:4px;font-family:var(--mono);font-size:24px;font-weight:700;line-height:1.2;color:var(--text);white-space:nowrap}
+.rdx-today-num .v small{font-family:var(--ui);font-size:12px;font-weight:600;color:var(--muted2);margin-left:6px}
+.rdx-today-num .x{margin-top:4px;font-size:12px;line-height:1.45;color:var(--muted2)}
+.rdx-today-num .x>span{white-space:nowrap}
+.rdx-today-num .x b{font-family:var(--mono);font-weight:700;color:var(--text)}
+.rdx-today-num .x b.lever{color:var(--rdx-accent-ink)}
+.rdx-band{position:relative;height:6px;margin-top:8px;max-width:200px;border-radius:3px;background:var(--panel2)}
+.rdx-band-safe{position:absolute;top:0;bottom:0;border-radius:3px;background:color-mix(in srgb,var(--good) 30%,transparent)}
+.rdx-band i{position:absolute;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;box-sizing:border-box;border-radius:50%;border:2px solid var(--panel)}
+.rdx-today-trend{margin:12px 0 0 20px;max-width:640px}
+.rdx-today-more{margin:14px 0 0 20px}
+.rdx-today-more>.rdx-more-body{max-width:760px}
+.rdx-today-foot{margin:12px 0 0;font-size:13px;line-height:1.55;color:var(--muted2)}
+.rdx-hero-cap{font-size:12px;color:var(--muted2);line-height:1.4;margin:0 0 8px}
+.rdx-today-more .rdx-do-opts+*,.rdx-today-more .rdx-trend+.rdx-hero-cap{margin-top:14px}
 .rdx-do-opts{list-style:none;margin:0 0 2px;padding:0;max-width:440px}
 .rdx-do-opts li{display:grid;grid-template-columns:64px minmax(0,1fr);align-items:baseline;padding:7px 0;border-bottom:1px solid var(--border);font-size:14px;line-height:1.45;color:var(--text)}
 .rdx-do-opts li:last-child{border-bottom:none}
-.rdx-do-opts li b{font-family:var(--mono);font-size:13px}
+.rdx-do-opts li b{font-family:var(--mono);font-size:13px;color:var(--text)}
 .rdx-do-opts .lever-opt b{color:var(--rdx-accent-ink)}
-.rdx-do-lever{margin-top:8px;font-size:13px;line-height:1.55;color:var(--muted2)}
-.rdx-hero-cap{font-size:12px;color:var(--muted2);line-height:1.4;margin:0 0 8px}
-.rdx-stat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.rdx-stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
 .rdx-stat,.rdx-trend{background:var(--panel2);border-radius:8px;padding:10px 12px;min-width:0}
 .rdx-stat .k,.rdx-trend .k{font-size:12px;font-weight:600;color:var(--muted2);line-height:1.3}
 .rdx-stat .v,.rdx-trend .v{font-family:var(--mono);font-size:20px;font-weight:700;line-height:1.2;color:var(--text);white-space:nowrap}
@@ -329,16 +338,18 @@ html[data-theme="light"] .rdx input[type=date]{color-scheme:light}
 .rdx-stat .v small{font-family:var(--ui);font-size:12px;font-weight:600;color:var(--muted2);margin-left:4px}
 .rdx-stat .x{display:flex;align-items:baseline;gap:6px;margin-top:3px;font-size:12px;line-height:1.35;color:var(--muted2)}
 .rdx-hero-notes{margin:0 0 8px;font-size:12px;line-height:1.4;color:var(--muted2)}
-/* "today so far" under the Last day label: generated content, so the hero's own text stays unchanged */
+/* "today so far" under the Last day label: generated content */
 .rdx-stat-grid>.rdx-stat:first-child>.k::after{content:" · today so far";font-weight:400}
 .rdx-tile-prev{font:400 12px/1.35 var(--ui);color:var(--muted2)}
 .rdx-stat .x i{width:6px;height:6px;border-radius:50%;flex-shrink:0;transform:translateY(-1px)}
 .rdx-trend{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 12px;margin-top:8px}
 .rdx-trend .x{font-size:12px;color:var(--muted2);line-height:1.35}
-.rdx-hero-foot{grid-column:1/-1;padding-top:12px;border-top:1px solid var(--border);font-size:13px;line-height:1.55;color:var(--muted2)}
-.rdx-hero-help{margin:8px 0 0;max-width:760px}
-@container rdx-hero (min-width:860px){
-  .rdx-hero-grid:not(.rdx-hero-one){grid-template-columns:minmax(0,7fr) minmax(0,5fr)}
+.rdx-hero-help{margin:8px 0 0;font-size:13px;line-height:1.55;color:var(--muted2);max-width:760px}
+/* narrow card (phone, or the coaching column): numbers at 20, no 20px indent */
+@container rdx-hero (max-width:520px){
+  .rdx-today-do,.rdx-today-top~.rdx-hero-notes,.rdx-today-nums,.rdx-today-trend,.rdx-today-more{margin-left:0}
+  .rdx-today-nums{gap:12px 16px}
+  .rdx-today-num .v{font-size:20px}
 }
 
 /* 4. injury & illness history — event dots and the --warn gaps border are the only accents; no red text */
@@ -557,10 +568,9 @@ html[data-theme="light"] .rdx-strava-o{display:inline-block}
   .rdx-group-body>.rdx-ctl :is(select,input[type=text]){max-width:100%}
   .rdx-custom{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
   .rdx-custom input{width:100%}
-  /* hero: one column (the container query never fires this narrow) */
+  /* hero: the narrow-card container query handles the layout */
   .rdx-hero{padding:14px 16px}
   .rdx-hero-head{font-size:20px}
-  .rdx-hero-do{margin-top:12px}
   .rdx-do-opts{max-width:none}
   /* chart: the range segments span the width, then "Show [select]" gets its own full-width row — the select's
      longest option (~290px) can't share a 358px row, and a sideways-scrolling row hid most of it */
@@ -730,6 +740,7 @@ var SB_MORE=false, ALSO_ALL=false, PAT_STATS=true, GAPS_OPEN=false;   // injury 
 var TOAST_T=0, TOAST_ARM=null, TOAST_BACK=null;   // page toast: hide timer, its (re)start fn while shown, where focus returns
 var SAVE_SEQ={};        // profile key → persist() calls issued: only the newest call to a key may revert it
 var HERO_HELP=false;    // hero "How to read these numbers" open — survives refresh() re-renders
+var HERO_MORE=false;    // Today card "Details" disclosure open — survives refresh() re-renders
 // §15.6: per-athlete view state and data, kept across remounts (a tab switch, a coach switching back).
 // VIEWSTATE[uid] = what captureView() saw (chart range/metric/display, Form & volume windows, hero help,
 // stats/gaps disclosure, settings open), merged across views. DATA_CACHE[uid] = {raw, profile, lever,
@@ -1717,11 +1728,13 @@ function renderHero(){
   // already include today; this is the hero's equivalent.
   var today=new Date();
   var tl=RunLoad.extendTimeline(RunLoad.loadTimeline(typeRuns(), LOAD_PARAMS), today, LOAD_PARAMS);
-  var eyebrow='<p class="rdx-hero-eyebrow">Today · '+DOW[today.getDay()]+', '+MONTHS[today.getMonth()]+' '+today.getDate()+'</p>';
+  var date='<span class="rdx-today-date">'+DOW[today.getDay()]+', '+MONTHS[today.getMonth()]+' '+today.getDate()+'</span>';
+  // D3 notes (renderHeroNotes fills it) sit under the instruction line
+  var notesEl='<p class="rdx-hero-notes" id="heroNotes" hidden></p>';
   if(tl.length<2){
     el.style.borderLeftColor='var(--muted2)';
-    el.innerHTML=eyebrow+'<h2 class="rdx-hero-head"><span class="rdx-hero-dot" style="background:var(--muted2)"></span>Building your baseline</h2>'+
-      '<div class="rdx-hero-read">Not enough run history yet to model your training load. Import a few more weeks of activities and your day-to-day guidance will show up here.</div>';
+    el.innerHTML='<div class="rdx-today-top"><h2 class="rdx-hero-head"><span class="rdx-hero-dot" style="background:var(--muted2)"></span>Building your baseline</h2>'+date+'</div>'+
+      '<p class="rdx-today-do">'+(ROLE==='coach' ? 'Daily guidance shows up here once this athlete has a few more weeks of runs.' : 'Import a few more weeks of runs and your daily guidance shows up here.')+'</p>'+notesEl;
     return;
   }
   var pct=leverPct();
@@ -1768,69 +1781,60 @@ function renderHero(){
   var acwrNow = chronicNow>0 ? acuteNow/chronicNow : null;
   var climbingHot = rampPerWk!=null && rampPerWk>=0.15 && acwrNow!=null && acwrNow>=0.95;
 
-  var head, accent, doHtml;
+  var coach=ROLE==='coach';
+  var head, accent, todo, lo=null, hi=null, flat=null, hilly=null, lever=null, leverInTarget=false;
   if(base==null){
     head='Building your baseline'; accent='var(--muted2)';
-    doHtml='<div class="rdx-do-line">While we learn your baseline, easy <span class="lever">Lever runs</span> at '+pct+'% body-weight support are a great way to bank low-impact volume — add a couple and your day-to-day guidance sharpens up fast.</div>';
+    todo=coach ? 'Easy runs or Lever runs while we learn their baseline.' : 'Easy runs or Lever runs while we learn your baseline.';
   } else {
-    // Recovery state from the recent-load ratios → session volume band (× typical run), an intensity
-    // call, and how hard we lean on the Lever. Driven by the MAX of the 1/3/7-day ratios so a loaded
-    // recent block counts even when the weekly average looks flat. Volume band is anchored to the
-    // chronic base (the 0.8–1.3 safe band) and shifted by how loaded the last few days have been.
+    // Recovery state from the recent-load ratios → session volume band (× typical run) and a one-line
+    // call. Driven by the MAX of the 1/3/7-day ratios so a loaded recent block counts even when the
+    // weekly average looks flat. Volume band is anchored to the chronic base (the 0.8–1.3 safe band)
+    // and shifted by how loaded the last few days have been.
     // maxR's three inputs no longer share a denominator: 1.0 means "level with your biggest recent
     // block" when r1/r3 leads and "level with your average day" when r7 leads; the 1.15/1.3/1.5
     // thresholds read as 15/30/50% beyond whichever that is.
-    var loMult, hiMult, intensity, leverNote;
+    // The thresholds, headlines, accents and loMult/hiMult are the model — copy changes go in `todo` only.
+    var loMult, hiMult;
     var maxR=Math.max(r1,r3,r7);
     var rampWkTxt = rampPerWk!=null ? Math.round(rampPerWk*100)+'%' : '';
     if(maxR>=1.5 || (climbingHot && rampPerWk>=0.25 && acwrNow>=1.2)){
       accent='var(--bad)'; head='Overreaching — recover next'; loMult=0.3; hiMult=0.6;
-      intensity='<b>Recovery day.</b> Your recent load has pushed past your safe range'+(climbingHot?' and is still climbing fast (about +'+rampWkTxt+'/week)':'')+' — keep it truly easy, or take the day off.';
-      leverNote='<b>Strongly suggest the Lever today.</b> At '+pct+'% support you keep the full aerobic stimulus while your legs rebuild at a fraction of the impact.';
+      todo=coach ? 'Over their range: recovery day or rest.' : 'Over your range: recovery day or rest.';
     } else if(maxR>=1.3){
       accent='var(--gold)'; head='At your ceiling — ease off'; loMult=0.6; hiMult=0.9;
-      intensity='<b>Keep it easy today.</b> You’re at the top of your safe range'+(climbingHot?', and your acute load is still rising fast (about +'+rampWkTxt+'/week)':'')+' — no more hard efforts until it settles.';
-      leverNote='<b>Great day for the Lever.</b> At '+pct+'% support you hold onto the volume while the per-step impact comes off your legs.';
+      todo=coach ? 'At their ceiling: easy only, no hard efforts.' : 'At your ceiling: easy only, no hard efforts.';
     } else if(climbingHot){
       accent='var(--gold)'; head='Climbing fast — ease the ramp'; loMult=0.6; hiMult=0.9;
-      intensity='<b>Ease the rate of climb.</b> Your acute load is rising fast — about <b>+'+rampWkTxt+'/week</b> — and has climbed above your chronic base. The ratio is still in range, but a steep, sustained ramp like this is what typically precedes overreaching. Flatten the curve for a few days before you add more.';
-      leverNote='<b>Prime time for the Lever.</b> At '+pct+'% support you can hold your volume flat — or even keep it climbing — while the impact your legs actually absorb stops rising.';
+      todo='Load rising +'+rampWkTxt+'/wk: hold volume flat.';
     } else if(maxR>=1.15){
       accent='var(--gold)'; head='Approaching your ceiling'; loMult=0.7; hiMult=1.0;
-      intensity='<b>Hold steady — keep it easy.</b> You’ve stacked a few solid days and you’re near the top of your range. An easy run fits, but hold off on another hard effort until the load settles.';
-      leverNote='<b>A Lever day fits well here</b> — at '+pct+'% support you keep the volume coming without adding to the impact you’re already carrying.';
+      todo=coach ? 'Near their ceiling: easy only today.' : 'Near your ceiling: easy only today.';
     } else if(r7<0.8){
       accent='var(--warn)'; head='Room to build'; loMult=0.9; hiMult=1.3;
-      intensity='<b>Room to build.</b> Your load has eased off — an easy run, a longer run, or a workout all fit today.';
-      leverNote='The <span class="lever">Lever</span> at '+pct+'% support is a low-impact way to add sessions as you ramp back up.';
+      todo=coach ? 'Athlete has room: easy, long or a workout all fit.' : 'You have room: easy, long or a workout all fit.';
     } else {
       accent='var(--good)'; head='In the safe band'; loMult=0.8; hiMult=1.15;
-      intensity='<b>You’re recovered.</b> An easy run or a workout both fit today — you’re right in your safe zone.';
-      leverNote='Lever optional — a <span class="lever">Lever session</span> at '+pct+'% support is a nice way to bank extra easy volume with almost no impact cost.';
+      todo='Easy run or workout. Both fit today.';
     }
-    var lo=typical*loMult, hi=typical*hiMult;
+    lo=typical*loMult; hi=typical*hiMult;
     // Translate the top-end budget (hi, in IAD miles) into concrete run options:
     //   flat easy outside ≈ 1 impact mi/mi · rolling/hilly inflates ~25% · Lever offloads, so more
     //   actual miles fit under the same impact budget. The Lever conversion MUST go through
     //   RunLoad.impactPerMileAtLoad (lever mi = budget ÷ (1 − 0.85·offload)) — the same discount
     //   impactLoad scores with — otherwise a prescribed Lever distance no longer earns back its
     //   own budget.
-    var flat=hi, hilly=hi/1.25, lever=hi/RunLoad.impactPerMileAtLoad(pct, LOAD_PARAMS);
-    doHtml='<div class="rdx-do-line">'+intensity+'</div>'+
-      '<div class="rdx-do-vol">Aim for <b>'+fmtMi(lo)+'–'+fmtMi(hi)+' impact-adjusted miles</b> today. At the top end, that’s about:</div>'+
-      '<ul class="rdx-do-opts">'+
-        '<li><b>'+fmtMi(flat)+' mi</b> flat easy outside</li>'+
-        '<li><b>'+fmtMi(hilly)+' mi</b> hilly outside</li>'+
-        '<li class="lever-opt"><b>'+fmtMi(lever)+' mi</b> on the Lever · '+pct+'% BW</li>'+
-      '</ul>'+
-      '<div class="rdx-do-lever">'+leverNote+'</div>';
+    flat=hi; hilly=hi/1.25; lever=hi/RunLoad.impactPerMileAtLoad(pct, LOAD_PARAMS);
+    // The Lever rides on the target line only when the call is to back off (gold/red states).
+    leverInTarget = accent==='var(--gold)' || accent==='var(--bad)';
   }
 
-  // ---- markup only from here; every string above is locked ----
-  // Left: the answer (eyebrow, headline, what to do). Right: the numbers — 1-/3-day load vs the
-  // biggest comparable block of the prior 28 days, 7-day load vs the 28-day base (the ratio of sums
-  // equals the ratio of means, so "× biggest 3-day avg" is the 3-day block ratio). Values read in
-  // the text colour; each tile's state tint rides on its ratio sub-line and dot.
+  // ---- markup only from here ----
+  // Visible: headline + date, one instruction line, the D3 notes, then two numbers — today's target
+  // (with its flat/hilly[/Lever] equivalents) and the 7-day ratio against the 0.8–1.3 safe band. The
+  // Acute trend shows on the face only in "Climbing fast"; everything else lives in Details: the 1-/3-day
+  // load vs the biggest comparable block of the prior 28 days, the 28-day base, the trend, the full
+  // run-equivalents list and the easy-pace anchor.
   var statTile=function(k,val,unit,c,sub){ return '<div class="rdx-stat"><div class="k">'+k+'</div><div class="v">'+val.toFixed(1)+'<small>'+unit+'</small></div>'+
     (sub?'<div class="x"'+(c?' style="color:'+ink(c)+'"><i style="background:'+c+'"></i>':'>')+'<span>'+sub+'</span></div>':'')+'</div>'; };
   // Acute trend: weekly rate of rise of the acute curve, tinted by how steep (rising fast is a
@@ -1838,44 +1842,65 @@ function renderHero(){
   // A decline reads muted, not green (presentation only; the thresholds are unchanged).
   var rampTxt = rampPerWk==null ? '—' : (rampPerWk>=0?'+':'')+Math.round(rampPerWk*100)+'%';
   var rampCol = rampPerWk==null ? 'var(--muted2)' : rampPerWk>=0.20 ? 'var(--bad)' : rampPerWk>=0.10 ? 'var(--gold)' : 'var(--muted2)';
+  var trendRow=function(cls){ return '<div class="rdx-trend'+(cls||'')+'"><span class="k">Acute trend</span><span class="v" style="color:'+ink(rampCol)+'">'+rampTxt+'</span><span class="x">per week · how fast the 7-day load is changing</span></div>'; };
   // Footnote: the easy-pace P₀ every run's pace term is scored against — a calibration anchor, NOT
   // an average of recent runs. Only when a rung is in force (calibrated median or the profile).
   var baseSrc=LOAD_PARAMS&&LOAD_PARAMS.basePaceSource;
-  var baseTxt=(LOAD_PARAMS&&LOAD_PARAMS.basePaceSec>0&&baseSrc) ? 'Scored against '+who()+' easy pace, '+fmtPace(LOAD_PARAMS.basePaceSec)+' /mi ('+(baseSrc==='profile'?'from the profile':'grade-adjusted, from easy runs')+') · ' : '';
+  var baseTxt=(LOAD_PARAMS&&LOAD_PARAMS.basePaceSec>0&&baseSrc) ? 'Scored against '+who()+' easy pace, '+fmtPace(LOAD_PARAMS.basePaceSec)+' /mi ('+(baseSrc==='profile'?'from the profile':'grade-adjusted, from easy runs')+').' : '';
+  // 7-day position on a 0.4–1.8 track with the 0.8–1.3 safe band shaded (decoration; the ratio is in text)
+  var bandPos=function(x){ return (Math.max(0.4,Math.min(1.8,x))-0.4)/1.4*100; };
+  var isClimb = head==='Climbing fast — ease the ramp';
+  var nums='';
+  if(base!=null){
+    nums='<div class="rdx-today-nums">'+
+      '<div class="rdx-today-num rdx-today-target"><div class="k">Today’s target</div>'+
+        '<div class="v"><span data-v="lo">'+fmtMi(lo)+'</span>–<span data-v="hi">'+fmtMi(hi)+'</span><small>mi</small></div>'+
+        '<div class="x"><span>≈ <b data-v="flat">'+fmtMi(flat)+'</b> mi flat</span> · <span><b data-v="hilly">'+fmtMi(hilly)+'</b> hilly</span>'+
+          (leverInTarget?' · <span><b class="lever" data-v="lever">'+fmtMi(lever)+'</b> mi on the Lever</span>':'')+'</div>'+
+      '</div>'+
+      '<div class="rdx-today-num rdx-today-r7"><div class="k">7-day load</div>'+
+        '<div class="v"><span data-v="r7">'+r7.toFixed(1)+'</span>×<small>'+who('their')+' base</small></div>'+
+        '<div class="rdx-band" aria-hidden="true"><span class="rdx-band-safe" style="left:'+bandPos(0.8)+'%;width:'+(bandPos(1.3)-bandPos(0.8))+'%"></span>'+
+          '<i style="left:'+bandPos(r7)+'%;background:'+col7+'"></i></div>'+
+        '<div class="x">Safe band 0.8–1.3×</div>'+
+      '</div>'+
+    '</div>'+
+    (isClimb ? trendRow(' rdx-today-trend') : '');
+  }
+  var equiv = base!=null ?
+    '<p class="rdx-hero-cap">At the top of today’s target ('+fmtMi(hi)+' impact-adjusted miles), that’s about:</p>'+
+    '<ul class="rdx-do-opts">'+
+      '<li><b>'+fmtMi(flat)+' mi</b> flat easy outside</li>'+
+      '<li><b>'+fmtMi(hilly)+' mi</b> hilly outside</li>'+
+      '<li class="lever-opt"><b data-v="leverAll">'+fmtMi(lever)+' mi</b> on the Lever · '+pct+'% BW</li>'+
+    '</ul>' : '';
   el.style.borderLeftColor=accent;
-  var main='<div class="rdx-hero-main">'+eyebrow+
-      '<h2 class="rdx-hero-head"><span class="rdx-hero-dot" style="background:'+accent+'"></span>'+head+'</h2>'+
-      '<div class="rdx-hero-do"><span class="do-hd">What to do next</span>'+doHtml+'</div>'+
-    '</div>';
-  // "Building your baseline" (no 28-day base yet, e.g. back after 4+ weeks off): same tiles, trend and
-  // footnote as HEAD, in one column — the ratios are blank, but the Acute trend and easy pace still read
-  el.innerHTML='<div class="rdx-hero-grid'+(base==null?' rdx-hero-one':'')+'">'+main+
-    '<div class="rdx-hero-side">'+
+  el.innerHTML='<div class="rdx-today-top"><h2 class="rdx-hero-head"><span class="rdx-hero-dot" style="background:'+accent+'"></span>'+head+'</h2>'+date+'</div>'+
+    '<p class="rdx-today-do">'+todo+'</p>'+notesEl+nums+
+    '<details class="rdx-more rdx-today-more" id="heroMore"'+(HERO_MORE?' open':'')+'><summary>Details</summary><div class="rdx-more-body">'+
       '<p class="rdx-hero-cap">Recent load · IAD mi per day, through today</p>'+
       '<div class="rdx-stat-grid">'+
         statTile('Last day', d1, 'IAD mi', d1>0?col1:null, r1!=null?r1.toFixed(1)+'× biggest day (28d)':'')+
         statTile('3-day avg', d3, 'IAD mi/day', col3, r3!=null?r3.toFixed(1)+'× biggest 3-day avg (28d)':'')+
-        statTile('7-day avg', d7, 'IAD mi/day', col7, r7!=null?r7.toFixed(1)+'× 28-day base':'')+
         statTile('28-day base', d28, 'IAD mi/day', null, who()+' average day')+
       '</div>'+
-      '<div class="rdx-trend"><span class="k">Acute trend</span><span class="v" style="color:'+ink(rampCol)+'">'+rampTxt+'</span><span class="x">per week · how fast the 7-day load is changing</span></div>'+
-    '</div>'+
-    '<div class="rdx-hero-foot">'+baseTxt+'<button type="button" class="rdx-linkbtn" id="heroHelpBtn" aria-expanded="'+HERO_HELP+'" aria-controls="heroHelp">How to read these numbers</button>'+
+      (isClimb?'':trendRow())+equiv+
+      '<p class="rdx-today-foot">'+(baseTxt?baseTxt+' ':'')+'<button type="button" class="rdx-linkbtn" id="heroHelpBtn" aria-expanded="'+HERO_HELP+'" aria-controls="heroHelp">How to read these numbers</button></p>'+
       '<p class="rdx-hero-help" id="heroHelp"'+(HERO_HELP?'':' hidden')+'>IAD (Impact Adjusted Distance): one easy, flat mile = 1 IAD mi. Faster, harder-landing or hillier miles count for more; Lever miles count for less. '+
-        'Last day (today so far) and 3-day avg are compared with the biggest day and biggest 3-day stretch of the past 28 days. 7-day avg is compared with the 28-day base — '+who()+' average day, rest days included. '+
-        'Acute trend is how fast the 7-day load is changing per week. The easy pace is the anchor every run is scored against, not a recent average.</p>'+
-    '</div>'+
-  '</div>';
-  // HERO_HELP keeps the toggle's state across refresh() re-renders
+        'Today’s target is a load budget for the day in IAD mi; the flat, hilly and Lever distances are what fit under its top end. '+
+        'Last day (today so far) and 3-day avg are compared with the biggest day and biggest 3-day stretch of the past 28 days. 7-day load is the 7-day average day compared with the 28-day base — '+who()+' average day, rest days included. '+
+        'Acute trend is how fast the 7-day load is changing per week. The easy pace is the anchor every run is scored against, not a recent average. A load measure, not an injury prediction.</p>'+
+    '</div></details>';
+  // HERO_MORE / HERO_HELP keep the disclosure states across refresh() re-renders
+  $('heroMore').addEventListener('toggle',function(){ HERO_MORE=this.open; });
   $('heroHelpBtn').addEventListener('click',function(){ HERO_HELP=!HERO_HELP; this.setAttribute('aria-expanded',String(HERO_HELP)); $('heroHelp').hidden=!HERO_HELP; });
 }
-// Muted notes BESIDE the hero (#heroNotes is a sibling of #hero, so the hero's locked words and numbers
-// are untouched): the coach view's framing, a baseline that is still forming, a week with no runs.
-// Demo scenarios skip the data notes (they are not the athlete's data).
+// Muted D3 notes INSIDE the Today card, under the instruction line (#heroNotes is rendered by renderHero):
+// a baseline that is still forming, a week with no runs. The coach view no longer adds "As the athlete
+// sees it" — its instruction line is written in the third person. Demo scenarios skip the data notes.
 function renderHeroNotes(){
   var el=$('heroNotes'); if(!el) return;
   var notes=[], runs=RAW.length?typeRuns():[];
-  if(ROLE==='coach') notes.push('As the athlete sees it');
   if(!DEMO && runs.length){
     var first=Infinity, recent=false;
     runs.forEach(function(r){ if(r.ts<first) first=r.ts; var a=daysAgo(r.ts); if(a>=0 && a<7) recent=true; });
@@ -3270,7 +3295,7 @@ function shellHTML(opts){
 
   (inView('hero') ? ''+
   // 2. Today
-  '<div class="rdx-section" id="sec-hero">'+(ADMIN?'<div class="rdx-demobar" id="demobar"></div>':'')+'<p class="rdx-hero-notes" id="heroNotes" hidden></p><div class="rdx-hero" id="hero"></div></div>'+
+  '<div class="rdx-section" id="sec-hero">'+(ADMIN?'<div class="rdx-demobar" id="demobar"></div>':'')+'<div class="rdx-hero" id="hero"></div></div>'+
 
   // 3. Load over time
   '<div class="rdx-section" id="sec-chart">'+
@@ -3549,7 +3574,7 @@ function mount(container, opts){
   ROOT=container; DB=opts.db; UID=opts.uid; ROLE=opts.role||'athlete'; ADMIN=!!opts.admin; DEMO=null;
   VIEW=VIEW_SECS[opts.view]?opts.view:'training';
   var my=++MOUNT; PROFILE_ERR=null;
-  DIS_OPEN=false; DIS_T=0; DIS_SEQ=0; GAP_FORM=null; EV_EDIT=null; SB_MORE=false; ALSO_ALL=false; PAT_STATS=true; GAPS_OPEN=false; HERO_HELP=false; CAP_PIN=''; clearTimeout(LV.toastT); clearTimeout(TOAST_T); TOAST_ARM=TOAST_BACK=null; SAVE_SEQ={}; LV={filter:'all', sel:new Set(), rows:[], trigger:null, toastT:null};
+  DIS_OPEN=false; DIS_T=0; DIS_SEQ=0; GAP_FORM=null; EV_EDIT=null; SB_MORE=false; ALSO_ALL=false; PAT_STATS=true; GAPS_OPEN=false; HERO_HELP=false; HERO_MORE=false; CAP_PIN=''; clearTimeout(LV.toastT); clearTimeout(TOAST_T); TOAST_ARM=TOAST_BACK=null; SAVE_SEQ={}; LV={filter:'all', sel:new Set(), rows:[], trigger:null, toastT:null};
   IMPORT_BUSY=false; IMPORT_EXTRA=''; CUTOFF_LAST=FILTER_DEFAULTS.cutoff; MINDIST_LAST=FILTER_DEFAULTS.mindist;
   RAW=[]; ACTIVE_TYPES=new Set(); KNOWN_TYPES=new Set(); ANCHOR=null; LOAD_PARAMS=null; STD_PROFILE={}; STRAVA_LEVER=[]; STRAVA_SYNC={};
   container.classList.add('rdx');
@@ -3592,7 +3617,7 @@ function captureView(){
     v.anchor=val('anchor'); v.rangesEdited=RANGES_EDITED; v.compare=$('formCompare').classList.contains('on');
     ['faFrom','faTo','fbFrom','fbTo'].forEach(function(id){ v[id]=val(id); });
   }
-  if($('hero')) v.heroHelp=HERO_HELP;
+  if($('hero')){ v.heroHelp=HERO_HELP; v.heroMore=HERO_MORE; }
   if(inView('patterns')){ v.patStats=PAT_STATS; v.gapsOpen=GAPS_OPEN; }
   var sp=$('settingsPanel'); if(sp) v.panelOpen=!sp.hidden;
   return v;
@@ -3602,6 +3627,7 @@ function captureView(){
 function restoreView(v){
   if(!v || !ROOT || !RAW.length) return;
   if(v.heroHelp!=null) HERO_HELP=v.heroHelp;
+  if(v.heroMore!=null) HERO_MORE=v.heroMore;
   if(v.patStats!=null) PAT_STATS=v.patStats;
   if(v.gapsOpen!=null) GAPS_OPEN=v.gapsOpen;
   if(v.panelOpen) setPanel(true);
