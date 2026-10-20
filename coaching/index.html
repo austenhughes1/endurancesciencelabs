@@ -3510,9 +3510,22 @@ async function connectStrava() {
     alert('Strava Client ID not configured.');
     return;
   }
-  // State carries the UID so the Cloud Function knows which user to link
-  const nonce = Math.random().toString(36).substring(2, 15);
-  const state = `${currentUser.uid}:${nonce}`;
+  // A Strava connection always belongs to the signed-in account, so it can't be
+  // made on an athlete's behalf while acting as them (auth-01).
+  if (esLabs.isActingAs && esLabs.isActingAs()) {
+    esLabs.toast('Strava can only be connected by the athlete, from their own account.', { err: true });
+    return;
+  }
+  // Preferred: a server-signed, expiring state (auth-11). Fall back to the legacy
+  // uid:nonce state while createStravaOAuthState isn't deployed.
+  let state = null;
+  try {
+    const res = await firebase.functions().httpsCallable('createStravaOAuthState')({});
+    state = res && res.data && res.data.state;
+  } catch (e) {
+    if (e && e.code !== 'functions/not-found' && e.code !== 'not-found') console.warn('createStravaOAuthState:', e.message);
+  }
+  if (!state) state = `${currentUser.uid}:${Math.random().toString(36).substring(2, 15)}`;
   const url = `https://www.strava.com/oauth/authorize`
     + `?client_id=${STRAVA_CLIENT_ID}`
     + `&redirect_uri=${encodeURIComponent(STRAVA_REDIRECT_URI)}`
@@ -3803,17 +3816,36 @@ async function unlinkStrava(role) {
 // start; loadAthleteDashboard acts on it once the dashboard has rendered.
 let STRAVA_RETURN = (() => {
   try {
-    const v = new URLSearchParams(location.search).get('strava');
-    if (v) history.replaceState({}, '', location.pathname + location.hash);
-    return v === 'connected' || v === 'error' ? v : null;
+    const q = new URLSearchParams(location.search);
+    const v = q.get('strava'), reason = q.get('reason') || '';
+    if (v) {
+      q.delete('strava'); q.delete('reason');
+      const rest = q.toString();
+      history.replaceState(history.state, '', location.pathname + (rest ? '?' + rest : '') + location.hash);
+    }
+    if (v === 'error') return 'error:' + reason;
+    return v === 'connected' || v === 'denied' || v === 'scope' ? v : null;
   } catch (e) { return null; }
 })();
 
 function handleStravaReturn() {
   const ret = STRAVA_RETURN;
   STRAVA_RETURN = null;
-  if (ret === 'error') {
-    esLabs.toast("Strava connection didn't complete. Try Connect again.", { err: true });
+  if (ret === 'denied') {
+    esLabs.toast('Strava connection cancelled — nothing was linked.');
+    return false;
+  }
+  if (ret === 'scope') {
+    esLabs.toast('Strava needs "View data about your activities" to import runs. Connect again and leave that box ticked.', { err: true });
+    return false;
+  }
+  if (ret && ret.indexOf('error') === 0) {
+    const reason = ret.slice(6);
+    const msg = reason === 'inuse' ? 'That Strava account is already linked to another Endurance Science Labs account.'
+      : reason === 'state' ? 'The Strava sign-in link expired. Try Connect again.'
+      : reason === 'config' ? 'Strava connections are unavailable right now. Try again later.'
+      : "Strava connection didn't complete. Try Connect again.";
+    esLabs.toast(msg, { err: true });
     return false;
   }
   if (ret === 'connected') {
