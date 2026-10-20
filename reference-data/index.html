@@ -4,376 +4,392 @@
 <meta charset="UTF-8">
 <script>try{if(localStorage.getItem('esl-theme')==='light')document.documentElement.setAttribute('data-theme','light')}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>esFormLab — Reference Data Collection</title>
+<meta name="robots" content="noindex,nofollow">
+<title>Reference data (admin) — Endurance Science Labs</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/shared/site.css">
+<link rel="stylesheet" href="/shared/site.css?v=20261016">
 <style>
-:root{
-  --bg:#06080d;--panel:#0d1020;--panel2:#131828;
-  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
-  --cyan:#00e5c8;--left:#00d4aa;--right:#ff6b35;--gold:#f5c842;--purple:#8b7cf8;
-  --text:#dde1ef;--muted:#3e4460;--muted2:#6e7a9a;
-  --good:#22c78a;--warn:#f5a623;--bad:#f55050;
-  --male:#5b9cf8;--female:#f87db0;
-  --ui:'Inter',system-ui,sans-serif;--mono:'Space Mono',monospace;
-}
+/* Tokens come from /shared/site.css (dark :root + html[data-theme="light"]). */
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--ui);background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes pulse-border{0%,100%{border-color:rgba(245,166,35,.3)}50%{border-color:rgba(245,166,35,.7)}}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-
-/* Auth */
-#auth-overlay{position:fixed;inset:0;background:var(--bg);z-index:9000;display:flex;align-items:center;justify-content:center;padding:40px}
-.auth-card{background:var(--panel);border:1px solid var(--border2);border-radius:20px;padding:44px 48px;width:100%;max-width:400px;text-align:center}
-.auth-logo{height:72px;width:auto;display:block;margin:0 auto 20px}
-.auth-title{font-size:20px;font-weight:800;margin-bottom:6px}
-.auth-sub{font-size:12px;color:var(--muted2);margin-bottom:28px;line-height:1.6}
-.auth-field{width:100%;background:var(--panel2);border:1px solid var(--border2);border-radius:9px;padding:11px 14px;font-size:13px;color:var(--text);font-family:var(--mono);outline:none;transition:border-color .15s;margin-bottom:10px;display:block}
-.auth-field:focus{border-color:var(--purple)}
-.auth-btn{width:100%;padding:12px;background:var(--purple);color:#fff;font-weight:700;font-size:13px;font-family:var(--ui);border:none;border-radius:9px;cursor:pointer;transition:opacity .15s;margin-top:4px}
-.auth-btn:hover{opacity:.85}
-.auth-btn:disabled{opacity:.4;cursor:not-allowed}
-.auth-error{font-size:11px;color:var(--bad);font-family:var(--mono);margin-top:8px;min-height:16px}
-.auth-note{font-size:10px;color:var(--muted);margin-top:16px;font-family:var(--mono);line-height:1.6}
+main{display:block}
 
 /* Loader */
-#loader{position:fixed;inset:0;background:rgba(6,8,13,.96);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:2000;display:none}
-.spinner{width:36px;height:36px;border:3px solid var(--border2);border-top-color:var(--purple);border-radius:50%;animation:spin .7s linear infinite}
-.ld-title{font-size:14px;font-weight:700}
-.ld-sub{font-size:11px;color:var(--muted2);font-family:var(--mono)}
+#loader{position:fixed;inset:0;background:var(--nav-bg);display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:250;padding:24px var(--gutter);text-align:center}
+.spinner{width:36px;height:36px;border:3px solid var(--border2);border-top-color:var(--cyan);border-radius:50%;animation:spin .7s linear infinite}
+.ld-title{font:700 14px/1.4 var(--ui);color:var(--text)}
+.ld-sub{font:400 12px/1.45 var(--ui);color:var(--muted2)}
+#loader .esl-more{max-width:520px}
+#loader .esl-more>summary{font-size:13px}
 
-/* Header */
-header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:300;background:rgba(6,8,13,.97);backdrop-filter:blur(10px)}
-.logo-img{height:34px;width:auto;display:block;flex-shrink:0}
-.brand{font-size:15px;font-weight:700;letter-spacing:-.3px}
-.brand em{color:var(--purple);font-style:normal}
-.brand-sub{font-size:9px;color:var(--muted2);font-family:var(--mono);letter-spacing:.4px;text-transform:uppercase;margin-top:1px}
-.hdr-stats{display:flex;align-items:center;gap:6px;margin-left:24px}
-.hdr-stat-group{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:5px 12px}
-.hdr-stat{text-align:center}
-.hdr-stat-val{font-size:15px;font-weight:800;font-family:var(--mono);line-height:1}
-.hdr-stat-val.male{color:var(--male)}
-.hdr-stat-val.female{color:var(--female)}
-.hdr-stat-label{font-size:8px;color:var(--muted2);margin-top:2px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.4px}
-.hdr-divider{width:1px;height:24px;background:var(--border2)}
-#hdr-file{font-size:11px;color:var(--muted2);font-family:var(--mono);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:auto}
-.hdr-right{display:flex;align-items:center;gap:8px;margin-left:12px}
-.btn-ghost{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;font-size:11px;font-weight:600;font-family:var(--ui);border-radius:7px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;transition:all .15s}
-.btn-ghost:hover{border-color:var(--purple);color:var(--purple)}
-.btn-signout{color:var(--bad) !important}.btn-signout:hover{border-color:var(--bad) !important}
+/* Page head */
+.rd-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px 24px;max-width:var(--w-tool);margin:0 auto;padding:24px var(--gutter) 20px;box-sizing:border-box}
+.rd-head-txt{flex:1 1 420px;min-width:0}
+.rd-counts{display:flex;gap:12px}
+.rd-counts .esl-tile{min-width:140px}
+.rd-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px}
+.rd-dot--male{background:var(--male)}
+.rd-dot--female{background:var(--female)}
+@media (max-width:600px){.rd-counts{width:100%}.rd-counts .esl-tile{flex:1;min-width:0}}
 
-/* Metadata bar */
-#metadata-bar{background:var(--panel);border-bottom:1px solid var(--border);padding:12px 22px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.meta-label{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--purple);font-family:var(--mono);white-space:nowrap;flex-shrink:0}
+/* Session bar */
+#metadata-bar{background:var(--panel);border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:12px var(--gutter);display:flex;align-items:center;gap:10px 12px;flex-wrap:wrap}
+@media (min-width:769px){#metadata-bar{position:sticky;top:58px;z-index:200}}
+.meta-label{font:600 12px/1.3 var(--ui);color:var(--muted2);white-space:nowrap;flex-shrink:0}
+.rd-session-actions{margin-left:auto;display:flex;align-items:center;gap:8px;min-width:0}
+#hdr-file{font:400 12px/1.45 var(--ui);color:var(--muted2);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.meta-req-note{font:400 12px/1.45 var(--ui);color:var(--muted2);flex-basis:100%}
+.rd-carry{display:none;align-items:center;gap:8px;flex-basis:100%;font:400 12px/1.45 var(--ui);color:var(--muted2)}
+.rd-carry.show{display:flex}
+@media (max-width:600px){.rd-session-actions{margin-left:0;width:100%}#hdr-file{flex:1;max-width:none}}
 
-/* Sex toggle */
-.sex-toggle{display:flex;background:var(--panel2);border:1px solid var(--border2);border-radius:9px;overflow:hidden;flex-shrink:0}
-.sex-btn{padding:7px 16px;font-size:12px;font-weight:700;font-family:var(--ui);border:none;background:transparent;cursor:pointer;transition:all .15s;color:var(--muted2);display:flex;align-items:center;gap:5px}
-.sex-btn:hover{color:var(--text)}
-.sex-btn.active-male{background:rgba(91,156,248,.18);color:var(--male)}
-.sex-btn.active-female{background:rgba(248,125,176,.18);color:var(--female)}
-.sex-divider{width:1px;background:var(--border2);align-self:stretch}
+/* Segmented toggles (sex + thresholds population) */
+.sex-toggle,.thr-toggle{display:inline-flex;gap:2px;padding:2px;background:var(--panel2);border:1px solid var(--border2);border-radius:9px;flex-shrink:0}
+.sex-btn,.thr-toggle button{display:inline-flex;align-items:center;gap:5px;min-height:30px;padding:0 12px;font:600 12px/1.2 var(--ui);color:var(--muted2);background:transparent;border:1px solid transparent;border-radius:7px;cursor:pointer;white-space:nowrap;transition:color .15s,background .15s}
+.sex-btn:hover,.thr-toggle button:hover{color:var(--text)}
+.sex-btn.active-male,.sex-btn.active-female,.thr-toggle button.active-male,.thr-toggle button.active-female{color:var(--accent-ink);background:var(--panel);border-color:var(--border2)}
+@media (pointer:coarse){.sex-btn,.thr-toggle button{min-height:40px}}
 
-.meta-field{background:var(--panel2);border:1px solid var(--border2);border-radius:8px;padding:7px 12px;font-size:12px;color:var(--text);font-family:var(--ui);outline:none;transition:border-color .15s}
-.meta-field:focus{border-color:var(--purple)}
-.meta-field::placeholder{color:var(--muted)}
-#meta-athlete{width:200px}
-#meta-event{width:160px}
-#meta-pace{width:110px}
-#meta-notes{width:220px}
-.meta-req-note{font-size:10px;color:var(--muted);font-family:var(--mono)}
-
-/* Sex indicator pill shown in header once set */
-.sex-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;font-family:var(--mono);border:1px solid;display:none}
-.sex-pill.male{background:rgba(91,156,248,.12);color:var(--male);border-color:rgba(91,156,248,.3)}
-.sex-pill.female{background:rgba(248,125,176,.12);color:var(--female);border-color:rgba(248,125,176,.3)}
+/* Session inputs (input sm) */
+.meta-field{box-sizing:border-box;min-width:0;width:auto;height:36px;padding:0 12px;font:400 13px/1.4 var(--ui);color:var(--text);background:var(--panel2);border:1px solid var(--border2);border-radius:8px;outline:none;transition:border-color .15s,box-shadow .15s}
+.meta-field:focus{border-color:var(--accent-ink);box-shadow:var(--focus-ring)}
+.meta-field::placeholder{color:var(--placeholder)}
+#meta-athlete{flex:1 1 200px}
+#meta-event{flex:1 1 160px}
+#meta-pace{flex:0 1 120px}
+#meta-notes{flex:1 1 200px}
+@media (max-width:600px){#meta-athlete,#meta-event,#meta-pace,#meta-notes{flex:1 1 100%;font-size:16px}}
 
 /* Upload */
-#screen-upload{display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 108px);padding:40px}
-.drop-zone{border:1.5px dashed rgba(139,124,248,.25);border-radius:22px;padding:60px 80px;text-align:center;cursor:pointer;max-width:480px;width:100%;background:rgba(139,124,248,.02);transition:all .2s}
-.drop-zone:hover,.drop-zone.over{border-color:var(--purple);background:rgba(139,124,248,.06)}
-.dz-icon{width:60px;height:60px;border-radius:18px;background:rgba(139,124,248,.12);display:flex;align-items:center;justify-content:center;margin:0 auto 22px;font-size:26px}
-.dz-title{font-size:20px;font-weight:800;margin-bottom:8px}
-.dz-sub{color:var(--muted2);font-size:13px;line-height:1.7}
-.dz-sex-warning{display:none;margin-top:16px;padding:10px 14px;background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.25);border-radius:9px;font-size:12px;color:var(--warn);font-weight:600}
-#file-input{display:none}
-.btn-main{display:inline-flex;align-items:center;gap:7px;margin-top:20px;padding:11px 24px;background:var(--purple);color:#fff;font-weight:700;font-size:13px;font-family:var(--ui);border:none;border-radius:9px;cursor:pointer;transition:opacity .15s}
-.btn-main:hover{opacity:.85}
+#screen-upload{display:flex;align-items:center;justify-content:center;padding:32px var(--gutter) 24px}
+.drop-zone{border:1.5px dashed var(--accent-line);border-radius:16px;padding:40px 32px;text-align:center;cursor:pointer;max-width:480px;width:100%;background:var(--accent-wash);transition:border-color .2s,background .2s}
+.drop-zone:hover,.drop-zone.over{border-color:var(--cyan);background:var(--accent-wash-2)}
+.dz-icon{width:60px;height:60px;border-radius:12px;background:var(--accent-wash-2);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:26px}
+.dz-title{font:800 22px/1.25 var(--ui);letter-spacing:-.3px;margin-bottom:8px}
+.dz-sub{color:var(--muted2);font:400 13px/1.55 var(--ui)}
+.dz-sex-warning{display:none;margin-top:16px;padding:10px 14px;background:var(--warn-wash);border:1px solid var(--warn-line);border-radius:8px;font:600 13px/1.45 var(--ui);color:var(--warn-ink)}
+.btn-main{display:inline-flex;align-items:center;justify-content:center;gap:6px;margin-top:20px;min-height:36px;padding:7px 16px;background:var(--cyan);color:var(--on-accent);font:700 13px/1.2 var(--ui);border:1px solid transparent;border-radius:8px;cursor:pointer;transition:opacity .15s}
+.btn-main:hover{opacity:.86}
 .btn-main:disabled{opacity:.4;cursor:not-allowed}
-.dz-hint{margin-top:12px;font-size:10px;color:var(--muted);font-family:var(--mono)}
+.dz-hint{margin-top:12px;font:400 12px/1.45 var(--ui);color:var(--muted2)}
+@media (max-width:600px){.drop-zone{padding:32px 20px}.dz-title{font-size:20px}}
 
 /* Scanning */
-#screen-scanning{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 108px);gap:24px;padding:40px}
-.scan-card{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:32px 36px;width:100%;max-width:500px}
-.scan-title{font-size:20px;font-weight:800;margin-bottom:5px}
-.scan-sub{font-size:13px;color:var(--muted2);margin-bottom:24px;line-height:1.6}
-.scan-preview{width:100%;aspect-ratio:16/9;background:#000;border-radius:10px;overflow:hidden;margin-bottom:18px;position:relative}
+#screen-scanning{display:none;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:32px var(--gutter)}
+.scan-card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:24px;width:100%;max-width:500px}
+.scan-title{font:800 22px/1.25 var(--ui);letter-spacing:-.3px;margin-bottom:5px}
+.scan-sub{font:400 13px/1.55 var(--ui);color:var(--muted2);margin-bottom:20px}
+.scan-preview{width:100%;aspect-ratio:16/9;background:#000;border-radius:8px;overflow:hidden;margin-bottom:18px;position:relative}
 .scan-preview canvas{width:100%;height:100%;object-fit:contain;display:block}
-.scan-preview-label{position:absolute;bottom:8px;left:10px;font-size:9px;color:var(--muted2);font-family:var(--mono);background:rgba(6,8,13,.82);padding:2px 8px;border-radius:4px}
+.scan-preview-label{position:absolute;bottom:8px;left:10px;font:400 11px/1.4 var(--mono);color:var(--text);background:var(--nav-bg);padding:2px 8px;border-radius:4px}
 .scan-bar-track{height:4px;background:var(--panel2);border-radius:2px;overflow:hidden}
-.scan-bar-fill{height:100%;background:var(--purple);border-radius:2px;width:0%;transition:width .3s ease}
-.scan-step{font-size:10px;color:var(--muted2);font-family:var(--mono);margin-top:8px;min-height:14px}
+.scan-bar-fill{height:100%;background:var(--cyan);border-radius:2px;width:0%;transition:width .3s ease}
+.scan-step{font:400 12px/1.45 var(--ui);color:var(--muted2);margin-top:8px;min-height:17px}
 .scan-phase-list{margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.spl-item{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);padding:5px 8px;background:var(--panel2);border-radius:7px;border:1px solid var(--border)}
-.spl-item.found{color:var(--text);border-color:rgba(34,199,138,.2);background:rgba(34,199,138,.04)}
-.spl-item.not-found{color:var(--warn);border-color:rgba(245,166,35,.25);background:rgba(245,166,35,.04)}
-.spl-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.spl-item{display:flex;align-items:center;gap:8px;font:400 12px/1.4 var(--ui);color:var(--muted2);padding:5px 8px;background:var(--panel2);border-radius:8px;border:1px solid var(--border);min-width:0}
+.spl-item.found{color:var(--text);border-color:var(--good-line);background:var(--good-wash)}
+.spl-item.not-found{color:var(--warn-ink);border-color:var(--warn-line);background:var(--warn-wash)}
+.spl-dot{width:6px;height:6px;border-radius:50%;background:var(--border2);flex-shrink:0}
 .spl-item.found .spl-dot{background:var(--good)}
 .spl-item.not-found .spl-dot{background:var(--warn)}
-.spl-name{flex:1;font-size:10px}
-.spl-time{font-family:var(--mono);font-size:9px;color:var(--muted)}
-.spl-item.found .spl-time{color:var(--purple)}
-.spl-item.not-found .spl-time{color:var(--warn)}
-#scan-diag{margin-top:12px;padding:8px 10px;background:var(--panel2);border-radius:8px;font-size:10px;color:var(--muted2);font-family:var(--mono);line-height:1.7;display:none}
+.spl-name{flex:1;font-size:12px;min-width:0}
+.spl-time{font:400 12px/1.4 var(--mono);color:var(--muted2)}
+.spl-item.found .spl-time{color:var(--accent-ink)}
+.spl-item.not-found .spl-time{color:var(--warn-ink)}
+.scan-warn-live:empty{display:none}
+.scan-warn-live{margin-top:8px}
+.scan-warn-live p{font:400 13px/1.5 var(--ui);color:var(--warn-ink);margin-top:4px}
+.scan-warnings{margin:0 0 16px;background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--warn);border-radius:12px;padding:14px 16px}
+.scan-warnings[hidden]{display:none}
+.scan-warnings .sw-title{font:700 13px/1.4 var(--ui);color:var(--warn-ink);margin-bottom:6px}
+.scan-warnings ul{margin:0;padding-left:18px}
+.scan-warnings li{font:400 13px/1.55 var(--ui);color:var(--muted2);max-width:760px}
+.scan-warnings li+li{margin-top:4px}
+#scan-diag{margin-top:12px;padding:8px 10px;background:var(--panel2);border-radius:8px;font:400 13px/1.55 var(--ui);color:var(--muted2);display:none}
+@media (max-width:600px){.scan-card{padding:20px 16px}.scan-title{font-size:20px}.scan-phase-list{grid-template-columns:1fr}}
 
 /* Phases */
-#screen-phases{display:none;padding:28px 24px 80px;max-width:1440px;margin:0 auto}
-.instr-banner{background:linear-gradient(135deg,rgba(139,124,248,.06) 0%,rgba(0,229,200,.04) 100%);border:2px solid rgba(139,124,248,.25);border-radius:18px;padding:28px 32px;margin-bottom:28px}
-.instr-title{font-size:18px;font-weight:800;margin-bottom:8px;color:var(--text)}
-.instr-text{font-size:14px;color:var(--muted2);line-height:1.8}
-.scan-summary{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:18px;display:none;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--muted2);font-family:var(--mono)}
-.ss-item strong{color:var(--purple)}
-.ss-item.warn strong{color:var(--warn)}
-.ss-item.male strong{color:var(--male)}
-.ss-item.female strong{color:var(--female)}
+#screen-phases{display:none;padding:24px var(--gutter);max-width:var(--w-tool);margin:0 auto}
+.instr-banner{margin-bottom:20px;padding:14px 16px;border-radius:12px}
+.instr-text{font:400 13px/1.55 var(--ui);color:var(--text);max-width:760px;margin:0}
+.scan-summary{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:18px;display:none;gap:8px 16px;flex-wrap:wrap;font:400 12px/1.45 var(--ui);color:var(--muted2)}
+.ss-item strong{font:700 12px/1.45 var(--mono);color:var(--text)}
+.ss-item.warn strong{color:var(--warn-ink)}
+.ss-item.male strong,.ss-item.female strong{color:var(--text)}
 .phase-groups{display:flex;flex-direction:column;gap:20px}
 .phase-group{display:flex;flex-direction:column;gap:10px}
-.phase-group-label{font-size:10px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);padding-left:2px;display:flex;align-items:center;gap:8px}
+.phase-group-label{font:600 12px/1.3 var(--ui);color:var(--muted2);padding-left:2px;display:flex;align-items:center;gap:8px}
 .phase-group-label::after{content:'';flex:1;height:1px;background:var(--border)}
 .phase-group-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
-.phase-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;transition:border-color .2s,transform .15s,opacity .3s}
-.phase-card:hover{border-color:rgba(139,124,248,.4);transform:translateY(-1px)}
+@media (max-width:600px){.phase-group-cards{grid-template-columns:1fr;gap:8px}}
+.phase-card{position:relative;background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;cursor:pointer;transition:border-color .2s,transform .15s,opacity .3s}
+.phase-card:hover{border-color:var(--accent-line);transform:translateY(-1px)}
 .phase-card.dimmed{opacity:.4;pointer-events:none}
-.phase-card{position:relative}
-.phase-card.labeled{border-color:rgba(0,229,200,.55)}
-.phase-card.labeled::after{content:attr(data-label-count);position:absolute;top:8px;right:8px;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--cyan);background:rgba(0,229,200,.12);border:1px solid rgba(0,229,200,.35);padding:2px 6px;border-radius:4px;z-index:2;font-family:var(--mono)}
-.phase-card.undetected{border-color:rgba(245,166,35,.3);animation:pulse-border 2s ease infinite}
+.phase-card.labeled{border-color:var(--accent-line)}
+.phase-card.labeled::after{content:attr(data-label-count);position:absolute;top:8px;right:8px;font:700 10px/1.3 var(--mono);letter-spacing:.5px;text-transform:uppercase;color:var(--accent-ink);background:var(--accent-wash);border:1px solid var(--accent-line);padding:3px 8px;border-radius:6px;z-index:2}
+.phase-card.undetected{border-color:var(--warn-line);animation:pulse-border 2s ease infinite}
 .pc-hdr{padding:12px 14px 10px;display:flex;align-items:center;gap:9px;border-bottom:1px solid var(--border)}
-.pc-num{width:20px;height:20px;border-radius:50%;background:rgba(139,124,248,.12);border:1px solid rgba(139,124,248,.28);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--purple);flex-shrink:0;font-family:var(--mono)}
-.phase-card.undetected .pc-num{background:rgba(245,166,35,.12);border-color:rgba(245,166,35,.35);color:var(--warn)}
+.pc-num{width:22px;height:22px;border-radius:50%;background:var(--accent-wash);border:1px solid var(--accent-line);display:flex;align-items:center;justify-content:center;font:700 10px/1 var(--mono);color:var(--accent-ink);flex-shrink:0}
+.phase-card.undetected .pc-num{background:var(--warn-wash);border-color:var(--warn-line);color:var(--warn-ink)}
 .pc-name-wrap{flex:1;min-width:0}
-.pc-name{font-size:12px;font-weight:700}
-.pc-desc{font-size:9px;color:var(--muted2);font-family:var(--mono);margin-top:1px}
-.pc-badge{font-size:8px;font-family:var(--mono);padding:2px 7px;border-radius:10px;flex-shrink:0;font-weight:700}
-.pc-badge.ok{background:rgba(34,199,138,.1);color:var(--good);border:1px solid rgba(34,199,138,.22)}
-.pc-badge.pending{background:rgba(62,68,96,.2);color:var(--muted2);border:1px solid var(--border)}
-.pc-badge.analyzing{background:rgba(139,124,248,.1);color:var(--purple);border:1px solid rgba(139,124,248,.25)}
-.pc-badge.manual{background:rgba(245,166,35,.1);color:var(--warn);border:1px solid rgba(245,166,35,.25)}
+.pc-name{font:600 14px/1.35 var(--ui);color:var(--text)}
+.pc-desc{font:400 12px/1.45 var(--ui);color:var(--muted2);margin-top:1px}
+.pc-badge{font:700 10px/1.3 var(--mono);letter-spacing:.5px;text-transform:uppercase;padding:3px 8px;border-radius:6px;border:1px solid var(--border2);white-space:nowrap;flex-shrink:0;color:var(--muted2);background:var(--hover)}
+.pc-badge.ok{background:var(--good-wash);color:var(--good-ink);border-color:var(--good-line)}
+.pc-badge.pending{background:var(--hover);color:var(--muted2);border-color:var(--border2)}
+.pc-badge.analyzing{background:var(--accent-wash);color:var(--accent-ink);border-color:var(--accent-line)}
+.pc-badge.manual{background:var(--warn-wash);color:var(--warn-ink);border-color:var(--warn-line)}
+.pc-badge.q-strong,.pc-pill.done.q-strong{color:var(--good-ink);background:var(--good-wash);border-color:var(--good-line)}
+.pc-badge.q-fair,.pc-pill.done.q-fair{color:var(--warn-ink);background:var(--warn-wash);border-color:var(--warn-line)}
+.pc-badge.q-weak,.pc-pill.done.q-weak{color:var(--bad-ink);background:var(--bad-wash);border-color:var(--bad-line)}
 .pc-canvas-wrap{background:#000;position:relative}
 .pc-canvas{width:100%;display:block}
-.pc-loading{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(6,8,13,.65)}
+.pc-loading{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:var(--scrim)}
 .pc-loading.show{display:flex}
-.pc-mini-spinner{width:20px;height:20px;border:2px solid var(--border2);border-top-color:var(--purple);border-radius:50%;animation:spin .7s linear infinite}
-.pc-placeholder{width:100%;aspect-ratio:16/9;background:rgba(245,166,35,.04);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
-.pc-placeholder-icon{font-size:22px;opacity:.4}
-.pc-placeholder-text{font-size:11px;color:var(--warn);font-weight:600}
-.pc-placeholder-sub{font-size:10px;color:var(--muted2);font-family:var(--mono)}
-.pc-footer{padding:9px 13px;display:flex;align-items:center;justify-content:space-between}
-.pc-time-display{font-family:var(--mono);font-size:11px;color:var(--purple)}
-.phase-card.undetected .pc-time-display{color:var(--warn)}
-.pc-expand-hint{font-size:10px;color:var(--muted)}
+.pc-mini-spinner{width:20px;height:20px;border:2px solid var(--border2);border-top-color:var(--cyan);border-radius:50%;animation:spin .7s linear infinite}
+.pc-placeholder{width:100%;aspect-ratio:16/9;background:var(--warn-wash);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:0 12px;text-align:center}
+.pc-placeholder-icon{font-size:22px;opacity:.5}
+.pc-placeholder-text{font:600 13px/1.4 var(--ui);color:var(--warn-ink)}
+.pc-placeholder-sub{font:400 12px/1.45 var(--ui);color:var(--muted2)}
+.pc-footer{padding:9px 13px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.pc-time-display{font:700 12px/1.3 var(--mono);color:var(--accent-ink)}
+.phase-card.undetected .pc-time-display{color:var(--warn-ink)}
+.pc-expand-hint{font:400 12px/1.45 var(--ui);color:var(--muted2)}
+.pc-expand-hint.warn{color:var(--warn-ink);font-weight:600}
 .pc-metrics-mini{padding:8px 13px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:5px}
-.mm-item{font-size:9px;font-family:var(--mono);padding:2px 7px;border-radius:9px;background:var(--panel2);border:1px solid var(--border);color:var(--muted2)}
-.mm-item.na{color:var(--muted)}
+.mm-item{font:500 12px/1.3 var(--ui);padding:3px 8px;border-radius:6px;background:var(--panel2);border:1px solid var(--border);color:var(--text)}
+.mm-item.na{color:var(--muted2)}
+.mm-item .mm-v{font:700 12px/1.3 var(--mono);font-variant-numeric:tabular-nums;color:var(--text)}
+.mm-item.na .mm-v{font-weight:400;color:var(--muted2)}
+.mm-item.warn{color:var(--warn-ink);background:var(--warn-wash);border-color:var(--warn-line)}
 
-/* Expand overlay */
-#expand-overlay{position:fixed;inset:0;background:rgba(6,8,13,.9);z-index:400;display:none;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}
+/* Expand overlay (phase inspector) */
+#expand-overlay{position:fixed;inset:0;background:var(--scrim);z-index:400;display:none;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}
 #expand-overlay.open{display:flex}
-.expand-panel{background:var(--panel);border:1px solid var(--border2);border-radius:20px;width:100%;max-width:980px;max-height:calc(100vh - 32px);overflow-y:auto;display:flex;flex-direction:column}
-.ep-hdr{padding:15px 20px 13px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0;position:sticky;top:0;background:var(--panel);z-index:10;border-radius:20px 20px 0 0}
-.ep-num{width:28px;height:28px;border-radius:50%;background:rgba(139,124,248,.12);border:1px solid rgba(139,124,248,.3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--purple);flex-shrink:0;font-family:var(--mono)}
-.ep-hdr.undetected .ep-num{background:rgba(245,166,35,.12);border-color:rgba(245,166,35,.35);color:var(--warn)}
-.ep-name{font-size:16px;font-weight:800}
-.ep-desc{font-size:11px;color:var(--muted2);font-family:var(--mono);margin-top:1px}
-.ep-undetected-badge{display:none;align-items:center;gap:6px;font-size:11px;color:var(--warn);font-weight:700;background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.25);border-radius:8px;padding:4px 12px;font-family:var(--mono)}
-.ep-hdr.undetected .ep-undetected-badge{display:flex}
-.ep-close{margin-left:auto;width:32px;height:32px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
-.ep-close:hover{border-color:var(--bad);color:var(--bad)}
-.ep-undetected-notice{margin:16px 16px 0;background:rgba(245,166,35,.06);border:1px solid rgba(245,166,35,.2);border-radius:12px;padding:14px 16px;display:none}
+.expand-panel{background:var(--panel);border:1px solid var(--border2);border-radius:16px;width:100%;max-width:980px;max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow-y:auto;display:flex;flex-direction:column;outline:none}
+.ep-hdr{padding:15px 20px 13px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0;position:sticky;top:0;background:var(--panel);z-index:10;border-radius:16px 16px 0 0}
+.ep-hdr-txt{flex:1;min-width:0}
+.ep-num{width:28px;height:28px;border-radius:50%;background:var(--accent-wash);border:1px solid var(--accent-line);display:flex;align-items:center;justify-content:center;font:700 12px/1 var(--mono);color:var(--accent-ink);flex-shrink:0}
+.ep-hdr.undetected .ep-num{background:var(--warn-wash);border-color:var(--warn-line);color:var(--warn-ink)}
+.ep-name{font:800 17px/1.3 var(--ui);letter-spacing:-.2px;color:var(--text)}
+.ep-desc{font:400 12px/1.45 var(--ui);color:var(--muted2);margin-top:1px}
+.ep-close{margin-left:auto;width:36px;height:36px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:color .15s,border-color .15s;flex-shrink:0}
+.ep-close:hover{border-color:var(--muted2);color:var(--text)}
+.ep-undetected-notice{margin:16px 16px 0;background:var(--warn-wash);border:1px solid var(--warn-line);border-radius:8px;padding:12px 14px;display:none}
 .ep-undetected-notice.show{display:block}
-.eun-title{font-size:13px;font-weight:700;color:var(--warn);margin-bottom:5px}
-.eun-text{font-size:12px;color:var(--muted2);line-height:1.7}
-.ep-body{display:grid;grid-template-columns:1fr 400px;gap:0;flex:1}
-@media(max-width:700px){.ep-body{grid-template-columns:1fr}}
-.ep-canvas-side{padding:16px;border-right:1px solid var(--border)}
-.ep-canvas-wrap{background:#000;border-radius:10px;overflow:hidden;position:relative;margin-bottom:14px}
+.eun-title{font:700 13px/1.4 var(--ui);color:var(--warn-ink);margin-bottom:4px}
+.eun-text{font:400 13px/1.55 var(--ui);color:var(--text)}
+.ep-body{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr);gap:0;flex:1}
+.ep-canvas-side{padding:16px;border-right:1px solid var(--border);min-width:0}
+@media (min-width:769px){.ep-canvas-side{position:sticky;top:64px;align-self:start}}
+.ep-canvas-wrap{background:#000;border-radius:8px;overflow:hidden;position:relative;margin-bottom:14px}
 .ep-canvas{width:100%;display:block;min-height:180px}
-.ep-loading{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(6,8,13,.7)}
+.ep-loading{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:var(--scrim)}
 .ep-loading.show{display:flex}
-.ep-spinner{width:28px;height:28px;border:2.5px solid var(--border2);border-top-color:var(--purple);border-radius:50%;animation:spin .7s linear infinite}
-.scrub-section{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
-.scrub-label{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.ep-spinner{width:28px;height:28px;border:2.5px solid var(--border2);border-top-color:var(--cyan);border-radius:50%;animation:spin .7s linear infinite}
+.scrub-section{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+.scrub-label,.pi-label,.ep-m-label{font:600 14px/1.45 var(--ui);color:var(--text);margin-bottom:10px}
 .scrub-main{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.ep-scrubber{flex:1;-webkit-appearance:none;height:4px;background:var(--panel);border-radius:2px;outline:none;cursor:pointer}
-.ep-scrubber::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;background:var(--purple);border-radius:50%;cursor:pointer;box-shadow:0 0 0 4px rgba(139,124,248,.18)}
-.ep-time{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--purple);min-width:52px;text-align:right;flex-shrink:0}
-.step-btns{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.step-btn{padding:5px 11px;font-size:11px;font-weight:700;font-family:var(--mono);border-radius:7px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;transition:all .15s;user-select:none}
-.step-btn:hover{border-color:var(--purple);color:var(--purple)}
-.step-label{font-size:10px;color:var(--muted);margin:0 1px}
-.re-btn{margin-left:auto;display:inline-flex;align-items:center;gap:6px;padding:7px 16px;font-size:11px;font-weight:700;font-family:var(--ui);border-radius:8px;border:1px solid rgba(139,124,248,.3);background:rgba(139,124,248,.08);color:var(--purple);cursor:pointer;transition:all .15s}
-.re-btn:hover{background:rgba(139,124,248,.15)}
+.ep-scrubber{flex:1;min-width:0;-webkit-appearance:none;appearance:none;height:4px;background:var(--panel);border-radius:2px;cursor:pointer}
+.ep-scrubber::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;background:var(--cyan);border-radius:50%;cursor:pointer;box-shadow:var(--focus-ring)}
+.ep-scrubber::-moz-range-thumb{width:16px;height:16px;background:var(--cyan);border:0;border-radius:50%;cursor:pointer}
+.ep-time{font:700 14px/1.2 var(--mono);color:var(--accent-ink);min-width:52px;text-align:right;flex-shrink:0}
+.step-btns,.scrub-actions-row{display:flex;align-items:center;gap:6px 8px;flex-wrap:wrap}
+.scrub-actions-row{margin-top:10px}
+.step-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:30px;padding:5px 12px;font:600 12px/1.2 var(--ui);border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--text);cursor:pointer;transition:border-color .15s,color .15s;user-select:none}
+.step-btn:hover:not(:disabled){border-color:var(--accent-ink);color:var(--accent-ink)}
+.step-btn:disabled{opacity:.4;cursor:not-allowed}
+.step-btn.clear-btn{margin-left:auto}
+.re-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:7px 16px;font:700 13px/1.2 var(--ui);border-radius:8px;border:1px solid transparent;background:var(--cyan);color:var(--on-accent);cursor:pointer;transition:opacity .15s}
+.re-btn:hover{opacity:.86}
 .re-btn:disabled{opacity:.35;cursor:not-allowed}
-.swap-btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;font-size:11px;font-weight:700;font-family:var(--ui);border-radius:8px;border:1px solid rgba(245,166,35,.3);background:rgba(245,166,35,.08);color:var(--warn);cursor:pointer;transition:all .15s;margin-left:6px}
-.swap-btn:hover{background:rgba(245,166,35,.18)}
+.swap-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:30px;padding:5px 12px;font:600 12px/1.2 var(--ui);border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--text);cursor:pointer;transition:border-color .15s,color .15s}
+.swap-btn:hover:not(:disabled){border-color:var(--accent-ink);color:var(--accent-ink)}
 .swap-btn:disabled{opacity:.35;cursor:not-allowed}
 .scrub-nav{display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);flex-wrap:wrap}
-.scrub-nav-label{font-size:10px;color:var(--muted);font-family:var(--mono)}
+.scrub-nav-label{font:600 12px/1.3 var(--ui);color:var(--muted2)}
 .nav-phase-btns{display:flex;gap:5px;flex-wrap:wrap;margin-left:auto}
-.nav-phase-btn{padding:3px 8px;font-size:9px;font-family:var(--mono);border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;transition:all .15s;white-space:nowrap}
-.nav-phase-btn:hover{border-color:var(--purple);color:var(--purple)}
-.nav-phase-btn.cur{background:rgba(139,124,248,.1);color:var(--purple);border-color:rgba(139,124,248,.3)}
-.nav-phase-btn.undetected{border-color:rgba(245,166,35,.3);color:var(--warn)}
-.ep-info-side{padding:16px;display:flex;flex-direction:column;gap:14px;overflow-y:auto}
-.pi-card{background:rgba(139,124,248,.04);border:1px solid rgba(139,124,248,.18);border-radius:12px;padding:14px 16px}
-.pi-label{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
-.pi-title{font-size:16px;font-weight:700;color:var(--purple);margin-bottom:10px}
-.pi-desc{font-size:14px;color:var(--muted2);line-height:1.8;margin-bottom:14px}
+.nav-phase-btn{display:inline-flex;align-items:center;min-height:30px;padding:6px 12px;font:600 12px/1.2 var(--ui);border-radius:var(--r-pill);border:1px solid var(--border2);background:var(--panel2);color:var(--muted2);cursor:pointer;transition:color .15s,border-color .15s,background .15s;white-space:nowrap}
+.nav-phase-btn:hover{color:var(--text);border-color:var(--accent-line)}
+.nav-phase-btn.cur{background:rgba(0,229,200,.10);color:var(--accent-ink);border-color:rgba(0,229,200,.35)}
+.nav-phase-btn.undetected{border-color:var(--warn-line);color:var(--warn-ink)}
+@media (pointer:coarse){.nav-phase-btn{min-height:36px}}
+.ep-label-panel{margin-top:10px;padding:10px 12px;background:var(--panel);border:1px solid var(--border);border-radius:8px}
+.ep-label-row{display:flex;align-items:center;gap:8px 10px;flex-wrap:wrap}
+.ep-label-title{font:600 12px/1.3 var(--ui);color:var(--muted2)}
+.ep-label-cap{margin-top:6px;font:400 12px/1.45 var(--ui);color:var(--muted2)}
+#ep-label-status{font:400 12px/1.45 var(--ui);color:var(--muted2)}
+.ep-info-side{padding:16px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.pi-card{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+.pi-title{font:600 14px/1.45 var(--ui);color:var(--text);margin-bottom:8px}
+.pi-desc{font:400 13px/1.55 var(--ui);color:var(--muted2);margin-bottom:12px}
 .pi-checks{display:flex;flex-direction:column;gap:6px}
-.pi-check{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--muted2);line-height:1.65}
-.pi-check-icon{color:var(--purple);font-size:12px;flex-shrink:0;margin-top:3px}
-.pi-tip{margin-top:10px;padding:12px 14px;background:rgba(139,124,248,.05);border:1px solid rgba(139,124,248,.15);border-radius:8px;font-size:12px;color:rgba(139,124,248,.8);line-height:1.75;font-family:var(--mono)}
-.ep-metrics-card{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
-.ep-m-label{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
-.ep-metric{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.pi-check{display:flex;align-items:flex-start;gap:8px;font:400 13px/1.55 var(--ui);color:var(--muted2)}
+.pi-check-icon{color:var(--accent-ink);font-size:12px;flex-shrink:0;margin-top:3px}
+.pi-tip{margin-top:10px;padding:12px 14px;background:var(--accent-wash);border:1px solid var(--accent-line);border-radius:8px;font:400 13px/1.55 var(--ui);color:var(--text)}
+.pi-tip:empty{display:none}
+.ep-metrics-card{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+.ep-metric{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
 .ep-metric:last-child{margin-bottom:0}
-.ep-ml{font-size:11px;color:var(--muted2);display:flex;align-items:center;gap:7px;font-weight:600}
+.ep-ml{font:600 12px/1.4 var(--ui);color:var(--muted2);display:flex;align-items:center;gap:7px}
 .ep-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
-.ep-mv{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--muted2)}
-.ep-mv-hint{font-size:9px;color:var(--muted);margin-top:1px;text-align:right;font-family:var(--mono)}
-.ep-no-data{font-size:11px;color:var(--muted);font-family:var(--mono);text-align:center;padding:10px 0}
+.ep-mv{font:700 13px/1.3 var(--mono);color:var(--text)}
+.ep-mv-hint{font:400 11px/1.4 var(--ui);color:var(--muted2);margin-top:1px;text-align:right}
+.ep-no-data{font:400 12px/1.45 var(--ui);color:var(--muted2);text-align:center;padding:10px 0}
+.ep-no-data.warn{color:var(--warn-ink)}
+@media (max-width:768px){.ep-body{grid-template-columns:1fr}.ep-canvas-side{border-right:0;border-bottom:1px solid var(--border)}}
+@media (max-width:600px),(max-height:560px){
+  #expand-overlay{padding:0}
+  .expand-panel{max-width:none;max-height:none;height:100%;border:0;border-radius:0}
+  .ep-hdr{border-radius:0;padding:12px 16px}
+}
+
+.ep-stale-note{font:400 13px/1.55 var(--ui);color:var(--warn-ink);background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--warn);border-radius:12px;padding:10px 14px}
+.ep-stale-note[hidden]{display:none}
+
+/* Detection quality (inspector) */
+.dq-big{text-align:left}
+.dq-big-label{font:700 15px/1.35 var(--ui);margin:0 0 4px}
+.dq-big-sub{font:400 13px/1.55 var(--ui);color:var(--text);margin:0}
+.dq-big .esl-more{margin-top:6px}
+.dq-big .esl-more>summary{font-size:13px}
+.dq-tips{margin:6px 0 0;padding-left:18px;font:400 13px/1.55 var(--ui);color:var(--muted2)}
+.dq-tips li+li{margin-top:4px}
 
 /* Summary table */
-#summary-section{padding:28px 24px;max-width:1440px;margin:0 auto}
-.summary-title{font-size:19px;font-weight:800;margin-bottom:4px}
-.summary-sub{font-size:14px;color:var(--muted2);margin-bottom:20px}
-.summary-scroll{overflow-x:auto}
-.stbl{width:100%;border-collapse:collapse;font-size:12px;min-width:700px}
-.stbl th{padding:9px 12px;text-align:left;font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;background:var(--panel);cursor:pointer;transition:color .15s}
-.stbl th:hover{color:var(--purple)}
+#summary-section{padding:24px var(--gutter);max-width:var(--w-tool);margin:0 auto}
+.summary-title{font:700 17px/1.3 var(--ui);letter-spacing:-.2px;margin-bottom:4px}
+.summary-sub{font:400 13px/1.55 var(--ui);color:var(--muted2);margin-bottom:12px;max-width:760px}
+.summary-scroll{position:relative;overflow-x:auto;background:var(--panel);border:1px solid var(--border);border-radius:12px}
+.stbl{width:100%;border-collapse:collapse;font:400 13px/1.45 var(--ui);min-width:700px}
+.stbl th{padding:10px 14px;text-align:left;font:600 12px/1.35 var(--ui);color:var(--muted2);border-bottom:1px solid var(--border);white-space:nowrap;background:var(--panel2);vertical-align:bottom}
 .stbl th.th-group-start{border-left:2px solid var(--border2)}
-.stbl th.th-left{color:rgba(0,212,170,.8)}.stbl th.th-right{color:rgba(255,107,53,.8)}
-.stbl th.undetected-col{opacity:.6}
-.stbl td{padding:9px 12px;border-bottom:1px solid var(--border)}
+.stbl th.th-left{border-top:2px solid var(--left)}
+.stbl th.th-right{border-top:2px solid var(--right)}
+.stbl th.undetected-col{opacity:.7}
+.stbl-th-btn{all:unset;cursor:pointer;font:inherit;color:inherit}
+.stbl-th-btn:hover{color:var(--accent-ink)}
+.stbl-th-btn:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
+.stbl td{padding:10px 14px;border-bottom:1px solid var(--border)}
 .stbl td.td-group-start{border-left:2px solid var(--border2)}
 .stbl tr:last-child td{border-bottom:none}
-.stbl tr:hover td{background:rgba(255,255,255,.015)}
-.row-label{color:var(--muted2);font-weight:600;font-size:11px;white-space:nowrap}
-.sv{font-family:var(--mono);font-weight:700;font-size:13px;color:var(--text)}.sv.na{color:var(--muted)}
+.stbl tr:hover td{background:var(--hover)}
+.stbl tr>:first-child{position:sticky;left:0;z-index:1;background:var(--panel)}
+.stbl thead tr>:first-child,.stbl tbody tr:hover>:first-child{background:var(--panel2)}
+.row-label{color:var(--text);font:600 13px/1.4 var(--ui);white-space:nowrap}
+.sv{font:700 13px/1.3 var(--mono);color:var(--text)}
+.sv.na,.sv.pend{font-weight:400;color:var(--muted2)}
+.sv.miss{color:var(--warn-ink)}
+.stbl-legend{margin:8px 0 0;font:400 12px/1.45 var(--ui);color:var(--muted2)}
+@media (max-width:600px){.stbl{font-size:12px}.stbl th,.stbl td{padding:8px 10px}}
 
 /* Save section */
-#save-section{padding:24px 24px 60px;max-width:1440px;margin:0 auto;border-top:1px solid var(--border)}
-.save-wrap{background:var(--panel);border:1px solid rgba(139,124,248,.25);border-radius:20px;padding:28px 32px;display:grid;grid-template-columns:1fr auto;gap:28px;align-items:start}
-@media(max-width:700px){.save-wrap{grid-template-columns:1fr}}
-.save-title{font-size:17px;font-weight:800;margin-bottom:5px}
-.save-sub{font-size:13px;color:var(--muted2);line-height:1.7;margin-bottom:18px}
-.phase-completion{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px}
-.pc-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:9px;font-weight:700;font-family:var(--mono);border:1px solid var(--border);background:var(--panel2);color:var(--muted2)}
-.pc-pill.done{background:rgba(34,199,138,.08);color:var(--good);border-color:rgba(34,199,138,.2)}
-.pc-pill.missing{background:rgba(245,166,35,.06);color:var(--warn);border-color:rgba(245,166,35,.2)}
-.save-meta-summary{font-size:11px;color:var(--muted2);font-family:var(--mono);line-height:2}
+#save-section{padding:24px var(--gutter) 40px;max-width:var(--w-tool);margin:0 auto;border-top:1px solid var(--border)}
+.save-wrap{background:var(--panel);border:1px solid var(--accent-line);border-radius:12px;padding:24px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:start}
+@media (max-width:768px){.save-wrap{grid-template-columns:1fr}}
+@media (max-width:600px){.save-wrap{padding:20px 16px}}
+.save-title{font:700 17px/1.3 var(--ui);letter-spacing:-.2px;margin-bottom:5px}
+.save-sub{font:400 13px/1.55 var(--ui);color:var(--muted2);margin-bottom:16px;max-width:640px}
+.phase-completion{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.pc-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:6px;font:700 10px/1.3 var(--mono);letter-spacing:.5px;text-transform:uppercase;border:1px solid var(--border2);background:var(--hover);color:var(--muted2)}
+.pc-pill.done{background:var(--good-wash);color:var(--good-ink);border-color:var(--good-line)}
+.pc-pill.missing{background:var(--hover);color:var(--muted2);border-color:var(--border2)}
+.save-meta-summary{font:400 13px/1.7 var(--ui);color:var(--muted2)}
 .save-meta-summary strong{color:var(--text)}
-.save-meta-summary .sex-male{color:var(--male);font-weight:700}
-.save-meta-summary .sex-female{color:var(--female);font-weight:700}
+.save-meta-summary .sex-male,.save-meta-summary .sex-female{color:var(--text);font-weight:700}
+.save-meta-summary .unset{color:var(--warn-ink);font-weight:600}
 .save-right{display:flex;flex-direction:column;align-items:flex-end;gap:16px;min-width:220px}
-.dataset-stats{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;width:100%}
-.ds-title{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);font-family:var(--mono);margin-bottom:10px}
+@media (max-width:768px){.save-right{align-items:stretch;min-width:0}}
+.dataset-stats{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;width:100%}
+.ds-title{font:600 12px/1.3 var(--ui);color:var(--muted2);margin-bottom:10px}
 .ds-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .ds-row:last-child{margin-bottom:0}
-.ds-sex-label{font-size:11px;color:var(--muted2);font-family:var(--mono);display:flex;align-items:center;gap:6px}
-.ds-sex-dot{width:7px;height:7px;border-radius:50%}
-.ds-sex-num{font-size:18px;font-weight:800;font-family:var(--mono);line-height:1}
-.ds-sex-num.male{color:var(--male)}.ds-sex-num.female{color:var(--female)}
-.ds-updated{font-size:9px;color:var(--muted);font-family:var(--mono);margin-top:10px;text-align:right}
-.save-btn{display:inline-flex;align-items:center;gap:8px;padding:13px 26px;background:var(--purple);color:#fff;font-weight:700;font-size:14px;font-family:var(--ui);border:none;border-radius:11px;cursor:pointer;transition:opacity .15s;white-space:nowrap}
-.save-btn:hover{opacity:.85}
-.save-btn:disabled{opacity:.35;cursor:not-allowed}
-.save-btn.saving{background:var(--panel2);color:var(--purple);border:1px solid rgba(139,124,248,.3)}
-.save-btn.saved{background:rgba(34,199,138,.15);color:var(--good);border:1px solid rgba(34,199,138,.3)}
-.vet-panel{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:16px;margin-top:14px;display:none}
+.ds-sex-label{font:400 12px/1.45 var(--ui);color:var(--muted2);display:flex;align-items:center}
+.ds-sex-num{font:700 20px/1.2 var(--mono);font-variant-numeric:tabular-nums;color:var(--text)}
+.ds-updated{font:400 12px/1.45 var(--ui);color:var(--muted2);margin-top:10px;text-align:right}
+.save-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:14px 28px;font:600 16px/1.2 var(--ui);color:var(--on-accent);background:var(--cyan);border:1px solid transparent;border-radius:12px;cursor:pointer;transition:opacity .15s;white-space:nowrap}
+.save-btn:hover{opacity:.86}
+.save-btn:disabled{opacity:.4;cursor:not-allowed}
+.save-btn.saving{background:transparent;color:var(--accent-ink);border-color:var(--accent-line)}
+.save-btn.saved{background:var(--good-wash);color:var(--good-ink);border-color:var(--good-line)}
+.save-btn.saved:disabled{opacity:1}
+.vet-panel{background:var(--panel2);border:1px solid var(--border);border-left:4px solid var(--warn);border-radius:12px;padding:14px 16px;margin-top:4px;display:none;width:100%}
 .vet-panel.show{display:block}
-.vet-title{font-size:12px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
-.vet-item{display:flex;align-items:flex-start;gap:9px;font-size:11px;margin-bottom:8px;line-height:1.6;font-family:var(--mono);padding:6px 8px;border-radius:7px}
+.vet-panel.has-error{border-left-color:var(--bad)}
+.vet-title{font:700 13px/1.4 var(--ui);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.vet-item{display:flex;align-items:flex-start;gap:9px;font:400 13px/1.55 var(--ui);margin-bottom:8px;padding:6px 8px;border-radius:8px}
 .vet-item:last-child{margin-bottom:0}
-.vet-item.warn{background:rgba(245,166,35,.07);color:var(--warn);border:1px solid rgba(245,166,35,.2)}
-.vet-item.error{background:rgba(245,80,80,.07);color:var(--bad);border:1px solid rgba(245,80,80,.2)}
-.vet-item.ok{background:rgba(34,199,138,.07);color:var(--good);border:1px solid rgba(34,199,138,.2)}
-.vet-action-row{display:flex;align-items:center;gap:10px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)}
-.vet-save-anyway{padding:6px 14px;font-size:11px;font-weight:700;font-family:var(--ui);border-radius:7px;border:1px solid rgba(245,166,35,.4);background:transparent;color:var(--warn);cursor:pointer;transition:all .15s}
-.vet-save-anyway:hover{background:rgba(245,166,35,.1)}
-.vet-note{font-size:10px;color:var(--muted2);font-family:var(--mono);flex:1}
-.save-notice{font-size:11px;color:var(--good);font-family:var(--mono);text-align:right;display:none;animation:fadeIn .3s ease}
+.vet-item.warn{background:var(--warn-wash);color:var(--warn-ink);border:1px solid var(--warn-line)}
+.vet-item.error{background:var(--bad-wash);color:var(--bad-ink);border:1px solid var(--bad-line)}
+.vet-item.ok{background:var(--good-wash);color:var(--good-ink);border:1px solid var(--good-line)}
+.vet-action-row{display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap}
+.vet-save-anyway{display:inline-flex;align-items:center;justify-content:center;min-height:30px;padding:5px 12px;font:600 12px/1.2 var(--ui);border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--text);cursor:pointer;transition:border-color .15s,color .15s}
+.vet-save-anyway:hover{border-color:var(--accent-ink);color:var(--accent-ink)}
+.vet-note{font:400 12px/1.45 var(--ui);color:var(--muted2);flex:1;min-width:0}
+.save-notice{font:400 13px/1.55 var(--ui);color:var(--good-ink);text-align:right;display:none;animation:fadeIn .3s ease}
 .save-notice.show{display:block}
-.save-error{font-size:11px;color:var(--bad);font-family:var(--mono);text-align:right;display:none}
+.save-error{font:400 13px/1.55 var(--ui);color:var(--bad-ink);text-align:right;display:none}
 .save-error.show{display:block}
-/* Detection quality -- prominent display in expand panel */
-.dq-big{padding:18px;border-radius:14px;text-align:center}
-.dq-big.strong{background:rgba(34,199,138,.06);border:2px solid rgba(34,199,138,.3)}
-.dq-big.fair{background:rgba(245,166,35,.06);border:2px solid rgba(245,166,35,.3)}
-.dq-big.weak{background:rgba(245,80,80,.06);border:2px solid rgba(245,80,80,.3)}
-.dq-big-label{font-size:22px;font-weight:800;margin-bottom:4px}
-.dq-big.strong .dq-big-label{color:var(--good)}
-.dq-big.fair .dq-big-label{color:var(--warn)}
-.dq-big.weak .dq-big-label{color:var(--bad)}
-.dq-big-sub{font-size:12px;color:var(--muted2);font-family:var(--mono);line-height:1.6}
-.dq-big-hint{font-size:13px;color:var(--text);line-height:1.75;margin-top:12px;text-align:left}
-.dq-big-hint strong{color:var(--purple)}
-.dq-big-goal{display:inline-block;margin-top:10px;font-size:11px;font-family:var(--mono);padding:4px 12px;border-radius:20px;background:rgba(34,199,138,.08);border:1px solid rgba(34,199,138,.2);color:var(--good)}
+@media (max-width:768px){.save-notice,.save-error{text-align:left}}
 
-/* ── Anomaly thresholds section ────────────────────── */
-#thresholds-section{padding:28px 24px 12px;max-width:1440px;margin:0 auto}
-#diagnostic-section{padding:20px 24px 28px;max-width:1440px;margin:0 auto}
-#diagnostic-section .thr-hdr{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:10px}
-#diagnostic-section .thr-toggle-btn:hover{filter:brightness(1.1)}
-#diagnostic-section .thr-toggle-btn:disabled{opacity:.5;cursor:not-allowed}
-#diag-tbl tbody tr.bad td{color:var(--bad)}
-#diag-tbl tbody tr.warn td{color:var(--warn)}
-#diag-tbl tbody tr.good td{color:var(--good)}
-.thr-hdr{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:16px;flex-wrap:wrap}
-.thr-title{font-size:18px;font-weight:800;margin-bottom:4px}
-.thr-sub{font-size:12px;color:var(--muted2);line-height:1.6;max-width:640px}
-.thr-toggle{display:inline-flex;background:var(--panel2);border:1px solid var(--border2);border-radius:10px;padding:3px;gap:2px}
-.thr-toggle button{background:transparent;border:none;font-family:var(--ui);font-size:12px;font-weight:700;padding:7px 14px;border-radius:8px;cursor:pointer;color:var(--muted2);transition:all .15s}
-.thr-toggle button:hover{color:var(--text)}
-.thr-toggle button.active-male{background:rgba(91,156,248,.18);color:var(--male)}
-.thr-toggle button.active-female{background:rgba(248,125,176,.18);color:var(--female)}
-.thr-table-wrap{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden}
-.thr-tbl{width:100%;border-collapse:collapse;font-size:12px}
-.thr-tbl th{padding:11px 14px;text-align:left;font-size:9px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);background:var(--panel2)}
-.thr-tbl td{padding:13px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+/* Thresholds + diagnostic + saved sessions */
+#thresholds-section,#diagnostic-section,#sessions-section{padding:24px var(--gutter);max-width:var(--w-tool);margin:0 auto}
+.thr-hdr{display:flex;align-items:flex-end;justify-content:space-between;gap:10px 20px;margin-bottom:12px;flex-wrap:wrap}
+.thr-hdr-txt{flex:1 1 420px;min-width:0}
+.thr-title{font:700 17px/1.3 var(--ui);letter-spacing:-.2px;margin-bottom:4px}
+.thr-sub{font:400 13px/1.5 var(--ui);color:var(--muted2);max-width:760px}
+.thr-ctl{display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+@media (max-width:600px){.thr-ctl{align-items:flex-start;width:100%}}
+.thr-table-wrap{position:relative;background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow-x:auto;max-width:var(--w-block)}
+.thr-tbl{width:100%;border-collapse:collapse;font:400 13px/1.45 var(--ui);min-width:640px}
+.thr-tbl th{padding:10px 14px;text-align:left;font:600 12px/1.35 var(--ui);color:var(--muted2);border-bottom:1px solid var(--border);background:var(--panel2);vertical-align:bottom;white-space:nowrap}
+.thr-tbl td{padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top}
 .thr-tbl tr:last-child td{border-bottom:none}
-.thr-tbl tr:hover td{background:rgba(255,255,255,.015)}
-.thr-anom{font-weight:700;color:var(--text);font-size:13px}
-.thr-meta{font-size:10px;color:var(--muted2);font-family:var(--mono);margin-top:3px;line-height:1.5}
-.thr-val{font-family:var(--mono);font-weight:700;font-size:13px;color:var(--text);white-space:nowrap}
-.thr-val.mild{color:var(--warn)}
-.thr-val.notable{color:var(--bad)}
-.thr-val.na{color:var(--muted);font-weight:400}
-.thr-rule{font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:3px}
-.thr-src{display:inline-block;font-size:9px;font-family:var(--mono);padding:2px 7px;border-radius:10px;border:1px solid var(--border2);color:var(--muted2);margin-top:4px;letter-spacing:.4px}
-.thr-src.live{border-color:rgba(139,124,248,.35);color:var(--purple);background:rgba(139,124,248,.08)}
-.thr-src.fixed{border-color:rgba(245,166,35,.3);color:var(--warn);background:rgba(245,166,35,.06)}
-.thr-src.fallback{border-color:rgba(245,80,80,.25);color:var(--bad);background:rgba(245,80,80,.06)}
-.thr-note{font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:10px;line-height:1.7}
-.thr-note .live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--purple);margin-right:4px;vertical-align:middle}
-.thr-note .fixed-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--warn);margin-right:4px;vertical-align:middle}
+.thr-tbl tr:hover td{background:var(--hover)}
+.thr-tbl tr>:first-child{position:sticky;left:0;z-index:1;background:var(--panel)}
+.thr-tbl thead tr>:first-child,.thr-tbl tbody tr:hover>:first-child{background:var(--panel2)}
+.thr-tbl .num{text-align:right;font-family:var(--mono);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.thr-tbl td.num.dist{font-weight:400}
+.thr-anom{font:600 13px/1.4 var(--ui);color:var(--text)}
+.thr-meta{font:400 12px/1.5 var(--ui);color:var(--muted2);margin-top:3px}
+.thr-meta.flush{margin-top:0}
+.thr-val{font:700 13px/1.4 var(--mono);color:var(--text);white-space:nowrap}
+.thr-val.mild{color:var(--warn-ink)}
+.thr-val.notable{color:var(--bad-ink)}
+.thr-val.na{color:var(--muted2);font-weight:400}
+.thr-rule{font:400 12px/1.45 var(--ui);color:var(--muted2);margin-top:3px}
+.thr-src{display:inline-block;margin-top:6px;padding:3px 8px;font:700 10px/1.3 var(--mono);letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;color:var(--muted2);background:var(--hover);border:1px solid var(--border2);border-radius:6px}
+.thr-src.live{color:var(--accent-ink);background:var(--accent-wash);border-color:var(--accent-line)}
+.thr-src.fixed{color:var(--muted2);background:var(--hover);border-color:var(--border2)}
+.thr-src.fallback{color:var(--warn-ink);background:var(--warn-wash);border-color:var(--warn-line)}
+.thr-note{font:400 13px/1.55 var(--ui);color:var(--muted2);margin-top:10px;max-width:var(--w-block)}
+.thr-note strong{color:var(--text);font-weight:600}
+.thr-note .live-dot,.thr-note .fixed-dot,.thr-note .fallback-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:1px}
+.thr-note .live-dot{background:var(--cyan)}
+.thr-note .fixed-dot{background:var(--muted2)}
+.thr-note .fallback-dot{background:var(--warn)}
+.thr-note .lg-item{display:block;margin-top:4px}
+#diag-tbl tbody tr.bad td{color:var(--bad-ink)}
+#diag-tbl tbody tr.warn td{color:var(--warn-ink)}
+#diag-tbl tbody tr.good td{color:var(--good-ink)}
+#diag-tbl td.esl-empty,#sess-tbl td.esl-empty{position:static;text-align:center}
+#diag-tbl td.esl-empty.err{color:var(--bad-ink)}
+.diag-filter{font:400 12px/1.45 var(--ui);color:var(--muted2);display:inline-flex;gap:6px;align-items:center;cursor:pointer}
+.diag-filter input{accent-color:var(--cyan)}
+#diag-summary{padding:4px 0 12px;font:400 13px/1.55 var(--ui);color:var(--muted2)}
+#diag-summary:empty{display:none}
 
-/* ── Feedback footer ────────────────────────────────── */
-.feedback-footer{display:flex;justify-content:center;gap:12px;padding:32px 20px 24px;flex-wrap:wrap}
-.feedback-footer-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;font-size:11px;font-weight:600;font-family:var(--mono);border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;transition:all .15s}
-.feedback-footer-btn:hover{border-color:var(--cyan);color:var(--cyan)}
-.feedback-footer-btn.bug:hover{border-color:var(--warn);color:var(--warn)}
-.feedback-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:700;display:none;align-items:center;justify-content:center;padding:40px}
-.feedback-modal-overlay.open{display:flex}
-.feedback-modal{background:var(--panel);border:1px solid var(--border2);border-radius:16px;padding:32px;width:100%;max-width:460px}
-.feedback-modal-title{font-size:17px;font-weight:800;margin-bottom:4px}
-.feedback-modal-sub{font-size:11px;color:var(--muted2);margin-bottom:16px;font-family:var(--mono);line-height:1.5}
-.feedback-modal-textarea{width:100%;min-height:120px;background:var(--panel2);border:1px solid var(--border2);border-radius:9px;padding:12px 14px;font-size:13px;color:var(--text);font-family:var(--ui);outline:none;resize:vertical;transition:border-color .15s;line-height:1.5}
-.feedback-modal-textarea:focus{border-color:var(--cyan)}
-.feedback-modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;align-items:center}
-.feedback-modal-status{font-size:11px;font-family:var(--mono);margin-right:auto}
+/* Saved sessions (D3) */
+#sessions-section .esl-more>summary{font:700 17px/1.3 var(--ui);letter-spacing:-.2px}
+#sessions-section .sess-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:8px 0 12px}
+#sess-status{font:400 13px/1.55 var(--ui);color:var(--muted2)}
+#sess-status.err{color:var(--bad-ink)}
+.sess-del-confirm{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
+.sess-del-confirm .esl-caption{color:var(--bad-ink)}
 </style>
 </head>
 <body>
@@ -382,66 +398,67 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 <div id="refdata-gate"></div>
 
 <!-- Loader -->
-<div id="loader">
+<div id="loader" role="status" aria-live="polite">
   <div class="spinner"></div>
   <div class="ld-title">Loading pose estimation model</div>
   <div class="ld-sub">MoveNet Thunder · runs entirely in your browser</div>
 </div>
 
-<!-- Header -->
-<header>
-  <img src="/images/logo_icon_only_white_clean.png" alt="Endurance Science Labs" class="logo-img">
-  <div>
-    <div class="brand-sub" style="margin-top:0;color:var(--purple)">Reference data collection</div>
-  </div>
-  <div class="hdr-stats">
-    <div class="hdr-stat-group">
-      <div class="hdr-stat">
-        <div class="hdr-stat-val male" id="hdr-male-count">—</div>
-        <div class="hdr-stat-label">male sessions</div>
-      </div>
-      <div class="hdr-divider"></div>
-      <div class="hdr-stat">
-        <div class="hdr-stat-val female" id="hdr-female-count">—</div>
-        <div class="hdr-stat-label">female sessions</div>
-      </div>
-    </div>
-  </div>
-  <span id="hdr-file"></span>
-  <div class="hdr-right">
-    <button class="btn-ghost" id="btn-rescan" onclick="rescan()" style="display:none">⟳ Re-scan</button>
-    <button class="btn-ghost" onclick="resetApp()">↩ New video</button>
-    <button class="btn-ghost btn-signout" onclick="signOut()">Sign out</button>
-  </div>
-</header>
+<!-- Shared site nav (rendered by /shared/site.js) -->
+<nav class="eslabs-nav" id="rd-nav"></nav>
 
-<!-- Metadata bar -->
+<main id="main">
+<div class="rd-head">
+  <div class="rd-head-txt">
+    <span class="esl-eyebrow">Admin</span>
+    <h1 class="esl-h1">Reference data collection</h1>
+    <p class="esl-sub">Elite side-view sessions that set esFormLab’s grading ranges. Internal tool, not linked from the product.</p>
+  </div>
+  <div class="rd-counts" aria-label="Saved reference sessions">
+    <div class="esl-tile"><span class="esl-label"><i class="rd-dot rd-dot--male"></i>Male sessions</span><span class="esl-value esl-value--s" id="hdr-male-count">–</span></div>
+    <div class="esl-tile"><span class="esl-label"><i class="rd-dot rd-dot--female"></i>Female sessions</span><span class="esl-value esl-value--s" id="hdr-female-count">–</span></div>
+  </div>
+</div>
+
+<!-- Session bar -->
 <div id="metadata-bar">
   <div class="meta-label">Session</div>
 
   <!-- Sex toggle — required -->
-  <div class="sex-toggle">
-    <button class="sex-btn" id="sex-btn-male"   onclick="setSex('male')">♂ Male</button>
-    <div class="sex-divider"></div>
-    <button class="sex-btn" id="sex-btn-female" onclick="setSex('female')">♀ Female</button>
+  <div class="sex-toggle" role="group" aria-label="Athlete sex">
+    <button type="button" class="sex-btn" id="sex-btn-male"   aria-pressed="false" onclick="setSex('male')">♂ Male</button>
+    <button type="button" class="sex-btn" id="sex-btn-female" aria-pressed="false" onclick="setSex('female')">♀ Female</button>
   </div>
 
+  <label class="esl-sr-only" for="meta-athlete">Athlete name or label (required)</label>
   <input type="text" class="meta-field" id="meta-athlete" placeholder="Athlete name / label *">
+  <label class="esl-sr-only" for="meta-event">Race or event</label>
   <input type="text" class="meta-field" id="meta-event"   placeholder="Race / event">
+  <label class="esl-sr-only" for="meta-pace">Approximate pace</label>
   <input type="text" class="meta-field" id="meta-pace"    placeholder="Approx. pace">
+  <label class="esl-sr-only" for="meta-notes">Notes</label>
   <input type="text" class="meta-field" id="meta-notes"   placeholder="Notes">
-  <span class="meta-req-note">* gender + athlete name required to save</span>
+  <div class="rd-session-actions">
+    <span id="hdr-file"></span>
+    <button type="button" class="esl-btn esl-btn--outline esl-btn--sm" id="btn-rescan" onclick="requestRescan()" style="display:none">⟳ Re-scan</button>
+    <button type="button" class="esl-btn esl-btn--outline esl-btn--sm" id="btn-newvideo" onclick="requestNewVideo()">↩ New video</button>
+  </div>
+  <span class="meta-req-note">Required to save: sex, athlete name and all 6 phases analyzed.</span>
+  <div class="rd-carry" id="rd-carry" role="status">
+    <span>Athlete and sex carried over from the last video. Same athlete?</span>
+    <button type="button" class="esl-chip" id="rd-carry-clear" onclick="clearCarriedAthlete()">Clear</button>
+  </div>
 </div>
 
 <!-- Upload -->
 <div id="screen-upload">
-  <div class="drop-zone" id="drop-zone">
-    <div class="dz-icon">◉</div>
-    <div class="dz-title">Drop a reference video</div>
-    <p class="dz-sub">Upload side-view footage of an elite marathoner. Set the athlete gender above first — data is stored separately for male and female reference populations.</p>
-    <div class="dz-sex-warning" id="dz-sex-warning">⚠ Select male or female above before uploading</div>
-    <input type="file" id="file-input" accept="video/*">
-    <button class="btn-main" id="upload-btn" onclick="handleUploadClick()">＋ Choose video file</button>
+  <div class="drop-zone" id="drop-zone" role="button" tabindex="0" aria-label="Choose a reference video" aria-describedby="dz-sex-warning">
+    <div class="dz-icon" aria-hidden="true">◉</div>
+    <h2 class="dz-title">Drop a reference video</h2>
+    <p class="dz-sub">Upload side-view footage of an elite marathoner. Set the athlete’s sex above first — data is stored separately for the male and female reference populations.</p>
+    <div class="dz-sex-warning" id="dz-sex-warning" role="alert">⚠ Select male or female above before uploading</div>
+    <input type="file" id="file-input" class="esl-sr-only" tabindex="-1" accept="video/*">
+    <button type="button" class="btn-main" id="upload-btn" onclick="handleUploadClick()">＋ Choose video file</button>
     <p class="dz-hint">MP4 · MOV · WebM · Processed locally</p>
   </div>
 </div>
@@ -449,14 +466,15 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 <!-- Scanning -->
 <div id="screen-scanning">
   <div class="scan-card">
-    <div class="scan-title">Scanning stride phases</div>
-    <div class="scan-sub">Analyzing video for all 7 key moments of the running gait cycle.</div>
+    <h2 class="scan-title">Scanning stride phases</h2>
+    <p class="scan-sub">Analyzing the video for all 6 side-view moments of the gait cycle.</p>
     <div class="scan-preview">
       <canvas id="scan-canvas"></canvas>
       <div class="scan-preview-label" id="scan-label">Preparing…</div>
     </div>
     <div class="scan-bar-track"><div class="scan-bar-fill" id="scan-bar"></div></div>
-    <div class="scan-step" id="scan-step">Preparing…</div>
+    <div class="scan-step" id="scan-step" role="status">Preparing…</div>
+    <div class="scan-warn-live" id="scan-warn-live" role="status" aria-live="polite"></div>
     <div class="scan-phase-list" id="scan-phase-list"></div>
     <div id="scan-diag"></div>
   </div>
@@ -464,29 +482,31 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 
 <!-- Phases -->
 <div id="screen-phases">
-  <div class="instr-banner">
-    <div class="instr-title">Reference data collection mode</div>
-    <div class="instr-text">Adjust each phase to the correct frame, click &#8635; Analyze on each, and get every card to <strong>Strong detection</strong> before saving. Only save once you are confident every frame is accurate — this data directly sets the public analyzer's grading ranges.</div>
+  <div class="instr-banner esl-callout">
+    <h2 class="instr-title esl-callout-title">Review each phase before saving</h2>
+    <p class="instr-text">Auto-detection has already analyzed every phase it found. Open a card to check its frame; if you move the frame, click ↻ Analyze this frame again. Aim for Strong detection on every card — this data directly sets the public analyzer’s grading ranges.</p>
   </div>
+  <div id="scan-warnings" class="scan-warnings" role="note" hidden><p class="sw-title">Check these before you review</p><ul id="scan-warnings-list"></ul></div>
   <div id="scan-summary-bar" class="scan-summary"></div>
   <div class="phase-groups" id="phase-groups"></div>
 </div>
 
 <!-- Summary table -->
 <div id="summary-section" style="display:none">
-  <div class="summary-title">Measured angles — this session</div>
-  <div class="summary-sub">Review all angles carefully before saving. These values will be added to the reference dataset.</div>
+  <h2 class="summary-title">Measured angles — this session</h2>
+  <p class="summary-sub">Review all angles carefully before saving. These values will be added to the reference dataset.</p>
   <div class="summary-scroll">
     <table class="stbl" id="summary-table"><thead></thead><tbody></tbody></table>
   </div>
+  <p class="stbl-legend">– not applicable to this phase · ⚠ – not measured on this frame (re-Analyze the phase) · … not analyzed yet</p>
 </div>
 
 <!-- Save section -->
 <div id="save-section" style="display:none">
   <div class="save-wrap">
     <div>
-      <div class="save-title">Save reference session</div>
-      <p class="save-sub">Once saved, angles from this session are added to the reference dataset for this gender, and the public gait analyzer's grading ranges update automatically.</p>
+      <h2 class="save-title">Save reference session</h2>
+      <p class="save-sub">Once saved, angles from this session are added to the reference dataset for this sex, and the public gait analyzer's grading ranges update automatically.</p>
       <div class="phase-completion" id="phase-completion"></div>
       <div class="save-meta-summary" id="save-meta-summary"></div>
     </div>
@@ -494,42 +514,142 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
       <div class="dataset-stats">
         <div class="ds-title">Dataset</div>
         <div class="ds-row">
-          <div class="ds-sex-label"><div class="ds-sex-dot" style="background:var(--male)"></div>Male</div>
-          <div class="ds-sex-num male" id="ds-male-count">—</div>
+          <div class="ds-sex-label"><i class="rd-dot rd-dot--male"></i>Male</div>
+          <div class="ds-sex-num male" id="ds-male-count">–</div>
         </div>
         <div class="ds-row">
-          <div class="ds-sex-label"><div class="ds-sex-dot" style="background:var(--female)"></div>Female</div>
-          <div class="ds-sex-num female" id="ds-female-count">—</div>
+          <div class="ds-sex-label"><i class="rd-dot rd-dot--female"></i>Female</div>
+          <div class="ds-sex-num female" id="ds-female-count">–</div>
         </div>
         <div class="ds-updated" id="ds-updated"></div>
       </div>
-      <button class="save-btn" id="save-btn" onclick="saveSession()" disabled>◉ Save session</button>
+      <button type="button" class="save-btn" id="save-btn" onclick="saveSession()" disabled>◉ Save session</button>
       <div class="vet-panel" id="vet-panel">
-        <div class="vet-title" id="vet-title"></div>
+        <div class="vet-title" id="vet-title" role="alert"></div>
         <div class="vet-items" id="vet-items"></div>
-        <div style="display:flex;align-items:center;gap:12px;margin-top:12px">
+        <div class="vet-action-row">
           <div class="vet-note" id="vet-note"></div>
-          <button class="vet-save-anyway" id="vet-save-anyway" onclick="saveSession(true)">Save anyway</button>
+          <button type="button" class="vet-save-anyway" id="vet-save-anyway" onclick="saveSession(true)">Save anyway</button>
         </div>
       </div>
-      <div class="save-notice" id="save-notice"></div>
-      <div class="save-error"  id="save-error"></div>
+      <div class="save-notice" id="save-notice" role="status"></div>
+      <div class="save-error"  id="save-error" role="alert"></div>
     </div>
   </div>
 </div>
 
-<!-- Expand overlay -->
+<!-- Anomaly detection thresholds -->
+<section id="thresholds-section">
+  <div class="thr-hdr">
+    <div class="thr-hdr-txt">
+      <h2 class="thr-title">Anomaly detection thresholds</h2>
+      <p class="thr-sub">The 6 gait anomalies the public analyzer flags, and the ranges it uses to decide mild vs notable. Live rows update as new reference sessions are added; fixed rows come from the running gait literature or clinical convention. Detections that have left/right structure (overstriding, hip drop, knee valgus, arms crossing) flag each side independently and surface a side tag on the report.</p>
+    </div>
+    <div class="thr-toggle" role="group" aria-label="Reference population">
+      <button id="thr-btn-male"   type="button" aria-pressed="false" onclick="setThresholdsSex('male')">♂ Male</button>
+      <button id="thr-btn-female" type="button" aria-pressed="false" onclick="setThresholdsSex('female')">♀ Female</button>
+    </div>
+  </div>
+  <div class="thr-table-wrap">
+    <table class="thr-tbl" id="thr-tbl">
+      <thead>
+        <tr>
+          <th style="width:26%">Anomaly</th>
+          <th style="width:32%">Baseline / basis</th>
+          <th style="width:21%">Mild</th>
+          <th style="width:21%">Notable</th>
+        </tr>
+      </thead>
+      <tbody id="thr-tbody"></tbody>
+    </table>
+  </div>
+  <p class="thr-note">
+    <span class="lg-item"><span class="live-dot"></span>Live — derived from the reference dataset for the selected sex (median + MAD-based robust SD; one bad session can’t move the threshold).</span>
+    <span class="lg-item"><span class="fixed-dot"></span>Fixed — a constant from the literature or clinical convention. Hip drop and knee valgus are sex-adjusted (+1° for female); arms crossing is the same for both sexes.</span>
+    <span class="lg-item"><span class="fallback-dot"></span>No data — fewer than 5 reliable sessions for this metric, so the analyzer uses a fallback value.</span>
+  </p>
+</section>
+
+<!-- Detection diagnostic (how accurate is auto-frame-selection vs admin labels) -->
+<section id="diagnostic-section">
+  <div class="thr-hdr">
+    <div class="thr-hdr-txt">
+      <h2 class="thr-title">Frame-selection diagnostic</h2>
+      <p class="thr-sub">Compares the detector's auto-picked frame against admin "Correct frame" labels. Numbers are <strong>stride-aware</strong> — running gait is cyclic, so a delta of one full step usually means the detector picked a different (still valid) stride, not a wrong event. We collapse the raw delta by an estimated stride period (~700ms) so only the within-stride miss counts. Hit = auto landed within 40 ms of the labeled correct frame's beat.</p>
+    </div>
+    <div class="thr-ctl">
+      <button type="button" id="diag-run-btn" class="esl-btn" onclick="runFrameDiagnostic()">Run diagnostic</button>
+      <div class="esl-seg" role="group" aria-label="Label source" id="diag-src">
+        <button type="button" data-src="all" aria-pressed="true">All</button>
+        <button type="button" data-src="reference-data" aria-pressed="false">reference-data</button>
+        <button type="button" data-src="esformlab" aria-pressed="false">esFormLab</button>
+      </div>
+      <label class="diag-filter" title="Drops labels with weak pose detection, phase/pose mismatch, edge-of-video timing, or metric values that are >3.5 MAD from the same-phase cohort median.">
+        <input type="checkbox" id="diag-validated-only" checked onchange="if(document.getElementById('diag-summary').textContent) runFrameDiagnostic()">
+        Filter outlier labels
+      </label>
+    </div>
+  </div>
+  <div id="diag-summary" role="status"></div>
+  <div class="thr-table-wrap">
+    <table class="thr-tbl" id="diag-tbl">
+      <thead>
+        <tr>
+          <th style="width:18%">Phase</th>
+          <th class="num" style="width:8%">n</th>
+          <th class="num" style="width:14%">Hit rate (≤40 ms)</th>
+          <th class="num" style="width:16%">Within-stride bias</th>
+          <th class="num" style="width:16%">Median miss</th>
+          <th class="num">Distribution (0 / 40 / 80 / 120+ ms off)</th>
+        </tr>
+      </thead>
+      <tbody id="diag-tbody">
+        <tr><td colspan="6" class="esl-empty">Click “Run diagnostic” to analyze labels.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="thr-note">
+    <strong>Within-stride bias</strong>: + = detector picks LATER than the correct frame within a stride, − = detector picks EARLIER. Wrong-stride differences are folded into a within-stride delta first.
+    &nbsp;·&nbsp;<strong>Median miss</strong>: absolute within-stride distance in milliseconds.
+    &nbsp;·&nbsp;<strong>Outlier filter</strong> drops labels for any of: corrupt or weak pose (avg major-joint score &lt; 0.40), phase/pose mismatch (e.g. L foot strike where R ankle is on the ground), within 0.20s of the video edge, or anchor-metric value &gt; 3.5 MAD from same-phase cohort median. The summary breaks down how many fell out by reason.
+    &nbsp;·&nbsp;<strong>Label source</strong>: labels without a source were saved from esFormLab.
+  </p>
+</section>
+
+<!-- Saved reference sessions (review / delete / recompute) -->
+<section id="sessions-section">
+  <details class="esl-more" id="sess-details">
+    <summary>Saved sessions (<span id="sess-count">–</span>)</summary>
+    <div class="sess-tools">
+      <button type="button" class="esl-btn esl-btn--outline esl-btn--sm" id="sess-recompute" onclick="recomputeRangesUI()">Recompute ranges</button>
+      <span id="sess-status" role="status"></span>
+    </div>
+    <div class="thr-table-wrap">
+      <table class="thr-tbl" id="sess-tbl">
+        <thead>
+          <tr><th>Athlete</th><th>Sex</th><th>Event</th><th>Saved</th><th class="num">Phases analyzed</th><th><span class="esl-sr-only">Actions</span></th></tr>
+        </thead>
+        <tbody id="sess-tbody"><tr><td colspan="6" class="esl-empty">Open to load saved sessions.</td></tr></tbody>
+      </table>
+    </div>
+    <p class="thr-note">Deleting a session removes it from the reference dataset and immediately recomputes the grading ranges for that sex and for combined — the public analyzer changes at once.</p>
+  </details>
+</section>
+
+<footer class="esl-app-footer"><p class="esl-app-footer-meta"><a href="/privacy/">Privacy</a> · © 2026 Endurance Science Labs</p></footer>
+</main>
+
+<!-- Expand overlay (phase inspector) -->
 <div id="expand-overlay">
-  <div class="expand-panel">
+  <div class="expand-panel" role="dialog" aria-modal="true" aria-labelledby="ep-name" tabindex="-1">
     <div class="ep-hdr" id="ep-hdr">
       <div class="ep-num" id="ep-num">1</div>
-      <div style="flex:1"><div class="ep-name" id="ep-name">Phase</div><div class="ep-desc" id="ep-desc"></div></div>
-      <div class="ep-undetected-badge">⚠ Not auto-detected</div>
-      <button class="ep-close" onclick="closeExpand()">✕</button>
+      <div class="ep-hdr-txt"><h2 class="ep-name" id="ep-name">Phase</h2><div class="ep-desc" id="ep-desc"></div></div>
+      <button type="button" class="ep-close" aria-label="Close" onclick="requestCloseExpand()">✕</button>
     </div>
     <div class="ep-undetected-notice" id="ep-undetected-notice">
-      <div class="eun-title">⚠ Not automatically detected</div>
-      <div class="eun-text">Use the scrubber to find the best frame, then click ↻ Analyze.</div>
+      <p class="eun-title">Not found automatically</p>
+      <p class="eun-text">You start mid-clip. Scrub to this moment, then click ↻ Analyze this frame.</p>
     </div>
     <div class="ep-body">
       <div class="ep-canvas-side">
@@ -538,138 +658,52 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
           <div class="ep-loading" id="ep-loading"><div class="ep-spinner"></div></div>
         </div>
         <div class="scrub-section">
-          <div class="scrub-label">Frame adjustment</div>
+          <h3 class="scrub-label">Frame adjustment</h3>
           <div class="scrub-main">
-            <input type="range" class="ep-scrubber" id="ep-scrubber" min="0" max="1" step="0.04" value="0" oninput="epScrub(this.value)">
+            <input type="range" class="ep-scrubber" id="ep-scrubber" min="0" max="1" step="0.04" value="0" aria-label="Frame time" oninput="epScrub(this.value)">
             <span class="ep-time" id="ep-time">0.00s</span>
           </div>
           <div class="step-btns">
-            <button class="step-btn" onclick="epStep(-5)">−5f</button>
-            <button class="step-btn" onclick="epStep(-1)">−1f</button>
-            <span class="step-label">frame</span>
-            <button class="step-btn" onclick="epStep(1)">+1f</button>
-            <button class="step-btn" onclick="epStep(5)">+5f</button>
-            <button class="re-btn" id="ep-re-btn" onclick="epReanalyze()">↻ Analyze</button>
-            <button class="swap-btn" id="ep-swap-btn" onclick="swapLegs()" title="Swap left/right leg assignments">&#8644; Swap L/R</button>
-            <button class="step-btn" onclick="clearOverlay()" title="Clear skeleton overlay" style="margin-left:6px;font-size:10px">✕ Clear</button>
+            <button type="button" class="step-btn" title="Back 0.2 s" onclick="epStep(-5)">−200 ms</button>
+            <button type="button" class="step-btn" title="Back 0.04 s" onclick="epStep(-1)">−40 ms</button>
+            <button type="button" class="step-btn" title="Forward 0.04 s" onclick="epStep(1)">+40 ms</button>
+            <button type="button" class="step-btn" title="Forward 0.2 s" onclick="epStep(5)">+200 ms</button>
+          </div>
+          <div class="scrub-actions-row">
+            <button type="button" class="re-btn" id="ep-re-btn" onclick="epReanalyze()">↻ Analyze this frame</button>
+            <button type="button" class="swap-btn" id="ep-swap-btn" onclick="swapLegs()" title="Swap left/right leg assignments">&#8644; Swap L/R</button>
+            <button type="button" class="step-btn clear-btn" onclick="clearOverlay()">Clear overlay</button>
           </div>
           <div class="scrub-nav">
-            <span class="scrub-nav-label">jump to:</span>
+            <span class="scrub-nav-label">Jump to</span>
             <div class="nav-phase-btns" id="nav-phase-btns"></div>
           </div>
-          <div id="ep-label-panel" style="margin-top:10px;padding:10px 12px;background:var(--panel2);border:1px solid var(--border);border-radius:10px">
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-              <span style="font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);font-family:var(--mono)">Train data</span>
-              <button class="step-btn" id="ep-label-good-btn" onclick="labelCorrectFrame()" style="font-size:11px;padding:5px 10px;color:#0f2a24;background:#00e5c8;border-color:#00e5c8">✓ Correct frame <span style="opacity:.7;font-weight:400">(auto-saves 6 neighbors as bad)</span></button>
-              <span id="ep-label-status" style="font-size:11px;color:var(--muted2);margin-left:4px">0 good · 0 bad</span>
+          <div id="ep-label-panel" class="ep-label-panel">
+            <div class="ep-label-row">
+              <span class="ep-label-title">Detector label</span>
+              <button type="button" class="step-btn" id="ep-label-good-btn" onclick="labelCorrectFrame()">✓ Correct frame</button>
+              <span id="ep-label-status" role="status">0 good · 0 bad</span>
             </div>
+            <p class="ep-label-cap">Also saves the 6 nearest frames as incorrect.</p>
           </div>
         </div>
       </div>
       <div class="ep-info-side">
+        <div class="ep-stale-note" id="ep-stale-note" role="status" hidden></div>
         <!-- Detection quality -->
         <div id="ep-quality-card" style="display:none"></div>
+        <div class="ep-metrics-card">
+          <h3 class="ep-m-label">Measured angles</h3>
+          <div id="ep-metrics"><div class="ep-no-data">Analyze a frame to see angles</div></div>
+        </div>
         <div class="pi-card">
-          <div class="pi-label">Phase guide</div>
+          <h3 class="pi-label">Phase guide</h3>
           <div class="pi-title" id="ep-guide-title"></div>
           <div class="pi-desc"  id="ep-guide-desc"></div>
           <div class="pi-checks" id="ep-guide-checks"></div>
           <div class="pi-tip"   id="ep-guide-tip"></div>
         </div>
-        <div class="ep-metrics-card">
-          <div class="ep-m-label">Measured angles</div>
-          <div id="ep-metrics"><div class="ep-no-data">Analyze a frame to see angles</div></div>
-        </div>
       </div>
-    </div>
-  </div>
-</div>
-
-<!-- Anomaly detection thresholds -->
-<div id="thresholds-section">
-  <div class="thr-hdr">
-    <div>
-      <div class="thr-title">Anomaly detection thresholds</div>
-      <div class="thr-sub">The 6 gait anomalies the public analyzer flags, and the ranges it uses to decide mild vs notable. Live rows update as new reference sessions are added; fixed rows come from the running gait literature or clinical convention. Detections that have left/right structure (overstriding, hip drop, knee valgus, arms crossing) flag each side independently and surface a side tag on the report.</div>
-    </div>
-    <div class="thr-toggle" role="tablist" aria-label="Reference population">
-      <button id="thr-btn-male"   type="button" onclick="setThresholdsSex('male')">♂ Male</button>
-      <button id="thr-btn-female" type="button" onclick="setThresholdsSex('female')">♀ Female</button>
-    </div>
-  </div>
-  <div class="thr-table-wrap">
-    <table class="thr-tbl" id="thr-tbl">
-      <thead>
-        <tr>
-          <th style="width:26%">Anomaly</th>
-          <th style="width:32%">Measurement</th>
-          <th style="width:21%">Mild</th>
-          <th style="width:21%">Notable</th>
-        </tr>
-      </thead>
-      <tbody id="thr-tbody"></tbody>
-    </table>
-  </div>
-  <div class="thr-note">
-    <span class="live-dot"></span>Live — derived from the reference dataset for the selected gender (median + MAD-based robust SD; one bad session can't move the threshold).&nbsp;&nbsp;
-    <span class="fixed-dot"></span>Fixed — hardcoded threshold from the literature or clinical convention. Hip drop and knee valgus are gender-adjusted (+1° for female); arms crossing is identical for both genders.
-  </div>
-</div>
-
-<!-- Detection diagnostic (how accurate is auto-frame-selection vs admin labels) -->
-<div id="diagnostic-section">
-  <div class="thr-hdr">
-    <div>
-      <div class="thr-title">Frame-selection diagnostic</div>
-      <div class="thr-sub">Compares the detector's auto-picked frame against admin "Correct frame" labels. Numbers are <strong>stride-aware</strong> — running gait is cyclic, so a delta of one full step usually means the detector picked a different (still valid) stride, not a wrong event. We collapse the raw delta by an estimated stride period (~700ms) so only the within-stride miss counts. Hit = auto landed within 1 frame (40ms) of the labeled correct frame's beat.</div>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
-      <button id="diag-run-btn" class="thr-toggle-btn" onclick="runFrameDiagnostic()" style="padding:8px 16px;background:var(--purple);color:#fff;border:none;border-radius:8px;font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.4px;cursor:pointer">Run diagnostic</button>
-      <label style="font-size:11px;color:var(--muted2);font-family:var(--mono);display:flex;align-items:center;gap:6px;cursor:pointer" title="Drops labels with weak pose detection, phase/pose mismatch, edge-of-video timing, or metric values that are >3.5 MAD from the same-phase cohort median.">
-        <input type="checkbox" id="diag-validated-only" checked onchange="if(document.getElementById('diag-summary').textContent) runFrameDiagnostic()">
-        Filter outlier labels
-      </label>
-    </div>
-  </div>
-  <div id="diag-summary" style="padding:8px 0 12px;font-size:13px;color:var(--muted2);font-family:var(--mono)"></div>
-  <div class="thr-table-wrap">
-    <table class="thr-tbl" id="diag-tbl">
-      <thead>
-        <tr>
-          <th style="width:18%">Phase</th>
-          <th style="width:8%">n</th>
-          <th style="width:14%">Hit rate (≤1f)</th>
-          <th style="width:16%">Within-stride bias</th>
-          <th style="width:16%">Median miss</th>
-          <th>Distribution (0 / 1 / 2 / 3+ frames off)</th>
-        </tr>
-      </thead>
-      <tbody id="diag-tbody">
-        <tr><td colspan="6" style="padding:16px;text-align:center;color:var(--muted2);font-style:italic">Click "Run diagnostic" to analyze labels.</td></tr>
-      </tbody>
-    </table>
-  </div>
-  <div class="thr-note">
-    <strong>Within-stride bias</strong>: + = detector picks LATER than the correct frame within a stride, − = detector picks EARLIER. Wrong-stride differences are folded into a within-stride delta first.
-    &nbsp;·&nbsp;<strong>Median miss</strong>: absolute within-stride distance in milliseconds.
-    &nbsp;·&nbsp;<strong>Outlier filter</strong> drops labels for any of: corrupt or weak pose (avg major-joint score < 0.40), phase/pose mismatch (e.g. L foot strike where R ankle is on the ground), within 0.20s of the video edge, or anchor-metric value &gt; 3.5 MAD from same-phase cohort median. The summary breaks down how many fell out by reason.
-  </div>
-</div>
-
-<div class="feedback-footer">
-  <button class="feedback-footer-btn" onclick="openFeedbackModal('contact')">✉ Contact Endurance Science Labs</button>
-  <button class="feedback-footer-btn bug" onclick="openFeedbackModal('bug')">🐛 See a Bug? Report it Here</button>
-</div>
-
-<div class="feedback-modal-overlay" id="feedback-modal">
-  <div class="feedback-modal">
-    <div class="feedback-modal-title" id="feedback-modal-title">Contact Us</div>
-    <div class="feedback-modal-sub" id="feedback-modal-sub">We'd love to hear from you.</div>
-    <textarea class="feedback-modal-textarea" id="feedback-text" placeholder="Type your message here…"></textarea>
-    <div class="feedback-modal-actions">
-      <span class="feedback-modal-status" id="feedback-status"></span>
-      <button style="display:inline-flex;align-items:center;gap:6px;padding:6px 13px;font-size:11px;font-weight:600;font-family:var(--ui);border-radius:7px;border:1px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer" onclick="closeFeedbackModal()">Cancel</button>
-      <button style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;font-size:12px;font-weight:700;font-family:var(--ui);border-radius:8px;border:none;background:var(--cyan);color:#000;cursor:pointer" id="feedback-submit" onclick="submitFeedback()">Send</button>
     </div>
   </div>
 </div>
@@ -680,7 +714,7 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="/shared/site.js"></script>
+<script src="/shared/site.js?v=20261016"></script>
 <!-- TF.js + MoveNet -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
@@ -690,9 +724,8 @@ header{height:54px;padding:0 22px;border-bottom:1px solid var(--border);display:
 
 const MIN_N = 5; // minimum sessions before a metric range is reliable
 
-// Firebase + auth come from /shared/site.js (esLabs). Aliases for the
-// rest of this script that still reads `auth` and `db`.
-const auth = esLabs.auth;
+// Firebase comes from /shared/site.js (esLabs). The user always comes from
+// esLabs.onAuthChange / esLabs.realUser (act-as safe), never auth().currentUser.
 const db   = esLabs.db;
 
 // Render the shared sign-in gate (admin-only -- the reference-data
@@ -704,20 +737,13 @@ esLabs.mountAuthGate('#refdata-gate', {
   sub: 'Private reference data collection for esFormLab. Sign in with your admin account to continue.',
   requireAdmin: true,
   emailDefault: 'signin',
-  foot: 'Restricted to authorized accounts only.'
+  microcopy: 'Admin accounts only',
+  foot: 'Restricted to the admin account. <a class="esl-link" href="/">← Back to home</a>'
 });
+esLabs.mountNav('#rd-nav', { active: '' });
 
-esLabs.onAuthChange(user => {
-  if (user && user.uid === esLabs.ADMIN_UID) {
-    const loader = document.getElementById('loader');
-    if (loader) loader.style.display = 'flex';
-    initModel();
-    loadDatasetStats();
-    renderThresholds();
-  }
-});
-
-async function signOut(){ await esLabs.signOut(); resetApp(); }
+// (The esLabs.onAuthChange boot block lives at the END of this script so
+// every let/const is initialised before a synchronous callback runs.)
 
 // ── Dataset stats ─────────────────────────────────────────
 async function loadDatasetStats() {
@@ -731,6 +757,7 @@ async function loadDatasetStats() {
     document.getElementById('hdr-female-count').textContent = fN;
     document.getElementById('ds-male-count').textContent    = mN;
     document.getElementById('ds-female-count').textContent  = fN;
+    document.getElementById('sess-count').textContent       = mN + fN;
 
     // Latest update timestamp + cache ranges for the thresholds table
     const rangesSnap = await Promise.allSettled([
@@ -810,6 +837,8 @@ function setThresholdsSex(sex) {
   const bF = document.getElementById('thr-btn-female');
   if (bM) bM.className = sex==='male'   ? 'active-male'   : '';
   if (bF) bF.className = sex==='female' ? 'active-female' : '';
+  if (bM) bM.setAttribute('aria-pressed', String(sex==='male'));
+  if (bF) bF.setAttribute('aria-pressed', String(sex==='female'));
   renderThresholds();
 }
 
@@ -823,6 +852,8 @@ function renderThresholds() {
   const bF = document.getElementById('thr-btn-female');
   if (bM) bM.className = sex==='male'   ? 'active-male'   : '';
   if (bF) bF.className = sex==='female' ? 'active-female' : '';
+  if (bM) bM.setAttribute('aria-pressed', String(sex==='male'));
+  if (bF) bF.setAttribute('aria-pressed', String(sex==='female'));
 
   const fmtSigned2 = v => (v>=0?'+':'') + v.toFixed(2);
   const fmtDeg1    = v => v.toFixed(1) + '°';
@@ -875,13 +906,13 @@ function renderThresholds() {
     notable: 'arm &gt; 15.0%',
     mildRule: 'per-arm cross > 5% shoulder width',
     notableRule: 'per-arm cross > 15% shoulder width',
-    ruleCtx: 'same threshold for male and female (no published gender-specific cutoffs)',
+    ruleCtx: 'same threshold for male and female (no published sex-specific cut-offs)',
   });
 
-  // 4. TORSO POSITION -- per-phase z-score average across all 7 side-view phases,
+  // 4. TORSO POSITION -- per-phase z-score average across the 5 stance-related side-view phases,
   //    using each phase's own elite mean/SD for trunk lean. Too upright AND excessive lean flagged.
   {
-    const TRUNK_PHASES = ['l_foot','r_foot','l_toe','r_toe','mid','peak_kf'];
+    const TRUNK_PHASES = ['l_foot','r_foot','l_toe','r_toe','mid']; // mirrors esformlab/gait-engine.js
     let livePhases = 0, minN = Infinity;
     TRUNK_PHASES.forEach(pk => {
       const s = thrLiveStats(sex, pk, 'trunk');
@@ -890,7 +921,7 @@ function renderThresholds() {
     const allLive = livePhases === TRUNK_PHASES.length;
     rows.push({
       anomaly: 'Torso position',
-      meta: 'Trunk lean averaged across all 7 side-view phases (z-score vs each phase\u2019s elite baseline). Too upright AND excessive lean both flagged.',
+      meta: 'Trunk lean averaged across the 5 stance-related side-view phases (both foot strikes, both toe-offs, mid-stance), as a z-score against each phase\u2019s elite baseline. Too upright and excessive lean are both flagged.',
       source: allLive ? 'live' : livePhases > 0 ? 'live' : 'fallback',
       n: livePhases > 0 ? minN : 0,
       mild:    '|avg z| &gt; 1',
@@ -910,7 +941,7 @@ function renderThresholds() {
     const E = thrLiveStats('combined', 'arm_drive', 'nearElbow');
     rows.push({
       anomaly: 'Arm angle too open',
-      meta: 'Mean of camera-side elbow angle at L toe-off (forward-drive peak) and R toe-off (back-drive peak). Pooled across sexes -- same threshold for male and female.',
+      meta: 'Mean of camera-side elbow angle at L toe-off (forward-drive peak) and R toe-off (back-drive peak). Pooled across sexes — same threshold for male and female.',
       source: E.live ? 'live' : 'fallback',
       n: E.live ? E.n : 0,
       mild:    '&gt; ' + fmtDeg0(E.mean + 2*E.sd),
@@ -947,7 +978,7 @@ function renderThresholds() {
         + '<div class="thr-meta">' + r.meta + '</div>'
         + '<div class="thr-src ' + r.source + '">' + srcLabel + '</div>'
       + '</td>'
-      + '<td><div class="thr-meta" style="margin-top:0">' + r.ruleCtx + '</div></td>'
+      + '<td><div class="thr-meta flush">' + r.ruleCtx + '</div></td>'
       + '<td><div class="thr-val mild">' + r.mild + '</div><div class="thr-rule">' + r.mildRule + '</div></td>'
       + '<td><div class="thr-val notable">' + r.notable + '</div><div class="thr-rule">' + r.notableRule + '</div></td>'
       + '</tr>';
@@ -963,13 +994,19 @@ function setSex(sex) {
   selectedSex = sex;
   document.getElementById('sex-btn-male').className   = 'sex-btn' + (sex==='male'   ? ' active-male'   : '');
   document.getElementById('sex-btn-female').className = 'sex-btn' + (sex==='female' ? ' active-female' : '');
+  document.getElementById('sex-btn-male').setAttribute('aria-pressed', String(sex==='male'));
+  document.getElementById('sex-btn-female').setAttribute('aria-pressed', String(sex==='female'));
   document.getElementById('dz-sex-warning').style.display = 'none';
+  if (document.getElementById('scan-summary-bar').style.display === 'flex') renderScanSummary();
   updateSaveSection();
 }
 
+function showDzWarning(msg){ const w = document.getElementById('dz-sex-warning'); w.textContent = msg; w.style.display = 'block'; }
+const isVideoFile = f => !!f && ((f.type || '').startsWith('video/') || /\.(mp4|mov|m4v|webm)$/i.test(f.name || ''));
+
 function handleUploadClick() {
   if (!selectedSex) {
-    document.getElementById('dz-sex-warning').style.display = 'block';
+    showDzWarning('⚠ Select male or female above before uploading');
     return;
   }
   document.getElementById('file-input').click();
@@ -1112,6 +1149,13 @@ function diagOutlierVerdict(label, phaseStats){
   return {ok:true};
 }
 
+let diagSource = 'all'; // 'all' | 'reference-data' | 'esformlab'
+document.getElementById('diag-src').addEventListener('click', e => {
+  const b = e.target.closest('button[data-src]'); if (!b) return;
+  diagSource = b.dataset.src;
+  document.querySelectorAll('#diag-src button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  if (document.getElementById('diag-summary').textContent) runFrameDiagnostic();
+});
 async function runFrameDiagnostic(){
   const btn = document.getElementById('diag-run-btn');
   const tbody = document.getElementById('diag-tbody');
@@ -1123,15 +1167,18 @@ async function runFrameDiagnostic(){
   summary.textContent = 'Fetching labels from Firestore...';
   try {
     const snap = await db.collection('phase_labels').get();
-    const docs = snap.docs.map(d => d.data());
+    // Label source filter: docs without a source were written by esFormLab.
+    const allDocs = snap.docs.map(d => d.data());
+    const docs = diagSource === 'all' ? allDocs : allDocs.filter(d => (d.source || 'esformlab') === diagSource);
 
     // Group by (sessionId, phase): keep the latest "correct" label per group.
     // Carry through videoDur so we can flag edge-of-video labels later.
     const bySessionPhase = {};
+    const skip = {neighbour:0, noGood:0, noTimes:0};
     for(const d of docs){
-      if(!d.isCorrect) continue;
-      if(d.noGood) continue;
-      if(d.t == null || d.autoPickedT == null) continue;
+      if(!d.isCorrect){ skip.neighbour++; continue; }
+      if(d.noGood){ skip.noGood++; continue; }
+      if(d.t == null || d.autoPickedT == null){ skip.noTimes++; continue; }
       const key = d.sessionId + ':' + d.phase;
       bySessionPhase[key] = {
         phase: d.phase, goodT: d.t, autoT: d.autoPickedT,
@@ -1258,10 +1305,21 @@ async function runFrameDiagnostic(){
         .map(r => `${dropCounts[r]} ${reasonLabels[r]||r}`);
       filterTxt = ` · ${droppedTotal} dropped (${parts.join(', ')})`;
     }
-    summary.textContent = `${docs.length} total labels · ${totalSessions} unique sessions · ${rows.length} phase${rows.length===1?'':'s'} with data${filterTxt}`;
+    const skipped = skip.neighbour + skip.noGood + skip.noTimes;
+    const skipParts = [
+      skip.neighbour ? `${skip.neighbour} neighbour (bad-frame) labels` : '',
+      skip.noGood ? `${skip.noGood} marked no-good` : '',
+      skip.noTimes ? `${skip.noTimes} missing the auto-pick time` : ''
+    ].filter(Boolean).join(', ');
+    const srcTxt = diagSource === 'all' ? '' : ` (${diagSource === 'esformlab' ? 'esFormLab' : 'reference-data'} only)`;
+    summary.textContent = `${docs.length} labels${srcTxt}`
+      + (skipped > 0 ? ` · ${skipped} skipped (${skipParts})` : '')
+      + ` · ${totalSessions} sessions · ${rows.length} phase${rows.length===1?'':'s'} with data${filterTxt}`;
 
     if(!rows.length){
-      tbody.innerHTML = '<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--muted2);font-style:italic">No labels passing filter — try unchecking "Validated labels only" or label more sessions.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="esl-empty">' + (validatedOnly && droppedTotal > 0
+        ? 'No labels passed the outlier filter. Uncheck “Filter outlier labels” to include them, or label more sessions.'
+        : 'No usable labels yet. Open a phase card and use “✓ Correct frame” to label frames.') + '</td></tr>';
       return;
     }
 
@@ -1278,17 +1336,17 @@ async function runFrameDiagnostic(){
       const biasStr = (r.meanSigned >= 0 ? '+' : '') + r.meanSigned.toFixed(0) + ' ms';
       return `<tr class="${rowClass}">
         <td><strong>${phaseLabel[r.phase] || r.phase}</strong></td>
-        <td>${r.n}</td>
-        <td><strong>${Math.round(r.hitRate*100)}%</strong></td>
-        <td>${biasStr}</td>
-        <td>${r.median.toFixed(0)} ms</td>
-        <td style="font-family:var(--mono);font-size:12px">${pctOf(r.bins[0])}% / ${pctOf(r.bins[1])}% / ${pctOf(r.bins[2])}% / ${pctOf(r.bins[3])}%</td>
+        <td class="num">${r.n}</td>
+        <td class="num">${Math.round(r.hitRate*100)}%</td>
+        <td class="num">${biasStr}</td>
+        <td class="num">${r.median.toFixed(0)} ms</td>
+        <td class="num dist">${pctOf(r.bins[0])}% / ${pctOf(r.bins[1])}% / ${pctOf(r.bins[2])}% / ${pctOf(r.bins[3])}%</td>
       </tr>`;
     }).join('');
   } catch(e){
     console.error('runFrameDiagnostic failed', e);
     summary.textContent = 'Error: ' + e.message;
-    tbody.innerHTML = '<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--bad)">Failed — see console for details</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="esl-empty err">Failed — see console for details</td></tr>';
   } finally {
     btn.disabled = false; btn.textContent = origLabel;
   }
@@ -1364,7 +1422,7 @@ function initPhases(midT){
 
 function renderSideViewWarning(key){
   const el=document.getElementById(`metrics-mini-${key}`);
-  if(el) el.innerHTML='<span class="mm-item" style="color:var(--warn);border-color:rgba(245,166,35,.3);background:rgba(245,166,35,.05)">⚠ Side view required</span>';
+  if(el) el.innerHTML='<span class="mm-item warn">⚠ Side view required</span>';
 }
 function getDetectionQuality(kps){
   if(!kps) return null;
@@ -1381,37 +1439,62 @@ function renderQualityCard(kps){
   const q = getDetectionQuality(kps);
   if(!q){ qCard.style.display='none'; return; }
   qCard.style.display='block';
-  let hint = '';
-  if(q.level === 'strong') {
-    hint = '<div class="dq-big-hint">Detection is strong. The skeleton overlay should match the runner closely. If the overlay looks off, click <strong>\u21bb Analyze</strong> again.</div>';
-  } else if(q.level === 'fair') {
-    hint = '<div class="dq-big-hint"><strong>Fair detection is usable</strong> -- results are reasonable but may have larger error margins. To try for better accuracy:<br>1. Click <strong>\u21bb Analyze</strong> again -- a second attempt often improves results.<br>2. If the overlay still does not match, use the scrubber to select a nearby frame with less motion blur.<br>3. Make sure the selected frame matches what this phase describes.<br><br><span style="color:var(--muted2)">Still not improving? Common causes: clothing blending into background, video too bright or dark, runner too far from camera.</span></div><div class="dq-big-goal">\u25ce Ideal: Strong detection</div>';
-  } else {
-    hint = '<div class="dq-big-hint"><strong>Detection is weak -- measurements may not be reliable.</strong><br>1. Click <strong>\u21bb Analyze</strong> again.<br>2. If still weak, scrub to a different frame with the runner clearly visible and no limb overlap.<br>3. Confirm the frame matches the gait phase described below.<br><br><span style="color:var(--muted2)">If detection stays weak across multiple frames, re-record with better contrast: different colored clothes against a uniform background, even lighting, and closer to the camera.</span></div><div class="dq-big-goal">\u25ce Ideal: Strong detection</div>';
-  }
-  qCard.innerHTML = `<div class="dq-big ${q.level}"><div class="dq-big-label">${q.label}</div><div class="dq-big-sub">${q.level==='strong'?'All major joints clearly identified. Measurements are reliable.':q.level==='fair'?'Fair detection is still usable -- measurements are reasonable but may have wider error margins than Strong detection.':'Multiple joints could not be reliably identified.'}</div>${hint}</div>`;
+  const tone={strong:'good',fair:'warn',weak:'bad'}[q.level];
+  const line={
+    strong:'All major joints identified — measurements are reliable.',
+    fair:'Usable, with wider error margins than Strong.',
+    weak:'Several joints weren’t identified — measurements may not be reliable.'
+  }[q.level];
+  const TIPS={
+    fair:['Click ↻ Analyze this frame again — a second pass often improves it.','If the overlay still doesn’t match, scrub to a nearby frame with less motion blur.','Check the frame matches what this phase describes.','Common causes: clothing that blends into the background, very bright or dark video, the runner far from the camera.'],
+    weak:['Click ↻ Analyze this frame again.','Scrub to a frame where the runner is clearly visible with no limb overlap.','Check the frame matches this phase.','If it stays weak across frames, re-record with contrasting clothes against a plain background, even lighting and the camera closer.']
+  };
+  const tips=TIPS[q.level]?`<details class="esl-more"><summary>How to improve detection</summary><ol class="dq-tips">${TIPS[q.level].map(t=>`<li>${t}</li>`).join('')}</ol></details>`:'';
+  qCard.innerHTML=`<div class="dq-big esl-callout esl-callout--${tone}"><p class="dq-big-label esl-callout-title">${q.label}</p><p class="dq-big-sub">${line}</p>${tips}</div>`;
 }
+function escapeHtml(v){ return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+let modelLoading = false;
 async function initModel(){
+  if (detector || modelLoading) return;
+  modelLoading = true;
   try{
     await tf.ready();
     detector=await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,{modelType:poseDetection.movenet.modelType.SINGLEPOSE_THUNDER});
     document.getElementById('loader').style.display='none';
   }catch(e){
-    document.getElementById('loader').innerHTML=`<div style="color:var(--bad);font-size:14px;font-weight:600">Model failed to load</div><div style="font-size:11px;color:var(--muted2);margin-top:8px">${e.message}</div>`;
-  }
+    document.getElementById('loader').innerHTML=`<div class="ld-title">Couldn’t load the pose model</div>
+<div class="ld-sub">Usually a network or content-blocker issue.</div>
+<button type="button" class="esl-btn esl-btn--sm" onclick="location.reload()">Reload</button>
+<details class="esl-more"><summary>Details</summary><code class="esl-code">${escapeHtml(e && e.message)}</code></details>`;
+  } finally { modelLoading = false; }
 }
 
 // File handling
-document.getElementById('file-input').addEventListener('change',e=>{if(e.target.files[0])startWithFile(e.target.files[0]);});
+const NOT_VIDEO_MSG='That file isn’t a video. Choose an MP4, MOV or WebM file.';
+document.getElementById('file-input').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f) return;
+  if(!isVideoFile(f)){ showDzWarning(NOT_VIDEO_MSG); e.target.value=''; return; }
+  startWithFile(f);
+});
 const dz=document.getElementById('drop-zone');
 dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over');});
 dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
 dz.addEventListener('drop',e=>{
   e.preventDefault();dz.classList.remove('over');
-  if(!selectedSex){document.getElementById('dz-sex-warning').style.display='block';return;}
-  const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('video/'))startWithFile(f);
+  if(!selectedSex){showDzWarning('⚠ Select male or female above before uploading');return;}
+  const f=e.dataTransfer.files[0];
+  if(isVideoFile(f))startWithFile(f);
+  else showDzWarning(NOT_VIDEO_MSG);
 });
+dz.addEventListener('click',e=>{ if(!e.target.closest('#upload-btn')) handleUploadClick(); });
+dz.addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ')&&e.target===dz){ e.preventDefault(); handleUploadClick(); } });
+let scanRun = 0, scanPromise = null, scanStats = null, scanWarnings = [];
+function startScanLoop(){
+  (async()=>{ await (scanPromise||Promise.resolve()).catch(()=>{}); scanPromise = autoScan(); })();
+}
 function startWithFile(file){
+  scanRun++;
+  document.getElementById('dz-sex-warning').style.display='none';
   document.getElementById('screen-upload').style.display='none';
   document.getElementById('hdr-file').textContent=file.name;
   videoEl=document.getElementById('video');
@@ -1425,7 +1508,7 @@ function startWithFile(file){
     videoEl.removeEventListener('canplay',        beginScan);
     clearTimeout(fallbackTimer);
     document.getElementById('screen-scanning').style.display='flex';
-    autoScan();
+    startScanLoop();
   }
 
   // Whichever fires first wins — handles HEVC, MOV, and slow codecs
@@ -1441,9 +1524,33 @@ function startWithFile(file){
 }
 
 // Auto scan
+function addScanWarning(msg){
+  if(scanWarnings.includes(msg)) return;
+  scanWarnings.push(msg);
+  const live=document.getElementById('scan-warn-live');
+  if(live) live.innerHTML=scanWarnings.map(w=>'<p>'+escapeHtml(w)+'</p>').join('');
+}
+function renderScanWarnings(){
+  const box=document.getElementById('scan-warnings'), list=document.getElementById('scan-warnings-list');
+  if(!box||!list) return;
+  list.innerHTML=scanWarnings.map(w=>'<li>'+escapeHtml(w)+'</li>').join('');
+  box.hidden=!scanWarnings.length;
+}
+function renderScanSummary(){
+  const sb=document.getElementById('scan-summary-bar');
+  if(!sb||!scanStats) return;
+  const {w,h,dur,posesFound,N,detected}=scanStats;
+  sb.innerHTML=`<span class="ss-item">Video: <strong>${w}×${h}</strong></span>
+    <span class="ss-item">Duration: <strong>${dur.toFixed(1)}s</strong></span>
+    <span class="ss-item ${posesFound<5?'warn':''}">Poses: <strong>${posesFound}/${N}</strong></span>
+    <span class="ss-item">Auto-detected: <strong>${detected}/${PHASE_DEFS.length} phases</strong></span>
+    <span class="ss-item">Dataset: <strong>${selectedSex||'not set'}</strong></span>`;
+}
 async function autoScan(){
+  const run = scanRun;
+  scanWarnings = []; { const live=document.getElementById('scan-warn-live'); if(live) live.innerHTML=''; }
   let dur=videoEl.duration;
-  if(!isFinite(dur)||isNaN(dur)||dur<=0){await new Promise(r=>setTimeout(r,500));dur=videoEl.duration;}
+  if(!isFinite(dur)||isNaN(dur)||dur<=0){await new Promise(r=>setTimeout(r,500));if(run!==scanRun)return;dur=videoEl.duration;}
   if(!isFinite(dur)||isNaN(dur)||dur<=0)dur=30;
   initPhases(dur/2);
   const N=150; let samples=[];
@@ -1456,20 +1563,24 @@ async function autoScan(){
     document.getElementById('scan-step').textContent=`Scanning frame ${i+1} of ${N} · ${t.toFixed(2)}s`;
     document.getElementById('scan-label').textContent=`${t.toFixed(2)}s`;
     await seekTo(t);
+    if(run!==scanRun)return;
     sc.width=Math.min(400,videoEl.videoWidth||400);sc.height=Math.min(225,videoEl.videoHeight||225);
     if(videoEl.videoWidth>0)sc.height=Math.round(sc.width*videoEl.videoHeight/videoEl.videoWidth);
     try{sctx.drawImage(videoEl,0,0,sc.width,sc.height);}catch(e){}
     let poses=null;
+    let fromSc=true;
     try{poses=await detector.estimatePoses(sc);}catch(e){}
-    if(!poses||!poses.length){try{poses=await detector.estimatePoses(videoEl);}catch(e){}}
+    if(run!==scanRun)return;
+    if(!poses||!poses.length){fromSc=false;try{poses=await detector.estimatePoses(videoEl);}catch(e){}if(run!==scanRun)return;}
     if(!poses||!poses.length)continue;
     posesFound++;
     // After first detected pose, warn early if not side-view
     if(posesFound===1 && !isSideView(poses[0].keypoints)){
-      document.getElementById('scan-step').textContent='⚠ Front or back view detected — side view gives best results';
+      addScanWarning('⚠ Front or back view detected — side view gives best results.');
     }
     const kps=poses[0].keypoints;
-    drawMiniSkeleton(sctx,kps,sc.width/(videoEl.videoWidth||sc.width),sc.height/(videoEl.videoHeight||sc.height));
+    if(fromSc) drawMiniSkeleton(sctx,kps,1,1); // poses were estimated on sc itself
+    else drawMiniSkeleton(sctx,kps,sc.width/(videoEl.videoWidth||sc.width),sc.height/(videoEl.videoHeight||sc.height));
     const g=idx=>(kps[idx]&&kps[idx].score>=MIN_CONF)?kps[idx]:null;
     const lAn=g(15),rAn=g(16),lKn=g(13),lHi=g(11),rHi=g(12),lSh=g(5),rSh=g(6),rKn=g(14);
     const lKnAngle=(lHi&&lKn&&lAn)?calcAngle(lHi,lKn,lAn):null;
@@ -1508,6 +1619,7 @@ async function autoScan(){
   if(samples.length > 5 && uniqueTimes.size < samples.length * 0.5){
     diag.innerHTML += '<br>⚠ Sparse keyframes detected — this video may have been exported with infrequent keyframes. ' +
       'For best results, re-export at original quality or use HandBrake to convert to H.264 MP4 with keyframe interval 1s.';
+    addScanWarning('⚠ Sparse keyframes detected — re-export at original quality (H.264 MP4, keyframe interval 1 s) for the most accurate frames.');
     diag.style.borderLeft = '3px solid var(--warn)';
     diag.style.paddingLeft = '10px';
   }
@@ -1516,8 +1628,10 @@ async function autoScan(){
   // a tight window around the coarse plateau. Removes the coarse-sampling resolution
   // ceiling that the diagnostic exposed (+5 to +36ms late biases on all four phases).
   document.getElementById('scan-step').textContent='Refining foot-strike + toe-off edges…';
-  try { await refineLegPlateau('left');  } catch(e){ console.error('refine L plateau:',e); }
-  try { await refineLegPlateau('right'); } catch(e){ console.error('refine R plateau:',e); }
+  try { await refineLegPlateau('left', run);  } catch(e){ console.error('refine L plateau:',e); }
+  if(run!==scanRun)return;
+  try { await refineLegPlateau('right', run); } catch(e){ console.error('refine R plateau:',e); }
+  if(run!==scanRun)return;
   PHASE_DEFS.forEach(def=>{
     const ph=phases[def.key];const item=document.getElementById(`spl-${def.key}`);const tEl=document.getElementById(`spl-t-${def.key}`);
     if(!item||!tEl)return;
@@ -1525,6 +1639,7 @@ async function autoScan(){
     else{item.classList.add('not-found');tEl.textContent='manual';}
   });
   await new Promise(r=>setTimeout(r,700));
+  if(run!==scanRun)return;
   document.getElementById('screen-scanning').style.display='none';
   document.getElementById('screen-phases').style.display='block';
   document.getElementById('summary-section').style.display='block';
@@ -1532,14 +1647,11 @@ async function autoScan(){
   document.getElementById('btn-rescan').style.display='inline-flex';
   const detected=PHASE_DEFS.filter(d=>phases[d.key]?.detected).length;
   const sb=document.getElementById('scan-summary-bar');sb.style.display='flex';
-  const sexClass=selectedSex||'';
-  sb.innerHTML=`<span class="ss-item">Video: <strong>${videoEl.videoWidth}×${videoEl.videoHeight}</strong></span>
-    <span class="ss-item">Duration: <strong>${dur.toFixed(1)}s</strong></span>
-    <span class="ss-item ${posesFound<5?'warn':''}">Poses: <strong>${posesFound}/${N}</strong></span>
-    <span class="ss-item">Auto-detected: <strong>${detected}/7 phases</strong></span>
-    <span class="ss-item ${sexClass}">Dataset: <strong>${selectedSex||'not set'}</strong></span>`;
+  scanStats={w:videoEl.videoWidth,h:videoEl.videoHeight,dur,posesFound,N,detected};
+  renderScanSummary();
+  renderScanWarnings();
   buildPhaseGroups();buildSummaryTable();updateSaveSection();
-  for(const def of PHASE_DEFS){if(phases[def.key]?.detected)await analyzeCard(def.key);}
+  for(const def of PHASE_DEFS){if(phases[def.key]?.detected){await analyzeCard(def.key, run);if(run!==scanRun)return;}}
 }
 
 // Phase detection (side video only).
@@ -1807,7 +1919,7 @@ async function _densePoseForAnkle(t, ankleIdx){
   return {t, ankleY: an.y, scale, kps};
 }
 
-async function refineLegPlateau(side){
+async function refineLegPlateau(side, run){
   const footKey = side === 'left' ? 'l_foot' : 'r_foot';
   const toeKey  = side === 'left' ? 'l_toe'  : 'r_toe';
   const ankleIdx = side === 'left' ? 15 : 16;
@@ -1828,6 +1940,7 @@ async function refineLegPlateau(side){
   const dense = [];
   for(let t = t0; t <= t1; t += STEP){
     const s = await _densePoseForAnkle(t, ankleIdx);
+    if(run !== undefined && run !== scanRun) return;
     if(s) dense.push(s);
   }
   if(dense.length < 4) return;
@@ -1862,6 +1975,7 @@ async function refineLegPlateau(side){
   // Update phase records. analyzeCard() will later re-detect at this t and refresh
   // metrics; setting kps here keeps the initial mini-canvas overlay aligned with the
   // refined frame instead of the coarse one.
+  if(run !== undefined && run !== scanRun) return;
   phases[footKey] = Object.assign({}, phases[footKey], {
     t: dense[lo].t, kps: dense[lo].kps, detected: true
   });
@@ -1883,6 +1997,10 @@ function buildPhaseGroups(){
         const ph=phases[key];const idx=PHASE_DEFS.findIndex(d=>d.key===key);if(!ph)return;
         const card=document.createElement('div');
         card.className='phase-card'+(ph.detected?'':' undetected');card.id=`card-${key}`;
+        card.tabIndex=0;
+        card.setAttribute('role','button');
+        card.setAttribute('aria-label',`${idx+1}. ${ph.label}: adjust frame (${ph.detected?'detected':'not auto-detected'})`);
+        card.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openExpand(key);}});
         if(ph.detected){
           card.innerHTML=`<div class="pc-hdr"><div class="pc-num">${idx+1}</div><div class="pc-name-wrap"><div class="pc-name">${ph.label}</div><div class="pc-desc">${ph.desc}</div></div><div class="pc-badge pending" id="badge-${key}">pending</div></div>
             <div class="pc-canvas-wrap"><canvas class="pc-canvas" id="canvas-${key}"></canvas><div class="pc-loading" id="loading-${key}"><div class="pc-mini-spinner"></div></div></div>
@@ -1893,7 +2011,7 @@ function buildPhaseGroups(){
         }else{
           card.innerHTML=`<div class="pc-hdr"><div class="pc-num">${idx+1}</div><div class="pc-name-wrap"><div class="pc-name">${ph.label}</div><div class="pc-desc">${ph.desc}</div></div><div class="pc-badge manual" id="badge-${key}">manual</div></div>
             <div class="pc-placeholder"><div class="pc-placeholder-icon">⚠</div><div class="pc-placeholder-text">Not auto-detected</div><div class="pc-placeholder-sub">Click to manually select a frame</div></div>
-            <div class="pc-footer"><span class="pc-time-display" id="ptime-${key}">—</span><span class="pc-expand-hint" style="color:var(--warn);font-weight:600">↗ Select frame</span></div>
+            <div class="pc-footer"><span class="pc-time-display" id="ptime-${key}">—</span><span class="pc-expand-hint warn">↗ Select frame</span></div>
             <div class="pc-metrics-mini" id="metrics-mini-${key}"></div>`;
         }
         card.addEventListener('click',()=>openExpand(key));cardRow.appendChild(card);
@@ -1902,33 +2020,37 @@ function buildPhaseGroups(){
   });
 }
 
-async function analyzeCard(key){
+function qualityBadge(badge,kps){const q=getDetectionQuality(kps);if(!badge||!q)return;badge.className='pc-badge ok q-'+q.level;badge.textContent=q.level==='strong'?'Strong':q.level==='fair'?'Fair':'Weak';}
+async function analyzeCard(key, run){
+  const stale=()=>run!==undefined&&run!==scanRun;
   if(!detector||!videoEl)return;const ph=phases[key];if(!ph)return;
   const badge=document.getElementById(`badge-${key}`),loading=document.getElementById(`loading-${key}`);
   if(badge){badge.className='pc-badge analyzing';badge.textContent='analyzing';}
   if(loading)loading.classList.add('show');
   await seekTo(ph.t);
+  if(stale())return;
   const canvas=document.getElementById(`canvas-${key}`);
   if(!canvas){if(loading)loading.classList.remove('show');return;}
   const W=videoEl.videoWidth||640,H=videoEl.videoHeight||360;
   canvas.width=W;canvas.height=H;const ctx=canvas.getContext('2d');
   try{ctx.drawImage(videoEl,0,0,W,H);}catch(e){}
   let poses=null;try{poses=await detector.estimatePoses(canvas);}catch(e){}
-  if(!poses||!poses.length){try{poses=await detector.estimatePoses(videoEl);}catch(e){}}
+  if(stale())return;
+  if(!poses||!poses.length){try{poses=await detector.estimatePoses(videoEl);}catch(e){}if(stale())return;}
   if(!poses||!poses.length){if(badge){badge.className='pc-badge manual';badge.textContent='no pose';}if(loading)loading.classList.remove('show');return;}
   let kps=poses[0].keypoints;
-  if(isWeakDetection(kps)){const nc=normalizeAndRetry(canvas);let p2=null;try{p2=await detector.estimatePoses(nc);}catch(e){}if(p2&&p2.length&&!isWeakDetection(p2[0].keypoints)){kps=p2[0].keypoints;}}
+  if(isWeakDetection(kps)){const nc=normalizeAndRetry(canvas);let p2=null;try{p2=await detector.estimatePoses(nc);}catch(e){}if(stale())return;if(p2&&p2.length&&!isWeakDetection(p2[0].keypoints)){kps=p2[0].keypoints;}}
   ph.kps=kps;ph.metrics=computeMetrics(kps);ph.sideView=isSideView(kps);
   if(ph.sideView){addFunctionalMetrics(ph.metrics,key,kps);}
   drawPose(ctx,kps,W,H);
   if(!ph.sideView){renderSideViewWarning(key);}else{renderMiniMetrics(key,ph.metrics);updateSummaryCol(key);}updateSaveSection();
-  if(badge){badge.className='pc-badge ok';badge.textContent='analyzed';}if(loading)loading.classList.remove('show');
+  if(badge){badge.className='pc-badge ok';badge.textContent='analyzed';qualityBadge(badge,kps);}if(loading)loading.classList.remove('show');
 }
 
 function renderMiniMetrics(key,m){
   const el=document.getElementById(`metrics-mini-${key}`);if(!el)return;
   const relevant=METRIC_ROWS.filter(r=>isRelevant(key,r.key)).slice(0,3);
-  el.innerHTML=relevant.map(r=>{const v=m[r.key],d=v!=null?r.fmt(v):'---',sl=metricSideLabel(r.key,m);return `<span class="mm-item na">${r.label}${sl} ${d}</span>`;}).join('');
+  el.innerHTML=relevant.map(r=>{const v=m[r.key],d=v!=null?r.fmt(v):'–',sl=metricSideLabel(r.key,m);return `<span class="mm-item${v==null?' na':''}">${r.label}${sl} <span class="mm-v">${d}</span></span>`;}).join('');
 }
 
 // Expand panel
@@ -1938,7 +2060,11 @@ function openExpand(key){
   epAutoKps = ph.kps || null;
   epAutoMetrics = ph.metrics ? JSON.parse(JSON.stringify(ph.metrics)) : null;
   epPoseFreshAt = ph.t || 0;
-  document.getElementById('expand-overlay').classList.add('open');
+  const ov=document.getElementById('expand-overlay');
+  const wasOpen=ov.classList.contains('open');
+  ov.classList.add('open');
+  document.querySelector('.expand-panel').scrollTop=0;
+  document.getElementById('ep-swap-btn').disabled=!ph.kps;
   const isUndet=!ph.detected||!ph.kps;
   document.getElementById('ep-hdr').className='ep-hdr'+(isUndet?' undetected':'');
   document.getElementById('ep-num').textContent=idx+1;document.getElementById('ep-name').textContent=ph.label;document.getElementById('ep-desc').textContent=ph.desc;
@@ -1950,17 +2076,52 @@ function openExpand(key){
   document.getElementById('ep-guide-title').textContent=guide.title;document.getElementById('ep-guide-desc').textContent=guide.desc;
   document.getElementById('ep-guide-checks').innerHTML=guide.checks.map(c=>`<div class="pi-check"><span class="pi-check-icon">◆</span><span>${c}</span></div>`).join('');
   document.getElementById('ep-guide-tip').textContent='Tip: '+guide.tip;
-  document.getElementById('nav-phase-btns').innerHTML=PHASE_DEFS.map((def,i)=>`<button class="nav-phase-btn ${def.key===key?'cur':''} ${!phases[def.key]?.detected?'undetected':''}" onclick="openExpand('${def.key}')">${i+1}. ${def.label}</button>`).join('');
-  if(ph.metrics)renderExpandMetrics(ph.metrics);else document.getElementById('ep-metrics').innerHTML='<div class="ep-no-data">Click ↻ Analyze to measure angles</div>';
+  document.getElementById('nav-phase-btns').innerHTML=PHASE_DEFS.map((def,i)=>`<button class="nav-phase-btn ${def.key===key?'cur':''} ${!phases[def.key]?.detected?'undetected':''}" onclick="requestJump('${def.key}')">${i+1}. ${def.label}</button>`).join('');
+  if(ph.metrics)renderExpandMetrics(ph.metrics);else document.getElementById('ep-metrics').innerHTML='<div class="ep-no-data">Click ↻ Analyze this frame to measure angles</div>';
   drawExpandFrame(epCurrentT,ph.kps);
   renderQualityCard(ph.kps);
   renderLabelPanel();
+  syncStale();
   document.querySelectorAll('.phase-card').forEach(c=>c.classList.toggle('dimmed',c.id!==`card-${key}`));
-  document.addEventListener('keydown',onExpandKey);
+  if(!wasOpen){
+    document.addEventListener('keydown',onExpandKey);
+    // Dialog semantics + Tab trap from site.js; Escape stays ours (requestCloseExpand may ask first).
+    if(window.esLabs&&esLabs.openDialog) esLabs.openDialog(ov,{initialFocus:document.querySelector('.ep-close'),dismissable:false});
+    else document.querySelector('.ep-close').focus();
+  } else {
+    document.querySelector('.ep-close').focus();
+  }
 }
-function closeExpand(){document.getElementById('expand-overlay').classList.remove('open');document.querySelectorAll('.phase-card').forEach(c=>c.classList.remove('dimmed'));expandKey=null;document.removeEventListener('keydown',onExpandKey);}
-function onExpandKey(e){if(e.key==='Escape')closeExpand();}
-document.getElementById('expand-overlay').addEventListener('click',e=>{if(e.target===document.getElementById('expand-overlay'))closeExpand();});
+function closeExpand(){
+  const ov=document.getElementById('expand-overlay');
+  const wasOpen=ov.classList.contains('open');
+  ov.classList.remove('open');document.querySelectorAll('.phase-card').forEach(c=>c.classList.remove('dimmed'));expandKey=null;document.removeEventListener('keydown',onExpandKey);
+  if(wasOpen&&window.esLabs&&esLabs.closeDialog) esLabs.closeDialog(ov);
+}
+// Commit on Analyze: scrubbing moves only the inspector frame; the phase time changes after a
+// successful ↻ Analyze this frame, so a saved session never pairs a moved frame with an old pose.
+function hasUncommittedFrame(){const ph=phases[expandKey];return !!ph&&Math.abs(epCurrentT-(ph.t||0))>0.005;}
+// Display-only: say when the inspector shows a different frame than the one the card uses.
+function syncStale(){
+  const n=document.getElementById('ep-stale-note'); if(!n) return;
+  const ph=phases[expandKey];
+  const stale=!!(ph&&ph.metrics&&hasUncommittedFrame());
+  n.hidden=!stale;
+  if(stale) n.textContent='Frame changed — press ↻ Analyze this frame to use it. Until then the card keeps the '+(ph.t||0).toFixed(2)+' s frame, and the angles and quality below are from that frame.';
+}
+async function requestJump(key){
+  if(key===expandKey||epAnalyzing) return;
+  if(hasUncommittedFrame()&&confirm('You moved the frame but haven’t analyzed it.\n\nOK — Analyze this frame now\nCancel — keep the previous frame'))await epReanalyze();
+  openExpand(key);
+}
+async function requestCloseExpand(){
+  if(!expandKey){closeExpand();return;}
+  if(epAnalyzing)return;
+  if(hasUncommittedFrame()&&confirm('You moved the frame but haven’t analyzed it.\n\nOK — Analyze this frame now\nCancel — keep the previous frame'))await epReanalyze();
+  closeExpand();
+}
+function onExpandKey(e){if(e.key==='Escape'){e.preventDefault();requestCloseExpand();}}
+document.getElementById('expand-overlay').addEventListener('click',e=>{if(e.target===document.getElementById('expand-overlay'))requestCloseExpand();});
 
 async function drawExpandFrame(t,kps){
   const canvas=document.getElementById('ep-canvas');const W=videoEl.videoWidth||640,H=videoEl.videoHeight||360;
@@ -1969,34 +2130,38 @@ async function drawExpandFrame(t,kps){
 }
 function epScrub(val){
   epCurrentT=parseFloat(val);document.getElementById('ep-time').textContent=epCurrentT.toFixed(2)+'s';
-  if(phases[expandKey])phases[expandKey].t=epCurrentT;
-  const ptEl=document.getElementById(`ptime-${expandKey}`);if(ptEl)ptEl.textContent=epCurrentT.toFixed(2)+'s';
   clearTimeout(epDbt.t);epDbt.t=setTimeout(()=>drawExpandFrame(epCurrentT,null),100);
+  syncStale();
 }
 function epStep(frames){const scrub=document.getElementById('ep-scrubber');const newT=Math.max(parseFloat(scrub.min),Math.min(parseFloat(scrub.max),epCurrentT+frames*.04));scrub.value=newT;epScrub(newT);}
 async function epReanalyze(){
   if(!detector||epAnalyzing)return;epAnalyzing=true;
   const btn=document.getElementById('ep-re-btn'),loading=document.getElementById('ep-loading');
   btn.disabled=true;btn.textContent='Analyzing…';loading.classList.add('show');
+  const key=expandKey;
   await seekTo(epCurrentT);
   const canvas=document.getElementById('ep-canvas');const W=videoEl.videoWidth||640,H=videoEl.videoHeight||360;
   canvas.width=W;canvas.height=H;const ctx=canvas.getContext('2d');try{ctx.drawImage(videoEl,0,0,W,H);}catch(e){}
   let poses=null;try{poses=await detector.estimatePoses(canvas);}catch(e){}
   if(!poses||!poses.length){try{poses=await detector.estimatePoses(videoEl);}catch(e){}}
   loading.classList.remove('show');
-  if(!poses||!poses.length){document.getElementById('ep-metrics').innerHTML='<div class="ep-no-data">No pose detected — try a different frame</div>';btn.disabled=false;btn.textContent='↻ Analyze';epAnalyzing=false;return;}
+  if(!poses||!poses.length){document.getElementById('ep-metrics').innerHTML='<div class="ep-no-data">No pose detected — try a different frame</div>';btn.disabled=false;btn.textContent='↻ Analyze this frame';epAnalyzing=false;return;}
   let kps=poses[0].keypoints;
   if(isWeakDetection(kps)){const nc=normalizeAndRetry(canvas);let p2=null;try{p2=await detector.estimatePoses(nc);}catch(e){}if(p2&&p2.length&&!isWeakDetection(p2[0].keypoints)){kps=p2[0].keypoints;}}
-  const ph=phases[expandKey];ph.kps=kps;ph.metrics=computeMetrics(kps);ph.detected=true;ph.sideView=isSideView(kps);
+  if(key!==expandKey||!phases[key]){btn.disabled=false;btn.textContent='↻ Analyze this frame';epAnalyzing=false;return;}
+  const ph=phases[expandKey];ph.t=epCurrentT;ph.kps=kps;ph.metrics=computeMetrics(kps);ph.detected=true;ph.sideView=isSideView(kps);
+  document.getElementById('ep-hdr').className='ep-hdr';
+  document.getElementById('ep-undetected-notice').className='ep-undetected-notice';
+  document.getElementById('ep-swap-btn').disabled=false;
   if(ph.sideView){addFunctionalMetrics(ph.metrics,expandKey,kps);}
   drawPose(ctx,kps,W,H);
   if(!ph.sideView){
     document.getElementById('ep-metrics').innerHTML=
-      '<div class="ep-no-data" style="color:var(--warn)">⚠ Side view required for angle analysis — this frame appears to be front or back facing</div>';
+      '<div class="ep-no-data warn">⚠ Side view required for angle analysis — this frame appears to be front or back facing</div>';
   } else {
     renderExpandMetrics(ph.metrics);
   }
-  const ovCard=document.getElementById(`card-${expandKey}`);if(ovCard)ovCard.classList.remove('undetected');
+  const ovCard=document.getElementById(`card-${expandKey}`);if(ovCard){ovCard.classList.remove('undetected');const di=PHASE_DEFS.findIndex(d=>d.key===expandKey);ovCard.setAttribute('aria-label',`${di+1}. ${ph.label}: adjust frame (detected)`);}
   let ovCanvas=document.getElementById(`canvas-${expandKey}`);
   if(!ovCanvas&&ovCard){
     const def=PHASE_DEFS.find(d=>d.key===expandKey);const idx=PHASE_DEFS.findIndex(d=>d.key===expandKey);
@@ -2004,19 +2169,20 @@ async function epReanalyze(){
       <div class="pc-canvas-wrap"><canvas class="pc-canvas" id="canvas-${expandKey}"></canvas><div class="pc-loading" id="loading-${expandKey}"><div class="pc-mini-spinner"></div></div></div>
       <div class="pc-footer"><span class="pc-time-display" id="ptime-${expandKey}">${epCurrentT.toFixed(2)}s</span><span class="pc-expand-hint">↗ Click to adjust</span></div>
       <div class="pc-metrics-mini" id="metrics-mini-${expandKey}"></div>`;
-    ovCard.addEventListener('click',()=>openExpand(expandKey));ovCanvas=document.getElementById(`canvas-${expandKey}`);
+    ovCanvas=document.getElementById(`canvas-${expandKey}`);
   }
   if(ovCanvas){ovCanvas.width=W;ovCanvas.height=H;try{ovCanvas.getContext('2d').drawImage(canvas,0,0);}catch(e){}}
-  const badge=document.getElementById(`badge-${expandKey}`);if(badge){badge.className='pc-badge ok';badge.textContent='analyzed';}
+  const badge=document.getElementById(`badge-${expandKey}`);if(badge){badge.className='pc-badge ok';badge.textContent='analyzed';qualityBadge(badge,kps);}
   renderMiniMetrics(expandKey,ph.metrics);updateSummaryCol(expandKey);
-  const ptEl=document.getElementById(`ptime-${expandKey}`);if(ptEl){ptEl.textContent=epCurrentT.toFixed(2)+'s';ptEl.style.color='var(--purple)';}
+  const ptEl=document.getElementById(`ptime-${expandKey}`);if(ptEl){ptEl.textContent=epCurrentT.toFixed(2)+'s';}
   renderQualityCard(kps);
   epPoseFreshAt = epCurrentT;
-  updateSaveSection();btn.disabled=false;btn.textContent='↻ Analyze';epAnalyzing=false;
+  syncStale();
+  updateSaveSection();btn.disabled=false;btn.textContent='↻ Analyze this frame';epAnalyzing=false;
 }
 function renderExpandMetrics(m){
   const pk=expandKey||'mid';
-  document.getElementById('ep-metrics').innerHTML=METRIC_ROWS.filter(r=>isRelevant(pk,r.key)).map(r=>{const v=m[r.key],d=v!=null?r.fmt(v):'---',sl=metricSideLabel(r.key,m);return `<div class="ep-metric"><div class="ep-ml"><div class="ep-dot" style="background:${r.dot}"></div>${r.label}${sl}</div><div style="text-align:right"><div class="ep-mv">${d}</div></div></div>`;}).join('');
+  document.getElementById('ep-metrics').innerHTML=METRIC_ROWS.filter(r=>isRelevant(pk,r.key)).map(r=>{const v=m[r.key],d=v!=null?r.fmt(v):'–',sl=metricSideLabel(r.key,m);return `<div class="ep-metric"><div class="ep-ml"><div class="ep-dot" style="background:${r.dot}"></div>${r.label}${sl}</div><div style="text-align:right"><div class="ep-mv">${d}</div></div></div>`;}).join('');
 }
 
 // ── Phase-label collection (for training auto-detection) ────────────────────
@@ -2024,8 +2190,8 @@ function renderLabelPanel(){
   const status=document.getElementById('ep-label-status');
   if(!status) return;
   const lbl=phaseLabels[expandKey]||{good:[],bad:[]};
-  status.textContent = `${lbl.good.length} good · ${lbl.bad.length} bad`;
-  status.style.color = (lbl.good.length||lbl.bad.length) ? 'var(--good)' : 'var(--muted2)';
+  status.textContent = `${lbl.good.length} correct · ${lbl.bad.length} neighbour labels`;
+  status.style.color = (lbl.good.length||lbl.bad.length) ? 'var(--good-ink)' : 'var(--muted2)';
 }
 function updatePhaseCardLabelBadge(key){
   const card=document.getElementById(`card-${key}`);
@@ -2033,7 +2199,7 @@ function updatePhaseCardLabelBadge(key){
   const lbl=phaseLabels[key];
   if(lbl && (lbl.good.length||lbl.bad.length)){
     card.classList.add('labeled');
-    card.dataset.labelCount = `${lbl.good.length}g/${lbl.bad.length}b`;
+    card.dataset.labelCount = `${lbl.good.length} correct / ${lbl.bad.length} neighbours`;
   } else {
     card.classList.remove('labeled');
     delete card.dataset.labelCount;
@@ -2072,8 +2238,8 @@ async function writePhaseLabelDoc(phaseKey, frameData, isCorrect){
     kps: frameData.kps,
     metrics: frameData.metrics || null,
     isCorrect: !!isCorrect,
-    userUid: auth?.currentUser?.uid || null,
-    userEmail: auth?.currentUser?.email || null,
+    userUid: esLabs.realUser?.uid || null,
+    userEmail: esLabs.realUser?.email || null,
     source: 'reference-data',
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   };
@@ -2090,29 +2256,31 @@ async function labelCorrectFrame(){
   const originalT=epCurrentT;
   const phaseKey=expandKey;
   try {
-    status.textContent='Analyzing correct frame...'; status.style.color='var(--muted2)';
+    status.textContent='Analyzing correct frame…'; status.style.color='var(--muted2)';
     let correctData;
     if(Math.abs(originalT - epPoseFreshAt) < 0.005 && phases[phaseKey] && phases[phaseKey].kps && phases[phaseKey].metrics){
       correctData = {t: originalT, kps: phases[phaseKey].kps, metrics: phases[phaseKey].metrics};
     } else {
       correctData = await analyzePoseAtT(originalT);
     }
-    if(!correctData){ status.textContent='Pose not detected at correct frame — aborted'; status.style.color='var(--bad)'; return; }
-    status.textContent='Saving correct frame (1/7)...';
+    if(!correctData){ status.textContent='Pose not detected at correct frame — aborted'; status.style.color='var(--bad-ink)'; return; }
+    status.textContent='Saving correct frame (1/7)…';
     const correctRef = await writePhaseLabelDoc(phaseKey, correctData, true);
     if(!phaseLabels[phaseKey]) phaseLabels[phaseKey] = {good:[], bad:[]};
     phaseLabels[phaseKey].good.push({t: originalT, docId: correctRef.id});
+    const batchIds=[correctRef.id];
 
     let saved=1, failed=0;
     for(let i=0; i<NEIGHBOR_OFFSETS.length; i++){
       const offset=NEIGHBOR_OFFSETS[i];
       const tNeighbor=originalT + offset*FRAME_STEP_SECS;
-      status.textContent = `Analyzing neighbor ${i+1}/6 (${offset>0?'+':''}${offset}f)...`;
+      status.textContent = `Analyzing neighbour ${i+1}/6 (${offset>0?'+':'−'}${Math.abs(offset)*40} ms)…`;
       const nd = await analyzePoseAtT(tNeighbor);
       if(!nd){ failed++; continue; }
       try {
         const ref = await writePhaseLabelDoc(phaseKey, nd, false);
         phaseLabels[phaseKey].bad.push({t: tNeighbor, docId: ref.id});
+        batchIds.push(ref.id);
         saved++;
       } catch(e){ console.warn('neighbor save failed', offset, e); failed++; }
     }
@@ -2124,14 +2292,32 @@ async function labelCorrectFrame(){
     document.getElementById('ep-time').textContent=originalT.toFixed(2)+'s';
     if(phases[phaseKey]){ phases[phaseKey].t=originalT; phases[phaseKey].kps=correctData.kps; phases[phaseKey].metrics=correctData.metrics; }
     epPoseFreshAt=originalT;
+    syncStale();
     try{ await drawExpandFrame(originalT, correctData.kps); }catch(e){}
-    status.textContent = `Saved ${saved}/7 frames` + (failed?` (${failed} failed)`:'');
-    status.style.color='var(--good)';
+    status.textContent = `Saved: 1 correct + ${saved-1} neighbour labels` + (failed?` (${failed} failed)`:'');
+    status.style.color='var(--good-ink)';
+    offerLabelUndo(phaseKey, batchIds);
   } catch(e){
     console.error('labelCorrectFrame failed', e);
     status.textContent='Label failed — see console';
-    status.style.color='var(--bad)';
+    status.style.color='var(--bad-ink)';
   } finally { btnG.disabled=false; }
+}
+// 10 s Undo for the last "✓ Correct frame" batch: deletes exactly the docs it wrote.
+function offerLabelUndo(phaseKey, ids){
+  if(!ids.length||!window.esLabs||!esLabs.toast) return;
+  const def=PHASE_DEFS.find(d=>d.key===phaseKey);
+  esLabs.toast(`Saved ${ids.length} detector label${ids.length===1?'':'s'} for ${def?def.label:phaseKey}.`,{timeout:10000,action:{label:'Undo',fn:()=>undoLabelBatch(phaseKey,ids)}});
+}
+async function undoLabelBatch(phaseKey, ids){
+  const gone=new Set();
+  await Promise.all(ids.map(id=>db.collection('phase_labels').doc(id).delete().then(()=>gone.add(id)).catch(e=>console.warn('undo label delete failed',id,e))));
+  const lbl=phaseLabels[phaseKey];
+  if(lbl){ lbl.good=lbl.good.filter(x=>!gone.has(x.docId)); lbl.bad=lbl.bad.filter(x=>!gone.has(x.docId)); }
+  updatePhaseCardLabelBadge(phaseKey);
+  if(expandKey===phaseKey) renderLabelPanel();
+  const failed=ids.length-gone.size;
+  esLabs.toast(failed?`Removed ${gone.size} labels; ${failed} couldn’t be deleted.`:`Removed ${gone.size} detector labels.`,failed?{err:true}:{});
 }
 
 // Drawing
@@ -2342,32 +2528,54 @@ function metricSideLabel(key, m) {
   return '';
 }
 
-// Summary table (single table, all 7 side-view phases)
+// Summary table (single table, all 6 side-view phases)
 function buildSummaryTable(){
   const tbl=document.getElementById('summary-table');
   if(!tbl)return;
-  tbl.querySelector('thead').innerHTML=`<tr><th>Metric</th>${SUMMARY_COL_ORDER.map(k=>{const ph=phases[k];const idx=PHASE_DEFS.findIndex(d=>d.key===k);const side=ph?.side==='left'?' th-left':ph?.side==='right'?' th-right':'';return `<th class="${side}" onclick="openExpand('${k}')">${idx+1}. ${ph?.label||k}${ph&&!ph.detected?' &#9888;':''}</th>`;}).join('')}</tr>`;
+  tbl.querySelector('thead').innerHTML=`<tr><th>Metric</th>${SUMMARY_COL_ORDER.map(k=>{const ph=phases[k];const idx=PHASE_DEFS.findIndex(d=>d.key===k);const side=ph?.side==='left'?' th-left':ph?.side==='right'?' th-right':'';return `<th class="${side}"><button type="button" class="stbl-th-btn" onclick="openExpand('${k}')">${idx+1}. ${ph?.label||k}${ph&&!ph.detected?' ⚠':''}</button></th>`;}).join('')}</tr>`;
   const activeRows=METRIC_ROWS.filter(r=>SUMMARY_COL_ORDER.some(pk=>isRelevant(pk,r.key)));
-  tbl.querySelector('tbody').innerHTML=activeRows.map(r=>`<tr><td class="row-label">${r.label}</td>${SUMMARY_COL_ORDER.map(k=>`<td id="sc-${k}-${r.key}"><span class="sv na">--</span></td>`).join('')}</tr>`).join('');
+  tbl.querySelector('tbody').innerHTML=activeRows.map(r=>`<tr><td class="row-label">${r.label}</td>${SUMMARY_COL_ORDER.map(k=>`<td id="sc-${k}-${r.key}">${isRelevant(k,r.key)?'<span class="sv pend">…</span>':'<span class="sv na" title="Not applicable to this phase">–</span>'}</td>`).join('')}</tr>`).join('');
 }
 function updateSummaryCol(key){
   const m=phases[key]?.metrics;if(!m)return;
   METRIC_ROWS.forEach(r=>{const cell=document.getElementById(`sc-${key}-${r.key}`);if(!cell)return;
-    if(!isRelevant(key,r.key)){cell.innerHTML=`<span class="sv na" title="Not applicable for this phase">—</span>`;return;}
-    const v=m[r.key],d=v!=null?r.fmt(v):'—';cell.innerHTML=`<span class="sv">${d}</span>`;});
+    if(!isRelevant(key,r.key)){cell.innerHTML=`<span class="sv na" title="Not applicable to this phase">–</span>`;return;}
+    const v=m[r.key];cell.innerHTML=v!=null?`<span class="sv">${r.fmt(v)}</span>`:`<span class="sv miss">⚠ –<span class="esl-sr-only"> not measured</span></span>`;});
 }
 
 // Save section
+// Save signature: metrics only, so editing the name or notes can't re-enable a duplicate save.
+let savedSig = null, savedSex = null, vettedSig = null;
+function currentSig(){ return JSON.stringify(PHASE_DEFS.map(d => phases[d.key]?.metrics || null)); }
+const QLABEL={strong:'Strong',fair:'Fair',weak:'Weak'};
+function phaseQuality(key){ const ph=phases[key]; return ph?.metrics&&ph.kps ? getDetectionQuality(ph.kps) : null; }
 function updateSaveSection(){
   const analyzed=PHASE_DEFS.filter(d=>phases[d.key]?.metrics);
   const pillEl=document.getElementById('phase-completion');
-  if(pillEl)pillEl.innerHTML=PHASE_DEFS.map(def=>{const done=!!phases[def.key]?.metrics;return `<span class="pc-pill ${done?'done':'missing'}">${done?'✓':'○'} ${def.label}</span>`;}).join('');
+  const qc={strong:0,fair:0,weak:0};
+  if(pillEl)pillEl.innerHTML=PHASE_DEFS.map(def=>{
+    const done=!!phases[def.key]?.metrics;
+    if(!done) return `<span class="pc-pill missing">○ ${def.label}</span>`;
+    const q=phaseQuality(def.key);
+    if(q) qc[q.level]++;
+    return `<span class="pc-pill done${q?' q-'+q.level:''}">✓ ${def.label}${q?' · '+QLABEL[q.level]:''}</span>`;
+  }).join('');
   const athlete=document.getElementById('meta-athlete')?.value.trim();
-  const sexDisplay=selectedSex?`<span class="sex-${selectedSex}">${selectedSex.charAt(0).toUpperCase()+selectedSex.slice(1)}</span>`:'<span style="color:var(--warn)">Not set</span>';
+  const sexDisplay=selectedSex?`<i class="rd-dot rd-dot--${selectedSex}"></i><span class="sex-${selectedSex}">${selectedSex.charAt(0).toUpperCase()+selectedSex.slice(1)}</span>`:'<span class="unset">Not set</span>';
+  const evt=document.getElementById('meta-event')?.value.trim();
+  const qParts=[qc.strong?`${qc.strong} Strong`:'',qc.fair?`${qc.fair} Fair`:'',qc.weak?`${qc.weak} Weak`:''].filter(Boolean).join(' · ');
   const metaEl=document.getElementById('save-meta-summary');
-  if(metaEl)metaEl.innerHTML=`<strong>Sex:</strong> ${sexDisplay}<br><strong>Athlete:</strong> ${athlete||'<span style="color:var(--warn)">Not set — required</span>'}<br>${document.getElementById('meta-event')?.value?`<strong>Event:</strong> ${document.getElementById('meta-event').value}<br>`:''}<strong>Phases analyzed:</strong> ${analyzed.length}/${PHASE_DEFS.length}`;
+  if(metaEl)metaEl.innerHTML=`<strong>Sex:</strong> ${sexDisplay}<br><strong>Athlete:</strong> ${athlete?escapeHtml(athlete):'<span class="unset">Not set — required</span>'}<br>${evt?`<strong>Event:</strong> ${escapeHtml(evt)}<br>`:''}<strong>Phases analyzed:</strong> ${analyzed.length}/${PHASE_DEFS.length}${qParts?`<br><strong>Detection:</strong> ${qParts}`:''}`;
+  if(vettedSig && vettedSig !== currentSig()){ document.getElementById('vet-panel').className='vet-panel'; vettedSig=null; }
   const saveBtn=document.getElementById('save-btn');
-  if(saveBtn)saveBtn.disabled=!(selectedSex&&athlete&&analyzed.length>=3);
+  if(saveBtn){
+    const already=!!savedSig && savedSig===currentSig();
+    saveBtn.disabled=already||!(selectedSex&&athlete&&analyzed.length===PHASE_DEFS.length);
+    if(!saveBtn.classList.contains('saving')){
+      saveBtn.className='save-btn'+(already?' saved':'');
+      saveBtn.textContent=already?'✓ Saved to '+savedSex+' dataset':'◉ Save session';
+    }
+  }
 }
 ['meta-athlete','meta-event','meta-pace','meta-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('input',updateSaveSection);});
 
@@ -2471,9 +2679,16 @@ async function vetSessionData(){
   return {warnings, errors};
 }
 
+function showSaveError(msg){ const e=document.getElementById('save-error'); e.textContent=msg; e.className='save-error show'; }
+let saving=false;
 async function saveSession(skipVetting=false){
+  if(saving) return;
+  if(savedSig && savedSig===currentSig()){ showSaveError('This session is already saved. Change a frame or load a new video to save another.'); return; }
   const athlete=document.getElementById('meta-athlete')?.value.trim();
-  if(!selectedSex||!athlete){document.getElementById('save-error').textContent='Gender and athlete name are both required.';document.getElementById('save-error').className='save-error show';return;}
+  if(!selectedSex||!athlete){showSaveError('Sex and athlete name are both required.');return;}
+  const missing=PHASE_DEFS.filter(d=>!phases[d.key]?.metrics);
+  if(missing.length){showSaveError('Analyze every phase before saving — missing: '+missing.map(d=>d.label).join(', ')+'.');return;}
+  document.getElementById('save-error').className='save-error';
 
   // Run data vetting unless explicitly skipped
   if(!skipVetting){
@@ -2490,7 +2705,8 @@ async function saveSession(skipVetting=false){
       const vetTitle = document.getElementById('vet-title');
       const vetSaveAnyway = document.getElementById('vet-save-anyway');
 
-      vetPanel.className='vet-panel show';
+      vetPanel.className='vet-panel show'+(errors.length?' has-error':'');
+      vettedSig=currentSig();
       vetTitle.textContent = errors.length>0
         ? `⛔ ${errors.length} plausibility error${errors.length>1?'s':''} found`
         : `⚠ ${warnings.length} data warning${warnings.length>1?'s':''} found`;
@@ -2515,6 +2731,11 @@ async function saveSession(skipVetting=false){
     document.getElementById('vet-panel').className='vet-panel';
   }
 
+  // Warn (not block) when any phase is Fair or Weak.
+  const lowQ=PHASE_DEFS.map(d=>({d,q:phaseQuality(d.key)})).filter(x=>x.q&&x.q.level!=='strong');
+  if(lowQ.length&&!confirm('These phases are below Strong detection:\n\n'+lowQ.map(x=>'• '+x.d.label+' — '+QLABEL[x.q.level]).join('\n')+'\n\nThis data sets the public grading ranges. Save anyway?')) return;
+
+  saving=true;
   const saveBtn=document.getElementById('save-btn'),saveNotice=document.getElementById('save-notice'),saveError=document.getElementById('save-error');
   saveBtn.className='save-btn saving';saveBtn.textContent='Saving…';saveBtn.disabled=true;
   saveNotice.className='save-notice';saveError.className='save-error';
@@ -2555,15 +2776,16 @@ async function saveSession(skipVetting=false){
 
     // Update counts
     await loadDatasetStats();
-    saveBtn.className='save-btn saved';saveBtn.textContent='✓ Saved';
+    savedSig=currentSig(); savedSex=selectedSex;
+    saveBtn.className='save-btn saved';saveBtn.textContent='✓ Saved to '+savedSex+' dataset';saveBtn.disabled=true;
     saveNotice.textContent=`Session saved to ${selectedSex} dataset (${allSessions.length} total sessions).`;
     saveNotice.className='save-notice show';
-    setTimeout(()=>{saveBtn.className='save-btn';saveBtn.textContent='◉ Save session';saveBtn.disabled=false;},3000);
+    if(document.getElementById('sess-details')?.open) loadSavedSessions();
   }catch(e){
     console.error('saveSession:',e);
-    saveError.textContent='Save failed: '+e.message;saveError.className='save-error show';
+    showSaveError('Save failed: '+e.message);
     saveBtn.className='save-btn';saveBtn.textContent='◉ Save session';saveBtn.disabled=false;
-  }
+  }finally{ saving=false; }
 }
 
 // Range computation: returns robust (median + MAD) and classical (mean + SD) stats.
@@ -2692,73 +2914,178 @@ function seekTo(t){
 }
 
 // Reset
-async function rescan(){closeExpand();phases={};document.getElementById('screen-phases').style.display='none';document.getElementById('summary-section').style.display='none';document.getElementById('save-section').style.display='none';document.getElementById('scan-bar').style.width='0%';document.getElementById('scan-phase-list').innerHTML='';document.getElementById('scan-step').textContent='Preparing…';document.getElementById('scan-diag').style.display='none';document.getElementById('scan-summary-bar').style.display='none';document.getElementById('screen-scanning').style.display='flex';document.getElementById('btn-rescan').style.display='none';await autoScan();}
-function resetApp(){closeExpand();phases={};['screen-phases','summary-section','save-section'].forEach(id=>document.getElementById(id).style.display='none');document.getElementById('screen-upload').style.display='flex';document.getElementById('hdr-file').textContent='';document.getElementById('btn-rescan').style.display='none';document.getElementById('phase-groups').innerHTML='';document.getElementById('scan-summary-bar').style.display='none';document.getElementById('save-notice').className='save-notice';document.getElementById('save-error').className='save-error';const saveBtn=document.getElementById('save-btn');if(saveBtn){saveBtn.className='save-btn';saveBtn.textContent='◉ Save session';saveBtn.disabled=true;}if(videoEl){videoEl.pause();videoEl.src='';}}
-
-// ══════════════════════════════════════════════════════════
-//  FEEDBACK / BUG REPORT
-// ══════════════════════════════════════════════════════════
-const ADMIN_UID = '2z9Z3K5ZwShvadUuqZmwMv0s1Od2';
-let feedbackType = 'contact';
-
-function openFeedbackModal(type) {
-  feedbackType = type;
-  document.getElementById('feedback-modal-title').textContent = type === 'bug' ? 'Report a Bug' : 'Contact Endurance Science Labs';
-  document.getElementById('feedback-modal-sub').textContent = type === 'bug'
-    ? 'Describe what happened and what you expected. Include steps to reproduce if possible.'
-    : "We'd love to hear from you. Questions, feedback, or feature requests — send it our way.";
-  document.getElementById('feedback-text').value = '';
-  document.getElementById('feedback-status').textContent = '';
-  document.getElementById('feedback-status').style.color = '';
-  document.getElementById('feedback-submit').disabled = false;
-  document.getElementById('feedback-submit').textContent = 'Send';
-  document.getElementById('feedback-modal').classList.add('open');
-  document.getElementById('feedback-text').focus();
+function resetScanCard(){
+  document.getElementById('scan-bar').style.width='0%';
+  document.getElementById('scan-phase-list').innerHTML='';
+  document.getElementById('scan-step').textContent='Preparing…';
+  document.getElementById('scan-diag').style.display='none';
+  const live=document.getElementById('scan-warn-live'); if(live) live.innerHTML='';
+  const sw=document.getElementById('scan-warnings'); if(sw) sw.hidden=true;
+}
+async function rescan(){
+  scanRun++;
+  closeExpand();phases={};savedSig=null;vettedSig=null;
+  document.getElementById('screen-phases').style.display='none';document.getElementById('summary-section').style.display='none';document.getElementById('save-section').style.display='none';
+  document.getElementById('vet-panel').className='vet-panel';document.getElementById('save-notice').className='save-notice';document.getElementById('save-error').className='save-error';
+  resetScanCard();
+  document.getElementById('scan-summary-bar').style.display='none';document.getElementById('screen-scanning').style.display='flex';document.getElementById('btn-rescan').style.display='none';
+  startScanLoop();
+}
+function resetApp(){
+  scanRun++;
+  closeExpand();phases={};
+  ['screen-phases','summary-section','save-section','screen-scanning'].forEach(id=>document.getElementById(id).style.display='none');
+  document.getElementById('screen-upload').style.display='flex';
+  document.getElementById('hdr-file').textContent='';document.getElementById('btn-rescan').style.display='none';
+  document.getElementById('phase-groups').innerHTML='';document.getElementById('scan-summary-bar').style.display='none';
+  resetScanCard();
+  document.getElementById('file-input').value='';
+  document.getElementById('vet-panel').className='vet-panel';document.getElementById('vet-items').innerHTML='';vettedSig=null;savedSig=null;
+  document.getElementById('save-notice').className='save-notice';document.getElementById('save-error').className='save-error';
+  const saveBtn=document.getElementById('save-btn');if(saveBtn){saveBtn.className='save-btn';saveBtn.textContent='◉ Save session';saveBtn.disabled=true;}
+  if(videoEl){videoEl.pause();videoEl.removeAttribute('src');try{videoEl.load();}catch(e){}}
+  window.scrollTo(0,0);
 }
 
-function closeFeedbackModal() {
-  document.getElementById('feedback-modal').classList.remove('open');
+// Confirm wrappers for the session-bar buttons (resetApp stays confirm-free for programmatic callers).
+function scanInProgress(){ return document.getElementById('screen-scanning').style.display === 'flex'; }
+function hasUnsavedWork(){ return PHASE_DEFS.some(d => phases[d.key]?.metrics) && savedSig !== currentSig(); }
+function requestNewVideo(){
+  const f = document.getElementById('hdr-file').textContent || 'this video';
+  if (scanInProgress() && !confirm('Stop the scan and start over with a new video?')) return;
+  if (!scanInProgress() && hasUnsavedWork() && !confirm('Discard the session for ' + f + '? It hasn’t been saved.')) return;
+  const hadVideo = !!document.getElementById('hdr-file').textContent;
+  resetApp();
+  if (hadVideo) carryOverAthlete();
+}
+function requestRescan(){
+  const f = document.getElementById('hdr-file').textContent || 'this video';
+  if (hasUnsavedWork() && !confirm('Re-scan discards your frame adjustments for ' + f + ' and re-runs auto-detection. Continue?')) return;
+  rescan();
 }
 
-async function submitFeedback() {
-  const text = document.getElementById('feedback-text').value.trim();
-  if (!text) {
-    document.getElementById('feedback-status').textContent = 'Please enter a message.';
-    document.getElementById('feedback-status').style.color = 'var(--bad)';
+// New video: clear event, pace and notes; keep athlete + sex behind a visible "Same athlete? Clear" chip.
+function carryOverAthlete(){
+  ['meta-event','meta-pace','meta-notes'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  const athlete=document.getElementById('meta-athlete').value.trim();
+  document.getElementById('rd-carry').classList.toggle('show', !!(athlete || selectedSex));
+  updateSaveSection();
+}
+function hideCarry(){ document.getElementById('rd-carry').classList.remove('show'); }
+function clearCarriedAthlete(){
+  document.getElementById('meta-athlete').value='';
+  selectedSex=null;
+  ['male','female'].forEach(x=>{ const b=document.getElementById('sex-btn-'+x); b.className='sex-btn'; b.setAttribute('aria-pressed','false'); });
+  hideCarry();
+  updateSaveSection();
+  document.getElementById('meta-athlete').focus();
+}
+document.getElementById('meta-athlete').addEventListener('input', hideCarry);
+document.getElementById('sex-btn-male').addEventListener('click', hideCarry);
+document.getElementById('sex-btn-female').addEventListener('click', hideCarry);
+
+// ══════════════════════════════════════════════════════════
+//  SAVED SESSIONS — review, delete (two-step) and recompute
+// ══════════════════════════════════════════════════════════
+async function recomputeRangesFor(sex){
+  const snap=await db.collection('reference_sessions').where('sex','==',sex).get();
+  const subset=snap.docs.map(d=>d.data());
+  await db.collection('computed_ranges').doc(sex).set({
+    lastUpdated:firebase.firestore.FieldValue.serverTimestamp(),
+    sex, sampleCount:subset.length, phases:computeRanges(subset),
+  });
+  const allSnap=await db.collection('reference_sessions').get();
+  const all=allSnap.docs.map(d=>d.data());
+  await db.collection('computed_ranges').doc('combined').set({
+    lastUpdated:firebase.firestore.FieldValue.serverTimestamp(),
+    sex:'combined', sampleCount:all.length, phases:computeRanges(all),
+  });
+}
+function sessStatus(msg, err){ const el=document.getElementById('sess-status'); el.textContent=msg||''; el.className=err?'err':''; }
+let savedSessionRows=[];
+function fmtSessDate(ts){ try{ const d=ts&&ts.toDate?ts.toDate():null; return d?d.toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'}):'—'; }catch(e){ return '—'; } }
+async function loadSavedSessions(){
+  const tbody=document.getElementById('sess-tbody');
+  tbody.innerHTML='<tr><td colspan="6" class="esl-empty">Loading…</td></tr>';
+  try{
+    const snap=await db.collection('reference_sessions').get();
+    savedSessionRows=snap.docs.map(d=>({id:d.id,...d.data()}))
+      .sort((a,b)=>((b.timestamp&&b.timestamp.toMillis?b.timestamp.toMillis():0)-(a.timestamp&&a.timestamp.toMillis?a.timestamp.toMillis():0)));
+    document.getElementById('sess-count').textContent=savedSessionRows.length;
+    renderSavedSessions();
+  }catch(e){
+    console.error('loadSavedSessions',e);
+    tbody.innerHTML='<tr><td colspan="6" class="esl-empty err">Couldn’t load saved sessions — see console.</td></tr>';
+  }
+}
+function renderSavedSessions(){
+  const tbody=document.getElementById('sess-tbody');
+  if(!savedSessionRows.length){ tbody.innerHTML='<tr><td colspan="6" class="esl-empty">No saved sessions yet.</td></tr>'; return; }
+  tbody.innerHTML=savedSessionRows.map(r=>{
+    const n=r.phases?Object.keys(r.phases).length:0;
+    const sex=r.sex==='male'||r.sex==='female'?r.sex:'';
+    return `<tr data-id="${escapeHtml(r.id)}">
+      <td>${escapeHtml(r.athlete||'—')}</td>
+      <td>${sex?`<i class="rd-dot rd-dot--${sex}"></i>${sex==='male'?'Male':'Female'}`:escapeHtml(r.sex||'—')}</td>
+      <td>${escapeHtml(r.event||'—')}</td>
+      <td>${fmtSessDate(r.timestamp)}</td>
+      <td class="num">${n}/${PHASE_DEFS.length}</td>
+      <td class="sess-act"><button type="button" class="esl-btn esl-btn--danger esl-btn--sm" data-act="del">Delete</button></td>
+    </tr>`;
+  }).join('');
+}
+document.getElementById('sess-details').addEventListener('toggle', e=>{ if(e.target.open) loadSavedSessions(); });
+document.getElementById('sess-tbody').addEventListener('click', async e=>{
+  const btn=e.target.closest('button[data-act]'); if(!btn) return;
+  const tr=btn.closest('tr[data-id]'); if(!tr) return;
+  const row=savedSessionRows.find(r=>r.id===tr.dataset.id); if(!row) return;
+  const cell=tr.querySelector('.sess-act');
+  if(btn.dataset.act==='del'){
+    // Step 1: inline confirm naming the athlete and date.
+    cell.innerHTML=`<span class="sess-del-confirm"><span class="esl-caption">Delete ${escapeHtml(row.athlete||'this session')}, ${fmtSessDate(row.timestamp)}?</span>
+      <button type="button" class="esl-btn esl-btn--danger esl-btn--sm" data-act="confirm">Delete and recompute</button>
+      <button type="button" class="esl-btn esl-btn--ghost esl-btn--sm" data-act="cancel">Cancel</button></span>`;
+    cell.querySelector('[data-act="cancel"]').focus();
     return;
   }
-  const btn = document.getElementById('feedback-submit');
-  btn.disabled = true;
-  btn.textContent = 'Sending…';
-
-  try {
-    const senderName = auth?.currentUser?.email || 'Anonymous';
-    const senderUid = auth?.currentUser?.uid || 'anonymous';
-
-    await db.collection('notifications').add({
-      recipientUid: ADMIN_UID,
-      type: feedbackType === 'bug' ? 'bug_report' : 'contact',
-      message: `[${feedbackType === 'bug' ? 'Bug' : 'Contact'}] from ${senderName} (reference-data): ${text}`,
-      senderUid,
-      read: false,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-
-    document.getElementById('feedback-status').textContent = 'Sent! Thank you.';
-    document.getElementById('feedback-status').style.color = 'var(--good)';
-    btn.textContent = 'Sent ✓';
-    setTimeout(closeFeedbackModal, 1500);
-  } catch(e) {
-    console.error('Feedback submit failed:', e);
-    document.getElementById('feedback-status').textContent = 'Failed to send. Try again.';
-    document.getElementById('feedback-status').style.color = 'var(--bad)';
-    btn.disabled = false;
-    btn.textContent = 'Send';
+  if(btn.dataset.act==='cancel'){ renderSavedSessions(); return; }
+  if(btn.dataset.act==='confirm'){
+    cell.querySelectorAll('button').forEach(b=>b.disabled=true);
+    sessStatus('Deleting and recomputing ranges…');
+    try{
+      await db.collection('reference_sessions').doc(row.id).delete();
+      if(row.sex==='male'||row.sex==='female') await recomputeRangesFor(row.sex);
+      else await window.__recomputeRanges();
+      sessStatus(`Deleted ${row.athlete||'session'} (${fmtSessDate(row.timestamp)}). Ranges recomputed.`);
+      await loadDatasetStats();
+      await loadSavedSessions();
+    }catch(err){
+      console.error('delete session',err);
+      sessStatus('Delete failed: '+(err&&err.message||err), true);
+      renderSavedSessions();
+    }
   }
+});
+async function recomputeRangesUI(){
+  const btn=document.getElementById('sess-recompute');
+  btn.disabled=true; sessStatus('Recomputing ranges…');
+  try{ await window.__recomputeRanges(); await loadDatasetStats(); sessStatus('Ranges recomputed for male, female and combined.'); }
+  catch(e){ console.error('recompute',e); sessStatus('Recompute failed: '+(e&&e.message||e), true); }
+  finally{ btn.disabled=false; }
 }
 
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeFeedbackModal();
+// ══════════════════════════════════════════════════════════
+//  BOOT — at the end so every let/const above is initialised before a
+//  synchronous onAuthChange callback runs. Gate on the REAL admin (act-as safe).
+// ══════════════════════════════════════════════════════════
+const isRealAdmin = u => !!u && (u.realUid || u.uid) === esLabs.ADMIN_UID;
+esLabs.onAuthChange(user => {
+  if (isRealAdmin(user)) {
+    if (!detector) { const l = document.getElementById('loader'); if (l) l.style.display = 'flex'; }
+    initModel(); loadDatasetStats(); renderThresholds();
+  } else {
+    resetApp();          // signed out or not admin: cancel any scan
+  }
 });
 </script>
 </body>
