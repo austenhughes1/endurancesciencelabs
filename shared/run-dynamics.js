@@ -314,6 +314,8 @@ html[data-theme="light"] .rdx input[type=date]{color-scheme:light}
 .rdx-today-num .v small{font-family:var(--ui);font-size:12px;font-weight:600;color:var(--muted2);margin-left:6px}
 .rdx-today-num .x{margin-top:4px;font-size:12px;line-height:1.45;color:var(--muted2)}
 .rdx-today-num .x>span{white-space:nowrap}
+.rdx-today-ran .v{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 14px}
+.rdx-today-ran .v .iad{font-size:16px}
 .rdx-today-num .x b{font-family:var(--mono);font-weight:700;color:var(--text)}
 .rdx-today-num .x b.lever{color:var(--rdx-accent-ink)}
 .rdx-band{position:relative;height:6px;margin-top:8px;max-width:200px;border-radius:3px;background:var(--panel2)}
@@ -1850,14 +1852,27 @@ function renderHero(){
   // 7-day position on a 0.4–1.8 track with the 0.8–1.3 safe band shaded (decoration; the ratio is in text)
   var bandPos=function(x){ return (Math.max(0.4,Math.min(1.8,x))-0.4)/1.4*100; };
   var isClimb = head==='Climbing fast — ease the ramp';
+  // Runs on today's local calendar day — the same day the Last day tile (d1) covers. Demo scenarios
+  // are not the athlete's data, so they always show the target.
+  var todayRuns = demoOn ? [] : typeRuns().filter(function(r){ return daysAgo(r.ts)===0; });
+  var todayMi = todayRuns.reduce(function(a,r){ return a+(r.distMi||0); },0);
   var nums='';
   if(base!=null){
     nums='<div class="rdx-today-nums">'+
+      (todayRuns.length ?
+      // Already ran today: report the run(s) — distance plus today's load (d1, the Last day tile's value) —
+      // and keep the target as a muted caption. The equivalents only help before running.
+      '<div class="rdx-today-num rdx-today-target rdx-today-ran"><div class="k">Today’s run'+(todayRuns.length>1?'s':'')+'</div>'+
+        '<div class="v"><span><span data-v="todayMi">'+todayMi.toFixed(1)+'</span><small>mi</small></span>'+
+          '<span class="iad"><span data-v="todayIad">'+d1.toFixed(1)+'</span><small>IAD mi</small></span></div>'+
+        (todayRuns.length>1?'<div class="x" data-v="todayN">'+todayRuns.length+' runs</div>':'')+
+        '<div class="x">target <span data-v="lo">'+fmtMi(lo)+'</span>–<span data-v="hi">'+fmtMi(hi)+'</span> mi</div>'+
+      '</div>' :
       '<div class="rdx-today-num rdx-today-target"><div class="k">Today’s target</div>'+
         '<div class="v"><span data-v="lo">'+fmtMi(lo)+'</span>–<span data-v="hi">'+fmtMi(hi)+'</span><small>mi</small></div>'+
         '<div class="x"><span>≈ <b data-v="flat">'+fmtMi(flat)+'</b> mi flat</span> · <span><b data-v="hilly">'+fmtMi(hilly)+'</b> hilly</span>'+
           (leverInTarget?' · <span><b class="lever" data-v="lever">'+fmtMi(lever)+'</b> mi on the Lever</span>':'')+'</div>'+
-      '</div>'+
+      '</div>')+
       '<div class="rdx-today-num rdx-today-r7"><div class="k">7-day load</div>'+
         '<div class="v"><span data-v="r7">'+r7.toFixed(1)+'</span>×<small>'+who('their')+' base</small></div>'+
         '<div class="rdx-band" aria-hidden="true"><span class="rdx-band-safe" style="left:'+bandPos(0.8)+'%;width:'+(bandPos(1.3)-bandPos(0.8))+'%"></span>'+
