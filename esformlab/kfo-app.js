@@ -38,11 +38,6 @@
       label: 'Force-plate validation tools',
       adminDefault: false, userDefault: false,
       description: 'Research export and force-plate agreement statistics.'
-    },
-    legacyForceVectorV1: {
-      label: 'Legacy V1 panel (comparison only)',
-      adminDefault: false, userDefault: false,
-      description: 'Shows the superseded prototype alongside V2 for regression comparison.'
     }
   };
 
@@ -172,26 +167,6 @@
     } else {
       removeNode('kfo-admin-report');
       removeNode('kfo-research-tools');
-    }
-
-    // Legacy V1, comparison only, clearly labelled.
-    if (isEnabled('legacyForceVectorV1') && typeof renderForceVectorReport === 'function') {
-      try {
-        renderForceVectorReport();
-        var host = document.getElementById('fv-admin-report');
-        if (host && !host.querySelector('.kfo-legacy-note')) {
-          var note = document.createElement('div');
-          note.className = 'kfo-legacy-note';
-          note.style.cssText = 'margin-bottom:8px;padding:7px 10px;border-left:3px solid var(--bad,#ff5d5d);' +
-            'background:rgba(255,93,93,.08);border-radius:6px;font-size:11px;line-height:1.5';
-          note.innerHTML = '<strong>LEGACY — superseded.</strong> Retained only for regression comparison. ' +
-            'Its late-stance scoring treated a near-vertical support line as a deficiency, which the ' +
-            'evidence does not support. Use the V2 panel above.';
-          host.insertBefore(note, host.firstChild);
-        }
-      } catch (e) { console.error('[kfo] legacy render failed:', e); }
-    } else {
-      removeNode('fv-admin-report');
     }
   }
 

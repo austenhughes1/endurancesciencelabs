@@ -122,8 +122,8 @@ desktop, Lightning for the mobile scan pass), COCO-17 keypoints, `MIN_CONF 0.25`
 modules (stance detection, support geometry, timing force, aggregation,
 smoothing) are sound and are reused as inputs. The standalone KFO panel is
 demoted: `kinematicForceOrientationV2` now defaults **off** even for admins and
-is labelled superseded. The V1 force-vector panel remains reachable only via
-`legacyForceVectorV1`, unchanged. Nothing scientific in KFO regressed — its
+is labelled superseded. The V1 force-vector panel, its `legacyForceVectorV1` flag and
+`/prototype/` were removed on 2026-10-19 (force-vector.js / force-vector-admin.js deleted). Nothing scientific in KFO regressed — its
 rules (no "under-propulsive" labels, coupled braking/propulsion, no measured-GRF
 claims, timing force per-step-then-aggregate) are inherited wholesale.
 
