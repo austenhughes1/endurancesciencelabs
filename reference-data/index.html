@@ -682,7 +682,7 @@ main{display:block}
             <div class="ep-label-row">
               <span class="ep-label-title">Detector label</span>
               <button type="button" class="step-btn" id="ep-label-good-btn" onclick="labelCorrectFrame()">✓ Correct frame</button>
-              <span id="ep-label-status" role="status">0 good · 0 bad</span>
+              <span id="ep-label-status" role="status">0 correct · 0 neighbour labels</span>
             </div>
             <p class="ep-label-cap">Also saves the 6 nearest frames as incorrect.</p>
           </div>
@@ -1490,10 +1490,11 @@ dz.addEventListener('click',e=>{ if(!e.target.closest('#upload-btn')) handleUplo
 dz.addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ')&&e.target===dz){ e.preventDefault(); handleUploadClick(); } });
 let scanRun = 0, scanPromise = null, scanStats = null, scanWarnings = [];
 function startScanLoop(){
-  (async()=>{ await (scanPromise||Promise.resolve()).catch(()=>{}); scanPromise = autoScan(); })();
+  const run = scanRun;
+  (async()=>{ await (scanPromise||Promise.resolve()).catch(()=>{}); if(run!==scanRun) return; scanPromise = autoScan(); })();
 }
 function startWithFile(file){
-  scanRun++;
+  const run = ++scanRun;
   document.getElementById('dz-sex-warning').style.display='none';
   document.getElementById('screen-upload').style.display='none';
   document.getElementById('hdr-file').textContent=file.name;
@@ -1503,6 +1504,7 @@ function startWithFile(file){
   function beginScan(){
     if(started) return;
     started=true;
+    if(run!==scanRun){ clearTimeout(fallbackTimer); return; }
     videoEl.removeEventListener('loadedmetadata', beginScan);
     videoEl.removeEventListener('loadeddata',     beginScan);
     videoEl.removeEventListener('canplay',        beginScan);
