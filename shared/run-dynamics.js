@@ -2047,8 +2047,8 @@ function renderLoadChart(){
 function renderMetricChart(){
   var chart=$('chartBox'), legend=$('chartLegend');
   if(!chart) return;
-  // Smooth draws the trend line; Hide outliers drops glitch values (keeps logged races/injuries and
-  // detected hard efforts); Points shows every run. Runs missing a metric leave a gap in its line;
+  // Smooth draws the trend line; Hide outliers drops glitch values (keeps logged races/injuries, and
+  // detected hard efforts while Points is on); Points shows every run and the hard-effort rings. Runs missing a metric leave a gap in its line;
   // Impact Load drops to 0 on rest days and is never outlier-filtered (big days are real training).
   var bail=function(msg){ legend.innerHTML=''; chart.innerHTML='<div class="rdx-chart-empty">'+msg+'</div>'; evCapReset(chart); };
   var i1=$('chartView').value, i2=$('chartView2').value;
@@ -2098,7 +2098,7 @@ function renderMetricChart(){
     }
     var inF=function(p){ return p.v>=flo&&p.v<=fhi; };
     s.line = hideOut ? all.filter(inF) : all;
-    s.dots = hideOut ? all.filter(function(p){return inF(p)||evType(p)||maxIds.has(p.id);}) : all;
+    s.dots = hideOut ? all.filter(function(p){return inF(p)||evType(p)||(showPts&&maxIds.has(p.id));}) : all;
     // Volume metrics (Impact Load): a day without a run is a real 0, so the line drops to
     // zero on rest days — matching how the acute/chronic chart's daily loads treat them —
     // instead of connecting run to run. Zeros shape the line only: no dot, no hover target.
@@ -2152,10 +2152,8 @@ function renderMetricChart(){
     lines+=s.dots.map(function(p){
       var t=evType(p), isMax=!t&&maxIds.has(p.id), cx=xOf(p.ts).toFixed(1), cy=yOf(p.v,s).toFixed(1);
       if(t) return '<circle cx="'+cx+'" cy="'+cy+'" r="3.8" style="fill:'+evColor(t)+'" stroke="'+haloStroke+'" stroke-width="1.2"/>';
-      // Hard-effort rings draw regardless of the Points toggle, same as race/injury dots —
-      // the outlier filter promises to keep detected hard efforts visible, and with Points
-      // off the ring is the only thing marking them (their values are excluded from the line).
-      if(isMax) return '<circle cx="'+cx+'" cy="'+cy+'" r="3.8" fill="none" style="stroke:var(--rdx-hot)" stroke-width="1.6"/>';
+      // Hard-effort rings follow the Points toggle (race/injury dots always draw).
+      if(isMax&&showPts) return '<circle cx="'+cx+'" cy="'+cy+'" r="3.8" fill="none" style="stroke:var(--rdx-hot)" stroke-width="1.6"/>';
       return showPts ? '<circle cx="'+cx+'" cy="'+cy+'" r="2.4" style="fill:'+s.color+'" fill-opacity="'+(smooth?'0.5':'1')+'"/>' : '';
     }).join('');
     hits+=s.dots.map(function(p){
@@ -2167,7 +2165,7 @@ function renderMetricChart(){
   });
   // legend: the series, then only the markers actually plotted, then the overlay's other event types
   var mk={};
-  have.forEach(function(s){ s.dots.forEach(function(p){ var t=evType(p); if(t) mk[t]=1; else if(maxIds.has(p.id)) mk.max=1; }); });
+  have.forEach(function(s){ s.dots.forEach(function(p){ var t=evType(p); if(t) mk[t]=1; else if(showPts&&maxIds.has(p.id)) mk.max=1; }); });
   var li=function(sw,txt){ return '<span class="rdx-legend-item">'+sw+txt+'</span>'; };
   legend.innerHTML=series.map(function(s){ var none=!s.dots.length;
       return li('<span class="rdx-legend-sw" style="background:'+s.color+(none?';opacity:.4':'')+'"></span>', s.m.label+(s.m.unit?' ('+s.m.unit+')':'')+(none?' — no data in this range':'')); }).join('')+
