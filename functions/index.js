@@ -234,6 +234,15 @@ const STRAVA_MIRROR_DAYS = 120;
 // ANY Strava doc's descentM as absent, so older docs that still carry the
 // mirror need no migration. A later watch import replaces the doc anyway.
 // Cadence is per-leg -> ×2 for spm. Returns null for non-runs.
+// Same run recorded twice (watch file + Strava): the start→end spans overlap,
+// with a minute of slack for clock skew. Mirrors sameRunSpan in
+// shared/run-dynamics.js.
+function sameRunSpan(aTs, aDur, bTs, bDur) {
+  const slack = 60000;
+  return aTs <= bTs + (bDur || 0) * 1000 + slack &&
+    bTs <= aTs + (aDur || 0) * 1000 + slack;
+}
+
 function stravaRunDoc(act) {
   const sport = String(act.sport_type || act.type || "");
   if (!/run/i.test(sport)) return null;
@@ -449,50 +458,37 @@ async function runStravaSync(uid, opts = {}) {
   // ── Run Dynamics supplement ──────────────────────────────
   // Convert Strava runs into run docs for users/{uid}/garminActivities so
   // Run Dynamics is populated even without a manual export upload. Watch
-  // imports are the richer record (GCT, oscillation, descent), so any local
-  // calendar day that already has a device-imported run is skipped entirely —
-  // Strava only fills the gaps. (The reverse direction — a later device
+  // imports are the richer record (GCT, oscillation, descent), so a Strava
+  // run whose span overlaps a device-imported run is skipped — Strava only
+  // fills the gaps. Matching is per run, not per day: a double (watch file
+  // for one run, Strava for the other) keeps both. (The reverse direction — a later device
   // upload replacing Strava docs on the days it covers — is handled by
   // backfill() in shared/run-dynamics.js.)
   const runCol = db.collection("users").doc(uid).collection("garminActivities");
-  const existingSnap = await runCol.select("ts", "source").get();
-  const deviceTs = [];
+  const existingSnap = await runCol.select("ts", "durSec", "source").get();
+  const deviceRuns = [];
   const deviceIds = new Set();
   const stravaIds = new Set();
   existingSnap.forEach((d) => {
     if (d.get("source") !== "strava") {
       deviceIds.add(d.id);
       const t = d.get("ts");
-      if (Number.isFinite(t)) deviceTs.push(t);
+      if (Number.isFinite(t)) deviceRuns.push({ ts: t, durSec: d.get("durSec") });
     } else {
       stravaIds.add(d.id);
     }
   });
-  // Local-day buckets of the device runs, computed per UTC offset (device
-  // docs store only the epoch; each Strava activity carries its own offset,
-  // and device + Strava runs share a timezone in the overwhelming case).
-  const dayBucketsByOffset = new Map();
-  const deviceDaySet = (offsetMs) => {
-    if (!dayBucketsByOffset.has(offsetMs)) {
-      dayBucketsByOffset.set(offsetMs,
-        new Set(deviceTs.map((t) => Math.floor((t + offsetMs) / 86400000))));
-    }
-    return dayBucketsByOffset.get(offsetMs);
-  };
 
   const runWrites = [];
   let runSkipped = 0;
   for (const act of allActivities) {
     const doc = stravaRunDoc(act);
     if (!doc) continue;
-    const offsetMs = (typeof act.utc_offset === "number" && isFinite(act.utc_offset))
-      ? act.utc_offset * 1000
-      : (Date.parse(act.start_date_local) - Date.parse(act.start_date)) || 0;
-    const day = Math.floor((doc.ts + offsetMs) / 86400000);
     // Backfill also skips Strava docs already stored (same id ⇒ same run —
     // no point re-writing thousands of unchanged docs). The daily sync keeps
     // overwriting its 2-year window so Strava-side renames still propagate.
-    if (deviceDaySet(offsetMs).has(day) || deviceIds.has(doc.id) ||
+    if (deviceRuns.some((r) => sameRunSpan(r.ts, r.durSec, doc.ts, doc.durSec)) ||
+        deviceIds.has(doc.id) ||
         (isBackfill && stravaIds.has(doc.id))) {
       runSkipped++;
       continue;
@@ -534,7 +530,7 @@ async function runStravaSync(uid, opts = {}) {
       synced: 0,
       runDocs: runWrites.length,
       runSkipped,
-      message: `Synced ${runWrites.length} runs (${runSkipped} days already covered by watch imports).`,
+      message: `Synced ${runWrites.length} runs (${runSkipped} already covered by watch imports).`,
     };
   }
 
@@ -626,7 +622,7 @@ async function runStravaSync(uid, opts = {}) {
     synced: count,
     runDocs: runWrites.length,
     runSkipped,
-    message: `Synced ${count} activities; ${runWrites.length} runs added to Run Dynamics (${runSkipped} days already covered by watch imports).`,
+    message: `Synced ${count} activities; ${runWrites.length} runs added to Run Dynamics (${runSkipped} already covered by watch imports).`,
   };
 }
 

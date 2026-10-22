@@ -1060,11 +1060,13 @@ function loadFromFirestore(){
     RAW.sort(function(a,b){ return a.ts-b.ts; });
   });
 }
-function localDayKey(ts){ var d=new Date(ts); return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate(); }
+// Same run recorded twice (watch file + Strava): the start→end spans overlap, with a minute of slack
+// for clock skew. Two runs on one day (a double) don't overlap, so both are kept.
+// Mirrors sameRunSpan in functions/index.js.
+function sameRunSpan(aTs,aDur,bTs,bDur){ var slack=60000; return aTs<=bTs+(bDur||0)*1000+slack && bTs<=aTs+(aDur||0)*1000+slack; }
 function backfill(candidates){
   return actCol().get().then(function(snap){
     var candIds=new Set(candidates.map(function(c){return c.id;}));
-    var candDays=new Set(candidates.map(function(c){return localDayKey(c.ts);}));
     var existing=new Set(), replace=[], near=[];
     snap.forEach(function(d){
       existing.add(d.id);
@@ -1073,10 +1075,12 @@ function backfill(candidates){
       // different id scheme, so a new id within 60 s of a stored watch run is the same run (never re-ids)
       if(x.source!=='strava'){ var t=x.ts&&x.ts.toMillis?x.ts.toMillis():+x.ts; if(isFinite(t)) near.push(t); }
       // A watch export is the richer record (GCT, oscillation, descent) — drop
-      // any Strava-synced doc on a day this import now covers. Same-id docs
-      // need no delete: the set() below overwrites them wholesale. The server
-      // sync skips device-covered days, so these never come back.
-      if(x.source==='strava' && !candIds.has(d.id) && candDays.has(localDayKey(x.ts))) replace.push(d.ref);
+      // any Strava-synced doc for a run this import now covers (overlapping
+      // span; a second run that day stays). Same-id docs need no delete: the
+      // set() below overwrites them wholesale. The server sync skips runs a
+      // device doc covers, so these never come back.
+      if(x.source==='strava' && !candIds.has(d.id)){ var st=x.ts&&x.ts.toMillis?x.ts.toMillis():+x.ts;
+        if(isFinite(st) && candidates.some(function(c){ return sameRunSpan(c.ts,c.durSec,st,x.durSec); })) replace.push(d.ref); }
     });
     var dupes=0, fresh=candidates.filter(function(c){
       if(existing.has(c.id)) return true;
@@ -3107,7 +3111,7 @@ function renderLoaded(){
   // white on the dark theme, orange on light.
   var nStrava=RAW.filter(function(r){return r.source==='strava';}).length;
   var foot=$('foot'); if(foot) foot.innerHTML=   // the run count and span are in the header and settings already
-    (nStrava?nStrava+' synced from Strava on days with no watch import — Strava runs carry pace, distance, heart rate, cadence and ascent but no ground contact or oscillation; outdoor Strava runs are scored as if they came back down what they climbed, and treadmill runs take no hill surcharge. ':'')+
+    (nStrava?nStrava+' synced from Strava for runs with no watch import — Strava runs carry pace, distance, heart rate, cadence and ascent but no ground contact or oscillation; outdoor Strava runs are scored as if they came back down what they climbed, and treadmill runs take no hill surcharge. ':'')+
     'Track distances are converted from meters to miles.'+
     (nStrava?'<span class="rdx-strava"><img class="rdx-strava-w" src="/images/strava/api_logo_pwrdBy_strava_horiz_white.svg" alt="Powered by Strava"><img class="rdx-strava-o" src="/images/strava/api_logo_pwrdBy_strava_horiz_orange.svg" alt="Powered by Strava"></span>':'');
   refresh();
@@ -3233,7 +3237,7 @@ function shellHTML(opts){
         '<li>Drop that <code>.zip</code> in the import box above (a single <code>.fit</code> works too). Each <code>.fit</code> is unpacked and read right in your browser.</li>'+
       '</ol>'+
         '<p>Running-form metrics (ground contact, vertical oscillation, cadence, stride) need a compatible device or strap — runs recorded without one still import for load and pace, they just skip those fields. Garmin\'s CSV export is capped at ~1,000 rows and only includes what is loaded on screen, so export long Garmin histories in chunks by date range — each chunk merges in automatically.</p>'+
-        '<p>Strava connected (via the coaching dashboard)? The last 2 years of Strava runs sync in automatically, once a day, for days with no watch import — and <b>Backfill Strava history</b> pulls the entire Strava history at once for the same gap-fill. Strava can\'t provide ground contact, oscillation, or descent, so uploading a watch export for those days replaces the Strava copy with the full-metric version.</p>'+
+        '<p>Strava connected (via the coaching dashboard)? The last 2 years of Strava runs sync in automatically for runs with no watch import — and <b>Backfill Strava history</b> pulls the entire Strava history at once for the same gap-fill. Strava can\'t provide ground contact, oscillation, or descent, so uploading a watch export for those runs replaces the Strava copy with the full-metric version.</p>'+
       '</div></details>'+
   '</div>';
   return ''+
@@ -3541,7 +3545,7 @@ function wire(){
 /* Strava auto-sync: if this athlete has Strava connected (coaching dashboard
    flow), top up their stored run history once per local day. The server
    (syncStravaActivities in functions/index.js) pulls 2 years of Strava runs
-   but skips every day already covered by a watch import — Strava only fills
+   but skips every run already covered by a watch import — Strava only fills
    the gaps, and can't provide GCT/oscillation/descent. Coach view skips this:
    the coaching page runs its own athlete-scoped daily sync, and the callable
    syncs the CALLER's account unless invoked with athleteUid by the admin. */
