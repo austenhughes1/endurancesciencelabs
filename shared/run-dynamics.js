@@ -1203,6 +1203,10 @@ function intensityState(){
 }
 function runsInF(s,e){ var it=intensityState(); return filterIntensity(runsIn(s,e),it.mode,it.cutoff); }
 function typeRuns(){ return RAW.filter(function(r){return ACTIVE_TYPES.has(effType(r))&&analyzable(r);}); }
+// Load side (Today, the load chart, Injury Patterns, IAD calibration) ignores the activity-type chips:
+// every run loads the body, a Lever run at its offload discount. Hiding a type only filters the
+// form/metric views; min distance and per-run exclusions still apply.
+function loadRuns(){ return RAW.filter(analyzable); }
 function offloadFrac(){ var v=parseFloat(STD_PROFILE.runLeverPctBW); var pct=(v>0&&v<100)?v:85; return 1-pct/100; }
 function leverPct(){ var v=parseFloat(STD_PROFILE.runLeverPctBW); return (v>0&&v<100)?v:85; }
 
@@ -1330,7 +1334,7 @@ function easyPaceSec(){ var v=parseFloat(STD_PROFILE.runEasyPaceSec); return (v>
 // profile fills in until there are runs to calibrate from; otherwise the pace term is neutral
 // (no guessed constant). basePaceSource records which rung is in force for the hero tile.
 function computeLoadParams(){
-  var it=intensityState(), cal=RunLoad.calibrateBaseline(typeRuns(), it.cutoff), profile=easyPaceSec();
+  var it=intensityState(), cal=RunLoad.calibrateBaseline(loadRuns(), it.cutoff), profile=easyPaceSec();
   var src = cal.basePaceSec!=null ? 'calibrated' : (profile!=null ? 'profile' : null);
   return Object.assign({}, RunLoad.DEFAULTS, cal, { basePaceSec: cal.basePaceSec!=null?cal.basePaceSec:profile, basePaceSource: src, useGrade:true, offload:offloadFrac() });
 }
@@ -1733,7 +1737,7 @@ function renderHero(){
   // so d1 is 0 on a rest day and the acute-trend lookback sees the real calendar. Chart ranges
   // already include today; this is the hero's equivalent.
   var today=new Date();
-  var tl=RunLoad.extendTimeline(RunLoad.loadTimeline(typeRuns(), LOAD_PARAMS), today, LOAD_PARAMS);
+  var tl=RunLoad.extendTimeline(RunLoad.loadTimeline(loadRuns(), LOAD_PARAMS), today, LOAD_PARAMS);
   var date='<span class="rdx-today-date">'+DOW[today.getDay()]+', '+MONTHS[today.getMonth()]+' '+today.getDate()+'</span>';
   // D3 notes (renderHeroNotes fills it) sit under the instruction line
   var notesEl='<p class="rdx-hero-notes" id="heroNotes" hidden></p>';
@@ -1770,7 +1774,7 @@ function renderHero(){
   // base × 1.4 (a rough per-run figure) when there isn't enough per-run data or a demo scenario
   // is forcing the windows.
   var todayTs=tl[tl.length-1].ts;
-  var loads = demoOn ? [] : typeRuns().filter(function(r){ return r.ts>=todayTs-42*864e5; })
+  var loads = demoOn ? [] : loadRuns().filter(function(r){ return r.ts>=todayTs-42*864e5; })
     .map(function(r){ return RunLoad.impactLoad(r, LOAD_PARAMS); }).filter(function(v){ return v!=null && v>0; });
   var typical = loads.length>=3 ? RunLoad.median(loads) : (base?base*1.4:6);
 
@@ -1858,7 +1862,7 @@ function renderHero(){
   var isClimb = head==='Climbing fast — ease the ramp';
   // Runs on today's local calendar day — the same day the Last day tile (d1) covers. Demo scenarios
   // are not the athlete's data, so they always show the target.
-  var todayRuns = demoOn ? [] : typeRuns().filter(function(r){ return daysAgo(r.ts)===0; });
+  var todayRuns = demoOn ? [] : loadRuns().filter(function(r){ return daysAgo(r.ts)===0; });
   var todayMi = todayRuns.reduce(function(a,r){ return a+(r.distMi||0); },0);
   var nums='';
   if(base!=null){
@@ -1919,7 +1923,7 @@ function renderHero(){
 // sees it" — its instruction line is written in the third person. Demo scenarios skip the data notes.
 function renderHeroNotes(){
   var el=$('heroNotes'); if(!el) return;
-  var notes=[], runs=RAW.length?typeRuns():[];
+  var notes=[], runs=RAW.length?loadRuns():[];
   if(!DEMO && runs.length){
     var first=Infinity, recent=false;
     runs.forEach(function(r){ if(r.ts<first) first=r.ts; var a=daysAgo(r.ts); if(a>=0 && a<7) recent=true; });
@@ -1997,7 +2001,7 @@ function renderLoadChart(){
   chartEl.onmousemove=chartEl.onmouseleave=chartEl.onpointerdown=chartEl.onkeydown=null;   // the other chart's tooltip/readout handlers
   // Padded through today like the hero, so the acute curve decays across rest days since the
   // last run instead of stopping on it; the To-date filter below still trims it to the range.
-  var full=RunLoad.extendTimeline(RunLoad.loadTimeline(typeRuns(), LOAD_PARAMS), new Date(), LOAD_PARAMS);
+  var full=RunLoad.extendTimeline(RunLoad.loadTimeline(loadRuns(), LOAD_PARAMS), new Date(), LOAD_PARAMS);
   if(full.length<2){ legEl.innerHTML=''; chartEl.innerHTML='<div class="rdx-chart-empty">Not enough history to model load yet.</div>'; evCapReset(chartEl); return; }
   var from=parseDate($('tFrom').value), to=parseDate($('tTo').value);
   if(from&&to&&dayEnd(to).getTime()<from.getTime()){ legEl.innerHTML=''; chartEl.innerHTML='<div class="rdx-chart-empty">'+RANGE_BAD_MSG+'</div>'; evCapReset(chartEl); return; }
@@ -2602,7 +2606,7 @@ function renderPatternsBox(box){
   var chip=$('patGapChip'), drops=[], dis=dismissedDrops(), html;
   DIS_STATUS=[];
   if(!window.InjuryPatterns || !LOAD_PARAMS){ box.innerHTML=''; if(chip) chip.hidden=true; return; }
-  var evs=events(), res=InjuryPatterns.analyze(typeRuns(), evs, LOAD_PARAMS, { dismissedDrops:dis });
+  var evs=events(), res=InjuryPatterns.analyze(loadRuns(), evs, LOAD_PARAMS, { dismissedDrops:dis });
   var nInj=evs.filter(function(e){ return e.type==='injury'; }).length, nIll=evs.filter(function(e){ return e.type==='illness'; }).length;
   var logPast='<p class="rdx-pat-act"><button type="button" class="rdx-btn rdx-btn-outline rdx-pat-logpast" data-f="logpast">+ Log a past injury</button></p>';
   if(!res.ok){
@@ -2612,7 +2616,7 @@ function renderPatternsBox(box){
           (RAW.length&&daysAgo(RAW[RAW.length-1].ts)<=7?' It unlocks around '+fmtDay(Date.now()+Math.max(0,70-days)*DAY)+'.':'')+'</p>'+
         '<p class="rdx-pat-act"><button type="button" class="rdx-btn rdx-btn-outline rdx-pat-logpast" data-f="logpast">+ Log a past injury</button><button type="button" class="rdx-btn rdx-btn-outline rdx-pat-import" data-f="import">Import older runs</button></p>'+
         gapsHTML([],dis)+patFootHTML(false)
-      : '<p class="rdx-pat-lead">No runs match the current activity types and minimum distance.</p>'+
+      : '<p class="rdx-pat-lead">No runs meet the minimum distance.</p>'+
         '<p class="rdx-pat-act"><button type="button" class="rdx-btn rdx-btn-outline rdx-pat-included" data-f="included">Open What’s included</button></p>'+gapsHTML([],dis);
   } else {
     drops=res.drops.filter(function(d){ return !d.explained; }).sort(function(a,b){ return b.t0-a.t0; });
@@ -3030,7 +3034,7 @@ function renderStatus(){
   var span=function(cls,txt){ var x=document.createElement('span'); x.className=cls; x.textContent=txt; el.appendChild(x); return x; };
   if(daysAgo(last)>3){ sep(); link('Import a newer export',function(){ openSettings('data'); }); }
   renderFileNote();
-  var tr=typeRuns(), noPace=tr.filter(function(r){ return !(r.paceSec>0); }).length;
+  var tr=typeRuns(), noPace=loadRuns().filter(function(r){ return !(r.paceSec>0); }).length;
   if(noPace){ sep(); span('warn', noPace===1?'1 run has no pace, so it doesn’t count toward load':noPace+' runs have no pace, so they don’t count toward load'); }
   if(!tr.length){ sep(); span('warn','Your filters exclude all '+RAW.length+' run'+(RAW.length===1?'':'s')); sep(); link('Reset',resetFilters); return; }
   var parts=filterParts();
@@ -3285,7 +3289,7 @@ function shellHTML(opts){
     '<section class="rdx-group" id="set-included" aria-labelledby="setIncludedHd">'+
       '<h3 class="rdx-group-hd" id="setIncludedHd">What’s included</h3>'+
       '<div class="rdx-group-body">'+
-        '<div class="rdx-ctl rdx-ctl-wide"><span class="rdx-lbl" id="typesLbl">Activity types</span><div class="rdx-types" id="types" role="group" aria-labelledby="typesLbl"></div></div>'+
+        '<div class="rdx-ctl rdx-ctl-wide"><div class="rdx-lblrow"><span class="rdx-lbl" id="typesLbl">Activity types</span>'+tipHTML('Applies to Form & volume and the metric chart only. Today, the load chart and Injury Patterns count every run type (a Lever run at its offload).','Activity types')+'</div><div class="rdx-types" id="types" role="group" aria-labelledby="typesLbl"></div></div>'+
         '<div class="rdx-ctl"><div class="rdx-lblrow"><label for="intensity">Run intensity</label>'+tipHTML('Applies to Form & volume and the metric chart only — not to Today, the load chart or Injury Patterns.','Run intensity')+'</div><select id="intensity"><option value="all">All runs</option><option value="workout">Workouts only</option><option value="easy">Easy only</option></select></div>'+
         '<div class="rdx-ctl"><label for="mindist">Min distance</label><div class="rdx-inunit"><input type="text" id="mindist" value="0.5" inputmode="decimal" style="width:56px"><span>mi</span></div></div>'+
       '</div>'+
