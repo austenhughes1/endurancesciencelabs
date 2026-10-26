@@ -1148,8 +1148,8 @@ function fmtVal(v,m){
   if(m.pace) return '<span class="rdx-val">'+fmtPace(v)+'</span>';
   return '<span class="rdx-val">'+v.toFixed(m.dec)+'</span>';
 }
-function fmtPace(s){ if(s==null) return '–'; var mm=Math.floor(s/60), ss=Math.round(s%60); return mm+':'+String(ss).padStart(2,'0'); }
-function fmtDur(s){ var h=Math.floor(s/3600), mm=Math.round((s%3600)/60); return h>0?h+'h '+mm+'m':mm+'m'; }
+function fmtPace(s){ if(s==null) return '–'; var t=Math.round(s), mm=Math.floor(t/60), ss=t%60; return mm+':'+String(ss).padStart(2,'0'); }
+function fmtDur(s){ var t=Math.round(s/60), h=Math.floor(t/60), mm=t%60; return h>0?h+'h '+mm+'m':mm+'m'; }
 // "≈ same" deadband: a change smaller than ordinary run-to-run noise isn't a change. Per metric where
 // noise beats display precision; otherwise half the last shown digit (anything that would print as 0).
 // The derived metrics carry their inputs' noise (duty = gct×cad, vGRF/force from gct+cad, eff = stride/vo).
