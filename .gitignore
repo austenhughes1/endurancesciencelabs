@@ -3,3 +3,24 @@ functions/.env
 
 # VS Code Local History extension snapshots -- may capture secrets (.env)
 .history/
+
+# Local Claude Code permission rules (per-machine, not shared)
+.claude/settings.json
+.claude/settings.local.json
+
+# Local scratch: backups, debug logs, sample data, one-off scripts.
+# inspect.js / migrate.js use the Firebase CLI login against production;
+# testparser.js holds real athlete run data — never commit these.
+*.pre-pmc.bak
+firestore-debug.log
+inspect.js
+migrate.js
+testparser.js
+sample_run_with_dynamics.fit
+*.xlsx
+
+# Original form-check photos (esFormLab uses the copies in images/gait-helpers/)
+images/back_wrong_angle.png
+images/front_view_wrong_angle.png
+images/side_view_wrong_angle_1.png
+images/side_view_wrong_angle_2.png
