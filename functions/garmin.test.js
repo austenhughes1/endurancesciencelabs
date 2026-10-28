@@ -1280,6 +1280,48 @@ section('a re-link without sharing keeps a link another tab made while Garmin wa
   eq('old runs gone, own kept', runIds('u-a'), ['own_1']);
 });
 
+section('a re-link whose permission check fails leaves a switch or disconnect made in another tab alone', async function () {
+  // Tab A re-links g-111. While it asks Garmin what was granted, another tab
+  // switches u-a to g-222 (or disconnects), and then A's request fails.
+  reset();
+  seedUser('u-a'); seedLink('u-a', 'g-111'); seedRun('u-a', 'garmin_1', 'garmin'); seedRun('u-a', 'own_1');
+  var a = await startAndApprove('u-a'), b = await startAndApprove('u-a'), resB = null;
+  var first = tokenSeq + 1, second = tokenSeq + 2;
+  var restore = onGarminRequest(/\/user\/permissions$/, async function () {
+    garmin.userId = 'g-222';
+    resB = await finish('u-a', b.state, b.key);
+    garmin.permStatus = 503;
+  });
+  var resA;
+  try { resA = await finish('u-a', a.state, a.key); } finally { restore(); }
+  var p = doc('users/u-a/private/garmin') || {}, u = doc('users/u-a');
+  eq('switch: tab B linked', resB, { result: 'connected' });
+  eq('switch: tab A told it did not link', resA, { result: 'error', reason: 'busy' });
+  eq("switch: Garmin told of the old link and of tab A's", deletes(), ['DELETE registration Bearer stored-u-a', 'DELETE registration Bearer acc-' + first]);
+  eq("switch: tab B's link keeps its own tokens", [p.garminUserId, p.accessToken, p.refreshToken], ['g-222', 'acc-' + second, 'ref-' + second]);
+  eq("switch: tab B's mapping and flags", [doc('garminUsers/g-222') && doc('garminUsers/g-222').uid, doc('garminUsers/g-111'), u.garminConnected, u.garminSharing], ['u-a', undefined, true, true]);
+  eq('switch: old runs gone, own kept', runIds('u-a'), ['own_1']);
+  eq('switch: no token logged', tokensNeverLogged(), true);
+
+  reset();
+  seedUser('u-a'); seedLink('u-a', 'g-111'); seedRun('u-a', 'garmin_1', 'garmin'); seedRun('u-a', 'own_1');
+  a = await startAndApprove('u-a');
+  first = tokenSeq + 1;
+  var resD = null;
+  restore = onGarminRequest(/\/user\/permissions$/, async function () {
+    resD = await disconnect('u-a');
+    garmin.permStatus = 503;
+  });
+  try { resA = await finish('u-a', a.state, a.key); } finally { restore(); }
+  eq('disconnect: done', resD, { deleted: 1 });
+  eq('disconnect: tab A told it did not link', resA, { result: 'error', reason: 'busy' });
+  eq("disconnect: Garmin told of the old link and of tab A's", deletes(), ['DELETE registration Bearer stored-u-a', 'DELETE registration Bearer acc-' + first]);
+  eq('disconnect: no token doc left behind', doc('users/u-a/private/garmin'), undefined);
+  eq('disconnect: mapping gone, shown as disconnected', [doc('garminUsers/g-111'), doc('users/u-a').garminConnected], [undefined, false]);
+  eq('disconnect: Garmin runs gone, own kept', runIds('u-a'), ['own_1']);
+  eq('disconnect: no token logged', tokensNeverLogged(), true);
+});
+
 section("disconnectGarmin ends only the caller's own link", async function () {
   linked(); // u-a holds g-111
   seedUser('u-b'); seedRun('u-a', 'garmin_1', 'garmin');

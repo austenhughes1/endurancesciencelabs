@@ -165,7 +165,8 @@ exports.garminCallback = onRequest({ cors: false }, async (req, res) => {
 // link someone else started never sends your Garmin data to their account.
 // Returns { result: "connected" | "scope" | "error", reason? }, reason being
 // params|state|account|user|config|exchange|inuse|busy (busy: another tab
-// linked this account to a different Garmin account first).
+// linked this account to a different Garmin account first, or ended the link
+// this one was renewing).
 exports.finishGarminLink = onCall({ cors: true, timeoutSeconds: 120 }, async (request) => {
   const uid = request.auth && request.auth.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Sign in to finish linking Garmin Connect.");
@@ -235,10 +236,22 @@ async function linkGarmin(uid, code, verifier) {
   if (!permRes.ok) {
     // Garmin didn't say what was granted, so this is an error, not "scope". A
     // new link is undone; a link this account already held carries on with
-    // the fresh tokens.
-    if (relink) await privRef(uid).set(tokenFields(tok), { merge: true });
-    else await userApi("DELETE", "registration", tok.access_token).catch(() => {});
-    return err("exchange");
+    // the fresh tokens, unless another tab has switched or ended it since this
+    // one checked: then that tab's outcome stays and this link is undone.
+    if (!relink) {
+      await userApi("DELETE", "registration", tok.access_token).catch(() => {});
+      return err("exchange");
+    }
+    const kept = await db.runTransaction(async (t) => {
+      const cur = await t.get(privRef(uid));
+      if (!cur.exists || String(cur.get("garminUserId") || "") !== garminUserId) return false;
+      t.set(privRef(uid), tokenFields(tok), { merge: true });
+      return true;
+    });
+    if (kept) return err("exchange");
+    console.warn(`finishGarminLink: uid ${uid} switched or ended its Garmin link meanwhile; this link undone`);
+    await sendDeregistration(uid, tok.access_token);
+    return err("busy");
   }
   if (!lib.hasActivityExport(await permRes.json())) {
     // Activity sharing is the whole point; without it, undo the link. If this
