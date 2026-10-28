@@ -164,7 +164,8 @@ exports.garminCallback = onRequest({ cors: false }, async (req, res) => {
 // with the key handed to the browser that approved it, so approving a Connect
 // link someone else started never sends your Garmin data to their account.
 // Returns { result: "connected" | "scope" | "error", reason? }, reason being
-// params|state|account|user|config|exchange|inuse.
+// params|state|account|user|config|exchange|inuse|busy (busy: another tab
+// linked this account to a different Garmin account first).
 exports.finishGarminLink = onCall({ cors: true, timeoutSeconds: 120 }, async (request) => {
   const uid = request.auth && request.auth.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Sign in to finish linking Garmin Connect.");
@@ -241,11 +242,12 @@ async function linkGarmin(uid, code, verifier) {
   }
   if (!lib.hasActivityExport(await permRes.json())) {
     // Activity sharing is the whole point; without it, undo the link. If this
-    // account already held it, that link has ended too, so purge it now.
+    // account already held it, that link has ended too, so purge it now. A link
+    // to another account made meanwhile stays.
     await userApi("DELETE", "registration", tok.access_token).catch(() => {});
     if (relink) {
-      const n = await purgeGarminData(uid);
-      console.log(`finishGarminLink: uid ${uid} re-linked without activity sharing; purged ${n} runs`);
+      const n = await purgeGarminData(uid, garminUserId);
+      if (n != null) console.log(`finishGarminLink: uid ${uid} re-linked without activity sharing; purged ${n} runs`);
     }
     return { result: "scope" };
   }
@@ -256,7 +258,6 @@ async function linkGarmin(uid, code, verifier) {
   const switching = !relink && (prevGarminUserId !== "" ||
     (await garminUsersMappedTo(uid)).some((id) => id !== garminUserId));
   if (switching) {
-    await deregisterGarmin(uid);
     const n = await purgeGarminData(uid);
     console.log(`finishGarminLink: uid ${uid} switched Garmin accounts; purged ${n} runs`);
   }
@@ -264,7 +265,20 @@ async function linkGarmin(uid, code, verifier) {
   // The token doc goes first: a purge still running for the old account checks
   // it before it touches the flags. sharingChangedAt: what was granted was
   // checked just now, so sharing changes that reached us earlier are older.
-  await privRef(uid).set(Object.assign(tokenFields(tok), { garminUserId, sharingChangedAt: Date.now() }));
+  // If another tab has linked a different Garmin account since this one
+  // checked, that link stays and this one is undone with Garmin.
+  const stored = await db.runTransaction(async (t) => {
+    const cur = await t.get(privRef(uid));
+    const held = cur.exists ? String(cur.get("garminUserId") || "") : "";
+    if (held && held !== garminUserId) return false;
+    t.set(privRef(uid), Object.assign(tokenFields(tok), { garminUserId, sharingChangedAt: Date.now() }));
+    return true;
+  });
+  if (!stored) {
+    console.warn(`finishGarminLink: uid ${uid} linked another Garmin account meanwhile; this link undone`);
+    await sendDeregistration(uid, tok.access_token);
+    return err("busy");
+  }
   await db.collection("garminUsers").doc(garminUserId).set({ uid, linkedAt: FieldValue.serverTimestamp() });
   await userRef.update({
     garminConnected: true, garminSharing: true,
@@ -277,7 +291,8 @@ async function linkGarmin(uid, code, verifier) {
 // Ends the athlete's link on our side and tells Garmin. The token doc is taken
 // out first, in one transaction, so a daily renewal finishing meanwhile finds
 // the link gone and tells Garmin itself with the tokens it was given (see
-// refreshGarminTokens). Best effort: a lapsed token still lets us purge locally.
+// refreshGarminTokens), and a token doc written while Garmin is being told
+// belongs to a new link. Best effort: a lapsed token still lets us purge locally.
 async function deregisterGarmin(uid) {
   const p = await db.runTransaction(async (t) => {
     const snap = await t.get(privRef(uid));
@@ -346,24 +361,30 @@ async function garminUsersMappedTo(uid) {
 // account, checked inside its transaction, so no run lands after the sweep
 // below. The mappings go last, so a deregistration that fails part-way still
 // finds the account when it is retried.
-// With garminUserId (a deregistration), only a link to that account ends: if
-// uid holds a link to another account by the time the tokens are checked, that
-// link stays, only the old mapping is freed, and null is returned. Without it,
-// every mapping still pointing at uid is freed, which also finds one that an
-// earlier purge, failing after the tokens were gone, left behind. Either way, a
-// link made while this ran keeps its mapping and queued items.
+// With garminUserId (a deregistration from Garmin, or a link we have just
+// undone with Garmin), only a link to that account ends: if uid holds a link to
+// another account by the time the tokens are checked, that link stays, only
+// the old mapping is freed, and null is returned. Without it, uid's link ends
+// here and deregisterGarmin tells Garmin; every mapping still pointing at uid
+// is freed, which also finds one that an earlier purge, failing after the
+// tokens were gone, left behind. Either way, a link made after the tokens were
+// taken keeps its tokens, flags, mapping and queued items.
 async function purgeGarminData(uid, garminUserId) {
   const only = garminUserId != null ? String(garminUserId) : null;
-  const ended = await db.runTransaction(async (t) => {
-    const priv = await t.get(privRef(uid));
-    const held = String((priv.exists && priv.get("garminUserId")) || "");
-    if (only && held && held !== only) return false;
-    t.delete(privRef(uid));
-    return true;
-  });
-  if (!ended) {
-    await dropGarminUserMapping(uid, only);
-    return null;
+  if (!only) {
+    await deregisterGarmin(uid);
+  } else {
+    const ended = await db.runTransaction(async (t) => {
+      const priv = await t.get(privRef(uid));
+      const held = String((priv.exists && priv.get("garminUserId")) || "");
+      if (held && held !== only) return false;
+      t.delete(privRef(uid));
+      return true;
+    });
+    if (!ended) {
+      await dropGarminUserMapping(uid, only);
+      return null;
+    }
   }
   const runs = await runsCol(uid).where("source", "==", "garmin").get();
   let deleted = 0;
@@ -661,7 +682,6 @@ exports.onGarminInbox = onDocumentCreated(
 exports.disconnectGarmin = onCall({ cors: true, timeoutSeconds: 120 }, async (request) => {
   const uid = request.auth && request.auth.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Sign in to manage Garmin Connect.");
-  await deregisterGarmin(uid);
   const deleted = await purgeGarminData(uid);
   console.log(`disconnectGarmin: purged ${deleted} runs for uid ${uid}`);
   return { deleted };

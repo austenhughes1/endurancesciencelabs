@@ -1193,6 +1193,93 @@ section('a link finished while a disconnect runs keeps its mapping and is renewe
   }
 });
 
+// Runs fn the first time a request whose URL matches re reaches Garmin, before
+// that request is answered.
+function onGarminRequest(re, fn) {
+  var realFetch = global.fetch, fired = false;
+  global.fetch = async function (url, opts) {
+    if (!fired && re.test(url)) { fired = true; await fn(); }
+    return realFetch(url, opts);
+  };
+  return function restore() { global.fetch = realFetch; };
+}
+
+section('a link finished in another tab while disconnect is telling Garmin stays whole', async function () {
+  var cases = [
+    ['another Garmin account, during the deregistration', 'g-222', /\/user\/registration$/],
+    ['the same Garmin account, during the deregistration', 'g-111', /\/user\/registration$/],
+    ['another Garmin account, during the renewal', 'g-222', /oauth\/token$/],
+  ];
+  for (var i = 0; i < cases.length; i++) {
+    var name = cases[i][0], gid = cases[i][1];
+    linked();
+    seedRun('u-a', 'garmin_1', 'garmin'); seedRun('u-a', 'own_1');
+    store.set('garminInbox/stuck-run', { kind: 'activities', item: { userId: 'g-111', activityId: 9001 } });
+    if (/renewal/.test(name)) doc('users/u-a/private/garmin').expiresAt = Date.now() - 1;
+    garmin.userId = gid;
+    var r = await startAndApprove('u-a'), linkRes = null, linkedWith = null, res;
+    var restore = onGarminRequest(cases[i][2], async function () {
+      linkRes = await finish('u-a', r.state, r.key);
+      linkedWith = 'acc-' + tokenSeq;
+    });
+    try { res = await disconnect('u-a'); } finally { restore(); }
+    var told = /renewal/.test(name) ? 'acc-' + tokenSeq : 'stored-u-a';
+    var p = doc('users/u-a/private/garmin') || {}, u = doc('users/u-a'), m = doc('garminUsers/' + gid) || {};
+    eq(name + ': the other tab was told it is linked', linkRes, { result: 'connected' });
+    eq(name + ': the old link told Garmin, the new one not', deletes(), ['DELETE registration Bearer ' + told]);
+    // Linking another account counts as a switch, so that tab may delete the old runs first.
+    eq(name + ': old runs deleted, own kept', [typeof res.deleted, runIds('u-a')], ['number', ['own_1']]);
+    eq(name + ': new link whole', [p.garminUserId, p.accessToken, m.uid, u.garminConnected, u.garminSharing], [gid, linkedWith, 'u-a', true, true]);
+    if (gid !== 'g-111') eq(name + ': old mapping and its queued run gone', [doc('garminUsers/g-111'), store.has('garminInbox/stuck-run')], [undefined, false]);
+    eq(name + ': no token logged', tokensNeverLogged(), true);
+  }
+});
+
+section('a switch that another tab beats to a link is undone with Garmin, and that link stays', async function () {
+  reset();
+  seedUser('u-a'); seedLink('u-a', 'g-old'); seedRun('u-a', 'garmin_old', 'garmin'); seedRun('u-a', 'own_1');
+  garmin.userId = 'g-new';
+  var a = await startAndApprove('u-a'), b = await startAndApprove('u-a'), resB = null;
+  var first = tokenSeq + 1, second = tokenSeq + 2;
+  // Tab A is switching to g-new; tab B links g-333 while A tells Garmin the old link ended.
+  var restore = onGarminRequest(/\/user\/registration$/, async function () {
+    garmin.userId = 'g-333';
+    resB = await finish('u-a', b.state, b.key);
+  });
+  var resA;
+  try { resA = await finish('u-a', a.state, a.key); } finally { restore(); }
+  var p = doc('users/u-a/private/garmin') || {}, u = doc('users/u-a');
+  eq('tab B linked', resB, { result: 'connected' });
+  eq('tab A told it did not link', resA, { result: 'error', reason: 'busy' });
+  eq("Garmin told of the old link and of tab A's", deletes(), ['DELETE registration Bearer stored-u-a', 'DELETE registration Bearer acc-' + first]);
+  eq("tab B's link whole", [p.garminUserId, p.accessToken, doc('garminUsers/g-333') && doc('garminUsers/g-333').uid, u.garminConnected, u.garminSharing], ['g-333', 'acc-' + second, 'u-a', true, true]);
+  eq('no mapping for the old account or tab A', [doc('garminUsers/g-old'), doc('garminUsers/g-new')], [undefined, undefined]);
+  eq('old runs gone, own kept', runIds('u-a'), ['own_1']);
+  eq('no token logged', tokensNeverLogged(), true);
+});
+
+section('a re-link without sharing keeps a link another tab made while Garmin was told', async function () {
+  reset();
+  seedUser('u-a'); seedLink('u-a', 'g-111'); seedRun('u-a', 'garmin_1', 'garmin'); seedRun('u-a', 'own_1');
+  garmin.permissions = [];
+  var a = await startAndApprove('u-a'), b = await startAndApprove('u-a'), resB = null;
+  var first = tokenSeq + 1, second = tokenSeq + 2;
+  // Tab A re-links g-111 without sharing; tab B links g-222 while A tells Garmin.
+  var restore = onGarminRequest(/\/user\/registration$/, async function () {
+    garmin.userId = 'g-222'; garmin.permissions = ['ACTIVITY_EXPORT'];
+    resB = await finish('u-a', b.state, b.key);
+  });
+  var resA;
+  try { resA = await finish('u-a', a.state, a.key); } finally { restore(); }
+  var p = doc('users/u-a/private/garmin') || {}, u = doc('users/u-a');
+  eq('tab A: scope', resA, { result: 'scope' });
+  eq('tab B linked', resB, { result: 'connected' });
+  eq('Garmin told of the old link and of tab A\'s', deletes(), ['DELETE registration Bearer stored-u-a', 'DELETE registration Bearer acc-' + first]);
+  eq("tab B's link whole", [p.garminUserId, p.accessToken, doc('garminUsers/g-222') && doc('garminUsers/g-222').uid, u.garminConnected], ['g-222', 'acc-' + second, 'u-a', true]);
+  eq('old mapping gone', doc('garminUsers/g-111'), undefined);
+  eq('old runs gone, own kept', runIds('u-a'), ['own_1']);
+});
+
 section("disconnectGarmin ends only the caller's own link", async function () {
   linked(); // u-a holds g-111
   seedUser('u-b'); seedRun('u-a', 'garmin_1', 'garmin');
