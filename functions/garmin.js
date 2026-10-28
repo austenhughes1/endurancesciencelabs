@@ -307,3 +307,134 @@ exports.endGarminLinkForDeletion = async function endGarminLinkForDeletion(uid) 
   await dropGarminUserMapping(uid, priv.get("garminUserId"));
   return told ? null : "Garmin could not be told the link ended (no usable token, or Garmin refused); it was dropped on our side.";
 };
+
+const HANDLED = new Set(["activities", "activityFiles", "deregistrations", "userPermissionsChange"]);
+
+// Garmin's push target. Only filters (non-run activities are never stored) and
+// queues; the worker below does everything else, so the reply is immediate.
+exports.garminPush = onRequest({ cors: false }, async (req, res) => {
+  const key = process.env.GARMIN_PUSH_KEY;
+  if (req.method !== "POST" || !key || !sameSecret(req.query.k, key)) { res.status(404).send("Not found"); return; }
+  try {
+    const body = req.body || {};
+    const items = [];
+    for (const kind of Object.keys(body)) {
+      if (!HANDLED.has(kind) || !Array.isArray(body[kind])) continue;
+      for (const item of body[kind]) {
+        if (!item || !item.userId) continue;
+        if ((kind === "activities" || kind === "activityFiles") && !lib.runTypeFor(item.activityType)) continue;
+        items.push({ kind, item });
+      }
+    }
+    for (let i = 0; i < items.length; i += 450) {
+      const batch = db.batch();
+      for (const it of items.slice(i, i + 450)) {
+        batch.set(db.collection("garminInbox").doc(), Object.assign(it, { receivedAt: FieldValue.serverTimestamp() }));
+      }
+      await batch.commit();
+    }
+  } catch (e) {
+    console.error("garminPush error:", e.message);
+  }
+  res.status(200).send("OK");
+});
+
+let fitParserP = null;
+function loadFitParser() {
+  if (!fitParserP) {
+    fitParserP = import("fit-file-parser").then((m) => {
+      let P = m.default || m;
+      if (P && P.default) P = P.default;
+      return P;
+    });
+  }
+  return fitParserP;
+}
+
+// Parses in memory and returns sessions only. GPS records are never kept.
+async function parseFitSessions(buf) {
+  const FitParser = await loadFitParser();
+  return new Promise((resolve) => {
+    const fp = new FitParser({ force: true, mode: "list", speedUnit: "m/s", lengthUnit: "m" });
+    fp.parse(buf, (err, data) => resolve(err || !data ? [] : (data.sessions || [])));
+  });
+}
+
+async function uidForGarminUser(garminUserId) {
+  const snap = await db.collection("garminUsers").doc(String(garminUserId)).get();
+  return snap.exists ? snap.get("uid") : null;
+}
+
+function runsCol(uid) { return db.collection("users").doc(uid).collection("garminActivities"); }
+
+// Write one Garmin run. New run: skipped if the athlete's own watch upload
+// already covers it; replaces an overlapping Strava run. Existing run: merge
+// only defined values, so whichever of summary/file lands second never erases
+// the other's fields. One transaction, so a summary and a file for the same
+// run handled at the same moment can't both write it as new.
+async function upsertGarminRun(uid, doc) {
+  const ref = runsCol(uid).doc(doc.id);
+  const day = 24 * 60 * 60 * 1000;
+  const near = runsCol(uid).where("ts", ">=", doc.ts - day).where("ts", "<=", doc.ts + day);
+  await db.runTransaction(async (t) => {
+    const snap = await t.get(ref);
+    if (snap.exists) { t.set(ref, lib.definedOnly(doc), { merge: true }); return; }
+    const found = await t.get(near);
+    const strava = [];
+    for (const d of found.docs) {
+      const x = d.data();
+      if (!lib.sameRunSpan(doc.ts, doc.durSec, Number(x.ts), x.durSec)) continue;
+      if (x.source === "strava") strava.push(d.ref);
+      else if (x.source !== "garmin") return;
+    }
+    strava.forEach((r) => t.delete(r));
+    t.set(ref, Object.assign({}, doc, { syncedAt: FieldValue.serverTimestamp() }));
+  });
+}
+
+async function handleGarminItem(kind, item) {
+  const uid = await uidForGarminUser(item.userId);
+  if (!uid) return;
+  if (kind === "deregistrations") {
+    const n = await purgeGarminData(uid);
+    console.log(`garmin deregistration: purged ${n} runs for uid ${uid}`);
+    return;
+  }
+  if (kind === "userPermissionsChange") {
+    await db.collection("users").doc(uid).update({ garminSharing: lib.hasActivityExport(item) });
+    return;
+  }
+  const user = await db.collection("users").doc(uid).get();
+  if (user.get("garminSharing") === false) return;
+  if (kind === "activities") {
+    const doc = lib.runDocFromSummary(item);
+    if (doc) await upsertGarminRun(uid, doc);
+    return;
+  }
+  if (kind === "activityFiles") {
+    if (String(item.fileType || "").toUpperCase() !== "FIT" || !item.callbackURL) return;
+    const r = await fetch(item.callbackURL);
+    if (!r.ok) { console.warn(`garmin file HTTP ${r.status} for uid ${uid}`); return; }
+    const sessions = await parseFitSessions(Buffer.from(await r.arrayBuffer()));
+    const s = sessions.find((x) => /run/i.test(String(x.sport || ""))) || sessions[0];
+    const doc = lib.runDocFromFile(item, s);
+    if (doc) await upsertGarminRun(uid, doc);
+  }
+}
+
+// maxInstances limits how many items, and so file downloads, run at once.
+exports.onGarminInbox = onDocumentCreated(
+  { document: "garminInbox/{id}", timeoutSeconds: 120, memory: "512MiB", maxInstances: 5 },
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+    const { kind, item } = snap.data();
+    try {
+      await handleGarminItem(kind, item);
+    } catch (e) {
+      console.error(`onGarminInbox ${kind} error:`, e.message);
+    } finally {
+      await snap.ref.delete();
+    }
+  }
+);

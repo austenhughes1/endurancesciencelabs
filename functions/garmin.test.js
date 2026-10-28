@@ -35,10 +35,14 @@ function applyFields(base, data) {
   return out;
 }
 
+// Reads answer on a later turn of the event loop, as a real backend does, so
+// work started together interleaves the way it does in production.
+function later(v) { return new Promise(function (r) { setImmediate(function () { r(v); }); }); }
+
 var autoId = 0;
 function DocRef(p) { this.path = p; this.id = p.slice(p.lastIndexOf('/') + 1); }
 DocRef.prototype.collection = function (name) { return new Query(this.path + '/' + name, []); };
-DocRef.prototype.get = function () { return Promise.resolve(new Snap(this, store.get(this.path))); };
+DocRef.prototype.get = function () { return later(new Snap(this, store.get(this.path))); };
 DocRef.prototype.set = function (data, opts) {
   store.set(this.path, applyFields(opts && opts.merge ? store.get(this.path) || {} : {}, data));
   return Promise.resolve();
@@ -71,7 +75,7 @@ Query.prototype.get = function () {
     if (self.filters.every(function (w) { return cmp(d[w[0]], w[1], w[2]); })) docs.push(new Snap(new DocRef(p), d));
   });
   if (self.lim != null) docs = docs.slice(0, self.lim);
-  return Promise.resolve({ docs: docs, size: docs.length, empty: docs.length === 0 });
+  return later({ docs: docs, size: docs.length, empty: docs.length === 0 });
 };
 
 var db = {
@@ -85,7 +89,26 @@ var db = {
       commit: async function () { for (var i = 0; i < ops.length; i++) await ops[i](); },
     };
   },
+  // One transaction at a time, standing in for the locks a real one takes;
+  // writes apply when the callback finishes.
+  runTransaction: function (fn) {
+    var run = txQueue.then(async function () {
+      var ops = [];
+      var t = {
+        get: function (x) { return x.get(); },
+        set: function (ref, data, opts) { ops.push(function () { return ref.set(data, opts); }); return t; },
+        update: function (ref, data) { ops.push(function () { return ref.update(data); }); return t; },
+        delete: function (ref) { ops.push(function () { return ref.delete(); }); return t; },
+      };
+      var out = await fn(t);
+      for (var i = 0; i < ops.length; i++) await ops[i]();
+      return out;
+    });
+    txQueue = run.catch(function () {});
+    return run;
+  },
 };
+var txQueue = Promise.resolve();
 
 function HttpsError(code, message) { var e = new Error(message); e.code = code; return e; }
 var fakes = {
@@ -108,6 +131,7 @@ function resetGarmin() {
     tokenStatus: 200,
     permStatus: 200,
     permissions: ['ACTIVITY_EXPORT'],
+    files: {}, // callback URL -> FIT bytes; null = not available
   };
 }
 var tokenSeq = 0;
@@ -126,7 +150,15 @@ global.fetch = async function (url, opts) {
     tokenSeq++;
     return reply(garmin.tokenStatus, { access_token: 'acc-' + tokenSeq, refresh_token: 'ref-' + tokenSeq, expires_in: 86400, refresh_token_expires_in: 7776000 });
   }
-  var m = /\/user\/(id|permissions|registration)$/.exec(url);
+  if (Object.prototype.hasOwnProperty.call(garmin.files, url)) {
+    calls.push(method + ' file');
+    var bytes = garmin.files[url];
+    return {
+      ok: !!bytes, status: bytes ? 200 : 404,
+      arrayBuffer: async function () { return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength); },
+    };
+  }
+  var m =/\/user\/(id|permissions|registration)$/.exec(url);
   if (!m) throw new Error('unexpected fetch ' + url);
   calls.push(method + ' ' + m[1] + (method === 'DELETE' ? ' ' + auth : ''));
   if (m[1] === 'id') return reply(200, { userId: garmin.userId });
@@ -137,6 +169,7 @@ global.fetch = async function (url, opts) {
 // ── Load garmin.js with the fakes ────────────────────────────────
 process.env.GARMIN_CLIENT_ID = 'test-client-id';
 process.env.GARMIN_CLIENT_SECRET = 'test-client-secret';
+process.env.GARMIN_PUSH_KEY = 'test-push-key';
 var realLoad = Module._load;
 Module._load = function (request) {
   if (Object.prototype.hasOwnProperty.call(fakes, request)) return fakes[request];
@@ -145,9 +178,11 @@ Module._load = function (request) {
 var g = require('./garmin');
 Module._load = realLoad;
 
-// Keep the module's own warnings out of the test output.
+// Keep the module's own warnings out of the test output, but keep them so
+// tests can check what would reach the logs.
 var quiet = { log: console.log, warn: console.warn, error: console.error };
-console.log = console.warn = console.error = function () {};
+var logged = [];
+console.log = console.warn = console.error = function () { logged.push(Array.prototype.join.call(arguments, ' ')); };
 var say = quiet.log;
 
 // ── Harness ──────────────────────────────────────────────────────
@@ -160,7 +195,7 @@ function eq(label, got, want) {
 var sections = [];
 function section(name, fn) { sections.push([name, fn]); }
 
-function reset() { store.clear(); resetGarmin(); }
+function reset() { store.clear(); resetGarmin(); logged.length = 0; }
 function doc(p) { return store.get(p); }
 function seedUser(uid, extra) { store.set('users/' + uid, Object.assign({ name: 'Test ' + uid }, extra || {})); }
 // A stored link for uid to Garmin account gid, with a token that is still good.
@@ -379,6 +414,302 @@ section('endGarminLinkForDeletion tells Garmin and frees the mapping', async fun
   var unlink = fn.indexOf('garmin.endGarminLinkForDeletion(uid)');
   var wipe = fn.indexOf('db.recursiveDelete(db.collection("users").doc(uid))');
   eq('adminDeleteUser ends the Garmin link first', unlink > 0 && wipe > unlink, true);
+});
+
+// ── Push intake and the inbox worker ─────────────────────────────
+
+// A made-up FIT file: one session message per entry, each field given as
+// [field number, base type, raw value].
+var FIT_EPOCH_S = 631065600; // FIT time zero, 1989-12-31T00:00:00Z, in Unix seconds
+var ENUM = 0x00, U8 = 0x02, U16 = 0x84, U32 = 0x86;
+var FIT_SIZE = { 0: 1, 2: 1, 132: 2, 134: 4 };
+function fitCrc(bytes) {
+  var T = [0x0000, 0xCC01, 0xD801, 0x1400, 0xF001, 0x3C00, 0x2800, 0xE401, 0xA001, 0x6C00, 0x7800, 0xB401, 0x5000, 0x9C01, 0x8801, 0x4400];
+  var crc = 0;
+  bytes.forEach(function (b) {
+    var t = T[crc & 0xF]; crc = (crc >> 4) & 0x0FFF; crc = crc ^ t ^ T[b & 0xF];
+    t = T[crc & 0xF]; crc = (crc >> 4) & 0x0FFF; crc = crc ^ t ^ T[(b >> 4) & 0xF];
+  });
+  return crc;
+}
+function fitFile(sessions) {
+  var data = [];
+  sessions.forEach(function (fields) {
+    data.push(0x40, 0, 0, 18, 0, fields.length); // definition: local 0, little endian, global 18 (session)
+    fields.forEach(function (f) { data.push(f[0], FIT_SIZE[f[1]], f[1]); });
+    data.push(0x00); // data message, local 0
+    fields.forEach(function (f) { for (var i = 0; i < FIT_SIZE[f[1]]; i++) data.push((f[2] >>> (8 * i)) & 0xFF); });
+  });
+  var n = data.length;
+  var head = [14, 0x20, 0x2D, 0x08, n & 0xFF, (n >> 8) & 0xFF, (n >> 16) & 0xFF, (n >>> 24) & 0xFF, 0x2E, 0x46, 0x49, 0x54];
+  var hc = fitCrc(head), fc = fitCrc(data);
+  return Buffer.from(head.concat([hc & 0xFF, hc >> 8], data, [fc & 0xFF, fc >> 8]));
+}
+var RUN_SESSION = [
+  [2, U32, 1800000000 - FIT_EPOCH_S], // start_time
+  [5, ENUM, 1],                       // sport: running
+  [8, U32, 2400000],                  // total_timer_time 2400 s
+  [9, U32, 804670],                   // total_distance 8046.70 m
+  [14, U16, 3353],                    // avg_speed 3.353 m/s
+  [16, U8, 150], [17, U8, 171],       // avg / max heart rate
+  [18, U8, 86], [92, U8, 64],         // cadence 86 per leg + 0.5
+  [22, U16, 40], [23, U16, 38],       // total ascent / descent
+  [24, U8, 32],                       // total_training_effect 3.2
+  [89, U16, 850],                     // avg_vertical_oscillation 85.0 mm
+  [91, U16, 2450],                    // avg_stance_time 245.0 ms
+  [132, U16, 750],                    // avg_vertical_ratio 7.50 %
+  [133, U16, 4980],                   // avg_stance_time_balance 49.80 %
+  [134, U16, 12000],                  // avg_step_length 1200.0 mm
+];
+var BIKE_SESSION = [[2, U32, 1800000000 - 3600 - FIT_EPOCH_S], [5, ENUM, 2], [8, U32, 1800000], [16, U8, 120]];
+
+var T0 = 1800000000000;
+var SUMMARY = {
+  userId: 'g-111', summaryId: 'S-9001', activityId: 9001, activityName: 'Easy run',
+  activityType: 'RUNNING', startTimeInSeconds: T0 / 1000, startTimeOffsetInSeconds: -21600,
+  durationInSeconds: 2400, distanceInMeters: 8046.7, averageSpeedInMetersPerSecond: 3.353,
+  averageHeartRateInBeatsPerMinute: 150, maxHeartRateInBeatsPerMinute: 171,
+  averageRunCadenceInStepsPerMinute: 86, steps: 7000,
+  totalElevationGainInMeters: 40, totalElevationLossInMeters: 38, deviceName: 'Forerunner 965',
+};
+var FILE_URL = 'https://files.example.test/activity-file?id=9001&token=tok-secret-9001';
+var FILE_ITEM = {
+  userId: 'g-111', summaryId: 'F-9001', fileType: 'FIT', callbackURL: FILE_URL,
+  activityId: 9001, activityType: 'RUNNING', activityName: 'Easy run',
+  deviceName: 'Forerunner 965', startTimeInSeconds: T0 / 1000,
+};
+function copy(o, extra) { return Object.assign({}, o, extra); }
+var RUN = 'users/u-a/garminActivities/garmin_9001';
+
+// The browser's own imports (CSV, FIT) write no source field.
+function seedRunAt(uid, id, ts, durSec, source) {
+  var d = { id: id, ts: ts, durSec: durSec };
+  if (source) d.source = source;
+  store.set('users/' + uid + '/garminActivities/' + id, d);
+}
+function linked() { reset(); seedUser('u-a'); seedLink('u-a', 'g-111'); }
+
+function mkRes() {
+  return { code: null, body: null, status: function (n) { this.code = n; return this; }, send: function (b) { this.body = b; return this; } };
+}
+async function push(body, query, method) {
+  var res = mkRes();
+  await g.garminPush({ method: method || 'POST', query: query || { k: 'test-push-key' }, body: body }, res);
+  return res;
+}
+function inbox() {
+  var out = [];
+  store.forEach(function (d, p) { if (p.indexOf('garminInbox/') === 0) out.push(d); });
+  return out;
+}
+// Runs the worker on every queued item at once, as the trigger would.
+async function work() {
+  var snaps = [];
+  store.forEach(function (d, p) { if (p.indexOf('garminInbox/') === 0) snaps.push(new Snap(new DocRef(p), d)); });
+  await Promise.all(snaps.map(function (s) { return g.onGarminInbox({ data: s }); }));
+}
+
+// The file sections need the real FIT parser from functions/node_modules.
+var hasFitParser = (function () {
+  try { require.resolve('fit-file-parser', { paths: [__dirname] }); return true; } catch (e) { return false; }
+})();
+function fitSection(name, fn) {
+  if (hasFitParser) section(name, fn);
+  else section(name + ' -- SKIPPED: run npm install in functions/ to test the FIT parser', async function () {});
+}
+
+section('garminPush: a wrong or missing key gets a 404 and queues nothing', async function () {
+  reset();
+  eq('wrong key', (await push({ activities: [SUMMARY] }, { k: 'guess' })).code, 404);
+  eq('no key', (await push({ activities: [SUMMARY] }, {})).code, 404);
+  eq('not a POST', (await push({ activities: [SUMMARY] }, null, 'GET')).code, 404);
+  delete process.env.GARMIN_PUSH_KEY;
+  try {
+    eq('push key not configured', (await push({ activities: [SUMMARY] })).code, 404);
+  } finally {
+    process.env.GARMIN_PUSH_KEY = 'test-push-key';
+  }
+  eq('nothing queued', inbox().length, 0);
+});
+
+section('garminPush queues runs, run files, deregistrations and permission changes only', async function () {
+  reset();
+  var res = await push({
+    activities: [SUMMARY, copy(SUMMARY, { activityId: 9002, activityType: 'CYCLING' }), copy(SUMMARY, { userId: undefined }), null],
+    activityFiles: [FILE_ITEM, copy(FILE_ITEM, { activityId: 9003, activityType: 'CYCLING' })],
+    deregistrations: [{ userId: 'g-111' }],
+    userPermissionsChange: [{ userId: 'g-111', permissions: ['ACTIVITY_EXPORT'] }],
+    somethingElse: [{ userId: 'g-111' }],
+  });
+  eq('answers 200', [res.code, res.body], [200, 'OK']);
+  var q = inbox();
+  eq('queued kinds', q.map(function (x) { return x.kind; }).sort(), ['activities', 'activityFiles', 'deregistrations', 'userPermissionsChange']);
+  eq('only the run summary and run file', q.filter(function (x) { return x.item.activityId; }).map(function (x) { return x.item.activityId; }), [9001, 9001]);
+  eq('each stamped on arrival', q.every(function (x) { return x.receivedAt instanceof Timestamp; }), true);
+  eq('nothing sent to Garmin', calls, []);
+
+  reset();
+  eq('a kind that is not a list -> 200', (await push({ activities: SUMMARY })).code, 200);
+  eq('and nothing queued', inbox().length, 0);
+});
+
+section('garminPush still answers 200 when queueing fails', async function () {
+  reset();
+  var realBatch = db.batch, res;
+  db.batch = function () { throw new Error('backend down'); };
+  try { res = await push({ activities: [SUMMARY] }); } finally { db.batch = realBatch; }
+  eq('200', res.code, 200);
+  eq('error logged', logged.some(function (l) { return /garminPush error/.test(l); }), true);
+});
+
+section('a run summary becomes a Garmin run in Running Dynamics', async function () {
+  linked();
+  await push({ activities: [SUMMARY] });
+  await work();
+  var d = doc(RUN);
+  eq('one run', runIds('u-a'), ['garmin_9001']);
+  eq('source', d.source, 'garmin');
+  eq('start', d.ts, T0);
+  eq('summary fields', [d.durSec, d.avgHr, d.steps, d.cadence, d.deviceName], [2400, 150, 7000, 172, 'Forerunner 965']);
+  eq('sync stamp', d.syncedAt instanceof Timestamp, true);
+  eq('inbox drained', inbox().length, 0);
+  eq('no Garmin calls', calls, []);
+});
+
+section('items for a Garmin account linked to nobody are dropped', async function () {
+  linked();
+  garmin.files[FILE_URL] = fitFile([RUN_SESSION]);
+  await push({ activities: [copy(SUMMARY, { userId: 'g-999' })], activityFiles: [copy(FILE_ITEM, { userId: 'g-999' })] });
+  await work();
+  eq('no runs', runIds('u-a'), []);
+  eq('no download', calls, []);
+  eq('inbox drained', inbox().length, 0);
+});
+
+fitSection('the activity file adds running dynamics to the run', async function () {
+  linked();
+  garmin.files[FILE_URL] = fitFile([RUN_SESSION]);
+  await push({ activities: [SUMMARY] }); await work();
+  await push({ activityFiles: [FILE_ITEM] }); await work();
+  var d = doc(RUN);
+  eq('downloaded once', calls, ['GET file']);
+  eq('still one run', runIds('u-a'), ['garmin_9001']);
+  eq('GCT ms', d.gct, 245);
+  eq('VO mm -> cm', d.vo, 8.5);
+  eq('step mm -> m', d.stride, 1.2);
+  eq('vertical ratio', d.vratio, 7.5);
+  eq('GCT balance', d.gctBalL, 49.8);
+  eq('training effect', d.aerobicTE, 3.2);
+  eq('cadence from the file', d.cadence, 173);
+  eq("summary's steps and title kept", [d.steps, d.title], [7000, 'Easy run']);
+  eq('inbox drained', inbox().length, 0);
+});
+
+fitSection('a file that lands before its summary keeps its running dynamics', async function () {
+  linked();
+  garmin.files[FILE_URL] = fitFile([RUN_SESSION]);
+  await push({ activityFiles: [FILE_ITEM] }); await work();
+  await push({ activities: [SUMMARY] }); await work();
+  var d = doc(RUN);
+  eq('dynamics kept', [d.gct, d.vo, d.stride], [245, 8.5, 1.2]);
+  eq('steps added', d.steps, 7000);
+});
+
+fitSection('a summary and its file handled at the same moment both land', async function () {
+  var orders = { 'summary queued first': ['activities', 'activityFiles'], 'file queued first': ['activityFiles', 'activities'] };
+  for (var name in orders) {
+    linked();
+    garmin.files[FILE_URL] = fitFile([RUN_SESSION]);
+    for (var i = 0; i < 2; i++) {
+      var body = {};
+      body[orders[name][i]] = [orders[name][i] === 'activities' ? SUMMARY : FILE_ITEM];
+      await push(body);
+    }
+    await work();
+    var d = doc(RUN);
+    eq(name + ': one run', runIds('u-a'), ['garmin_9001']);
+    eq(name + ": file's dynamics", [d.gct, d.vo], [245, 8.5]);
+    eq(name + ": summary's steps", d.steps, 7000);
+  }
+});
+
+fitSection('a multisport file uses its running session', async function () {
+  linked();
+  garmin.files[FILE_URL] = fitFile([BIKE_SESSION, RUN_SESSION]);
+  await push({ activityFiles: [FILE_ITEM] }); await work();
+  var d = doc(RUN);
+  eq('running session', [d.ts, d.durSec, d.gct], [T0, 2400, 245]);
+});
+
+section('a file that cannot be downloaded stores nothing and keeps its URL out of the logs', async function () {
+  linked();
+  garmin.files[FILE_URL] = null; // not available
+  await push({ activityFiles: [FILE_ITEM] }); await work();
+  eq('one try', calls, ['GET file']);
+  eq('no run', runIds('u-a'), []);
+  eq('status logged', logged.some(function (l) { return /404/.test(l) && /u-a/.test(l); }), true);
+  eq('URL and its token never logged', logged.join('\n').indexOf('files.example.test') < 0 && logged.join('\n').indexOf('tok-secret') < 0, true);
+  eq('inbox drained', inbox().length, 0);
+});
+
+section('only FIT files with a URL are downloaded', async function () {
+  linked();
+  garmin.files[FILE_URL] = fitFile([RUN_SESSION]);
+  await push({ activityFiles: [copy(FILE_ITEM, { fileType: 'TCX' }), copy(FILE_ITEM, { callbackURL: undefined })] });
+  await work();
+  eq('no download', calls, []);
+  eq('no run', runIds('u-a'), []);
+});
+
+section("the athlete's own upload wins; an overlapping Strava run is replaced", async function () {
+  linked();
+  seedRunAt('u-a', '20270115080030_running', T0 + 30e3, 2390);
+  await push({ activities: [SUMMARY] }); await work();
+  eq('own upload covers it -> skipped', runIds('u-a'), ['20270115080030_running']);
+
+  linked();
+  seedRunAt('u-a', 'strava_1', T0 + 20e3, 2390, 'strava');
+  seedRunAt('u-a', 'strava_2', T0 + 6 * 3600e3, 1800, 'strava');
+  seedRunAt('u-a', 'own_later', T0 + 8 * 3600e3, 1800);
+  await push({ activities: [SUMMARY] }); await work();
+  eq('overlapping Strava run replaced, the rest kept', runIds('u-a'), ['garmin_9001', 'own_later', 'strava_2']);
+});
+
+section('sharing turned off in Garmin Connect pauses new runs; turned on, they resume', async function () {
+  linked();
+  seedRunAt('u-a', 'garmin_1', T0 - 86400e3, 1800, 'garmin');
+  await push({ userPermissionsChange: [{ userId: 'g-111', permissions: [] }] }); await work();
+  eq('paused', doc('users/u-a').garminSharing, false);
+  garmin.files[FILE_URL] = fitFile([RUN_SESSION]);
+  await push({ activities: [SUMMARY], activityFiles: [FILE_ITEM] }); await work();
+  eq('nothing new while paused', runIds('u-a'), ['garmin_1']);
+  eq('no download while paused', calls, []);
+  eq('link and earlier runs kept', [doc('users/u-a').garminConnected, !!doc('users/u-a/private/garmin'), doc('garminUsers/g-111').uid], [true, true, 'u-a']);
+
+  await push({ userPermissionsChange: [{ userId: 'g-111', permissions: ['ACTIVITY_EXPORT'] }] }); await work();
+  eq('resumed', doc('users/u-a').garminSharing, true);
+  await push({ activities: [SUMMARY] }); await work();
+  eq('runs land again', runIds('u-a'), ['garmin_1', 'garmin_9001']);
+});
+
+section('a deregistration from Garmin deletes everything Garmin sent', async function () {
+  linked();
+  seedRun('u-a', 'garmin_1', 'garmin'); seedRun('u-a', 'own_1'); seedRun('u-a', 'strava_1', 'strava');
+  await push({ deregistrations: [{ userId: 'g-111' }] }); await work();
+  eq('Garmin runs gone, the rest kept', runIds('u-a'), ['own_1', 'strava_1']);
+  eq('tokens and mapping gone', [doc('users/u-a/private/garmin'), doc('garminUsers/g-111')], [undefined, undefined]);
+  eq('shown as disconnected', doc('users/u-a').garminConnected, false);
+  eq('Garmin not called back', calls, []);
+  await push({ activities: [SUMMARY] }); await work();
+  eq('a late summary is dropped', runIds('u-a'), ['own_1', 'strava_1']);
+});
+
+section('an item that fails is still removed from the inbox', async function () {
+  reset();
+  store.set('garminUsers/g-111', { uid: 'u-gone' }); // no users/u-gone doc
+  await push({ userPermissionsChange: [{ userId: 'g-111', permissions: [] }] }); await work();
+  eq('inbox drained', inbox().length, 0);
+  eq('error logged', logged.some(function (l) { return /onGarminInbox userPermissionsChange error/.test(l); }), true);
 });
 
 (async function () {
