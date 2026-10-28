@@ -272,25 +272,48 @@ async function dropGarminUserMapping(uid, garminUserId) {
   if (link.exists && link.get("uid") === uid) await link.ref.delete();
 }
 
-// Deletes everything Garmin sent for one athlete: tokens, the user mapping,
-// every source:"garmin" run, and the link flags. Their own uploads stay.
-async function purgeGarminData(uid) {
+// Queued runs and files for a Garmin account that the worker never finished.
+// Deregistrations and permission changes carry no activity data.
+async function dropQueuedGarminData(garminUserId) {
+  const queued = await db.collection("garminInbox").where("item.userId", "==", String(garminUserId)).get();
+  const data = queued.docs.filter((d) => d.get("kind") === "activities" || d.get("kind") === "activityFiles");
+  for (let i = 0; i < data.length; i += 450) {
+    const batch = db.batch();
+    data.slice(i, i + 450).forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  }
+}
+
+// Deletes everything Garmin sent for one athlete: tokens, every source:"garmin"
+// run, the link flags, queued items and the user mapping. Their own uploads
+// stay. The tokens go first: the worker writes a run only while they still name
+// this Garmin account, checked inside its transaction, so no run lands after
+// the sweep below. The mapping goes last, so a deregistration that fails
+// part-way still finds the account when it is retried.
+async function purgeGarminData(uid, garminUserId) {
   const priv = await privRef(uid).get();
+  const gid = garminUserId != null ? String(garminUserId) : String((priv.exists && priv.get("garminUserId")) || "");
   await privRef(uid).delete();
-  if (priv.exists) await dropGarminUserMapping(uid, priv.get("garminUserId"));
-  const runs = await db.collection("users").doc(uid).collection("garminActivities").where("source", "==", "garmin").get();
+  const runs = await runsCol(uid).where("source", "==", "garmin").get();
   let deleted = 0;
   for (let i = 0; i < runs.docs.length; i += 450) {
     const batch = db.batch();
     runs.docs.slice(i, i + 450).forEach((d) => { batch.delete(d.ref); deleted++; });
     await batch.commit();
   }
-  await db.collection("users").doc(uid).update({
-    garminConnected: false,
-    garminSharing: FieldValue.delete(),
-    garminConnectedAt: FieldValue.delete(),
-    garminDisconnectedAt: FieldValue.serverTimestamp(),
-  });
+  const userRef = db.collection("users").doc(uid);
+  if ((await userRef.get()).exists) {
+    await userRef.update({
+      garminConnected: false,
+      garminSharing: FieldValue.delete(),
+      garminConnectedAt: FieldValue.delete(),
+      garminDisconnectedAt: FieldValue.serverTimestamp(),
+    });
+  }
+  if (gid) {
+    await dropQueuedGarminData(gid);
+    await dropGarminUserMapping(uid, gid);
+  }
   return deleted;
 }
 
@@ -308,7 +331,33 @@ exports.endGarminLinkForDeletion = async function endGarminLinkForDeletion(uid) 
   return told ? null : "Garmin could not be told the link ended (no usable token, or Garmin refused); it was dropped on our side.";
 };
 
-const HANDLED = new Set(["activities", "activityFiles", "deregistrations", "userPermissionsChange"]);
+// The fields the worker reads from each kind of item. Nothing else is stored.
+const INBOX_FIELDS = {
+  activities: [
+    "userId", "summaryId", "activityId", "activityName", "activityType", "startTimeInSeconds",
+    "durationInSeconds", "distanceInMeters", "averageSpeedInMetersPerSecond",
+    "averageHeartRateInBeatsPerMinute", "maxHeartRateInBeatsPerMinute",
+    "averageRunCadenceInStepsPerMinute", "steps", "totalElevationGainInMeters",
+    "totalElevationLossInMeters", "deviceName",
+  ],
+  activityFiles: [
+    "userId", "summaryId", "activityId", "activityName", "activityType", "startTimeInSeconds",
+    "deviceName", "fileType", "callbackURL",
+  ],
+  deregistrations: ["userId"],
+  userPermissionsChange: ["userId", "permissions"],
+};
+const HANDLED = new Set(Object.keys(INBOX_FIELDS));
+// Queued items carry expireAt, a Timestamp, so a TTL policy on garminInbox can
+// remove any the worker never finished.
+const INBOX_TTL_MS = 24 * 60 * 60 * 1000;
+
+function inboxItem(kind, item) {
+  const out = {};
+  for (const k of INBOX_FIELDS[kind]) if (item[k] !== undefined) out[k] = item[k];
+  out.userId = String(item.userId);
+  return out;
+}
 
 // Garmin's push target. Only filters (non-run activities are never stored) and
 // queues; the worker below does everything else, so the reply is immediate.
@@ -323,13 +372,16 @@ exports.garminPush = onRequest({ cors: false }, async (req, res) => {
       for (const item of body[kind]) {
         if (!item || !item.userId) continue;
         if ((kind === "activities" || kind === "activityFiles") && !lib.runTypeFor(item.activityType)) continue;
-        items.push({ kind, item });
+        items.push({ kind, item: inboxItem(kind, item) });
       }
     }
     for (let i = 0; i < items.length; i += 450) {
       const batch = db.batch();
       for (const it of items.slice(i, i + 450)) {
-        batch.set(db.collection("garminInbox").doc(), Object.assign(it, { receivedAt: FieldValue.serverTimestamp() }));
+        batch.set(db.collection("garminInbox").doc(), Object.assign(it, {
+          receivedAt: FieldValue.serverTimestamp(),
+          expireAt: admin.firestore.Timestamp.fromMillis(Date.now() + INBOX_TTL_MS),
+        }));
       }
       await batch.commit();
     }
@@ -367,36 +419,94 @@ async function uidForGarminUser(garminUserId) {
 
 function runsCol(uid) { return db.collection("users").doc(uid).collection("garminActivities"); }
 
-// Write one Garmin run. New run: skipped if the athlete's own watch upload
-// already covers it; replaces an overlapping Strava run. Existing run: merge
-// only defined values, so whichever of summary/file lands second never erases
-// the other's fields. One transaction, so a summary and a file for the same
-// run handled at the same moment can't both write it as new.
-async function upsertGarminRun(uid, doc) {
+// What a summary or a file adds to a run already stored: defined values only,
+// so neither erases the other's fields. The file's values are the exact ones,
+// so once it has landed (fromFile) a summary only fills fields still empty.
+function runUpdate(have, doc, fromFile) {
+  const add = lib.definedOnly(doc);
+  if (fromFile) return Object.assign(add, { fromFile: true });
+  if (!have.fromFile) return add;
+  const fill = {};
+  for (const k of Object.keys(add)) if (have[k] == null || have[k] === "") fill[k] = add[k];
+  if ("title" in fill) fill.leverTitle = add.leverTitle;
+  return fill;
+}
+
+// Write one Garmin run, but only while uid still holds the link to this Garmin
+// account. The link is read inside the transaction, so a purge (which ends the
+// link before it collects runs) either finds this run or stops it. An
+// overlapping Strava run is replaced. A new run is skipped if the athlete's own
+// watch upload already covers it; an existing one is updated by runUpdate. One
+// transaction, so a summary and a file for the same run handled at the same
+// moment can't both write it as new.
+async function upsertGarminRun(uid, garminUserId, doc, fromFile) {
   const ref = runsCol(uid).doc(doc.id);
+  const link = db.collection("garminUsers").doc(String(garminUserId));
   const day = 24 * 60 * 60 * 1000;
   const near = runsCol(uid).where("ts", ">=", doc.ts - day).where("ts", "<=", doc.ts + day);
   await db.runTransaction(async (t) => {
+    const mapped = await t.get(link);
+    const priv = await t.get(privRef(uid));
+    if (mapped.get("uid") !== uid || String(priv.get("garminUserId") || "") !== String(garminUserId)) return;
     const snap = await t.get(ref);
-    if (snap.exists) { t.set(ref, lib.definedOnly(doc), { merge: true }); return; }
     const found = await t.get(near);
     const strava = [];
+    let ownUpload = false;
     for (const d of found.docs) {
       const x = d.data();
       if (!lib.sameRunSpan(doc.ts, doc.durSec, Number(x.ts), x.durSec)) continue;
       if (x.source === "strava") strava.push(d.ref);
-      else if (x.source !== "garmin") return;
+      else if (x.source !== "garmin") ownUpload = true;
     }
+    if (!snap.exists && ownUpload) return;
     strava.forEach((r) => t.delete(r));
-    t.set(ref, Object.assign({}, doc, { syncedAt: FieldValue.serverTimestamp() }));
+    if (snap.exists) t.set(ref, runUpdate(snap.data(), doc, fromFile), { merge: true });
+    else t.set(ref, Object.assign({}, doc, fromFile ? { fromFile: true } : {}, { syncedAt: FieldValue.serverTimestamp() }));
   });
+}
+
+const DOWNLOAD_TIMEOUT_MS = 60 * 1000;
+
+// A failure worth another try: onGarminInbox hands it back to the trigger.
+function retryLater(message) {
+  const e = new Error(message);
+  e.retry = true;
+  return e;
+}
+
+// One activity file's bytes, or null when it can't be had. A busy (429),
+// failing (5xx) or unreachable file server is retried later. Logs carry the
+// HTTP status or the error's name only, never the URL: it holds a token.
+async function downloadGarminFile(uid, url) {
+  let usable = false;
+  try { usable = new URL(url).protocol === "https:"; } catch (e) { usable = false; }
+  if (!usable) { console.warn(`garmin file URL rejected for uid ${uid}`); return null; }
+  let r, buf = null;
+  try {
+    r = await fetch(url, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) });
+    if (r.ok) buf = Buffer.from(await r.arrayBuffer());
+  } catch (e) {
+    console.warn(`garmin file download failed for uid ${uid}: ${e.name}`);
+    throw retryLater("garmin file download failed");
+  }
+  if (r.ok) return buf;
+  console.warn(`garmin file HTTP ${r.status} for uid ${uid}`);
+  if (r.status === 429 || r.status >= 500) throw retryLater(`garmin file HTTP ${r.status}`);
+  return null;
 }
 
 async function handleGarminItem(kind, item) {
   const uid = await uidForGarminUser(item.userId);
   if (!uid) return;
   if (kind === "deregistrations") {
-    const n = await purgeGarminData(uid);
+    // A mapping left over for an account that now holds a different Garmin
+    // link is only freed; that other link and its runs stay.
+    const priv = await privRef(uid).get();
+    if (priv.exists && String(priv.get("garminUserId") || "") !== String(item.userId)) {
+      await dropGarminUserMapping(uid, item.userId);
+      return;
+    }
+    const n = await purgeGarminData(uid, item.userId);
     console.log(`garmin deregistration: purged ${n} runs for uid ${uid}`);
     return;
   }
@@ -408,33 +518,41 @@ async function handleGarminItem(kind, item) {
   if (user.get("garminSharing") === false) return;
   if (kind === "activities") {
     const doc = lib.runDocFromSummary(item);
-    if (doc) await upsertGarminRun(uid, doc);
+    if (doc) await upsertGarminRun(uid, item.userId, doc, false);
     return;
   }
   if (kind === "activityFiles") {
     if (String(item.fileType || "").toUpperCase() !== "FIT" || !item.callbackURL) return;
-    const r = await fetch(item.callbackURL);
-    if (!r.ok) { console.warn(`garmin file HTTP ${r.status} for uid ${uid}`); return; }
-    const sessions = await parseFitSessions(Buffer.from(await r.arrayBuffer()));
+    const buf = await downloadGarminFile(uid, item.callbackURL);
+    if (!buf) return;
+    const sessions = await parseFitSessions(buf);
     const s = sessions.find((x) => /run/i.test(String(x.sport || ""))) || sessions[0];
     const doc = lib.runDocFromFile(item, s);
-    if (doc) await upsertGarminRun(uid, doc);
+    if (doc) await upsertGarminRun(uid, item.userId, doc, true);
   }
 }
 
-// maxInstances limits how many items, and so file downloads, run at once.
+// One item per instance and at most five instances, so at most five items, and
+// five file downloads, run at once. A deregistration that fails, or a download
+// marked retryLater, keeps its item and throws, so the trigger retries it with
+// backoff; any other failure is logged and the item dropped.
 exports.onGarminInbox = onDocumentCreated(
-  { document: "garminInbox/{id}", timeoutSeconds: 120, memory: "512MiB", maxInstances: 5 },
+  { document: "garminInbox/{id}", timeoutSeconds: 120, memory: "512MiB", maxInstances: 5, concurrency: 1, retry: true },
   async (event) => {
     const snap = event.data;
     if (!snap) return;
+    // A retried event still carries the item; skip it once it is handled or purged.
+    if (!(await snap.ref.get()).exists) return;
     const { kind, item } = snap.data();
     try {
       await handleGarminItem(kind, item);
     } catch (e) {
+      if (kind === "deregistrations" || e.retry) {
+        console.error(`onGarminInbox ${kind} failed, will retry:`, e.message);
+        throw e;
+      }
       console.error(`onGarminInbox ${kind} error:`, e.message);
-    } finally {
-      await snap.ref.delete();
     }
+    await snap.ref.delete();
   }
 );

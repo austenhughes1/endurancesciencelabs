@@ -39,25 +39,36 @@ function applyFields(base, data) {
 // work started together interleaves the way it does in production.
 function later(v) { return new Promise(function (r) { setImmediate(function () { r(v); }); }); }
 
+// A write outside a transaction to a document an open transaction has read
+// waits until that transaction ends, as the server SDK's locks make it.
+var locks = new Map(); // doc path -> promise that settles when its transaction ends
+function unlocked(p, apply) {
+  var l = locks.get(p);
+  if (l) return l.then(function () { return unlocked(p, apply); });
+  try { apply(); return Promise.resolve(); } catch (e) { return Promise.reject(e); }
+}
+
 var autoId = 0;
 function DocRef(p) { this.path = p; this.id = p.slice(p.lastIndexOf('/') + 1); }
 DocRef.prototype.collection = function (name) { return new Query(this.path + '/' + name, []); };
 DocRef.prototype.get = function () { return later(new Snap(this, store.get(this.path))); };
-DocRef.prototype.set = function (data, opts) {
+DocRef.prototype._set = function (data, opts) {
   store.set(this.path, applyFields(opts && opts.merge ? store.get(this.path) || {} : {}, data));
-  return Promise.resolve();
 };
-DocRef.prototype.update = function (data) {
-  if (!store.has(this.path)) return Promise.reject(new Error('NOT_FOUND: ' + this.path));
+DocRef.prototype._update = function (data) {
+  if (!store.has(this.path)) throw new Error('NOT_FOUND: ' + this.path);
   store.set(this.path, applyFields(store.get(this.path), data));
-  return Promise.resolve();
 };
-DocRef.prototype.delete = function () { store.delete(this.path); return Promise.resolve(); };
+DocRef.prototype._delete = function () { store.delete(this.path); };
+DocRef.prototype.set = function (data, opts) { var r = this; return unlocked(r.path, function () { r._set(data, opts); }); };
+DocRef.prototype.update = function (data) { var r = this; return unlocked(r.path, function () { r._update(data); }); };
+DocRef.prototype.delete = function () { var r = this; return unlocked(r.path, function () { r._delete(); }); };
 
 function Snap(ref, data) { this.ref = ref; this.id = ref.id; this.exists = data !== undefined; this._d = data; }
 Snap.prototype.data = function () { return this.exists ? Object.assign({}, this._d) : undefined; };
 Snap.prototype.get = function (f) { return this.exists ? this._d[f] : undefined; };
 
+function field(d, f) { return f.split('.').reduce(function (o, k) { return o == null ? undefined : o[k]; }, d); }
 function cmp(a, op, b) {
   var x = a && a.toMillis ? a.toMillis() : a, y = b && b.toMillis ? b.toMillis() : b;
   if (op === '==') return x === y;
@@ -72,7 +83,7 @@ Query.prototype.get = function () {
   var self = this, docs = [];
   store.forEach(function (d, p) {
     if (p.slice(0, p.lastIndexOf('/')) !== self.collPath) return;
-    if (self.filters.every(function (w) { return cmp(d[w[0]], w[1], w[2]); })) docs.push(new Snap(new DocRef(p), d));
+    if (self.filters.every(function (w) { return cmp(field(d, w[0]), w[1], w[2]); })) docs.push(new Snap(new DocRef(p), d));
   });
   if (self.lim != null) docs = docs.slice(0, self.lim);
   return later({ docs: docs, size: docs.length, empty: docs.length === 0 });
@@ -90,19 +101,29 @@ var db = {
     };
   },
   // One transaction at a time, standing in for the locks a real one takes;
-  // writes apply when the callback finishes.
+  // documents it reads are locked (see unlocked) and its writes apply when the
+  // callback finishes.
   runTransaction: function (fn) {
     var run = txQueue.then(async function () {
-      var ops = [];
+      var ops = [], held = [], release;
+      var ended = new Promise(function (r) { release = r; });
       var t = {
-        get: function (x) { return x.get(); },
-        set: function (ref, data, opts) { ops.push(function () { return ref.set(data, opts); }); return t; },
-        update: function (ref, data) { ops.push(function () { return ref.update(data); }); return t; },
-        delete: function (ref) { ops.push(function () { return ref.delete(); }); return t; },
+        get: function (x) {
+          if (x instanceof DocRef && !locks.has(x.path)) { locks.set(x.path, ended); held.push(x.path); }
+          return x.get();
+        },
+        set: function (ref, data, opts) { ops.push(function () { ref._set(data, opts); }); return t; },
+        update: function (ref, data) { ops.push(function () { ref._update(data); }); return t; },
+        delete: function (ref) { ops.push(function () { ref._delete(); }); return t; },
       };
-      var out = await fn(t);
-      for (var i = 0; i < ops.length; i++) await ops[i]();
-      return out;
+      try {
+        var out = await fn(t);
+        ops.forEach(function (op) { op(); });
+        return out;
+      } finally {
+        held.forEach(function (p) { locks.delete(p); });
+        release();
+      }
     });
     txQueue = run.catch(function () {});
     return run;
@@ -111,6 +132,7 @@ var db = {
 var txQueue = Promise.resolve();
 
 function HttpsError(code, message) { var e = new Error(message); e.code = code; return e; }
+var triggerOpts = {}; // document pattern -> the options its trigger was declared with
 var fakes = {
   'firebase-admin': { initializeApp: function () {}, firestore: Object.assign(function () { return db; }, { FieldValue: FieldValue, Timestamp: Timestamp }) },
   'firebase-functions/v2/https': {
@@ -118,7 +140,7 @@ var fakes = {
     onRequest: function (opts, fn) { return fn; },
     HttpsError: HttpsError,
   },
-  'firebase-functions/v2/firestore': { onDocumentCreated: function (opts, fn) { return fn; } },
+  'firebase-functions/v2/firestore': { onDocumentCreated: function (opts, fn) { triggerOpts[opts.document] = opts; return fn; } },
   'firebase-functions/v2/scheduler': { onSchedule: function (opts, fn) { return fn; } },
 };
 
@@ -131,7 +153,7 @@ function resetGarmin() {
     tokenStatus: 200,
     permStatus: 200,
     permissions: ['ACTIVITY_EXPORT'],
-    files: {}, // callback URL -> FIT bytes; null = not available
+    files: {}, // callback URL -> FIT bytes; null = not available; a number = that HTTP status
   };
 }
 var tokenSeq = 0;
@@ -153,6 +175,7 @@ global.fetch = async function (url, opts) {
   if (Object.prototype.hasOwnProperty.call(garmin.files, url)) {
     calls.push(method + ' file');
     var bytes = garmin.files[url];
+    if (typeof bytes === 'number') return { ok: false, status: bytes };
     return {
       ok: !!bytes, status: bytes ? 200 : 404,
       arrayBuffer: async function () { return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength); },
@@ -177,6 +200,7 @@ Module._load = function (request) {
 };
 var g = require('./garmin');
 Module._load = realLoad;
+var lib = require('./garmin-lib');
 
 // Keep the module's own warnings out of the test output, but keep them so
 // tests can check what would reach the logs.
@@ -502,11 +526,20 @@ function inbox() {
   store.forEach(function (d, p) { if (p.indexOf('garminInbox/') === 0) out.push(d); });
   return out;
 }
-// Runs the worker on every queued item at once, as the trigger would.
-async function work() {
+function inboxSnaps(only) {
   var snaps = [];
-  store.forEach(function (d, p) { if (p.indexOf('garminInbox/') === 0) snaps.push(new Snap(new DocRef(p), d)); });
-  await Promise.all(snaps.map(function (s) { return g.onGarminInbox({ data: s }); }));
+  store.forEach(function (d, p) { if (p.indexOf('garminInbox/') === 0 && (!only || d.kind === only)) snaps.push(new Snap(new DocRef(p), d)); });
+  return snaps;
+}
+// Runs the worker on every queued item (or every item of one kind) at once, as
+// the trigger would.
+async function work(only) {
+  await Promise.all(inboxSnaps(only).map(function (s) { return g.onGarminInbox({ data: s }); }));
+}
+// As work(), but returns how many items failed in a way the trigger retries.
+async function workCountingRetries() {
+  var out = await Promise.allSettled(inboxSnaps().map(function (s) { return g.onGarminInbox({ data: s }); }));
+  return out.filter(function (r) { return r.status === 'rejected'; }).length;
 }
 
 // The file sections need the real FIT parser from functions/node_modules.
@@ -562,6 +595,30 @@ section('garminPush still answers 200 when queueing fails', async function () {
   eq('error logged', logged.some(function (l) { return /garminPush error/.test(l); }), true);
 });
 
+section('garminPush stores only what the worker reads, with an expiry', async function () {
+  reset();
+  await push({
+    activities: [copy(SUMMARY, { manual: false, userId: 111 })],
+    activityFiles: [copy(FILE_ITEM, { extra: 'made-up' })],
+    deregistrations: [{ userId: 'g-111', extra: 'made-up' }],
+  });
+  var by = {};
+  inbox().forEach(function (x) { by[x.kind] = x; });
+  eq('summary: unread fields dropped', ['startTimeOffsetInSeconds' in by.activities.item, 'manual' in by.activities.item], [false, false]);
+  eq('summary: Garmin user id stored as text', by.activities.item.userId, '111');
+  eq('file: unread fields dropped', 'extra' in by.activityFiles.item, false);
+  eq('file: URL kept for the worker', by.activityFiles.item.callbackURL, FILE_URL);
+  eq('deregistration: the user id only', by.deregistrations.item, { userId: 'g-111' });
+  eq('each expires a day after arrival', inbox().every(function (x) {
+    return x.expireAt instanceof Timestamp && Math.round((x.expireAt.toMillis() - Date.now()) / 3600e3) === 24;
+  }), true);
+});
+
+section('the inbox trigger runs one item per instance and retries what it hands back', async function () {
+  var o = triggerOpts['garminInbox/{id}'];
+  eq('concurrency, instances, retry', [o.concurrency, o.maxInstances, o.retry], [1, 5, true]);
+});
+
 section('a run summary becomes a Garmin run in Running Dynamics', async function () {
   linked();
   await push({ activities: [SUMMARY] });
@@ -571,6 +628,8 @@ section('a run summary becomes a Garmin run in Running Dynamics', async function
   eq('source', d.source, 'garmin');
   eq('start', d.ts, T0);
   eq('summary fields', [d.durSec, d.avgHr, d.steps, d.cadence, d.deviceName], [2400, 150, 7000, 172, 'Forerunner 965']);
+  var want = lib.runDocFromSummary(SUMMARY);
+  eq('nothing the run needs is lost at intake', Object.keys(want).filter(function (k) { return JSON.stringify(d[k]) !== JSON.stringify(want[k]); }), []);
   eq('sync stamp', d.syncedAt instanceof Timestamp, true);
   eq('inbox drained', inbox().length, 0);
   eq('no Garmin calls', calls, []);
@@ -605,14 +664,24 @@ fitSection('the activity file adds running dynamics to the run', async function 
   eq('inbox drained', inbox().length, 0);
 });
 
-fitSection('a file that lands before its summary keeps its running dynamics', async function () {
+// A summary whose shared values differ from the file's (the file's are exact).
+var LATE_SUMMARY = copy(SUMMARY, { averageRunCadenceInStepsPerMinute: 170, durationInSeconds: 2500, averageHeartRateInBeatsPerMinute: 149 });
+
+fitSection('a file that lands before its summary keeps its values', async function () {
   linked();
   garmin.files[FILE_URL] = fitFile([RUN_SESSION]);
   await push({ activityFiles: [FILE_ITEM] }); await work();
-  await push({ activities: [SUMMARY] }); await work();
+  await push({ activities: [LATE_SUMMARY] }); await work();
   var d = doc(RUN);
   eq('dynamics kept', [d.gct, d.vo, d.stride], [245, 8.5, 1.2]);
+  eq("file's cadence, duration and heart rate kept", [d.cadence, d.durSec, d.avgHr], [173, 2400, 150]);
   eq('steps added', d.steps, 7000);
+
+  linked();
+  garmin.files[FILE_URL] = fitFile([RUN_SESSION]);
+  await push({ activityFiles: [copy(FILE_ITEM, { activityName: undefined })] }); await work();
+  await push({ activities: [copy(SUMMARY, { activityName: 'Lever session' })] }); await work();
+  eq('an empty title is filled from the summary', [doc(RUN).title, doc(RUN).leverTitle], ['Lever session', true]);
 });
 
 fitSection('a summary and its file handled at the same moment both land', async function () {
@@ -622,7 +691,7 @@ fitSection('a summary and its file handled at the same moment both land', async 
     garmin.files[FILE_URL] = fitFile([RUN_SESSION]);
     for (var i = 0; i < 2; i++) {
       var body = {};
-      body[orders[name][i]] = [orders[name][i] === 'activities' ? SUMMARY : FILE_ITEM];
+      body[orders[name][i]] = [orders[name][i] === 'activities' ? LATE_SUMMARY : FILE_ITEM];
       await push(body);
     }
     await work();
@@ -630,6 +699,7 @@ fitSection('a summary and its file handled at the same moment both land', async 
     eq(name + ': one run', runIds('u-a'), ['garmin_9001']);
     eq(name + ": file's dynamics", [d.gct, d.vo], [245, 8.5]);
     eq(name + ": summary's steps", d.steps, 7000);
+    eq(name + ": file's cadence and duration", [d.cadence, d.durSec], [173, 2400]);
   }
 });
 
@@ -649,6 +719,42 @@ section('a file that cannot be downloaded stores nothing and keeps its URL out o
   eq('no run', runIds('u-a'), []);
   eq('status logged', logged.some(function (l) { return /404/.test(l) && /u-a/.test(l); }), true);
   eq('URL and its token never logged', logged.join('\n').indexOf('files.example.test') < 0 && logged.join('\n').indexOf('tok-secret') < 0, true);
+  eq('inbox drained', inbox().length, 0);
+});
+
+fitSection('a file Garmin is too busy to send is kept and lands on retry', async function () {
+  linked();
+  garmin.files[FILE_URL] = 429;
+  await push({ activityFiles: [FILE_ITEM] });
+  eq('handed back for a retry', await workCountingRetries(), 1);
+  eq('item kept', inbox().length, 1);
+  eq('no run yet', runIds('u-a'), []);
+  garmin.files[FILE_URL] = fitFile([RUN_SESSION]);
+  await work(); // the trigger's retry
+  eq('run lands with its dynamics', doc(RUN) && doc(RUN).gct, 245);
+  eq('two tries', calls, ['GET file', 'GET file']);
+  eq('inbox drained', inbox().length, 0);
+
+  linked();
+  garmin.files[FILE_URL] = 503;
+  await push({ activityFiles: [FILE_ITEM] });
+  eq('a failing file server is retried too', await workCountingRetries(), 1);
+  eq('URL never logged', logged.join('\n').indexOf('tok-secret') < 0, true);
+});
+
+section('a file URL never reaches the logs, even when the request itself fails', async function () {
+  linked();
+  // The fake fetch throws on a URL it does not know, naming the URL.
+  await push({ activityFiles: [copy(FILE_ITEM, { callbackURL: 'https://files.example.test/activity-file?id=9004&token=tok-secret-9004' })] });
+  eq('an unreachable file server is retried', await workCountingRetries(), 1);
+  eq('error name logged with the uid', logged.some(function (l) { return /download failed for uid u-a: Error/.test(l); }), true);
+  eq('URL and token never logged', logged.join('\n').indexOf('tok-secret') < 0 && logged.join('\n').indexOf('files.example.test') < 0, true);
+
+  linked();
+  await push({ activityFiles: [copy(FILE_ITEM, { callbackURL: 'https://exa mple.test/activity-file?token=tok-secret-bad' })] });
+  eq('an unusable URL is dropped, not retried', await workCountingRetries(), 0);
+  eq('never fetched', calls, []);
+  eq('rejection logged without the URL', [logged.some(function (l) { return /URL rejected for uid u-a/.test(l); }), logged.join('\n').indexOf('tok-secret') < 0], [true, true]);
   eq('inbox drained', inbox().length, 0);
 });
 
@@ -673,6 +779,26 @@ section("the athlete's own upload wins; an overlapping Strava run is replaced", 
   seedRunAt('u-a', 'own_later', T0 + 8 * 3600e3, 1800);
   await push({ activities: [SUMMARY] }); await work();
   eq('overlapping Strava run replaced, the rest kept', runIds('u-a'), ['garmin_9001', 'own_later', 'strava_2']);
+});
+
+// A Strava sync that read the athlete's runs before the Garmin run existed can
+// write its copy afterwards.
+section('a Strava copy written after the Garmin run is replaced when the summary comes again', async function () {
+  linked();
+  await push({ activities: [SUMMARY] }); await work();
+  seedRunAt('u-a', 'strava_race', T0 + 15e3, 2395, 'strava');
+  await push({ activities: [SUMMARY] }); await work();
+  eq('Strava copy gone', runIds('u-a'), ['garmin_9001']);
+});
+
+fitSection('a Strava copy written after the Garmin run is replaced when its file lands', async function () {
+  linked();
+  garmin.files[FILE_URL] = fitFile([RUN_SESSION]);
+  await push({ activities: [SUMMARY] }); await work();
+  seedRunAt('u-a', 'strava_race', T0 + 15e3, 2395, 'strava');
+  seedRunAt('u-a', 'strava_other_day', T0 + 3 * 86400e3, 1800, 'strava');
+  await push({ activityFiles: [FILE_ITEM] }); await work();
+  eq('overlapping Strava copy gone, the rest kept', runIds('u-a'), ['garmin_9001', 'strava_other_day']);
 });
 
 section('sharing turned off in Garmin Connect pauses new runs; turned on, they resume', async function () {
@@ -702,6 +828,101 @@ section('a deregistration from Garmin deletes everything Garmin sent', async fun
   eq('Garmin not called back', calls, []);
   await push({ activities: [SUMMARY] }); await work();
   eq('a late summary is dropped', runIds('u-a'), ['own_1', 'strava_1']);
+});
+
+section('a summary handled together with a deregistration leaves no Garmin run', async function () {
+  var orders = { 'summary first': ['activities', 'deregistrations'], 'deregistration first': ['deregistrations', 'activities'] };
+  for (var name in orders) {
+    linked();
+    var body = {};
+    orders[name].forEach(function (k) { body[k] = [k === 'activities' ? SUMMARY : { userId: 'g-111' }]; });
+    await push(body);
+    await work();
+    eq(name + ': no Garmin run', runIds('u-a'), []);
+    eq(name + ': link ended', [doc('users/u-a').garminConnected, doc('garminUsers/g-111'), doc('users/u-a/private/garmin')], [false, undefined, undefined]);
+  }
+});
+
+fitSection('a run whose file is still downloading when a deregistration lands is not stored', async function () {
+  linked();
+  garmin.files[FILE_URL] = fitFile([RUN_SESSION]);
+  await push({ activityFiles: [FILE_ITEM] });
+  await push({ deregistrations: [{ userId: 'g-111' }] });
+  await work();
+  eq('handled together: no Garmin run', runIds('u-a'), []);
+
+  linked();
+  seedRun('u-a', 'garmin_1', 'garmin');
+  garmin.files[FILE_URL] = fitFile([RUN_SESSION]);
+  var realFetch = global.fetch;
+  global.fetch = async function (url, opts) {
+    var r = await realFetch(url, opts);
+    if (url === FILE_URL) await new Promise(function (res) { setTimeout(res, 50); });
+    return r;
+  };
+  try {
+    await push({ activityFiles: [FILE_ITEM] });
+    var downloading = work();
+    await new Promise(function (res) { setTimeout(res, 5); });
+    await push({ deregistrations: [{ userId: 'g-111' }] });
+    await work('deregistrations');
+    await downloading;
+  } finally {
+    global.fetch = realFetch;
+  }
+  eq('the download had started', calls, ['GET file']);
+  eq('slow file: no Garmin run left', runIds('u-a'), []);
+  eq('link ended', [doc('users/u-a').garminConnected, doc('garminUsers/g-111')], [false, undefined]);
+});
+
+section('a deregistration that fails part-way is kept and finishes when retried', async function () {
+  linked();
+  seedRun('u-a', 'garmin_1', 'garmin'); seedRun('u-a', 'garmin_2', 'garmin'); seedRun('u-a', 'own_1');
+  await push({ deregistrations: [{ userId: 'g-111' }] });
+  var realBatch = db.batch, failed = false, retries;
+  db.batch = function () {
+    var b = realBatch();
+    if (!failed) { failed = true; b.commit = async function () { throw new Error('DEADLINE_EXCEEDED'); }; }
+    return b;
+  };
+  try { retries = await workCountingRetries(); } finally { db.batch = realBatch; }
+  eq('handed back for a retry', retries, 1);
+  eq('item kept', inbox().map(function (x) { return x.kind; }), ['deregistrations']);
+  eq('the account can still be found', doc('garminUsers/g-111').uid, 'u-a');
+  await work(); // the trigger's retry
+  eq('Garmin runs gone, own kept', runIds('u-a'), ['own_1']);
+  eq('tokens and mapping gone', [doc('users/u-a/private/garmin'), doc('garminUsers/g-111')], [undefined, undefined]);
+  eq('shown as disconnected', doc('users/u-a').garminConnected, false);
+  eq('inbox drained', inbox().length, 0);
+});
+
+section('a deregistration removes queued runs and files for that Garmin account only', async function () {
+  linked();
+  // Items whose worker never finished (it crashed or timed out).
+  store.set('garminInbox/stuck-file', { kind: 'activityFiles', item: { userId: 'g-111', callbackURL: FILE_URL } });
+  store.set('garminInbox/stuck-run', { kind: 'activities', item: { userId: 'g-111', activityId: 9001 } });
+  store.set('garminInbox/other', { kind: 'activities', item: { userId: 'g-222', activityId: 9002 } });
+  await push({ deregistrations: [{ userId: 'g-111' }] });
+  await work('deregistrations');
+  eq('stuck items gone, the other account\'s kept', ['stuck-file', 'stuck-run', 'other'].map(function (id) { return store.has('garminInbox/' + id); }), [false, false, true]);
+});
+
+section('a mapping the account no longer holds writes no runs and is freed by its deregistration', async function () {
+  linked(); // u-a holds g-111
+  store.set('garminUsers/g-old', { uid: 'u-a' }); // left over from an earlier link
+  seedRunAt('u-a', 'garmin_1', T0 - 86400e3, 1800, 'garmin');
+  await push({ activities: [copy(SUMMARY, { userId: 'g-old' })] }); await work();
+  eq('no run from the old account', runIds('u-a'), ['garmin_1']);
+  await push({ deregistrations: [{ userId: 'g-old' }] }); await work();
+  eq('old mapping freed', doc('garminUsers/g-old'), undefined);
+  eq('current link and its runs kept', [doc('users/u-a/private/garmin').garminUserId, doc('garminUsers/g-111').uid, doc('users/u-a').garminConnected, runIds('u-a')], ['g-111', 'u-a', true, ['garmin_1']]);
+
+  reset();
+  store.set('garminUsers/g-111', { uid: 'u-gone' }); // the account was deleted
+  await push({ deregistrations: [{ userId: 'g-111' }] });
+  eq('a deleted account needs no retry', await workCountingRetries(), 0);
+  eq('mapping freed', doc('garminUsers/g-111'), undefined);
+  eq('no account doc made', doc('users/u-gone'), undefined);
 });
 
 section('an item that fails is still removed from the inbox', async function () {
