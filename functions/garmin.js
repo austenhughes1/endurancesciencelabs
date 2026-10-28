@@ -604,3 +604,42 @@ exports.onGarminInbox = onDocumentCreated(
     await snap.ref.delete();
   }
 );
+
+exports.disconnectGarmin = onCall({ cors: true, timeoutSeconds: 120 }, async (request) => {
+  const uid = request.auth && request.auth.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Sign in to manage Garmin Connect.");
+  await deregisterGarmin(uid);
+  const deleted = await purgeGarminData(uid);
+  console.log(`disconnectGarmin: purged ${deleted} runs for uid ${uid}`);
+  return { deleted };
+});
+
+// Daily: renews every link whose refresh token lapses within 30 days, so a
+// later disconnect can still tell Garmin the link ended. The new tokens are
+// stored only while the link still holds the token that was renewed: a
+// disconnect or a re-link made meanwhile keeps the last word, so a purge's
+// deleted tokens never come back.
+exports.refreshGarminTokens = onSchedule({ schedule: "every day 04:00", timeZone: "America/Denver" }, async () => {
+  const links = await db.collection("garminUsers").get();
+  let renewed = 0;
+  for (const link of links.docs) {
+    const uid = link.get("uid");
+    const priv = await privRef(uid).get();
+    if (!priv.exists) continue;
+    const p = priv.data();
+    if (!p.refreshToken || p.refreshExpiresAt - Date.now() > REFRESH_WINDOW_MS) continue;
+    try {
+      const tok = await garminToken({ grant_type: "refresh_token", refresh_token: p.refreshToken });
+      const stored = await db.runTransaction(async (t) => {
+        const cur = await t.get(privRef(uid));
+        if (!cur.exists || cur.get("refreshToken") !== p.refreshToken) return false;
+        t.set(privRef(uid), tokenFields(tok), { merge: true });
+        return true;
+      });
+      if (stored) renewed++;
+    } catch (e) {
+      console.warn(`refreshGarminTokens: uid ${uid} failed: ${e.message}`);
+    }
+  }
+  console.log(`refreshGarminTokens: renewed ${renewed} of ${links.size}`);
+});

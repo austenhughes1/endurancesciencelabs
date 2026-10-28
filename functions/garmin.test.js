@@ -1062,6 +1062,177 @@ section('an item that fails is still removed from the inbox', async function () 
   eq('no run', runIds('u-a'), []);
 });
 
+// ── Disconnect and token upkeep ──────────────────────────────────
+
+function disconnect(uid, data) { return g.disconnectGarmin({ auth: uid ? { uid: uid } : null, data: data || {} }); }
+function tokensNeverLogged() {
+  var all = logged.join('\n');
+  return ['acc-', 'ref-', 'stored-'].every(function (t) { return all.indexOf(t) < 0; });
+}
+
+section('disconnectGarmin tells Garmin and deletes every run Garmin sent', async function () {
+  reset();
+  var threw = null;
+  try { await disconnect(null); } catch (e) { threw = e.code; }
+  eq('signed out is refused', threw, 'unauthenticated');
+  eq('no calls', calls, []);
+
+  linked();
+  seedRun('u-a', 'garmin_1', 'garmin'); seedRun('u-a', 'garmin_2', 'garmin'); seedRun('u-a', 'own_1'); seedRun('u-a', 'strava_1', 'strava');
+  store.set('garminInbox/stuck-run', { kind: 'activities', item: { userId: 'g-111', activityId: 9001 } });
+  var res = await disconnect('u-a');
+  eq('returns how many runs went', res, { deleted: 2 });
+  eq('Garmin told with the stored token', calls, ['DELETE registration Bearer stored-u-a']);
+  eq('Garmin runs gone, the rest kept', runIds('u-a'), ['own_1', 'strava_1']);
+  eq('tokens and mapping gone', [doc('users/u-a/private/garmin'), doc('garminUsers/g-111')], [undefined, undefined]);
+  eq('queued runs gone', store.has('garminInbox/stuck-run'), false);
+  var u = doc('users/u-a');
+  eq('shown as disconnected', [u.garminConnected, 'garminSharing' in u, 'garminConnectedAt' in u], [false, false, false]);
+  eq('disconnect time stamped', u.garminDisconnectedAt instanceof Timestamp, true);
+  eq('count and uid logged', logged.some(function (l) { return /disconnectGarmin: purged 2 runs for uid u-a/.test(l); }), true);
+  eq('no token logged', tokensNeverLogged(), true);
+  await push({ activities: [SUMMARY] }); await work();
+  eq('a late summary is dropped', runIds('u-a'), ['own_1', 'strava_1']);
+});
+
+section("disconnectGarmin ends only the caller's own link", async function () {
+  linked(); // u-a holds g-111
+  seedUser('u-b'); seedRun('u-a', 'garmin_1', 'garmin');
+  eq('nothing to delete for u-b', await disconnect('u-b', { uid: 'u-a', athleteUid: 'u-a' }), { deleted: 0 });
+  eq('Garmin not called', calls, []);
+  eq("u-a's link and runs kept", [doc('users/u-a/private/garmin').garminUserId, doc('garminUsers/g-111').uid, doc('users/u-a').garminConnected, runIds('u-a')], ['g-111', 'u-a', true, ['garmin_1']]);
+});
+
+section('disconnectGarmin refreshes an expired token before telling Garmin', async function () {
+  linked();
+  doc('users/u-a/private/garmin').expiresAt = Date.now() - 1;
+  await disconnect('u-a');
+  eq('refreshed, then told with the new token', calls, ['POST token', 'DELETE registration Bearer acc-' + tokenSeq]);
+  eq('tokens gone', doc('users/u-a/private/garmin'), undefined);
+});
+
+section('disconnectGarmin still deletes everything when Garmin cannot be told', async function () {
+  // The refresh token has lapsed: no call can be made.
+  linked();
+  seedRun('u-a', 'garmin_1', 'garmin'); seedRun('u-a', 'own_1');
+  var p = doc('users/u-a/private/garmin');
+  p.expiresAt = Date.now() - 1; p.refreshExpiresAt = Date.now() - 1;
+  eq('lapsed token: runs deleted', await disconnect('u-a'), { deleted: 1 });
+  eq('lapsed token: no Garmin call', calls, []);
+  eq('lapsed token: link ended', [doc('users/u-a/private/garmin'), doc('garminUsers/g-111'), doc('users/u-a').garminConnected], [undefined, undefined, false]);
+
+  // Garmin refuses, or cannot be reached.
+  var outcomes = { 'Garmin refuses': 500, 'Garmin unreachable': 'throw' };
+  for (var name in outcomes) {
+    linked();
+    seedRun('u-a', 'garmin_1', 'garmin'); seedRun('u-a', 'own_1');
+    var realFetch = global.fetch, outcome = outcomes[name];
+    global.fetch = async function (url, opts) {
+      if (/\/user\/registration$/.test(url)) {
+        calls.push('DELETE registration');
+        if (outcome === 'throw') throw new Error('connect ECONNREFUSED');
+        return reply(outcome, null);
+      }
+      return realFetch(url, opts);
+    };
+    var res;
+    try { res = await disconnect('u-a'); } finally { global.fetch = realFetch; }
+    eq(name + ': Garmin was tried', calls, ['DELETE registration']);
+    eq(name + ': runs deleted', [res, runIds('u-a')], [{ deleted: 1 }, ['own_1']]);
+    eq(name + ': link ended', [doc('users/u-a/private/garmin'), doc('garminUsers/g-111'), doc('users/u-a').garminConnected], [undefined, undefined, false]);
+    eq(name + ': no token logged', tokensNeverLogged(), true);
+  }
+});
+
+section('disconnectGarmin finishes a purge that failed part-way', async function () {
+  reset();
+  seedUser('u-a', { garminConnected: true, garminSharing: true });
+  // Tokens already gone; the mapping and some runs were left behind.
+  store.set('garminUsers/g-111', { uid: 'u-a' });
+  seedRun('u-a', 'garmin_1', 'garmin'); seedRun('u-a', 'own_1');
+  eq('left-over runs deleted', await disconnect('u-a'), { deleted: 1 });
+  eq('no Garmin call without a token', calls, []);
+  eq('mapping freed', doc('garminUsers/g-111'), undefined);
+  eq('shown as disconnected', doc('users/u-a').garminConnected, false);
+  eq('own run kept', runIds('u-a'), ['own_1']);
+});
+
+// A link for uid to gid whose refresh token lapses in daysLeft days.
+function seedLinkLapsingIn(uid, gid, daysLeft) {
+  seedUser(uid); seedLink(uid, gid);
+  var p = doc('users/' + uid + '/private/garmin');
+  p.refreshExpiresAt = Date.now() + daysLeft * 86400e3;
+  p.sharingChangedAt = 12345;
+  return p;
+}
+
+section('refreshGarminTokens renews links within 30 days of lapsing, and only those', async function () {
+  reset();
+  seedLinkLapsingIn('u-soon', 'g-soon', 10);
+  seedLinkLapsingIn('u-later', 'g-later', 45);
+  store.set('garminUsers/g-gone', { uid: 'u-gone' }); // a mapping with no token left
+  await g.refreshGarminTokens({});
+  eq('one refresh', calls, ['POST token']);
+  var p = doc('users/u-soon/private/garmin');
+  eq('new tokens stored', [p.accessToken, p.refreshToken], ['acc-' + tokenSeq, 'ref-' + tokenSeq]);
+  eq('new lapse time stored', Math.round((p.refreshExpiresAt - Date.now()) / 1000), 7776000);
+  eq('rest of the link kept', [p.garminUserId, p.sharingChangedAt], ['g-soon', 12345]);
+  eq('a link not yet due is left alone', doc('users/u-later/private/garmin').refreshToken, 'stored-ref-u-later');
+  eq('no token made for a mapping without one', doc('users/u-gone/private/garmin'), undefined);
+  eq('count logged', logged.some(function (l) { return /refreshGarminTokens: renewed 1 of 3/.test(l); }), true);
+  eq('no token logged', tokensNeverLogged(), true);
+});
+
+section('refreshGarminTokens: one failed renewal does not stop the rest', async function () {
+  reset();
+  seedLinkLapsingIn('u-a', 'g-a', 5);
+  seedLinkLapsingIn('u-b', 'g-b', 5);
+  var realFetch = global.fetch, first = true;
+  global.fetch = async function (url, opts) {
+    if (/oauth\/token$/.test(url) && first) { first = false; calls.push('POST token'); return reply(400, {}); }
+    return realFetch(url, opts);
+  };
+  try { await g.refreshGarminTokens({}); } finally { global.fetch = realFetch; }
+  eq('both tried', calls, ['POST token', 'POST token']);
+  var kept = [doc('users/u-a/private/garmin').refreshToken, doc('users/u-b/private/garmin').refreshToken].filter(function (t) { return /^stored-/.test(t); });
+  eq('the failed one keeps its stored tokens, the other is renewed', kept.length, 1);
+  eq('failure logged with the uid and status only', logged.some(function (l) { return /refreshGarminTokens: uid u-[ab] failed: garmin token HTTP 400/.test(l); }), true);
+  eq('count logged', logged.some(function (l) { return /renewed 1 of 2/.test(l); }), true);
+  eq('no token logged', tokensNeverLogged(), true);
+});
+
+section('a disconnect while a renewal is in flight leaves no tokens behind', async function () {
+  reset();
+  seedLinkLapsingIn('u-a', 'g-111', 5);
+  seedRun('u-a', 'garmin_1', 'garmin');
+  var realFetch = global.fetch, disconnected = null;
+  global.fetch = async function (url, opts) {
+    if (/oauth\/token$/.test(url) && !disconnected) {
+      disconnected = disconnect('u-a');
+      await disconnected;
+    }
+    return realFetch(url, opts);
+  };
+  try { await g.refreshGarminTokens({}); } finally { global.fetch = realFetch; }
+  eq('disconnected', await disconnected, { deleted: 1 });
+  eq('tokens stay gone', doc('users/u-a/private/garmin'), undefined);
+  eq('shown as disconnected', doc('users/u-a').garminConnected, false);
+  eq('mapping stays gone', doc('garminUsers/g-111'), undefined);
+  eq('nothing counted as renewed', logged.some(function (l) { return /renewed 0 of 1/.test(l); }), true);
+
+  // A newer token stored while the renewal ran (a re-link) is not overwritten.
+  reset();
+  seedLinkLapsingIn('u-a', 'g-111', 5);
+  realFetch = global.fetch;
+  global.fetch = async function (url, opts) {
+    var r = await realFetch(url, opts);
+    if (/oauth\/token$/.test(url)) Object.assign(doc('users/u-a/private/garmin'), { accessToken: 'relinked', refreshToken: 'relinked-ref' });
+    return r;
+  };
+  try { await g.refreshGarminTokens({}); } finally { global.fetch = realFetch; }
+  eq('the newer tokens kept', [doc('users/u-a/private/garmin').accessToken, doc('users/u-a/private/garmin').refreshToken], ['relinked', 'relinked-ref']);
+});
+
 (async function () {
   for (var i = 0; i < sections.length; i++) {
     say(sections[i][0]);
