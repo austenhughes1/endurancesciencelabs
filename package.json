@@ -3,6 +3,6 @@
   "private": true,
   "description": "Repo-level test entry point. The site has no build step; functions/ has its own package.json for Firebase.",
   "scripts": {
-    "test": "node --check functions/index.js && node --check functions/report-renderer.js && node --check functions/comparison-renderer.js && node --check functions/garmin-lib.js && node --check functions/garmin.js && node shared/run-load-model.test.js && node shared/run-dynamics-format.test.js && node functions/garmin-lib.test.js && node esformlab/kfo-tests.js && node esformlab/pgi-tests.js"
+    "test": "node --check functions/index.js && node --check functions/report-renderer.js && node --check functions/comparison-renderer.js && node --check functions/garmin-lib.js && node --check functions/garmin.js && node shared/run-load-model.test.js && node shared/run-dynamics-format.test.js && node functions/garmin-lib.test.js && node functions/garmin.test.js && node esformlab/kfo-tests.js && node esformlab/pgi-tests.js"
   }
 }

@@ -8,6 +8,8 @@ const { renderComparisonReport } = require("./comparison-renderer");
 
 admin.initializeApp();
 const db = admin.firestore();
+// Garmin Connect (functions/garmin.js); its functions are re-exported at the end.
+const garmin = require("./garmin");
 
 const STRAVA_TOKEN_URL = "https://www.strava.com/oauth/token";
 const STRAVA_DEAUTHORIZE_URL = "https://www.strava.com/oauth/deauthorize";
@@ -1734,6 +1736,8 @@ exports.adminAssignCoach = onCall({ cors: true }, async (request) => {
 //  for the Manage Users page. Removes everything stored for
 //  the user, then the Firebase Auth account itself:
 //    - Strava token revoked with Strava (best effort)
+//    - Garmin Connect link ended with Garmin (best effort) and
+//      its Garmin-user mapping removed
 //    - users/{uid} and all its subcollections
 //    - training plans where they are the athlete (+ workouts,
 //      lifting weeks, synced activities)
@@ -1775,6 +1779,8 @@ exports.adminDeleteUser = onCall({ cors: true, timeoutSeconds: 300 }, async (req
   }
 
   const stravaWarning = await revokeStravaToken(uid);
+  // Before users/{uid} goes: ending the Garmin link needs the stored token.
+  const garminWarning = await garmin.endGarminLinkForDeletion(uid);
 
   // Coach being deleted: unassign their athletes.
   const athletesSnap = await db.collection("users").where("coachUid", "==", uid).get();
@@ -1825,6 +1831,7 @@ exports.adminDeleteUser = onCall({ cors: true, timeoutSeconds: 300 }, async (req
     success: true,
     athletesUnassigned: athletesSnap.size,
     stravaWarning,
+    garminWarning,
   };
 });
-Object.assign(exports, require("./garmin"));
+Object.assign(exports, garmin);

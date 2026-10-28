@@ -848,6 +848,7 @@ function muDeleteUser(el) {
     + '  • Their training plans, workouts, and lifting weeks\n'
     + '  • Their notifications and coaching requests\n'
     + '  • Their Strava connection (access is revoked)\n'
+    + '  • Their Garmin Connect link (ended with Garmin)\n'
     + (u.data.role === 'coach' ? '  • Their athletes will become unassigned\n' : '')
     + '\nThis cannot be undone. Type ' + expected + ' to confirm.'
   );
@@ -863,6 +864,8 @@ function muDeleteUser(el) {
   fns.httpsCallable('adminDeleteUser')({ uid: uid }).then(function (res) {
     var warn = res && res.data && res.data.stravaWarning;
     if (warn) console.warn('Strava revoke warning:', warn);
+    var gWarn = res && res.data && res.data.garminWarning;
+    if (gWarn) console.warn('Garmin unlink warning:', gWarn);
     allUsers = allUsers.filter(function (x) { return x.id !== uid; });
     allUsers.forEach(function (x) { if (x.data.coachUid === uid) x.data.coachUid = null; });
     delete pendingReq[uid];
