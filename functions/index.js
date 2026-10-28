@@ -1827,3 +1827,4 @@ exports.adminDeleteUser = onCall({ cors: true, timeoutSeconds: 300 }, async (req
     stravaWarning,
   };
 });
+Object.assign(exports, require("./garmin"));
