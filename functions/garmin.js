@@ -233,14 +233,21 @@ async function linkGarmin(uid, code, verifier) {
     return { result: "scope" };
   }
 
-  // Switching Garmin accounts: drop the old link and its runs first.
-  if (prevGarminUserId && !relink) {
+  // Switching Garmin accounts: drop the old link and its runs first. A mapping
+  // to another account, left by a switch whose purge failed part-way after the
+  // old tokens were gone, is an old link too.
+  const switching = !relink && (prevGarminUserId !== "" ||
+    (await garminUsersMappedTo(uid)).some((id) => id !== garminUserId));
+  if (switching) {
     await deregisterGarmin(uid);
     const n = await purgeGarminData(uid);
     console.log(`finishGarminLink: uid ${uid} switched Garmin accounts; purged ${n} runs`);
   }
 
-  await privRef(uid).set(Object.assign(tokenFields(tok), { garminUserId }));
+  // The token doc goes first: a purge still running for the old account checks
+  // it before it touches the flags. sharingChangedAt: what was granted was
+  // checked just now, so sharing changes that reached us earlier are older.
+  await privRef(uid).set(Object.assign(tokenFields(tok), { garminUserId, sharingChangedAt: Date.now() }));
   await db.collection("garminUsers").doc(garminUserId).set({ uid, linkedAt: FieldValue.serverTimestamp() });
   await userRef.update({
     garminConnected: true, garminSharing: true,
@@ -284,16 +291,36 @@ async function dropQueuedGarminData(garminUserId) {
   }
 }
 
+// Every Garmin account whose mapping still points at uid.
+async function garminUsersMappedTo(uid) {
+  const snap = await db.collection("garminUsers").where("uid", "==", uid).get();
+  return snap.docs.map((d) => d.id);
+}
+
 // Deletes everything Garmin sent for one athlete: tokens, every source:"garmin"
 // run, the link flags, queued items and the user mapping. Their own uploads
 // stay. The tokens go first: the worker writes a run only while they still name
 // this Garmin account, checked inside its transaction, so no run lands after
-// the sweep below. The mapping goes last, so a deregistration that fails
+// the sweep below. The mappings go last, so a deregistration that fails
 // part-way still finds the account when it is retried.
+// With garminUserId (a deregistration), only a link to that account ends: if
+// uid holds a link to another account by the time the tokens are checked, that
+// link stays, only the old mapping is freed, and null is returned. Without it,
+// every mapping still pointing at uid is freed, which also finds one that an
+// earlier purge, failing after the tokens were gone, left behind.
 async function purgeGarminData(uid, garminUserId) {
-  const priv = await privRef(uid).get();
-  const gid = garminUserId != null ? String(garminUserId) : String((priv.exists && priv.get("garminUserId")) || "");
-  await privRef(uid).delete();
+  const only = garminUserId != null ? String(garminUserId) : null;
+  const ended = await db.runTransaction(async (t) => {
+    const priv = await t.get(privRef(uid));
+    const held = String((priv.exists && priv.get("garminUserId")) || "");
+    if (only && held && held !== only) return false;
+    t.delete(privRef(uid));
+    return true;
+  });
+  if (!ended) {
+    await dropGarminUserMapping(uid, only);
+    return null;
+  }
   const runs = await runsCol(uid).where("source", "==", "garmin").get();
   let deleted = 0;
   for (let i = 0; i < runs.docs.length; i += 450) {
@@ -301,16 +328,20 @@ async function purgeGarminData(uid, garminUserId) {
     runs.docs.slice(i, i + 450).forEach((d) => { batch.delete(d.ref); deleted++; });
     await batch.commit();
   }
+  // A link made while this ran (an account switch) has set its own flags.
   const userRef = db.collection("users").doc(uid);
-  if ((await userRef.get()).exists) {
-    await userRef.update({
+  await db.runTransaction(async (t) => {
+    const priv = await t.get(privRef(uid));
+    const user = await t.get(userRef);
+    if (priv.exists || !user.exists) return;
+    t.update(userRef, {
       garminConnected: false,
       garminSharing: FieldValue.delete(),
       garminConnectedAt: FieldValue.delete(),
       garminDisconnectedAt: FieldValue.serverTimestamp(),
     });
-  }
-  if (gid) {
+  });
+  for (const gid of only ? [only] : await garminUsersMappedTo(uid)) {
     await dropQueuedGarminData(gid);
     await dropGarminUserMapping(uid, gid);
   }
@@ -420,10 +451,12 @@ async function uidForGarminUser(garminUserId) {
 function runsCol(uid) { return db.collection("users").doc(uid).collection("garminActivities"); }
 
 // What a summary or a file adds to a run already stored: defined values only,
-// so neither erases the other's fields. The file's values are the exact ones,
-// so once it has landed (fromFile) a summary only fills fields still empty.
+// and never an empty title over a stored one, so neither erases the other's
+// fields. The file's values are the exact ones, so once it has landed
+// (fromFile) a summary only fills fields still empty.
 function runUpdate(have, doc, fromFile) {
   const add = lib.definedOnly(doc);
+  if (!add.title && have.title) { delete add.title; delete add.leverTitle; }
   if (fromFile) return Object.assign(add, { fromFile: true });
   if (!have.fromFile) return add;
   const fill = {};
@@ -495,23 +528,38 @@ async function downloadGarminFile(uid, url) {
   return null;
 }
 
-async function handleGarminItem(kind, item) {
+// Applies a sharing change pushed for garminUserId to uid's link. Items are
+// handled in no particular order, so the change is applied only when it
+// reached us no earlier than the last one applied (or the link itself).
+// Returns "other" when uid's link is to another Garmin account: the mapping
+// is left over. A link that has ended, or is ending, is left to its purge.
+async function applyGarminSharing(uid, garminUserId, sharing, at) {
+  const ref = privRef(uid), userRef = db.collection("users").doc(uid);
+  return db.runTransaction(async (t) => {
+    const priv = await t.get(ref);
+    if (!priv.exists) return "ended";
+    if (String(priv.get("garminUserId") || "") !== String(garminUserId)) return "other";
+    if (Number(priv.get("sharingChangedAt")) > at) return "older";
+    t.update(ref, { sharingChangedAt: at });
+    t.update(userRef, { garminSharing: sharing });
+    return "applied";
+  });
+}
+
+async function handleGarminItem(kind, item, receivedAt) {
   const uid = await uidForGarminUser(item.userId);
   if (!uid) return;
   if (kind === "deregistrations") {
     // A mapping left over for an account that now holds a different Garmin
     // link is only freed; that other link and its runs stay.
-    const priv = await privRef(uid).get();
-    if (priv.exists && String(priv.get("garminUserId") || "") !== String(item.userId)) {
-      await dropGarminUserMapping(uid, item.userId);
-      return;
-    }
     const n = await purgeGarminData(uid, item.userId);
-    console.log(`garmin deregistration: purged ${n} runs for uid ${uid}`);
+    if (n != null) console.log(`garmin deregistration: purged ${n} runs for uid ${uid}`);
     return;
   }
   if (kind === "userPermissionsChange") {
-    await db.collection("users").doc(uid).update({ garminSharing: lib.hasActivityExport(item) });
+    const at = receivedAt && receivedAt.toMillis ? receivedAt.toMillis() : 0;
+    const r = await applyGarminSharing(uid, item.userId, lib.hasActivityExport(item), at);
+    if (r === "other") await dropGarminUserMapping(uid, item.userId);
     return;
   }
   const user = await db.collection("users").doc(uid).get();
@@ -543,9 +591,9 @@ exports.onGarminInbox = onDocumentCreated(
     if (!snap) return;
     // A retried event still carries the item; skip it once it is handled or purged.
     if (!(await snap.ref.get()).exists) return;
-    const { kind, item } = snap.data();
+    const { kind, item, receivedAt } = snap.data();
     try {
-      await handleGarminItem(kind, item);
+      await handleGarminItem(kind, item, receivedAt);
     } catch (e) {
       if (kind === "deregistrations" || e.retry) {
         console.error(`onGarminInbox ${kind} failed, will retry:`, e.message);

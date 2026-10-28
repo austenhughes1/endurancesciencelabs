@@ -667,7 +667,7 @@ fitSection('the activity file adds running dynamics to the run', async function 
 // A summary whose shared values differ from the file's (the file's are exact).
 var LATE_SUMMARY = copy(SUMMARY, { averageRunCadenceInStepsPerMinute: 170, durationInSeconds: 2500, averageHeartRateInBeatsPerMinute: 149 });
 
-fitSection('a file that lands before its summary keeps its values', async function () {
+fitSection('a file that lands before its summary keeps its values; a nameless one keeps the title', async function () {
   linked();
   garmin.files[FILE_URL] = fitFile([RUN_SESSION]);
   await push({ activityFiles: [FILE_ITEM] }); await work();
@@ -682,6 +682,14 @@ fitSection('a file that lands before its summary keeps its values', async functi
   await push({ activityFiles: [copy(FILE_ITEM, { activityName: undefined })] }); await work();
   await push({ activities: [copy(SUMMARY, { activityName: 'Lever session' })] }); await work();
   eq('an empty title is filled from the summary', [doc(RUN).title, doc(RUN).leverTitle], ['Lever session', true]);
+
+  // The usual order: the summary first, then a file that carries no name.
+  linked();
+  garmin.files[FILE_URL] = fitFile([RUN_SESSION]);
+  await push({ activities: [copy(SUMMARY, { activityName: 'Lever session' })] }); await work();
+  await push({ activityFiles: [copy(FILE_ITEM, { activityName: undefined })] }); await work();
+  eq("a nameless file keeps the summary's title", [doc(RUN).title, doc(RUN).leverTitle], ['Lever session', true]);
+  eq('and still adds its dynamics', doc(RUN).gct, 245);
 });
 
 fitSection('a summary and its file handled at the same moment both land', async function () {
@@ -818,6 +826,43 @@ section('sharing turned off in Garmin Connect pauses new runs; turned on, they r
   eq('runs land again', runIds('u-a'), ['garmin_1', 'garmin_9001']);
 });
 
+// A permission change queued at receivedAt, as garminPush stores it.
+function queuePermissionChange(id, permissions, receivedAtMs, gid) {
+  store.set('garminInbox/' + id, {
+    kind: 'userPermissionsChange', item: { userId: gid || 'g-111', permissions: permissions },
+    receivedAt: Timestamp.fromMillis(receivedAtMs),
+  });
+}
+function handle(id) { return g.onGarminInbox({ data: new Snap(new DocRef('garminInbox/' + id), doc('garminInbox/' + id)) }); }
+
+section('sharing changes handled out of order leave the latest one in place', async function () {
+  var now = Date.now();
+  linked();
+  queuePermissionChange('p-off', [], now - 2000);
+  queuePermissionChange('p-on', ['ACTIVITY_EXPORT'], now - 1000);
+  await handle('p-on'); await handle('p-off');
+  eq('turned off then on, handled on-first: sharing on', doc('users/u-a').garminSharing, true);
+  eq('inbox drained', inbox().length, 0);
+  await push({ activities: [SUMMARY] }); await work();
+  eq('runs keep landing', runIds('u-a'), ['garmin_9001']);
+
+  linked();
+  queuePermissionChange('p-on', ['ACTIVITY_EXPORT'], now - 2000);
+  queuePermissionChange('p-off', [], now - 1000);
+  await handle('p-off'); await handle('p-on');
+  eq('turned on then off, handled off-first: sharing paused', doc('users/u-a').garminSharing, false);
+
+  // A change that reached us before the link was made is older than the
+  // link's own check of what was granted.
+  reset();
+  seedUser('u-a');
+  queuePermissionChange('p-before', [], Date.now() - 60e3);
+  var r = await startAndApprove('u-a');
+  eq('connected', await finish('u-a', r.state, r.key), { result: 'connected' });
+  await handle('p-before');
+  eq('an older change does not pause a new link', doc('users/u-a').garminSharing, true);
+});
+
 section('a deregistration from Garmin deletes everything Garmin sent', async function () {
   linked();
   seedRun('u-a', 'garmin_1', 'garmin'); seedRun('u-a', 'own_1'); seedRun('u-a', 'strava_1', 'strava');
@@ -925,12 +970,96 @@ section('a mapping the account no longer holds writes no runs and is freed by it
   eq('no account doc made', doc('users/u-gone'), undefined);
 });
 
-section('an item that fails is still removed from the inbox', async function () {
+section("a permission change for a left-over mapping leaves the current link's sharing alone", async function () {
+  linked(); // u-a holds g-111
+  store.set('garminUsers/g-old', { uid: 'u-a' }); // left over from an earlier link
+  await push({ userPermissionsChange: [{ userId: 'g-old', permissions: [] }] }); await work();
+  eq('current link still sharing', doc('users/u-a').garminSharing, true);
+  eq('old mapping freed', doc('garminUsers/g-old'), undefined);
+  eq('current mapping kept', doc('garminUsers/g-111').uid, 'u-a');
+  await push({ activities: [SUMMARY] }); await work();
+  eq('runs from the current link land', runIds('u-a'), ['garmin_9001']);
+
   reset();
-  store.set('garminUsers/g-111', { uid: 'u-gone' }); // no users/u-gone doc
+  store.set('garminUsers/g-111', { uid: 'u-gone' }); // the account was deleted
   await push({ userPermissionsChange: [{ userId: 'g-111', permissions: [] }] }); await work();
+  eq('an ended link: nothing written', doc('users/u-gone'), undefined);
   eq('inbox drained', inbox().length, 0);
-  eq('error logged', logged.some(function (l) { return /onGarminInbox userPermissionsChange error/.test(l); }), true);
+});
+
+section('a switch whose purge fails part-way is finished by the next try', async function () {
+  reset();
+  seedUser('u-a'); seedLink('u-a', 'g-old'); seedRun('u-a', 'garmin_old', 'garmin'); seedRun('u-a', 'own_1');
+  garmin.userId = 'g-new';
+  var r = await startAndApprove('u-a');
+  var realBatch = db.batch, failed = false, res;
+  db.batch = function () {
+    var b = realBatch();
+    if (!failed) { failed = true; b.commit = async function () { throw new Error('DEADLINE_EXCEEDED'); }; }
+    return b;
+  };
+  try { res = await finish('u-a', r.state, r.key); } finally { db.batch = realBatch; }
+  eq('first try fails', res, { result: 'error', reason: 'exchange' });
+  eq('tokens gone, old mapping left', [doc('users/u-a/private/garmin'), doc('garminUsers/g-old').uid], [undefined, 'u-a']);
+  await push({ userPermissionsChange: [{ userId: 'g-old', permissions: [] }] }); await work();
+  eq('a permission change for the old account changes nothing', doc('users/u-a').garminSharing, true);
+
+  r = await startAndApprove('u-a');
+  eq('next try connects', await finish('u-a', r.state, r.key), { result: 'connected' });
+  eq('old runs gone, own kept', runIds('u-a'), ['own_1']);
+  eq('old mapping freed', doc('garminUsers/g-old'), undefined);
+  eq('new link', [doc('users/u-a/private/garmin').garminUserId, doc('garminUsers/g-new').uid, doc('users/u-a').garminConnected, doc('users/u-a').garminSharing], ['g-new', 'u-a', true, true]);
+  await push({ userPermissionsChange: [{ userId: 'g-old', permissions: [] }] });
+  await push({ activities: [copy(SUMMARY, { userId: 'g-new' })] }); await work();
+  eq('runs from the new account land', runIds('u-a'), ['garmin_9001', 'own_1']);
+});
+
+function ticks(n) {
+  var p = Promise.resolve();
+  for (var i = 0; i < n; i++) p = p.then(function () { return later(); });
+  return p;
+}
+
+section('a deregistration for the old account during a switch leaves the new link whole', async function () {
+  // The deregistration starts n event-loop turns after the switch deletes the
+  // old tokens, so it lands at each step of the switch in turn.
+  for (var n = 0; n <= 12; n++) {
+    reset();
+    seedUser('u-a'); seedLink('u-a', 'g-old'); seedRun('u-a', 'garmin_old', 'garmin'); seedRun('u-a', 'own_1');
+    garmin.userId = 'g-new';
+    var r = await startAndApprove('u-a');
+    await push({ deregistrations: [{ userId: 'g-old' }] });
+    var dereg = inboxSnaps('deregistrations')[0];
+    var realDelete = DocRef.prototype._delete, started = null, res;
+    DocRef.prototype._delete = function () {
+      realDelete.call(this);
+      if (this.path === 'users/u-a/private/garmin' && !started) {
+        started = ticks(n).then(function () { return g.onGarminInbox({ data: dereg }); });
+      }
+    };
+    try {
+      res = await finish('u-a', r.state, r.key);
+      await started;
+    } finally {
+      DocRef.prototype._delete = realDelete;
+    }
+    var p = doc('users/u-a/private/garmin'), u = doc('users/u-a');
+    eq('n=' + n + ': connected', res, { result: 'connected' });
+    eq('n=' + n + ': new tokens kept', p && p.garminUserId, 'g-new');
+    eq('n=' + n + ': mappings', [doc('garminUsers/g-new') && doc('garminUsers/g-new').uid, doc('garminUsers/g-old')], ['u-a', undefined]);
+    eq('n=' + n + ': shown as connected and sharing', [u.garminConnected, u.garminSharing], [true, true]);
+    eq('n=' + n + ': old runs gone, own kept', runIds('u-a'), ['own_1']);
+  }
+});
+
+section('an item that fails is still removed from the inbox', async function () {
+  linked();
+  var realTx = db.runTransaction;
+  db.runTransaction = function () { return Promise.reject(new Error('ABORTED')); };
+  try { await push({ activities: [SUMMARY] }); await work(); } finally { db.runTransaction = realTx; }
+  eq('inbox drained', inbox().length, 0);
+  eq('error logged', logged.some(function (l) { return /onGarminInbox activities error/.test(l); }), true);
+  eq('no run', runIds('u-a'), []);
 });
 
 (async function () {
