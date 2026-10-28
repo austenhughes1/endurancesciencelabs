@@ -8,6 +8,7 @@
   "dependencies": {
     "firebase-admin": "^12.0.0",
     "firebase-functions": "^7.2.5",
+    "fit-file-parser": "3.0.2",
     "jspdf": "^4.2.1"
   }
 }
