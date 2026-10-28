@@ -20,6 +20,9 @@ const GARMIN_USER_URL = "https://apis.garmin.com/partner-gateway/rest/user";
 const AUTH_TTL_MS = 15 * 60 * 1000;
 const TOKEN_MARGIN_MS = 10 * 60 * 1000;
 const REFRESH_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+// Each call to Garmin's token and user endpoints gives up after this long, so
+// a request Garmin never answers can't hold up a disconnect or the daily job.
+const GARMIN_API_TIMEOUT_MS = 15 * 1000;
 
 function creds() {
   const clientId = process.env.GARMIN_CLIENT_ID, clientSecret = process.env.GARMIN_CLIENT_SECRET;
@@ -37,6 +40,7 @@ async function garminToken(params) {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString(),
+    signal: AbortSignal.timeout(GARMIN_API_TIMEOUT_MS),
   });
   if (!r.ok) throw new Error(`garmin token HTTP ${r.status}`);
   return r.json();
@@ -54,24 +58,37 @@ function tokenFields(tok) {
 }
 
 async function userApi(method, pathName, accessToken) {
-  return fetch(`${GARMIN_USER_URL}/${pathName}`, { method, headers: { Authorization: `Bearer ${accessToken}` } });
+  return fetch(`${GARMIN_USER_URL}/${pathName}`, {
+    method, headers: { Authorization: `Bearer ${accessToken}` },
+    signal: AbortSignal.timeout(GARMIN_API_TIMEOUT_MS),
+  });
 }
 
-// A usable access token for uid, refreshing when it is near expiry. null when
-// there is no link or the refresh token has lapsed.
-async function getValidAccessToken(uid) {
-  const snap = await privRef(uid).get();
-  if (!snap.exists) return null;
-  const p = snap.data();
+// A usable access token from an ending link's token fields, refreshing when it
+// is near expiry. The new tokens are not stored: the link is ending. null when
+// the refresh token has lapsed or the refresh fails.
+async function accessTokenFrom(uid, p) {
   if (p.accessToken && p.expiresAt - TOKEN_MARGIN_MS > Date.now()) return p.accessToken;
   if (!p.refreshToken || !(p.refreshExpiresAt > Date.now())) return null;
   try {
     const tok = await garminToken({ grant_type: "refresh_token", refresh_token: p.refreshToken });
-    await privRef(uid).set(tokenFields(tok), { merge: true });
     return tok.access_token;
   } catch (e) {
     console.warn(`garmin refresh failed for uid ${uid}: ${e.message}`);
     return null;
+  }
+}
+
+// Tells Garmin that a link has ended on our side. Logs the uid and the HTTP
+// status or error only. Returns whether Garmin accepted it.
+async function sendDeregistration(uid, accessToken) {
+  try {
+    const r = await userApi("DELETE", "registration", accessToken);
+    if (!r.ok) console.warn(`garmin deregister HTTP ${r.status} for uid ${uid}`);
+    return r.ok;
+  } catch (e) {
+    console.warn(`garmin deregister error for uid ${uid}: ${e.message}`);
+    return false;
   }
 }
 
@@ -257,26 +274,51 @@ async function linkGarmin(uid, code, verifier) {
   return { result: "connected" };
 }
 
-// Tells Garmin the athlete's link has ended on our side. Best effort: a lapsed
-// token still lets us purge locally.
+// Ends the athlete's link on our side and tells Garmin. The token doc is taken
+// out first, in one transaction, so a daily renewal finishing meanwhile finds
+// the link gone and tells Garmin itself with the tokens it was given (see
+// refreshGarminTokens). Best effort: a lapsed token still lets us purge locally.
 async function deregisterGarmin(uid) {
-  const token = await getValidAccessToken(uid);
+  const p = await db.runTransaction(async (t) => {
+    const snap = await t.get(privRef(uid));
+    if (!snap.exists) return null;
+    t.delete(privRef(uid));
+    return snap.data();
+  });
+  if (!p) return false;
+  const token = await accessTokenFrom(uid, p);
   if (!token) return false;
-  try {
-    const r = await userApi("DELETE", "registration", token);
-    if (!r.ok) console.warn(`garmin deregister HTTP ${r.status} for uid ${uid}`);
-    return r.ok;
-  } catch (e) {
-    console.warn(`garmin deregister error for uid ${uid}: ${e.message}`);
-    return false;
-  }
+  return sendDeregistration(uid, token);
 }
 
-// Frees garminUsers/{garminUserId} when it still points at uid.
+// Frees garminUsers/{garminUserId} when it still points at uid, unless uid's
+// token doc holds that Garmin account: a link to it made meanwhile keeps its
+// mapping. Both are read in one transaction, so a link finishing at the same
+// moment is either seen here or writes its mapping afterwards.
 async function dropGarminUserMapping(uid, garminUserId) {
   if (!garminUserId) return;
-  const link = await db.collection("garminUsers").doc(String(garminUserId)).get();
-  if (link.exists && link.get("uid") === uid) await link.ref.delete();
+  const ref = db.collection("garminUsers").doc(String(garminUserId));
+  await db.runTransaction(async (t) => {
+    const link = await t.get(ref);
+    const priv = await t.get(privRef(uid));
+    if (!link.exists || link.get("uid") !== uid) return;
+    if (priv.exists && String(priv.get("garminUserId") || "") === String(garminUserId)) return;
+    t.delete(ref);
+  });
+}
+
+// The user-doc lists that keep a run's id, start and distance (Lever marks,
+// exclusions), with the entries made on Garmin runs taken out. Only the lists
+// that change are returned.
+function withoutGarminRunNotes(user) {
+  const out = {};
+  for (const k of ["runLeverMarks", "runExcluded"]) {
+    const list = user[k];
+    if (!Array.isArray(list)) continue;
+    const kept = list.filter((m) => !(m && String(m.id).startsWith("garmin_")));
+    if (kept.length !== list.length) out[k] = kept;
+  }
+  return out;
 }
 
 // Queued runs and files for a Garmin account that the worker never finished.
@@ -298,16 +340,18 @@ async function garminUsersMappedTo(uid) {
 }
 
 // Deletes everything Garmin sent for one athlete: tokens, every source:"garmin"
-// run, the link flags, queued items and the user mapping. Their own uploads
-// stay. The tokens go first: the worker writes a run only while they still name
-// this Garmin account, checked inside its transaction, so no run lands after
-// the sweep below. The mappings go last, so a deregistration that fails
-// part-way still finds the account when it is retried.
+// run, the Lever marks and exclusions made on those runs, the link flags,
+// queued items and the user mapping. Their own uploads stay. The tokens go
+// first: the worker writes a run only while they still name this Garmin
+// account, checked inside its transaction, so no run lands after the sweep
+// below. The mappings go last, so a deregistration that fails part-way still
+// finds the account when it is retried.
 // With garminUserId (a deregistration), only a link to that account ends: if
 // uid holds a link to another account by the time the tokens are checked, that
 // link stays, only the old mapping is freed, and null is returned. Without it,
 // every mapping still pointing at uid is freed, which also finds one that an
-// earlier purge, failing after the tokens were gone, left behind.
+// earlier purge, failing after the tokens were gone, left behind. Either way, a
+// link made while this ran keeps its mapping and queued items.
 async function purgeGarminData(uid, garminUserId) {
   const only = garminUserId != null ? String(garminUserId) : null;
   const ended = await db.runTransaction(async (t) => {
@@ -333,15 +377,24 @@ async function purgeGarminData(uid, garminUserId) {
   await db.runTransaction(async (t) => {
     const priv = await t.get(privRef(uid));
     const user = await t.get(userRef);
-    if (priv.exists || !user.exists) return;
-    t.update(userRef, {
-      garminConnected: false,
-      garminSharing: FieldValue.delete(),
-      garminConnectedAt: FieldValue.delete(),
-      garminDisconnectedAt: FieldValue.serverTimestamp(),
-    });
+    if (!user.exists) return;
+    const patch = withoutGarminRunNotes(user.data());
+    if (!priv.exists) {
+      Object.assign(patch, {
+        garminConnected: false,
+        garminSharing: FieldValue.delete(),
+        garminConnectedAt: FieldValue.delete(),
+        garminDisconnectedAt: FieldValue.serverTimestamp(),
+      });
+    }
+    if (Object.keys(patch).length) t.update(userRef, patch);
   });
+  // A link made while this ran keeps its queued items; dropGarminUserMapping
+  // checks the token doc again for the mapping itself.
+  const cur = await privRef(uid).get();
+  const held = cur.exists ? String(cur.get("garminUserId") || "") : "";
   for (const gid of only ? [only] : await garminUsersMappedTo(uid)) {
+    if (gid === held) continue;
     await dropQueuedGarminData(gid);
     await dropGarminUserMapping(uid, gid);
   }
@@ -618,8 +671,11 @@ exports.disconnectGarmin = onCall({ cors: true, timeoutSeconds: 120 }, async (re
 // later disconnect can still tell Garmin the link ended. The new tokens are
 // stored only while the link still holds the token that was renewed: a
 // disconnect or a re-link made meanwhile keeps the last word, so a purge's
-// deleted tokens never come back.
-exports.refreshGarminTokens = onSchedule({ schedule: "every day 04:00", timeZone: "America/Denver" }, async () => {
+// deleted tokens never come back. If the link this renewal was for has ended
+// meanwhile (no token doc, or one for another Garmin account), its disconnect
+// may have been unable to tell Garmin, since its own renewal of the same token
+// can fail, so the new token tells Garmin here.
+exports.refreshGarminTokens = onSchedule({ schedule: "every day 04:00", timeZone: "America/Denver", timeoutSeconds: 540 }, async () => {
   const links = await db.collection("garminUsers").get();
   let renewed = 0;
   for (const link of links.docs) {
@@ -630,13 +686,15 @@ exports.refreshGarminTokens = onSchedule({ schedule: "every day 04:00", timeZone
     if (!p.refreshToken || p.refreshExpiresAt - Date.now() > REFRESH_WINDOW_MS) continue;
     try {
       const tok = await garminToken({ grant_type: "refresh_token", refresh_token: p.refreshToken });
-      const stored = await db.runTransaction(async (t) => {
+      const outcome = await db.runTransaction(async (t) => {
         const cur = await t.get(privRef(uid));
-        if (!cur.exists || cur.get("refreshToken") !== p.refreshToken) return false;
+        if (!cur.exists || String(cur.get("garminUserId") || "") !== String(p.garminUserId || "")) return "ended";
+        if (cur.get("refreshToken") !== p.refreshToken) return "newer";
         t.set(privRef(uid), tokenFields(tok), { merge: true });
-        return true;
+        return "stored";
       });
-      if (stored) renewed++;
+      if (outcome === "stored") renewed++;
+      if (outcome === "ended") await sendDeregistration(uid, tok.access_token);
     } catch (e) {
       console.warn(`refreshGarminTokens: uid ${uid} failed: ${e.message}`);
     }
