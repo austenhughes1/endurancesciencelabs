@@ -26,19 +26,22 @@ service cloud.firestore {
     // them: the esFormLab / esMetabolicLab / coaching paywalls and
     // verifyActivePass() trust features + formAnalyzerPassUntil, the
     // coaching dashboard keys off role, coachUid decides who can read the
-    // athlete, and the Strava webhook resolves users by stravaAthleteId.
+    // athlete, the Strava webhook resolves users by stravaAthleteId, and
+    // the garmin* flags show the Garmin Connect link state.
     function protectedUserFields() {
       return ['role', 'features', 'formAnalyzerPassUntil', 'coachUid',
-              'stravaAthleteId', 'stravaConnected'];
+              'stravaAthleteId', 'stravaConnected',
+              'garminConnected', 'garminSharing', 'garminConnectedAt', 'garminDisconnectedAt'];
     }
 
     // A user doc created by anyone but the admin starts with no
-    // entitlements, the default role and no Strava link.
+    // entitlements, the default role and no Strava or Garmin link.
     function isPlainNewUser(data) {
       return !data.keys().hasAny(['features', 'formAnalyzerPassUntil'])
           && data.get('role', 'athlete') == 'athlete'
           && data.get('stravaAthleteId', null) == null
-          && data.get('stravaConnected', false) == false;
+          && data.get('stravaConnected', false) == false
+          && data.get('garminConnected', false) == false;
     }
 
     // ── Computed ranges (male + female) ──────────────────────
@@ -271,6 +274,18 @@ service cloud.firestore {
     // and consumed by onStravaSyncQueued (admin SDK only). It holds
     // Strava activity ids, so no client may read or write it.
     match /stravaSyncQueue/{uid} {
+      allow read, write: if false;
+    }
+
+    // Garmin Connect link (functions/garmin.js, admin SDK only): PKCE
+    // state, the Garmin-user -> uid map, and the push inbox. No client access.
+    match /garminAuth/{state} {
+      allow read, write: if false;
+    }
+    match /garminUsers/{garminUserId} {
+      allow read, write: if false;
+    }
+    match /garminInbox/{id} {
       allow read, write: if false;
     }
 
