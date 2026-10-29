@@ -30,14 +30,14 @@ function lift(name) {
   throw new Error(name + ': unbalanced braces');
 }
 
-var NAMES = ['readGarminReturn', 'garminCardShown', 'garminCardHtml', 'garminResultToast',
-  'handleGarminReturn', 'connectGarmin', 'disconnectGarmin'];
-var code = 'var GARMIN_RETURN = null; var userDoc = null;\n' + NAMES.map(lift).join('\n');
+var NAMES = ['readGarminReturn', 'garminCardShown', 'garminCardHtml', 'garminOwnCardHtml', 'garminResultToast',
+  'handleGarminReturn', 'connectGarmin', 'disconnectGarmin', 'renderGarminKeep'];
+var code = 'var GARMIN_RETURN = null; var userDoc = null; var currentUser = null; var isCoach = false;\n' + NAMES.map(lift).join('\n');
 
 // A fresh page per case: every fake records what the code did with it.
 function page(opts) {
   opts = opts || {};
-  var rec = { toasts: [], calls: [], replaced: [], renders: 0, confirms: 0, warns: 0 };
+  var rec = { toasts: [], calls: [], replaced: [], renders: 0, confirms: 0, warns: 0, rd: [] };
   var ctx = {
     URLSearchParams: URLSearchParams, Promise: Promise, JSON: JSON, Object: Object, String: String,
     console: { warn: function () { rec.warns++; }, log: function () {}, error: function () {} },
@@ -47,6 +47,7 @@ function page(opts) {
       replaceState: function (s, t, url) { if (opts.replaceThrows) throw new Error('blocked'); rec.replaced.push(url); },
     },
     window: { location: { href: '/coaching/' } },
+    document: { querySelectorAll: function (sel) { return sel === '[data-garmin-keep]' ? (opts.slots || []) : []; } },
     esLabs: {
       toast: function (msg, o) { rec.toasts.push({ msg: msg, err: !!(o && o.err) }); },
       isActingAs: function () { return !!opts.acting; },
@@ -67,8 +68,16 @@ function page(opts) {
     confirm: function () { rec.confirms++; return opts.confirm !== false; },
     rerenderGarminViews: function () { rec.renders++; },
   };
+  if (opts.runDynamics) {
+    ctx.window.RunDynamics = ctx.RunDynamics = {
+      forget: function (uid) { rec.rd.push('forget ' + uid); },
+      reload: function (uid) { rec.rd.push('reload ' + uid); return Promise.resolve(true); },
+    };
+  }
   vm.runInNewContext(code, ctx);
   ctx.userDoc = opts.userDoc === undefined ? {} : opts.userDoc;
+  ctx.currentUser = opts.currentUser === undefined ? { uid: 'u-athlete' } : opts.currentUser;
+  ctx.isCoach = !!opts.isCoach;
   return { ctx: ctx, rec: rec };
 }
 
@@ -126,6 +135,46 @@ var MSG = {
     eq('coach home, admin', shown('coach-home', { acting: false, admin: true, live: false }), true);
     eq('coach home, other coach, live', shown('coach-home', { acting: false, admin: false, live: true }), false);
     eq('coach home, acting', shown('coach-home', { acting: true, admin: true, live: true }), false);
+
+    // Holding a link: the card stays wherever the account's own views are, so it can be ended.
+    eq('athlete, linked, not live', shown('athlete', { acting: false, admin: false, live: false, linked: true }), true);
+    eq('coach home, other coach, linked', shown('coach-home', { acting: false, admin: false, live: false, linked: true }), true);
+    eq('no dashboard, linked', shown('no-dashboard', { acting: false, admin: false, live: false, linked: true }), true);
+    eq('no dashboard, not linked, live', shown('no-dashboard', { acting: false, admin: true, live: true }), false);
+    eq('no dashboard, linked, acting', shown('no-dashboard', { acting: true, admin: true, live: true, linked: true }), false);
+    eq('athlete, linked, acting', shown('athlete', { acting: true, admin: false, live: false, linked: true }), false);
+    eq('coach viewing a linked athlete', shown('coach', { acting: false, admin: true, live: true, linked: true }), false);
+  });
+
+  await section('renderGarminKeep: views without a dashboard offer Disconnect while linked', function () {
+    function slot() { return { hidden: true, innerHTML: '', dataset: {} }; }
+    var a = slot(), b = slot();
+    var p = page({ slots: [a, b], userDoc: { garminConnected: true, garminSharing: true } });
+    p.ctx.renderGarminKeep();
+    eq('linked: every slot shown', [a.hidden, b.hidden], [false, false]);
+    has('linked: titled panel', a.innerHTML, '<h2 class="dash-title">Your Garmin Connect</h2>');
+    has('linked: disconnect button', a.innerHTML, 'onclick="disconnectGarmin(this)"');
+    has('linked: no connect button', a.innerHTML, 'onclick="connectGarmin()"', false);
+
+    a.innerHTML = 'kept'; // an unchanged state leaves the slot (and a press in flight) alone
+    p.ctx.renderGarminKeep();
+    eq('unchanged: not redrawn', a.innerHTML, 'kept');
+    p.ctx.userDoc.garminSharing = false;
+    p.ctx.renderGarminKeep();
+    has('sharing turned off: redrawn with the paused note', a.innerHTML, 'Sharing is turned off');
+    p.ctx.userDoc.garminConnected = false;
+    p.ctx.renderGarminKeep();
+    eq('disconnected: hidden and emptied', [a.hidden, a.innerHTML, b.hidden], [true, '', true]);
+
+    a = slot();
+    page({ slots: [a], userDoc: {} }).ctx.renderGarminKeep();
+    eq('never linked: nothing offered', [a.hidden, a.innerHTML], [true, '']);
+    a = slot();
+    page({ slots: [a], acting: true, userDoc: { garminConnected: true } }).ctx.renderGarminKeep();
+    eq('acting as a linked athlete: hidden', a.hidden, true);
+    a = slot();
+    page({ slots: [a], isCoach: true, userDoc: { garminConnected: true } }).ctx.renderGarminKeep();
+    eq('coach account: hidden', a.hidden, true);
   });
 
   await section('garminCardHtml: linked and unlinked states', function () {
@@ -271,6 +320,10 @@ var MSG = {
     eq('ends: card redrawn once', p.rec.renders, 1);
     eq('ends: toast counts runs', p.rec.toasts, [{ msg: 'Garmin Connect disconnected. 3 runs removed.', err: false }]);
 
+    p = page({ userDoc: linked(), runDynamics: true, callable: function () { return { data: { deleted: 2 } }; } });
+    await p.ctx.disconnectGarmin();
+    eq('ends: Running Dynamics forgets and re-reads the deleted runs', p.rec.rd, ['forget u-athlete', 'reload u-athlete']);
+
     p = page({ userDoc: linked(), callable: function () { return { data: { deleted: 1 } }; } });
     await p.ctx.disconnectGarmin();
     eq('one run', p.rec.toasts[0].msg, 'Garmin Connect disconnected. 1 run removed.');
@@ -281,6 +334,10 @@ var MSG = {
     eq('fails: still linked', [p.ctx.userDoc.garminConnected, p.rec.renders], [true, 0]);
     eq('fails: button usable again', btn.disabled, false);
     eq('fails: toast', p.rec.toasts, [{ msg: 'Couldn’t disconnect Garmin Connect. Try again.', err: true }]);
+
+    p = page({ userDoc: linked(), runDynamics: true, callable: function () { return new Error('internal'); } });
+    await p.ctx.disconnectGarmin();
+    eq('fails: Running Dynamics left as it is', p.rec.rd, []);
   });
 
   console.log(checks + ' checks, ' + (checks - failures) + ' passed, ' + failures + ' failed');

@@ -316,8 +316,8 @@ html[data-theme="light"] .dash-powered-by .pwrd-on-light{display:block}
 .garmin-connect-tile{height:88px;width:auto;flex:none}
 .garmin-connect-text{margin:0 auto 14px;max-width:400px;font-size:14px;line-height:1.55;color:var(--text)}
 .garmin-connect .strava-connect-note{max-width:400px;margin:12px auto 0}
-.coach-garmin{width:100%;max-width:520px;margin-top:12px;text-align:left}
-.coach-garmin .garmin-connect{margin-top:0;padding:8px 0;border-top:0}
+.coach-garmin,.garmin-keep{width:100%;max-width:520px;margin-top:12px;text-align:left}
+.coach-garmin .garmin-connect,.garmin-keep .garmin-connect{margin-top:0;padding:8px 0;border-top:0}
 
 /* Mileage chart */
 .chart-section{margin-bottom:28px}
@@ -858,6 +858,7 @@ select.modal-field{appearance:auto;cursor:pointer}
       <p class="paywall-sub">Our athletes range from sub-4 minute milers to beginners looking to complete their first marathon — we customize the plan to your goals, experience and schedule. Cancel anytime.</p>
     </div>
     <div id="paywall-status"></div>
+    <section class="garmin-keep" data-garmin-keep aria-label="Your Garmin Connect" hidden></section>
     <div class="billing-picker">
       <div class="billing-picker-label">Choose how you want to pay</div>
       <div class="billing-toggle" role="group" aria-label="Billing interval">
@@ -949,6 +950,7 @@ select.modal-field{appearance:auto;cursor:pointer}
     <p class="awaiting-text">Your coach will reach out within 24 hours to set up your training plan and get you onboarded. Your dashboard will appear here as soon as you're matched.</p>
     <p class="awaiting-text-sub">In the meantime, you can <a href="/esformlab/">try esFormLab</a> to start thinking about your form.</p>
     <p class="awaiting-text-sub"><a href="#" onclick="openCustomerPortal();return false;">Manage subscription &middot; cancel</a></p>
+    <section class="garmin-keep" data-garmin-keep aria-label="Your Garmin Connect" hidden></section>
     <div class="feedback-footer">
       <button type="button" class="feedback-footer-btn" onclick="openFeedbackModal('contact')">✉ Contact Endurance Science Labs</button>
       <button type="button" class="feedback-footer-btn bug" onclick="openFeedbackModal('bug')">🐛 Report a bug</button>
@@ -1548,6 +1550,7 @@ function watchUserDocForAccess() {
 
 function applyAthleteAccessState() {
   if (!currentUser || !userDoc || isCoach) return;
+  renderGarminKeep();
   const featuresMap = userDoc.features || {};
   const hasFeatureGrant = featuresMap.coaching === true;
   const hasSub = !!coachingSubTier;
@@ -2094,7 +2097,9 @@ async function loadAthleteDashboardInner(weekEl) {
             ? requestSentHtml()
             : '<button type="button" class="request-coaching-btn" onclick="requestCoaching(this)">Request coaching</button>'}
         </div>
-      </div>`;
+      </div>
+      <section class="garmin-keep" data-garmin-keep aria-label="Your Garmin Connect" hidden></section>`;
+    renderGarminKeep();
     return;
   }
 
@@ -3182,7 +3187,7 @@ function renderDashboard(containerId, role) {
   const acting = !!(esLabs.isActingAs && esLabs.isActingAs());
   const viewed = role === 'coach' ? selectedAthleteData : userDoc;
   const viewedName = (viewed?.displayName || viewed?.email || 'this athlete');
-  const garminHtml = garminCardShown(role, { acting, admin: currentUser?.uid === ADMIN_UID, live: GARMIN_CONNECT_LIVE })
+  const garminHtml = garminCardShown(role, { acting, admin: currentUser?.uid === ADMIN_UID, live: GARMIN_CONNECT_LIVE, linked: !!viewed?.garminConnected })
     ? garminCardHtml(viewed) : '';
   if (!stravaConnected) {
     const isAthlete = role === 'athlete';
@@ -3893,8 +3898,14 @@ const GARMIN_CONNECT_LIVE = false;
 // dashboard, on the coach home view ('coach-home'). Never on a coach's view of
 // an athlete, and never while acting as someone: the link always belongs to the
 // real signed-in account. Until GARMIN_CONNECT_LIVE, only the admin sees it.
+// An account that holds a link (o.linked) gets the card on every view of its
+// own, launched or not, including the athlete views without a dashboard
+// ('no-dashboard': no coaching access, waiting for a coach, no plan yet), so
+// the link can be ended at any time.
 function garminCardShown(view, o) {
-  if (o.acting || !(o.live || o.admin)) return false;
+  if (o.acting) return false;
+  if (o.linked && (view === 'athlete' || view === 'coach-home' || view === 'no-dashboard')) return true;
+  if (!(o.live || o.admin)) return false;
   return view === 'athlete' || (view === 'coach-home' && !!o.admin);
 }
 
@@ -3914,25 +3925,48 @@ function garminCardHtml(acct) {
   </div>`;
 }
 
+// The card in a titled panel of its own, for views with no Training Data card.
+function garminOwnCardHtml(acct) {
+  return `
+    <div class="dash-card">
+      <div class="dash-header"><h2 class="dash-title">Your Garmin Connect</h2></div>
+      <div class="dash-body">${garminCardHtml(acct)}</div>
+    </div>`;
+}
+
 // The admin's own card on the coach home view (see garminCardShown).
 function renderCoachGarmin() {
   const el = document.getElementById('coach-garmin');
   if (!el) return;
   const show = isCoach && !!currentUser && garminCardShown('coach-home', {
     acting: !!(esLabs.isActingAs && esLabs.isActingAs()),
-    admin: currentUser.uid === ADMIN_UID, live: GARMIN_CONNECT_LIVE,
+    admin: currentUser.uid === ADMIN_UID, live: GARMIN_CONNECT_LIVE, linked: !!userDoc?.garminConnected,
   });
   el.hidden = !show;
-  el.innerHTML = show ? `
-    <div class="dash-card">
-      <div class="dash-header"><h2 class="dash-title">Your Garmin Connect</h2></div>
-      <div class="dash-body">${garminCardHtml(userDoc)}</div>
-    </div>` : '';
+  el.innerHTML = show ? garminOwnCardHtml(userDoc) : '';
+}
+
+// The athlete's card on the views without a dashboard (the [data-garmin-keep]
+// slots in the paywall, awaiting and no-plan views), while they hold a link.
+// Runs on every user-doc change, so a slot is redrawn only when what it shows
+// changes: a Disconnect press in flight keeps its button.
+function renderGarminKeep() {
+  const show = !isCoach && !!currentUser && garminCardShown('no-dashboard', {
+    acting: !!(esLabs.isActingAs && esLabs.isActingAs()), linked: !!userDoc?.garminConnected,
+  });
+  const sig = show ? (userDoc.garminSharing === false ? 'paused' : 'linked') : 'none';
+  document.querySelectorAll('[data-garmin-keep]').forEach(el => {
+    if (el.dataset.garminSig === sig) return;
+    el.dataset.garminSig = sig;
+    el.hidden = !show;
+    el.innerHTML = show ? garminOwnCardHtml(userDoc) : '';
+  });
 }
 
 // Redraw every Garmin Connect card on screen after the link changes.
 function rerenderGarminViews() {
   renderCoachGarmin();
+  renderGarminKeep();
   if (!isCoach) rerenderStravaViews('athlete'); // re-renders the Training Data card if it is showing
 }
 
@@ -3964,6 +3998,12 @@ async function disconnectGarmin(btn) {
     const n = (res && res.data && res.data.deleted) || 0;
     if (userDoc) { userDoc.garminConnected = false; delete userDoc.garminSharing; }
     rerenderGarminViews();
+    // An open Running Dynamics view, or its remembered copy, still holds the deleted runs.
+    const uid = currentUser && currentUser.uid;
+    if (uid && window.RunDynamics) {
+      if (RunDynamics.forget) RunDynamics.forget(uid);
+      if (RunDynamics.reload) RunDynamics.reload(uid);
+    }
     esLabs.toast(`Garmin Connect disconnected. ${n} ${n === 1 ? 'run' : 'runs'} removed.`);
   } catch (e) {
     console.warn('disconnectGarmin:', e && e.message);
