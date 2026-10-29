@@ -235,11 +235,17 @@ async function linkGarmin(uid, code, verifier) {
   const permRes = await userApi("GET", "permissions", tok.access_token);
   if (!permRes.ok) {
     // Garmin didn't say what was granted, so this is an error, not "scope". A
-    // new link is undone; a link this account already held carries on with
-    // the fresh tokens, unless another tab has switched or ended it since this
-    // one checked: then that tab's outcome stays and this link is undone.
+    // new link is undone, unless another tab has linked this Garmin account
+    // since: the registration is that link's too, so Garmin is not told. A
+    // link this account already held carries on with the fresh tokens, unless
+    // another tab has switched or ended it since this one checked: then that
+    // tab's outcome stays and this link is undone.
     if (!relink) {
-      await userApi("DELETE", "registration", tok.access_token).catch(() => {});
+      if (await holdsGarminLink(uid, garminUserId)) {
+        console.warn(`finishGarminLink: uid ${uid} linked this Garmin account in another tab meanwhile; that link kept`);
+      } else {
+        await userApi("DELETE", "registration", tok.access_token).catch(() => {});
+      }
       return err("exchange");
     }
     const kept = await db.runTransaction(async (t) => {

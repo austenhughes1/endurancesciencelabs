@@ -1322,6 +1322,40 @@ section('a re-link whose permission check fails leaves a switch or disconnect ma
   eq('disconnect: no token logged', tokensNeverLogged(), true);
 });
 
+section('a new link whose permission check fails leaves a link another tab made to the same Garmin account alone', async function () {
+  // Tab A links g-111. While it asks Garmin what was granted, tab B links
+  // g-111 too (in the last case, g-222), and then A's request fails.
+  var cases = [
+    ['no link before', null, 'g-111'],
+    ['switching from another account', 'g-old', 'g-111'],
+    ['tab B links another account', null, 'g-222'],
+  ];
+  for (var i = 0; i < cases.length; i++) {
+    var name = cases[i][0], before = cases[i][1], gidB = cases[i][2];
+    reset();
+    seedUser('u-a'); seedRun('u-a', 'own_1');
+    if (before) { seedLink('u-a', before); seedRun('u-a', 'garmin_old', 'garmin'); }
+    var a = await startAndApprove('u-a'), b = await startAndApprove('u-a'), resB = null, resA;
+    var first = tokenSeq + 1, second = tokenSeq + 2;
+    var restore = onGarminRequest(/\/user\/permissions$/, async function () {
+      garmin.userId = gidB;
+      resB = await finish('u-a', b.state, b.key);
+      garmin.permStatus = 503;
+    });
+    try { resA = await finish('u-a', a.state, a.key); } finally { restore(); }
+    var p = doc('users/u-a/private/garmin') || {}, u = doc('users/u-a'), m = doc('garminUsers/' + gidB) || {};
+    var told = (before ? ['DELETE registration Bearer stored-u-a'] : [])
+      .concat(gidB === 'g-111' ? [] : ['DELETE registration Bearer acc-' + first]);
+    eq(name + ': tab B linked', resB, { result: 'connected' });
+    eq(name + ': tab A gets an error', resA, { result: 'error', reason: 'exchange' });
+    eq(name + ': Garmin told only of links that ended', deletes(), told);
+    eq(name + ": tab B's link whole", [p.garminUserId, p.accessToken, p.refreshToken, m.uid, u.garminConnected, u.garminSharing], [gidB, 'acc-' + second, 'ref-' + second, 'u-a', true, true]);
+    eq(name + ': no other mapping', [doc('garminUsers/g-old'), gidB === 'g-111' ? undefined : doc('garminUsers/g-111')], [undefined, undefined]);
+    eq(name + ': old runs gone, own kept', runIds('u-a'), ['own_1']);
+    eq(name + ': no token logged', tokensNeverLogged(), true);
+  }
+});
+
 section("disconnectGarmin ends only the caller's own link", async function () {
   linked(); // u-a holds g-111
   seedUser('u-b'); seedRun('u-a', 'garmin_1', 'garmin');
