@@ -90,6 +90,7 @@
     border-color: var(--good-line); opacity: 1; cursor: default;
   }
   .price-card .footnote { font: 400 13px/1.55 var(--ui); color: var(--muted2); text-align: center; margin-top: 8px; }
+  .price-card .buy-terms { font: 400 12px/1.45 var(--ui); color: var(--muted2); text-align: center; margin-top: 8px; }
   @media (max-width: 600px) { .price-card .price { font-size: 34px; } }
 
   /* Entitlement banner (good callout) */
@@ -187,6 +188,7 @@
         <li>Refinable for 7 days from purchase</li>
       </ul>
       <button class="btn buy-btn" data-buy="single">Buy — $30</button>
+      <p class="buy-terms">By buying you agree to our <a href="/terms/" target="_blank" rel="noopener" class="esl-link">Terms</a>.</p>
       <p class="footnote">Best for one-off testing.</p>
     </div>
 
@@ -206,6 +208,7 @@
         <li>Side-by-side profile comparison</li>
       </ul>
       <button class="btn primary buy-btn" data-buy="yearly">Subscribe — $60</button>
+      <p class="buy-terms">By subscribing you agree to our <a href="/terms/" target="_blank" rel="noopener" class="esl-link">Terms</a>.</p>
       <p class="footnote">Best for seasonal re-testing.</p>
     </div>
 
@@ -224,6 +227,7 @@
         <li>Future esMetabolicLab features included</li>
       </ul>
       <button class="btn buy-btn" data-buy="lifetime">Buy — $90</button>
+      <p class="buy-terms">By buying you agree to our <a href="/terms/" target="_blank" rel="noopener" class="esl-link">Terms</a>.</p>
       <p class="footnote">Best value, long-term.</p>
     </div>
 
@@ -242,6 +246,7 @@
         <li>Results explained 1-on-1</li>
       </ul>
       <a class="btn buy-btn" href="/esmetaboliclab/in-person/">Details &amp; booking →</a>
+      <p class="buy-terms">By booking you agree to our <a href="/terms/" target="_blank" rel="noopener" class="esl-link">Terms</a>.</p>
       <p class="footnote">Highest accuracy. Run by a human.</p>
     </div>
 
@@ -420,7 +425,9 @@
     var btn = card.querySelector('[data-buy="' + tier + '"]');
     var old = card.querySelector('.active-badge'); if (old) old.remove();
     var oldLink = card.querySelector('[data-tool-link]');
+    var terms = card.querySelector('.buy-terms');
     if (btn && !btn.dataset.label) btn.dataset.label = btn.textContent;
+    if (terms) terms.style.visibility = (active || covered) ? 'hidden' : '';   // keeps its space so the buttons stay aligned
 
     if (active || covered) {
       var badge = document.createElement('span');
