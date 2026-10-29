@@ -1075,13 +1075,13 @@ function sameRunSpan(aTs,aDur,bTs,bDur){ var slack=60000; return aTs<=bTs+(bDur|
 function backfill(candidates){
   return actCol().get().then(function(snap){
     var candIds=new Set(candidates.map(function(c){return c.id;}));
-    var existing=new Set(), replace=[], near=[];
+    var existing=new Set(), replace=[], near=[], garmin=[];
     snap.forEach(function(d){
       existing.add(d.id);
       var x=d.data();
       // watch-sourced docs by start time: the same run imported from a FIT and from the CSV gets a
       // different id scheme, so a new id within 60 s of a stored watch run is the same run (never re-ids)
-      if(x.source!=='strava'){ var t=x.ts&&x.ts.toMillis?x.ts.toMillis():+x.ts; if(isFinite(t)) near.push(t); }
+      if(x.source!=='strava' && x.source!=='garmin'){ var t=x.ts&&x.ts.toMillis?x.ts.toMillis():+x.ts; if(isFinite(t)) near.push(t); }
       // A watch export is the richer record (GCT, oscillation, descent) — drop
       // any Strava-synced doc for a run this import now covers (overlapping
       // span; a second run that day stays). Same-id docs need no delete: the
@@ -1089,11 +1089,21 @@ function backfill(candidates){
       // device doc covers, so these never come back.
       if(x.source==='strava' && !candIds.has(d.id)){ var st=x.ts&&x.ts.toMillis?x.ts.toMillis():+x.ts;
         if(isFinite(st) && candidates.some(function(c){ return sameRunSpan(c.ts,c.durSec,st,x.durSec); })) replace.push(d.ref); }
+      if(x.source==='garmin' && !candIds.has(d.id)){ var gt=x.ts&&x.ts.toMillis?x.ts.toMillis():+x.ts; if(isFinite(gt)) garmin.push({ref:d.ref, id:d.id, ts:gt, durSec:x.durSec}); }
     });
     var dupes=0, fresh=candidates.filter(function(c){
       if(existing.has(c.id)) return true;
       if(near.some(function(t){ return Math.abs(t-c.ts)<=60000; })){ dupes++; return false; }   // near-duplicate: no write
       return true;
+    });
+    // The athlete's own upload wins over the copy of a run Garmin Connect sent: the upload is stored and
+    // the Garmin copy deleted (the server never writes it again while an upload holds the run), so
+    // disconnecting Garmin, which deletes what Garmin sent, leaves the upload. Lever marks and exclusions
+    // made on the Garmin copy move to the upload's run.
+    var moved=new Map();
+    garmin.forEach(function(g){
+      var c=fresh.filter(function(f){ return sameRunSpan(f.ts,f.durSec,g.ts,g.durSec); })[0];
+      if(c){ replace.push(g.ref); moved.set(g.id, c.id); }
     });
     var added=0; fresh.forEach(function(c){ if(!existing.has(c.id)) added++; });
     var ops=fresh.slice();
@@ -1107,8 +1117,22 @@ function backfill(candidates){
         return batch.commit();
       });
     });
-    return p.then(function(){ return {added:added, updated:fresh.length-added, replaced:replace.length, dupes:dupes}; });
+    return p.then(function(){ return moveRunNotes(moved); }).then(function(){
+      return {added:added, updated:fresh.length-added, replaced:replace.length-moved.size, replacedGarmin:moved.size, dupes:dupes};
+    });
   });
+}
+// Lever marks and exclusions on runs that are now stored under another id (moved: old id → new id).
+// One already on the new id wins. A failed save is left alone: the old entry still applies through
+// the start-time match until it is saved again.
+function moveRunNotes(moved){
+  if(!moved.size) return Promise.resolve();
+  var move=function(list){
+    var ids=new Set(list.map(function(m){ return m&&String(m.id); }));
+    return list.filter(function(m){ return !(m && moved.has(String(m.id)) && ids.has(moved.get(String(m.id)))); })
+      .map(function(m){ return m && moved.has(String(m.id)) ? Object.assign({}, m, {id:moved.get(String(m.id))}) : m; });
+  };
+  return Promise.all(['runLeverMarks','runExcluded'].map(function(k){ return updateProfileList(k, move, null, false); }));
 }
 /* Delete every stored activity doc. Escape hatch for a bad import: backfill
    upserts by start-time id, so a mislabeled activity that was re-exported
@@ -1462,7 +1486,13 @@ function updateProfileList(key, fn, rerender, okMsg){
   var blocked=profileBlocked(); if(blocked) return Promise.resolve(fail(blocked));
   var ref=DB.collection('users').doc(uid), q=LIST_Q[uid+'/'+key]||(LIST_Q[uid+'/'+key]={tail:Promise.resolve(),n:0}), n=++q.n, out;
   var run=function(){ return DB.runTransaction(function(tx){
-    return tx.get(ref).then(function(d){ var patch={}; out=patch[key]=fn(cur(d.exists?(d.data()||{})[key]:null)); tx.set(ref,patch,{merge:true}); });
+    return tx.get(ref).then(function(d){
+      var stored=cur(d.exists?(d.data()||{})[key]:null), next=fn(stored.slice());
+      return goneGarminRuns(tx, ref, key, stored, next).then(function(gone){
+        var patch={}; out=patch[key]=gone.size?next.filter(function(m){ return !(m && gone.has(String(m.id))); }):next;
+        tx.set(ref,patch,{merge:true});
+      });
+    });
   }); };
   var p=q.tail.then(run,run);
   q.tail=p.catch(function(){});
@@ -1474,6 +1504,18 @@ function updateProfileList(key, fn, rerender, okMsg){
     STD_PROFILE[key]=out; if(changed && rerender) rerender();
     return true;
   }).catch(function(e){ console.error('profile save',e); return fail((e&&e.code)||'save failed'); });
+}
+// Lever marks and exclusions name runs by id. A new one for a run Garmin Connect sent is stored only
+// while that run is: a view opened before Garmin was disconnected still lists the runs the disconnect
+// deleted, and must not write them back onto the profile. Resolves with the ids of those gone.
+function goneGarminRuns(tx, userRef, key, before, after){
+  var gone=new Set();
+  if(key!=='runLeverMarks' && key!=='runExcluded') return Promise.resolve(gone);
+  var had=new Set(before.map(function(m){ return m&&String(m.id); })), ids=[];
+  after.forEach(function(m){ var id=m&&m.id!=null?String(m.id):''; if(/^garmin_/.test(id) && !had.has(id) && ids.indexOf(id)<0) ids.push(id); });
+  return Promise.all(ids.map(function(id){
+    return tx.get(userRef.collection('garminActivities').doc(id)).then(function(r){ if(!r.exists) gone.add(id); });
+  })).then(function(){ return gone; });
 }
 function loadProfile(){ if(!UID) return Promise.resolve(); var my=MOUNT; return DB.collection('users').doc(UID).get().then(function(d){ if(my!==MOUNT) return; var x=d.exists?d.data():{}; PROFILE_ERR=null; STD_PROFILE={ weightLb:x.weightLb, runDevice:x.runDevice, runHasAccessory:x.runHasAccessory, runLeverPctBW:x.runLeverPctBW, runEasyPaceSec:x.runEasyPaceSec, runEvents:Array.isArray(x.runEvents)?x.runEvents:[], runDismissedDrops:Array.isArray(x.runDismissedDrops)?x.runDismissedDrops:[], runLeverMarks:Array.isArray(x.runLeverMarks)?x.runLeverMarks:[], runExcluded:Array.isArray(x.runExcluded)?x.runExcluded:[], runIncluded:(x.runIncluded&&typeof x.runIncluded==='object')?x.runIncluded:null, runWorkoutPaceSec:x.runWorkoutPaceSec }; STRAVA_SYNC={ connected:!!x.stravaConnected, last:x.stravaLastSyncedAt||null }; }).catch(function(e){ if(my!==MOUNT) return; console.error('profile load',e); PROFILE_ERR=(e&&e.code)||'load failed'; STD_PROFILE={}; STRAVA_SYNC={}; }); }
 
@@ -3211,6 +3253,7 @@ function saveCandidates(candidates){
       var verify=sample?actCol().doc(sample.id).get().then(function(d){return d.exists&&d.data().ascentM!=null;}).catch(function(){ return null; }):Promise.resolve(null);
       verify.then(function(ok){
         var parts=[], stored=(res.updated||0)+(res.dupes||0); if(stored) parts.push(stored+' already stored'); if(res.replaced) parts.push(res.replaced+' Strava-synced replaced by watch data');
+        if(res.replacedGarmin) parts.push(res.replacedGarmin+' sent by Garmin Connect replaced by this upload');
         if(candidates.csvUnits==='metric') parts.push('read as km/m');
         var head=res.added? '✓ '+res.added+' new run'+(res.added===1?'':'s') : '✓ No new runs';
         impDone('<span class="ok">'+head+'</span>'+(parts.length?' · '+parts.join(' · '):''),'ok');
@@ -3515,12 +3558,14 @@ function wire(){
     var p=e.target.closest&&e.target.closest('.rdx-ev-pick'); if(p){ if(EV_EDIT===p.getAttribute('data-id')) evCancelEdit(true); else evEdit(p.getAttribute('data-id')); } };
   $('set-events').onkeydown=function(e){ if(e.key==='Escape' && EV_EDIT!=null){ e.stopPropagation(); evCancelEdit(true); } };
   $('resetData').onclick=function(){
-    var btn=this;
+    var btn=this, nGarmin=RAW.filter(function(r){ return r.source==='garmin'; }).length;
     if(!confirm('Delete ALL of '+who()+' stored run history ('+RAW.length+' runs)?\n\n'+
       'This clears every imported activity so a fresh export can be re-imported clean — '+
       'use it if a bad activity got stuck in an earlier upload. '+
       'Profile, logged events, dismissed gaps and Lever marks are kept.'+
-      (STRAVA_SYNC.connected?'\n\nStrava-synced runs come back automatically within a day.':'')+'\n\nThis cannot be undone.')) return;
+      (STRAVA_SYNC.connected?'\n\nStrava-synced runs come back automatically within a day.':'')+
+      (nGarmin?'\n\n'+nGarmin+(nGarmin===1?' run':' runs')+' sent by Garmin Connect '+(nGarmin===1?'is':'are')+' deleted too, and Garmin Connect won’t send '+(nGarmin===1?'it':'them')+' again.':'')+
+      '\n\nThis cannot be undone.')) return;
     btn.disabled=true;
     impStatus('<span class="rdx-spin"></span>Deleting '+RAW.length+' stored runs…');
     deleteAllRuns().then(function(n){
@@ -3712,5 +3757,8 @@ function reload(uid){
     return true;
   }).catch(function(e){ console.warn('RunDynamics: reload failed', e); return false; });
 }
-window.RunDynamics = { mount: mount, reload: reload };
+/* Drop the data remembered for uid's instant re-render (e.g. runs of theirs were deleted elsewhere), so
+   their next mount shows only what is stored. */
+function forget(uid){ if(uid) delete DATA_CACHE[uid]; }
+window.RunDynamics = { mount: mount, reload: reload, forget: forget };
 })();
