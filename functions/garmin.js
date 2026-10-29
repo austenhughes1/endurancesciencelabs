@@ -80,8 +80,7 @@ async function accessTokenFrom(uid, p) {
 }
 
 // Tells Garmin that a link has ended on our side. Logs the uid and the HTTP
-// status or error only. Returns whether Garmin accepted it, or null when it
-// never answered.
+// status or error only. Returns whether Garmin accepted it.
 async function sendDeregistration(uid, accessToken) {
   try {
     const r = await userApi("DELETE", "registration", accessToken);
@@ -89,7 +88,7 @@ async function sendDeregistration(uid, accessToken) {
     return r.ok;
   } catch (e) {
     console.warn(`garmin deregister error for uid ${uid}: ${e.message}`);
-    return null;
+    return false;
   }
 }
 
@@ -166,9 +165,8 @@ exports.garminCallback = onRequest({ cors: false }, async (req, res) => {
 // link someone else started never sends your Garmin data to their account.
 // Returns { result: "connected" | "scope" | "error", reason? }, reason being
 // params|state|account|user|config|exchange|inuse|busy (busy: another tab
-// linked this account to a different Garmin account first, ended the link
-// this one was renewing, or undid a link to the same Garmin account while this
-// one was finishing).
+// linked this account to a different Garmin account first, or ended the link
+// this one was renewing).
 exports.finishGarminLink = onCall({ cors: true, timeoutSeconds: 120 }, async (request) => {
   const uid = request.auth && request.auth.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Sign in to finish linking Garmin Connect.");
@@ -201,46 +199,6 @@ async function holdsGarminLink(uid, garminUserId) {
   return p.exists && String(p.get("garminUserId") || "") === String(garminUserId);
 }
 
-// Undoing a link tells Garmin to end its registration, which every link to
-// that Garmin account shares, so tokens asked for before Garmin answered may
-// be ended with it. Each undo a link makes is noted on a server-only doc of
-// the account, apart from the token doc (whose existence means linked), until
-// every link that asked for tokens before it was answered has finished:
-// finishGarminLink gives up after 120 s. Notes name the Garmin account by a
-// hash, so none keeps its id.
-const UNDO_TTL_MS = 3 * 60 * 1000;
-function undoRef(uid) { return db.collection("users").doc(uid).collection("private").doc("garminUndo"); }
-function accountTag(garminUserId) { return crypto.createHash("sha256").update(String(garminUserId)).digest("base64url"); }
-function liveUndos(notes) { return ((notes.exists && notes.get("undos")) || []).filter((u) => u.expiresAt > Date.now()); }
-
-// Notes, in transaction t, that a link to garminUserId is about to be undone.
-// notes is undoRef(uid) as read in t. Returns the note's key.
-function noteUndo(t, uid, notes, garminUserId) {
-  const key = crypto.randomBytes(12).toString("base64url");
-  t.set(undoRef(uid), { undos: liveUndos(notes).concat([{ key, account: accountTag(garminUserId), expiresAt: Date.now() + UNDO_TTL_MS }]) });
-  return key;
-}
-
-// Tells Garmin the noted link has ended, then notes when Garmin answered. If
-// it never answered, the note stays open until it lapses. Notes gone with a
-// deleted account are not written back.
-async function undoWithGarmin(uid, key, accessToken) {
-  if (await sendDeregistration(uid, accessToken) === null) return;
-  const doneAt = Date.now();
-  await db.runTransaction(async (t) => {
-    const notes = await t.get(undoRef(uid));
-    if (!notes.exists) return;
-    t.set(undoRef(uid), { undos: liveUndos(notes).map((u) => (u.key === key ? Object.assign({}, u, { doneAt }) : u)) });
-  });
-}
-
-// True when an undo of a link to garminUserId may have ended tokens asked for
-// at askedAt: Garmin has not answered it yet, or answered it since.
-function undoneSince(notes, garminUserId, askedAt) {
-  const tag = accountTag(garminUserId);
-  return liveUndos(notes).some((u) => u.account === tag && !(u.doneAt < askedAt));
-}
-
 // Exchanges the code and links the Garmin account to uid.
 async function linkGarmin(uid, code, verifier) {
   const err = (reason) => ({ result: "error", reason });
@@ -249,8 +207,6 @@ async function linkGarmin(uid, code, verifier) {
   const userDoc = await userRef.get();
   if (!userDoc.exists) return err("user");
 
-  // An undo Garmin answers after this may have ended these tokens (undoneSince).
-  const askedAt = Date.now();
   const tok = await garminToken({
     grant_type: "authorization_code", code: String(code),
     code_verifier: verifier, redirect_uri: GARMIN_REDIRECT_URI,
@@ -279,31 +235,29 @@ async function linkGarmin(uid, code, verifier) {
   const permRes = await userApi("GET", "permissions", tok.access_token);
   if (!permRes.ok) {
     // Garmin didn't say what was granted, so this is an error, not "scope". A
-    // new link is undone; a link this account already held carries on with the
-    // fresh tokens. Either way, a link to this Garmin account that the account
-    // holds by now stays and Garmin is not told, as the registration is that
-    // link's too; one another tab made meanwhile keeps its own tokens. If
-    // another tab has switched or ended the held link since this one checked,
-    // that tab's outcome stays and this link is undone ("busy"). The check and
-    // the undo's note are one transaction, and a link to this Garmin account
-    // still finishing in another tab stores no tokens the undo may have ended
-    // (see the token doc write below): it is undone too. Left open: notes are
-    // per ESL account, so another account linking the same Garmin account at
-    // that moment is not covered.
-    const undo = await db.runTransaction(async (t) => {
-      const cur = await t.get(privRef(uid));
-      const notes = await t.get(undoRef(uid));
-      if (!cur.exists || String(cur.get("garminUserId") || "") !== garminUserId) return noteUndo(t, uid, notes, garminUserId);
-      if (relink && !undoneSince(notes, garminUserId, askedAt)) t.set(privRef(uid), tokenFields(tok), { merge: true });
-      return null;
-    });
-    if (!undo) {
-      if (!relink) console.warn(`finishGarminLink: uid ${uid} linked this Garmin account in another tab meanwhile; that link kept`);
+    // new link is undone, unless another tab has linked this Garmin account
+    // since: the registration is that link's too, so Garmin is not told. A
+    // link this account already held carries on with the fresh tokens, unless
+    // another tab has switched or ended it since this one checked: then that
+    // tab's outcome stays and this link is undone.
+    if (!relink) {
+      if (await holdsGarminLink(uid, garminUserId)) {
+        console.warn(`finishGarminLink: uid ${uid} linked this Garmin account in another tab meanwhile; that link kept`);
+      } else {
+        await userApi("DELETE", "registration", tok.access_token).catch(() => {});
+      }
       return err("exchange");
     }
-    if (relink) console.warn(`finishGarminLink: uid ${uid} switched or ended its Garmin link meanwhile; this link undone`);
-    await undoWithGarmin(uid, undo, tok.access_token);
-    return err(relink ? "busy" : "exchange");
+    const kept = await db.runTransaction(async (t) => {
+      const cur = await t.get(privRef(uid));
+      if (!cur.exists || String(cur.get("garminUserId") || "") !== garminUserId) return false;
+      t.set(privRef(uid), tokenFields(tok), { merge: true });
+      return true;
+    });
+    if (kept) return err("exchange");
+    console.warn(`finishGarminLink: uid ${uid} switched or ended its Garmin link meanwhile; this link undone`);
+    await sendDeregistration(uid, tok.access_token);
+    return err("busy");
   }
   if (!lib.hasActivityExport(await permRes.json())) {
     // Activity sharing is the whole point; without it, undo the link. If this
@@ -331,24 +285,17 @@ async function linkGarmin(uid, code, verifier) {
   // it before it touches the flags. sharingChangedAt: what was granted was
   // checked just now, so sharing changes that reached us earlier are older.
   // If another tab has linked a different Garmin account since this one
-  // checked, that link stays and this one is undone with Garmin. Tokens an
-  // undo of a link to this Garmin account may have ended are never stored:
-  // this link is undone too, unless the account holds a link to this Garmin
-  // account by now. That link was stored after the undo was answered, so it
-  // stays with its own tokens.
-  const undo = await db.runTransaction(async (t) => {
+  // checked, that link stays and this one is undone with Garmin.
+  const stored = await db.runTransaction(async (t) => {
     const cur = await t.get(privRef(uid));
-    const notes = await t.get(undoRef(uid));
     const held = cur.exists ? String(cur.get("garminUserId") || "") : "";
-    const ended = undoneSince(notes, garminUserId, askedAt);
-    if (held === garminUserId && ended) return null;
-    if ((held && held !== garminUserId) || ended) return noteUndo(t, uid, notes, garminUserId);
+    if (held && held !== garminUserId) return false;
     t.set(privRef(uid), Object.assign(tokenFields(tok), { garminUserId, sharingChangedAt: Date.now() }));
-    return null;
+    return true;
   });
-  if (undo) {
-    console.warn(`finishGarminLink: uid ${uid} linked another Garmin account, or undid this one, meanwhile; this link undone`);
-    await undoWithGarmin(uid, undo, tok.access_token);
+  if (!stored) {
+    console.warn(`finishGarminLink: uid ${uid} linked another Garmin account meanwhile; this link undone`);
+    await sendDeregistration(uid, tok.access_token);
     return err("busy");
   }
   await db.collection("garminUsers").doc(garminUserId).set({ uid, linkedAt: FieldValue.serverTimestamp() });
