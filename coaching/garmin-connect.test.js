@@ -31,7 +31,7 @@ function lift(name) {
 }
 
 var NAMES = ['readGarminReturn', 'garminCardShown', 'garminCardHtml', 'garminOwnCardHtml', 'garminResultToast',
-  'handleGarminReturn', 'connectGarmin', 'disconnectGarmin', 'renderGarminKeep'];
+  'handleGarminReturn', 'connectGarmin', 'disconnectGarmin', 'renderGarminKeep', 'garminKeepSlotHtml'];
 var code = 'var GARMIN_RETURN = null; var userDoc = null; var currentUser = null; var isCoach = false;\n' + NAMES.map(lift).join('\n');
 
 // A fresh page per case: every fake records what the code did with it.
@@ -139,9 +139,9 @@ var MSG = {
     // Holding a link: the card stays wherever the account's own views are, so it can be ended.
     eq('athlete, linked, not live', shown('athlete', { acting: false, admin: false, live: false, linked: true }), true);
     eq('coach home, other coach, linked', shown('coach-home', { acting: false, admin: false, live: false, linked: true }), true);
-    eq('no dashboard, linked', shown('no-dashboard', { acting: false, admin: false, live: false, linked: true }), true);
-    eq('no dashboard, not linked, live', shown('no-dashboard', { acting: false, admin: true, live: true }), false);
-    eq('no dashboard, linked, acting', shown('no-dashboard', { acting: true, admin: true, live: true, linked: true }), false);
+    eq('no Training Data card, linked', shown('no-training-card', { acting: false, admin: false, live: false, linked: true }), true);
+    eq('no Training Data card, not linked, live', shown('no-training-card', { acting: false, admin: true, live: true }), false);
+    eq('no Training Data card, linked, acting', shown('no-training-card', { acting: true, admin: true, live: true, linked: true }), false);
     eq('athlete, linked, acting', shown('athlete', { acting: true, admin: false, live: false, linked: true }), false);
     eq('coach viewing a linked athlete', shown('coach', { acting: false, admin: true, live: true, linked: true }), false);
   });
@@ -175,6 +175,20 @@ var MSG = {
     a = slot();
     page({ slots: [a], isCoach: true, userDoc: { garminConnected: true } }).ctx.renderGarminKeep();
     eq('coach account: hidden', a.hidden, true);
+  });
+
+  await section('garminKeepSlotHtml: a dashboard without the Training Plan tab carries a Garmin slot', function () {
+    var p = page();
+    var slot = p.ctx.garminKeepSlotHtml('athlete', false);
+    has('athlete, no Training Plan tab: a hidden slot', slot, '<section class="garmin-keep" data-garmin-keep aria-label="Your Garmin Connect" hidden></section>');
+    eq('athlete with the Training Plan tab: none (the Training Data card has the card)', p.ctx.garminKeepSlotHtml('athlete', true), '');
+    eq("coach's view of an athlete: none", p.ctx.garminKeepSlotHtml('coach', false), '');
+
+    // Filled by renderGarminKeep like the other slots: Disconnect while linked.
+    var el = { hidden: true, innerHTML: '', dataset: {} };
+    page({ slots: [el], userDoc: { garminConnected: true, features: { coaching: false, lifting: true } } }).ctx.renderGarminKeep();
+    eq('linked athlete without the tab: slot shown', el.hidden, false);
+    has('linked athlete without the tab: disconnect button', el.innerHTML, 'onclick="disconnectGarmin(this)"');
   });
 
   await section('garminCardHtml: linked and unlinked states', function () {

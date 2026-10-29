@@ -2927,9 +2927,12 @@ function renderSingleWeek(weekContainerId, dashContainerId, role) {
   } else {
     html += `<div class="main-empty"><div class="main-empty-icon">◇</div><div class="main-empty-text">No features enabled. Contact your coach.</div></div>`;
   }
+  const garminKeep = garminKeepSlotHtml(role, showCoaching);
+  html += garminKeep;
 
   container.innerHTML = html;
   autoGrowAll(container);
+  if (garminKeep) renderGarminKeep();
 
   if (pendingFocusSel) {
     let target = container.querySelector(pendingFocusSel);
@@ -3893,18 +3896,19 @@ function handleStravaReturn() {
 // let every athlete link Garmin Connect.
 const GARMIN_CONNECT_LIVE = false;
 
-// Where the Garmin Connect card shows: on an athlete's own dashboard ('athlete')
-// and, for the admin, whose account is a coach account with no athlete
-// dashboard, on the coach home view ('coach-home'). Never on a coach's view of
-// an athlete, and never while acting as someone: the link always belongs to the
-// real signed-in account. Until GARMIN_CONNECT_LIVE, only the admin sees it.
-// An account that holds a link (o.linked) gets the card on every view of its
-// own, launched or not, including the athlete views without a dashboard
-// ('no-dashboard': no coaching access, waiting for a coach, no plan yet), so
-// the link can be ended at any time.
+// Where the Garmin Connect card shows: on an athlete's own dashboard ('athlete',
+// in the Training Data card) and, for the admin, whose account is a coach
+// account with no athlete dashboard, on the coach home view ('coach-home').
+// Never on a coach's view of an athlete, and never while acting as someone: the
+// link always belongs to the real signed-in account. Until GARMIN_CONNECT_LIVE,
+// only the admin sees it. An account that holds a link (o.linked) gets the card
+// on every view of its own, launched or not, including the athlete views
+// without the Training Data card ('no-training-card': no coaching access,
+// waiting for a coach, no plan yet, or a dashboard without the Training Plan
+// tab), so the link can be ended at any time.
 function garminCardShown(view, o) {
   if (o.acting) return false;
-  if (o.linked && (view === 'athlete' || view === 'coach-home' || view === 'no-dashboard')) return true;
+  if (o.linked && (view === 'athlete' || view === 'coach-home' || view === 'no-training-card')) return true;
   if (!(o.live || o.admin)) return false;
   return view === 'athlete' || (view === 'coach-home' && !!o.admin);
 }
@@ -3946,12 +3950,13 @@ function renderCoachGarmin() {
   el.innerHTML = show ? garminOwnCardHtml(userDoc) : '';
 }
 
-// The athlete's card on the views without a dashboard (the [data-garmin-keep]
-// slots in the paywall, awaiting and no-plan views), while they hold a link.
+// The athlete's card on the views without the Training Data card (the
+// [data-garmin-keep] slots in the paywall, awaiting and no-plan views, and on a
+// dashboard without the Training Plan tab), while they hold a link.
 // Runs on every user-doc change, so a slot is redrawn only when what it shows
 // changes: a Disconnect press in flight keeps its button.
 function renderGarminKeep() {
-  const show = !isCoach && !!currentUser && garminCardShown('no-dashboard', {
+  const show = !isCoach && !!currentUser && garminCardShown('no-training-card', {
     acting: !!(esLabs.isActingAs && esLabs.isActingAs()), linked: !!userDoc?.garminConnected,
   });
   const sig = show ? (userDoc.garminSharing === false ? 'paused' : 'linked') : 'none';
@@ -3961,6 +3966,14 @@ function renderGarminKeep() {
     el.hidden = !show;
     el.innerHTML = show ? garminOwnCardHtml(userDoc) : '';
   });
+}
+
+// The athlete's own dashboard shows the card in the Training Data card, which
+// only the Training Plan tab has. Without that tab (features.coaching turned
+// off), the tab view carries a [data-garmin-keep] slot instead.
+function garminKeepSlotHtml(role, showCoaching) {
+  return role === 'athlete' && !showCoaching
+    ? '<section class="garmin-keep" data-garmin-keep aria-label="Your Garmin Connect" hidden></section>' : '';
 }
 
 // Redraw every Garmin Connect card on screen after the link changes.
