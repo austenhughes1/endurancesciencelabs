@@ -28,7 +28,7 @@ verified, stop and say so in the report.
 ```
 index.html, coaching/, shockwave/, privacy/, terms/  public pages
 account/, admin/users/                              signed-in account and admin pages
-esformlab/          running form analysis; kfo-tests.js, pgi-tests.js are its suites
+esformlab/          running form analysis (no test suite)
 esmetaboliclab/     lactate and power profiles; js/lib/ engines, js/ui/ views,
                     tests/ is a browser validation page
 training-analysis/  Training Analysis and Injury Patterns page (?view=injury);
@@ -48,21 +48,25 @@ docs/               design notes
 From the repo root. Nothing to install.
 
 ```bash
-npm test     # syntax-checks functions/*.js, then runs all three suites; must exit 0
+npm test     # syntax-checks functions/*.js, then runs all six suites; must exit 0
 ```
 
 The suites one by one:
 
 ```bash
 node shared/run-load-model.test.js
-node esformlab/kfo-tests.js
-node esformlab/pgi-tests.js
+node shared/run-dynamics-format.test.js
+node shared/run-dynamics-garmin.test.js
+node coaching/garmin-connect.test.js
+node functions/garmin-lib.test.js
+node functions/garmin.test.js
 ```
 
 There is no lint, typecheck or build. Page behaviour in a browser is not
 covered by any test: say what you checked and how, or that you could not.
 
-Baseline (2026-10-26): all green. 267 checks, 172 tests, 169 tests.
+Baseline (2026-10-29): all green. 267, 17, 55, 127, 64 and 532 checks, in
+that order.
 
 ## Conventions
 

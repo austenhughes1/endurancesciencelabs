@@ -239,18 +239,6 @@ async function autosaveAnalysisForResume() {
     entry.quality = q ? q.level : null;
     data.phases[def.key] = entry;
   });
-  if (typeof PGIApp !== 'undefined') {
-    try {
-      var pgiFields = PGIApp.storedFields();
-      Object.keys(pgiFields).forEach(function (k) { data[k] = pgiFields[k]; });
-    } catch (e) { console.warn('pgi autosave fields skipped:', e.message); }
-  }
-  if (typeof KFOApp !== 'undefined') {
-    try {
-      var kfoFields = KFOApp.storedFields();
-      Object.keys(kfoFields).forEach(function (k) { data[k] = kfoFields[k]; });
-    } catch (e) { console.warn('kfo autosave fields skipped:', e.message); }
-  }
 
   try {
     var ref = await esLabs.db.collection('users').doc(currentUser.uid).collection('analyses').add(data);

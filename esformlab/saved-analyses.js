@@ -34,7 +34,7 @@ function escSaved(s) {
 }
 
 // Firestore rejects any document containing undefined. The analysis payload is
-// assembled from many optional blocks (phases, PGI, KFO), so one missed field
+// assembled from many optional blocks (one per phase), so one missed field
 // must not break every save: drop undefined object fields, null them in arrays.
 // Only plain objects are walked — Firestore sentinels like serverTimestamp()
 // pass through untouched.
@@ -91,21 +91,6 @@ async function saveAnalysis() {
     entry.quality = q ? q.level : null;
     data.phases[def.key] = entry;
   });
-
-  // Attach the admin-only mechanics blocks when those features are active. Each
-  // returns {} otherwise, so this save is unchanged for everyone else.
-  if (typeof PGIApp !== 'undefined') {
-    try {
-      var pgiFields = PGIApp.storedFields();
-      Object.keys(pgiFields).forEach(function (k) { data[k] = pgiFields[k]; });
-    } catch (e) { console.warn('pgi save fields skipped:', e.message); }
-  }
-  if (typeof KFOApp !== 'undefined') {
-    try {
-      var kfoFields = KFOApp.storedFields();
-      Object.keys(kfoFields).forEach(function (k) { data[k] = kfoFields[k]; });
-    } catch (e) { console.warn('kfo save fields skipped:', e.message); }
-  }
 
   try {
     var db = firebase.firestore();
@@ -380,13 +365,6 @@ async function viewSavedAnalysis(id) {
   var reportEl = document.getElementById('report-section');
   if (reportEl) reportEl.style.display = 'block';
   renderReport(d.issues || {});
-
-  // Version-aware mechanics panel. Renders from the stored block only -- a saved
-  // session has no keypoints, so it is never recomputed here. PGIApp also owns
-  // whether the superseded force-orientation panel appears for a legacy save.
-  if (typeof PGIApp !== 'undefined') {
-    try { PGIApp.renderSaved(d); } catch (e) { console.error('pgi saved render:', e); }
-  }
 
   // Show summary table
   var summaryEl = document.getElementById('summary-section');

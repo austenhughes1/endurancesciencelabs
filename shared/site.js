@@ -228,8 +228,8 @@ function stopActAs() {
 // The banner is fixed to the bottom. Its real height (it wraps to ~97px at
 // 390px) is published as --esl-bottom-inset so fixed-bottom UI (toasts,
 // sticky bars) can sit above it, and added to the page's own bottom padding.
-// Inline styles on purpose: kfo-tests.html / pgi-tests.html load site.js
-// without site.css.
+// Inline styles on purpose, so the banner still looks right on a page that
+// loads site.js without site.css.
 var bannerObserver = null;
 var bannerResizeHandler = null;
 
