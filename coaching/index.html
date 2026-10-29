@@ -1551,6 +1551,7 @@ function watchUserDocForAccess() {
 function applyAthleteAccessState() {
   if (!currentUser || !userDoc || isCoach) return;
   renderGarminKeep();
+  syncAthleteGarminCard();
   const featuresMap = userDoc.features || {};
   const hasFeatureGrant = featuresMap.coaching === true;
   const hasSub = !!coachingSubTier;
@@ -3192,6 +3193,7 @@ function renderDashboard(containerId, role) {
   const viewedName = (viewed?.displayName || viewed?.email || 'this athlete');
   const garminHtml = garminCardShown(role, { acting, admin: currentUser?.uid === ADMIN_UID, live: GARMIN_CONNECT_LIVE, linked: !!viewed?.garminConnected })
     ? garminCardHtml(viewed) : '';
+  if (role === 'athlete') athleteGarminCardSig = garminLinkSig(viewed);
   if (!stravaConnected) {
     const isAthlete = role === 'athlete';
     const discAt = tsToDate(viewed?.stravaDisconnectedAt);
@@ -3959,7 +3961,7 @@ function renderGarminKeep() {
   const show = !isCoach && !!currentUser && garminCardShown('no-training-card', {
     acting: !!(esLabs.isActingAs && esLabs.isActingAs()), linked: !!userDoc?.garminConnected,
   });
-  const sig = show ? (userDoc.garminSharing === false ? 'paused' : 'linked') : 'none';
+  const sig = show ? garminLinkSig(userDoc) : 'none';
   document.querySelectorAll('[data-garmin-keep]').forEach(el => {
     if (el.dataset.garminSig === sig) return;
     el.dataset.garminSig = sig;
@@ -3974,6 +3976,26 @@ function renderGarminKeep() {
 function garminKeepSlotHtml(role, showCoaching) {
   return role === 'athlete' && !showCoaching
     ? '<section class="garmin-keep" data-garmin-keep aria-label="Your Garmin Connect" hidden></section>' : '';
+}
+
+// What a Garmin Connect card shows of an account's link.
+function garminLinkSig(acct) {
+  return acct && acct.garminConnected ? (acct.garminSharing === false ? 'paused' : 'linked') : 'none';
+}
+
+let athleteGarminCardSig = null; // garminLinkSig the athlete's Training Data card was last drawn with
+let garminDisconnecting = false; // a Disconnect press is in flight
+
+// The athlete's Training Data card shows the link too, and the server changes
+// it without this page doing anything (sharing turned off or on in Garmin
+// Connect, a link ended on Garmin's side, a link made in another tab). Runs on
+// every user-doc change and redraws the card only when what it shows of the
+// link has changed. Not while a Disconnect press is in flight: the press
+// redraws it when it ends.
+function syncAthleteGarminCard() {
+  if (isCoach || garminDisconnecting || garminLinkSig(userDoc) === athleteGarminCardSig) return;
+  const dash = document.getElementById('athlete-dashboard');
+  if (dash && dash.style.display !== 'none' && dash.innerHTML.trim() !== '') renderDashboard('athlete-dashboard', 'athlete');
 }
 
 // Redraw every Garmin Connect card on screen after the link changes.
@@ -4006,8 +4028,10 @@ async function disconnectGarmin(btn) {
   }
   if (!confirm('Disconnect Garmin Connect? Every run Garmin sent to Endurance Science Labs will be deleted. Runs you uploaded yourself stay.')) return;
   if (btn) btn.disabled = true;
+  garminDisconnecting = true;
   try {
     const res = await firebase.functions().httpsCallable('disconnectGarmin')({});
+    garminDisconnecting = false;
     const n = (res && res.data && res.data.deleted) || 0;
     if (userDoc) { userDoc.garminConnected = false; delete userDoc.garminSharing; }
     rerenderGarminViews();
@@ -4019,8 +4043,11 @@ async function disconnectGarmin(btn) {
     }
     esLabs.toast(`Garmin Connect disconnected. ${n} ${n === 1 ? 'run' : 'runs'} removed.`);
   } catch (e) {
+    garminDisconnecting = false;
     console.warn('disconnectGarmin:', e && e.message);
     if (btn) btn.disabled = false;
+    // The link may have ended on the server before the call failed.
+    syncAthleteGarminCard();
     esLabs.toast('Couldn’t disconnect Garmin Connect. Try again.', { err: true });
   }
 }

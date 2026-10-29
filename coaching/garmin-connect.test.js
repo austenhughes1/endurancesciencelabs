@@ -31,13 +31,17 @@ function lift(name) {
 }
 
 var NAMES = ['readGarminReturn', 'garminCardShown', 'garminCardHtml', 'garminOwnCardHtml', 'garminResultToast',
-  'handleGarminReturn', 'connectGarmin', 'disconnectGarmin', 'renderGarminKeep', 'garminKeepSlotHtml'];
-var code = 'var GARMIN_RETURN = null; var userDoc = null; var currentUser = null; var isCoach = false;\n' + NAMES.map(lift).join('\n');
+  'handleGarminReturn', 'connectGarmin', 'disconnectGarmin', 'renderGarminKeep', 'garminKeepSlotHtml',
+  'garminLinkSig', 'syncAthleteGarminCard'];
+var code = 'var GARMIN_RETURN = null; var userDoc = null; var currentUser = null; var isCoach = false;\n' +
+  'var athleteGarminCardSig = null; var garminDisconnecting = false;\n' + NAMES.map(lift).join('\n');
 
 // A fresh page per case: every fake records what the code did with it.
 function page(opts) {
   opts = opts || {};
-  var rec = { toasts: [], calls: [], replaced: [], renders: 0, confirms: 0, warns: 0, rd: [] };
+  var rec = { toasts: [], calls: [], replaced: [], renders: 0, confirms: 0, warns: 0, rd: [], dash: [] };
+  // #athlete-dashboard: showing with a drawn card unless opts.dash says otherwise.
+  var dashEl = opts.dash === null ? null : Object.assign({ style: { display: 'block' }, innerHTML: '<div class="dash-card"></div>' }, opts.dash || {});
   var ctx = {
     URLSearchParams: URLSearchParams, Promise: Promise, JSON: JSON, Object: Object, String: String,
     console: { warn: function () { rec.warns++; }, log: function () {}, error: function () {} },
@@ -47,7 +51,10 @@ function page(opts) {
       replaceState: function (s, t, url) { if (opts.replaceThrows) throw new Error('blocked'); rec.replaced.push(url); },
     },
     window: { location: { href: '/coaching/' } },
-    document: { querySelectorAll: function (sel) { return sel === '[data-garmin-keep]' ? (opts.slots || []) : []; } },
+    document: {
+      querySelectorAll: function (sel) { return sel === '[data-garmin-keep]' ? (opts.slots || []) : []; },
+      getElementById: function (id) { return id === 'athlete-dashboard' ? dashEl : null; },
+    },
     esLabs: {
       toast: function (msg, o) { rec.toasts.push({ msg: msg, err: !!(o && o.err) }); },
       isActingAs: function () { return !!opts.acting; },
@@ -67,6 +74,8 @@ function page(opts) {
     },
     confirm: function () { rec.confirms++; return opts.confirm !== false; },
     rerenderGarminViews: function () { rec.renders++; },
+    // As the page's renderDashboard does, records what the card was drawn with.
+    renderDashboard: function (id, role) { rec.dash.push(id + ' ' + role); ctx.athleteGarminCardSig = ctx.garminLinkSig(ctx.userDoc); },
   };
   if (opts.runDynamics) {
     ctx.window.RunDynamics = ctx.RunDynamics = {
@@ -175,6 +184,56 @@ var MSG = {
     a = slot();
     page({ slots: [a], isCoach: true, userDoc: { garminConnected: true } }).ctx.renderGarminKeep();
     eq('coach account: hidden', a.hidden, true);
+  });
+
+  await section('syncAthleteGarminCard: the Training Data card follows link changes made on the server', function () {
+    // A page whose Training Data card was drawn with userDoc as it is.
+    function drawn(o) {
+      var p = page(o);
+      p.ctx.athleteGarminCardSig = p.ctx.garminLinkSig(p.ctx.userDoc);
+      return p;
+    }
+    var p = drawn({ userDoc: { garminConnected: true, garminSharing: true, stravaConnected: true } });
+    p.ctx.userDoc.stravaLastSyncedAt = 1; // a change the card does not show
+    p.ctx.syncAthleteGarminCard();
+    eq('unchanged link: not redrawn', p.rec.dash, []);
+    p.ctx.userDoc.garminSharing = false;
+    p.ctx.syncAthleteGarminCard();
+    eq('sharing turned off: redrawn', p.rec.dash, ['athlete-dashboard athlete']);
+    p.ctx.syncAthleteGarminCard();
+    eq('then left alone', p.rec.dash.length, 1);
+    p.ctx.userDoc.garminSharing = true;
+    p.ctx.syncAthleteGarminCard();
+    eq('sharing turned on again: redrawn', p.rec.dash.length, 2);
+    p.ctx.userDoc.garminConnected = false; delete p.ctx.userDoc.garminSharing;
+    p.ctx.syncAthleteGarminCard();
+    eq('link ended on Garmin\'s side: redrawn', p.rec.dash.length, 3);
+    p.ctx.userDoc.garminConnected = true; p.ctx.userDoc.garminSharing = true;
+    p.ctx.syncAthleteGarminCard();
+    eq('linked in another tab: redrawn', p.rec.dash.length, 4);
+
+    var paused = { garminConnected: true, garminSharing: false };
+    p = drawn({ userDoc: { garminConnected: true } });
+    p.ctx.userDoc.garminSharing = false;
+    p.ctx.garminDisconnecting = true;
+    p.ctx.syncAthleteGarminCard();
+    eq('a Disconnect press in flight: not redrawn', p.rec.dash, []);
+    p = drawn({ userDoc: { garminConnected: true }, dash: { style: { display: 'none' } } });
+    p.ctx.userDoc = paused;
+    p.ctx.syncAthleteGarminCard();
+    eq('dashboard not showing: not drawn', p.rec.dash, []);
+    p = drawn({ userDoc: { garminConnected: true }, dash: { innerHTML: '  ' } });
+    p.ctx.userDoc = paused;
+    p.ctx.syncAthleteGarminCard();
+    eq('dashboard not drawn yet: not drawn', p.rec.dash, []);
+    p = drawn({ userDoc: { garminConnected: true }, dash: null });
+    p.ctx.userDoc = paused;
+    p.ctx.syncAthleteGarminCard();
+    eq('no dashboard on the page: nothing', p.rec.dash, []);
+    p = drawn({ userDoc: { garminConnected: true }, isCoach: true });
+    p.ctx.userDoc = paused;
+    p.ctx.syncAthleteGarminCard();
+    eq('coach account: nothing', p.rec.dash, []);
   });
 
   await section('garminKeepSlotHtml: a dashboard without the Training Plan tab carries a Garmin slot', function () {
@@ -352,6 +411,31 @@ var MSG = {
     p = page({ userDoc: linked(), runDynamics: true, callable: function () { return new Error('internal'); } });
     await p.ctx.disconnectGarmin();
     eq('fails: Running Dynamics left as it is', p.rec.rd, []);
+
+    // The server clears the link flags while the call is still out: the
+    // Training Data card keeps its pressed button until the call ends.
+    function pressWhileServerEnds(outcome) {
+      var answer, q = page({ userDoc: linked(), callable: function () { return new Promise(function (r) { answer = r; }); } });
+      q.ctx.athleteGarminCardSig = 'linked';
+      var pressed = q.ctx.disconnectGarmin({ disabled: false });
+      return Promise.resolve().then(function () {
+        q.ctx.userDoc.garminConnected = false; delete q.ctx.userDoc.garminSharing; // the user-doc snapshot
+        q.ctx.syncAthleteGarminCard();
+        q.inFlight = q.rec.dash.slice();
+        answer(outcome);
+        return pressed;
+      }).then(function () { return q; });
+    }
+    p = await pressWhileServerEnds({ data: { deleted: 2 } });
+    eq('in flight: not redrawn by the snapshot', p.inFlight, []);
+    eq('ends: redrawn once by the press', [p.rec.renders, p.ctx.garminDisconnecting], [1, false]);
+    p = await pressWhileServerEnds(Promise.reject(new Error('deadline-exceeded')));
+    eq('fails after the link ended: the card catches up', [p.inFlight, p.rec.dash, p.ctx.garminDisconnecting], [[], ['athlete-dashboard athlete'], false]);
+    eq('fails after the link ended: toast', p.rec.toasts, [{ msg: 'Couldn’t disconnect Garmin Connect. Try again.', err: true }]);
+    p = page({ userDoc: linked(), callable: function () { return new Error('internal'); } });
+    p.ctx.athleteGarminCardSig = 'linked';
+    await p.ctx.disconnectGarmin({ disabled: false });
+    eq('fails with the link intact: the card and its button stay', [p.rec.dash, p.ctx.garminDisconnecting], [[], false]);
   });
 
   console.log(checks + ' checks, ' + (checks - failures) + ' passed, ' + failures + ' failed');
