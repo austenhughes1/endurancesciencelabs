@@ -133,7 +133,7 @@ var MSG = {
     eq('history refuses: nothing acted on', p.ctx.readGarminReturn(), null);
   });
 
-  await section('garminCardShown: own dashboard only, admin only until live, never while acting', function () {
+  await section('garminCardShown: own views only, admin only until live, never while acting', function () {
     var shown = page().ctx.garminCardShown;
     eq('athlete, admin, not live', shown('athlete', { acting: false, admin: true, live: false }), true);
     eq('athlete, not admin, not live', shown('athlete', { acting: false, admin: false, live: false }), false);
@@ -142,7 +142,8 @@ var MSG = {
     eq('acting as an athlete, admin flag set', shown('athlete', { acting: true, admin: true, live: false }), false);
     eq('coach viewing an athlete (admin)', shown('coach', { acting: false, admin: true, live: true }), false);
     eq('coach home, admin', shown('coach-home', { acting: false, admin: true, live: false }), true);
-    eq('coach home, other coach, live', shown('coach-home', { acting: false, admin: false, live: true }), false);
+    eq('coach home, other coach, live', shown('coach-home', { acting: false, admin: false, live: true }), true);
+    eq('coach home, other coach, not live', shown('coach-home', { acting: false, admin: false, live: false }), false);
     eq('coach home, acting', shown('coach-home', { acting: true, admin: true, live: true }), false);
 
     // Holding a link: the card stays wherever the account's own views are, so it can be ended.
