@@ -2870,7 +2870,7 @@ function renderSingleWeek(weekContainerId, dashContainerId, role) {
   }
   // D5: athletes can open Training Analysis / Injury Patterns as their own page.
   if (rdView && role === 'athlete' && !(esLabs.isActingAs && esLabs.isActingAs())) {
-    html += `<a class="esl-link rd-fullpage" href="/running-dynamics/${rdView === 'injury' ? '?view=injury' : ''}">Open ${rdView === 'injury' ? 'Injury Patterns' : 'Training Analysis'} as a full page →</a>`;
+    html += `<a class="esl-link rd-fullpage" href="/training-analysis/${rdView === 'injury' ? '?view=injury' : ''}">Open ${rdView === 'injury' ? 'Injury Patterns' : 'Training Analysis'} as a full page →</a>`;
   }
 
   // The 16-week overview toggle is only meaningful on the training tab with coaching feature
@@ -5424,7 +5424,7 @@ async function switchTab(tab) {
 
 // Metric definitions — each computed PER RUN, then averaged across a window.
 // The entire Run Dynamics view lives in /shared/run-dynamics.js — the SAME
-// module the standalone /running-dynamics/ page mounts. Here we just mount it
+// module the standalone /training-analysis/ page mounts. Here we just mount it
 // into #rd-root for the viewed athlete, so a coach sees exactly what the
 // athlete sees. There is no second copy of the view to keep in sync.
 function mountRunDynamics(uid, role, view){

@@ -1,7 +1,7 @@
 // ════════════════════════════════════════════════════════════════
 // shared/run-dynamics.js
 //
-// The ONE Run Dynamics view. Both the standalone /running-dynamics/
+// The ONE Run Dynamics view. Both the standalone /training-analysis/
 // page and the coaching dashboard's "Training Analysis" and "Injury
 // Patterns" tabs mount this — there is no second copy. Imports a Garmin Connect activities export
 // (Activities.csv) OR a Coros export (.zip of per-activity .fit files),

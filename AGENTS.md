@@ -6,10 +6,11 @@ agent working here.
 ## What this is
 
 endurancesciencelabs.com: a coaching site and athlete tools (esFormLab,
-esMetabolicLab, Running Dynamics). Plain HTML, CSS and JavaScript with no
-build step. Behind it is the Firebase project `es-form-labs`: Auth, Firestore,
-and Cloud Functions in `functions/` (Strava sync and webhooks, PDF reports,
-user admin, payment hooks).
+esMetabolicLab, Training Analysis and Injury Patterns). Plain HTML, CSS and
+JavaScript with no build step. Behind it is the Firebase project
+`es-form-labs`: Auth, Firestore, and Cloud Functions in `functions/` (Strava
+sync and webhooks, Garmin Connect link and push intake, PDF reports, user
+admin, payment hooks).
 
 ## Boundary
 
@@ -25,17 +26,19 @@ verified, stop and say so in the report.
 ## Layout
 
 ```
-index.html, coaching/, shockwave/, privacy/   public pages
-account/, admin/users/                       signed-in account and admin pages
+index.html, coaching/, shockwave/, privacy/, terms/  public pages
+account/, admin/users/                              signed-in account and admin pages
 esformlab/          running form analysis; kfo-tests.js, pgi-tests.js are its suites
 esmetaboliclab/     lactate and power profiles; js/lib/ engines, js/ui/ views,
                     tests/ is a browser validation page
-running-dynamics/   run dynamics and impact load views
+training-analysis/  Training Analysis and Injury Patterns page (?view=injury);
+                    the view itself is shared/run-dynamics.js
+running-dynamics/   redirect to /training-analysis/ for old links
 shared/             modules used across pages: site.js/.css, run-dynamics.js,
                     run-load-model.js (+ .test.js), injury-patterns.js, device-matrix.js
 reference-data/     admin reference tables and measurement frameworks
 functions/          Cloud Functions, Node 22: index.js, report-renderer.js,
-                    comparison-renderer.js
+                    comparison-renderer.js, garmin.js, garmin-lib.js
 firestore.rules.txt the Firestore rules, kept as text
 docs/               design notes
 ```

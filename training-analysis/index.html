@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script>try{if(localStorage.getItem('esl-theme')==='light')document.documentElement.setAttribute('data-theme','light')}catch(e){}</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Training Analysis — Endurance Science Labs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/site.css?v=20261028">
+<style>
+/* Tokens, base type, .esl-wrap / page head / tabs / app footer all come from /shared/site.css. */
+body{min-height:100vh}
+a{color:var(--accent-ink)}
+.rd-tabs{margin-top:20px}
+.rd-tabs[hidden],#rdx-mount[hidden],.rd-access[hidden]{display:none}
+#rdx-mount>.rdx-head:first-child{margin-top:0}
+.rd-access{max-width:var(--w-prose,760px)}
+.rd-access .esl-body{margin:8px 0 16px;color:var(--muted2)}
+.rd-access-acts{display:flex;flex-wrap:wrap;gap:8px}
+</style>
+</head>
+<body>
+
+<nav class="eslabs-nav" id="nav-mount"></nav>
+<div id="gate-mount"></div>
+
+<main id="main">
+<div class="esl-wrap wrap" id="tool" style="display:none">
+  <header class="esl-page-head">
+    <h1 class="esl-h1" id="rdTitle">Training Analysis</h1>
+    <p class="esl-sub">Training load, running form and the patterns before past setbacks — from your Garmin, COROS or Strava runs.</p>
+    <div class="rd-tabs esl-tabs" id="rdTabs" role="group" aria-label="View">
+      <button type="button" class="rd-tab esl-tab" data-view="training" aria-pressed="true">Training Analysis</button>
+      <button type="button" class="rd-tab esl-tab" data-view="injury" aria-pressed="false">Injury Patterns</button>
+    </div>
+  </header>
+  <div id="rdx-mount"></div>
+  <div class="esl-card rd-access" id="rdAccess" hidden></div>
+</div>
+</main>
+<footer class="esl-app-footer"><div class="esl-app-footer-meta"><a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a> · © 2026 Endurance Science Labs</div></footer>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
+<script src="/shared/site.js?v=20261028"></script>
+<script src="/shared/run-load-model.js?v=29"></script>
+<script src="/shared/injury-patterns.js?v=8"></script>
+<script src="/shared/device-matrix.js?v=2"></script>
+<script src="/shared/run-dynamics.js?v=47"></script>
+<script>
+'use strict';
+/* The whole Run Dynamics view lives in /shared/run-dynamics.js — this page
+   just signs the user in and mounts it for their own account. The coaching
+   dashboard mounts the exact same module for a viewed athlete. */
+esLabs.mountNav('#nav-mount', { active:'' });
+esLabs.mountAuthGate('#gate-mount', {
+  eyebrow:'◉ Training load & form',
+  headline:'Training Analysis',
+  sub:'Sign in to import your Garmin or COROS run history and follow your training load, ground contact time, vertical oscillation and cadence over time.',
+  bullets:[
+    {strong:'Bulk backfill', span:'— import your full Garmin or COROS export once; re-imports only add what is new'},
+    {strong:'Load and form over time', span:'— Impact Adjusted Distance (IAD), GCT, vertical oscillation, cadence and stride by window or custom range'},
+    {strong:'Private to your account', span:'— stored under your profile only'}
+  ],
+  emailDefault:'signup'
+});
+
+// Two tabs over the one module: Training Analysis and Injury Patterns each mount it with their view.
+// ?view=injury deep-links straight to Injury Patterns (kept in the URL with replaceState). The page
+// heading and tab title follow the open view.
+var rdUser=null, rdView=(new URLSearchParams(location.search).get('view')==='injury')?'injury':'training';
+var rdAccess=null, rdDoc=null, rdDocUid=null, rdDocSeq=0;
+
+var RD_TITLES={training:'Training Analysis', injury:'Injury Patterns'};
+function syncTabs(){
+  Array.prototype.forEach.call(document.querySelectorAll('.rd-tab'), function(x){ x.setAttribute('aria-pressed', String(x.getAttribute('data-view')===rdView)); });
+  document.getElementById('rdTitle').textContent=RD_TITLES[rdView];
+  document.title=RD_TITLES[rdView]+' — Endurance Science Labs';
+}
+function syncUrl(){
+  try{
+    var p=new URLSearchParams(location.search);
+    if(rdView==='injury') p.set('view','injury'); else p.delete('view');
+    var q=p.toString();
+    history.replaceState(history.state, '', location.pathname+(q?'?'+q:'')+location.hash);
+  }catch(e){}
+}
+function mountView(){
+  if(!rdUser || rdAccess!=='ok') return;
+  RunDynamics.mount(document.getElementById('rdx-mount'), {
+    db: esLabs.db, uid: rdUser.uid, role: 'athlete', view: rdView,
+    admin: (rdUser.uid === esLabs.ADMIN_UID)
+  });
+}
+// each view comes back where it was left: the module re-renders its cached data synchronously on a
+// remount, so the old scroll position can be put back straight away
+var rdScroll={};
+Array.prototype.forEach.call(document.querySelectorAll('.rd-tab'), function(b){
+  b.onclick=function(){
+    if(b.getAttribute('data-view')===rdView) return;
+    rdScroll[rdView]=window.scrollY;
+    rdView=b.getAttribute('data-view');
+    syncTabs(); syncUrl();
+    mountView();
+    if(rdScroll[rdView]!=null) window.scrollTo(0, rdScroll[rdView]);
+  };
+});
+
+// Access: the same rule as the coaching dashboard's Training Analysis / Injury Patterns tabs —
+// admin, coaches, or an athlete with a coaching subscription or grant, unless their coach has
+// turned Training Analysis and Injury Patterns off (features.runDynamics === false).
+function accessFor(doc, pass){
+  if(esLabs.isAdmin()) return 'ok';                       // real account (also while acting as an athlete)
+  if(!doc || !pass || !pass.loaded) return 'pending';
+  var f=doc.features||{};
+  if(doc.role==='coach') return 'ok';
+  if(f.runDynamics===false) return 'off';
+  if(f.coaching===true || pass.hasCoaching) return 'ok';
+  return 'none';
+}
+function renderAccess(){
+  var box=document.getElementById('rdAccess'), mnt=document.getElementById('rdx-mount'), tabs=document.getElementById('rdTabs');
+  var next=rdUser ? accessFor(rdDoc, esLabs.getPassState()) : null;
+  if(next===rdAccess) return;
+  rdAccess=next;
+  var ok=(next==='ok');
+  tabs.hidden=!ok; mnt.hidden=!ok; box.hidden=ok;
+  if(ok){ mountView(); return; }
+  mnt.innerHTML='';
+  if(next==='pending'){
+    box.innerHTML='<div class="esl-loading" role="status"><span class="esl-spin" aria-hidden="true"></span>Checking your access…</div>';
+  } else if(next==='off'){
+    box.innerHTML='<h2 class="esl-h3">Training Analysis and Injury Patterns are turned off for your account</h2>'+
+      '<p class="esl-body">Your coach manages which tools your plan includes. Ask them if you’d like Training Analysis and Injury Patterns turned back on.</p>'+
+      '<div class="rd-access-acts"><a class="esl-btn" href="/coaching/">Go to coaching</a></div>';
+  } else if(next==='none'){
+    box.innerHTML='<h2 class="esl-h3">Training Analysis and Injury Patterns come with coaching</h2>'+
+      '<p class="esl-body">Training Analysis and Injury Patterns are included with every coaching plan. Start or renew coaching to import your runs and follow your training load and form here.</p>'+
+      '<div class="rd-access-acts"><a class="esl-btn" href="/coaching/">See coaching plans</a><a class="esl-btn esl-btn--outline" href="/account/">My account</a></div>';
+  } else {
+    box.innerHTML='';
+  }
+}
+function loadDoc(user){
+  var my=++rdDocSeq;
+  rdDoc=null; rdDocUid=user.uid;
+  esLabs.db.collection('users').doc(user.uid).get().then(function(s){
+    if(my!==rdDocSeq) return;
+    rdDoc=s.exists?(s.data()||{}):{};
+    renderAccess();
+  }).catch(function(e){
+    if(my!==rdDocSeq) return;
+    console.warn('Training Analysis: profile read failed', e);
+    rdDoc={};                                               // fall back to the subscription check alone
+    renderAccess();
+  });
+}
+
+syncTabs();
+esLabs.onPassChange(function(){ if(rdUser) renderAccess(); });
+esLabs.onAuthChange(function(user){
+  var tool=document.getElementById('tool');
+  var prev=rdUser;
+  rdUser=user||null;
+  if(user){
+    tool.style.display='block';
+    if(!prev || prev.uid!==user.uid){ rdAccess=null; loadDoc(user); }
+    renderAccess();
+  } else {
+    tool.style.display='none';
+    rdAccess=null; rdDoc=null; rdDocUid=null; rdDocSeq++;
+  }
+});
+</script>
+</body>
+</html>

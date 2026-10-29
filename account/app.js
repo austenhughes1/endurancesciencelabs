@@ -1192,9 +1192,10 @@ function coachingRow(pass, doc) {
     linkBtn('/coaching/', 'See coaching plans &rarr;'));
 }
 
-// Training Analysis + Injury Patterns (/running-dynamics/): same access as
+// Training Analysis + Injury Patterns (/training-analysis/): same access as
 // the coaching tabs -- a coaching subscription or grant, unless the
-// per-athlete Running Dynamics switch is off. Coaches/admin always.
+// athlete's Training Analysis switch (features.runDynamics) is off.
+// Coaches/admin always.
 function runDynamicsRow(pass, doc) {
   doc = doc || {};
   var feats = doc.features || {};
@@ -1204,7 +1205,7 @@ function runDynamicsRow(pass, doc) {
   if (hasCoachingAccess && (staff || feats.runDynamics !== false)) {
     return featureRowHtml('&#8767;', title, badge('Unlocked', 'good'),
       ['Your training load in Impact Adjusted Distance (IAD), and a look back at how your training changed before past setbacks.'],
-      linkBtn('/running-dynamics/', 'Training Analysis &rarr;') + linkBtn('/running-dynamics/?view=injury', 'Injury Patterns &rarr;'));
+      linkBtn('/training-analysis/', 'Training Analysis &rarr;') + linkBtn('/training-analysis/?view=injury', 'Injury Patterns &rarr;'));
   }
   if (hasCoachingAccess) {
     return featureRowHtml('&#8767;', title, badge('Not included'),
