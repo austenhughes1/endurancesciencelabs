@@ -70,10 +70,13 @@ section('garminCredit: direct and derived lines', function () {
 
 // Every section credit sits over load-derived numbers (Form & volume's metric table has Impact Load
 // and estimated forces), so each one names Garmin as a source of the insight and still names the device.
-section('renderGarminCredit: every section names Garmin as a source', function () {
+// The Mark Lever runs modal lists only treadmill runs, but each IAD in it is scored against a baseline
+// calibrated from every run, so an outdoor Garmin run alone still credits the modal.
+section('renderGarminCredit: every section and the Lever modal name Garmin as a source', function () {
   var mounts = {};
-  ['gcHero', 'gcChart', 'gcPat', 'gcForm'].forEach(function (id) { mounts[id] = { innerHTML: 'stale' }; });
-  var ctx = { String: String, RAW: [{ source: 'garmin', deviceName: 'Forerunner 965' }],
+  ['gcHero', 'gcChart', 'gcPat', 'gcForm', 'gcLv'].forEach(function (id) { mounts[id] = { innerHTML: 'stale' }; });
+  var ctx = { String: String,
+    RAW: [{ source: 'garmin', deviceName: 'Forerunner 965', type: 'Running' }, { type: 'Treadmill Running' }],
     $: function (id) { return mounts[id] || null; } };
   vm.runInNewContext([lift('esc'), lift('garminLabel'), lift('garminCredit'), lift('renderGarminCredit')].join('\n') +
     '; renderGarminCredit();', ctx);

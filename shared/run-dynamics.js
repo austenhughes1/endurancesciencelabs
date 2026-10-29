@@ -2789,7 +2789,6 @@ function renderLeverHint(){
 function renderLeverModal(){
   var m=$('lvModal'); if(!m||m.hidden) return;
   var all=lvRuns(), cnt={all:all.length, not:0, lever:0};
-  $('gcLv').innerHTML=garminCredit(all,true);   // the list shows each run's IAD
   all.forEach(function(r){ cnt[r.lever?'lever':'not']++; });
   $('lvFilter').innerHTML=[['all','All treadmill'],['not','Not Lever'],['lever','Lever']].map(function(f){
     var on=LV.filter===f[0];
@@ -2932,9 +2931,11 @@ function buildTypeChips(){
 }
 
 /* ---------- orchestration ---------- */
-// Garmin credit under each section title. Every section shows load-derived numbers (Form & volume's
-// metric table has Impact Load and estimated forces), so each names Garmin as a source of the insight.
-function renderGarminCredit(){ ['gcHero','gcChart','gcPat','gcForm'].forEach(function(id){ var el=$(id); if(el) el.innerHTML=garminCredit(RAW,true); }); }
+// Garmin credit under each section title and atop the Mark Lever runs modal. Each shows load-derived
+// numbers (Form & volume's metric table has Impact Load and estimated forces; the modal lists every
+// run's IAD), and the load baseline is calibrated from all runs, outdoor ones included, so each
+// credits every stored run and names Garmin as a source of the insight.
+function renderGarminCredit(){ ['gcHero','gcChart','gcPat','gcForm','gcLv'].forEach(function(id){ var el=$(id); if(el) el.innerHTML=garminCredit(RAW,true); }); }
 function refresh(){ if(RAW.length){ renderGarminCredit(); annotateLever(); annotateExcluded(); renderFlags(); LOAD_PARAMS=computeLoadParams(); renderEasyCaption(); renderHero(); renderHeroNotes(); renderChart(); renderPatterns(); renderTiles(); renderForm(); renderAll(); renderLeverHint(); renderLeverModal(); renderStatus(); } }
 // Segmented range control; 'custom' reveals the From/To inputs.
 function setRangeChip(active){
