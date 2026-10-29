@@ -72,9 +72,11 @@ section('garminCredit: direct and derived lines', function () {
 // and estimated forces), so each one names Garmin as a source of the insight and still names the device.
 // The Mark Lever runs modal lists only treadmill runs, but each IAD in it is scored against a baseline
 // calibrated from every run, so an outdoor Garmin run alone still credits the modal.
-section('renderGarminCredit: every section and the Lever modal name Garmin as a source', function () {
+// Data & settings shows run counts, the calibrated easy pace and Lever counts, so it is credited too.
+var MOUNTS = ['gcHero', 'gcChart', 'gcPat', 'gcForm', 'gcLv', 'gcSet', 'gcInc', 'gcData'];
+section('renderGarminCredit: every section, the Lever modal and Data & settings name Garmin as a source', function () {
   var mounts = {};
-  ['gcHero', 'gcChart', 'gcPat', 'gcForm', 'gcLv'].forEach(function (id) { mounts[id] = { innerHTML: 'stale' }; });
+  MOUNTS.forEach(function (id) { mounts[id] = { innerHTML: 'stale' }; });
   var ctx = { String: String,
     RAW: [{ source: 'garmin', deviceName: 'Forerunner 965', type: 'Running' }, { type: 'Treadmill Running' }],
     $: function (id) { return mounts[id] || null; } };
@@ -82,6 +84,19 @@ section('renderGarminCredit: every section and the Lever modal name Garmin as a 
     '; renderGarminCredit();', ctx);
   var want = '<p class="rdx-garmin-credit">Insights derived in part from Garmin device-sourced data · Garmin Forerunner 965</p>';
   Object.keys(mounts).forEach(function (id) { eq(id, mounts[id].innerHTML, want); });
+});
+
+// The panel's own credit sits above its first group; links open the panel straight at What's included
+// and Import & data (openSettings scrolls past the panel's top), so those groups carry their own.
+section('Data & settings template: credit mounts where each view of the panel opens', function () {
+  function between(id, from, to) {
+    var a = src.indexOf(from), b = src.indexOf(to, a), m = src.indexOf('id="' + id + '"', a);
+    return a >= 0 && b > a && m > a && m < b;
+  }
+  MOUNTS.forEach(function (id) { eq(id + ' mount in the template', src.indexOf('id="' + id + '"') >= 0, true); });
+  eq('gcSet atop the panel', between('gcSet', 'id="settingsPanel"', 'id="set-events"'), true);
+  eq('gcInc in What’s included', between('gcInc', 'id="set-included"', 'id="set-data"'), true);
+  eq('gcData in Import & data', between('gcData', 'id="set-data"', 'id="sec-empty"'), true);
 });
 
 console.log(checks + ' checks, ' + (checks - failures) + ' passed, ' + failures + ' failed');

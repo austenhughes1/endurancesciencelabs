@@ -213,6 +213,10 @@ html[data-theme="light"] .rdx input[type=date]{color-scheme:light}
 .rdx-garmin-credit{font-size:12px;line-height:1.4;color:var(--muted2);margin:4px 0 0}
 .rdx #gcHero .rdx-garmin-credit{margin:0 0 8px}   /* above the Today card, not under a title line */
 .rdx-modal-intro .rdx-garmin-credit{margin:0 0 4px}
+.rdx #gcSet .rdx-garmin-credit{margin:0;padding:12px 18px 0}   /* atop Data & settings, in line with its groups */
+.rdx-gc-grp{flex-basis:100%}   /* a settings group's credit: its own row over the group's controls */
+.rdx-gc-grp:empty{display:none}   /* no Garmin runs: no empty row or gap */
+.rdx-gc-grp .rdx-garmin-credit{margin:0}
 .rdx-sec-ctl{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
 .rdx-sub-hd{font-size:14px;font-weight:600;color:var(--text);margin:22px 0 10px}
 .rdx-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 20px}
@@ -556,6 +560,7 @@ html[data-theme="light"] .rdx-strava-o{display:inline-block}
   .rdx-card{padding:14px 16px}
   .rdx-group{grid-template-columns:minmax(0,1fr);gap:8px;padding:14px 16px}
   .rdx-group-hd,.rdx-group:not(#set-events)>.rdx-group-hd{padding-top:0}
+  .rdx #gcSet .rdx-garmin-credit{padding:12px 16px 0}
   #importSlot .rdx-drop span{display:block;margin:2px 0 0}
   /* header: status on its own line, then the settings button */
   .rdx-head{flex-direction:column;align-items:stretch;gap:8px}
@@ -2935,7 +2940,10 @@ function buildTypeChips(){
 // numbers (Form & volume's metric table has Impact Load and estimated forces; the modal lists every
 // run's IAD), and the load baseline is calibrated from all runs, outdoor ones included, so each
 // credits every stored run and names Garmin as a source of the insight.
-function renderGarminCredit(){ ['gcHero','gcChart','gcPat','gcForm','gcLv'].forEach(function(id){ var el=$(id); if(el) el.innerHTML=garminCredit(RAW,true); }); }
+// Data & settings shows run counts, the calibrated easy pace and Lever counts: one credit atop the
+// panel (also right under the header's run count when it opens), plus one on What's included and
+// Import & data, the groups openSettings() scrolls straight to, past the panel's top.
+function renderGarminCredit(){ ['gcHero','gcChart','gcPat','gcForm','gcLv','gcSet','gcInc','gcData'].forEach(function(id){ var el=$(id); if(el) el.innerHTML=garminCredit(RAW,true); }); }
 function refresh(){ if(RAW.length){ renderGarminCredit(); annotateLever(); annotateExcluded(); renderFlags(); LOAD_PARAMS=computeLoadParams(); renderEasyCaption(); renderHero(); renderHeroNotes(); renderChart(); renderPatterns(); renderTiles(); renderForm(); renderAll(); renderLeverHint(); renderLeverModal(); renderStatus(); } }
 // Segmented range control; 'custom' reveals the From/To inputs.
 function setRangeChip(active){
@@ -3270,7 +3278,7 @@ function shellHTML(opts){
   '<div class="rdx-flags" id="rdxFlags" hidden></div>'+
 
   // 1. Data & settings
-  '<div class="rdx-settings" id="settingsPanel" role="region" aria-label="Data and settings" hidden><div class="rdx-set-grid">'+
+  '<div class="rdx-settings" id="settingsPanel" role="region" aria-label="Data and settings" hidden><div id="gcSet"></div><div class="rdx-set-grid">'+
     '<section class="rdx-group" id="set-events" aria-labelledby="setEventsHd">'+
       '<h3 class="rdx-group-hd" id="setEventsHd">Events</h3>'+
       '<div class="rdx-group-main">'+
@@ -3302,7 +3310,7 @@ function shellHTML(opts){
     '</section>'+
     '<section class="rdx-group" id="set-included" aria-labelledby="setIncludedHd">'+
       '<h3 class="rdx-group-hd" id="setIncludedHd">What’s included</h3>'+
-      '<div class="rdx-group-body">'+
+      '<div class="rdx-group-body"><div class="rdx-gc-grp" id="gcInc"></div>'+
         '<div class="rdx-ctl rdx-ctl-wide"><div class="rdx-lblrow"><span class="rdx-lbl" id="typesLbl">Activity types</span>'+tipHTML('Applies to Form & volume and the metric chart only. Today, the load chart and Injury Patterns count every run type (a Lever run at its offload).','Activity types')+'</div><div class="rdx-types" id="types" role="group" aria-labelledby="typesLbl"></div></div>'+
         '<div class="rdx-ctl"><div class="rdx-lblrow"><label for="intensity">Run intensity</label>'+tipHTML('Applies to Form & volume and the metric chart only — not to Today, the load chart or Injury Patterns.','Run intensity')+'</div><select id="intensity"><option value="all">All runs</option><option value="workout">Workouts only</option><option value="easy">Easy only</option></select></div>'+
         '<div class="rdx-ctl"><label for="mindist">Min distance</label><div class="rdx-inunit"><input type="text" id="mindist" value="0.5" inputmode="decimal" style="width:56px"><span>mi</span></div></div>'+
@@ -3310,7 +3318,7 @@ function shellHTML(opts){
     '</section>'+
     '<section class="rdx-group" id="set-data" aria-labelledby="setDataHd">'+
       '<h3 class="rdx-group-hd" id="setDataHd">Import &amp; data</h3>'+
-      '<div class="rdx-group-main">'+
+      '<div class="rdx-group-main"><div class="rdx-gc-grp" id="gcData"></div>'+
         '<div id="importSlot">'+importBlock+'</div>'+
         // the delete confirm() spells out what is kept
         '<div class="rdx-data-foot"><p class="rdx-filenote" id="filenote"></p><button type="button" class="rdx-btn rdx-btn-danger rdx-btn-sm" id="resetData">Delete all imported runs</button></div>'+
