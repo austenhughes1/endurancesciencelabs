@@ -210,6 +210,9 @@ html[data-theme="light"] .rdx input[type=date]{color-scheme:light}
 .rdx-sec-title{font-family:var(--ui);font-size:17px;font-weight:700;letter-spacing:-.2px;line-height:1.3;color:var(--text);margin:0}
 .rdx-sec-title:focus{outline:none}
 .rdx-sec-sub{font-size:13px;line-height:1.5;color:var(--muted2);max-width:760px;margin:3px 0 0}
+.rdx-garmin-credit{font-size:12px;line-height:1.4;color:var(--muted2);margin:4px 0 0}
+.rdx #gcHero .rdx-garmin-credit{margin:0 0 8px}   /* above the Today card, not under a title line */
+.rdx-modal-intro .rdx-garmin-credit{margin:0 0 4px}
 .rdx-sec-ctl{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
 .rdx-sub-hd{font-size:14px;font-weight:600;color:var(--text);margin:22px 0 10px}
 .rdx-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 20px}
@@ -1172,6 +1175,11 @@ function ymd(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'
 // Inclusive end bound for a date-input "To" value: the whole local day, not its midnight.
 function dayEnd(d){ var e=new Date(d); e.setHours(23,59,59,999); return e; }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+// Garmin credit under a view's title: "Garmin <model>" per device in the shown runs (plain "Garmin"
+// when the model is unknown); derived views (load, patterns) say the insight comes partly from Garmin.
+// One line each: shared/run-dynamics-garmin.test.js lifts them out of this file.
+function garminLabel(d){ d=String(d==null?'':d).trim().replace(/^garmin(\s+|$)/i,''); return (d&&d.toLowerCase()!=='unknown')?'Garmin '+d:'Garmin'; }
+function garminCredit(runs,derived){ var n=[]; (runs||[]).forEach(function(r){ if(r&&r.source==='garmin'){ var l=garminLabel(r.deviceName); if(n.indexOf(l)<0) n.push(l); } }); return n.length?'<p class="rdx-garmin-credit">'+(derived?'Insights derived in part from Garmin device-sourced data · ':'')+esc(n.join(', '))+'</p>':''; }
 // Role-aware copy: the coach sees the same view about "this athlete".
 function who(k){ var c=ROLE==='coach'; return { your:c?'this athlete’s':'your', Your:c?'This athlete’s':'Your', you:c?'this athlete':'you', 'you have':c?'this athlete has':'you have', their:c?'their':'your' }[k||'your']; }
 // User-facing dates (ISO stays in date inputs only): "Aug 10, 2025"; a span drops what its ends
@@ -1326,6 +1334,7 @@ function renderFlags(){
     add('',n(ex.length)+' excluded ');
     btn('Include again',function(){ setExcluded([], ex, 'Included '+n(ex.length)+' again.', function(){ setExcluded(ex, [], 'Excluded '+n(ex.length)+' again.'); }); },'Include the '+n(ex.length)+' excluded again');
   }
+  el.insertAdjacentHTML('beforeend',garminCredit(bad.slice(0,3),false));   // credits the runs named above
 }
 // Runner-entered easy pace (s/mi, 240–1200) from the profile: the middle rung of the baseline
 // chain calibrated median → recorded easy pace → neutral. Null when unset or out of range.
@@ -2780,6 +2789,7 @@ function renderLeverHint(){
 function renderLeverModal(){
   var m=$('lvModal'); if(!m||m.hidden) return;
   var all=lvRuns(), cnt={all:all.length, not:0, lever:0};
+  $('gcLv').innerHTML=garminCredit(all,true);   // the list shows each run's IAD
   all.forEach(function(r){ cnt[r.lever?'lever':'not']++; });
   $('lvFilter').innerHTML=[['all','All treadmill'],['not','Not Lever'],['lever','Lever']].map(function(f){
     var on=LV.filter===f[0];
@@ -2922,7 +2932,9 @@ function buildTypeChips(){
 }
 
 /* ---------- orchestration ---------- */
-function refresh(){ if(RAW.length){ annotateLever(); annotateExcluded(); renderFlags(); LOAD_PARAMS=computeLoadParams(); renderEasyCaption(); renderHero(); renderHeroNotes(); renderChart(); renderPatterns(); renderTiles(); renderForm(); renderAll(); renderLeverHint(); renderLeverModal(); renderStatus(); } }
+// Garmin credit under each section title: the load-derived sections name Garmin as a source of the insight.
+function renderGarminCredit(){ [['gcHero',1],['gcChart',1],['gcPat',1],['gcForm',0]].forEach(function(p){ var el=$(p[0]); if(el) el.innerHTML=garminCredit(RAW,!!p[1]); }); }
+function refresh(){ if(RAW.length){ renderGarminCredit(); annotateLever(); annotateExcluded(); renderFlags(); LOAD_PARAMS=computeLoadParams(); renderEasyCaption(); renderHero(); renderHeroNotes(); renderChart(); renderPatterns(); renderTiles(); renderForm(); renderAll(); renderLeverHint(); renderLeverModal(); renderStatus(); } }
 // Segmented range control; 'custom' reveals the From/To inputs.
 function setRangeChip(active){
   Array.prototype.forEach.call($all('#rdx-rangeChips [data-range]'),function(c){ var on=c.getAttribute('data-range')===active; c.classList.toggle('on',on); c.setAttribute('aria-pressed',String(on)); });
@@ -3253,7 +3265,7 @@ function shellHTML(opts){
       '<button type="button" class="rdx-btn rdx-btn-outline" id="gearBtn" aria-expanded="false" aria-controls="settingsPanel" hidden>⚙ Data &amp; settings</button>'+
     '</div>'+
   '</div>'+
-  '<p class="rdx-flags" id="rdxFlags" hidden></p>'+
+  '<div class="rdx-flags" id="rdxFlags" hidden></div>'+
 
   // 1. Data & settings
   '<div class="rdx-settings" id="settingsPanel" role="region" aria-label="Data and settings" hidden><div class="rdx-set-grid">'+
@@ -3316,12 +3328,12 @@ function shellHTML(opts){
 
   (inView('hero') ? ''+
   // 2. Today
-  '<div class="rdx-section" id="sec-hero">'+(ADMIN?'<div class="rdx-demobar" id="demobar"></div>':'')+'<div class="rdx-hero" id="hero"></div></div>'+
+  '<div class="rdx-section" id="sec-hero">'+(ADMIN?'<div class="rdx-demobar" id="demobar"></div>':'')+'<div id="gcHero"></div><div class="rdx-hero" id="hero"></div></div>'+
 
   // 3. Load over time
   '<div class="rdx-section" id="sec-chart">'+
     '<div class="rdx-sec-hd">'+
-      '<div class="rdx-sec-hd-txt"><h2 class="rdx-sec-title" id="chartTitle">Load over time</h2><p class="rdx-sec-sub" id="chartSub"></p></div>'+
+      '<div class="rdx-sec-hd-txt"><h2 class="rdx-sec-title" id="chartTitle">Load over time</h2><p class="rdx-sec-sub" id="chartSub"></p><div id="gcChart"></div></div>'+
       '<div class="rdx-sec-ctl rdx-chart-ctl">'+
         '<div class="rdx-seg" id="rdx-rangeChips" role="group" aria-label="Date range">'+
           [['3','3M'],['6','6M'],['12','1Y'],['all','All'],['custom','Custom']].map(function(r){ return '<button type="button" data-range="'+r[0]+'" aria-pressed="false">'+r[1]+'</button>'; }).join('')+
@@ -3348,7 +3360,7 @@ function shellHTML(opts){
   '<div class="rdx-section" id="sec-patterns">'+
     '<div class="rdx-sec-hd">'+
       '<div class="rdx-sec-hd-txt"><h2 class="rdx-sec-title" id="patHead" tabindex="-1">What came before each setback</h2>'+
-        '<p class="rdx-sec-sub">How '+your+' training looked in the weeks before each logged injury or illness.</p></div>'+
+        '<p class="rdx-sec-sub">How '+your+' training looked in the weeks before each logged injury or illness.</p><div id="gcPat"></div></div>'+
       '<div class="rdx-sec-ctl"><button type="button" class="rdx-gapchip" id="patGapChip" hidden></button></div>'+
     '</div>'+
     '<div id="patternsBox"></div>'+
@@ -3358,7 +3370,7 @@ function shellHTML(opts){
   (inView('form') ? ''+
   '<div class="rdx-section" id="sec-form">'+
     '<div class="rdx-sec-hd">'+
-      '<div class="rdx-sec-hd-txt"><h2 class="rdx-sec-title">Form &amp; volume</h2><p class="rdx-sec-sub" id="formSub">Last 90 days vs the 90 before · distances are actual miles, not IAD</p></div>'+
+      '<div class="rdx-sec-hd-txt"><h2 class="rdx-sec-title">Form &amp; volume</h2><p class="rdx-sec-sub" id="formSub">Last 90 days vs the 90 before · distances are actual miles, not IAD</p><div id="gcForm"></div></div>'+
       '<div class="rdx-sec-ctl"><label class="rdx-inl">as of <input type="date" id="anchor"></label></div>'+
     '</div>'+
     '<div class="rdx-tiles" id="formTiles"></div>'+
@@ -3391,7 +3403,7 @@ function shellHTML(opts){
     '<div class="rdx-modal-panel" role="dialog" aria-modal="true" aria-labelledby="lvTitle" aria-describedby="lvDesc" tabindex="-1">'+
       '<div class="rdx-modal-hd"><h3 class="rdx-modal-title" id="lvTitle">Mark Lever runs</h3>'+
         '<button type="button" class="rdx-modal-x" id="lvClose" aria-label="Close">✕</button></div>'+
-      '<div class="rdx-modal-intro"><p class="rdx-modal-sub" id="lvDesc">Pick the treadmill runs '+(ROLE==='coach'?'this athlete':'you')+' did on the Lever and set the body-weight support. Their Impact Load (IAD) is recalculated with the offload discount, and the guidance card, load chart and injury patterns update.</p></div>'+
+      '<div class="rdx-modal-intro"><div id="gcLv"></div><p class="rdx-modal-sub" id="lvDesc">Pick the treadmill runs '+(ROLE==='coach'?'this athlete':'you')+' did on the Lever and set the body-weight support. Their Impact Load (IAD) is recalculated with the offload discount, and the guidance card, load chart and injury patterns update.</p></div>'+
       '<div class="rdx-lv-bar">'+
         '<div class="rdx-ctl"><label for="lvOff">Lever support</label><div class="rdx-inunit"><input type="number" id="lvOff" min="5" max="99" step="any" inputmode="decimal" aria-describedby="lvOffCap"><span>% body weight</span></div><div class="rdx-lv-cap" id="lvOffCap"></div></div>'+
         '<div class="rdx-ctl"><label>Show</label><div class="rdx-types" id="lvFilter" role="group" aria-label="Filter runs"></div></div>'+
