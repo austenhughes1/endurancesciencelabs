@@ -8,7 +8,7 @@
 <meta name="description" content="1-on-1 running coaching from Endurance Science Labs: custom weekly plans, Strava sync and training analysis.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/shared/site.css?v=20261016">
+<link rel="stylesheet" href="/shared/site.css?v=20261028">
 <style>
 /* Coaching portal styles. Tokens, base type, the esl-* component layer, nav and gate all come from
    /shared/site.css (DESIGN-STANDARD §1.2/§6.1); this block only maps coaching selectors onto them (§6.2).
@@ -1076,7 +1076,7 @@ select.modal-field{appearance:auto;cursor:pointer}
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
-<script src="/shared/site.js?v=20261016"></script>
+<script src="/shared/site.js?v=20261028"></script>
 <script src="/shared/run-load-model.js?v=29"></script>
 <script src="/shared/injury-patterns.js?v=8"></script>
 <script src="/shared/device-matrix.js?v=2"></script>
@@ -3201,7 +3201,7 @@ function renderDashboard(containerId, role) {
     } else if (isAthlete) {
       actions = `<button class="strava-connect-btn" onclick="connectStrava()"><img src="/images/strava/btn_strava_connect_with_orange.svg" alt="Connect with Strava"></button>` +
         (discAt ? `<div class="strava-connect-note">Linked the wrong account? <button type="button" class="esl-linkbtn" onclick="openStravaSwitch(this)">Sign in with a different Strava account</button></div>` : '') +
-        `<div class="strava-connect-note">Your data stays private. Only you and your coach can see it. <a href="/privacy/" target="_blank" class="esl-link">Privacy Policy</a></div>`;
+        `<div class="strava-connect-note">Your data stays private. Only you and your coach can see it. By connecting you agree to our <a href="/terms/" target="_blank" class="esl-link">Terms</a> and <a href="/privacy/" target="_blank" class="esl-link">Privacy Policy</a>.</div>`;
     }
     container.innerHTML = `
     <div class="dash-card">

@@ -1096,7 +1096,9 @@ function openSignIn(opts) {
 //     gate is switched to Sign in (default 'Welcome back', sub hidden)
 //   - subNoGoogle: replaces the sub where Google sign-in can't work
 //   - backLink: false hides the default "← Back to home" (it's also hidden
-//     when `foot` already contains a link). "Privacy" always shows.
+//     when `foot` already contains a link). "Privacy" and "Terms" always
+//     show, and so does the "By continuing you agree" line with the sign-in
+//     controls.
 //   - dismissable: true adds a ✕ button; Escape / a backdrop click hide it
 //   - modal: true renders it as a dialog over the page (scrim, focus trap,
 //     role=dialog) instead of a full page gate below the nav
@@ -1295,10 +1297,11 @@ function gateBodyHtml(opts, gid) {
     + '  <button class="eslabs-gate-forgot" data-eslabs-forgot type="button" style="' + (emailDefault === 'signin' ? '' : 'display:none') + '">Forgot your password?</button>'
     + '  <div role="alert"><div class="eslabs-gate-error" id="' + gid + '-err" data-eslabs-error></div></div>'
     + '</div>'
+    + '<p class="eslabs-gate-consent">By continuing you agree to our <a href="/terms/">Terms</a> and <a href="/privacy/">Privacy Policy</a>.</p>'
     + (foot ? '<div class="eslabs-gate-foot">' + foot + '</div>' : '')
     + '<div class="eslabs-gate-links">'
     + (showBack ? '<a href="/">← Back to home</a><span aria-hidden="true">·</span>' : '')
-    + '<a href="/privacy/">Privacy</a></div>';
+    + '<a href="/privacy/">Privacy</a><span aria-hidden="true">·</span><a href="/terms/">Terms</a></div>';
 }
 
 function wireGate(host, opts) {

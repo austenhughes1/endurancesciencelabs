@@ -764,6 +764,9 @@ html[data-theme="light"] .eslabs-gate-google-btn { box-shadow: 0 0 0 1px var(--b
 .eslabs-gate-notice-title { margin: 0 0 4px; font: 700 13px/1.4 var(--ui); color: var(--accent-ink); }
 .eslabs-gate-notice p { margin: 0 0 8px; }
 
+.eslabs-gate-consent {
+  margin: 14px 0 0; font: 400 12px/1.5 var(--ui); color: var(--muted2);
+}
 .eslabs-gate-foot {
   margin-top: 16px; padding-top: 14px;
   border-top: 1px solid var(--border);
@@ -775,8 +778,10 @@ html[data-theme="light"] .eslabs-gate-google-btn { box-shadow: 0 0 0 1px var(--b
   margin-top: 12px; font: 400 12px/1.5 var(--ui); color: var(--muted2);
 }
 .eslabs-gate-links a { display: inline-flex; align-items: center; min-height: 24px; }
+.eslabs-gate-consent a,
 .eslabs-gate-foot a,
 .eslabs-gate-links a { color: var(--accent-ink); font-weight: 600; text-decoration: none; }
+.eslabs-gate-consent a:hover,
 .eslabs-gate-foot a:hover,
 .eslabs-gate-links a:hover { text-decoration: underline; text-underline-offset: 3px; }
 
@@ -791,7 +796,7 @@ html[data-theme="light"] .eslabs-gate-google-btn { box-shadow: 0 0 0 1px var(--b
 .eslabs-gate-deny strong { color: var(--text); }
 .eslabs-gate-deny p { margin: 0; }
 .eslabs-gate-deny-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-.eslabs-gate-card.is-deny :is(.eslabs-gate-google-btn, .eslabs-gate-microcopy, .eslabs-gate-email-toggle, .eslabs-gate-email-form, .eslabs-gate-bullets) { display: none; }
+.eslabs-gate-card.is-deny :is(.eslabs-gate-google-btn, .eslabs-gate-microcopy, .eslabs-gate-email-toggle, .eslabs-gate-email-form, .eslabs-gate-consent, .eslabs-gate-bullets) { display: none; }
 
 /* Auth restore: a small delayed spinner instead of a flash of the sign-up card. */
 .eslabs-gate-pending { display: none; margin: auto; align-items: center; gap: 8px; }
