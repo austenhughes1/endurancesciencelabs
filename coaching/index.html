@@ -310,6 +310,14 @@ html[data-theme="light"] .dash-powered-by .pwrd-on-light{display:block}
 .strava-connect-btn{display:inline-block;padding:0;background:none;border:none;cursor:pointer;transition:filter .15s;line-height:0}
 .strava-connect-btn:hover{filter:brightness(0.92)}
 .strava-connect-btn img{display:block;height:48px;width:auto}
+/* Garmin Connect link: the official app tile, shown unaltered at 88px */
+.garmin-connect{margin-top:16px}
+.dash-body .garmin-connect{border-top:1px solid var(--border)}
+.garmin-connect-tile{height:88px;width:auto;flex:none}
+.garmin-connect-text{margin:0 auto 14px;max-width:400px;font-size:14px;line-height:1.55;color:var(--text)}
+.garmin-connect .strava-connect-note{max-width:400px;margin:12px auto 0}
+.coach-garmin{width:100%;max-width:520px;margin-top:12px;text-align:left}
+.coach-garmin .garmin-connect{margin-top:0;padding:8px 0;border-top:0}
 
 /* Mileage chart */
 .chart-section{margin-bottom:28px}
@@ -813,6 +821,7 @@ select.modal-field{appearance:auto;cursor:pointer}
       <h1 class="esl-sr-only">Coaching</h1>
       <div class="main-empty-icon" aria-hidden="true">◇</div>
       <div class="main-empty-text">Select an athlete to view their plan</div>
+      <section class="coach-garmin" id="coach-garmin" aria-label="Your Garmin Connect" hidden></section>
     </div>
     <div id="coach-week-container" style="display:none"></div>
     <div id="coach-dashboard" style="display:none"></div>
@@ -1335,6 +1344,7 @@ esLabs.onAuthChange(async user => {
     currentUser = user;
     document.getElementById('app').style.display = 'block';
     await bootCoaching(user);
+    handleGarminReturn();
   } else {
     bootSeq++;
     // Sign-out path (triggered by the shared nav's mobile menu or /account/).
@@ -1402,6 +1412,7 @@ async function loadUserDoc(user) {
     document.getElementById('athlete-layout').style.display = 'none';
     document.getElementById('athlete-paywall').style.display = 'none';
     document.getElementById('athlete-awaiting').style.display = 'none';
+    renderCoachGarmin();
     loadAthleteList();
   } else {
     document.getElementById('coach-layout').style.display = 'none';
@@ -3168,6 +3179,8 @@ function renderDashboard(containerId, role) {
   const acting = !!(esLabs.isActingAs && esLabs.isActingAs());
   const viewed = role === 'coach' ? selectedAthleteData : userDoc;
   const viewedName = (viewed?.displayName || viewed?.email || 'this athlete');
+  const garminHtml = garminCardShown(role, { acting, admin: currentUser?.uid === ADMIN_UID, live: GARMIN_CONNECT_LIVE })
+    ? garminCardHtml(viewed) : '';
   if (!stravaConnected) {
     const isAthlete = role === 'athlete';
     const discAt = tsToDate(viewed?.stravaDisconnectedAt);
@@ -3202,6 +3215,7 @@ function renderDashboard(containerId, role) {
           ${actions}
         </div>
         ${notice}
+        ${garminHtml}
       </div>
       <div class="dash-powered-by"><img class="pwrd-on-dark" src="/images/strava/api_logo_pwrdBy_strava_horiz_white.svg" alt="Powered by Strava"><img class="pwrd-on-light" src="/images/strava/api_logo_pwrdBy_strava_horiz_orange.svg" alt="Powered by Strava"></div>
     </div>`;
@@ -3372,6 +3386,7 @@ function renderDashboard(containerId, role) {
       <!-- Fitness / Fatigue / Form (PMC) -->
       ${pmcHtml}
 
+      ${garminHtml}
     </div>
     <div class="dash-powered-by"><img class="pwrd-on-dark" src="/images/strava/api_logo_pwrdBy_strava_horiz_white.svg" alt="Powered by Strava"><img class="pwrd-on-light" src="/images/strava/api_logo_pwrdBy_strava_horiz_orange.svg" alt="Powered by Strava"></div>
   </div>`;
@@ -3861,6 +3876,159 @@ function handleStravaReturn() {
     return true;
   }
   return false;
+}
+
+// ══════════════════════════════════════════════════════════
+//  GARMIN CONNECT
+// ══════════════════════════════════════════════════════════
+// Garmin Connect link. Shown to the admin only until launch; set to true to
+// let every athlete link Garmin Connect.
+const GARMIN_CONNECT_LIVE = false;
+
+// Where the Garmin Connect card shows: on an athlete's own dashboard ('athlete')
+// and, for the admin, whose account is a coach account with no athlete
+// dashboard, on the coach home view ('coach-home'). Never on a coach's view of
+// an athlete, and never while acting as someone: the link always belongs to the
+// real signed-in account. Until GARMIN_CONNECT_LIVE, only the admin sees it.
+function garminCardShown(view, o) {
+  if (o.acting || !(o.live || o.admin)) return false;
+  return view === 'athlete' || (view === 'coach-home' && !!o.admin);
+}
+
+function garminCardHtml(acct) {
+  const g = acct || {};
+  return `
+  <div class="strava-connect garmin-connect">
+    <img src="/images/garmin/garmin-connect-tile.png" alt="Garmin Connect" class="garmin-connect-tile" width="88" height="88">
+    <div>
+      ${g.garminConnected
+        ? `<p class="garmin-connect-text">Garmin Connect is linked. New runs from your watch appear in Running Dynamics after it syncs.${g.garminSharing === false ? ' <strong>Sharing is turned off in Garmin Connect</strong>, so new runs are paused.' : ''}</p>
+           <button type="button" class="esl-btn esl-btn--outline" onclick="disconnectGarmin(this)">Disconnect Garmin Connect</button>`
+        : `<p class="garmin-connect-text">Link Garmin Connect to send every run you record from now on to Running Dynamics, including ground contact time, vertical oscillation and stride length.</p>
+           <button type="button" class="esl-btn" onclick="connectGarmin()">Connect Garmin Connect</button>`}
+      <div class="strava-connect-note">Only you and your coach see your Garmin data. Disconnecting deletes it. By connecting you agree to our <a href="/terms/" target="_blank" class="esl-link">Terms</a> and <a href="/privacy/" target="_blank" class="esl-link">Privacy Policy</a>.</div>
+    </div>
+  </div>`;
+}
+
+// The admin's own card on the coach home view (see garminCardShown).
+function renderCoachGarmin() {
+  const el = document.getElementById('coach-garmin');
+  if (!el) return;
+  const show = isCoach && !!currentUser && garminCardShown('coach-home', {
+    acting: !!(esLabs.isActingAs && esLabs.isActingAs()),
+    admin: currentUser.uid === ADMIN_UID, live: GARMIN_CONNECT_LIVE,
+  });
+  el.hidden = !show;
+  el.innerHTML = show ? `
+    <div class="dash-card">
+      <div class="dash-header"><h2 class="dash-title">Your Garmin Connect</h2></div>
+      <div class="dash-body">${garminCardHtml(userDoc)}</div>
+    </div>` : '';
+}
+
+// Redraw every Garmin Connect card on screen after the link changes.
+function rerenderGarminViews() {
+  renderCoachGarmin();
+  if (!isCoach) rerenderStravaViews('athlete'); // re-renders the Training Data card if it is showing
+}
+
+async function connectGarmin() {
+  if (esLabs.isActingAs && esLabs.isActingAs()) {
+    esLabs.toast('Garmin Connect can only be linked by the athlete, from their own account.', { err: true });
+    return;
+  }
+  try {
+    const res = await firebase.functions().httpsCallable('createGarminAuthUrl')({});
+    window.location.href = res.data.url;
+  } catch (e) {
+    console.warn('createGarminAuthUrl:', e && e.message);
+    esLabs.toast('Couldn’t start the Garmin Connect link. Try again in a minute.', { err: true });
+  }
+}
+
+// Ends the link and deletes what Garmin sent; the card redraws in place so the
+// result toast stays on screen.
+async function disconnectGarmin(btn) {
+  if (esLabs.isActingAs && esLabs.isActingAs()) {
+    esLabs.toast('Garmin Connect can only be managed by the athlete, from their own account.', { err: true });
+    return;
+  }
+  if (!confirm('Disconnect Garmin Connect? Every run Garmin sent to Endurance Science Labs will be deleted. Runs you uploaded yourself stay.')) return;
+  if (btn) btn.disabled = true;
+  try {
+    const res = await firebase.functions().httpsCallable('disconnectGarmin')({});
+    const n = (res && res.data && res.data.deleted) || 0;
+    if (userDoc) { userDoc.garminConnected = false; delete userDoc.garminSharing; }
+    rerenderGarminViews();
+    esLabs.toast(`Garmin Connect disconnected. ${n} ${n === 1 ? 'run' : 'runs'} removed.`);
+  } catch (e) {
+    console.warn('disconnectGarmin:', e && e.message);
+    if (btn) btn.disabled = false;
+    esLabs.toast('Couldn’t disconnect Garmin Connect. Try again.', { err: true });
+  }
+}
+
+// Return from Garmin's approval page. garminCallback parks Garmin's answer and
+// sends the browser back with ?garmin=finish&state=..&key=..; the link is made
+// by finishGarminLink as the signed-in account. Read and clean the URL at
+// script start, so the one-time key leaves the address bar and history before
+// anything else runs; handleGarminReturn() acts on it once signed in.
+function readGarminReturn() {
+  try {
+    const q = new URLSearchParams(location.search);
+    const v = q.get('garmin');
+    if (!v) return null;
+    const ret = { v, reason: q.get('reason') || '', state: q.get('state') || '', key: q.get('key') || '' };
+    ['garmin', 'reason', 'state', 'key'].forEach(k => q.delete(k));
+    const rest = q.toString();
+    history.replaceState(history.state, '', location.pathname + (rest ? '?' + rest : '') + location.hash);
+    return ret;
+  } catch (e) { return null; }
+}
+let GARMIN_RETURN = readGarminReturn();
+
+function garminResultToast(result, reason) {
+  if (result === 'connected') return esLabs.toast('Garmin Connect linked. Runs you record from now on will appear in Running Dynamics.');
+  if (result === 'denied') return esLabs.toast('Garmin Connect wasn’t linked: access was declined on Garmin.', { err: true });
+  if (result === 'scope') return esLabs.toast('Garmin Connect wasn’t linked: activity sharing has to be allowed.', { err: true });
+  const msgs = {
+    inuse: 'That Garmin account is already linked to another Endurance Science Labs account.',
+    account: 'This Garmin Connect link was started from a different Endurance Science Labs account. Sign in to that account, or connect again from this one.',
+    state: 'The Garmin Connect link expired or was already used. Try Connect again.',
+    config: 'Garmin Connect is unavailable right now. Try again later.',
+  };
+  // reason comes from the address bar: only our own keys count.
+  const known = result === 'error' && Object.prototype.hasOwnProperty.call(msgs, reason);
+  esLabs.toast(known ? msgs[reason] : 'Garmin Connect couldn’t be linked. Try again.', { err: true });
+}
+
+// Called from the auth handler once signed in (athletes and coaches alike).
+// Each approval allows one finishGarminLink call; a later one gets reason
+// 'state'. A reload before signing in loses the return; connect again then.
+async function handleGarminReturn() {
+  const ret = GARMIN_RETURN;
+  GARMIN_RETURN = null;
+  if (!ret) return;
+  if (ret.v !== 'finish') return garminResultToast(ret.v, ret.reason);
+  // Callables run as the real signed-in account, never the act-as one; a link
+  // is only finished by the athlete themselves.
+  if (esLabs.isActingAs && esLabs.isActingAs()) {
+    esLabs.toast('Garmin Connect can only be linked by the athlete, from their own account. Stop acting as them and connect again.', { err: true });
+    return;
+  }
+  try {
+    const res = await firebase.functions().httpsCallable('finishGarminLink')({ state: ret.state, key: ret.key });
+    const d = (res && res.data) || {};
+    if (d.result === 'connected' && userDoc) {
+      userDoc.garminConnected = true; userDoc.garminSharing = true;
+      rerenderGarminViews();
+    }
+    garminResultToast(d.result, d.reason);
+  } catch (e) {
+    console.warn('finishGarminLink:', e && e.message);
+    garminResultToast('error', '');
+  }
 }
 
 // ══════════════════════════════════════════════════════════
