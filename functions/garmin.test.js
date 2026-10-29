@@ -102,7 +102,8 @@ var db = {
   },
   // One transaction at a time, standing in for the locks a real one takes;
   // documents it reads are locked (see unlocked) and its writes apply when the
-  // callback finishes.
+  // callback finishes, all or none: a write that fails undoes the ones before
+  // it, as a failed commit stores nothing.
   runTransaction: function (fn) {
     var run = txQueue.then(async function () {
       var ops = [], held = [], release;
@@ -118,7 +119,14 @@ var db = {
       };
       try {
         var out = await fn(t);
-        ops.forEach(function (op) { op(); });
+        var before = new Map(store);
+        try {
+          ops.forEach(function (op) { op(); });
+        } catch (e) {
+          store.clear();
+          before.forEach(function (d, p) { store.set(p, d); });
+          throw e;
+        }
         return out;
       } finally {
         held.forEach(function (p) { locks.delete(p); });
@@ -395,6 +403,21 @@ function failNextTransaction() {
   db.runTransaction = function () { db.runTransaction = real; return Promise.reject(new Error('backend down')); };
   return function restore() { db.runTransaction = real; };
 }
+// Makes the next write (set, update or delete) to the document at path fail,
+// in a transaction or not, as a backend error would.
+function failNextWrite(path) {
+  var real = {};
+  ['_set', '_update', '_delete'].forEach(function (m) {
+    real[m] = DocRef.prototype[m];
+    DocRef.prototype[m] = function () {
+      if (this.path !== path) return real[m].apply(this, arguments);
+      restore();
+      throw new Error('DEADLINE_EXCEEDED');
+    };
+  });
+  function restore() { Object.keys(real).forEach(function (m) { DocRef.prototype[m] = real[m]; }); }
+  return restore;
+}
 function deleteCalls() { return calls.filter(function (c) { return c.indexOf('DELETE') === 0; }); }
 
 section('a link that fails after Garmin approved it is undone with Garmin, unless a link that stays holds it', async function () {
@@ -446,6 +469,46 @@ section('a link that fails after Garmin approved it is undone with Garmin, unles
   restore = failNextRead('garminUsers/g-111');
   try { res = await finish('u-a', r.state, r.key); } finally { restore(); }
   eq('linked nowhere, check fails: undone', deleteCalls(), ['DELETE registration Bearer acc-' + tokenSeq]);
+});
+
+section('a link is stored whole or not at all, and one not stored is undone with Garmin', async function () {
+  var parts = { tokens: 'users/u-a/private/garmin', mapping: 'garminUsers/g-111', flags: 'users/u-a' };
+  var r, res, restore;
+  for (var name in parts) {
+    reset(); seedUser('u-a'); seedRun('u-a', 'own_1');
+    r = await startAndApprove('u-a');
+    restore = failNextWrite(parts[name]);
+    try { res = await finish('u-a', r.state, r.key); } finally { restore(); }
+    eq(name + ' write fails: error', res, { result: 'error', reason: 'exchange' });
+    eq(name + ' write fails: undone with the new token', deleteCalls(), ['DELETE registration Bearer acc-' + tokenSeq]);
+    eq(name + ' write fails: nothing stored', [doc('users/u-a/private/garmin'), doc('garminUsers/g-111'), doc('users/u-a').garminConnected], [undefined, undefined, undefined]);
+    eq(name + ' write fails: own runs kept', runIds('u-a'), ['own_1']);
+    // Nothing is left to store pushed runs for the link the athlete was told failed.
+    await push({ activities: [SUMMARY] }); await work();
+    eq(name + ' write fails: a pushed run is dropped', runIds('u-a'), ['own_1']);
+  }
+
+  // A re-link whose write fails keeps the link it renews, and Garmin is not told.
+  reset(); seedUser('u-a'); seedLink('u-a', 'g-111'); seedRun('u-a', 'garmin_1', 'garmin');
+  r = await startAndApprove('u-a');
+  restore = failNextWrite('users/u-a');
+  try { res = await finish('u-a', r.state, r.key); } finally { restore(); }
+  eq('re-link, flags write fails: error', res, { result: 'error', reason: 'exchange' });
+  eq('re-link, flags write fails: Garmin not told', deleteCalls(), []);
+  eq('re-link, flags write fails: link kept as it was', [doc('users/u-a/private/garmin').accessToken, doc('garminUsers/g-111').uid, doc('users/u-a').garminConnected, runIds('u-a')], ['stored-u-a', 'u-a', true, ['garmin_1']]);
+
+  // The account was deleted while the link was being made.
+  reset(); seedUser('u-a');
+  r = await startAndApprove('u-a');
+  var realGet = DocRef.prototype.get, gone = false;
+  DocRef.prototype.get = function () {
+    if (!gone && this.path === 'users/u-a/private/garmin') { gone = true; store.delete('users/u-a'); }
+    return realGet.call(this);
+  };
+  try { res = await finish('u-a', r.state, r.key); } finally { DocRef.prototype.get = realGet; }
+  eq('account deleted meanwhile: error', res, { result: 'error', reason: 'exchange' });
+  eq('account deleted meanwhile: undone with Garmin', deleteCalls(), ['DELETE registration Bearer acc-' + tokenSeq]);
+  eq('account deleted meanwhile: no tokens or mapping left', [doc('users/u-a/private/garmin'), doc('garminUsers/g-111')], [undefined, undefined]);
 });
 
 section('activity sharing not granted: scope, and local state matches Garmin', async function () {
@@ -717,6 +780,7 @@ section('garminPush stores only what the worker reads, with an expiry', async fu
     activities: [copy(SUMMARY, { manual: false, userId: 111 })],
     activityFiles: [copy(FILE_ITEM, { extra: 'made-up' })],
     deregistrations: [{ userId: 'g-111', extra: 'made-up' }],
+    userPermissionsChange: [{ userId: 'g-111', summaryId: 'P-1', permissions: ['ACTIVITY_EXPORT'], changeTimeInSeconds: 1800000000, extra: 'made-up' }],
   });
   var by = {};
   inbox().forEach(function (x) { by[x.kind] = x; });
@@ -725,6 +789,7 @@ section('garminPush stores only what the worker reads, with an expiry', async fu
   eq('file: unread fields dropped', 'extra' in by.activityFiles.item, false);
   eq('file: URL kept for the worker', by.activityFiles.item.callbackURL, FILE_URL);
   eq('deregistration: the user id only', by.deregistrations.item, { userId: 'g-111' });
+  eq('permission change: what was granted and when', by.userPermissionsChange.item, { userId: 'g-111', permissions: ['ACTIVITY_EXPORT'], changeTimeInSeconds: 1800000000 });
   eq('each expires a day after arrival', inbox().every(function (x) {
     return x.expireAt instanceof Timestamp && Math.round((x.expireAt.toMillis() - Date.now()) / 3600e3) === 24;
   }), true);
@@ -942,12 +1007,12 @@ section('sharing turned off in Garmin Connect pauses new runs; turned on, they r
   eq('runs land again', runIds('u-a'), ['garmin_1', 'garmin_9001']);
 });
 
-// A permission change queued at receivedAt, as garminPush stores it.
-function queuePermissionChange(id, permissions, receivedAtMs, gid) {
-  store.set('garminInbox/' + id, {
-    kind: 'userPermissionsChange', item: { userId: gid || 'g-111', permissions: permissions },
-    receivedAt: Timestamp.fromMillis(receivedAtMs),
-  });
+// A permission change queued at receivedAt, as garminPush stores it, with the
+// change time Garmin sent (in seconds) when changeSec is given.
+function queuePermissionChange(id, permissions, receivedAtMs, gid, changeSec) {
+  var item = { userId: gid || 'g-111', permissions: permissions };
+  if (changeSec !== undefined) item.changeTimeInSeconds = changeSec;
+  store.set('garminInbox/' + id, { kind: 'userPermissionsChange', item: item, receivedAt: Timestamp.fromMillis(receivedAtMs) });
 }
 function handle(id) { return g.onGarminInbox({ data: new Snap(new DocRef('garminInbox/' + id), doc('garminInbox/' + id)) }); }
 
@@ -977,6 +1042,45 @@ section('sharing changes handled out of order leave the latest one in place', as
   eq('connected', await finish('u-a', r.state, r.key), { result: 'connected' });
   await handle('p-before');
   eq('an older change does not pause a new link', doc('users/u-a').garminSharing, true);
+});
+
+section('sharing changes are ordered by when they were made, not when they reached us', async function () {
+  var nowSec = Math.floor(Date.now() / 1000);
+  var OFF = { userId: 'g-111', permissions: [], changeTimeInSeconds: nowSec - 120 };
+  var ON = { userId: 'g-111', permissions: ['ACTIVITY_EXPORT'], changeTimeInSeconds: nowSec - 60 };
+
+  // Turned off, then on a minute later. The "off" push could not be queued, so
+  // it comes again after the "on" has been handled.
+  linked();
+  var realBatch = db.batch, res;
+  db.batch = function () { throw new Error('backend down'); };
+  try { res = await push({ userPermissionsChange: [OFF] }); } finally { db.batch = realBatch; }
+  eq('the off push is not queued', [res.code, inbox().length], [503, 0]);
+  await push({ userPermissionsChange: [ON] }); await work();
+  eq('turned back on', doc('users/u-a').garminSharing, true);
+  await push({ userPermissionsChange: [OFF] }); await work();
+  eq('the older off, sent again, leaves sharing on', doc('users/u-a').garminSharing, true);
+  await push({ activities: [SUMMARY] }); await work();
+  eq('runs keep landing', runIds('u-a'), ['garmin_9001']);
+
+  // The newer change still wins when it comes last.
+  linked();
+  await push({ userPermissionsChange: [ON] }); await work();
+  await push({ userPermissionsChange: [copy(OFF, { changeTimeInSeconds: nowSec - 30 })] }); await work();
+  eq('a newer off pauses sharing', doc('users/u-a').garminSharing, false);
+
+  // Against the link's own check of what was granted: a change made before the
+  // link is older even if it reaches us afterwards; one made after it applies.
+  reset();
+  seedUser('u-a');
+  var r = await startAndApprove('u-a');
+  eq('connected', await finish('u-a', r.state, r.key), { result: 'connected' });
+  queuePermissionChange('p-made-before', [], Date.now() + 60e3, 'g-111', nowSec - 60);
+  await handle('p-made-before');
+  eq('made before the link, received after: a new link is not paused', doc('users/u-a').garminSharing, true);
+  queuePermissionChange('p-made-after', [], Date.now(), 'g-111', Math.ceil(Date.now() / 1000) + 5);
+  await handle('p-made-after');
+  eq('made after the link: sharing paused', doc('users/u-a').garminSharing, false);
 });
 
 section('a deregistration from Garmin deletes everything Garmin sent', async function () {

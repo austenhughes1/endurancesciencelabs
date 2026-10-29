@@ -205,12 +205,13 @@ async function holdsGarminLink(uid, garminUserId) {
   return p.exists && String(p.get("garminUserId") || "") === String(garminUserId);
 }
 
-// A link that fails after Garmin approved it (the code is exchanged) and before
-// its tokens are stored is undone with Garmin, unless the approval may belong
-// to a link that stays: one this account holds to the same Garmin account (a
-// re-link, or one another tab made meanwhile), or another account's live link
-// to it. Without the Garmin user id, any link this account holds may be that
-// one. Nothing is sent when the checks themselves fail.
+// A link that fails after Garmin approved it (the code is exchanged) has stored
+// nothing (linkApproved stores a link whole, in one transaction), so it is
+// undone with Garmin, unless the approval may belong to a link that stays: one
+// this account holds to the same Garmin account (a re-link, or one another tab
+// made meanwhile), or another account's live link to it. Without the Garmin
+// user id, any link this account holds may be that one. Nothing is sent when
+// the checks themselves fail.
 async function undoUnstoredLink(uid, garminUserId, accessToken) {
   try {
     const prev = await privRef(uid).get();
@@ -321,16 +322,25 @@ async function linkApproved(uid, userRef, tok, ids) {
     console.log(`finishGarminLink: uid ${uid} switched Garmin accounts; purged ${n} runs`);
   }
 
-  // The token doc goes first: a purge still running for the old account checks
-  // it before it touches the flags. sharingChangedAt: what was granted was
-  // checked just now, so sharing changes that reached us earlier are older.
-  // If another tab has linked a different Garmin account since this one
-  // checked, that link stays and this one is undone with Garmin.
+  // The tokens, the mapping and the link flags are stored in one transaction,
+  // so a link is stored whole or not at all: one that fails here has nothing
+  // stored and is undone with Garmin by linkGarmin. A purge still running for
+  // the old account reads the token doc before it touches the flags.
+  // sharingChangedAt: what was granted was checked just now, so sharing
+  // changes made earlier are older. If another tab has linked a different
+  // Garmin account since this one checked, that link stays and this one is
+  // undone with Garmin.
   const stored = await db.runTransaction(async (t) => {
     const cur = await t.get(privRef(uid));
     const held = cur.exists ? String(cur.get("garminUserId") || "") : "";
     if (held && held !== garminUserId) return false;
     t.set(privRef(uid), Object.assign(tokenFields(tok), { garminUserId, sharingChangedAt: Date.now() }));
+    t.set(db.collection("garminUsers").doc(garminUserId), { uid, linkedAt: FieldValue.serverTimestamp() });
+    t.update(userRef, {
+      garminConnected: true, garminSharing: true,
+      garminConnectedAt: FieldValue.serverTimestamp(),
+      garminDisconnectedAt: FieldValue.delete(),
+    });
     return true;
   });
   if (!stored) {
@@ -338,12 +348,6 @@ async function linkApproved(uid, userRef, tok, ids) {
     await sendDeregistration(uid, tok.access_token);
     return err("busy");
   }
-  await db.collection("garminUsers").doc(garminUserId).set({ uid, linkedAt: FieldValue.serverTimestamp() });
-  await userRef.update({
-    garminConnected: true, garminSharing: true,
-    garminConnectedAt: FieldValue.serverTimestamp(),
-    garminDisconnectedAt: FieldValue.delete(),
-  });
   return { result: "connected" };
 }
 
@@ -513,7 +517,7 @@ const INBOX_FIELDS = {
     "deviceName", "fileType", "callbackURL",
   ],
   deregistrations: ["userId"],
-  userPermissionsChange: ["userId", "permissions"],
+  userPermissionsChange: ["userId", "permissions", "changeTimeInSeconds"],
 };
 const HANDLED = new Set(Object.keys(INBOX_FIELDS));
 // Queued items carry expireAt, a Timestamp, so a TTL policy on garminInbox can
@@ -670,8 +674,10 @@ async function downloadGarminFile(uid, url) {
 }
 
 // Applies a sharing change pushed for garminUserId to uid's link. Items are
-// handled in no particular order, so the change is applied only when it
-// reached us no earlier than the last one applied (or the link itself).
+// handled in no particular order, and a push we failed to queue comes again
+// after later ones, so the change is applied only when it was made no earlier
+// than the last one applied (or the link's own check of what was granted). at
+// is in milliseconds (see sharingChangeTime).
 // Returns "other" when uid's link is to another Garmin account: the mapping
 // is left over. A link that has ended, or is ending, is left to its purge.
 async function applyGarminSharing(uid, garminUserId, sharing, at) {
@@ -687,6 +693,14 @@ async function applyGarminSharing(uid, garminUserId, sharing, at) {
   });
 }
 
+// When a sharing change was made, in milliseconds: the change time Garmin sends
+// with it, or, without one, when it reached us.
+function sharingChangeTime(item, receivedAt) {
+  const sec = Number(item.changeTimeInSeconds);
+  if (Number.isFinite(sec) && sec > 0) return sec * 1000;
+  return receivedAt && receivedAt.toMillis ? receivedAt.toMillis() : 0;
+}
+
 async function handleGarminItem(kind, item, receivedAt) {
   const uid = await uidForGarminUser(item.userId);
   if (!uid) return;
@@ -698,7 +712,7 @@ async function handleGarminItem(kind, item, receivedAt) {
     return;
   }
   if (kind === "userPermissionsChange") {
-    const at = receivedAt && receivedAt.toMillis ? receivedAt.toMillis() : 0;
+    const at = sharingChangeTime(item, receivedAt);
     const r = await applyGarminSharing(uid, item.userId, lib.hasActivityExport(item), at);
     if (r === "other") await dropGarminUserMapping(uid, item.userId);
     return;
