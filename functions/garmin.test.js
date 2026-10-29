@@ -182,7 +182,7 @@ global.fetch = async function (url, opts) {
     calls.push('POST token');
     tokenSeq++;
     if (garmin.tokenStatus >= 400) return reply(garmin.tokenStatus, garmin.tokenError ? { error: garmin.tokenError } : {});
-    return reply(garmin.tokenStatus, { access_token: 'acc-' + tokenSeq, refresh_token: 'ref-' + tokenSeq, expires_in: 86400, refresh_token_expires_in: 7776000 });
+    return reply(garmin.tokenStatus, { access_token: 'acc-' + tokenSeq, refresh_token: 'ref-' + tokenSeq, expires_in: 43200, refresh_token_expires_in: 5184000 });
   }
   if (Object.prototype.hasOwnProperty.call(garmin.files, url)) {
     calls.push(method + ' file');
@@ -1636,7 +1636,7 @@ section('refreshGarminTokens renews links within 30 days of lapsing, and only th
   eq('one refresh', calls, ['POST token']);
   var p = doc('users/u-soon/private/garmin');
   eq('new tokens stored', [p.accessToken, p.refreshToken], ['acc-' + tokenSeq, 'ref-' + tokenSeq]);
-  eq('new lapse time stored', Math.round((p.refreshExpiresAt - Date.now()) / 1000), 7776000);
+  eq('new lapse time stored', Math.round((p.refreshExpiresAt - Date.now()) / 1000), 5184000);
   eq('rest of the link kept', [p.garminUserId, p.sharingChangedAt], ['g-soon', 12345]);
   eq('a link not yet due is left alone', doc('users/u-later/private/garmin').refreshToken, 'stored-ref-u-later');
   eq('no token made for a mapping without one', doc('users/u-gone/private/garmin'), undefined);
