@@ -68,5 +68,18 @@ section('garminCredit: direct and derived lines', function () {
     '<p class="rdx-garmin-credit">Garmin &lt;img src=x onerror=alert(1)&gt;</p>');
 });
 
+// Every section credit sits over load-derived numbers (Form & volume's metric table has Impact Load
+// and estimated forces), so each one names Garmin as a source of the insight and still names the device.
+section('renderGarminCredit: every section names Garmin as a source', function () {
+  var mounts = {};
+  ['gcHero', 'gcChart', 'gcPat', 'gcForm'].forEach(function (id) { mounts[id] = { innerHTML: 'stale' }; });
+  var ctx = { String: String, RAW: [{ source: 'garmin', deviceName: 'Forerunner 965' }],
+    $: function (id) { return mounts[id] || null; } };
+  vm.runInNewContext([lift('esc'), lift('garminLabel'), lift('garminCredit'), lift('renderGarminCredit')].join('\n') +
+    '; renderGarminCredit();', ctx);
+  var want = '<p class="rdx-garmin-credit">Insights derived in part from Garmin device-sourced data · Garmin Forerunner 965</p>';
+  Object.keys(mounts).forEach(function (id) { eq(id, mounts[id].innerHTML, want); });
+});
+
 console.log(checks + ' checks, ' + (checks - failures) + ' passed, ' + failures + ' failed');
 if (failures) process.exit(1);

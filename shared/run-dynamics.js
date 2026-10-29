@@ -2932,8 +2932,9 @@ function buildTypeChips(){
 }
 
 /* ---------- orchestration ---------- */
-// Garmin credit under each section title: the load-derived sections name Garmin as a source of the insight.
-function renderGarminCredit(){ [['gcHero',1],['gcChart',1],['gcPat',1],['gcForm',0]].forEach(function(p){ var el=$(p[0]); if(el) el.innerHTML=garminCredit(RAW,!!p[1]); }); }
+// Garmin credit under each section title. Every section shows load-derived numbers (Form & volume's
+// metric table has Impact Load and estimated forces), so each names Garmin as a source of the insight.
+function renderGarminCredit(){ ['gcHero','gcChart','gcPat','gcForm'].forEach(function(id){ var el=$(id); if(el) el.innerHTML=garminCredit(RAW,true); }); }
 function refresh(){ if(RAW.length){ renderGarminCredit(); annotateLever(); annotateExcluded(); renderFlags(); LOAD_PARAMS=computeLoadParams(); renderEasyCaption(); renderHero(); renderHeroNotes(); renderChart(); renderPatterns(); renderTiles(); renderForm(); renderAll(); renderLeverHint(); renderLeverModal(); renderStatus(); } }
 // Segmented range control; 'custom' reveals the From/To inputs.
 function setRangeChip(active){
