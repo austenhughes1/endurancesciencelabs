@@ -432,15 +432,22 @@ async function garminUsersMappedTo(uid) {
 // is freed, which also finds one that an earlier purge, failing after the
 // tokens were gone, left behind. Either way, a link made after the tokens were
 // taken keeps its tokens, flags, mapping and queued items.
-async function purgeGarminData(uid, garminUserId) {
+// With opts.ifEnded as well (the daily job finishing a purge that failed
+// part-way), nothing that is still linked ends: the purge goes on only while
+// uid holds no tokens and the mapping to that account still points at uid,
+// both read in one transaction, so a link made since the job looked stays.
+async function purgeGarminData(uid, garminUserId, opts) {
   const only = garminUserId != null ? String(garminUserId) : null;
   if (!only) {
     await deregisterGarmin(uid);
   } else {
+    const ifEnded = !!(opts && opts.ifEnded);
+    const mapping = db.collection("garminUsers").doc(only);
     const ended = await db.runTransaction(async (t) => {
       const priv = await t.get(privRef(uid));
       const held = String((priv.exists && priv.get("garminUserId")) || "");
       if (held && held !== only) return false;
+      if (ifEnded && (held || (await t.get(mapping)).get("uid") !== uid)) return false;
       t.delete(privRef(uid));
       return true;
     });
@@ -776,13 +783,20 @@ exports.disconnectGarmin = onCall({ cors: true, timeoutSeconds: 120 }, async (re
 // meanwhile (no token doc, or one for another Garmin account), its disconnect
 // may have been unable to tell Garmin, since its own renewal of the same token
 // can fail, so the new token tells Garmin here.
+// A mapping whose account holds no tokens for that Garmin account is what a
+// purge that failed part-way after the tokens were gone leaves behind (a
+// disconnect, or a link Garmin refused); nothing else comes back to it, so the
+// purge is finished here.
 exports.refreshGarminTokens = onSchedule({ schedule: "every day 04:00", timeZone: "America/Denver", timeoutSeconds: 540 }, async () => {
   const links = await db.collection("garminUsers").get();
   let renewed = 0;
   for (const link of links.docs) {
     const uid = link.get("uid");
     const priv = await privRef(uid).get();
-    if (!priv.exists) continue;
+    if (!priv.exists || String(priv.get("garminUserId") || "") !== link.id) {
+      await finishEndedPurge(uid, link.id);
+      continue;
+    }
     const p = priv.data();
     if (!p.refreshToken || p.refreshExpiresAt - Date.now() > REFRESH_WINDOW_MS) continue;
     try {
@@ -818,5 +832,17 @@ async function endRefusedLink(uid, p) {
     if (n != null) console.log(`refreshGarminTokens: Garmin refused the link of uid ${uid}; purged ${n} runs`);
   } catch (e) {
     console.warn(`refreshGarminTokens: ending the refused link of uid ${uid} failed: ${e.message}`);
+  }
+}
+
+// Finishes the purge of a link that has ended but whose mapping is still
+// stored (see refreshGarminTokens), as a retried deregistration would. A link
+// to that Garmin account made since stays; a failure is tried again the next day.
+async function finishEndedPurge(uid, garminUserId) {
+  try {
+    const n = await purgeGarminData(uid, garminUserId, { ifEnded: true });
+    if (n != null) console.log(`refreshGarminTokens: finished the purge of an ended link of uid ${uid}; purged ${n} runs`);
+  } catch (e) {
+    console.warn(`refreshGarminTokens: finishing the purge of an ended link of uid ${uid} failed: ${e.message}`);
   }
 }

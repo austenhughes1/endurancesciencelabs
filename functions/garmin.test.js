@@ -1640,8 +1640,93 @@ section('refreshGarminTokens renews links within 30 days of lapsing, and only th
   eq('rest of the link kept', [p.garminUserId, p.sharingChangedAt], ['g-soon', 12345]);
   eq('a link not yet due is left alone', doc('users/u-later/private/garmin').refreshToken, 'stored-ref-u-later');
   eq('no token made for a mapping without one', doc('users/u-gone/private/garmin'), undefined);
+  eq('a mapping without a token is freed', doc('garminUsers/g-gone'), undefined);
   eq('count logged', logged.some(function (l) { return /refreshGarminTokens: renewed 1 of 3/.test(l); }), true);
   eq('no token logged', tokensNeverLogged(), true);
+});
+
+section('refreshGarminTokens finishes a purge that failed part-way after the tokens were gone', async function () {
+  // A disconnect that fails after the link flags are cleared, while it drops
+  // queued items: no Disconnect button is left to press again.
+  linked();
+  seedRun('u-a', 'garmin_1', 'garmin'); seedRun('u-a', 'own_1');
+  store.set('garminInbox/stuck-run', { kind: 'activities', item: { userId: 'g-111', activityId: 9001 } });
+  var restore = failNextWrite('garminInbox/stuck-run'), threw = null;
+  try { await disconnect('u-a'); } catch (e) { threw = e; } finally { restore(); }
+  eq('the disconnect failed part-way', [!!threw, doc('users/u-a').garminConnected, store.has('garminUsers/g-111'), store.has('garminInbox/stuck-run')], [true, false, true, true]);
+  calls = []; logged.length = 0;
+  await g.refreshGarminTokens({});
+  eq('mapping freed and queued run dropped', [doc('garminUsers/g-111'), store.has('garminInbox/stuck-run')], [undefined, false]);
+  eq('no token made and Garmin not called', [doc('users/u-a/private/garmin'), calls], [undefined, []]);
+  eq('own run kept, still disconnected', [runIds('u-a'), doc('users/u-a').garminConnected], [['own_1'], false]);
+  eq('logged with the uid and count', logged.some(function (l) { return /finished the purge of an ended link of uid u-a; purged 0 runs/.test(l); }), true);
+
+  // A link Garmin refused, whose purge fails while deleting its runs: the
+  // tokens are gone but the runs, the flags and the mapping are left. The next
+  // daily run finishes it.
+  reset();
+  seedLinkLapsingIn('u-a', 'g-a', 5);
+  seedRun('u-a', 'garmin_1', 'garmin'); seedRun('u-a', 'own_1');
+  seedRunNotes('u-a');
+  garmin.tokenStatus = 400; garmin.tokenError = 'invalid_grant';
+  var realBatch = db.batch, failed = false;
+  db.batch = function () {
+    var b = realBatch();
+    if (!failed) { failed = true; b.commit = async function () { throw new Error('DEADLINE_EXCEEDED'); }; }
+    return b;
+  };
+  try { await g.refreshGarminTokens({}); } finally { db.batch = realBatch; }
+  eq('first day: tokens gone, the rest left', [doc('users/u-a/private/garmin'), doc('garminUsers/g-a').uid, runIds('u-a'), doc('users/u-a').garminConnected], [undefined, 'u-a', ['garmin_1', 'own_1'], true]);
+  calls = [];
+  await g.refreshGarminTokens({});
+  eq('next day: Garmin runs and mapping gone', [runIds('u-a'), doc('garminUsers/g-a')], [['own_1'], undefined]);
+  eq('next day: shown as disconnected', [doc('users/u-a').garminConnected, 'garminSharing' in doc('users/u-a')], [false, false]);
+  eq('next day: notes on Garmin runs gone', runNoteIds('u-a'), OWN_NOTE_IDS);
+  eq('next day: no token made and Garmin not called', [doc('users/u-a/private/garmin'), calls], [undefined, []]);
+  eq('no token logged', tokensNeverLogged(), true);
+
+  // A mapping left from an earlier Garmin account of an athlete who now holds
+  // another link: only the old mapping goes.
+  reset();
+  seedLinkLapsingIn('u-a', 'g-new', 45);
+  store.set('garminUsers/g-old', { uid: 'u-a' });
+  seedRun('u-a', 'garmin_1', 'garmin');
+  await g.refreshGarminTokens({});
+  eq('old mapping freed', doc('garminUsers/g-old'), undefined);
+  eq('current link and its runs kept', [doc('users/u-a/private/garmin').garminUserId, doc('garminUsers/g-new').uid, doc('users/u-a').garminConnected, runIds('u-a')], ['g-new', 'u-a', true, ['garmin_1']]);
+  eq('Garmin not called', calls, []);
+});
+
+section('refreshGarminTokens leaves alone a link made after it found the mapping without tokens', async function () {
+  // linkNow runs right after the job reads u-a's token doc and finds none.
+  async function jobWhileLinking(linkNow) {
+    var realGet = DocRef.prototype.get, fired = false;
+    DocRef.prototype.get = function () {
+      var r = realGet.call(this);
+      if (fired || this.path !== 'users/u-a/private/garmin') return r;
+      fired = true;
+      return r.then(function (s) { linkNow(); return s; });
+    };
+    try { await g.refreshGarminTokens({}); } finally { DocRef.prototype.get = realGet; }
+  }
+
+  // The athlete links the same Garmin account again.
+  reset();
+  seedUser('u-a');
+  store.set('garminUsers/g-111', { uid: 'u-a' });
+  await jobWhileLinking(function () { seedLink('u-a', 'g-111'); seedRun('u-a', 'garmin_1', 'garmin'); });
+  eq('same account re-linked: link kept', [(doc('users/u-a/private/garmin') || {}).garminUserId, (doc('garminUsers/g-111') || {}).uid, doc('users/u-a').garminConnected, runIds('u-a')], ['g-111', 'u-a', true, ['garmin_1']]);
+
+  // Another athlete links that Garmin account, and a run of theirs is queued.
+  reset();
+  seedUser('u-a'); seedUser('u-b');
+  store.set('garminUsers/g-111', { uid: 'u-a' });
+  await jobWhileLinking(function () {
+    seedLink('u-b', 'g-111');
+    store.set('garminInbox/queued', { kind: 'activities', item: { userId: 'g-111', activityId: 9001 } });
+  });
+  eq('linked elsewhere: that link and its queued run kept', [(doc('users/u-b/private/garmin') || {}).garminUserId, doc('garminUsers/g-111').uid, doc('users/u-b').garminConnected, store.has('garminInbox/queued')], ['g-111', 'u-b', true, true]);
+  eq('Garmin not called', calls, []);
 });
 
 section('refreshGarminTokens: one failed renewal does not stop the rest', async function () {
