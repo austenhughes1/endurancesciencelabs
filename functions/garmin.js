@@ -42,7 +42,13 @@ async function garminToken(params) {
     body: body.toString(),
     signal: AbortSignal.timeout(GARMIN_API_TIMEOUT_MS),
   });
-  if (!r.ok) throw new Error(`garmin token HTTP ${r.status}`);
+  if (!r.ok) {
+    const e = new Error(`garmin token HTTP ${r.status}`);
+    // The OAuth error code (e.g. invalid_grant) only, never the rest of the body.
+    e.oauthError = "";
+    try { e.oauthError = String(((await r.json()) || {}).error || ""); } catch (x) { /* not JSON */ }
+    throw e;
+  }
   return r.json();
 }
 
@@ -199,23 +205,57 @@ async function holdsGarminLink(uid, garminUserId) {
   return p.exists && String(p.get("garminUserId") || "") === String(garminUserId);
 }
 
+// A link that fails after Garmin approved it (the code is exchanged) and before
+// its tokens are stored is undone with Garmin, unless the approval may belong
+// to a link that stays: one this account holds to the same Garmin account (a
+// re-link, or one another tab made meanwhile), or another account's live link
+// to it. Without the Garmin user id, any link this account holds may be that
+// one. Nothing is sent when the checks themselves fail.
+async function undoUnstoredLink(uid, garminUserId, accessToken) {
+  try {
+    const prev = await privRef(uid).get();
+    if (garminUserId ? String(prev.get("garminUserId") || "") === garminUserId : prev.exists) return;
+    if (garminUserId) {
+      const other = await uidForGarminUser(garminUserId);
+      if (other && other !== uid && await holdsGarminLink(other, garminUserId)) return;
+    }
+  } catch (e) {
+    console.warn(`finishGarminLink: uid ${uid} link failed and could not be checked; Garmin not told: ${e.message}`);
+    return;
+  }
+  console.warn(`finishGarminLink: uid ${uid} link failed before it was stored; undone with Garmin`);
+  await sendDeregistration(uid, accessToken);
+}
+
 // Exchanges the code and links the Garmin account to uid.
 async function linkGarmin(uid, code, verifier) {
-  const err = (reason) => ({ result: "error", reason });
-  if (!creds()) return err("config");
+  if (!creds()) return { result: "error", reason: "config" };
   const userRef = db.collection("users").doc(uid);
   const userDoc = await userRef.get();
-  if (!userDoc.exists) return err("user");
+  if (!userDoc.exists) return { result: "error", reason: "user" };
 
   const tok = await garminToken({
     grant_type: "authorization_code", code: String(code),
     code_verifier: verifier, redirect_uri: GARMIN_REDIRECT_URI,
   });
+  const ids = { garminUserId: "" };
+  try {
+    return await linkApproved(uid, userRef, tok, ids);
+  } catch (e) {
+    await undoUnstoredLink(uid, ids.garminUserId, tok.access_token);
+    throw e;
+  }
+}
 
+// The rest of the link, once Garmin has approved it and issued tok. Sets
+// ids.garminUserId as soon as it is known.
+async function linkApproved(uid, userRef, tok, ids) {
+  const err = (reason) => ({ result: "error", reason });
   const idRes = await userApi("GET", "id", tok.access_token);
   if (!idRes.ok) throw new Error(`garmin user id HTTP ${idRes.status}`);
   const garminUserId = String((await idRes.json()).userId || "");
   if (!garminUserId) throw new Error("garmin user id missing");
+  ids.garminUserId = garminUserId;
 
   // One Garmin account links to one ESL account. Refuse without deregistering:
   // the registration is shared with the other account's live link. A mapping
@@ -444,14 +484,18 @@ async function purgeGarminData(uid, garminUserId) {
 // Account deletion (adminDeleteUser in index.js) calls this before it deletes
 // users/{uid}: telling Garmin needs the stored token, and the user mapping
 // lives outside users/{uid}, so it is dropped here to stop runs arriving for
-// the deleted account and to let the Garmin account link to a new one.
+// the deleted account and to let the Garmin account link to a new one. Every
+// mapping still pointing at uid is freed, which also finds one that an earlier
+// switch or disconnect, failing after the tokens were gone, left behind.
 // Returns a warning for the admin, or null. Not a Cloud Function: deploy skips
 // exports without a trigger.
 exports.endGarminLinkForDeletion = async function endGarminLinkForDeletion(uid) {
-  const priv = await privRef(uid).get();
-  if (!priv.exists) return null;
-  const told = await deregisterGarmin(uid);
-  await dropGarminUserMapping(uid, priv.get("garminUserId"));
+  const linked = (await privRef(uid).get()).exists;
+  const told = linked ? await deregisterGarmin(uid) : true;
+  for (const gid of await garminUsersMappedTo(uid)) {
+    await dropQueuedGarminData(gid);
+    await dropGarminUserMapping(uid, gid);
+  }
   return told ? null : "Garmin could not be told the link ended (no usable token, or Garmin refused); it was dropped on our side.";
 };
 
@@ -510,7 +554,11 @@ exports.garminPush = onRequest({ cors: false }, async (req, res) => {
       await batch.commit();
     }
   } catch (e) {
+    // Not stored: an error status lets Garmin send it again. Items stored by
+    // an earlier batch come again too; the worker handles each one once more.
     console.error("garminPush error:", e.message);
+    res.status(503).send("Try again");
+    return;
   }
   res.status(200).send("OK");
 });
@@ -736,7 +784,25 @@ exports.refreshGarminTokens = onSchedule({ schedule: "every day 04:00", timeZone
       if (outcome === "ended") await sendDeregistration(uid, tok.access_token);
     } catch (e) {
       console.warn(`refreshGarminTokens: uid ${uid} failed: ${e.message}`);
+      if (e.oauthError === "invalid_grant") await endRefusedLink(uid, p);
     }
   }
   console.log(`refreshGarminTokens: renewed ${renewed} of ${links.size}`);
 });
+
+// Garmin refusing a link's own stored refresh token as invalid means the link
+// has ended on Garmin's side (removed in Garmin Connect without its
+// deregistration reaching us) or has lapsed. It is ended here as a
+// deregistration would end it, unless the link has been renewed, re-made or
+// ended since it was read.
+async function endRefusedLink(uid, p) {
+  try {
+    const cur = await privRef(uid).get();
+    if (!p.garminUserId || !cur.exists || cur.get("refreshToken") !== p.refreshToken ||
+        String(cur.get("garminUserId") || "") !== String(p.garminUserId || "")) return;
+    const n = await purgeGarminData(uid, String(p.garminUserId));
+    if (n != null) console.log(`refreshGarminTokens: Garmin refused the link of uid ${uid}; purged ${n} runs`);
+  } catch (e) {
+    console.warn(`refreshGarminTokens: ending the refused link of uid ${uid} failed: ${e.message}`);
+  }
+}

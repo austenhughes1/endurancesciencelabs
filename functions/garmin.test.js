@@ -152,6 +152,8 @@ function resetGarmin() {
   garmin = {
     userId: 'g-111',
     tokenStatus: 200,
+    tokenError: '', // the OAuth error code a refused token request carries
+    idStatus: 200,
     permStatus: 200,
     permissions: ['ACTIVITY_EXPORT'],
     files: {}, // callback URL -> FIT bytes; null = not available; a number = that HTTP status
@@ -171,6 +173,7 @@ global.fetch = async function (url, opts) {
   if (/oauth\/token$/.test(url)) {
     calls.push('POST token');
     tokenSeq++;
+    if (garmin.tokenStatus >= 400) return reply(garmin.tokenStatus, garmin.tokenError ? { error: garmin.tokenError } : {});
     return reply(garmin.tokenStatus, { access_token: 'acc-' + tokenSeq, refresh_token: 'ref-' + tokenSeq, expires_in: 86400, refresh_token_expires_in: 7776000 });
   }
   if (Object.prototype.hasOwnProperty.call(garmin.files, url)) {
@@ -185,7 +188,7 @@ global.fetch = async function (url, opts) {
   var m =/\/user\/(id|permissions|registration)$/.exec(url);
   if (!m) throw new Error('unexpected fetch ' + url);
   calls.push(method + ' ' + m[1] + (method === 'DELETE' ? ' ' + auth : ''));
-  if (m[1] === 'id') return reply(200, { userId: garmin.userId });
+  if (m[1] === 'id') return reply(garmin.idStatus, { userId: garmin.userId });
   if (m[1] === 'permissions') return reply(garmin.permStatus, { permissions: garmin.permissions });
   return reply(204, null);
 };
@@ -376,6 +379,75 @@ section('permissions call fails: an error, not "scope"', async function () {
   eq('still connected', doc('users/u-a').garminConnected, true);
 });
 
+// Makes the next read of the document at path fail, as a backend error would.
+function failNextRead(path) {
+  var real = DocRef.prototype.get;
+  DocRef.prototype.get = function () {
+    if (this.path !== path) return real.call(this);
+    DocRef.prototype.get = real;
+    return Promise.reject(new Error('backend down'));
+  };
+  return function restore() { DocRef.prototype.get = real; };
+}
+// Makes the next transaction fail before it writes anything.
+function failNextTransaction() {
+  var real = db.runTransaction;
+  db.runTransaction = function () { db.runTransaction = real; return Promise.reject(new Error('backend down')); };
+  return function restore() { db.runTransaction = real; };
+}
+function deleteCalls() { return calls.filter(function (c) { return c.indexOf('DELETE') === 0; }); }
+
+section('a link that fails after Garmin approved it is undone with Garmin, unless a link that stays holds it', async function () {
+  var cases = { 'user id call fails': function () { garmin.idStatus = 503; }, 'user id missing': function () { garmin.userId = ''; } };
+  var r, res, restore;
+  for (var name in cases) {
+    reset(); seedUser('u-a'); cases[name]();
+    r = await startAndApprove('u-a');
+    eq(name + ': error', await finish('u-a', r.state, r.key), { result: 'error', reason: 'exchange' });
+    eq(name + ': undone with the new token', deleteCalls(), ['DELETE registration Bearer acc-' + tokenSeq]);
+    eq(name + ': nothing stored', [doc('users/u-a/private/garmin'), doc('garminUsers/g-111'), doc('users/u-a').garminConnected], [undefined, undefined, undefined]);
+    eq(name + ': no token logged', tokensNeverLogged(), true);
+  }
+
+  // Without the Garmin user id, a link this account holds may be the same one.
+  reset(); seedUser('u-a'); seedLink('u-a', 'g-111'); seedRun('u-a', 'garmin_1', 'garmin');
+  garmin.idStatus = 503;
+  r = await startAndApprove('u-a');
+  eq('held link, user id fails: error', await finish('u-a', r.state, r.key), { result: 'error', reason: 'exchange' });
+  eq('held link, user id fails: Garmin not told', deleteCalls(), []);
+  eq('held link, user id fails: link and runs kept', [doc('users/u-a/private/garmin').garminUserId, doc('garminUsers/g-111').uid, runIds('u-a')], ['g-111', 'u-a', ['garmin_1']]);
+
+  reset(); seedUser('u-a');
+  r = await startAndApprove('u-a');
+  restore = failNextTransaction();
+  try { res = await finish('u-a', r.state, r.key); } finally { restore(); }
+  eq('storing the tokens fails: error', res, { result: 'error', reason: 'exchange' });
+  eq('storing the tokens fails: undone', deleteCalls(), ['DELETE registration Bearer acc-' + tokenSeq]);
+  eq('storing the tokens fails: nothing stored', [doc('users/u-a/private/garmin'), doc('garminUsers/g-111')], [undefined, undefined]);
+
+  reset(); seedUser('u-a'); seedLink('u-a', 'g-111');
+  r = await startAndApprove('u-a');
+  restore = failNextTransaction();
+  try { res = await finish('u-a', r.state, r.key); } finally { restore(); }
+  eq('re-link, storing fails: error', res, { result: 'error', reason: 'exchange' });
+  eq('re-link, storing fails: Garmin not told', deleteCalls(), []);
+  eq('re-link, storing fails: link kept', [doc('users/u-a/private/garmin').garminUserId, doc('garminUsers/g-111').uid], ['g-111', 'u-a']);
+
+  reset(); seedUser('u-a'); seedUser('u-b'); seedLink('u-b', 'g-111');
+  r = await startAndApprove('u-a');
+  restore = failNextRead('garminUsers/g-111');
+  try { res = await finish('u-a', r.state, r.key); } finally { restore(); }
+  eq('linked elsewhere, check fails: error', res, { result: 'error', reason: 'exchange' });
+  eq("linked elsewhere, check fails: that link isn't ended", deleteCalls(), []);
+  eq('linked elsewhere, check fails: that link kept', [doc('garminUsers/g-111').uid, doc('users/u-b/private/garmin').garminUserId], ['u-b', 'g-111']);
+
+  reset(); seedUser('u-a');
+  r = await startAndApprove('u-a');
+  restore = failNextRead('garminUsers/g-111');
+  try { res = await finish('u-a', r.state, r.key); } finally { restore(); }
+  eq('linked nowhere, check fails: undone', deleteCalls(), ['DELETE registration Bearer acc-' + tokenSeq]);
+});
+
 section('activity sharing not granted: scope, and local state matches Garmin', async function () {
   reset();
   seedUser('u-a');
@@ -451,6 +523,25 @@ section('endGarminLinkForDeletion tells Garmin and frees the mapping', async fun
   store.set('users/u-a/private/garmin', { garminUserId: 'g-111', accessToken: 'stored-u-a', expiresAt: Date.now() + 3600e3 });
   await g.endGarminLinkForDeletion('u-a');
   eq("another account's mapping is left alone", doc('garminUsers/g-111').uid, 'u-b');
+
+  // Mappings an earlier switch or disconnect left behind, after its tokens were gone.
+  reset();
+  seedUser('u-a');
+  store.set('garminUsers/g-old', { uid: 'u-a' });
+  store.set('garminInbox/q1', { kind: 'activities', item: { userId: 'g-old', activityId: 1 } });
+  store.set('garminInbox/q2', { kind: 'activities', item: { userId: 'g-other', activityId: 2 } });
+  eq('no token doc, a mapping left over -> no warning', await g.endGarminLinkForDeletion('u-a'), null);
+  eq('left-over mapping freed', doc('garminUsers/g-old'), undefined);
+  eq('its queued runs dropped, others kept', [store.has('garminInbox/q1'), store.has('garminInbox/q2')], [false, true]);
+  eq('nothing to tell Garmin', calls, []);
+
+  reset();
+  seedUser('u-a'); seedUser('u-b'); seedLink('u-a', 'g-new'); seedLink('u-b', 'g-b');
+  store.set('garminUsers/g-old', { uid: 'u-a' });
+  eq('a token doc and a left-over mapping -> no warning', await g.endGarminLinkForDeletion('u-a'), null);
+  eq('both freed', [doc('garminUsers/g-new'), doc('garminUsers/g-old')], [undefined, undefined]);
+  eq('Garmin told once', calls, ['DELETE registration Bearer stored-u-a']);
+  eq("another account's link untouched", [doc('garminUsers/g-b').uid, !!doc('users/u-b/private/garmin')], ['u-b', true]);
 
   // adminDeleteUser must call it before users/{uid} (and its token) is deleted.
   var src = fs.readFileSync(path.join(__dirname, 'index.js'), 'utf8');
@@ -606,13 +697,18 @@ section('garminPush queues runs, run files, deregistrations and permission chang
   eq('and nothing queued', inbox().length, 0);
 });
 
-section('garminPush still answers 200 when queueing fails', async function () {
+section('garminPush answers an error when queueing fails, so Garmin can send it again', async function () {
   reset();
   var realBatch = db.batch, res;
   db.batch = function () { throw new Error('backend down'); };
-  try { res = await push({ activities: [SUMMARY] }); } finally { db.batch = realBatch; }
-  eq('200', res.code, 200);
+  try { res = await push({ deregistrations: [{ userId: 'g-111' }] }); } finally { db.batch = realBatch; }
+  eq('not 2xx', res.code, 503);
   eq('error logged', logged.some(function (l) { return /garminPush error/.test(l); }), true);
+
+  // Garmin sends it again: it is queued then.
+  res = await push({ deregistrations: [{ userId: 'g-111' }] });
+  eq('sent again -> 200', res.code, 200);
+  eq('sent again -> queued', inbox().map(function (x) { return x.kind; }), ['deregistrations']);
 });
 
 section('garminPush stores only what the worker reads, with an expiry', async function () {
@@ -1460,6 +1556,43 @@ section('refreshGarminTokens: one failed renewal does not stop the rest', async 
   eq('failure logged with the uid and status only', logged.some(function (l) { return /refreshGarminTokens: uid u-[ab] failed: garmin token HTTP 400/.test(l); }), true);
   eq('count logged', logged.some(function (l) { return /renewed 1 of 2/.test(l); }), true);
   eq('no token logged', tokensNeverLogged(), true);
+});
+
+section('a link Garmin refuses at renewal ends as a deregistration would end it', async function () {
+  reset();
+  seedLinkLapsingIn('u-a', 'g-a', 5);
+  seedRun('u-a', 'garmin_1', 'garmin'); seedRun('u-a', 'own_1');
+  seedRunNotes('u-a');
+  garmin.tokenStatus = 400; garmin.tokenError = 'invalid_grant';
+  await g.refreshGarminTokens({});
+  eq('tokens, mapping and Garmin runs gone', [doc('users/u-a/private/garmin'), doc('garminUsers/g-a'), runIds('u-a')], [undefined, undefined, ['own_1']]);
+  eq('shown as disconnected', doc('users/u-a').garminConnected, false);
+  eq('notes on Garmin runs gone', runNoteIds('u-a'), OWN_NOTE_IDS);
+  eq('Garmin asked once', calls, ['POST token']);
+  eq('logged with the uid and count', logged.some(function (l) { return /Garmin refused the link of uid u-a; purged 1 runs/.test(l); }), true);
+  eq('no token logged', tokensNeverLogged(), true);
+
+  var others = { 'a server error': [500, ''], 'a bad client': [401, 'invalid_client'], 'no reason given': [400, ''] };
+  for (var name in others) {
+    reset();
+    seedLinkLapsingIn('u-a', 'g-a', 5); seedRun('u-a', 'garmin_1', 'garmin');
+    garmin.tokenStatus = others[name][0]; garmin.tokenError = others[name][1];
+    await g.refreshGarminTokens({});
+    eq(name + ': link and runs kept', [doc('users/u-a/private/garmin').garminUserId, doc('garminUsers/g-a').uid, runIds('u-a'), doc('users/u-a').garminConnected], ['g-a', 'u-a', ['garmin_1'], true]);
+  }
+
+  // A link renewed or made again while the refused request was out stays.
+  reset();
+  seedLinkLapsingIn('u-a', 'g-a', 5); seedRun('u-a', 'garmin_1', 'garmin');
+  garmin.tokenStatus = 400; garmin.tokenError = 'invalid_grant';
+  var realFetch = global.fetch;
+  global.fetch = async function (url, opts) {
+    var r = await realFetch(url, opts);
+    if (/oauth\/token$/.test(url)) Object.assign(doc('users/u-a/private/garmin'), { accessToken: 'relinked', refreshToken: 'relinked-ref' });
+    return r;
+  };
+  try { await g.refreshGarminTokens({}); } finally { global.fetch = realFetch; }
+  eq('a newer link stays', [doc('users/u-a/private/garmin').refreshToken, runIds('u-a'), doc('users/u-a').garminConnected], ['relinked-ref', ['garmin_1'], true]);
 });
 
 section('a disconnect while a renewal is in flight leaves no tokens behind', async function () {
