@@ -100,7 +100,7 @@ function has(label, text, part, want) { eq(label, String(text).indexOf(part) >= 
 async function section(name, fn) { console.log(name); await fn(); }
 
 var MSG = {
-  connected: 'Garmin Connect linked. Runs you record from now on will appear in Running Dynamics.',
+  connected: 'Garmin Connect linked. Runs you record from now on will appear in Training Analysis.',
   denied: 'Garmin Connect wasn’t linked: access was declined on Garmin.',
   scope: 'Garmin Connect wasn’t linked: activity sharing has to be allowed.',
   inuse: 'That Garmin account is already linked to another Endurance Science Labs account.',

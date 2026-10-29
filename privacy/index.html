@@ -54,7 +54,7 @@
   <h2>Strava data</h2>
   <p>If you connect your Strava account, we access your activities through the official Strava API, under the <a href="https://www.strava.com/legal/api" target="_blank" rel="noopener">Strava API Agreement</a>, using the permission you grant during Strava's authorization screen. Specifically:</p>
   <ul>
-    <li>We sync your recent activities (rolling ~120-day window): activity name, type, date, distance, moving/elapsed time, elevation gain, average speed and pace, heart-rate averages, and recent activity descriptions. For runs we also keep up to two years of history (name, type, date, distance, moving time, pace, elevation gain, average and maximum heart rate, and cadence) for your training-load charts in Running Dynamics.</li>
+    <li>We sync your recent activities (rolling ~120-day window): activity name, type, date, distance, moving/elapsed time, elevation gain, average speed and pace, heart-rate averages, and recent activity descriptions. For runs we also keep up to two years of history (name, type, date, distance, moving time, pace, elevation gain, average and maximum heart rate, and cadence) for your training-load charts in Training Analysis.</li>
     <li>Your Strava data is displayed <strong>only to you and your assigned coach</strong>. It is never shown to other athletes, never published, never used in leaderboards, and never shared with third parties.</li>
     <li>Your Strava data is used only to deliver your coaching — never for analytics products, aggregated insights, or AI/ML purposes.</li>
     <li>Strava access tokens are stored server-side and are never accessible from the browser.</li>
@@ -65,7 +65,7 @@
   <p>If you connect your Garmin account, we receive your activities from Garmin Connect through Garmin's official developer API, using the permission you grant on Garmin's authorization screen. Specifically:</p>
   <ul>
     <li>Garmin sends us the activities you record after connecting: activity type, start time, duration, distance, pace, heart rate, elevation gain and loss, cadence, running dynamics (ground contact time and balance, vertical oscillation, vertical ratio and stride length) and Aerobic Training Effect, along with each run's activity file (FIT).</li>
-    <li>We use this data only to show your training load, running form trends and injury patterns in Running Dynamics. Activity files can contain your GPS route; we read elevation and distance from them and do not keep the route.</li>
+    <li>We use this data only for Training Analysis (your training load and running form trends) and Injury Patterns. Activity files can contain your GPS route; we read elevation and distance from them and do not keep the route.</li>
     <li>Your Garmin data is displayed <strong>only to you and your assigned coach</strong>. It is never shown to other athletes, never published, never sold, never used for advertising or to train AI or machine-learning models, and never shared with third parties.</li>
     <li>Garmin access tokens are stored server-side and are never accessible from the browser.</li>
     <li>You can disconnect at any time in your coaching dashboard, or by removing Endurance Science Labs from the connected apps in your Garmin Connect settings. Either way, we delete the Garmin data we received and your tokens immediately upon disconnection.</li>

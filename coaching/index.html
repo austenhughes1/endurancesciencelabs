@@ -3922,9 +3922,9 @@ function garminCardHtml(acct) {
     <img src="/images/garmin/garmin-connect-tile.png" alt="Garmin Connect" class="garmin-connect-tile" width="88" height="88">
     <div>
       ${g.garminConnected
-        ? `<p class="garmin-connect-text">Garmin Connect is linked. New runs from your watch appear in Running Dynamics after it syncs.${g.garminSharing === false ? ' <strong>Sharing is turned off in Garmin Connect</strong>, so new runs are paused.' : ''}</p>
+        ? `<p class="garmin-connect-text">Garmin Connect is linked. New runs from your watch appear in Training Analysis after it syncs.${g.garminSharing === false ? ' <strong>Sharing is turned off in Garmin Connect</strong>, so new runs are paused.' : ''}</p>
            <button type="button" class="esl-btn esl-btn--outline" onclick="disconnectGarmin(this)">Disconnect Garmin Connect</button>`
-        : `<p class="garmin-connect-text">Link Garmin Connect to send every run you record from now on to Running Dynamics, including ground contact time, vertical oscillation and stride length.</p>
+        : `<p class="garmin-connect-text">Link Garmin Connect to send every run you record from now on to Training Analysis, including ground contact time, vertical oscillation and stride length.</p>
            <button type="button" class="esl-btn" onclick="connectGarmin()">Connect Garmin Connect</button>`}
       <div class="strava-connect-note">Only you and your coach see your Garmin data. Disconnecting deletes it. By connecting you agree to our <a href="/terms/" target="_blank" class="esl-link">Terms</a> and <a href="/privacy/" target="_blank" class="esl-link">Privacy Policy</a>.</div>
     </div>
@@ -4073,7 +4073,7 @@ function readGarminReturn() {
 let GARMIN_RETURN = readGarminReturn();
 
 function garminResultToast(result, reason) {
-  if (result === 'connected') return esLabs.toast('Garmin Connect linked. Runs you record from now on will appear in Running Dynamics.');
+  if (result === 'connected') return esLabs.toast('Garmin Connect linked. Runs you record from now on will appear in Training Analysis.');
   if (result === 'denied') return esLabs.toast('Garmin Connect wasn’t linked: access was declined on Garmin.', { err: true });
   if (result === 'scope') return esLabs.toast('Garmin Connect wasn’t linked: activity sharing has to be allowed.', { err: true });
   const msgs = {
