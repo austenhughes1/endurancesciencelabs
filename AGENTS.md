@@ -65,7 +65,7 @@ node functions/garmin.test.js
 There is no lint, typecheck or build. Page behaviour in a browser is not
 covered by any test: say what you checked and how, or that you could not.
 
-Baseline (2026-10-29): all green. 267, 17, 55, 127, 64 and 532 checks, in
+Baseline (2026-10-30): all green. 267, 17, 55, 127, 64 and 538 checks, in
 that order.
 
 ## Conventions

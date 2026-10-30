@@ -690,9 +690,11 @@ function linked() { reset(); seedUser('u-a'); seedLink('u-a', 'g-111'); }
 function mkRes() {
   return { code: null, body: null, status: function (n) { this.code = n; return this; }, send: function (b) { this.body = b; return this; } };
 }
-async function push(body, query, method) {
+// Garmin's endpoint form drops query strings, so the key is the last path
+// segment: .../garminPush/<key>.
+async function push(body, path, method, query) {
   var res = mkRes();
-  await g.garminPush({ method: method || 'POST', query: query || { k: 'test-push-key' }, body: body }, res);
+  await g.garminPush({ method: method || 'POST', path: path == null ? '/test-push-key' : path, query: query || {}, body: body }, res);
   return res;
 }
 function inbox() {
@@ -727,8 +729,10 @@ function fitSection(name, fn) {
 
 section('garminPush: a wrong or missing key gets a 404 and queues nothing', async function () {
   reset();
-  eq('wrong key', (await push({ activities: [SUMMARY] }, { k: 'guess' })).code, 404);
-  eq('no key', (await push({ activities: [SUMMARY] }, {})).code, 404);
+  eq('wrong key', (await push({ activities: [SUMMARY] }, '/guess')).code, 404);
+  eq('no key', (await push({ activities: [SUMMARY] }, '/')).code, 404);
+  eq('the key in the query instead of the path', (await push({ activities: [SUMMARY] }, '/', 'POST', { k: 'test-push-key' })).code, 404);
+  eq('the key with something after it', (await push({ activities: [SUMMARY] }, '/test-push-key/x')).code, 404);
   eq('not a POST', (await push({ activities: [SUMMARY] }, null, 'GET')).code, 404);
   delete process.env.GARMIN_PUSH_KEY;
   try {
@@ -737,6 +741,14 @@ section('garminPush: a wrong or missing key gets a 404 and queues nothing', asyn
     process.env.GARMIN_PUSH_KEY = 'test-push-key';
   }
   eq('nothing queued', inbox().length, 0);
+});
+
+section('garminPush takes the key from the end of the path, with or without the function name before it', async function () {
+  reset();
+  eq('/<key>', (await push({ activities: [SUMMARY] }, '/test-push-key')).code, 200);
+  eq('/<key>/', (await push({ activities: [SUMMARY] }, '/test-push-key/')).code, 200);
+  eq('/garminPush/<key>', (await push({ activities: [SUMMARY] }, '/garminPush/test-push-key')).code, 200);
+  eq('all three queued', inbox().length, 3);
 });
 
 section('garminPush queues runs, run files, deregistrations and permission changes only', async function () {

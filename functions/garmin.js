@@ -540,9 +540,17 @@ function inboxItem(kind, item) {
 
 // Garmin's push target. Only filters (non-run activities are never stored) and
 // queues; the worker below does everything else, so the reply is immediate.
+// The push URL ends in the key (.../garminPush/<key>): Garmin's endpoint form
+// drops query strings. The last path segment is used, so it works whether or
+// not the function name is still on the path.
+function pushKeyFrom(req) {
+  const parts = String(req.path || "").split("/").filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : "";
+}
+
 exports.garminPush = onRequest({ cors: false }, async (req, res) => {
   const key = process.env.GARMIN_PUSH_KEY;
-  if (req.method !== "POST" || !key || !sameSecret(req.query.k, key)) { res.status(404).send("Not found"); return; }
+  if (req.method !== "POST" || !key || !sameSecret(pushKeyFrom(req), key)) { res.status(404).send("Not found"); return; }
   try {
     const body = req.body || {};
     const items = [];
