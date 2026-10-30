@@ -30,10 +30,11 @@ function lift(name) {
   throw new Error(name + ': unbalanced braces');
 }
 
-var NAMES = ['readGarminReturn', 'garminCardShown', 'garminCardHtml', 'garminOwnCardHtml', 'garminResultToast',
+var NAMES = ['readGarminReturn', 'garminPreviewUser', 'garminCardShown', 'garminCardHtml', 'garminOwnCardHtml', 'garminResultToast',
   'handleGarminReturn', 'connectGarmin', 'disconnectGarmin', 'renderGarminKeep', 'garminKeepSlotHtml',
   'garminLinkSig', 'syncAthleteGarminCard'];
 var code = 'var GARMIN_RETURN = null; var userDoc = null; var currentUser = null; var isCoach = false;\n' +
+  "var ADMIN_UID = 'admin-uid'; var GARMIN_PREVIEW_UIDS = ['test-athlete-uid'];\n" +
   'var athleteGarminCardSig = null; var garminDisconnecting = false;\n' + NAMES.map(lift).join('\n');
 
 // A fresh page per case: every fake records what the code did with it.
@@ -133,27 +134,36 @@ var MSG = {
     eq('history refuses: nothing acted on', p.ctx.readGarminReturn(), null);
   });
 
-  await section('garminCardShown: own views only, admin only until live, never while acting', function () {
+  await section('garminPreviewUser: the admin and the listed test accounts only', function () {
+    var preview = page().ctx.garminPreviewUser;
+    eq('admin', preview('admin-uid'), true);
+    eq('listed test account', preview('test-athlete-uid'), true);
+    eq('anyone else', preview('someone-else'), false);
+    eq('signed out', preview(undefined), false);
+    eq('empty uid', preview(''), false);
+  });
+
+  await section('garminCardShown: own views only, preview accounts only until live, never while acting', function () {
     var shown = page().ctx.garminCardShown;
-    eq('athlete, admin, not live', shown('athlete', { acting: false, admin: true, live: false }), true);
-    eq('athlete, not admin, not live', shown('athlete', { acting: false, admin: false, live: false }), false);
-    eq('athlete, live', shown('athlete', { acting: false, admin: false, live: true }), true);
-    eq('acting as an athlete, live', shown('athlete', { acting: true, admin: false, live: true }), false);
-    eq('acting as an athlete, admin flag set', shown('athlete', { acting: true, admin: true, live: false }), false);
-    eq('coach viewing an athlete (admin)', shown('coach', { acting: false, admin: true, live: true }), false);
-    eq('coach home, admin', shown('coach-home', { acting: false, admin: true, live: false }), true);
-    eq('coach home, other coach, live', shown('coach-home', { acting: false, admin: false, live: true }), true);
-    eq('coach home, other coach, not live', shown('coach-home', { acting: false, admin: false, live: false }), false);
-    eq('coach home, acting', shown('coach-home', { acting: true, admin: true, live: true }), false);
+    eq('athlete, preview account, not live', shown('athlete', { acting: false, preview: true, live: false }), true);
+    eq('athlete, not a preview account, not live', shown('athlete', { acting: false, preview: false, live: false }), false);
+    eq('athlete, live', shown('athlete', { acting: false, preview: false, live: true }), true);
+    eq('acting as an athlete, live', shown('athlete', { acting: true, preview: false, live: true }), false);
+    eq('acting as an athlete, preview flag set', shown('athlete', { acting: true, preview: true, live: false }), false);
+    eq('coach viewing an athlete (preview account)', shown('coach', { acting: false, preview: true, live: true }), false);
+    eq('coach home, preview account', shown('coach-home', { acting: false, preview: true, live: false }), true);
+    eq('coach home, other coach, live', shown('coach-home', { acting: false, preview: false, live: true }), true);
+    eq('coach home, other coach, not live', shown('coach-home', { acting: false, preview: false, live: false }), false);
+    eq('coach home, acting', shown('coach-home', { acting: true, preview: true, live: true }), false);
 
     // Holding a link: the card stays wherever the account's own views are, so it can be ended.
-    eq('athlete, linked, not live', shown('athlete', { acting: false, admin: false, live: false, linked: true }), true);
-    eq('coach home, other coach, linked', shown('coach-home', { acting: false, admin: false, live: false, linked: true }), true);
-    eq('no Training Data card, linked', shown('no-training-card', { acting: false, admin: false, live: false, linked: true }), true);
-    eq('no Training Data card, not linked, live', shown('no-training-card', { acting: false, admin: true, live: true }), false);
-    eq('no Training Data card, linked, acting', shown('no-training-card', { acting: true, admin: true, live: true, linked: true }), false);
-    eq('athlete, linked, acting', shown('athlete', { acting: true, admin: false, live: false, linked: true }), false);
-    eq('coach viewing a linked athlete', shown('coach', { acting: false, admin: true, live: true, linked: true }), false);
+    eq('athlete, linked, not live', shown('athlete', { acting: false, preview: false, live: false, linked: true }), true);
+    eq('coach home, other coach, linked', shown('coach-home', { acting: false, preview: false, live: false, linked: true }), true);
+    eq('no Training Data card, linked', shown('no-training-card', { acting: false, preview: false, live: false, linked: true }), true);
+    eq('no Training Data card, not linked, live', shown('no-training-card', { acting: false, preview: true, live: true }), false);
+    eq('no Training Data card, linked, acting', shown('no-training-card', { acting: true, preview: true, live: true, linked: true }), false);
+    eq('athlete, linked, acting', shown('athlete', { acting: true, preview: false, live: false, linked: true }), false);
+    eq('coach viewing a linked athlete', shown('coach', { acting: false, preview: true, live: true, linked: true }), false);
   });
 
   await section('renderGarminKeep: views without a dashboard offer Disconnect while linked', function () {

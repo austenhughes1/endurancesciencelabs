@@ -3191,7 +3191,7 @@ function renderDashboard(containerId, role) {
   const acting = !!(esLabs.isActingAs && esLabs.isActingAs());
   const viewed = role === 'coach' ? selectedAthleteData : userDoc;
   const viewedName = (viewed?.displayName || viewed?.email || 'this athlete');
-  const garminHtml = garminCardShown(role, { acting, admin: currentUser?.uid === ADMIN_UID, live: GARMIN_CONNECT_LIVE, linked: !!viewed?.garminConnected })
+  const garminHtml = garminCardShown(role, { acting, preview: garminPreviewUser(currentUser?.uid), live: GARMIN_CONNECT_LIVE, linked: !!viewed?.garminConnected })
     ? garminCardHtml(viewed) : '';
   if (role === 'athlete') athleteGarminCardSig = garminLinkSig(viewed);
   if (!stravaConnected) {
@@ -3894,16 +3894,24 @@ function handleStravaReturn() {
 // ══════════════════════════════════════════════════════════
 //  GARMIN CONNECT
 // ══════════════════════════════════════════════════════════
-// Garmin Connect link. Shown to the admin only until launch; set to true to
-// let every athlete and coach link Garmin Connect.
+// Garmin Connect link. Shown to the preview accounts only until launch; set to
+// true to let every athlete and coach link Garmin Connect.
 const GARMIN_CONNECT_LIVE = false;
+// Preview accounts besides the admin: the owner's own test accounts, for trying
+// the athlete side before launch. Accounts the owner controls only.
+const GARMIN_PREVIEW_UIDS = [
+  'k2OVdq9s7eS9WuLUVyzfORPzV4y1', // test athlete
+];
+function garminPreviewUser(uid) {
+  return !!uid && (uid === ADMIN_UID || GARMIN_PREVIEW_UIDS.includes(uid));
+}
 
 // Where the Garmin Connect card shows: on an athlete's own dashboard ('athlete',
 // in the Training Data card) and, for a coach, whose account has no athlete
 // dashboard, on the coach home view ('coach-home').
 // Never on a coach's view of an athlete, and never while acting as someone: the
 // link always belongs to the real signed-in account. Until GARMIN_CONNECT_LIVE,
-// only the admin sees it. An account that holds a link (o.linked) gets the card
+// only the preview accounts see it (o.preview: garminPreviewUser). An account that holds a link (o.linked) gets the card
 // on every view of its own, launched or not, including the athlete views
 // without the Training Data card ('no-training-card': no coaching access,
 // waiting for a coach, no plan yet, or a dashboard without the Training Plan
@@ -3911,7 +3919,7 @@ const GARMIN_CONNECT_LIVE = false;
 function garminCardShown(view, o) {
   if (o.acting) return false;
   if (o.linked && (view === 'athlete' || view === 'coach-home' || view === 'no-training-card')) return true;
-  if (!(o.live || o.admin)) return false;
+  if (!(o.live || o.preview)) return false;
   return view === 'athlete' || view === 'coach-home';
 }
 
@@ -3940,14 +3948,14 @@ function garminOwnCardHtml(acct) {
     </div>`;
 }
 
-// A coach's own card on the coach home view: the admin's until launch, every
-// coach's after (see garminCardShown).
+// A coach's own card on the coach home view: the preview accounts' until launch,
+// every coach's after (see garminCardShown).
 function renderCoachGarmin() {
   const el = document.getElementById('coach-garmin');
   if (!el) return;
   const show = isCoach && !!currentUser && garminCardShown('coach-home', {
     acting: !!(esLabs.isActingAs && esLabs.isActingAs()),
-    admin: currentUser.uid === ADMIN_UID, live: GARMIN_CONNECT_LIVE, linked: !!userDoc?.garminConnected,
+    preview: garminPreviewUser(currentUser.uid), live: GARMIN_CONNECT_LIVE, linked: !!userDoc?.garminConnected,
   });
   el.hidden = !show;
   el.innerHTML = show ? garminOwnCardHtml(userDoc) : '';
