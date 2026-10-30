@@ -1033,6 +1033,36 @@ function parseFitBuffer(FitParser, buf){
     });
   });
 }
+/* The type in a FIT file's file_id message (4 = activity), or null when it can't be told from the
+   first few messages. Read without parsing the file, so the thousands of watch-sync files in a
+   Garmin account export (monitoring, metrics) are skipped cheaply. */
+function fitFileType(buf){
+  var b=new Uint8Array(buf), p=b[0], defs={}, i;
+  if(b.length<14 || String.fromCharCode(b[8],b[9],b[10],b[11])!=='.FIT') return null;
+  for(var m=0; m<8 && p<b.length; m++){
+    var h=b[p++];
+    if(h&0x80) return null;                                  // compressed timestamp header: give up
+    if(h&0x40){                                              // definition message
+      var n=b[p+4], f=[], dev=0;
+      var g=b[p+1]===1 ? (b[p+2]<<8|b[p+3]) : (b[p+3]<<8|b[p+2]);
+      p+=5;
+      for(i=0;i<n;i++) f.push([b[p+3*i], b[p+3*i+1]]);
+      p+=3*n;
+      if(h&0x20){ var nd=b[p++]; for(i=0;i<nd;i++) dev+=b[p+3*i+1]; p+=3*nd; }
+      defs[h&0x0F]={g:g, f:f, dev:dev};
+    } else {                                                 // data message
+      var d=defs[h&0x0F];
+      if(!d) return null;
+      for(var off=0, j=0; j<d.f.length; j++){
+        if(d.g===0 && d.f[j][0]===0){ var v=b[p+off]; return v==null?null:v; }
+        off+=d.f[j][1];
+      }
+      if(d.g===0) return null;
+      p+=off+d.dev;
+    }
+  }
+  return null;
+}
 /* Every run in the .fit files of a .zip: those in the .zip itself (COROS) and those in the zips
    inside it (a Garmin account export keeps its activity files in zips within the export). The
    inner zips are opened one after another, so only one is held in memory. parseFit(buf) resolves
@@ -1068,7 +1098,10 @@ function parseCorosArchive(arrayBuffer, fileName, onProgress){
   return loadFitLibs().then(function(L){
     var lower=String(fileName||'').toLowerCase();
     if(/\.fit$/.test(lower)) return parseFitBuffer(L.FitParser, arrayBuffer);
-    return fitArchiveRuns(L.JSZip, function(buf){ return parseFitBuffer(L.FitParser, buf); }, arrayBuffer, onProgress);
+    return fitArchiveRuns(L.JSZip, function(buf){
+      var type=fitFileType(buf);
+      return type!=null && type!==4 ? Promise.resolve([]) : parseFitBuffer(L.FitParser, buf);   // only activity files hold runs
+    }, arrayBuffer, onProgress);
   }).then(function(list){
     var byId={}; list.forEach(function(c){ byId[c.id]=c; });   // dedup within the archive
     return Object.keys(byId).map(function(k){return byId[k];});

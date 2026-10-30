@@ -22,8 +22,8 @@ function lift(name) {
   var b = src.indexOf('\n}\n', a);
   return src.slice(a, b + 2);
 }
-var lib = vm.runInNewContext([lift('fitArchiveRuns'), lift('corosErrMsg')].join('\n') +
-  '; ({ fitArchiveRuns: fitArchiveRuns, corosErrMsg: corosErrMsg })', {});
+var lib = vm.runInNewContext([lift('fitFileType'), lift('fitArchiveRuns'), lift('corosErrMsg')].join('\n') +
+  '; ({ fitFileType: fitFileType, fitArchiveRuns: fitArchiveRuns, corosErrMsg: corosErrMsg })', { Uint8Array: Uint8Array });
 
 var failures = 0, checks = 0;
 function eq(label, got, want) {
@@ -140,6 +140,47 @@ section('a broken inner zip stops the import with the could-not-open message', f
   }, function (e) {
     eq('in words the athlete can act on', lib.corosErrMsg(e), 'That .zip couldn’t be opened — download it again from the Garmin or COROS email.');
   });
+});
+
+// Made-up FIT bytes for fitFileType: a 14-byte header, the given records, a 2-byte CRC (not checked).
+function fitBytes(records) {
+  var data = [].concat.apply([], records), n = data.length;
+  var head = [14, 0x20, 0x2D, 0x08, n & 0xFF, (n >> 8) & 0xFF, (n >> 16) & 0xFF, (n >>> 24) & 0xFF, 0x2E, 0x46, 0x49, 0x54, 0, 0];
+  return new Uint8Array(head.concat(data, [0, 0])).buffer;
+}
+// A definition record: local message, global number, fields [number, size, base type], developer
+// fields [number, size, index] (sets the developer-data flag), big endian or not.
+function def(local, global, fields, devFields, big) {
+  var r = [0x40 | (devFields ? 0x20 : 0) | local, 0, big ? 1 : 0];
+  r = r.concat(big ? [global >> 8, global & 0xFF] : [global & 0xFF, global >> 8], [fields.length]);
+  fields.forEach(function (f) { r = r.concat(f); });
+  if (devFields) { r.push(devFields.length); devFields.forEach(function (f) { r = r.concat(f); }); }
+  return r;
+}
+function dat(local, bytes) { return [local].concat(bytes); }
+var MANUFACTURER_THEN_TYPE = [[1, 2, 0x84], [0, 1, 0x00]];
+
+section('fitFileType reads the file type from file_id without parsing the file', function () {
+  eq('activity', lib.fitFileType(fitBytes([def(0, 0, MANUFACTURER_THEN_TYPE), dat(0, [0xFF, 0x00, 4])])), 4);
+  eq('monitoring', lib.fitFileType(fitBytes([def(0, 0, MANUFACTURER_THEN_TYPE), dat(0, [0xFF, 0x00, 32])])), 32);
+  eq('big endian', lib.fitFileType(fitBytes([def(0, 0, MANUFACTURER_THEN_TYPE, null, true), dat(0, [0x00, 0xFF, 4])])), 4);
+  eq('after another message', lib.fitFileType(fitBytes([
+    def(1, 49, [[0, 2, 0x84]]), dat(1, [1, 0]),
+    def(0, 0, [[0, 1, 0x00]]), dat(0, [4]),
+  ])), 4);
+  eq('after a message with developer fields', lib.fitFileType(fitBytes([
+    def(1, 49, [[0, 2, 0x84]], [[0, 3, 0]]), dat(1, [1, 0, 9, 9, 9]),
+    def(0, 0, [[0, 1, 0x00]]), dat(0, [32]),
+  ])), 32);
+});
+
+section('fitFileType gives null when it can\'t tell, so the file is parsed in full', function () {
+  eq('not a FIT file', lib.fitFileType(new Uint8Array(20).buffer), null);
+  eq('too short', lib.fitFileType(new Uint8Array(4).buffer), null);
+  eq('no file_id, only a session', lib.fitFileType(fitBytes([def(0, 18, [[5, 1, 0x00]]), dat(0, [1])])), null);
+  eq('file_id without a type field', lib.fitFileType(fitBytes([def(0, 0, [[1, 2, 0x84]]), dat(0, [1, 0])])), null);
+  eq('cut off after the definition', lib.fitFileType(fitBytes([def(0, 0, MANUFACTURER_THEN_TYPE)])), null);
+  eq('compressed-timestamp header', lib.fitFileType(fitBytes([[0x80, 0, 0]])), null);
 });
 
 section('corosErrMsg passes other messages through, and has a fallback', function () {
