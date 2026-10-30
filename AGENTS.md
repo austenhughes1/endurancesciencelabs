@@ -48,7 +48,7 @@ docs/               design notes
 From the repo root. Nothing to install.
 
 ```bash
-npm test     # syntax-checks functions/*.js, then runs all six suites; must exit 0
+npm test     # syntax-checks functions/*.js, then runs all seven suites; must exit 0
 ```
 
 The suites one by one:
@@ -56,6 +56,7 @@ The suites one by one:
 ```bash
 node shared/run-load-model.test.js
 node shared/run-dynamics-format.test.js
+node shared/run-dynamics-archive.test.js
 node shared/run-dynamics-garmin.test.js
 node coaching/garmin-connect.test.js
 node functions/garmin-lib.test.js
@@ -65,8 +66,8 @@ node functions/garmin.test.js
 There is no lint, typecheck or build. Page behaviour in a browser is not
 covered by any test: say what you checked and how, or that you could not.
 
-Baseline (2026-10-30): all green. 267, 17, 55, 127, 64 and 538 checks, in
-that order.
+Baseline (2026-10-30): all green. 267, 17, 17, 55, 132, 64 and 538 checks,
+in that order.
 
 ## Conventions
 

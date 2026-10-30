@@ -4,7 +4,7 @@
 // The ONE Run Dynamics view. Both the standalone /training-analysis/
 // page and the coaching dashboard's "Training Analysis" and "Injury
 // Patterns" tabs mount this — there is no second copy. Imports a Garmin Connect activities export
-// (Activities.csv) OR a Coros export (.zip of per-activity .fit files),
+// (Activities.csv), a Garmin account export (.zip) OR a Coros export (.zip of per-activity .fit files),
 // stores it under users/{uid}/garminActivities (de-duped by start
 // time), and renders the actionable hero + unified load/metric chart +
 // form tiles + volume, with all athlete/device/filter settings behind
@@ -946,8 +946,11 @@ function detectCsvUnits(runs){
   return km>mi?'metric':'statute';
 }
 
-/* ---------- Coros .fit / .zip parsing ----------
+/* ---------- Coros / Garmin .fit / .zip parsing ----------
    Coros Connect exports a .zip of per-activity binary .fit files (no CSV).
+   A Garmin account export keeps its .fit files in zips inside the .zip
+   (fitArchiveRuns opens those too); Garmin's files carry the same session
+   fields, mapped the same way as the server's Garmin sync (garmin-lib.js).
    Every running-dynamics metric lives in standard FIT `session` fields
    (verified against a real Coros export — no developer/custom fields), so
    each session maps onto the SAME run-doc shape parseExport produces and
@@ -1030,28 +1033,42 @@ function parseFitBuffer(FitParser, buf){
     });
   });
 }
-/* Parse a Coros .zip (or bare .fit) ArrayBuffer into deduped run candidates. */
+/* Every run in the .fit files of a .zip: those in the .zip itself (COROS) and those in the zips
+   inside it (a Garmin account export keeps its activity files in zips within the export). The
+   inner zips are opened one after another, so only one is held in memory. parseFit(buf) resolves
+   to one file's runs; onProgress(done, total, part, parts) counts files within a part, part 0
+   being the .zip's own files and parts the number of inner zips. */
+function fitArchiveRuns(JSZip, parseFit, arrayBuffer, onProgress){
+  var runs=[], found=0;
+  function entries(zip, re){ var e=[]; zip.forEach(function(path,entry){ if(!entry.dir && re.test(path)) e.push(entry); }); return e; }
+  function readFits(zip, part, parts){
+    var fits=entries(zip, /\.fit$/i), done=0;
+    found+=fits.length;
+    return fits.reduce(function(chain, entry){
+      return chain.then(function(){ return entry.async('arraybuffer'); }).then(parseFit).then(function(r){
+        runs=runs.concat(r);
+        done++; if(onProgress) onProgress(done, fits.length, part, parts);
+      });
+    }, Promise.resolve());
+  }
+  return JSZip.loadAsync(arrayBuffer).then(function(zip){
+    var inner=entries(zip, /\.zip$/i);
+    return inner.reduce(function(chain, entry, i){
+      return chain.then(function(){ return entry.async('arraybuffer'); })
+        .then(function(ab){ return JSZip.loadAsync(ab); })
+        .then(function(z){ return readFits(z, i+1, inner.length); });
+    }, readFits(zip, 0, inner.length));
+  }).then(function(){
+    if(!found) throw new Error('No .fit files found inside the .zip.');
+    return runs;
+  });
+}
+/* Parse a COROS .zip, a Garmin account export (.zip) or a bare .fit into deduped run candidates. */
 function parseCorosArchive(arrayBuffer, fileName, onProgress){
   return loadFitLibs().then(function(L){
     var lower=String(fileName||'').toLowerCase();
     if(/\.fit$/.test(lower)) return parseFitBuffer(L.FitParser, arrayBuffer);
-    return L.JSZip.loadAsync(arrayBuffer).then(function(zip){
-      var entries=[];
-      zip.forEach(function(path,entry){ if(!entry.dir && /\.fit$/i.test(path)) entries.push(entry); });
-      if(!entries.length) throw new Error('No .fit files found inside the .zip.');
-      var done=0, candidates=[], chain=Promise.resolve();
-      entries.forEach(function(entry){
-        chain=chain.then(function(){
-          return entry.async('arraybuffer').then(function(ab){
-            return parseFitBuffer(L.FitParser, ab).then(function(runs){
-              candidates=candidates.concat(runs);
-              done++; if(onProgress) onProgress(done, entries.length);
-            });
-          });
-        });
-      });
-      return chain.then(function(){ return candidates; });
-    });
+    return fitArchiveRuns(L.JSZip, function(buf){ return parseFitBuffer(L.FitParser, buf); }, arrayBuffer, onProgress);
   }).then(function(list){
     var byId={}; list.forEach(function(c){ byId[c.id]=c; });   // dedup within the archive
     return Object.keys(byId).map(function(k){return byId[k];});
@@ -3186,9 +3203,9 @@ function renderLoaded(){
 }
 
 /* ---------- import ---------- */
-// Garmin = one Activities.csv (text); Coros = a .zip of binary .fit files
-// (or a single .fit). Both paths produce the same candidate run docs and
-// share saveCandidates() for dedup/backfill/status.
+// Garmin = one Activities.csv (text) or the account export (.zip); Coros = a .zip
+// of binary .fit files (or a single .fit). Both paths produce the same candidate
+// run docs and share saveCandidates() for dedup/backfill/status.
 // Import / backfill / delete status: the header line (#importStatus) AND #importNote inside the import block,
 // since the header is off-screen when the action was taken from Data & settings. A final outcome (done =
 // 'ok' | 'err') is also toasted — the announced copy (neither line is a live region, so progress ticks stay
@@ -3202,7 +3219,7 @@ function impStatus(html, done){
 function readFile(f, extra){
   if(IMPORT_BUSY){ toast('An import is already running — wait for it to finish.'); return; }
   var name=String(f.name||'').toLowerCase(), kind=/\.zip$|\.fit$/.test(name)?'coros':/\.csv$/.test(name)?'csv':null;
-  if(!kind){ impStatus('<span class="err">Unsupported file — drop a Garmin Activities.csv, a COROS .zip or a single .fit file.</span>'+(extra||''),'err'); return; }
+  if(!kind){ impStatus('<span class="err">Unsupported file — drop a Garmin or COROS .zip, a Garmin Activities.csv or a single .fit file.</span>'+(extra||''),'err'); return; }
   setImportBusy(true); IMPORT_EXTRA=extra||'';
   return kind==='coros'?readCorosFile(f):readGarminCsv(f);
 }
@@ -3212,12 +3229,12 @@ function setImportBusy(on){
 }
 // An import's final outcome: clears the busy guard, adds the several-files note, reports (impStatus).
 function impDone(html, kind){ var x=IMPORT_EXTRA; IMPORT_EXTRA=''; setImportBusy(false); impStatus(html+x, kind); }
-// A COROS read failure in words the athlete can act on (the raw JSZip/parser text stays in the console).
+// A .zip/.fit read failure in words the athlete can act on (the raw JSZip/parser text stays in the console).
 function corosErrMsg(e){
   var m=String(e&&e.message||'');
-  if(/central directory|zip file|Corrupted zip|End of data/i.test(m)) return 'That .zip couldn’t be opened — export it again from COROS Training Hub (choose .FIT).';
-  if(m==='No .fit files found inside the .zip.') return 'No .fit files found inside the .zip. A Garmin account export isn’t supported — export Activities.csv from Garmin Connect instead.';
-  return m||'Could not read this COROS file.';
+  if(/central directory|zip file|Corrupted zip|End of data/i.test(m)) return 'That .zip couldn’t be opened — download it again from the Garmin or COROS email.';
+  if(m==='No .fit files found inside the .zip.') return 'No .fit files found inside the .zip. Use the .zip from Garmin’s Export Your Data email, or a COROS export saved as .FIT.';
+  return m||'Could not read this file.';
 }
 function readGarminCsv(f){
   impStatus('<span class="rdx-spin"></span>Reading '+esc(f.name)+'…');
@@ -3234,10 +3251,10 @@ function readGarminCsv(f){
 function readCorosFile(f){
   impStatus('<span class="rdx-spin"></span>Reading '+esc(f.name)+'…');
   var rd=new FileReader();
-  rd.onerror=function(){ impDone('<span class="err">Could not read file.</span>','err'); };
+  rd.onerror=function(){ impDone('<span class="err">Could not read file.'+(f.size>1e9?' This export may be too large to open in a browser — unzip it and drop the .zip files inside it one at a time.':'')+'</span>','err'); };
   rd.onload=function(){
-    parseCorosArchive(rd.result, f.name, function(done,total){
-      impStatus('<span class="rdx-spin"></span>Parsing .fit files… '+done+'/'+total);
+    parseCorosArchive(rd.result, f.name, function(done,total,part,parts){
+      impStatus('<span class="rdx-spin"></span>Parsing .fit files… '+done+'/'+total+(part?' (part '+part+' of '+parts+')':''));
     }).then(function(candidates){ saveCandidates(candidates); })
       .catch(function(e){ console.error(e); impDone('<span class="err">'+esc(corosErrMsg(e))+'</span>','err'); });
   };
@@ -3280,7 +3297,7 @@ function shellHTML(opts){
   var importBlock=
   '<div class="rdx-import" id="importBlock">'+
     '<div class="rdx-import-row">'+
-      '<div class="rdx-drop" id="drop" role="button" tabindex="0"><b>Import a Garmin CSV or COROS .zip</b>'+
+      '<div class="rdx-drop" id="drop" role="button" tabindex="0"><b>Import a Garmin or COROS export</b>'+
         '<span>Choose a file or drop it here — re-imports only add what’s new.</span>'+
         '<input type="file" id="file" accept=".csv,text/csv,.zip,.fit,application/zip" hidden></div>'+
       '<button type="button" class="rdx-btn rdx-btn-outline" id="stravaBackfill" hidden>⟲ Backfill Strava history</button>'+
@@ -3291,7 +3308,12 @@ function shellHTML(opts){
       '<div class="rdx-more-body">'+
         '<p>Export from '+your+' watch platform with the steps below, then drop the file in the import box above. '+
           'Everything is read in your browser and de-duplicated by start time, so re-uploads only add what is new — and importing from more than one source is fine.</p>'+
-        '<p><b>Garmin Connect</b> — one <code>Activities.csv</code>:</p><ol>'+
+        '<p><b>Garmin, whole history</b> — one <code>.zip</code>, delivered by email:</p><ol>'+
+        '<li>Open <a href="https://www.garmin.com/en-US/account/datamanagement/exportdata" target="_blank" rel="noopener">Garmin Account → Data Management → Export Your Data</a> and sign in.</li>'+
+        '<li>Click <b>Request Data Export</b>. Garmin emails a <b>download link</b> when the export is ready (this can take a few days).</li>'+
+        '<li>Download the <code>.zip</code> and drop it in the import box above as it is — no need to unzip it. Only the runs are imported; nothing else in the export leaves your computer.</li>'+
+      '</ol>'+
+        '<p><b>Garmin Connect, recent runs</b> — one <code>Activities.csv</code>:</p><ol>'+
         '<li>On a computer, open <a href="https://connect.garmin.com/modern/activities" target="_blank" rel="noopener">Garmin Connect → Activities → All Activities</a> and sign in.</li>'+
         '<li>Use the <b>filter</b> controls to set <b>Activity Type → Running</b> (optional) and the <b>date range</b> you want.</li>'+
         '<li><b>Scroll to the bottom</b> so every activity in that range loads on screen — the export only includes what is loaded.</li>'+
@@ -3305,7 +3327,7 @@ function shellHTML(opts){
         '<li>COROS emails a <b>download link</b> (usually within a few minutes). Open it and download the <code>.zip</code> — it holds one <code>.fit</code> file per activity.</li>'+
         '<li>Drop that <code>.zip</code> in the import box above (a single <code>.fit</code> works too). Each <code>.fit</code> is unpacked and read right in your browser.</li>'+
       '</ol>'+
-        '<p>Running-form metrics (ground contact, vertical oscillation, cadence, stride) need a compatible device or strap — runs recorded without one still import for load and pace, they just skip those fields. Garmin\'s CSV export is capped at ~1,000 rows and only includes what is loaded on screen, so export long Garmin histories in chunks by date range — each chunk merges in automatically.</p>'+
+        '<p>Running-form metrics (ground contact, vertical oscillation, cadence, stride) need a compatible device or strap — runs recorded without one still import for load and pace, they just skip those fields. For a long Garmin history, use the whole-history export: the CSV is capped at ~1,000 rows and only includes what is loaded on screen.</p>'+
         '<p>Strava connected (via the coaching dashboard)? The last 2 years of Strava runs sync in automatically for runs with no watch import — and <b>Backfill Strava history</b> pulls the entire Strava history at once for the same gap-fill. Strava can\'t provide ground contact, oscillation, or descent, so uploading a watch export for those runs replaces the Strava copy with the full-metric version.</p>'+
       '</div></details>'+
   '</div>';
