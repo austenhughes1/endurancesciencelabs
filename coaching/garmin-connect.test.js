@@ -30,7 +30,7 @@ function lift(name) {
   throw new Error(name + ': unbalanced braces');
 }
 
-var NAMES = ['readGarminReturn', 'garminPreviewUser', 'garminCardShown', 'garminCardHtml', 'garminOwnCardHtml', 'garminResultToast',
+var NAMES = ['readGarminReturn', 'garminPreviewUser', 'garminCardShown', 'garminCardHtml', 'garminHistoryHtml', 'garminOwnCardHtml', 'garminResultToast',
   'handleGarminReturn', 'connectGarmin', 'disconnectGarmin', 'renderGarminKeep', 'garminKeepSlotHtml',
   'garminLinkSig', 'syncAthleteGarminCard'];
 var code = 'var GARMIN_RETURN = null; var userDoc = null; var currentUser = null; var isCoach = false;\n' +
@@ -279,6 +279,14 @@ var MSG = {
     has('linked, sharing unknown: no paused note', html({ garminConnected: true }), 'Sharing is turned off', false);
     has('linked, sharing off: paused note', html({ garminConnected: true, garminSharing: false }),
       '<strong>Sharing is turned off in Garmin Connect</strong>, so new runs are paused.');
+
+    // Older runs: the account export steps, on the card in both states.
+    [['unlinked', off], ['linked', on]].forEach(function (c) {
+      has(c[0] + ': older runs disclosure', c[1], '<summary>Bring in your older runs</summary>');
+      has(c[0] + ': Garmin export link', c[1], 'href="https://www.garmin.com/en-US/account/datamanagement/exportdata" target="_blank" rel="noopener"');
+      has(c[0] + ': Training Analysis link', c[1], 'href="/training-analysis/"');
+      has(c[0] + ': where to drop it', c[1], 'drop it in the import box as it is');
+    });
   });
 
   await section('garminResultToast: one message per outcome', function () {

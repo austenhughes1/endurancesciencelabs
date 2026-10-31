@@ -318,6 +318,10 @@ html[data-theme="light"] .dash-powered-by .pwrd-on-light{display:block}
 .garmin-connect .strava-connect-note{max-width:400px;margin:12px auto 0}
 .coach-garmin,.garmin-keep{width:100%;max-width:520px;margin-top:12px;text-align:left}
 .coach-garmin .garmin-connect,.garmin-keep .garmin-connect{margin-top:0;padding:8px 0;border-top:0}
+.garmin-history{max-width:400px;margin:14px auto 0;text-align:left}
+.garmin-history-steps{margin:0;padding-left:20px}
+.garmin-history-steps li+li{margin-top:6px}
+.garmin-history code{font-size:13px}
 
 /* Mileage chart */
 .chart-section{margin-bottom:28px}
@@ -1085,7 +1089,7 @@ select.modal-field{appearance:auto;cursor:pointer}
 <script src="/shared/run-load-model.js?v=29"></script>
 <script src="/shared/injury-patterns.js?v=8"></script>
 <script src="/shared/device-matrix.js?v=2"></script>
-<script src="/shared/run-dynamics.js?v=48"></script>
+<script src="/shared/run-dynamics.js?v=49"></script>
 
 <script>
 'use strict';
@@ -3935,8 +3939,26 @@ function garminCardHtml(acct) {
         : `<p class="garmin-connect-text">Link Garmin Connect to send every run you record from now on to Training Analysis, including ground contact time, vertical oscillation and stride length.</p>
            <button type="button" class="esl-btn" onclick="connectGarmin()">Connect Garmin Connect</button>`}
       <div class="strava-connect-note">Only you and your coach see your Garmin data. Disconnecting deletes it. By connecting you agree to our <a href="/terms/" target="_blank" class="esl-link">Terms</a> and <a href="/privacy/" target="_blank" class="esl-link">Privacy Policy</a>.</div>
+      ${garminHistoryHtml()}
     </div>
   </div>`;
+}
+
+// Garmin Connect sends only the runs recorded after the link. Older runs come
+// in through Garmin's account export, which Training Analysis imports whole.
+function garminHistoryHtml() {
+  return `
+      <details class="esl-more garmin-history">
+        <summary>Bring in your older runs</summary>
+        <div class="esl-more-body">
+          <p>Garmin Connect only sends runs you record from now on. For everything before, import Garmin's export of your account:</p>
+          <ol class="garmin-history-steps">
+            <li>Open <a href="https://www.garmin.com/en-US/account/datamanagement/exportdata" target="_blank" rel="noopener" class="esl-link">Garmin Account → Data Management → Export Your Data</a> and sign in.</li>
+            <li>Click <strong>Request Data Export</strong>. Garmin emails a download link when it is ready, usually within a day.</li>
+            <li>Download the <code>.zip</code>, then open <a href="/training-analysis/" class="esl-link">Training Analysis</a> → <strong>Data &amp; settings</strong> and drop it in the import box as it is. Only your runs are imported, with their form metrics; nothing else in the export leaves your computer.</li>
+          </ol>
+        </div>
+      </details>`;
 }
 
 // The card in a titled panel of its own, for views with no Training Data card.
