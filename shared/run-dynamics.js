@@ -1808,23 +1808,18 @@ function coloredPath(xs,ys,cs,width){ var out='',cur=[],cc=null;
 // 7-day line: accent inside the band, gold above it, red past 1.5. Series tokens (.rdx scope) resolve to the
 // brand hues in dark and the ≥3:1 inks in light; drawn through style="stroke/fill:…" so var() resolves.
 function acuteSegColor(acwr){ if(acwr==null) return 'var(--rdx-s1)'; if(acwr>1.5) return 'var(--rdx-spike)'; if(acwr>1.3) return 'var(--rdx-hot)'; return 'var(--rdx-s1)'; }
-// Y gridline step: n steps that cover vmax, on a readable number (…, 1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10, …).
-function niceStep(vmax,n){ var raw=vmax/n, p=Math.pow(10,Math.floor(Math.log(raw)/Math.LN10)), f=raw/p;
-  return [1,1.5,2,2.5,3,4,5,6,8,10].filter(function(x){ return x>=f-1e-9; })[0]*p; }
-// Snap a metric series' [lo,hi] outward to 3 round steps (the chart draws 4 gridlines). Pace steps are
-// whole seconds; a flat series pads by one step so an integer metric never prints a label twice.
-function niceBounds(s, flat){
-  var m=s.m, range=s.hi-s.lo, PACE=[5,10,15,20,30,60,120], st;
-  var next=function(x){ if(m.pace){ var n=PACE.filter(function(p){ return p>x; })[0]; return n||x*2; } return niceStep(x*1.0001,1); };
-  if(m.pace){ st=PACE.filter(function(p){ return p*3>=range; })[0]||Math.ceil(range/180)*60; }
-  else st=niceStep(Math.max(range,3*Math.pow(10,-(m.dec||0))),3);
-  var a=Math.floor(s.lo/st+1e-9)*st, guard=0;
-  if(flat) a-=st;
-  while(a+3*st<s.hi-1e-9 && guard++<30){ st=next(st); a=Math.floor(s.lo/st+1e-9)*st; if(flat) a-=st; }
-  if(m.zeroFill && s.lo>=0 && a<0) a=0;
-  s.lo=a; s.hi=a+3*st;
+// A metric series' Y axis spans exactly the data drawn: lo is the smallest plotted value, hi the
+// largest, with no padding and no rounding outward to "nice" numbers (the gridline labels read the
+// real thirds of that span). A volume metric (Impact Load) floors at 0: it is never negative, and
+// its rest-day zeros sit on the floor. A flat series gets one display unit either side so the span
+// is drawable and the labels differ.
+function dataBounds(s, mn, mx){
+  var m=s.m, unit=m.pace?1:Math.pow(10,-(m.dec||0));
+  if(m.zeroFill){ mn=Math.min(mn,0); if(mx<=mn) mx=mn+unit; }
+  else if(mx-mn<1e-9){ mn-=unit; mx+=unit; }
+  s.lo=mn; s.hi=mx;
 }
-function tickFmt(m,v){ if(m.pace)return fmtPace(v); if(Math.abs(v)>=100)return Math.round(v); return v.toFixed(m.dec===0?0:(m.dec>=2?2:1)); }
+function tickFmt(m,v){ if(m.pace)return fmtPace(v); if(v===0)return '0'; if(Math.abs(v)>=100)return Math.round(v); return v.toFixed(m.dec===0?0:(m.dec>=2?2:1)); }
 function quantile(sorted,q){ var pos=(sorted.length-1)*q, base=Math.floor(pos), rest=pos-base; return sorted[base+1]!==undefined ? sorted[base]+rest*(sorted[base+1]-sorted[base]) : sorted[base]; }
 function smoothPts(pts){ var w=Math.max(3,Math.min(21,Math.round(pts.length/8))), half=Math.floor(w/2); return pts.map(function(p,i){ var s=0,c=0; for(var j=Math.max(0,i-half);j<=Math.min(pts.length-1,i+half);j++){ s+=pts[j].v; c++; } return {ts:p.ts,v:s/c}; }); }
 
@@ -2119,25 +2114,26 @@ function renderLoadChart(){
   // one domain rule with the metric chart: the axis starts at the selected From, even when the
   // history starts later (the lines are drawn only where data exists, with a "History starts" mark)
   var t0=(!tooShort && from && f0<tl[0].ts) ? f0 : tl[0].ts, t1=last.ts, span=Math.max(1,t1-t0);
-  // 4 gridlines (0 + 3 steps) on round numbers; the top one clears the band's upper edge
-  var step=niceStep(Math.max.apply(null,tl.map(function(d){return Math.max(d.acute,d.chronic*1.3);}))*1.05||1, 3), ymax=step*3;
+  var acuteS=smoothArr(tl.map(function(d){return d.acute;}),5), chronicS=smoothArr(tl.map(function(d){return d.chronic;}),5);
+  // The axis runs from 0 (load is never negative) to exactly the highest thing drawn: the 7-day line
+  // or the band's upper edge, whichever is taller. No headroom, no rounding; 4 gridlines at thirds.
+  var ymax=Math.max.apply(null, acuteS.concat(chronicS.map(function(c){return c*1.3;})))||1;
   var xOf=function(ts){return padL+((ts-t0)/span)*innerW;};
   var yOf=function(v){return padT+innerH-(v/ymax)*innerH;};
-  var acuteS=smoothArr(tl.map(function(d){return d.acute;}),5), chronicS=smoothArr(tl.map(function(d){return d.chronic;}),5);
   var xs=tl.map(function(d){return xOf(d.ts);});
   var bandTop=tl.map(function(d,i){return xs[i].toFixed(1)+','+yOf(chronicS[i]*1.3).toFixed(1);});
   var bandBot=tl.map(function(d,i){return xs[i].toFixed(1)+','+yOf(chronicS[i]*0.8).toFixed(1);}).reverse();
   var band='<polygon points="'+bandTop.concat(bandBot).join(' ')+'" style="fill:var(--rdx-band);stroke:var(--rdx-band-line)" stroke-width="0.5"/>';
   var chronicLn='<polyline points="'+tl.map(function(d,i){return xs[i].toFixed(1)+','+yOf(chronicS[i]).toFixed(1);}).join(' ')+'" fill="none" style="stroke:var(--rdx-s2)" stroke-width="2.2" stroke-linejoin="round"/>';
   var acuteLn=coloredPath(xs, acuteS.map(yOf), tl.map(function(d){return acuteSegColor(d.acwr);}), 2.6);
-  var grid='<text class="rdx-ax-lbl" x="2" y="13">IAD mi/day</text>', dec=0;   // as many decimals as the step needs — never "0, 0, 0"
-  while(dec<6 && Math.abs(step*Math.pow(10,dec)-Math.round(step*Math.pow(10,dec)))>1e-9) dec++;
+  var grid='<text class="rdx-ax-lbl" x="2" y="13">IAD mi/day</text>';
+  var loadTick=function(v){ return v>=100 ? String(Math.round(v)) : v.toFixed(1); };
   if(t0<tl[0].ts){ var hx=xs[0].toFixed(1);
     grid+='<line class="rdx-today" x1="'+hx+'" y1="'+(padT-4)+'" x2="'+hx+'" y2="'+(padT+innerH)+'"/>'+
       '<text class="rdx-ax-lbl" x="'+hx+'" y="'+(padT-8)+'" text-anchor="'+(xs[0]>W/2?'end':'start')+'">History starts '+fmtMD(tl[0].ts)+'</text>'; }
   for(var g=0;g<=3;g++){ var yy=padT+innerH-g/3*innerH;
     grid+='<line class="rdx-grid" x1="'+padL+'" y1="'+yy.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+yy.toFixed(1)+'"/>'+
-      '<text x="'+(padL-6)+'" y="'+(yy+4).toFixed(1)+'" text-anchor="end">'+(g===0?'0':String(parseFloat((step*g).toFixed(dec))))+'</text>'; }
+      '<text x="'+(padL-6)+'" y="'+(yy+4).toFixed(1)+'" text-anchor="end">'+(g===0?'0':loadTick(ymax*g/3))+'</text>'; }
   // the range ends today: mark it (the hero reads this same day)
   var todayM='';
   if(ymd(new Date(last.ts))===ymd(new Date())){ var tx=xs[xs.length-1].toFixed(1);
@@ -2227,7 +2223,7 @@ function renderMetricChart(){
       s.line=s.line.concat(zeros).sort(function(a,b){return a.ts-b.ts;});
     }
     var scaleSrc = s.dots.length ? s.dots : all;
-    if(scaleSrc.length){ var mn=Math.min.apply(null,scaleSrc.map(function(p){return p.v;})), mx=Math.max.apply(null,scaleSrc.map(function(p){return p.v;})); var pad=(mx-mn)*0.08; s.lo=mn-pad; s.hi=mx+pad; if(s.m.zeroFill) s.lo=Math.min(s.lo,0); niceBounds(s, mn===mx); }
+    if(scaleSrc.length) dataBounds(s, Math.min.apply(null,scaleSrc.map(function(p){return p.v;})), Math.max.apply(null,scaleSrc.map(function(p){return p.v;})));
   });
   var have=series.filter(function(s){return s.dots.length;});
   if(!have.length){ bail('No runs with this metric in range.'); return; }
