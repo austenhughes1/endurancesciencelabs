@@ -97,7 +97,7 @@ var DEFAULTS = {
 };
 
 // Indoor run: a belt never descends, and its ascent is an incline setting, not a hill.
-// ESL writes 'Treadmill Running' for Strava trainer/VirtualRun activities and Garmin CSV
+// ESL writes 'Treadmill Running' for Strava trainer/VirtualRun activities and Garmin
 // carries the same label; Coros FIT and other sources may say 'Virtual Run' / 'Indoor'.
 function isIndoor(r) { return /treadmill|virtual|indoor/i.test((r && r.type) || ''); }
 

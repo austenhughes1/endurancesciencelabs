@@ -3,9 +3,8 @@
 //
 // The ONE Run Dynamics view. Both the standalone /training-analysis/
 // page and the coaching dashboard's "Training Analysis" and "Injury
-// Patterns" tabs mount this — there is no second copy. Imports a Garmin Connect activities export
-// (Activities.csv), a Garmin account export (.zip) OR a Coros export (.zip of per-activity .fit files),
-// stores it under users/{uid}/garminActivities (de-duped by start
+// Patterns" tabs mount this — there is no second copy. Imports a Garmin account export (.zip) or
+// a Coros export (.zip of per-activity .fit files, or one .fit), stores it under users/{uid}/garminActivities (de-duped by start
 // time), and renders the actionable hero + unified load/metric chart +
 // form tiles + volume, with all athlete/device/filter settings behind
 // a gear button.
@@ -800,26 +799,7 @@ function $(id){ return ROOT ? ROOT.querySelector('#'+id) : null; }
 function $all(sel){ return ROOT ? ROOT.querySelectorAll(sel) : []; }
 function actCol(){ return DB.collection('users').doc(UID).collection('garminActivities'); }
 
-/* ---------- CSV parsing ---------- */
-function parseCSV(text){
-  text = text.replace(/^﻿/,'');
-  var rows=[], row=[], cur='', q=false;
-  for(var i=0;i<text.length;i++){
-    var c=text[i];
-    if(q){
-      if(c==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else q=false; }
-      else cur+=c;
-    } else {
-      if(c==='"') q=true;
-      else if(c===','){ row.push(cur); cur=''; }
-      else if(c==='\n'){ row.push(cur); rows.push(row); row=[]; cur=''; }
-      else if(c==='\r'){ /* skip */ }
-      else cur+=c;
-    }
-  }
-  if(cur.length||row.length){ row.push(cur); rows.push(row); }
-  return rows.filter(function(r){return r.length>1;});
-}
+/* ---------- small parsers shared by the import and the settings inputs ---------- */
 function norm(s){ return (s||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
 function buildColMap(header){ var m={}; header.forEach(function(h,i){ var n=norm(h); if(!(n in m)) m[n]=i; }); return m; }
 function num(v){
@@ -838,7 +818,6 @@ function hmsToSec(v){
   if(p.length===2) return p[0]*60+p[1];
   return p[0];
 }
-function gctBalLeft(v){ if(v==null) return null; var mm=String(v).match(/([\d.]+)\s*%?\s*L/i); return mm?parseFloat(mm[1]):null; }
 function parseDate(v){
   if(!v) return null;
   v=String(v).trim();
@@ -850,113 +829,17 @@ function parseDate(v){
   return isNaN(d)?null:d;
 }
 
-/* Parse a Garmin export into candidate run docs keyed by a stable id. */
-function parseExport(text){
-  var rows=parseCSV(text);
-  if(rows.length<2) throw new Error('This CSV has no activity rows.');
-  var col=buildColMap(rows[0]);
-  // Fingerprint on the columns every Garmin activities export has. Do NOT
-  // require running-form columns (GCT etc.) — Garmin only exports what's on
-  // screen, so they're often absent; missing fields just parse as null and
-  // the load model falls back to its no-dynamics path.
-  ['activitytype','date'].forEach(function(k){
-    if(!(k in col)) throw new Error('This CSV isn’t a Garmin Connect activities export (no “'+({activitytype:'Activity Type',date:'Date'})[k]+'” column).');
-  });
-  var get=function(r,k){ return col[k]!=null ? r[col[k]] : null; };
-  // Garmin names the shared cadence/pace columns after the export's FIRST row: with a ride on
-  // top they come out "Avg Bike Cadence" / "Avg Speed", yet run rows still hold run cadence and
-  // an m:ss pace there. Reading only the run names nulled pace on every run of such a file, and
-  // impactLoad scores a pace-less run as nothing (a Sep 2026 upload zeroed ~10 weeks of load).
-  // The speed column is taken only as m:ss — a decimal there is a real speed, not a pace.
-  var cadenceOf=function(r){ var v=num(get(r,'avgruncadence')); return v!=null?v:num(get(r,'avgbikecadence')); };
-  var paceOf=function(r){
-    var v=hmsToSec(get(r,'avgpace')); if(v!=null) return v;
-    var s=get(r,'avgspeed'); return (s!=null&&/^\s*"?\d+:\d/.test(s))?hmsToSec(s):null;
-  };
-  var byId={};
-  for(var i=1;i<rows.length;i++){
-    var r=rows[i];
-    var rawDate=get(r,'date');
-    var date=parseDate(rawDate);
-    if(!date) continue;
-    var type=String(get(r,'activitytype')||'').trim();
-    if(!/run/i.test(type)) continue;                 // run-focused tool
-    var isTrack=/track/i.test(type);
-    var distRaw=num(get(r,'distance'));
-    var digits=String(rawDate).replace(/\D/g,'');     // stable id from start datetime
-    var id=digits+'_'+norm(type);
-    var title=String(get(r,'title')||'').trim();
-    byId[id]={
-      id:id, type:type, title:title,
-      leverTitle:/lever/i.test(title),
-      ts:date.getTime(), dateISO:date.toISOString(),
-      distMi: distRaw==null?null:(isTrack?distRaw/1609.34:distRaw),
-      durSec: hmsToSec(get(r,'time')),
-      avgHr:num(get(r,'avghr')), maxHr:num(get(r,'maxhr')), aerobicTE:num(get(r,'aerobicte')),
-      cadence:cadenceOf(r), stride:num(get(r,'avgstridelength')),
-      vratio:num(get(r,'avgverticalratio')), vo:num(get(r,'avgverticaloscillation')),
-      gct:num(get(r,'avggroundcontacttime')), gctBalL:gctBalLeft(get(r,'avggctbalance')),
-      paceSec:paceOf(r), gapSec:hmsToSec(get(r,'avggap')),
-      ascentM:num(get(r,'totalascent')), descentM:num(get(r,'totaldescent')), steps:num(get(r,'steps')),
-    };
-  }
-  var runs=Object.keys(byId).map(function(k){return byId[k];});
-  var units=detectCsvUnits(runs);
-  runs.forEach(function(c){
-    if(units==='metric'){
-      // Distance column is km and pace is s/km; elevation is already meters.
-      if(c.distMi!=null && !/track/i.test(c.type)) c.distMi=c.distMi/1.60934;
-      if(c.paceSec!=null) c.paceSec=c.paceSec*1.60934;
-      if(c.gapSec!=null)  c.gapSec =c.gapSec *1.60934;
-    } else {
-      // Statute: distance/pace are per-mile as assumed; elevation is FEET.
-      if(c.ascentM!=null)  c.ascentM =c.ascentM *0.3048;
-      if(c.descentM!=null) c.descentM=c.descentM*0.3048;
-    }
-  });
-  runs.csvUnits=units;
-  return runs;
-}
-
-/* Garmin exports every column in the account's display units (statute:
-   miles & feet, metric: km & meters) with no units metadata in the file, so
-   the system has to be inferred from the data. Steps × stride length is the
-   unit-free ground truth: stride is exported in meters under BOTH systems,
-   so steps×stride ≈ the run's true distance in meters. Each row votes for
-   whichever reading of its Distance column (miles or km) lands closer to
-   that truth — the two readings differ by 1.61×, so votes are unambiguous;
-   rows missing steps/stride, track runs (distance column is meters in both
-   systems), and rows where neither reading is close (bad pod data) abstain.
-   With no votes the file stays statute — the assumption this parser always
-   made. (A plausibility fallback, e.g. "median grade too steep to be
-   meters", was rejected: a genuinely flat statute export would be misread
-   as metric and get its distance AND pace corrupted, a far worse failure
-   than the elevation one being fixed. Metric exports without a Steps
-   column remain unsupported, as they always were.) */
-function detectCsvUnits(runs){
-  var mi=0, km=0;
-  runs.forEach(function(c){
-    if(c.distMi==null||!(c.steps>0)||!(c.stride>0)||/track/i.test(c.type)) return;
-    var trueM=c.steps*c.stride;
-    var dMi=Math.abs(Math.log((c.distMi*1609.34)/trueM));
-    var dKm=Math.abs(Math.log((c.distMi*1000)/trueM));
-    if(Math.min(dMi,dKm)>Math.log(1.25)) return;
-    if(dMi<dKm) mi++; else km++;
-  });
-  return km>mi?'metric':'statute';
-}
-
 /* ---------- Coros / Garmin .fit / .zip parsing ----------
-   Coros Connect exports a .zip of per-activity binary .fit files (no CSV).
-   A Garmin account export keeps its .fit files in zips inside the .zip
+   Coros Connect exports a .zip of per-activity binary .fit files. A Garmin
+   account export keeps its .fit files in zips inside the .zip
    (fitArchiveRuns opens those too); Garmin's files carry the same session
    fields, mapped the same way as the server's Garmin sync (garmin-lib.js).
    Every running-dynamics metric lives in standard FIT `session` fields
    (verified against a real Coros export — no developer/custom fields), so
-   each session maps onto the SAME run-doc shape parseExport produces and
-   flows through the identical backfill/dedup path. Units differ from
-   Garmin's CSV: cadence is per-leg (×2), oscillation is mm (÷10 → cm),
-   step length is mm (÷1000 → m). The two parser libs are loaded from CDN
+   each session maps onto the run-doc shape stored in garminActivities and
+   flows through the backfill/dedup path. FIT units differ from the stored
+   doc: cadence is per-leg (×2), oscillation is mm (÷10 → cm), step length is
+   mm (÷1000 → m). The two parser libs are loaded from CDN
    on demand the first time a .zip/.fit is dropped — nothing is added to
    the host pages, keeping this the one self-contained module. */
 var _fitLibs=null;
@@ -979,12 +862,12 @@ function importFitParser(resolve,reject){
 }
 function fitNum(v){ return (typeof v==='number'&&isFinite(v))?v:null; }
 // Running-form fields (GCT, oscillation, ratio, balance, stride, cadence) can
-// never legitimately be 0. Coros writes a literal 0 (not a blank, unlike
-// Garmin's CSV) on runs recorded WITHOUT a running-dynamics pod/strap. A stored
+// never legitimately be 0. Coros writes a literal 0 (not a blank) on runs
+// recorded WITHOUT a running-dynamics pod/strap. A stored
 // 0 GCT later divides into the load model → Infinity, so treat 0 as "absent".
 function fitPos(v){ return (typeof v==='number'&&isFinite(v)&&v>0)?v:null; }
 
-/* One FIT `session` message -> the same candidate run doc parseExport emits. */
+/* One FIT `session` message -> one candidate run doc. */
 function runFromFitSession(s){
   if(!s||!s.start_time) return null;
   var sport=String(s.sport||'').toLowerCase();
@@ -993,7 +876,7 @@ function runFromFitSession(s){
   if(isNaN(start)) return null;
   var sportType=s.sport?(s.sport.charAt(0).toUpperCase()+s.sport.slice(1)):'Running';
   // Indoor sessions are sport 'running' + sub_sport treadmill / indoor_running / virtual_activity:
-  // type them 'Treadmill Running' like the Garmin CSV and Strava docs, so the treadmill rules (no
+  // type them 'Treadmill Running' like the Strava and Garmin Connect docs, so the treadmill rules (no
   // hill surcharge, Lever detection, Mark Lever runs) apply. The id keeps the sport-only suffix,
   // so a re-import overwrites the docs stored before this mapping instead of duplicating them.
   var type=/treadmill|indoor|virtual/.test(String(s.sub_sport||'').toLowerCase())?'Treadmill Running':sportType;
@@ -1129,8 +1012,8 @@ function backfill(candidates){
     snap.forEach(function(d){
       existing.add(d.id);
       var x=d.data();
-      // watch-sourced docs by start time: the same run imported from a FIT and from the CSV gets a
-      // different id scheme, so a new id within 60 s of a stored watch run is the same run (never re-ids)
+      // watch-sourced docs by start time: a run stored under another id scheme (the old Activities.csv
+      // importer used local start digits) is the same run when it starts within 60 s (never re-ids)
       if(x.source!=='strava' && x.source!=='garmin'){ var t=x.ts&&x.ts.toMillis?x.ts.toMillis():+x.ts; if(isFinite(t)) near.push(t); }
       // A watch export is the richer record (GCT, oscillation, descent) — drop
       // any Strava-synced doc for a run this import now covers (overlapping
@@ -1323,7 +1206,7 @@ function stravaLever(r){
 // Manual Lever marks: users/{uid}.runLeverMarks = [{id, lever:true, offload:0.01–0.95, ts, mi} |
 // {id, lever:false, ts, mi}]. They live on the USER doc, never on activity docs — the importer and
 // the daily Strava sync rewrite activity docs wholesale with set(). Run ids are stable across
-// re-imports of the same source (local start digits + type; Garmin CSV and Strava docs agree), so
+// re-imports of the same source (UTC start digits + sport for FIT, local digits + type for Strava), so
 // a mark survives a wipe + re-import. ts (start epoch) + mi (distance) are a fallback key for a run
 // that comes back under a DIFFERENT id — a Coros FIT import (UTC-digit id) replacing the Strava doc
 // it was marked on: a mark whose id no stored run has adopts the run starting within 30 min of it.
@@ -3232,9 +3115,8 @@ function renderLoaded(){
 }
 
 /* ---------- import ---------- */
-// Garmin = one Activities.csv (text) or the account export (.zip); Coros = a .zip
-// of binary .fit files (or a single .fit). Both paths produce the same candidate
-// run docs and share saveCandidates() for dedup/backfill/status.
+// Garmin = the account export (.zip); Coros = a .zip of binary .fit files (or a
+// single .fit). One path: candidate run docs → saveCandidates() for dedup/backfill/status.
 // Import / backfill / delete status: the header line (#importStatus) AND #importNote inside the import block,
 // since the header is off-screen when the action was taken from Data & settings. A final outcome (done =
 // 'ok' | 'err') is also toasted — the announced copy (neither line is a live region, so progress ticks stay
@@ -3247,10 +3129,10 @@ function impStatus(html, done){
 // extra: appended to the import's final status (several files dropped → only the first is imported).
 function readFile(f, extra){
   if(IMPORT_BUSY){ toast('An import is already running — wait for it to finish.'); return; }
-  var name=String(f.name||'').toLowerCase(), kind=/\.zip$|\.fit$/.test(name)?'coros':/\.csv$/.test(name)?'csv':null;
-  if(!kind){ impStatus('<span class="err">Unsupported file — drop a Garmin or COROS .zip, a Garmin Activities.csv or a single .fit file.</span>'+(extra||''),'err'); return; }
+  var name=String(f.name||'').toLowerCase();
+  if(!/\.zip$|\.fit$/.test(name)){ impStatus('<span class="err">Unsupported file — drop a Garmin or COROS .zip or a single .fit file.'+(/\.csv$/.test(name)?' Activities.csv is no longer imported: use Garmin’s whole-history export (steps below).':'')+'</span>'+(extra||''),'err'); return; }
   setImportBusy(true); IMPORT_EXTRA=extra||'';
-  return kind==='coros'?readCorosFile(f):readGarminCsv(f);
+  return readCorosFile(f);
 }
 function setImportBusy(on){
   IMPORT_BUSY=!!on;
@@ -3264,18 +3146,6 @@ function corosErrMsg(e){
   if(/central directory|zip file|Corrupted zip|End of data/i.test(m)) return 'That .zip couldn’t be opened — download it again from the Garmin or COROS email.';
   if(m==='No .fit files found inside the .zip.') return 'No .fit files found inside the .zip. Use the .zip from Garmin’s Export Your Data email, or a COROS export saved as .FIT.';
   return m||'Could not read this file.';
-}
-function readGarminCsv(f){
-  impStatus('<span class="rdx-spin"></span>Reading '+esc(f.name)+'…');
-  var rd=new FileReader();
-  rd.onerror=function(){ impDone('<span class="err">Could not read file.</span>','err'); };
-  rd.onload=function(){
-    var candidates;
-    try{ candidates=parseExport(rd.result); }
-    catch(e){ impDone('<span class="err">'+esc(e.message)+'</span>','err'); return; }
-    saveCandidates(candidates);
-  };
-  rd.readAsText(f);
 }
 function readCorosFile(f){
   impStatus('<span class="rdx-spin"></span>Reading '+esc(f.name)+'…');
@@ -3300,7 +3170,6 @@ function saveCandidates(candidates){
       verify.then(function(ok){
         var parts=[], stored=(res.updated||0)+(res.dupes||0); if(stored) parts.push(stored+' already stored'); if(res.replaced) parts.push(res.replaced+' Strava-synced replaced by watch data');
         if(res.replacedGarmin) parts.push(res.replacedGarmin+' sent by Garmin Connect replaced by this upload');
-        if(candidates.csvUnits==='metric') parts.push('read as km/m');
         var head=res.added? '✓ '+res.added+' new run'+(res.added===1?'':'s') : '✓ No new runs';
         impDone('<span class="ok">'+head+'</span>'+(parts.length?' · '+parts.join(' · '):''),'ok');
         if(ok===false) console.warn('RunDynamics: elevation did not persist — check Firestore rules', sample&&sample.id);
@@ -3328,7 +3197,7 @@ function shellHTML(opts){
     '<div class="rdx-import-row">'+
       '<div class="rdx-drop" id="drop" role="button" tabindex="0"><b>Import a Garmin or COROS export</b>'+
         '<span>Choose a file or drop it here — re-imports only add what’s new.</span>'+
-        '<input type="file" id="file" accept=".csv,text/csv,.zip,.fit,application/zip" hidden></div>'+
+        '<input type="file" id="file" accept=".zip,.fit,application/zip" hidden></div>'+
       '<button type="button" class="rdx-btn rdx-btn-outline" id="stravaBackfill" hidden>⟲ Backfill Strava history</button>'+
       '<span class="rdx-tip-wrap" id="stravaBackfillTip" hidden>'+tipHTML('Fetches the entire Strava history and adds one run per day for every day with no imported activity.','Backfill Strava history')+'</span>'+
     '</div>'+
@@ -3343,13 +3212,6 @@ function shellHTML(opts){
         '<li>Download the <code>.zip</code> and drop it in the import box above as it is — no need to unzip it. Only the runs are imported; nothing else in the export leaves your computer.</li>'+
         '<li>If your computer unzipped the download for you (Safari does), open the folder, go to <b>DI_CONNECT › DI-Connect-Uploaded-Files</b> and drop each <code>UploadedFiles</code> .zip there, one at a time.</li>'+
       '</ol>'+
-        '<p><b>Garmin Connect, recent runs</b> — one <code>Activities.csv</code>:</p><ol>'+
-        '<li>On a computer, open <a href="https://connect.garmin.com/modern/activities" target="_blank" rel="noopener">Garmin Connect → Activities → All Activities</a> and sign in.</li>'+
-        '<li>Use the <b>filter</b> controls to set <b>Activity Type → Running</b> (optional) and the <b>date range</b> you want.</li>'+
-        '<li><b>Scroll to the bottom</b> so every activity in that range loads on screen — the export only includes what is loaded.</li>'+
-        '<li>Click <b>Export CSV</b> (top-right) to download <code>Activities.csv</code>.</li>'+
-        '<li>Drop that file in the import box above. Runs are de-duplicated by start time, so re-uploads only add what is new.</li>'+
-      '</ol>'+
         '<p><b>COROS Training Hub</b> — a <code>.zip</code> of per-activity <code>.fit</code> files, delivered by email:</p><ol>'+
         '<li>On a computer, open <a href="https://t.coros.com" target="_blank" rel="noopener">COROS Training Hub (t.coros.com)</a> and sign in.</li>'+
         '<li>Open the <b>Activity List</b> tab at the top. To import only part of the history, use the list\'s <b>filter</b> controls to narrow by <b>date range</b> and sport first (optional — re-imports de-dupe, so exporting everything is fine too).</li>'+
@@ -3357,7 +3219,7 @@ function shellHTML(opts){
         '<li>COROS emails a <b>download link</b> (usually within a few minutes). Open it and download the <code>.zip</code> — it holds one <code>.fit</code> file per activity.</li>'+
         '<li>Drop that <code>.zip</code> in the import box above (a single <code>.fit</code> works too). Each <code>.fit</code> is unpacked and read right in your browser.</li>'+
       '</ol>'+
-        '<p>Running-form metrics (ground contact, vertical oscillation, cadence, stride) need a compatible device or strap — runs recorded without one still import for load and pace, they just skip those fields. For a long Garmin history, use the whole-history export: the CSV is capped at ~1,000 rows and only includes what is loaded on screen.</p>'+
+        '<p>Running-form metrics (ground contact, vertical oscillation, cadence, stride) need a compatible device or strap — runs recorded without one still import for load and pace, they just skip those fields. Garmin Connect’s Activities.csv is no longer imported: it carries no time zone, so runs recorded away from home were stored at the wrong time — the account export’s .fit files are exact.</p>'+
         '<p>Strava connected (via the coaching dashboard)? The last 2 years of Strava runs sync in automatically for runs with no watch import — and <b>Backfill Strava history</b> pulls the entire Strava history at once for the same gap-fill. Strava can\'t provide ground contact, oscillation, or descent, so uploading a watch export for those runs replaces the Strava copy with the full-metric version.</p>'+
       '</div></details>'+
   '</div>';

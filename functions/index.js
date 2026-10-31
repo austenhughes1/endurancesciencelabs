@@ -255,7 +255,7 @@ function stravaRunDoc(act) {
     (sport === "VirtualRun" || act.trainer) ? "Treadmill Running" :
     "Running";
   // Same id scheme as the client importers (local start-time digits + type),
-  // so the same run arriving later in a Garmin CSV lands on the same doc id.
+  // so a Strava run keeps one doc id across syncs (watch .fit docs use UTC digits and are matched by span).
   const digits = String(act.start_date_local || act.start_date).replace(/\D/g, "").slice(0, 14);
   const id = digits + "_" + type.toLowerCase().replace(/[^a-z0-9]/g, "");
   const pos = (v) => (typeof v === "number" && isFinite(v) && v > 0 ? v : null);

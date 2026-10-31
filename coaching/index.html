@@ -1089,7 +1089,7 @@ select.modal-field{appearance:auto;cursor:pointer}
 <script src="/shared/run-load-model.js?v=29"></script>
 <script src="/shared/injury-patterns.js?v=8"></script>
 <script src="/shared/device-matrix.js?v=2"></script>
-<script src="/shared/run-dynamics.js?v=49"></script>
+<script src="/shared/run-dynamics.js?v=50"></script>
 
 <script>
 'use strict';
@@ -5445,7 +5445,7 @@ async function switchTab(tab) {
 
 // ══════════════════════════════════════════════════════════
 //  RUN DYNAMICS TABS (Training Analysis + Injury Patterns)
-//  Backfills a Garmin Connect CSV export into
+//  Imports Garmin and COROS .fit exports into
 //  users/{athleteUid}/garminActivities (de-duped by activity
 //  start time) and reports run-form metrics over windows and
 //  custom date ranges. Scoped to the viewed athlete so a coach
