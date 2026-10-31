@@ -988,7 +988,7 @@ function fitPos(v){ return (typeof v==='number'&&isFinite(v)&&v>0)?v:null; }
 function runFromFitSession(s){
   if(!s||!s.start_time) return null;
   var sport=String(s.sport||'').toLowerCase();
-  if(sport && !/run/.test(sport)) return null;            // run-focused tool
+  if(!/run/.test(sport)) return null;                     // runs only: a session with no sport (e.g. one Garmin Connect made) may be anything
   var start=new Date(s.start_time);
   if(isNaN(start)) return null;
   var sportType=s.sport?(s.sport.charAt(0).toUpperCase()+s.sport.slice(1)):'Running';
@@ -3345,6 +3345,7 @@ function shellHTML(opts){
         '<li>Open <a href="https://www.garmin.com/en-US/account/datamanagement/exportdata" target="_blank" rel="noopener">Garmin Account → Data Management → Export Your Data</a> and sign in.</li>'+
         '<li>Click <b>Request Data Export</b>. Garmin emails a <b>download link</b> when the export is ready (this can take a few days).</li>'+
         '<li>Download the <code>.zip</code> and drop it in the import box above as it is — no need to unzip it. Only the runs are imported; nothing else in the export leaves your computer.</li>'+
+        '<li>If your computer unzipped the download for you (Safari does), open the folder, go to <b>DI_CONNECT › DI-Connect-Uploaded-Files</b> and drop each <code>UploadedFiles</code> .zip there, one at a time.</li>'+
       '</ol>'+
         '<p><b>Garmin Connect, recent runs</b> — one <code>Activities.csv</code>:</p><ol>'+
         '<li>On a computer, open <a href="https://connect.garmin.com/modern/activities" target="_blank" rel="noopener">Garmin Connect → Activities → All Activities</a> and sign in.</li>'+

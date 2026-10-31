@@ -22,8 +22,10 @@ function lift(name) {
   var b = src.indexOf('\n}\n', a);
   return src.slice(a, b + 2);
 }
-var lib = vm.runInNewContext([lift('fitFileType'), lift('fitArchiveRuns'), lift('corosErrMsg')].join('\n') +
-  '; ({ fitFileType: fitFileType, fitArchiveRuns: fitArchiveRuns, corosErrMsg: corosErrMsg })', { Uint8Array: Uint8Array });
+var lib = vm.runInNewContext([lift('fitFileType'), lift('fitArchiveRuns'), lift('corosErrMsg'),
+  lift('norm'), lift('fitNum'), lift('fitPos'), lift('runFromFitSession')].join('\n') +
+  '; ({ fitFileType: fitFileType, fitArchiveRuns: fitArchiveRuns, corosErrMsg: corosErrMsg, runFromFitSession: runFromFitSession })',
+  { Uint8Array: Uint8Array, Date: Date, Math: Math, String: String, isFinite: isFinite });
 
 var failures = 0, checks = 0;
 function eq(label, got, want) {
@@ -181,6 +183,19 @@ section('fitFileType gives null when it can\'t tell, so the file is parsed in fu
   eq('file_id without a type field', lib.fitFileType(fitBytes([def(0, 0, [[1, 2, 0x84]]), dat(0, [1, 0])])), null);
   eq('cut off after the definition', lib.fitFileType(fitBytes([def(0, 0, MANUFACTURER_THEN_TYPE)])), null);
   eq('compressed-timestamp header', lib.fitFileType(fitBytes([[0x80, 0, 0]])), null);
+});
+
+section('runFromFitSession keeps runs only: a session without a sport is not one', function () {
+  var base = { start_time: '2026-10-03T04:00:00Z', total_timer_time: 2400, total_distance: 8046.7, avg_speed: 3.353 };
+  function s(extra) { return Object.assign({}, base, extra); }
+  eq('running', lib.runFromFitSession(s({ sport: 'running' })).type, 'Running');
+  eq('trail running', lib.runFromFitSession(s({ sport: 'trail_running' })).type, 'Trail_running');
+  eq('treadmill', lib.runFromFitSession(s({ sport: 'running', sub_sport: 'treadmill' })).type, 'Treadmill Running');
+  eq('cycling', lib.runFromFitSession(s({ sport: 'cycling' })), null);
+  eq('swimming', lib.runFromFitSession(s({ sport: 'swimming' })), null);
+  eq('no sport (a Garmin Connect-made activity, could be anything)', lib.runFromFitSession(s({})), null);
+  eq('sport undefined', lib.runFromFitSession(s({ sport: undefined, sub_sport: 'generic' })), null);
+  eq('no start time', lib.runFromFitSession({ sport: 'running' }), null);
 });
 
 section('corosErrMsg passes other messages through, and has a fallback', function () {
