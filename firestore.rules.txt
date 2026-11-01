@@ -106,8 +106,8 @@ service cloud.firestore {
       }
 
       // ── Garmin activities subcollection ─────────────────────
-      // Backfilled from a Garmin Connect CSV export by the Run
-      // Dynamics tool. The athlete, their assigned coach, and the
+      // Run docs from .fit imports (Training Analysis), the Strava
+      // sync and Garmin Connect. The athlete, their assigned coach, and the
       // admin can all read and write (coach may backfill on behalf
       // of the athlete from the coaching dashboard).
       match /garminActivities/{activityId} {
