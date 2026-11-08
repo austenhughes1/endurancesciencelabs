@@ -34,8 +34,9 @@ esmetaboliclab/     lactate and power profiles; js/lib/ engines, js/ui/ views,
 training-analysis/  Training Analysis and Injury Patterns page (?view=injury);
                     the view itself is shared/run-dynamics.js
 running-dynamics/   redirect to /training-analysis/ for old links
-shared/             modules used across pages: site.js/.css, run-dynamics.js,
-                    run-load-model.js (+ .test.js), injury-patterns.js, device-matrix.js
+shared/             modules used across pages: site.js/.css, run-dynamics.js (view),
+                    run-dynamics-data.js (its numbers, + .test.js), run-load-model.js
+                    (+ .test.js), injury-patterns.js, device-matrix.js
 reference-data/     admin reference tables and measurement frameworks
 functions/          Cloud Functions, Node 22: index.js, report-renderer.js,
                     comparison-renderer.js, garmin.js, garmin-lib.js,
@@ -50,7 +51,7 @@ docs/               design notes
 From the repo root. Nothing to install.
 
 ```bash
-npm test     # syntax-checks functions/*.js, then runs all nine suites; must exit 0
+npm test     # syntax-checks functions/*.js, then runs all ten suites; must exit 0
 ```
 
 The suites one by one:
@@ -60,6 +61,7 @@ node shared/run-load-model.test.js
 node shared/run-dynamics-format.test.js
 node shared/run-dynamics-archive.test.js
 node shared/run-dynamics-garmin.test.js
+node shared/run-dynamics-data.test.js
 node coaching/garmin-connect.test.js
 node functions/garmin-lib.test.js
 node functions/garmin.test.js

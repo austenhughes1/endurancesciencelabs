@@ -9,7 +9,7 @@
 // form tiles + volume, with all athlete/device/filter settings behind
 // a gear button.
 //
-// Pure view layer. Depends on globals: RunLoad (shared/run-load-model.js)
+// Pure view layer. Depends on globals: RunData (shared/run-dynamics-data.js), RunLoad (shared/run-load-model.js)
 // and RunDevices (shared/device-matrix.js). The host page provides a
 // container, a Firestore handle, the athlete uid, and a role.
 //
@@ -773,26 +773,7 @@ var LV={filter:'all', sel:new Set(), rows:[], trigger:null, toastT:null};
    is the 7-day mean vs the 28-day mean day; d1/d3/d7 are derived as r × base for the tiles
    only and are not what the live math would produce for those ratios. */
 var DEMO=null;
-var DEMO_LIST=[
-  {key:'bigday',   label:'Big day'},
-  {key:'hardday',  label:'Hard day'},
-  {key:'heavy3',   label:'Heavy 3-day'},
-  {key:'bigweek',  label:'Big week'},
-  {key:'ceiling',  label:'Near ceiling'},
-  {key:'building', label:'Room to build'},
-  {key:'safe',     label:'Safe band'},
-  {key:'baseline', label:'No data'},
-];
-var DEMO_PRESETS={
-  bigday:  {base:8.0, r1:2.3, r3:1.5,  r7:1.15},
-  hardday: {base:8.0, r1:1.6, r3:1.15, r7:1.05},
-  heavy3:  {base:8.0, r1:1.2, r3:1.65, r7:1.25},
-  bigweek: {base:8.0, r1:1.1, r3:1.35, r7:1.6 },
-  ceiling: {base:8.0, r1:1.0, r3:1.2,  r7:1.35},
-  building:{base:8.0, r1:0.6, r3:0.65, r7:0.7 },
-  safe:    {base:8.0, r1:1.05,r3:1.0,  r7:0.95},
-  baseline:{nullBase:true},
-};
+var DEMO_LIST=RunData.DEMO_LIST, DEMO_PRESETS=RunData.DEMO_PRESETS;
 
 // Scoped element lookup — IDs live inside the mount container only.
 function $(id){ return ROOT ? ROOT.querySelector('#'+id) : null; }
@@ -1663,7 +1644,7 @@ function syncOverlaySelect(){
 }
 
 /* ---------- chart math helpers ---------- */
-function acwrColor(a){ if(a==null)return 'var(--muted2)'; if(a>1.5)return 'var(--bad)'; if(a>1.3)return 'var(--gold)'; if(a<0.8)return 'var(--warn)'; return 'var(--good)'; }
+function acwrColor(a){ return RunData.acwrColor(a); }
 // Month ticks, at most maxTicks of them (4 on a phone-width chart, 8 otherwise).
 function axisTicks(t0,t1,maxTicks){
   if(t1-t0<45*DAY){   // short span: weekly ticks from the first Monday ≥ t0 (month ticks would leave 0–1 labels)
@@ -1714,114 +1695,22 @@ function avgLast(tl,n){ return RunLoad.avgLast(tl,n); }
 function fmtMi(x){ var r=Math.round(x*2)/2; return (r%1===0)?String(r):r.toFixed(1); }
 function renderHero(){
   var el=$('hero'); if(!el) return;
-  // Anchor on TODAY, not on the athlete's last run day. loadTimeline ends on the last run, so
-  // a runner who has not run for five days would otherwise read their last-run-day state: the
-  // acute EWMA has decayed in reality but not on screen. extendTimeline zero-pads through today
-  // (decaying acute/chronic per padded day, identical to rebuilding from a zero-padded series),
-  // so d1 is 0 on a rest day and the acute-trend lookback sees the real calendar. Chart ranges
-  // already include today; this is the hero's equivalent.
+  // The numbers and the verdict come from RunData.heroModel (shared/run-dynamics-data.js, pinned
+  // by run-dynamics-data.test.js); this function only renders them.
   var today=new Date();
-  var tl=RunLoad.extendTimeline(RunLoad.loadTimeline(loadRuns(), LOAD_PARAMS), today, LOAD_PARAMS);
+  var M=RunData.heroModel({ runs:loadRuns(), params:LOAD_PARAMS, now:today, demo:(DEMO&&DEMO_PRESETS[DEMO])||null, leverPct:leverPct(), coach:ROLE==='coach' });
   var date='<span class="rdx-today-date">'+DOW[today.getDay()]+', '+MONTHS[today.getMonth()]+' '+today.getDate()+'</span>';
   // D3 notes (renderHeroNotes fills it) sit under the instruction line
   var notesEl='<p class="rdx-hero-notes" id="heroNotes" hidden></p>';
-  if(tl.length<2){
+  if(M.short){
     el.style.borderLeftColor='var(--muted2)';
     el.innerHTML='<div class="rdx-today-top"><h2 class="rdx-hero-head"><span class="rdx-hero-dot" style="background:var(--muted2)"></span>Building your baseline</h2>'+date+'</div>'+
-      '<p class="rdx-today-do">'+(ROLE==='coach' ? 'Daily guidance shows up here once this athlete has a few more weeks of runs.' : 'Import a few more weeks of runs and your daily guidance shows up here.')+'</p>'+notesEl;
+      '<p class="rdx-today-do">'+M.todo+'</p>'+notesEl;
     return;
   }
-  var pct=leverPct();
-  // 1-, 3-, 7-day load windows. The two short windows are PEAK-relative: r1 = today's load ÷
-  // the biggest single day of the prior 28, r3 = the last 3 days ÷ the biggest prior 3-day
-  // block (RunLoad.shortRatio). r7 = 7-day mean ÷ 28-day mean day, as before — a 7-day window
-  // always holds a full week of anyone's schedule, so it is already schedule-neutral.
-  // Dividing d1/d3 by the 28-day mean CALENDAR day (which counts rest days as zero) measured
-  // run frequency, not load: a 4-day-a-week runner read 1.75× on every ordinary run.
-  var W=RunLoad.loadWindows(tl);
-  var d1=W.d1, d3=W.d3, d7=W.d7, d28=W.d28, base=W.base, r1=W.r1, r3=W.r3, r7=W.r7;
-  var demoOn=false;
-  // Admin demo override: swap in a fixed scenario's windows (real data untouched).
-  if(DEMO && DEMO_PRESETS[DEMO]){
-    demoOn=true; var sc=DEMO_PRESETS[DEMO];
-    if(sc.nullBase){ base=null; d1=d3=d7=d28=0; r1=r3=r7=null; }
-    else { base=sc.base; d28=sc.base; r1=sc.r1; r3=sc.r3; r7=sc.r7; d1=r1*base; d3=r3*base; d7=r7*base; }
-  }
-  // Tile tints: the detraining (< 0.8 → warn) branch only means something against an average.
-  // A peak-relative ratio sits below 0.8 on every ordinary weekday — that is what having a
-  // biggest day means, not a sign of detraining — so the 1- and 3-day tiles skip it.
-  var peakColor=function(r){ return (r!=null && r<0.8) ? 'var(--good)' : acwrColor(r); };
-  var col1=peakColor(r1), col3=peakColor(r3), col7=acwrColor(r7);
-
-  // Typical single-run Impact Load (median of the last ~6 weeks of runs, anchored at today) — used
-  // to turn the daily load budget into a concrete session size. Falls back to the 28-day daily
-  // base × 1.4 (a rough per-run figure) when there isn't enough per-run data or a demo scenario
-  // is forcing the windows.
-  var todayTs=tl[tl.length-1].ts;
-  var loads = demoOn ? [] : loadRuns().filter(function(r){ return r.ts>=todayTs-42*864e5; })
-    .map(function(r){ return RunLoad.impactLoad(r, LOAD_PARAMS); }).filter(function(v){ return v!=null && v>0; });
-  var typical = loads.length>=3 ? RunLoad.median(loads) : (base?base*1.4:6);
-
-  // Acute-curve trajectory: how fast the 7-day EWMA acute load is climbing, as a fractional change
-  // per week. A steep, sustained rise is a leading injury-risk signal the point-in-time ACWR misses —
-  // acute can rocket up from below chronic, blow past it and keep climbing while the ratio still reads
-  // "in band." We flag it as "climbing hot" once acute is also at/above chronic (not just rebuilding
-  // from a low base, where a fast ramp is expected and healthy).
-  var last=tl[tl.length-1];
-  var acuteNow=last.acute||0, chronicNow=last.chronic||0;
-  var bk=Math.min(7, tl.length-1);
-  var aPast=(!demoOn && bk>=4) ? (tl[tl.length-1-bk].acute||0) : 0;
-  var rampPerWk = aPast>0 ? (Math.pow(acuteNow/aPast, 7/bk)-1) : null;
-  var acwrNow = chronicNow>0 ? acuteNow/chronicNow : null;
-  var climbingHot = rampPerWk!=null && rampPerWk>=0.15 && acwrNow!=null && acwrNow>=0.95;
-
-  var coach=ROLE==='coach';
-  var head, accent, todo, lo=null, hi=null, flat=null, hilly=null, lever=null, leverInTarget=false;
-  if(base==null){
-    head='Building your baseline'; accent='var(--muted2)';
-    todo=coach ? 'Easy runs or Lever runs while we learn their baseline.' : 'Easy runs or Lever runs while we learn your baseline.';
-  } else {
-    // Recovery state from the recent-load ratios → session volume band (× typical run) and a one-line
-    // call. Driven by the MAX of the 1/3/7-day ratios so a loaded recent block counts even when the
-    // weekly average looks flat. Volume band is anchored to the chronic base (the 0.8–1.3 safe band)
-    // and shifted by how loaded the last few days have been.
-    // maxR's three inputs no longer share a denominator: 1.0 means "level with your biggest recent
-    // block" when r1/r3 leads and "level with your average day" when r7 leads; the 1.15/1.3/1.5
-    // thresholds read as 15/30/50% beyond whichever that is.
-    // The thresholds, headlines, accents and loMult/hiMult are the model — copy changes go in `todo` only.
-    var loMult, hiMult;
-    var maxR=Math.max(r1,r3,r7);
-    var rampWkTxt = rampPerWk!=null ? Math.round(rampPerWk*100)+'%' : '';
-    if(maxR>=1.5 || (climbingHot && rampPerWk>=0.25 && acwrNow>=1.2)){
-      accent='var(--bad)'; head='Overreaching — recover next'; loMult=0.3; hiMult=0.6;
-      todo=coach ? 'Over their range: recovery day or rest.' : 'Over your range: recovery day or rest.';
-    } else if(maxR>=1.3){
-      accent='var(--gold)'; head='At your ceiling — ease off'; loMult=0.6; hiMult=0.9;
-      todo=coach ? 'At their ceiling: easy only, no hard efforts.' : 'At your ceiling: easy only, no hard efforts.';
-    } else if(climbingHot){
-      accent='var(--gold)'; head='Climbing fast — ease the ramp'; loMult=0.6; hiMult=0.9;
-      todo='Load rising +'+rampWkTxt+'/wk: hold volume flat.';
-    } else if(maxR>=1.15){
-      accent='var(--gold)'; head='Approaching your ceiling'; loMult=0.7; hiMult=1.0;
-      todo=coach ? 'Near their ceiling: easy only today.' : 'Near your ceiling: easy only today.';
-    } else if(r7<0.8){
-      accent='var(--warn)'; head='Room to build'; loMult=0.9; hiMult=1.3;
-      todo=coach ? 'Athlete has room: easy, long or a workout all fit.' : 'You have room: easy, long or a workout all fit.';
-    } else {
-      accent='var(--good)'; head='In the safe band'; loMult=0.8; hiMult=1.15;
-      todo='Easy run or workout. Both fit today.';
-    }
-    lo=typical*loMult; hi=typical*hiMult;
-    // Translate the top-end budget (hi, in IAD miles) into concrete run options:
-    //   flat easy outside ≈ 1 impact mi/mi · rolling/hilly inflates ~25% · Lever offloads, so more
-    //   actual miles fit under the same impact budget. The Lever conversion MUST go through
-    //   RunLoad.impactPerMileAtLoad (lever mi = budget ÷ (1 − 0.85·offload)) — the same discount
-    //   impactLoad scores with — otherwise a prescribed Lever distance no longer earns back its
-    //   own budget.
-    flat=hi; hilly=hi/1.25; lever=hi/RunLoad.impactPerMileAtLoad(pct, LOAD_PARAMS);
-    // The Lever rides on the target line only when the call is to back off (gold/red states).
-    leverInTarget = accent==='var(--gold)' || accent==='var(--bad)';
-  }
+  var pct=M.pct, d1=M.d1, d3=M.d3, d28=M.d28, base=M.base, r1=M.r1, r3=M.r3, r7=M.r7;
+  var col1=M.col1, col3=M.col3, col7=M.col7, head=M.head, accent=M.accent, todo=M.todo;
+  var lo=M.lo, hi=M.hi, flat=M.flat, hilly=M.hilly, lever=M.lever, leverInTarget=M.leverInTarget;
 
   // ---- markup only from here ----
   // Visible: headline + date, one instruction line, the D3 notes, then two numbers — today's target
@@ -1834,8 +1723,7 @@ function renderHero(){
   // Acute trend: weekly rate of rise of the acute curve, tinted by how steep (rising fast is a
   // leading signal even when the ratio is still in band). '—' when there isn't enough history.
   // A decline reads muted, not green (presentation only; the thresholds are unchanged).
-  var rampTxt = rampPerWk==null ? '—' : (rampPerWk>=0?'+':'')+Math.round(rampPerWk*100)+'%';
-  var rampCol = rampPerWk==null ? 'var(--muted2)' : rampPerWk>=0.20 ? 'var(--bad)' : rampPerWk>=0.10 ? 'var(--gold)' : 'var(--muted2)';
+  var rampTxt=M.rampTxt, rampCol=M.rampCol;
   var trendRow=function(cls){ return '<div class="rdx-trend'+(cls||'')+'"><span class="k">Acute trend</span><span class="v" style="color:'+ink(rampCol)+'">'+rampTxt+'</span><span class="x">per week · how fast the 7-day load is changing</span></div>'; };
   // Footnote: the easy-pace P₀ every run's pace term is scored against — a calibration anchor, NOT
   // an average of recent runs. Only when a rung is in force (calibrated median or the profile).
@@ -1843,11 +1731,10 @@ function renderHero(){
   var baseTxt=(LOAD_PARAMS&&LOAD_PARAMS.basePaceSec>0&&baseSrc) ? 'Scored against '+who()+' easy pace, '+fmtPace(LOAD_PARAMS.basePaceSec)+' /mi ('+(baseSrc==='profile'?'from the profile':'grade-adjusted, from easy runs')+').' : '';
   // 7-day position on a 0.4–1.8 track with the 0.8–1.3 safe band shaded (decoration; the ratio is in text)
   var bandPos=function(x){ return (Math.max(0.4,Math.min(1.8,x))-0.4)/1.4*100; };
-  var isClimb = head==='Climbing fast — ease the ramp';
+  var isClimb=M.isClimb;
   // Runs on today's local calendar day — the same day the Last day tile (d1) covers. Demo scenarios
   // are not the athlete's data, so they always show the target.
-  var todayRuns = demoOn ? [] : loadRuns().filter(function(r){ return daysAgo(r.ts)===0; });
-  var todayMi = todayRuns.reduce(function(a,r){ return a+(r.distMi||0); },0);
+  var todayRuns={length:M.todayRuns}, todayMi=M.todayMi;
   var nums='';
   if(base!=null){
     nums='<div class="rdx-today-nums">'+
