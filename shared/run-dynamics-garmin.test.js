@@ -235,6 +235,26 @@ asyncSections.push(['Lever marks and exclusions on Garmin runs a disconnect dele
   same('other lists are not run notes', noteIds(docs.get('users/u-a').runDismissedDrops), ['garmin_3']);
 }]);
 
+asyncSections.push(['list writes to one field run in order, merge other devices\' entries, and survive a failed write', async function () {
+  var docs = new Map([['users/u-a', { runEvents: [{ id: 'x', type: 'race', ts: T - 864e5 }] }]]);
+  var ctx = store(docs, { runEvents: [] });
+  var renders = [];
+  var add = function (id) { return function (list) { return list.concat([{ id: id, type: 'race', ts: T }]); }; };
+  var p1 = ctx.updateProfileList('runEvents', add('a'), function () { renders.push('a'); }, false);
+  var p2 = ctx.updateProfileList('runEvents', add('b'), function () { renders.push('b'); }, false);
+  same('the view shows both at once', noteIds(ctx.STD_PROFILE.runEvents), ['a', 'b']);
+  same('both saved', [await p1, await p2], [true, true]);
+  same('stored in order, on top of the other device\'s entry', noteIds(docs.get('users/u-a').runEvents), ['x', 'a', 'b']);
+  same('the view adopts the stored list once, from the newest write', [noteIds(ctx.STD_PROFILE.runEvents), renders], [['x', 'a', 'b'], ['b']]);
+
+  var real = ctx.DB.runTransaction, calls = 0;
+  ctx.DB.runTransaction = function (fn) { if (calls++ === 0) return Promise.reject({ code: 'unavailable' }); return real(fn); };
+  var f1 = ctx.updateProfileList('runEvents', add('c'), null, false);
+  var f2 = ctx.updateProfileList('runEvents', add('d'), null, false);
+  same('a failed write reports, the next still runs', [await f1, await f2], ['unavailable', true]);
+  same('stored: the write that went through', noteIds(docs.get('users/u-a').runEvents), ['x', 'a', 'b', 'd']);
+}]);
+
 (async function () {
   for (var i = 0; i < asyncSections.length; i++) {
     console.log(asyncSections[i][0]);

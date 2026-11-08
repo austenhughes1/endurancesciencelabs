@@ -198,6 +198,14 @@ section('runFromFitSession keeps runs only: a session without a sport is not one
   eq('no start time', lib.runFromFitSession({ sport: 'running' }), null);
 });
 
+section('runFromFitSession: the run id is the UTC start + the sport, so marks and exclusions keep their run', function () {
+  var base = { start_time: '2026-10-03T04:00:05.250Z', total_timer_time: 2400, total_distance: 8046.7, avg_speed: 3.353, sport: 'running' };
+  eq('UTC digits + sport', lib.runFromFitSession(base).id, '20261003040005_running');
+  eq('a treadmill run keeps the sport-only suffix', lib.runFromFitSession(Object.assign({}, base, { sub_sport: 'treadmill' })).id, '20261003040005_running');
+  eq('trail running', lib.runFromFitSession(Object.assign({}, base, { sport: 'trail_running' })).id, '20261003040005_trailrunning');
+  eq('start is epoch ms', lib.runFromFitSession(base).ts, Date.UTC(2026, 9, 3, 4, 0, 5, 250));
+});
+
 section('corosErrMsg passes other messages through, and has a fallback', function () {
   eq('other', lib.corosErrMsg(new Error('Something else')), 'Something else');
   eq('empty', lib.corosErrMsg(null), 'Could not read this file.');

@@ -873,5 +873,219 @@ section('every demo scenario has a preset', function () {
   eq('no preset without a chip', Object.keys(D.DEMO_PRESETS).length, D.DEMO_LIST.length);
 });
 
+
+// ── Run notes, selection, events and formats ──
+// L is the same small API over whichever file holds these functions. Each adapter takes the
+// state as arguments (runs, profile, Strava Lever titles), so a test never depends on where the
+// state lives.
+var L = (function () {
+  var src = fs.readFileSync(path.join(__dirname, 'run-dynamics.js'), 'utf8');
+  function liftFn(name) {
+    var at = src.indexOf('\nfunction ' + name + '(');
+    if (at < 0) throw new Error(name + ' not found in run-dynamics.js');
+    at++;
+    var depth = 0;
+    for (var i = src.indexOf('{', at); i < src.length; i++) {
+      if (src[i] === '{') depth++;
+      else if (src[i] === '}' && --depth === 0) return src.slice(at, i + 1);
+    }
+    throw new Error(name + ': unbalanced braces');
+  }
+  var names = ['norm', 'num', 'hmsToSec', 'parseDate', 'ymd', 'dayEnd', 'daysAgo', 'fmtPace', 'fmtDur', 'fmtDay', 'fmtSpan', 'fmtMD',
+    'fmtClock', 'fmtRel', 'canonJSON', 'filterIntensity', 'leverMarkList', 'markOffload', 'orphanMark', 'annotateLever', 'stravaLever',
+    'effType', 'exclList', 'runFlag', 'annotateExcluded', 'exclMatch', 'easyPaceSec', 'computeLoadParams', 'offloadFrac', 'leverPct',
+    'weightKg', 'evLocalTs', 'events', 'evAddFn', 'evFuture', 'dismissedDrops', 'sameDis', 'workoutPaceSec', 'includedPref', 'syncActor'];
+  var c = { RunLoad: win.RunLoad, Math: Math, Date: Date, Set: Set, Map: Map, Object: Object, Array: Array, String: String, JSON: JSON,
+    parseFloat: parseFloat, isFinite: isFinite, isNaN: isNaN, DAY: 864e5,
+    MONTHS: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+    FILTER_DEFAULTS: { intensity: 'all', cutoff: '6:40', mindist: '0.5' }, EV_NO_FUTURE: { injury: 1, illness: 1, nonrun: 1 },
+    RAW: [], STD_PROFILE: {}, STRAVA_LEVER: [], UID: null, window: {} };
+  vm.createContext(c);
+  vm.runInContext(names.map(liftFn).join('\n'), c);
+  var withProfile = function (fn) { return function (profile) { c.STD_PROFILE = profile || {}; return c[fn](); }; };
+  return {
+    norm: c.norm, num: c.num, hmsToSec: c.hmsToSec, parseDate: c.parseDate, ymd: c.ymd, dayEnd: c.dayEnd, daysAgo: c.daysAgo,
+    fmtPace: c.fmtPace, fmtDur: c.fmtDur, fmtDay: c.fmtDay, fmtSpan: c.fmtSpan, fmtMD: c.fmtMD, fmtClock: c.fmtClock, fmtRel: c.fmtRel,
+    canonJSON: c.canonJSON, filterIntensity: c.filterIntensity, markOffload: c.markOffload, orphanMark: c.orphanMark,
+    effType: c.effType, runFlag: c.runFlag, exclMatch: c.exclMatch, evLocalTs: c.evLocalTs, evAddFn: c.evAddFn, evFuture: c.evFuture,
+    sameDis: c.sameDis,
+    annotateLever: function (runs, profile, lever) { c.RAW = runs; c.STD_PROFILE = profile || {}; c.STRAVA_LEVER = lever || []; c.annotateLever(); },
+    annotateExcluded: function (runs, profile) { c.RAW = runs; c.STD_PROFILE = profile || {}; c.annotateExcluded(); },
+    computeLoadParams: function (runs, profile, cutoff) {
+      c.STD_PROFILE = profile || {}; c.loadRuns = function () { return runs; }; c.intensityState = function () { return { mode: 'all', cutoff: cutoff }; };
+      return c.computeLoadParams();
+    },
+    events: withProfile('events'), dismissedDrops: withProfile('dismissedDrops'), includedPref: withProfile('includedPref'),
+    workoutPaceSec: withProfile('workoutPaceSec'), easyPaceSec: withProfile('easyPaceSec'), leverPct: withProfile('leverPct'),
+    offloadFrac: withProfile('offloadFrac'), weightKg: withProfile('weightKg'),
+    syncActor: function (uid, esLabs) { c.UID = uid; c.window = esLabs ? { esLabs: esLabs } : {}; return c.syncActor(); }
+  };
+})();
+function same(label, got, want) { eq(label, JSON.stringify(got), JSON.stringify(want)); }
+var T0 = new Date(2026, 5, 10, 7, 0).getTime();   // made-up run start, local time
+function mk(id, o) { return Object.assign({ id: id, ts: T0, date: new Date(T0), distMi: 5, paceSec: 540, type: 'Running' }, o || {}); }
+
+section('Lever runs: a manual mark wins, then a title, then a Strava title; orphan marks re-attach by time', function () {
+  var day = new Date(T0); var ymdT = day.getFullYear() + '-' + ('0' + (day.getMonth() + 1)).slice(-2) + '-' + ('0' + day.getDate()).slice(-2);
+  var runs = [
+    mk('a', { type: 'Treadmill Running', leverTitle: true }),
+    mk('b', { ts: T0 + 864e5 * 2, leverTitle: true }),
+    mk('c', { ts: new Date(ymdT + 'T12:00:00').getTime() - 3600e3 * 5, distMi: 6 }),
+    mk('d', { ts: T0 + 864e5 * 5 }),
+    mk('e', { ts: T0 + 864e5 * 6, offload: 0.2, leverTitle: true }),
+    mk('f', { ts: T0 + 864e5 * 7 }),
+    mk('g', { ts: T0 + 864e5 * 8 })
+  ];
+  var profile = { runLeverMarks: [
+    { id: 'a', lever: true, offload: 0.3, ts: T0, mi: 5 },
+    { id: 'e', lever: false, ts: T0 + 864e5 * 6, mi: 5 },
+    { id: 'old_f', lever: true, offload: 0.2, ts: T0 + 864e5 * 7 + 10 * 60e3, mi: 5.1 },
+    { id: 'old_g', lever: true, offload: 0.2, ts: T0 + 864e5 * 8 + 31 * 60e3, mi: 5 },
+    { lever: true }
+  ] };
+  L.annotateLever(runs, profile, [{ date: ymdT, distMi: 6.1 }]);
+  var got = runs.map(function (r) { return [r.id, r.leverSrc, r.lever, r.offload, r._mark ? r._mark.id : null]; });
+  same('sources', got, [
+    ['a', 'marked', true, 0.3, 'a'], ['b', 'title', true, null, null], ['c', 'strava', true, null, null], ['d', null, false, null, null],
+    ['e', 'unmarked', false, null, 'e'], ['f', 'marked', true, 0.2, 'old_f'], ['g', null, false, null, null]]);
+  eq('effType Lever', L.effType(runs[0]), 'Lever');
+  eq('effType otherwise the type', L.effType(runs[3]), 'Running');
+  // the doc's own offload is captured once, so a mark → unmark cycle puts it back
+  var h = [mk('h', { offload: 0.15 })];
+  L.annotateLever(h, {}, []); eq('doc offload kept', h[0].offload, 0.15);
+  L.annotateLever(h, { runLeverMarks: [{ id: 'h', lever: false }] }, []); eq('not-Lever mark clears it', h[0].offload, null);
+  L.annotateLever(h, {}, []); eq('mark removed: doc offload back', h[0].offload, 0.15);
+});
+
+section('Lever mark details: offload range, orphan matching by time and distance', function () {
+  eq('offload 0.3', L.markOffload({ offload: 0.3 }), 0.3);
+  eq('offload below 1%', L.markOffload({ offload: 0.005 }), null);
+  eq('offload above 95%', L.markOffload({ offload: 0.96 }), null);
+  eq('offload as text', L.markOffload({ offload: '0.5' }), 0.5);
+  var orphans = [{ id: 'x', ts: T0 + 20 * 60e3 }, { id: 'y', ts: T0 + 5 * 60e3 }];
+  eq('closest orphan wins', L.orphanMark(mk('r'), orphans).id, 'y');
+  eq('each orphan is used once', orphans.length, 1);
+  eq('within 30 minutes', L.orphanMark(mk('r'), [{ id: 'z', ts: T0 + 30 * 60e3 }]).id, 'z');
+  eq('past 30 minutes', L.orphanMark(mk('r'), [{ id: 'z', ts: T0 + 30 * 60e3 + 1 }]), null);
+  eq('distance off by more than 5% and 0.2 mi', L.orphanMark(mk('r', { distMi: 10 }), [{ id: 'z', ts: T0, mi: 10.6 }]), null);
+  eq('distance within 5%', L.orphanMark(mk('r', { distMi: 10 }), [{ id: 'z', ts: T0, mi: 10.4 }]).id, 'z');
+  eq('short run: 0.2 mi slack', L.orphanMark(mk('r', { distMi: 2 }), [{ id: 'z', ts: T0, mi: 2.19 }]).id, 'z');
+  eq('short run: past 0.2 mi', L.orphanMark(mk('r', { distMi: 2 }), [{ id: 'z', ts: T0, mi: 2.25 }]), null);
+});
+
+section('Runs that cannot be right are flagged; exclusions match by id or start time', function () {
+  eq('over 100 mi', L.runFlag(mk('r', { distMi: 100.1 })), 'over 100 mi');
+  eq('100 mi is allowed', L.runFlag(mk('r', { distMi: 100 })), null);
+  eq('faster than 3:30', L.runFlag(mk('r', { paceSec: 209 })), 'faster than 3:30 /mi');
+  eq('3:30 is allowed', L.runFlag(mk('r', { paceSec: 210 })), null);
+  eq('longer than 24 h', L.runFlag(mk('r', { durSec: 86401 })), 'longer than 24 h');
+  var tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(0, 1, 0, 0);
+  eq('dated ahead', L.runFlag(mk('r', { ts: tomorrow.getTime() })), 'dated ahead');
+  var late = new Date(); late.setHours(23, 59, 0, 0);
+  eq('later today is fine', L.runFlag(mk('r', { ts: late.getTime() })), null);
+  var runs = [mk('a'), mk('b', { ts: T0 + 864e5 }), mk('c', { ts: T0 + 2 * 864e5 })];
+  L.annotateExcluded(runs, { runExcluded: [{ id: 'a' }, { id: 'other', ts: T0 + 864e5 + 60e3 }, { id: 'far', ts: T0 + 2 * 864e5 + 61e3 }, { ts: T0 }] });
+  same('excluded by id, by start within 60 s, not past it', runs.map(function (r) { return r._excl; }), [true, true, false]);
+  eq('exclMatch by id', L.exclMatch({ id: 7 }, mk('7')), true);
+  eq('exclMatch by start', L.exclMatch({ id: 'q', ts: T0 - 60e3 }, mk('r')), true);
+});
+
+section('Events: legacy UTC-midnight dates read as the local day; adds are idempotent; no future injuries', function () {
+  var utcMid = Date.UTC(2026, 2, 3), local = new Date(2026, 2, 3).getTime(), noon = new Date(2026, 2, 3, 12).getTime();
+  eq('UTC midnight → local midnight of that date', L.evLocalTs(utcMid), local);
+  eq('other times unchanged', L.evLocalTs(noon), noon);
+  var raw = [{ id: '1', type: 'injury', ts: utcMid, endTs: Date.UTC(2026, 2, 9), note: 'n' }];
+  var ev = L.events({ runEvents: raw });
+  same('display copy remapped', [ev[0].ts, ev[0].endTs], [local, new Date(2026, 2, 9).getTime()]);
+  eq('stored entry untouched', raw[0].ts, utcMid);
+  same('no events', L.events({}), []);
+  var add = L.evAddFn({ id: 5, type: 'race', ts: noon });
+  eq('adds once', add([]).length, 1);
+  eq('same id (as text) not added twice', add([{ id: '5' }]).length, 1);
+  var t = new Date(); t.setDate(t.getDate() + 1);
+  eq('injury tomorrow refused', L.evFuture('injury', t), true);
+  eq('illness tomorrow refused', L.evFuture('illness', t), true);
+  eq('non-running injury tomorrow refused', L.evFuture('nonrun', t), true);
+  eq('race tomorrow allowed', L.evFuture('race', t), false);
+  eq('planned downtime tomorrow allowed', L.evFuture('timeoff', t), false);
+  var tonight = new Date(); tonight.setHours(23, 0, 0, 0);
+  eq('injury tonight allowed', L.evFuture('injury', tonight), false);
+});
+
+section('Dismissed gaps and saved filters read safely from the profile', function () {
+  same('dismissed: only entries with both dates', L.dismissedDrops({ runDismissedDrops: [{ t0: 1, t1: 2, at: 3 }, { t0: 1 }, null, { t0: 'x', t1: 2 }] }), [{ t0: 1, t1: 2, at: 3 }]);
+  eq('same dismissal needs t0, t1 and at', L.sameDis({ t0: 1, t1: 2, at: 3 }, { t0: 1, t1: 2, at: 3 }), true);
+  eq('different stamp is another dismissal', L.sameDis({ t0: 1, t1: 2, at: 4 }, { t0: 1, t1: 2, at: 3 }), false);
+  same('included: defaults', L.includedPref({}), { off: [], intensity: 'all', mindist: '0.5' });
+  same('included: stored', L.includedPref({ runIncluded: { off: ['Treadmill Running', 3], intensity: 'easy', mindist: 1.5 } }), { off: ['Treadmill Running', '3'], intensity: 'easy', mindist: '1.5' });
+  same('included: bad values fall back', L.includedPref({ runIncluded: { off: 'x', intensity: 'fast', mindist: 51 } }), { off: [], intensity: 'all', mindist: '0.5' });
+  eq('workout pace 2:59 refused', L.workoutPaceSec({ runWorkoutPaceSec: 179 }), null);
+  eq('workout pace 3:00', L.workoutPaceSec({ runWorkoutPaceSec: 180 }), 180);
+  eq('workout pace 20:01 refused', L.workoutPaceSec({ runWorkoutPaceSec: 1201 }), null);
+  eq('easy pace 3:59 refused', L.easyPaceSec({ runEasyPaceSec: 239 }), null);
+  eq('easy pace 20:00', L.easyPaceSec({ runEasyPaceSec: 1200 }), 1200);
+  eq('Lever support default 85', L.leverPct({}), 85);
+  eq('Lever support 100 refused', L.leverPct({ runLeverPctBW: 100 }), 85);
+  eq('Lever support 70', L.leverPct({ runLeverPctBW: 70 }), 70);
+  eq('offload at 70% BW', +L.offloadFrac({ runLeverPctBW: 70 }).toFixed(4), 0.3);
+  eq('weight 150 lb in kg', +L.weightKg({ weightLb: 150 }).toFixed(3), 68.039);
+  eq('no weight', L.weightKg({}), null);
+});
+
+section('Load parameters: calibrated easy pace wins, then the profile, else neutral', function () {
+  var easy = []; for (var i = 0; i < 12; i++) easy.push(mk('e' + i, { ts: T0 - i * 864e5, paceSec: 560 + i }));
+  var p = L.computeLoadParams(easy, { runEasyPaceSec: 500, runLeverPctBW: 80 }, 400);
+  same('calibrated', [p.basePaceSource, p.basePaceSec != null && p.basePaceSec !== 500, p.useGrade, +p.offload.toFixed(4)], ['calibrated', true, true, 0.2]);
+  p = L.computeLoadParams([], { runEasyPaceSec: 500 }, 400);
+  same('profile', [p.basePaceSource, p.basePaceSec, +p.offload.toFixed(4)], ['profile', 500, 0.15]);
+  p = L.computeLoadParams([], {}, 400);
+  same('neutral', [p.basePaceSource, p.basePaceSec], [null, null]);
+  same('intensity filter', [L.filterIntensity([mk('w', { paceSec: 399 }), mk('e', { paceSec: 400 }), mk('n', { paceSec: null })], 'workout', 400).length,
+    L.filterIntensity([mk('w', { paceSec: 399 }), mk('e', { paceSec: 400 }), mk('n', { paceSec: null })], 'easy', 400).length,
+    L.filterIntensity([1, 2, 3], 'all', 400).length], [1, 1, 3]);
+});
+
+section('Dates and numbers: local days, human spans, freshness wording', function () {
+  eq('bare date is local midnight', L.parseDate('2026-03-08').getTime(), new Date(2026, 2, 8).getTime());
+  eq('date with time', L.parseDate('2026-03-08 07:30').getTime(), new Date(2026, 2, 8, 7, 30).getTime());
+  eq('empty', L.parseDate(''), null);
+  eq('garbage', L.parseDate('soon'), null);
+  eq('ymd local', L.ymd(new Date(2026, 0, 5, 23, 30)), '2026-01-05');
+  eq('dayEnd', L.dayEnd(new Date(2026, 0, 5, 8)).getTime(), new Date(2026, 0, 5, 23, 59, 59, 999).getTime());
+  eq('fmtDay', L.fmtDay(new Date(2025, 7, 10, 9).getTime()), 'Aug 10, 2025');
+  eq('span: one day', L.fmtSpan(new Date(2025, 7, 10, 9).getTime(), new Date(2025, 7, 10, 18).getTime()), 'Aug 10, 2025');
+  eq('span: same month', L.fmtSpan(new Date(2025, 7, 10).getTime(), new Date(2025, 7, 28).getTime()), 'Aug 10 – 28, 2025');
+  eq('span: two months', L.fmtSpan(new Date(2026, 2, 3).getTime(), new Date(2026, 3, 20).getTime()), 'Mar 3 – Apr 20, 2026');
+  eq('span: two years', L.fmtSpan(new Date(2025, 11, 25).getTime(), new Date(2026, 0, 3).getTime()), 'Dec 25, 2025 – Jan 3, 2026');
+  eq('span: open end', L.fmtSpan(new Date(2025, 7, 10).getTime(), null), 'Aug 10, 2025');
+  eq('clock past midnight', L.fmtClock(new Date(2026, 0, 1, 0, 5).getTime()), '12:05 AM');
+  eq('clock afternoon', L.fmtClock(new Date(2026, 0, 1, 13, 7).getTime()), '1:07 PM');
+  var now = new Date(), at = function (d, h) { var x = new Date(now); x.setDate(x.getDate() + d); x.setHours(h, 15, 0, 0); return x.getTime(); };
+  eq('today', L.fmtRel(at(0, 6)), 'today 6:15 AM');
+  eq('yesterday', L.fmtRel(at(-1, 6)), 'yesterday');
+  eq('days ago', L.fmtRel(at(-5, 6)), '5 days ago (' + L.fmtMD(at(-5, 6)) + ')');
+  eq('dated ahead', L.fmtRel(at(1, 6)), 'in 1 day (' + L.fmtMD(at(1, 6)) + ') — check the watch clock');
+  eq('daysAgo', L.daysAgo(at(-3, 23)), 3);
+  eq('fmtMD this year has no year', L.fmtMD(new Date(now.getFullYear(), 0, 9).getTime()), 'Jan 9');
+  eq('fmtMD other year', L.fmtMD(new Date(2019, 0, 9).getTime()), 'Jan 9, 2019');
+  eq('pace text', L.hmsToSec('6:40'), 400);
+  eq('h:mm:ss', L.hmsToSec('1:02:03'), 3723);
+  eq('no pace', L.hmsToSec('--'), null);
+  eq('number with commas', L.num('1,234.5'), 1234.5);
+  eq('dash is no number', L.num('--'), null);
+  eq('norm', L.norm('Treadmill Running'), 'treadmillrunning');
+  eq('fmtPace', L.fmtPace(479.6), '8:00');
+  eq('fmtDur', L.fmtDur(3599), '1h 0m');
+  eq('canonJSON ignores key order and undefined', L.canonJSON([{ b: 1, a: [2, { d: 1, c: undefined }] }]), L.canonJSON([{ a: [2, { d: 1 }], b: 1 }]));
+});
+
+section('Strava sync: the athlete, or the real admin acting as them; never a coach', function () {
+  same('no act-as layer: the athlete', L.syncActor('ath', null), { real: 'ath', admin: false, canSync: true });
+  same('the athlete signed in', L.syncActor('ath', { realUser: { uid: 'ath' }, ADMIN_UID: 'adm' }), { real: 'ath', admin: false, canSync: true });
+  same('admin acting as the athlete', L.syncActor('ath', { realUser: { uid: 'adm' }, ADMIN_UID: 'adm' }), { real: 'adm', admin: true, canSync: true });
+  same('a coach', L.syncActor('ath', { realUser: { uid: 'coach' }, ADMIN_UID: 'adm' }), { real: 'coach', admin: false, canSync: false });
+  same('signed out', L.syncActor('ath', { realUser: null, ADMIN_UID: 'adm' }), { real: null, admin: false, canSync: false });
+});
+
 console.log('\n' + checks + ' checks, ' + failures + ' failed');
 if (failures) process.exit(1);
