@@ -7,25 +7,14 @@
 //
 //   node shared/run-dynamics-archive.test.js
 //
-// run-dynamics.js is a browser IIFE that exposes only window.RunDynamics, so
-// fitArchiveRuns and corosErrMsg are lifted out of its source text and
-// evaluated alone. JSZip and the FIT parser are stand-ins: an archive is a
-// map of path → file, and a file's "bytes" are the made-up runs it holds.
+// The import code lives in run-dynamics-data.js, which node can require.
+// JSZip and the FIT parser are stand-ins: an archive is a map of path → file,
+// and a file's "bytes" are the made-up runs it holds.
 // ════════════════════════════════════════════════════════════════
 'use strict';
 var fs = require('fs'), vm = require('vm'), path = require('path');
 
-var src = fs.readFileSync(path.join(__dirname, 'run-dynamics.js'), 'utf8');
-function lift(name) {
-  var a = src.indexOf('function ' + name + '(');
-  if (a < 0) throw new Error(name + ' not found in run-dynamics.js');
-  var b = src.indexOf('\n}\n', a);
-  return src.slice(a, b + 2);
-}
-var lib = vm.runInNewContext([lift('fitFileType'), lift('fitArchiveRuns'), lift('corosErrMsg'),
-  lift('norm'), lift('fitNum'), lift('fitPos'), lift('runFromFitSession')].join('\n') +
-  '; ({ fitFileType: fitFileType, fitArchiveRuns: fitArchiveRuns, corosErrMsg: corosErrMsg, runFromFitSession: runFromFitSession })',
-  { Uint8Array: Uint8Array, Date: Date, Math: Math, String: String, isFinite: isFinite });
+var lib = require('./run-dynamics-data.js');   // RunData: the FIT and .zip import lives in the data module
 
 var failures = 0, checks = 0;
 function eq(label, got, want) {

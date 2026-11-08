@@ -5,18 +5,12 @@
 //
 //   node shared/run-dynamics-format.test.js
 //
-// run-dynamics.js is a browser IIFE that exposes only window.RunDynamics, so
-// fmtPace and fmtDur are lifted out of its source text and evaluated alone.
+// fmtPace and fmtDur live in run-dynamics-data.js, which node can require.
 // ════════════════════════════════════════════════════════════════
 'use strict';
 var fs = require('fs'), vm = require('vm'), path = require('path');
 
-var src = fs.readFileSync(path.join(__dirname, 'run-dynamics.js'), 'utf8');
-var start = src.indexOf('function fmtPace(');
-var durStart = src.indexOf('function fmtDur(');
-if (start < 0 || durStart < start) throw new Error('fmtPace/fmtDur not found in run-dynamics.js');
-var end = src.indexOf('\n', durStart);
-var lib = vm.runInNewContext(src.slice(start, end) + '; ({ fmtPace: fmtPace, fmtDur: fmtDur })', { Math: Math, String: String });
+var lib = require('./run-dynamics-data.js');   // RunData: the formatters live in the data module
 
 var failures = 0, checks = 0;
 function eq(label, got, want) {

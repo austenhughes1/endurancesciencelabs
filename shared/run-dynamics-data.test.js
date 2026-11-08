@@ -875,51 +875,22 @@ section('every demo scenario has a preset', function () {
 
 
 // ── Run notes, selection, events and formats ──
-// L is the same small API over whichever file holds these functions. Each adapter takes the
-// state as arguments (runs, profile, Strava Lever titles), so a test never depends on where the
-// state lives.
+// L passes the state each function reads (runs, profile, Strava Lever titles) as arguments, so a
+// test reads as input → output while the module keeps that state in RunData.S.
 var L = (function () {
-  var src = fs.readFileSync(path.join(__dirname, 'run-dynamics.js'), 'utf8');
-  function liftFn(name) {
-    var at = src.indexOf('\nfunction ' + name + '(');
-    if (at < 0) throw new Error(name + ' not found in run-dynamics.js');
-    at++;
-    var depth = 0;
-    for (var i = src.indexOf('{', at); i < src.length; i++) {
-      if (src[i] === '{') depth++;
-      else if (src[i] === '}' && --depth === 0) return src.slice(at, i + 1);
-    }
-    throw new Error(name + ': unbalanced braces');
-  }
-  var names = ['norm', 'num', 'hmsToSec', 'parseDate', 'ymd', 'dayEnd', 'daysAgo', 'fmtPace', 'fmtDur', 'fmtDay', 'fmtSpan', 'fmtMD',
-    'fmtClock', 'fmtRel', 'canonJSON', 'filterIntensity', 'leverMarkList', 'markOffload', 'orphanMark', 'annotateLever', 'stravaLever',
-    'effType', 'exclList', 'runFlag', 'annotateExcluded', 'exclMatch', 'easyPaceSec', 'computeLoadParams', 'offloadFrac', 'leverPct',
-    'weightKg', 'evLocalTs', 'events', 'evAddFn', 'evFuture', 'dismissedDrops', 'sameDis', 'workoutPaceSec', 'includedPref', 'syncActor'];
-  var c = { RunLoad: win.RunLoad, Math: Math, Date: Date, Set: Set, Map: Map, Object: Object, Array: Array, String: String, JSON: JSON,
-    parseFloat: parseFloat, isFinite: isFinite, isNaN: isNaN, DAY: 864e5,
-    MONTHS: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-    FILTER_DEFAULTS: { intensity: 'all', cutoff: '6:40', mindist: '0.5' }, EV_NO_FUTURE: { injury: 1, illness: 1, nonrun: 1 },
-    RAW: [], STD_PROFILE: {}, STRAVA_LEVER: [], UID: null, window: {} };
-  vm.createContext(c);
-  vm.runInContext(names.map(liftFn).join('\n'), c);
-  var withProfile = function (fn) { return function (profile) { c.STD_PROFILE = profile || {}; return c[fn](); }; };
-  return {
-    norm: c.norm, num: c.num, hmsToSec: c.hmsToSec, parseDate: c.parseDate, ymd: c.ymd, dayEnd: c.dayEnd, daysAgo: c.daysAgo,
-    fmtPace: c.fmtPace, fmtDur: c.fmtDur, fmtDay: c.fmtDay, fmtSpan: c.fmtSpan, fmtMD: c.fmtMD, fmtClock: c.fmtClock, fmtRel: c.fmtRel,
-    canonJSON: c.canonJSON, filterIntensity: c.filterIntensity, markOffload: c.markOffload, orphanMark: c.orphanMark,
-    effType: c.effType, runFlag: c.runFlag, exclMatch: c.exclMatch, evLocalTs: c.evLocalTs, evAddFn: c.evAddFn, evFuture: c.evFuture,
-    sameDis: c.sameDis,
-    annotateLever: function (runs, profile, lever) { c.RAW = runs; c.STD_PROFILE = profile || {}; c.STRAVA_LEVER = lever || []; c.annotateLever(); },
-    annotateExcluded: function (runs, profile) { c.RAW = runs; c.STD_PROFILE = profile || {}; c.annotateExcluded(); },
-    computeLoadParams: function (runs, profile, cutoff) {
-      c.STD_PROFILE = profile || {}; c.loadRuns = function () { return runs; }; c.intensityState = function () { return { mode: 'all', cutoff: cutoff }; };
-      return c.computeLoadParams();
-    },
-    events: withProfile('events'), dismissedDrops: withProfile('dismissedDrops'), includedPref: withProfile('includedPref'),
-    workoutPaceSec: withProfile('workoutPaceSec'), easyPaceSec: withProfile('easyPaceSec'), leverPct: withProfile('leverPct'),
-    offloadFrac: withProfile('offloadFrac'), weightKg: withProfile('weightKg'),
-    syncActor: function (uid, esLabs) { c.UID = uid; c.window = esLabs ? { esLabs: esLabs } : {}; return c.syncActor(); }
-  };
+  var S = D.S;
+  var withProfile = function (fn) { return function (profile) { S.profile = profile || {}; return D[fn](); }; };
+  var out = {};
+  ['norm', 'num', 'hmsToSec', 'parseDate', 'ymd', 'dayEnd', 'daysAgo', 'fmtPace', 'fmtDur', 'fmtDay', 'fmtSpan', 'fmtMD', 'fmtClock', 'fmtRel',
+    'canonJSON', 'filterIntensity', 'markOffload', 'orphanMark', 'effType', 'runFlag', 'exclMatch', 'evLocalTs', 'evAddFn', 'evFuture', 'sameDis']
+    .forEach(function (n) { out[n] = D[n]; });
+  ['events', 'dismissedDrops', 'includedPref', 'workoutPaceSec', 'easyPaceSec', 'leverPct', 'offloadFrac', 'weightKg']
+    .forEach(function (n) { out[n] = withProfile(n); });
+  out.annotateLever = function (runs, profile, lever) { S.profile = profile || {}; S.stravaLever = lever || []; D.annotateLever(runs); };
+  out.annotateExcluded = function (runs, profile) { S.profile = profile || {}; D.annotateExcluded(runs); };
+  out.computeLoadParams = function (runs, profile, cutoff) { S.profile = profile || {}; return D.computeLoadParams(runs, cutoff); };
+  out.syncActor = function (uid, esLabs) { S.uid = uid; if (esLabs) win.esLabs = esLabs; else delete win.esLabs; return D.syncActor(); };
+  return out;
 })();
 function same(label, got, want) { eq(label, JSON.stringify(got), JSON.stringify(want)); }
 var T0 = new Date(2026, 5, 10, 7, 0).getTime();   // made-up run start, local time

@@ -122,12 +122,7 @@ section('hasActivityExport', function () {
 });
 
 section('FIT conversions match the browser importer (runFromFitSession)', function () {
-  var src = fs.readFileSync(path.join(__dirname, '..', 'shared', 'run-dynamics.js'), 'utf8');
-  var n0 = src.indexOf('function norm('), n1 = src.indexOf('\n', n0);
-  var a = src.indexOf('function fitNum('), b = src.indexOf('/* Parse one .fit ArrayBuffer');
-  if (n0 < 0 || a < 0 || b < a) throw new Error('browser FIT helpers not found in run-dynamics.js');
-  var browser = vm.runInNewContext(src.slice(n0, n1) + '\n' + src.slice(a, b) + '; ({ runFromFitSession: runFromFitSession })',
-    { Math: Math, String: String, Date: Date, isFinite: isFinite, isNaN: isNaN });
+  var browser = require('../shared/run-dynamics-data.js');   // RunData: the browser importer's FIT mapping
   var want = browser.runFromFitSession(SESSION), got = lib.dynamicsFromFitSession(SESSION);
   eq('browser reads parsed cadence too', want.cadence, 171);
   ['aerobicTE', 'cadence', 'stride', 'vratio', 'vo', 'gct', 'gctBalL', 'ascentM', 'descentM', 'steps'].forEach(function (k) {

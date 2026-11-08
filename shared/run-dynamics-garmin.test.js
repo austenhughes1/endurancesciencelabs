@@ -7,9 +7,10 @@
 //
 //   node shared/run-dynamics-garmin.test.js
 //
-// run-dynamics.js is a browser IIFE that exposes only window.RunDynamics, so
-// the functions under test are lifted out of its source text and evaluated
-// alone (the run store against an in-memory Firestore). All runs are made up.
+// The credit line lives in the view (run-dynamics.js, a browser IIFE), so it
+// is lifted out of its source text. The run store lives in
+// run-dynamics-data.js and runs against an in-memory Firestore. All runs are
+// made up.
 // ════════════════════════════════════════════════════════════════
 'use strict';
 var fs = require('fs'), vm = require('vm'), path = require('path');
@@ -101,17 +102,6 @@ section('Data & settings template: credit mounts where each view of the panel op
 });
 
 // ── Uploads and notes against Garmin runs, on an in-memory Firestore ──
-// backfill and updateProfileList span many lines, so these are lifted by matching braces.
-function liftFn(name) {
-  var at = src.indexOf('function ' + name + '(');
-  if (at < 0) throw new Error(name + ' not found in run-dynamics.js');
-  var depth = 0;
-  for (var i = src.indexOf('{', at); i < src.length; i++) {
-    if (src[i] === '{') depth++;
-    else if (src[i] === '}' && --depth === 0) return src.slice(at, i + 1);
-  }
-  throw new Error(name + ': unbalanced braces');
-}
 function same(label, got, want) { eq(label, JSON.stringify(got), JSON.stringify(want)); }
 
 // docs: full path -> data. Transactions apply their writes when the callback is done.
@@ -155,13 +145,15 @@ function fakeDb(docs) {
     },
   };
 }
-// The run-store code of run-dynamics.js, mounted for athlete u-a with profile.
+// The run store (run-dynamics-data.js), opened for athlete u-a with profile, in a fresh context so
+// each test starts with an empty write queue and cache.
 function store(docs, profile) {
-  var ctx = { DB: fakeDb(docs), UID: 'u-a', MOUNT: 1, LIST_Q: {}, STD_PROFILE: profile,
-    toast: function () {}, profileBlocked: function () { return null; }, canonJSON: JSON.stringify };
-  vm.runInNewContext([lift('actCol'), lift('sameRunSpan'), liftFn('backfill'), liftFn('moveRunNotes'),
-    liftFn('updateProfileList'), liftFn('goneGarminRuns')].join('\n'), ctx);
-  return ctx;
+  var win = {};
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, 'run-dynamics-data.js'), 'utf8'), { window: win, console: { log: function () {}, warn: function () {}, error: function () {} } });   // failed writes log; keep the output clean
+  var D = win.RunData, db = fakeDb(docs);
+  D.open({ db: db, uid: 'u-a', notify: function () {} });
+  D.S.profile = profile;
+  return { DB: db, backfill: D.backfill, updateProfileList: D.updateProfileList, get STD_PROFILE() { return D.S.profile; } };
 }
 var ACT = 'users/u-a/garminActivities/';
 var T = 1792500000000;   // made-up start time
