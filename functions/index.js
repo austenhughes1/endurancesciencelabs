@@ -1835,3 +1835,5 @@ exports.adminDeleteUser = onCall({ cors: true, timeoutSeconds: 300 }, async (req
   };
 });
 Object.assign(exports, garmin);
+// Claude's read path to the Garmin series (functions/es-mcp.js).
+exports.esMcp = require("./es-mcp").esMcp;

@@ -117,6 +117,14 @@ service cloud.firestore {
                                || get(/databases/$(database)/documents/users/$(userId)).data.coachUid == request.auth.uid);
       }
 
+      // ── Garmin series (functions/garmin-series.js) ──────────
+      // Compact per-activity record series for the accounts in
+      // GARMIN_SERIES_UIDS, written by the Garmin inbox worker and read by
+      // esMcp (admin SDK only). No client access, not even the athlete's.
+      match /garminSeries/{activityId} {
+        allow read, write: if false;
+      }
+
       // ── Private data (Strava tokens etc) ────────────────────
       // Only Cloud Functions (admin SDK) can access — never the client.
       match /private/{docId} {

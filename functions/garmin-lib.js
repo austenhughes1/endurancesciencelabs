@@ -117,6 +117,20 @@ function hasActivityExport(body) {
   return !!(body && Array.isArray(body.permissions) && body.permissions.includes("ACTIVITY_EXPORT"));
 }
 
+// Constant-time comparison of a presented secret with the configured one.
+function sameSecret(a, b) {
+  const x = Buffer.from(String(a)), y = Buffer.from(String(b));
+  return x.length === y.length && crypto.timingSafeEqual(x, y);
+}
+
+// The last segment of a request path: the key in keyed URLs such as
+// .../garminPush/<key> and .../esMcp/<key>. Garmin's endpoint form drops query
+// strings, and the function name may or may not still be on the path.
+function lastPathSegment(p) {
+  const parts = String(p || "").split("/").filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : "";
+}
+
 // Same run recorded twice: start->end spans overlap, with a minute of slack.
 function sameRunSpan(aTs, aDur, bTs, bDur) {
   const slack = 60000;
@@ -125,5 +139,6 @@ function sameRunSpan(aTs, aDur, bTs, bDur) {
 
 module.exports = {
   runTypeFor, challengeFor, pkcePair, runDocFromSummary, dynamicsFromFitSession,
-  runDocFromFile, definedOnly, hasActivityExport, sameRunSpan,
+  runDocFromFile, definedOnly, hasActivityExport, sameRunSpan, sameSecret, lastPathSegment,
+  cleanDevice, summaryCadence,
 };

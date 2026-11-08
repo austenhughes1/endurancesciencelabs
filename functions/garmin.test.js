@@ -79,6 +79,8 @@ function Query(collPath, filters, lim) { this.collPath = collPath; this.filters 
 Query.prototype.doc = function (id) { return new DocRef(this.collPath + '/' + (id || 'auto' + (++autoId))); };
 Query.prototype.where = function (f, op, v) { return new Query(this.collPath, this.filters.concat([[f, op, v]]), this.lim); };
 Query.prototype.limit = function (n) { return new Query(this.collPath, this.filters, n); };
+// A projection; the stand-in returns whole docs, which reading code can't tell apart.
+Query.prototype.select = function () { return this; };
 Query.prototype.get = function () {
   var self = this, docs = [];
   store.forEach(function (d, p) {
@@ -619,8 +621,8 @@ section('endGarminLinkForDeletion tells Garmin and frees the mapping', async fun
 // A made-up FIT file: one session message per entry, each field given as
 // [field number, base type, raw value].
 var FIT_EPOCH_S = 631065600; // FIT time zero, 1989-12-31T00:00:00Z, in Unix seconds
-var ENUM = 0x00, U8 = 0x02, U16 = 0x84, U32 = 0x86;
-var FIT_SIZE = { 0: 1, 2: 1, 132: 2, 134: 4 };
+var ENUM = 0x00, U8 = 0x02, U16 = 0x84, S32 = 0x85, U32 = 0x86;
+var FIT_SIZE = { 0: 1, 2: 1, 132: 2, 133: 4, 134: 4 };
 function fitCrc(bytes) {
   var T = [0x0000, 0xCC01, 0xD801, 0x1400, 0xF001, 0x3C00, 0x2800, 0xE401, 0xA001, 0x6C00, 0x7800, 0xB401, 0x5000, 0x9C01, 0x8801, 0x4400];
   var crc = 0;
@@ -631,9 +633,14 @@ function fitCrc(bytes) {
   return crc;
 }
 function fitFile(sessions) {
+  return fitFileOf(sessions.map(function (fields) { return { global: 18, fields: fields }; }));
+}
+// As fitFile, for any messages: each { global: message number, fields }.
+function fitFileOf(messages) {
   var data = [];
-  sessions.forEach(function (fields) {
-    data.push(0x40, 0, 0, 18, 0, fields.length); // definition: local 0, little endian, global 18 (session)
+  messages.forEach(function (m) {
+    var fields = m.fields;
+    data.push(0x40, 0, 0, m.global, 0, fields.length); // definition: local 0, little endian
     fields.forEach(function (f) { data.push(f[0], FIT_SIZE[f[1]], f[1]); });
     data.push(0x00); // data message, local 0
     fields.forEach(function (f) { for (var i = 0; i < FIT_SIZE[f[1]]; i++) data.push((f[2] >>> (8 * i)) & 0xFF); });
@@ -1951,6 +1958,225 @@ section('refreshGarminTokens: a renewal Garmin never answers does not stop the r
   eq('the stalled one logged with the uid', logged.some(function (l) { return /refreshGarminTokens: uid u-[ab] failed: .*timeout/.test(l); }), true);
   eq('count logged', logged.some(function (l) { return /renewed 1 of 2/.test(l); }), true);
   eq('the daily job has time for requests that time out', scheduleOpts.timeoutSeconds >= 300, true);
+});
+
+// ── Series for the accounts in GARMIN_SERIES_UIDS ────────────────
+
+// Runs fn with GARMIN_SERIES_UIDS set to v, then puts it back.
+async function withSeriesUids(v, fn) {
+  var old = process.env.GARMIN_SERIES_UIDS;
+  process.env.GARMIN_SERIES_UIDS = v;
+  try { await fn(); } finally {
+    if (old === undefined) delete process.env.GARMIN_SERIES_UIDS; else process.env.GARMIN_SERIES_UIDS = old;
+  }
+}
+// Counts garminUsers queries made while fn runs.
+async function countingGarminUsersQueries(fn) {
+  var realGet = Query.prototype.get, n = 0;
+  Query.prototype.get = function () { if (this.collPath === 'garminUsers') n++; return realGet.apply(this, arguments); };
+  try { await fn(); } finally { Query.prototype.get = realGet; }
+  return n;
+}
+function seriesIds(uid) {
+  var out = [];
+  store.forEach(function (d, p) { if (p.indexOf('users/' + uid + '/garminSeries/') === 0) out.push(p.slice(p.lastIndexOf('/') + 1)); });
+  return out.sort();
+}
+// u-a (g-111) as linked() leaves it, and u-s (g-s), the account listed in
+// GARMIN_SERIES_UIDS.
+function linkedWithSeries() { linked(); seedUser('u-s'); seedLink('u-s', 'g-s'); }
+
+var RIDE_SUMMARY = copy(SUMMARY, { userId: 'g-s', summaryId: 'S-9101', activityId: 9101, activityName: 'Made-up ride', activityType: 'ROAD_BIKING', averageRunCadenceInStepsPerMinute: undefined });
+var SWIM_SUMMARY = copy(SUMMARY, { userId: 'g-s', summaryId: 'S-9102', activityId: 9102, activityName: 'Made-up swim', activityType: 'LAP_SWIMMING' });
+var RIDE_URL = 'https://files.example.test/activity-file?id=9101&token=tok-secret-9101';
+var S_RUN_URL = 'https://files.example.test/activity-file?id=9001s&token=tok-secret-9001s';
+var RIDE_FILE = copy(FILE_ITEM, { userId: 'g-s', summaryId: 'F-9101', activityId: 9101, activityType: 'ROAD_BIKING', activityName: 'Made-up ride', callbackURL: RIDE_URL });
+var S_RUN_FILE = copy(FILE_ITEM, { userId: 'g-s', callbackURL: S_RUN_URL });
+
+// A made-up record message t seconds after the run's start. Raw FIT values:
+// speed mm/s, altitude (m + 500) x 5, fractional cadence /128, running
+// dynamics x10 (mm, ms) and x100 (percent). It carries a GPS position, which
+// must never reach a stored doc.
+var FIT_T0 = 1800000000 - FIT_EPOCH_S;
+function recordMsg(t, v) {
+  return { global: 20, fields: [
+    [253, U32, FIT_T0 + t],               // timestamp
+    [0, S32, 477000000], [1, S32, -1250000000], // position_lat / position_long
+    [2, U16, (v.alt + 500) * 5],          // altitude
+    [3, U8, v.hr],                        // heart_rate
+    [4, U8, v.cad], [53, U8, 64],         // cadence per leg + 0.5
+    [6, U16, v.speed],                    // speed mm/s
+    [7, U16, v.power],                    // power W
+    [39, U16, v.vo * 10],                 // vertical_oscillation mm
+    [41, U16, v.gct * 10],                // stance_time ms
+    [84, U16, v.bal * 100],               // stance_time_balance %
+    [85, U16, v.step * 10],               // step_length mm
+  ] };
+}
+// Ten seconds of 1 Hz records, two 5 s bins, and one lap.
+function runFitWithRecords() {
+  var msgs = [];
+  for (var t = 0; t < 10; t++) {
+    msgs.push(recordMsg(t, { alt: 1600 + t, hr: 150 + t, cad: 86, speed: 3300 + 10 * t, power: 300 + t, vo: 80 + t, gct: 240 + t, bal: 49 + (t < 5 ? 0 : 2), step: 1200 + t }));
+  }
+  msgs.push({ global: 19, fields: [[253, U32, FIT_T0 + 10], [2, U32, FIT_T0], [7, U32, 10000], [8, U32, 10000], [9, U32, 3345], [13, U16, 3345], [15, U8, 154], [19, U16, 304]] });
+  msgs.push({ global: 18, fields: RUN_SESSION });
+  return fitFileOf(msgs);
+}
+function rideFitWithRecords() {
+  var msgs = [];
+  for (var t = 0; t < 5; t++) msgs.push({ global: 20, fields: [[253, U32, FIT_T0 + t], [3, U8, 130], [4, U8, 90], [6, U16, 9000], [7, U16, 250 + 10 * t]] });
+  msgs.push({ global: 18, fields: [[2, U32, FIT_T0], [5, ENUM, 2], [8, U32, 5000], [16, U8, 130], [20, U16, 270], [34, U16, 275]] });
+  return fitFileOf(msgs);
+}
+
+section('garminPush queues non-run activities only for the accounts in GARMIN_SERIES_UIDS', async function () {
+  linkedWithSeries();
+  var body = {
+    activities: [SUMMARY, copy(SUMMARY, { activityId: 9002, activityType: 'CYCLING' }), RIDE_SUMMARY, SWIM_SUMMARY],
+    activityFiles: [RIDE_FILE, copy(FILE_ITEM, { activityId: 9002, activityType: 'CYCLING' })],
+  };
+  var lookups;
+  await withSeriesUids('u-s', async function () {
+    lookups = await countingGarminUsersQueries(async function () { eq('answers 200', (await push(body)).code, 200); });
+  });
+  var ids = inbox().map(function (x) { return x.kind + ':' + x.item.userId + ':' + x.item.activityId; }).sort();
+  eq("the listed account's ride and swim, and every run", ids,
+    ['activities:g-111:9001', 'activities:g-s:9101', 'activities:g-s:9102', 'activityFiles:g-s:9101']);
+  eq('garminUsers read once for the whole push', lookups, 1);
+
+  reset(); linkedWithSeries();
+  await withSeriesUids('u-s', async function () {
+    lookups = await countingGarminUsersQueries(async function () { await push({ activities: [SUMMARY, copy(SUMMARY, { userId: 'g-s' })] }); });
+  });
+  eq('a push of runs only reads nothing', [lookups, inbox().length], [0, 2]);
+
+  reset(); linkedWithSeries();
+  lookups = await countingGarminUsersQueries(async function () { await push({ activities: [RIDE_SUMMARY] }); });
+  eq('GARMIN_SERIES_UIDS unset: rides dropped as before, nothing read', [inbox().length, lookups], [0, 0]);
+
+  reset(); seedUser('u-s');
+  await withSeriesUids('u-s', async function () { await push({ activities: [RIDE_SUMMARY] }); });
+  eq('a listed account with no Garmin link: dropped', inbox().length, 0);
+
+  linkedWithSeries();
+  var realGet = Query.prototype.get, res;
+  Query.prototype.get = function () { if (this.collPath === 'garminUsers') return Promise.reject(new Error('backend down')); return realGet.apply(this, arguments); };
+  try {
+    await withSeriesUids('u-s', async function () { res = await push({ activities: [RIDE_SUMMARY] }); });
+  } finally { Query.prototype.get = realGet; }
+  eq('the lookup failing: an error, so Garmin sends it again', [res.code, inbox().length], [503, 0]);
+});
+
+fitSection('a run file keeps a 5 s series for a listed account only, from the real FIT parser', async function () {
+  linkedWithSeries();
+  garmin.files[FILE_URL] = runFitWithRecords();
+  garmin.files[S_RUN_URL] = runFitWithRecords();
+  await withSeriesUids('u-s', async function () {
+    await push({ activityFiles: [FILE_ITEM, S_RUN_FILE] }); await work();
+  });
+  eq('each file downloaded once', calls, ['GET file', 'GET file']);
+  eq('both runs land as before', [runIds('u-a'), runIds('u-s')], [['garmin_9001'], ['garmin_9001']]);
+  eq('the run doc is unchanged by the series', doc('users/u-s/garminActivities/garmin_9001').gct, 245);
+  eq('no series for an account not listed', seriesIds('u-a'), []);
+  eq('a series for the listed one', seriesIds('u-s'), ['9001']);
+  var d = doc('users/u-s/garminSeries/9001');
+  eq('identity', [d.activityId, d.sport, d.subType, d.title, d.deviceName, d.startTs], ['9001', 'running', 'running', 'Easy run', 'Forerunner 965', T0]);
+  eq('step and n', [d.step, d.n], [5, 2]);
+  eq('hr', d.series.hr, [152, 157]);
+  eq('speed cm/s', d.series.speed, [332, 337]);
+  eq('power W', d.series.power, [302, 307]);
+  eq('cadence per leg + 0.5, doubled', d.series.cadence, [173, 173]);
+  eq('alt dm, last in the bin', d.series.alt, [16040, 16090]);
+  eq('gct ms', d.series.gct, [242, 247]);
+  eq('vo mm', d.series.vo, [82, 87]);
+  eq('step length mm', d.series.stepLen, [1202, 1207]);
+  eq('gct balance x100', d.series.gctBalL, [4900, 5100]);
+  eq('lap', d.laps, [{ startSec: 0, durSec: 10, distM: 33.5, avgHr: 154, avgSpeedCms: 335, avgPower: 304 }]);
+  eq('session from the FIT', [d.session.avgHr, d.session.maxHr, d.session.avgCadence, d.session.avgGct, d.session.avgVo, d.session.avgStepLen, d.session.avgVratio, d.session.avgGctBalL, d.session.aerobicTE],
+    [150, 171, 173, 245, 85, 1200, 7.5, 49.8, 3.2]);
+  eq('duration and distance from the session', [d.durSec, d.distM], [2400, 8046.7]);
+  eq('what the FIT lacks is null', [d.session.avgPower, d.session.normPower, d.session.trainingLoad], [null, null, null]);
+  eq('stamped and marked', [d.createdAt instanceof Timestamp, d.fromFile], [true, true]);
+  eq('no GPS position anywhere in it', /position|lat|long/i.test(JSON.stringify(d)), false);
+  eq('inbox drained', inbox().length, 0);
+});
+
+fitSection("a listed account's ride lands as a series doc, not a run", async function () {
+  linkedWithSeries();
+  garmin.files[RIDE_URL] = rideFitWithRecords();
+  await withSeriesUids('u-s', async function () { await push({ activityFiles: [RIDE_FILE] }); await work(); });
+  eq('no run', runIds('u-s'), []);
+  var d = doc('users/u-s/garminSeries/9101');
+  eq('a ride', [d.sport, d.subType, d.title], ['cycling', 'road_biking', 'Made-up ride']);
+  eq('cadence rpm, not doubled', d.series.cadence, [90]);
+  eq('power and speed', [d.series.power, d.series.speed], [[270], [900]]);
+  eq('session power', [d.session.avgPower, d.session.normPower], [270, 275]);
+  eq('no running dynamics', [d.series.gct, d.series.vo], [[null], [null]]);
+});
+
+section("a listed account's summary for a ride or swim makes a series doc with no series", async function () {
+  linkedWithSeries();
+  await withSeriesUids('u-s', async function () { await push({ activities: [RIDE_SUMMARY, SWIM_SUMMARY, copy(SUMMARY, { userId: 'g-s' })] }); await work(); });
+  eq('the run lands as a run', runIds('u-s'), ['garmin_9001']);
+  eq('every activity has a series doc', seriesIds('u-s'), ['9001', '9101', '9102']);
+  var d = doc('users/u-s/garminSeries/9102');
+  eq('swim from the summary', [d.sport, d.durSec, d.distM, d.session.avgHr, d.fromFile], ['swimming', 2400, 8046.7, 150, false]);
+  eq('no series until the file lands', [d.series, d.n], [undefined, undefined]);
+  eq('run cadence from the summary, doubled', doc('users/u-s/garminSeries/9001').session.avgCadence, 172);
+});
+
+fitSection("a summary never overwrites a series doc's file values, in either order", async function () {
+  var nameless = copy(S_RUN_FILE, { activityName: undefined });
+  var lateSummary = copy(LATE_SUMMARY, { userId: 'g-s', activityName: 'Lever session' });
+  var orders = { 'summary first': [lateSummary, nameless], 'file first': [nameless, lateSummary], 'at the same moment': null };
+  for (var name in orders) {
+    linkedWithSeries();
+    garmin.files[S_RUN_URL] = runFitWithRecords();
+    await withSeriesUids('u-s', async function () {
+      if (orders[name]) {
+        for (var i = 0; i < 2; i++) {
+          var it = orders[name][i];
+          await push(it.callbackURL ? { activityFiles: [it] } : { activities: [it] });
+          await work();
+        }
+      } else {
+        await push({ activities: [lateSummary] }); await push({ activityFiles: [nameless] });
+        await work();
+      }
+    });
+    var d = doc('users/u-s/garminSeries/9001');
+    eq(name + ": file's duration, heart rate and cadence", [d.durSec, d.session.avgHr, d.session.avgCadence], [2400, 150, 173]);
+    eq(name + ': series from the file', [d.step, d.n], [5, 2]);
+    eq(name + ": the nameless file keeps the summary's title", d.title, 'Lever session');
+    eq(name + ': from the file', d.fromFile, true);
+  }
+});
+
+section('no series lands with sharing off, or for a mapping the account no longer holds', async function () {
+  linkedWithSeries();
+  store.set('users/u-s', Object.assign({}, doc('users/u-s'), { garminSharing: false }));
+  await withSeriesUids('u-s', async function () { await push({ activities: [RIDE_SUMMARY] }); await work(); });
+  eq('sharing off: nothing', seriesIds('u-s'), []);
+
+  linkedWithSeries();
+  store.set('users/u-s/private/garmin', Object.assign({}, doc('users/u-s/private/garmin'), { garminUserId: 'g-other' }));
+  await withSeriesUids('u-s', async function () { await push({ activities: [RIDE_SUMMARY] }); await work(); });
+  eq('left-over mapping: nothing', seriesIds('u-s'), []);
+});
+
+section('a deregistration or a disconnect deletes the series docs with the runs', async function () {
+  linkedWithSeries();
+  await withSeriesUids('u-s', async function () { await push({ activities: [RIDE_SUMMARY, copy(SUMMARY, { userId: 'g-s' })] }); await work(); });
+  eq('stored first', [seriesIds('u-s').length, runIds('u-s').length], [2, 1]);
+  await push({ deregistrations: [{ userId: 'g-s' }] }); await work();
+  eq('deregistration: series and runs gone', [seriesIds('u-s'), runIds('u-s')], [[], []]);
+
+  linkedWithSeries();
+  await withSeriesUids('u-s', async function () { await push({ activities: [RIDE_SUMMARY] }); await work(); });
+  await disconnect('u-s');
+  eq('disconnect: series gone', seriesIds('u-s'), []);
+  eq("another account's runs untouched", runIds('u-a').length + seriesIds('u-a').length, 0);
 });
 
 (async function () {

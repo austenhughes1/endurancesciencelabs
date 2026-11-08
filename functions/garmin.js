@@ -1,6 +1,8 @@
 // Garmin Connect link for Running Dynamics: OAuth (PKCE), push intake, the
 // inbox worker, disconnect, token upkeep and purge. Garmin runs land in
-// users/{uid}/garminActivities with source "garmin".
+// users/{uid}/garminActivities with source "garmin"; for the accounts in
+// GARMIN_SERIES_UIDS, every activity also lands in users/{uid}/garminSeries
+// (garmin-series.js).
 "use strict";
 const { onRequest, onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
@@ -8,6 +10,7 @@ const { onSchedule } = require("firebase-functions/v2/scheduler");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const lib = require("./garmin-lib");
+const series = require("./garmin-series");
 
 const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;
@@ -100,10 +103,7 @@ async function sendDeregistration(uid, accessToken) {
 
 function authLive(a) { return !!(a && a.expireAt && a.expireAt.toMillis() > Date.now()); }
 
-function sameSecret(a, b) {
-  const x = Buffer.from(String(a)), y = Buffer.from(String(b));
-  return x.length === y.length && crypto.timingSafeEqual(x, y);
-}
+const sameSecret = lib.sameSecret;
 
 // Connect attempts nobody finished (tab closed, Connect clicked twice) are
 // swept on each new attempt. expireAt is a Timestamp so a TTL policy on
@@ -411,6 +411,16 @@ async function dropQueuedGarminData(garminUserId) {
   }
 }
 
+async function deleteDocs(snap) {
+  let n = 0;
+  for (let i = 0; i < snap.docs.length; i += 450) {
+    const batch = db.batch();
+    snap.docs.slice(i, i + 450).forEach((d) => { batch.delete(d.ref); n++; });
+    await batch.commit();
+  }
+  return n;
+}
+
 // Every Garmin account whose mapping still points at uid.
 async function garminUsersMappedTo(uid) {
   const snap = await db.collection("garminUsers").where("uid", "==", uid).get();
@@ -418,7 +428,7 @@ async function garminUsersMappedTo(uid) {
 }
 
 // Deletes everything Garmin sent for one athlete: tokens, every source:"garmin"
-// run, the Lever marks and exclusions made on those runs, the link flags,
+// run, every series doc, the Lever marks and exclusions made on those runs, the link flags,
 // queued items and the user mapping. Their own uploads stay. The tokens go
 // first: the worker writes a run only while they still name this Garmin
 // account, checked inside its transaction, so no run lands after the sweep
@@ -456,13 +466,9 @@ async function purgeGarminData(uid, garminUserId, opts) {
       return null;
     }
   }
-  const runs = await runsCol(uid).where("source", "==", "garmin").get();
-  let deleted = 0;
-  for (let i = 0; i < runs.docs.length; i += 450) {
-    const batch = db.batch();
-    runs.docs.slice(i, i + 450).forEach((d) => { batch.delete(d.ref); deleted++; });
-    await batch.commit();
-  }
+  const deleted = await deleteDocs(await runsCol(uid).where("source", "==", "garmin").get());
+  // References only: a series doc can be hundreds of KB.
+  await deleteDocs(await seriesCol(uid).select().get());
   // A link made while this ran (an account switch) has set its own flags.
   const userRef = db.collection("users").doc(uid);
   await db.runTransaction(async (t) => {
@@ -538,27 +544,37 @@ function inboxItem(kind, item) {
   return out;
 }
 
-// Garmin's push target. Only filters (non-run activities are never stored) and
-// queues; the worker below does everything else, so the reply is immediate.
+// Garmin's push target. Only filters and queues; the worker below does
+// everything else, so the reply is immediate. Non-run activities are dropped
+// here, except for the accounts in GARMIN_SERIES_UIDS (see garmin-series.js).
 // The push URL ends in the key (.../garminPush/<key>): Garmin's endpoint form
 // drops query strings. The last path segment is used, so it works whether or
 // not the function name is still on the path.
-function pushKeyFrom(req) {
-  const parts = String(req.path || "").split("/").filter(Boolean);
-  return parts.length ? parts[parts.length - 1] : "";
+
+// The Garmin user ids linked to the accounts in GARMIN_SERIES_UIDS: one
+// garminUsers query per listed uid.
+async function seriesGarminUserIds() {
+  const uids = series.seriesUids();
+  const snaps = await Promise.all(uids.map((u) => db.collection("garminUsers").where("uid", "==", u).get()));
+  return new Set([].concat(...snaps.map((q) => q.docs.map((d) => d.id))));
 }
 
 exports.garminPush = onRequest({ cors: false }, async (req, res) => {
   const key = process.env.GARMIN_PUSH_KEY;
-  if (req.method !== "POST" || !key || !sameSecret(pushKeyFrom(req), key)) { res.status(404).send("Not found"); return; }
+  if (req.method !== "POST" || !key || !sameSecret(lib.lastPathSegment(req.path), key)) { res.status(404).send("Not found"); return; }
   try {
     const body = req.body || {};
     const items = [];
+    // Read once per push, and only when the push carries a non-run activity.
+    let seriesIds = null;
     for (const kind of Object.keys(body)) {
       if (!HANDLED.has(kind) || !Array.isArray(body[kind])) continue;
       for (const item of body[kind]) {
         if (!item || !item.userId) continue;
-        if ((kind === "activities" || kind === "activityFiles") && !lib.runTypeFor(item.activityType)) continue;
+        if ((kind === "activities" || kind === "activityFiles") && !lib.runTypeFor(item.activityType)) {
+          if (!seriesIds) seriesIds = await seriesGarminUserIds();
+          if (!seriesIds.has(String(item.userId))) continue;
+        }
         items.push({ kind, item: inboxItem(kind, item) });
       }
     }
@@ -594,12 +610,15 @@ function loadFitParser() {
   return fitParserP;
 }
 
-// Parses in memory and returns sessions only. GPS records are never kept.
-async function parseFitSessions(buf) {
+// Parses in memory: { records, laps, sessions, ... }, or {} when the file
+// can't be read. Nothing parsed is stored as it is: the run doc takes session
+// values, and the series doc (GARMIN_SERIES_UIDS only) 5-second bins of the
+// record values, never GPS positions.
+async function parseFit(buf) {
   const FitParser = await loadFitParser();
   return new Promise((resolve) => {
     const fp = new FitParser({ force: true, mode: "list", speedUnit: "m/s", lengthUnit: "m" });
-    fp.parse(buf, (err, data) => resolve(err || !data ? [] : (data.sessions || [])));
+    fp.parse(buf, (err, data) => resolve(err || !data ? {} : data));
   });
 }
 
@@ -609,6 +628,16 @@ async function uidForGarminUser(garminUserId) {
 }
 
 function runsCol(uid) { return db.collection("users").doc(uid).collection("garminActivities"); }
+function seriesCol(uid) { return db.collection("users").doc(uid).collection("garminSeries"); }
+
+// Inside transaction t: whether uid still holds the link to this Garmin
+// account. A purge ends the link before it collects what Garmin sent, so a
+// write that checks this either is found by the purge or does not happen.
+async function holdsLinkIn(t, uid, garminUserId) {
+  const mapped = await t.get(db.collection("garminUsers").doc(String(garminUserId)));
+  const priv = await t.get(privRef(uid));
+  return mapped.get("uid") === uid && String(priv.get("garminUserId") || "") === String(garminUserId);
+}
 
 // What a summary or a file adds to a run already stored: defined values only,
 // and never an empty title over a stored one, so neither erases the other's
@@ -634,13 +663,10 @@ function runUpdate(have, doc, fromFile) {
 // moment can't both write it as new.
 async function upsertGarminRun(uid, garminUserId, doc, fromFile) {
   const ref = runsCol(uid).doc(doc.id);
-  const link = db.collection("garminUsers").doc(String(garminUserId));
   const day = 24 * 60 * 60 * 1000;
   const near = runsCol(uid).where("ts", ">=", doc.ts - day).where("ts", "<=", doc.ts + day);
   await db.runTransaction(async (t) => {
-    const mapped = await t.get(link);
-    const priv = await t.get(privRef(uid));
-    if (mapped.get("uid") !== uid || String(priv.get("garminUserId") || "") !== String(garminUserId)) return;
+    if (!(await holdsLinkIn(t, uid, garminUserId))) return;
     const snap = await t.get(ref);
     const found = await t.get(near);
     const strava = [];
@@ -655,6 +681,19 @@ async function upsertGarminRun(uid, garminUserId, doc, fromFile) {
     strava.forEach((r) => t.delete(r));
     if (snap.exists) t.set(ref, runUpdate(snap.data(), doc, fromFile), { merge: true });
     else t.set(ref, Object.assign({}, doc, fromFile ? { fromFile: true } : {}, { syncedAt: FieldValue.serverTimestamp() }));
+  });
+}
+
+// Write one series doc (garmin-series.js), under the same link check as a
+// run. A summary never overwrites what a file has stored (mergeSeries).
+async function upsertGarminSeries(uid, garminUserId, add, fromFile) {
+  const ref = seriesCol(uid).doc(add.activityId);
+  await db.runTransaction(async (t) => {
+    if (!(await holdsLinkIn(t, uid, garminUserId))) return;
+    const snap = await t.get(ref);
+    const merged = series.mergeSeries(snap.exists ? snap.data() : null, add, fromFile);
+    if (!snap.exists) merged.createdAt = FieldValue.serverTimestamp();
+    t.set(ref, merged, { merge: true });
   });
 }
 
@@ -734,19 +773,27 @@ async function handleGarminItem(kind, item, receivedAt) {
   }
   const user = await db.collection("users").doc(uid).get();
   if (user.get("garminSharing") === false) return;
+  const keepSeries = series.seriesUids().includes(uid);
   if (kind === "activities") {
     const doc = lib.runDocFromSummary(item);
     if (doc) await upsertGarminRun(uid, item.userId, doc, false);
+    const add = keepSeries ? series.seriesFromSummary(item) : null;
+    if (add) await upsertGarminSeries(uid, item.userId, add, false);
     return;
   }
   if (kind === "activityFiles") {
     if (String(item.fileType || "").toUpperCase() !== "FIT" || !item.callbackURL) return;
     const buf = await downloadGarminFile(uid, item.callbackURL);
     if (!buf) return;
-    const sessions = await parseFitSessions(buf);
+    const data = await parseFit(buf);
+    const sessions = data.sessions || [];
     const s = sessions.find((x) => /run/i.test(String(x.sport || ""))) || sessions[0];
     const doc = lib.runDocFromFile(item, s);
     if (doc) await upsertGarminRun(uid, item.userId, doc, true);
+    const add = keepSeries ? series.buildSeriesDoc(item, data) : null;
+    if (!add) return;
+    if (add.seriesOmitted) console.warn(`garmin series for uid ${uid}: too large at every step; stored session and laps only`);
+    await upsertGarminSeries(uid, item.userId, add, true);
   }
 }
 

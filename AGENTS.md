@@ -38,7 +38,9 @@ shared/             modules used across pages: site.js/.css, run-dynamics.js,
                     run-load-model.js (+ .test.js), injury-patterns.js, device-matrix.js
 reference-data/     admin reference tables and measurement frameworks
 functions/          Cloud Functions, Node 22: index.js, report-renderer.js,
-                    comparison-renderer.js, garmin.js, garmin-lib.js
+                    comparison-renderer.js, garmin.js, garmin-lib.js,
+                    garmin-series.js (activity series for listed uids),
+                    es-mcp.js (MCP read path to them; docs/garmin-series.md)
 firestore.rules.txt the Firestore rules, kept as text
 docs/               design notes
 ```
@@ -48,7 +50,7 @@ docs/               design notes
 From the repo root. Nothing to install.
 
 ```bash
-npm test     # syntax-checks functions/*.js, then runs all seven suites; must exit 0
+npm test     # syntax-checks functions/*.js, then runs all nine suites; must exit 0
 ```
 
 The suites one by one:
@@ -61,13 +63,16 @@ node shared/run-dynamics-garmin.test.js
 node coaching/garmin-connect.test.js
 node functions/garmin-lib.test.js
 node functions/garmin.test.js
+node functions/garmin-series.test.js
+node functions/es-mcp.test.js
 ```
 
 There is no lint, typecheck or build. Page behaviour in a browser is not
 covered by any test: say what you checked and how, or that you could not.
 
-Baseline (2026-10-30): all green. 267, 17, 28, 55, 132, 64 and 538 checks,
-in that order.
+Baseline (2026-11-07): all green. 267, 17, 36, 55, 140, 64, 597, 81 and 68
+checks, in that order. The FIT and MCP-handshake sections need
+`npm install` in functions/; without it they print SKIPPED.
 
 ## Conventions
 
