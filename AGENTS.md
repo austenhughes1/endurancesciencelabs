@@ -72,7 +72,7 @@ node functions/es-mcp.test.js
 There is no lint, typecheck or build. Page behaviour in a browser is not
 covered by any test: say what you checked and how, or that you could not.
 
-Baseline (2026-11-07): all green. 267, 17, 36, 55, 140, 64, 597, 81 and 68
+Baseline (2026-11-09): all green. 267, 17, 40, 56, 830, 140, 64, 597, 81 and 68
 checks, in that order. The FIT and MCP-handshake sections need
 `npm install` in functions/; without it they print SKIPPED.
 
