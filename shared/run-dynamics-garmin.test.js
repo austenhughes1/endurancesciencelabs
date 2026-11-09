@@ -70,13 +70,13 @@ section('garminCredit: direct and derived lines', function () {
     '<p class="rdx-garmin-credit">Garmin &lt;img src=x onerror=alert(1)&gt;</p>');
 });
 
-// Every section credit sits over load-derived numbers (Form & volume's metric table has Impact Load
-// and estimated forces), so each one names Garmin as a source of the insight and still names the device.
-// The Mark Lever runs modal lists only treadmill runs, but each IAD in it is scored against a baseline
-// calibrated from every run, so an outdoor Garmin run alone still credits the modal.
-// Data & settings shows run counts, the calibrated easy pace and Lever counts, so it is credited too.
-var MOUNTS = ['gcHero', 'gcChart', 'gcPat', 'gcForm', 'gcLv', 'gcSet', 'gcInc', 'gcData'];
-section('renderGarminCredit: every section, the Lever modal and Data & settings name Garmin as a source', function () {
+// Every credit slot sits over numbers derived in part from every stored run: Today, Load, Form and Injury
+// Patterns show load-derived numbers, and the load baseline is calibrated from all runs, so each names Garmin
+// as a source of the insight and still names the device. The Mark Lever runs dialog lists only treadmill runs,
+// but each IAD in it is scored against that baseline, so an outdoor Garmin run alone still credits it. Data
+// shows run counts and Lever counts; Settings shows the calibrated easy pace.
+var MOUNTS = ['gcToday', 'gcLoad', 'gcForm', 'gcPat', 'gcLv', 'gcData', 'gcSet'];
+section('renderGarminCredit: every section, the Lever dialog, Data and Settings name Garmin as a source', function () {
   var mounts = {};
   MOUNTS.forEach(function (id) { mounts[id] = { innerHTML: 'stale' }; });
   var ctx = { String: String,
@@ -88,17 +88,19 @@ section('renderGarminCredit: every section, the Lever modal and Data & settings 
   Object.keys(mounts).forEach(function (id) { eq(id, mounts[id].innerHTML, want); });
 });
 
-// The panel's own credit sits above its first group; links open the panel straight at What's included
-// and Import & data (openSettings scrolls past the panel's top), so those groups carry their own.
-section('Data & settings template: credit mounts where each view of the panel opens', function () {
-  function between(id, from, to) {
-    var a = src.indexOf(from), b = src.indexOf(to, a), m = src.indexOf('id="' + id + '"', a);
-    return a >= 0 && b > a && m > a && m < b;
+// Each credit slot is in the markup of the part it credits: the slot ids sit inside the function that builds it.
+section('templates: each credit slot is built by the part it credits', function () {
+  function inside(id, fn) {
+    var a = src.indexOf('function ' + fn + '('), b = src.indexOf('\nfunction ', a + 1), m = src.indexOf('id="' + id + '"', a);
+    return a >= 0 && m > a && m < b;
   }
-  MOUNTS.forEach(function (id) { eq(id + ' mount in the template', src.indexOf('id="' + id + '"') >= 0, true); });
-  eq('gcSet atop the panel', between('gcSet', 'id="settingsPanel"', 'id="set-events"'), true);
-  eq('gcInc in What’s included', between('gcInc', 'id="set-included"', 'id="set-data"'), true);
-  eq('gcData in Import & data', between('gcData', 'id="set-data"', 'id="sec-empty"'), true);
+  eq('gcToday in the shell (above Today)', inside('gcToday', 'shellHTML'), true);
+  eq('gcPat in the shell (Injury Patterns header)', inside('gcPat', 'shellHTML'), true);
+  eq('gcLoad in Load', inside('gcLoad', 'renderLoadSec'), true);
+  eq('gcForm in Form', inside('gcForm', 'renderFormSec'), true);
+  eq('gcLv in the Lever dialog', inside('gcLv', 'leverModalHTML'), true);
+  eq('gcData in the Data sheet', inside('gcData', 'dataSheetHTML'), true);
+  eq('gcSet in the Settings sheet', inside('gcSet', 'settingsSheetHTML'), true);
 });
 
 // ── Uploads and notes against Garmin runs, on an in-memory Firestore ──
