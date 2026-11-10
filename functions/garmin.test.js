@@ -166,7 +166,9 @@ function resetGarmin() {
     idStatus: 200,
     permStatus: 200,
     permissions: ['ACTIVITY_EXPORT'],
-    files: {}, // callback URL -> FIT bytes; null = not available; a number = that HTTP status
+    files: {}, // callback URL -> FIT bytes; null = not available; a number = that HTTP status;
+               // { status, body } = that status with that reply text
+    fileAuth: [], // the Authorization header of each file request, in order
   };
 }
 var tokenSeq = 0;
@@ -188,8 +190,10 @@ global.fetch = async function (url, opts) {
   }
   if (Object.prototype.hasOwnProperty.call(garmin.files, url)) {
     calls.push(method + ' file');
+    garmin.fileAuth.push(auth || null);
     var bytes = garmin.files[url];
     if (typeof bytes === 'number') return { ok: false, status: bytes };
+    if (bytes && !(bytes instanceof Uint8Array)) return { ok: false, status: bytes.status, text: async function () { return bytes.body; } };
     return {
       ok: !!bytes, status: bytes ? 200 : 404,
       arrayBuffer: async function () { return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength); },
@@ -964,6 +968,120 @@ section('a file URL never reaches the logs, even when the request itself fails',
   eq('never fetched', calls, []);
   eq('rejection logged without the URL', [logged.some(function (l) { return /URL rejected for uid u-a/.test(l); }), logged.join('\n').indexOf('tok-secret') < 0], [true, true]);
   eq('inbox drained', inbox().length, 0);
+});
+
+var PRIV = 'users/u-a/private/garmin';
+function lapseToken(msLeft) { store.set(PRIV, Object.assign({}, doc(PRIV), { expiresAt: Date.now() + msLeft })); }
+// Runs fn while Garmin's token endpoint is being asked, before it answers.
+function duringRenewal(fn) {
+  var realFetch = global.fetch;
+  global.fetch = async function (url, opts) {
+    if (/oauth\/token$/.test(url)) { var r = await realFetch(url, opts); fn(); return r; }
+    return realFetch(url, opts);
+  };
+  return function restore() { global.fetch = realFetch; };
+}
+
+fitSection("a file download carries the link's access token, renewed and stored when it has lapsed", async function () {
+  linked();
+  garmin.files[FILE_URL] = fitFile([RUN_SESSION]);
+  await push({ activityFiles: [FILE_ITEM] }); await work();
+  eq('a good stored token is sent as it is', garmin.fileAuth, ['Bearer stored-u-a']);
+  eq('no renewal', calls, ['GET file']);
+  eq('run lands', doc(RUN) && doc(RUN).gct, 245);
+
+  var lapses = { 'a day-old token (expired)': -3600e3, 'a token about to expire': 5 * 60e3 };
+  for (var name in lapses) {
+    linked();
+    lapseToken(lapses[name]);
+    garmin.files[FILE_URL] = fitFile([RUN_SESSION]);
+    await push({ activityFiles: [FILE_ITEM] }); await work();
+    var acc = 'acc-' + tokenSeq;
+    eq(name + ': renewed, then downloaded', calls, ['POST token', 'GET file']);
+    eq(name + ': the renewed token is sent', garmin.fileAuth, ['Bearer ' + acc]);
+    eq(name + ': and stored', [doc(PRIV).accessToken, doc(PRIV).refreshToken, doc(PRIV).expiresAt > Date.now()], [acc, 'ref-' + tokenSeq, true]);
+    eq(name + ': run lands', doc(RUN) && doc(RUN).gct, 245);
+    eq(name + ': no token in the logs', logged.join('\n').indexOf(acc) < 0 && logged.join('\n').indexOf('stored-ref') < 0, true);
+  }
+});
+
+section('a file is never downloaded without a token: a refused renewal drops it, a failing one retries', async function () {
+  linked();
+  lapseToken(-3600e3);
+  garmin.tokenStatus = 400; garmin.tokenError = 'invalid_grant';
+  garmin.files[FILE_URL] = fitFile([RUN_SESSION]);
+  await push({ activityFiles: [FILE_ITEM] });
+  eq('refused: dropped, not retried', await workCountingRetries(), 0);
+  eq('refused: no download', calls, ['POST token']);
+  eq('refused: no run, inbox drained', [runIds('u-a'), inbox().length], [[], 0]);
+  eq('refused: stored tokens untouched', doc(PRIV).accessToken, 'stored-u-a');
+
+  linked();
+  lapseToken(-3600e3);
+  garmin.tokenStatus = 503;
+  garmin.files[FILE_URL] = fitFile([RUN_SESSION]);
+  await push({ activityFiles: [FILE_ITEM] });
+  eq('failing: handed back for a retry', await workCountingRetries(), 1);
+  eq('failing: no download, item kept', [calls, inbox().length], [['POST token'], 1]);
+
+  linked();
+  store.set(PRIV, Object.assign({}, doc(PRIV), { expiresAt: Date.now() - 1, refreshExpiresAt: Date.now() - 1 }));
+  garmin.files[FILE_URL] = fitFile([RUN_SESSION]);
+  await push({ activityFiles: [FILE_ITEM] });
+  eq('lapsed refresh token: dropped, not retried', await workCountingRetries(), 0);
+  eq('lapsed refresh token: nothing asked of Garmin', calls, []);
+  eq('lapsed refresh token: logged with the uid', logged.some(function (l) { return /no usable token for uid u-a/.test(l); }), true);
+});
+
+section('a disconnect during the renewal stores no tokens, writes no run and tells Garmin', async function () {
+  linked();
+  lapseToken(-3600e3);
+  garmin.files[FILE_URL] = fitFile([RUN_SESSION]);
+  await push({ activityFiles: [FILE_ITEM] });
+  var restore = duringRenewal(function () { store.delete(PRIV); store.delete('garminUsers/g-111'); });
+  try { await work(); } finally { restore(); }
+  eq('no tokens stored', doc(PRIV), undefined);
+  eq('no download, Garmin told with the new token', calls, ['POST token', 'DELETE registration Bearer acc-' + tokenSeq]);
+  eq('no run, inbox drained', [runIds('u-a'), inbox().length], [[], 0]);
+});
+
+fitSection('two renewals at once: the one that loses uses the token the other stored', async function () {
+  var other = { accessToken: 'other-acc', refreshToken: 'other-ref', expiresAt: Date.now() + 3600e3 };
+  // Garmin answers this renewal, but the other one is stored first.
+  linked();
+  lapseToken(-3600e3);
+  garmin.files[FILE_URL] = fitFile([RUN_SESSION]);
+  await push({ activityFiles: [FILE_ITEM] });
+  var restore = duringRenewal(function () { store.set(PRIV, Object.assign({}, doc(PRIV), other)); });
+  try { await work(); } finally { restore(); }
+  eq('answered: the stored token is sent', garmin.fileAuth, ['Bearer other-acc']);
+  eq('answered: the stored tokens are kept', [doc(PRIV).accessToken, doc(PRIV).refreshToken], ['other-acc', 'other-ref']);
+  eq('answered: run lands', doc(RUN) && doc(RUN).gct, 245);
+
+  // Garmin refuses this renewal because the other one used the refresh token.
+  linked();
+  lapseToken(-3600e3);
+  garmin.tokenStatus = 400; garmin.tokenError = 'invalid_grant';
+  garmin.files[FILE_URL] = fitFile([RUN_SESSION]);
+  await push({ activityFiles: [FILE_ITEM] });
+  restore = duringRenewal(function () { store.set(PRIV, Object.assign({}, doc(PRIV), other)); });
+  try { await work(); } finally { restore(); }
+  eq('refused: the stored token is sent', garmin.fileAuth, ['Bearer other-acc']);
+  eq('refused: run lands', doc(RUN) && doc(RUN).gct, 245);
+});
+
+section("a refused download logs a masked start of Garmin's reply", async function () {
+  linked();
+  garmin.files[FILE_URL] = {
+    status: 400,
+    body: '{"errorMessage":"Bad request for ' + FILE_URL + ' with access_token=tok-secret-x","id":"abcdefghijklmnopqrstuvwxyz0123456789","detail":"' + 'too long '.repeat(40) + '"}',
+  };
+  await push({ activityFiles: [FILE_ITEM] });
+  eq('dropped, not retried', await workCountingRetries(), 0);
+  var line = logged.filter(function (l) { return /garmin file HTTP 400 for uid u-a/.test(l); })[0] || '';
+  eq("the reply's message is logged", /errorMessage.*Bad request/.test(line), true);
+  eq('no URL, token or opaque id in it', [line.indexOf('files.example.test'), line.indexOf('tok-secret'), line.indexOf('abcdefghijklmnopqrstuvwxyz')], [-1, -1, -1]);
+  eq('at most 200 characters of it', line.length <= 'garmin file HTTP 400 for uid u-a: '.length + 200, true);
 });
 
 section('only FIT files with a URL are downloaded', async function () {

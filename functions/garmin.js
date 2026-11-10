@@ -706,23 +706,88 @@ function retryLater(message) {
   return e;
 }
 
-// One activity file's bytes, or null when it can't be had. A busy (429),
-// failing (5xx) or unreachable file server is retried later. Logs carry the
-// HTTP status or the error's name only, never the URL: it holds a token.
-async function downloadGarminFile(uid, url) {
+// An access token for uid's link to garminUserId that is good for the next
+// few minutes, for the file download. The stored one is used while it is;
+// otherwise it is renewed, and the new tokens are stored only while the link
+// still holds the same Garmin account and the same refresh token (the guard
+// refreshGarminTokens uses). If another renewal got there first, its stored
+// token is used. null when the link has ended or Garmin refuses the renewal;
+// a renewal that fails otherwise is retried later.
+async function linkAccessToken(uid, garminUserId) {
+  const read = async () => {
+    const snap = await privRef(uid).get();
+    return snap.exists && String(snap.get("garminUserId") || "") === String(garminUserId) ? snap.data() : null;
+  };
+  const fresh = (p) => !!(p && p.accessToken && p.expiresAt - TOKEN_MARGIN_MS > Date.now());
+  const p = await read();
+  if (!p) return null;
+  if (fresh(p)) return p.accessToken;
+  if (!p.refreshToken || !(p.refreshExpiresAt > Date.now())) {
+    console.warn(`garmin file: no usable token for uid ${uid}`);
+    return null;
+  }
+  let tok;
+  try {
+    tok = await garminToken({ grant_type: "refresh_token", refresh_token: p.refreshToken });
+  } catch (e) {
+    // Two files at once can both renew; the one that loses may find the
+    // winner's token already stored.
+    const now = await read();
+    if (fresh(now)) return now.accessToken;
+    console.warn(`garmin file: token renewal failed for uid ${uid}: ${e.message}`);
+    if (e.oauthError === "invalid_grant") return null;
+    throw retryLater("garmin token renewal failed");
+  }
+  const outcome = await db.runTransaction(async (t) => {
+    const cur = await t.get(privRef(uid));
+    if (!cur.exists || String(cur.get("garminUserId") || "") !== String(garminUserId)) return { ended: true };
+    if (cur.get("refreshToken") !== p.refreshToken) return { token: fresh(cur.data()) ? cur.get("accessToken") : null };
+    t.set(privRef(uid), tokenFields(tok), { merge: true });
+    return { token: tok.access_token };
+  });
+  // As in refreshGarminTokens: the link ended during the renewal, and its
+  // disconnect may not have been able to tell Garmin, so the new token does.
+  if (outcome.ended) { await sendDeregistration(uid, tok.access_token); return null; }
+  return outcome.token;
+}
+
+// The start of an error reply, for the log: URLs, query tokens and long
+// opaque strings are masked, since Garmin may echo the request.
+async function errorSnippet(r) {
+  let text = "";
+  try { text = typeof r.text === "function" ? String(await r.text()) : ""; } catch (e) { return ""; }
+  return text
+    .replace(/https?:\/\/\S+/g, "<url>")
+    .replace(/(token|access_token|signature)=[^&\s"']+/gi, "$1=<masked>")
+    .replace(/[A-Za-z0-9_\-.]{24,}/g, "<masked>")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 200);
+}
+
+// One activity file's bytes, or null when it can't be had. The request
+// carries the link's access token (the OAuth 2.0 API refuses the bare URL).
+// A busy (429), failing (5xx) or unreachable file server is retried later.
+// Logs carry the HTTP status, a masked snippet of the reply, or the error's
+// name only, never the URL: it holds a token.
+async function downloadGarminFile(uid, url, accessToken) {
   let usable = false;
   try { usable = new URL(url).protocol === "https:"; } catch (e) { usable = false; }
   if (!usable) { console.warn(`garmin file URL rejected for uid ${uid}`); return null; }
   let r, buf = null;
   try {
-    r = await fetch(url, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) });
+    r = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
+    });
     if (r.ok) buf = Buffer.from(await r.arrayBuffer());
   } catch (e) {
     console.warn(`garmin file download failed for uid ${uid}: ${e.name}`);
     throw retryLater("garmin file download failed");
   }
   if (r.ok) return buf;
-  console.warn(`garmin file HTTP ${r.status} for uid ${uid}`);
+  const why = await errorSnippet(r);
+  console.warn(`garmin file HTTP ${r.status} for uid ${uid}${why ? `: ${why}` : ""}`);
   if (r.status === 429 || r.status >= 500) throw retryLater(`garmin file HTTP ${r.status}`);
   return null;
 }
@@ -783,7 +848,9 @@ async function handleGarminItem(kind, item, receivedAt) {
   }
   if (kind === "activityFiles") {
     if (String(item.fileType || "").toUpperCase() !== "FIT" || !item.callbackURL) return;
-    const buf = await downloadGarminFile(uid, item.callbackURL);
+    const token = await linkAccessToken(uid, item.userId);
+    if (!token) return;
+    const buf = await downloadGarminFile(uid, item.callbackURL, token);
     if (!buf) return;
     const data = await parseFit(buf);
     const sessions = data.sessions || [];
