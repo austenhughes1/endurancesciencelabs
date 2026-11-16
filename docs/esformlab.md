@@ -10,7 +10,9 @@ is stored, and where phase detection goes wrong.
 `esformlab/v2/README.md`): it replaces the scan and per-frame pose functions at
 load time. Sections 5.2-5.4, 6, 13 and 14 describe the previous detection, which is
 still in `index.html` and runs when the page URL has `?detector=v1`. Everything else
-here (UI, metrics, rules, report, data) is unchanged.
+here (UI, metrics, rules, report, data) is unchanged. One definition differs: v2's
+foot strike is the frame where the foot starts taking load, about 50 ms after first
+touch, not the first frame of ground contact.
 
 How this was produced: everything is read from the code
 at commit `01274f4`. Nothing here was run in a browser, and esFormLab has no test

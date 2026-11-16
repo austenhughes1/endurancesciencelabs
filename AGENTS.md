@@ -79,7 +79,7 @@ There is no lint, typecheck or build. Page behaviour in a browser is not
 covered by any test: say what you checked and how, or that you could not.
 
 Baseline (2026-11-16): all green. 267, 17, 40, 56, 830, 140, 64, 631, 81, 68,
-184, 461 and 125 checks, in that order. The FIT and MCP-handshake sections need
+184, 537 and 125 checks, in that order. The FIT and MCP-handshake sections need
 `npm install` in functions/; without it they print SKIPPED.
 
 ## Conventions

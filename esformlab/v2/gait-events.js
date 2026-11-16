@@ -4,7 +4,8 @@
 //
 // Picks the gait-phase frames of one clip from per-frame MoveNet keypoints:
 //
-//   side view:        l_foot, r_foot  (foot strike of each leg)
+//   side view:        l_foot, r_foot  (foot strike of each leg: the frame where the foot
+//                                      starts taking load, not the first touch; see C.LOAD_DELAY)
 //                     l_toe,  r_toe   (toe-off of each leg)
 //                     mid             (mid-stance)
 //   front/back view:  l, r            (mid-stance of each leg)
@@ -190,6 +191,19 @@ var EslGaitEvents = (function () {
     // the biases are the measured mean offsets of hand-labelled events from those extrema.
     STRIKE_BIAS: 0.01,     // tau_strike = time of max forward ankle reach (hip-relative) + bias, s
     TOE_BIAS: -0.054,      // tau_toeoff = time of max backward ankle reach + bias, s
+    // Foot strike is reported as LOAD ONSET, not first contact. The owner, a running coach, defines
+    // it: "The instant the foot touches the ground isn't necessarily foot strike; foot strike is when
+    // the foot actually starts seeing load, not when the rubber touches the ground." His elite
+    // reference ranges (overstriding and the other foot-strike metrics) were measured on frames he
+    // picked that way, so a user's foot strike must be the same moment. Loading instant
+    // tau_load = tau_strike + LOAD_DELAY, never later than mid-stance (load builds toward a peak at
+    // mid-stance). tau_strike stays the first-contact estimate: stance windows, mid-stance, toe-off
+    // and leg logic use it, and contacts[].strike reports it. On his own labelled clips his
+    // foot-strike frames sit a median 0.075 s (spread 0.013 s) after tau_strike, about 50 ms after
+    // the first picture with the foot down; delays of 0.065-0.075 s fit them equally well. A fixed
+    // delay matched them more closely than a fraction of stance or any pose signal (knee starting
+    // to flex, ankle stopping, hip dropping fastest).
+    LOAD_DELAY: 0.07,      // s after tau_strike
     EXT_HALF: 0.025        // half-window of the local quadratic used for sub-frame extremum, s (>= 1.5 frames)
   };
 
@@ -366,6 +380,7 @@ var EslGaitEvents = (function () {
         // the leg's next forward maximum (a stance is shorter than a stride; past the next maximum it
         // belongs to the next contact). amp = the reach from front to back, in trunk lengths.
         if (nx && nx.ts - m.ts < 0.75 * P && (k + 1 >= mx.length || nx.q < mx[k + 1].q)) { c.tT = nx.ts + C.TOE_BIAS; c.qT = nx.q; c.amp = m.v - nx.v; }
+        c.tL = loadTime(c.tS, c.tT != null && c.tT > c.tS ? c.tT - c.tS : null);
         contacts.push(c);
       }
       // a toe-off whose strike lies before the clip/visible part
@@ -397,6 +412,14 @@ var EslGaitEvents = (function () {
     return { dir: dir, swaps: rep.swaps, swapState: rep.st, spikes: spikes, P: P, contacts: contacts };
   }
 
+  // Loading instant (the reported foot strike) of a contact that starts at first contact tS and
+  // lasts `stance` seconds (null when unknown): LOAD_DELAY after first contact, capped at
+  // mid-stance.
+  function loadTime(tS, stance) {
+    if (tS == null) return null;
+    return tS + (stance != null ? Math.min(C.LOAD_DELAY, 0.5 * stance) : C.LOAD_DELAY);
+  }
+
   // 1 when the legs are well inside the picture, falling to 0 as any hip/knee/ankle keypoint gets
   // within 0.4 trunk lengths of the picture border (feet cut off or squeezed against the edge).
   // A missing keypoint caps it at 0.5.
@@ -413,9 +436,12 @@ var EslGaitEvents = (function () {
 
   // Frame index (into the unique series) for an event time. Strike = first frame at or after tau:
   // the first picture with the foot down. Toe-off = last frame at or before tau: the last picture
-  // with the foot still down.
+  // with the foot still down. Near = the frame nearest tau, used for the loading instant (the
+  // reported foot strike: load is building on both sides of it, so the nearest picture shows it
+  // best; owner's rule 1) and for mid-stance.
   function frameAt(S, tau, kind) {
     var best = null, q;
+    if (kind === 'near') { var d = Infinity; for (q = 0; q < S.n; q++) if (Math.abs(S.t[q] - tau) < d) { d = Math.abs(S.t[q] - tau); best = q; } return best; }
     if (kind === 'strike') { for (q = 0; q < S.n; q++) if (S.t[q] >= tau - 1e-9) { best = q; break; } if (best == null) best = S.n - 1; }
     else { for (q = S.n - 1; q >= 0; q--) if (S.t[q] <= tau + 1e-9) { best = q; break; } if (best == null) best = 0; }
     return best;
@@ -456,21 +482,29 @@ var EslGaitEvents = (function () {
     var ph = { l_foot: null, r_foot: null, l_toe: null, r_toe: null, mid: null };
     var conf = { l_foot: null, r_foot: null, l_toe: null, r_toe: null, mid: null };
     var contacts = [], k;
+    // the foot-strike (load) frame of a contact: the picture nearest its loading instant, never
+    // before its first-contact picture
+    function loadQ(c) { return Math.max(frameAt(S, c.tL, 'near'), frameAt(S, c.tS, 'strike')); }
     res.contacts.forEach(function (c) {
-      var o = { leg: LEG[c.leg], strike: c.tS != null ? S.i[frameAt(S, c.tS, 'strike')] : null, toeOff: c.tT != null ? S.i[frameAt(S, c.tT, 'toe')] : null };
+      // strike = first contact, load = the reported foot strike (load onset), toeOff = toe-off
+      var o = { leg: LEG[c.leg], strike: c.tS != null ? S.i[frameAt(S, c.tS, 'strike')] : null, load: c.tL != null ? S.i[loadQ(c)] : null, toeOff: c.tT != null ? S.i[frameAt(S, c.tT, 'toe')] : null };
       contacts.push(o); c.out = o;
     });
-    // timing quality: how close the chosen frame is to the estimated event instant (owner's rule 1)
-    function timing(tau, q) { return 1 - 0.5 * Math.min(1, Math.abs(S.t[q] - tau) / S.dt); }
-    // Every contact of a leg is a candidate for that leg's strike and toe-off, scored by contact
-    // quality x timing; the best candidate is the pick.
+    // timing quality: how close the chosen frame is to the estimated event instant (owner's rule 1).
+    // A toe-off frame is the last picture at or before its instant, up to a frame away; a foot-strike
+    // (load) frame is the nearest picture, at most half a frame away, so its offset counts double:
+    // both terms run from 1 (a picture at the instant) to 0.5 (the worst placement possible).
+    function timing(tau, q, nearest) { return 1 - (nearest ? 1 : 0.5) * Math.min(1, Math.abs(S.t[q] - tau) / S.dt); }
+    // Every contact of a leg is a candidate for that leg's foot strike (its loading instant) and
+    // toe-off, scored by contact quality x timing; the best candidate is the pick. The timing term
+    // prefers the stride whose stored frame lands closest to its loading instant.
     function cands(leg, kind) {
       var out = [];
       res.contacts.forEach(function (c) {
         if (c.leg !== leg) return;
-        var tau = kind === 'strike' ? c.tS : c.tT; if (tau == null) return;
-        var q = frameAt(S, tau, kind);
-        var s = c.quality * timing(tau, q);
+        var tau = kind === 'load' ? c.tL : c.tT; if (tau == null) return;
+        var q = kind === 'load' ? loadQ(c) : frameAt(S, tau, kind);
+        var s = c.quality * timing(tau, q, kind === 'load');
         if (s > -1) out.push({ f: S.i[q], s: s });
       });
       return ranked(out);
@@ -484,7 +518,7 @@ var EslGaitEvents = (function () {
       var s = c.quality * (1 - 0.5 * Math.min(1, d / S.dt));
       if (s > -1) midC.push({ f: S.i[q], s: s });
     });
-    var cand = { l_foot: cands(0, 'strike'), r_foot: cands(1, 'strike'), l_toe: cands(0, 'toe'), r_toe: cands(1, 'toe'), mid: ranked(midC) };
+    var cand = { l_foot: cands(0, 'load'), r_foot: cands(1, 'load'), l_toe: cands(0, 'toe'), r_toe: cands(1, 'toe'), mid: ranked(midC) };
     // Two phases never share a frame. Phases choose in order of their best score; a phase whose best
     // frame is already taken falls back to its next-best candidate (for a leg, its best other
     // stride). Two strikes of different legs on one frame mean one leg's events are unreliable
@@ -505,29 +539,32 @@ var EslGaitEvents = (function () {
     var tc = [];
     res.contacts.forEach(function (c) { if (c.tS != null && c.tT != null && c.tT > c.tS) tc.push(c.tT - c.tS); });
     var Tc = median(tc) || 0.38 * res.P;   // stance ~ 35-40% of a stride in running
+    var Dl = loadTime(0, Tc);               // typical load delay after first contact, s
     function tauOf(key) {
       var f = ph[key]; if (f == null) return null;
       var q = S.i.indexOf(f); return q < 0 ? null : S.t[q];
     }
     var other = { l_foot: 'r_foot', r_foot: 'l_foot', l_toe: 'r_toe', r_toe: 'l_toe' };
-    var pair = { l_foot: ['l_toe', -1], r_foot: ['r_toe', -1], l_toe: ['l_foot', 1], r_toe: ['r_foot', 1] };
+    // foot strike (load) = toe-off - stance + load delay; toe-off = foot strike - load delay + stance
+    var pair = { l_foot: ['l_toe', Dl - Tc], r_foot: ['r_toe', Dl - Tc], l_toe: ['l_foot', Tc - Dl], r_toe: ['r_foot', Tc - Dl] };
     var t0 = S.t[0], t1 = S.t[S.n - 1];
     // two passes: an event derived in the first pass can anchor another in the second
     for (var pass = 0; pass < 2; pass++) Object.keys(other).forEach(function (key) {
       if (ph[key] != null) return;
-      var kind = key.indexOf('foot') > 0 ? 'strike' : 'toe', tau = null;
+      var kind = key.indexOf('foot') > 0 ? 'near' : 'toe', tau = null;
       var to = tauOf(other[key]);
       // half a stride after the other leg's event, or before it when after would leave the clip
       if (to != null) tau = to + res.P / 2 <= t1 ? to + res.P / 2 : to - res.P / 2;
       var tp = tauOf(pair[key][0]);
-      if (tau == null && tp != null) tau = tp + pair[key][1] * Tc;
+      if (tau == null && tp != null) tau = tp + pair[key][1];
       if (tau != null) ph[key] = S.i[frameAt(S, Math.max(t0, Math.min(t1, tau)), kind)];
     });
-    // mid-stance with no complete contact: halfway between the left strike and toe-off, else half
-    // a stance after the left strike
+    // mid-stance with no complete contact: halfway between the left first contact (foot strike
+    // minus the load delay) and toe-off, else half a stance after the left first contact
     if (ph.mid == null) {
       var a = tauOf('l_foot'), b = tauOf('l_toe');
-      ph.mid = a != null && b != null && b > a ? ph.l_foot + Math.round((ph.l_toe - ph.l_foot) / 2) : a != null ? S.i[frameAt(S, a + Tc / 2, 'strike')] : null;
+      if (a != null) a -= Dl;
+      ph.mid = a != null && b != null && b > a ? S.i[frameAt(S, (a + b) / 2, 'near')] : a != null ? S.i[frameAt(S, a + Tc / 2, 'near')] : null;
     }
     // last resort (no usable motion at all): spread the phases over 30-70% of the posed frames
     var okq = [];

@@ -7,8 +7,12 @@
 //
 // No video, no pose model, no athlete data: every runner here is SYNTHETIC. A
 // generator draws MoveNet-style keypoints (17 x [x, y, score], pixels) for a
-// runner with a known stride: periodic hip and ankle trajectories whose foot
-// strikes and toe-offs are known to the millisecond, plus small keypoint noise.
+// runner with a known stride: periodic hip and ankle trajectories whose first
+// contacts and toe-offs are known to the millisecond, plus small keypoint noise.
+// Foot strike is LOAD ONSET (the owner's definition: when the foot starts seeing
+// load, not when the rubber touches the ground); for the synthetic runner that
+// is its first contact + LOAD_DELAY (70 ms), so l_foot/r_foot are checked
+// against that instant and contacts[].strike stays first contact.
 // Side views (facing left and right), front and back views; 15, 30 and 60 fps;
 // duplicated frames; a run of frames with MoveNet's left/right labels swapped;
 // a clip only two strides long.
@@ -48,6 +52,8 @@ function rng(seed) {
 function gauss(r) { return Math.sqrt(-2 * Math.log(r() + 1e-12)) * Math.cos(2 * Math.PI * r()); }
 
 // ── synthetic runner ──────────────────────────────────────────────
+// the synthetic runner's loading instant: 70 ms after first contact (gait-events.js C.LOAD_DELAY)
+var LOAD_DELAY = 0.07;
 // o: view 'side'|'front'|'back', facing +1 (image right) / -1 (side only), fps (container rate),
 //    dur (s), P (stride, s), Tc (stance, s), t0 (first left strike, s), dupEvery (every Nth frame
 //    repeats the previous picture), swap: [t_from, t_to] pictures whose leg labels MoveNet swaps,
@@ -74,10 +80,10 @@ function runner(o) {
     return x <= Tc ? 0 : 0.5 * sc * Math.sin(Math.PI * (x - Tc) / (P - Tc));
   }
   function J(x, y, s) { return [x + noise * gauss(r), y + noise * gauss(r), s]; }
-  var frames = [], times = [], truth = { strikes: [[], []], toes: [[], []], mids: [[], []] }, prev = null;
+  var frames = [], times = [], truth = { strikes: [[], []], loads: [[], []], toes: [[], []], mids: [[], []] }, prev = null;
   for (var k = 0; k * P + t0 - P < o.dur + P; k++) for (var leg = 0; leg < 2; leg++) {
     var s = strike(leg, k - 1);
-    truth.strikes[leg].push(s); truth.toes[leg].push(s + Tc); truth.mids[leg].push(s + Tc / 2);
+    truth.strikes[leg].push(s); truth.loads[leg].push(s + LOAD_DELAY); truth.toes[leg].push(s + Tc); truth.mids[leg].push(s + Tc / 2);
   }
   var swapped = [];
   for (var f = 0; f < N; f++) {
@@ -142,9 +148,9 @@ function runner(o) {
 }
 
 // ── truth: frames as the detector reports them ────────────────────
-// Unique pictures only (a duplicate shows an earlier picture). A strike is the first picture at
-// or after the strike instant; a toe-off the last picture at or before the toe-off; a mid-stance
-// the picture nearest it.
+// Unique pictures only (a duplicate shows an earlier picture). A first contact (strike) is the
+// first picture at or after its instant; a toe-off the last picture at or before the toe-off; a
+// foot strike (load onset) and a mid-stance the picture nearest the instant.
 function uniq(input) { return input.frames.filter(function (f) { return !f.dup; }); }
 function frameOf(U, tau, kind) {
   var q;
@@ -161,7 +167,7 @@ function err(sim, pick, kind, legs) {
   if (qp < 0) return null;
   var tEnd = U[U.length - 1].t;
   legs.forEach(function (leg) {
-    var list = kind === 'strike' ? sim.truth.strikes[leg] : kind === 'toe' ? sim.truth.toes[leg] : sim.truth.mids[leg];
+    var list = kind === 'strike' ? sim.truth.strikes[leg] : kind === 'load' ? sim.truth.loads[leg] : kind === 'toe' ? sim.truth.toes[leg] : sim.truth.mids[leg];
     list.forEach(function (tau) {
       if (tau < 0 || tau > tEnd) return;
       var qt = frameOf(U, tau, kind);
@@ -175,17 +181,52 @@ function checkSide(name, sim) {
   var out = G.detect(sim.input), ph = out.phases;
   var keys = ['l_foot', 'r_foot', 'l_toe', 'r_toe', 'mid'];
   keys.forEach(function (k) { ok(name + ': ' + k + ' picked', ph[k] != null, ph); });
-  var spec = { l_foot: ['strike', 0], r_foot: ['strike', 1], l_toe: ['toe', 0], r_toe: ['toe', 1] };
+  var spec = { l_foot: ['load', 0], r_foot: ['load', 1], l_toe: ['toe', 0], r_toe: ['toe', 1] };
   Object.keys(spec).forEach(function (k) {
     var e = err(sim, ph[k], spec[k][0], [spec[k][1]]), eo = err(sim, ph[k], spec[k][0], [1 - spec[k][1]]);
     ok(name + ': ' + k + ' within 1 frame of a true ' + (spec[k][1] ? 'right ' : 'left ') + spec[k][0], e != null && e <= 1, { pick: ph[k], err: e });
     ok(name + ': ' + k + ' is the anatomical ' + (spec[k][1] ? 'right' : 'left') + ' leg', e != null && eo != null && e < eo, { err: e, otherLegErr: eo });
   });
+  checkLoadInStance(name, sim, out);
   var em = err(sim, ph.mid, 'mid', [0, 1]);
   ok(name + ': mid within 1 frame of a true mid-stance', em != null && em <= 1, { pick: ph.mid, err: em });
   noShared(name, ph, keys);
   noDupPick(name, sim, ph, keys);
   return out;
+}
+// Foot strike (load onset) lies between first contact and mid-stance: each foot-strike pick sits in
+// the first half of a true stance of its leg (from its first-contact picture to its mid-stance
+// picture), and so does every contact's load frame, which is never before its own strike frame.
+function checkLoadInStance(name, sim, out) {
+  var U = uniq(sim.input), tEnd = U[U.length - 1].t;
+  function qOf(f) { for (var q = 0; q < U.length; q++) if (U[q].i === f) return q; return -1; }
+  function inFirstHalf(f, legs) {
+    var qp = qOf(f);
+    return qp >= 0 && legs.some(function (leg) {
+      return sim.truth.strikes[leg].some(function (s, k) {
+        var tm = sim.truth.mids[leg][k];
+        if (s < 0 || tm > tEnd) return false;
+        var qa = frameOf(U, s, 'strike'), qm = frameOf(U, tm, 'mid');
+        return qa != null && qm != null && qp >= qa && qp <= qm;
+      });
+    });
+  }
+  ['l_foot', 'r_foot'].forEach(function (k, leg) {
+    ok(name + ': ' + k + ' lies between a true first contact and mid-stance of its leg', inFirstHalf(out.phases[k], [leg]), { pick: out.phases[k] });
+  });
+  var bad = out.contacts.filter(function (c) {
+    if (c.strike == null) return c.load != null;
+    if (c.load == null || c.load < c.strike) return true;
+    return c.toeOff != null && c.load > c.strike + (c.toeOff - c.strike) / 2 + 1;
+  });
+  ok(name + ': every contact reports a load frame from its strike frame to its mid-stance', !bad.length, bad.slice(0, 4));
+  // contacts[].strike stays first contact (the lab's event metrics compare it with first contact)
+  var far = out.contacts.filter(function (c) {
+    if (c.strike == null) return false;
+    var e = err(sim, c.strike, 'strike', [c.leg === 'left' ? 0 : 1]);
+    return e == null || e > 1;
+  });
+  ok(name + ': contacts[].strike within 1 frame of a true first contact', !far.length, far.slice(0, 4));
 }
 function checkFrontBack(name, sim) {
   var out = G.detect(sim.input), ph = out.phases;
