@@ -78,10 +78,8 @@ server-side in `verifyActivePass`, `functions/index.js:1301-1350`):
 The pass sold on the page is $90 for 90 days of unlimited analyses, one payment, no
 subscription (`index.html:313-323`).
 
-Two things enforce the paywall, and they are not equally strong. The blur on the
-report is CSS only (`filter:blur(8px); pointer-events:none; user-select:none`,
-`esformlab.css:59-62`): the issue cards, breakdown text and table values are fully
-rendered in the page for an unpaid user. The PDFs are enforced on the server.
+The on-page report is gated in the browser (`esformlab.css:59-62`); the PDFs are
+enforced on the server.
 
 ---
 
