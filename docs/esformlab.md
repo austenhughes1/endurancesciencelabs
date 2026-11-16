@@ -6,6 +6,12 @@ the order a user meets it, the processing pipeline from uploaded clip to PDF, ex
 how each gait phase is detected, the measurements and rules behind the report, what
 is stored, and where phase detection goes wrong.
 
+**Phase detection now runs the v2 code in `esformlab/v2/`** (see
+`esformlab/v2/README.md`): it replaces the scan and per-frame pose functions at
+load time. Sections 5.2-5.4, 6, 13 and 14 describe the previous detection, which is
+still in `index.html` and runs when the page URL has `?detector=v1`. Everything else
+here (UI, metrics, rules, report, data) is unchanged.
+
 How this was produced: everything is read from the code
 at commit `01274f4`. Nothing here was run in a browser, and esFormLab has no test
 suite. Behaviour of the pose library was checked against the un-minified source of

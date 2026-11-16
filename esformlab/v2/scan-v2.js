@@ -35,7 +35,8 @@
 // from the tracked runner, or any frame of a clip where no runner was tracked) is
 // posed by poseAt's single-frame search, as v1 posed any chosen frame. If one of
 // the page functions above is missing, nothing is replaced and the page runs v1
-// detection (console error, "[v2 NOT ACTIVE]" in the tab title). The pure helpers
+// detection (console error, "[v2 NOT ACTIVE]" in the tab title). ?detector=v1 in the
+// URL also leaves the previous detection in place, for comparison. The pure helpers
 // are in EslScanV2._core and are tested in node by scan-v2.test.js.
 var EslScanV2 = (function () {
   'use strict';
@@ -237,6 +238,15 @@ var EslScanV2 = (function () {
      EslPoseV2, EslGaitEvents, initModel, epReanalyze, analyzePoseAtT, normalizeAndRetry, epAnalyzing, expandKey,
      epCurrentT, getVideoKeyForPhase */
 
+  // ?detector=v1 in the page URL keeps the previous detection (still in the main page's code) for
+  // comparison: nothing is replaced.
+  var wantV1 = false;
+  try { wantV1 = /(?:^|[?&])detector=v1(?:&|$)/.test(String((typeof location !== 'undefined' && location.search) || '')); } catch (e) {}
+  if (wantV1) {
+    console.log('[esfl v2] ?detector=v1: running the previous detection');
+    return { _core: core, active: false, inactive: ['?detector=v1'] };
+  }
+
   // Replace all of the page's functions or none: if one is gone (renamed in the main page after
   // this page was built), the page stays v1 throughout and says so.
   var missing = missingTargets({
@@ -244,9 +254,9 @@ var EslScanV2 = (function () {
     analyzePoseAtT: typeof analyzePoseAtT, normalizeAndRetry: typeof normalizeAndRetry, initModel: typeof initModel
   });
   if (missing.length) {
-    console.error('[esfl v2] NOT ACTIVE: the page no longer has ' + missing.join(', ') + '; this page runs v1 detection. Rebuild with esformlab/v2/build-page.js.');
+    console.error('[esfl v2] NOT ACTIVE: the page no longer has ' + missing.join(', ') + '; the page runs v1 detection. Run node esformlab/v2/build-page.js to see what changed.');
     try { document.title = '[v2 NOT ACTIVE] ' + document.title; } catch (e) {}
-    return { _core: core, inactive: missing };
+    return { _core: core, active: false, inactive: missing };
   }
 
   var byStore = new WeakMap();   // store -> {frames, diag, gait, legSwap} of its last scan
@@ -633,6 +643,7 @@ var EslScanV2 = (function () {
 
   return {
     _core: core,
+    active: true,
     poseFor: poseFor,
     lastScan: function (view) { var s = videoEls[view]; return s ? byStore.get(s) || null : null; },
     realDetector: function () { return realDetector; }

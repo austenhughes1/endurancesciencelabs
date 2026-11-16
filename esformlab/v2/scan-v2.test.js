@@ -267,10 +267,11 @@ eq('trackPacing: desktop uses trackClip defaults', C.trackPacing(false), {});
 })();
 
 // ── browser part: all of the page's functions are replaced, or none ──
-function runBrowserPart(omit) {
+function runBrowserPart(omit, search) {
   var vm = require('vm'), fs = require('fs');
   var orig = {};
   var ctx = { console: { error: function () {}, warn: function () {}, log: function () {} }, document: { title: 'esFormLab v2' },
+    location: { search: search || '' },
     detector: null, Promise: Promise, setTimeout: setTimeout, clearInterval: clearInterval, setInterval: setInterval };
   ['autoScanAll', 'analyzeCard', 'epReanalyze', 'analyzePoseAtT', 'normalizeAndRetry', 'initModel'].forEach(function (n) {
     if (n === omit) return;
@@ -288,12 +289,18 @@ async function browserPartChecks() {
 
   var r2 = runBrowserPart(null);
   ok('browser part, all present: every function replaced', Object.keys(r2.orig).every(function (n) { return r2.ctx[n] !== r2.orig[n]; }));
+  ok('browser part, all present: reports itself active', r2.ctx.EslScanV2.active === true);
+  var r3 = runBrowserPart(null, '?paid=1&detector=v1');
+  ok('browser part, ?detector=v1: nothing replaced', Object.keys(r3.orig).every(function (n) { return r3.ctx[n] === r3.orig[n]; }));
+  ok('browser part, ?detector=v1: reports itself inactive', r3.ctx.EslScanV2.active === false);
+  var r4 = runBrowserPart(null, '?detector=v12');
+  ok('browser part, ?detector=v12 is not the escape hatch', r4.ctx.EslScanV2.active === true);
   await r2.ctx.initModel();
   ok('browser part: initModel installs the detector proxy', r2.ctx.detector && r2.ctx.detector.eslV2Proxy === true);
   eq('browser part: the title is untouched', r2.ctx.document.title, 'esFormLab v2');
 }
 
-// ── build-page.js guards (made-up page snippets) ──
+// ── build-page.js: the v2 script tags in the main page, and its drift guards ──
 function buildChecks() {
   var B = require(path.join(__dirname, 'build-page.js'));
   var inp = B.readInputs();
@@ -303,21 +310,17 @@ function buildChecks() {
     ok(label, msg && re.test(msg), msg);
   }
   var out = B.build(inp.src, inp.v2, inp.modules);
-  ok('build: phase labels say detector v2', /isCorrect: !!isCorrect,\n    detector: 'v2',\n/.test(out));
   B.V2_SCRIPTS.forEach(function (f) {
-    ok('build: ' + f + ' loads with its content hash', out.indexOf('<script src="' + f + '?v=' + B.sha(inp.v2[f]) + '"></script>') >= 0);
+    ok('build: v2/' + f + ' loads with its content hash', out.indexOf('<script src="v2/' + f + '?v=' + B.sha(inp.v2[f]) + '"></script>') >= 0);
   });
-  eq('build: no stray relative paths', B.strayRelativeUrls(out), []);
-
-  fails('build: a new local script on the main page fails',
-    inp.src.replace(/(<script src="gait-engine\.js[^"]*"><\/script>)/, '$1\n<script src="phase-helpers.js"></script>'), null, null, /phase-helpers\.js/);
-  fails('build: a new relative link fails',
-    inp.src.replace('</head>', '<link rel="icon" href="favicon.png">\n</head>'), null, null, /favicon\.png/);
-  ok('build: url(), absolute and anchor paths are fine',
-    B.strayRelativeUrls('<a href="#x"></a><img src="/a.png"><a href="https://x.y/">' +
-      '<div style="background:url(../b.png)"></div><script>x.innerHTML = \'<img src="\' + u + \'">\';</script>').length === 0);
-  eq('build: url() with a relative path is caught', B.strayRelativeUrls('<div style="background:url(c.png)"></div>'), ['c.png']);
-
+  eq('build: running it twice changes nothing', B.build(out, inp.v2, inp.modules), out);
+  ok('build: the v2 block sits after the inline script and before initModel()',
+    out.indexOf(B.END + '\n<script>initModel();</script>') > 0 && out.lastIndexOf('</script>', out.indexOf(B.BEGIN)) > out.indexOf('async function autoScanAll'));
+  ok('build: phase labels record which detection ran', /isCorrect: !!isCorrect,\n    detector: \(typeof EslScanV2 !== 'undefined' && EslScanV2\.active\) \? 'v2' : 'v1',\n/.test(out));
+  var changed = Object.assign({}, inp.v2); changed['scan-v2.js'] += '\n// edit';
+  ok('build: an edited v2 script gets a new hash', B.build(out, changed, inp.modules).indexOf('scan-v2.js?v=' + B.sha(changed['scan-v2.js'])) > 0);
+  fails('build: missing markers fail', inp.src.replace(B.BEGIN, ''), null, null, /markers/);
+  fails('build: doubled markers fail', inp.src.replace(B.END, B.END + '\n' + B.BEGIN + '\n' + B.END), null, null, /markers/);
   fails('build: a renamed global the v2 scripts use fails',
     inp.src.replace(/\nasync function analyzePoseAtT\(/, '\nasync function analysePoseAtT('), null, null, /analyzePoseAtT/);
   fails('build: a changed autoScanAll fails until the v2 copy is reviewed',
