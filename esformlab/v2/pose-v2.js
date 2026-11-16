@@ -932,7 +932,8 @@ var EslPoseV2 = (function () {
   // Localise and pose every stored frame of a clip.
   // opts: model ('thunder' | 'lightning' | 'blaze'), onProgress(fraction, text), checkCancel()
   //       (throws to cancel; also polled while a model downloads), yieldEvery (model calls
-  //       between macrotask yields, default 6), modelTimeoutMs (default PARAMS.modelTimeoutMs).
+  //       between macrotask yields, default 6), pauseMs (each yield waits this long instead of
+  //       a 0 ms macrotask; default 0), modelTimeoutMs (default PARAMS.modelTimeoutMs).
   // Model downloads start at once and run during the pre-pass. If Lightning cannot be loaded the
   // runner is tracked with Thunder (diag.trackModel, diag.trackFallback). If the store is
   // released while this runs it throws 'EslPoseV2: store released' (err.eslStoreReleased) and
@@ -948,6 +949,7 @@ var EslPoseV2 = (function () {
     var checkCancel = typeof opts.checkCancel === 'function' ? opts.checkCancel : null;
     var guard = storeGuard(store, checkCancel);
     var yieldEvery = opts.yieldEvery > 0 ? opts.yieldEvery : 6;
+    var pauseMs = opts.pauseMs > 0 ? opts.pauseMs : 0;
     var t0 = now(), ms = {};
     var n = store && store.ok ? store.frameCount() : 0;
     if (!n) return { frames: [], diag: { n: 0, error: 'no frames' } };
@@ -961,7 +963,11 @@ var EslPoseV2 = (function () {
     if (_single) _single.delete(store);
     var src = new FrameSource(store, 6);
     var sinceYield = 0;
-    async function maybeYield() { if (++sinceYield >= yieldEvery) { sinceYield = 0; await macrotask(); } }
+    async function maybeYield() {
+      if (++sinceYield < yieldEvery) return;
+      sinceYield = 0;
+      await (pauseMs ? new Promise(function (r) { setTimeout(r, pauseMs); }) : macrotask());
+    }
     try {
       // 1. pre-pass: thumbnails, frame differences (one thumbnail held at a time). A frame that
       //    cannot be decoded is marked bad; the next good frame is compared with the last good one.

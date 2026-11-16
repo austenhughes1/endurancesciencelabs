@@ -30,9 +30,13 @@
 //                 "left" is the runner's anatomical left. Swap L/R in the
 //                 inspector then works on the corrected labels as before.
 //
-// "No pose" behaves as before: estimatePoses resolves to [] when poseAt finds no
-// runner at that frame. The pure helpers are in EslScanV2._core and are tested in
-// node by scan-v2.test.js.
+// "No pose" behaves as before: estimatePoses resolves to [] when no runner is found
+// at that frame. A frame the tracker did not follow (a frame the user chose away
+// from the tracked runner, or any frame of a clip where no runner was tracked) is
+// posed by poseAt's single-frame search, as v1 posed any chosen frame. If one of
+// the page functions above is missing, nothing is replaced and the page runs v1
+// detection (console error, "[v2 NOT ACTIVE]" in the tab title). The pure helpers
+// are in EslScanV2._core and are tested in node by scan-v2.test.js.
 var EslScanV2 = (function () {
   'use strict';
 
@@ -179,9 +183,49 @@ var EslScanV2 = (function () {
     return msgs;
   }
 
+  // The pose of the frame shown at t, as the page gets it. Pose = EslPoseV2 (or a stand-in).
+  // poseAt answers a tracked clip's frame from the track, and answers null where the tracker
+  // kept no runner (none within poseAt's gap; every frame of a clip where it found no runner).
+  // Such a frame is one the user chose (the scan's picks are all posed frames), and v1 posed
+  // any chosen frame with full-frame Thunder, so it gets poseAt's single-frame search instead.
+  // A frame the tracker did follow keeps the track's answer, even when that is null.
+  async function poseOrSearch(Pose, store, t) {
+    var kps = await Pose.poseAt(store, t);
+    if (kps) return kps;
+    var c = Pose.tracked(store);
+    var i = typeof store.indexAt === 'function' ? store.indexAt(t) : -1;
+    if (!c || !c.frames || !c.frames[i] || c.frames[i].roi) return null;
+    return Pose.poseAt(store, t, { search: true });
+  }
+
+  // Resolves with promise's value (a rejection resolves with undefined), polling checkCancel
+  // every pollMs while it waits; rejects with whatever checkCancel throws.
+  function waitFor(promise, checkCancel, pollMs) {
+    return new Promise(function (resolve, reject) {
+      var done = false, iv = null;
+      function fin(f, v) { if (done) return; done = true; if (iv) clearInterval(iv); f(v); }
+      Promise.resolve(promise).then(function (v) { fin(resolve, v); }, function () { fin(resolve, undefined); });
+      if (typeof checkCancel === 'function') {
+        iv = setInterval(function () { try { checkCancel(); } catch (e) { fin(reject, e); } }, pollMs > 0 ? pollMs : 200);
+      }
+    });
+  }
+
+  // trackClip pacing. Phones pause 60 ms every 10 model calls, as v1's phone scan did, to limit
+  // thermal throttling; elsewhere trackClip's default 0 ms yields.
+  function trackPacing(isMobile) { return isMobile ? { yieldEvery: 10, pauseMs: 60 } : {}; }
+
+  // The page functions scan-v2 replaces or wraps; types = {name: typeof name}. -> the names that
+  // are not functions. Any one missing means the page changed under v2: nothing is replaced.
+  var TARGETS = ['autoScanAll', 'analyzeCard', 'epReanalyze', 'analyzePoseAtT', 'normalizeAndRetry', 'initModel'];
+  function missingTargets(types) {
+    return TARGETS.filter(function (n) { return !types || types[n] !== 'function'; });
+  }
+
   var core = {
     SIDE_KEYS: SIDE_KEYS, FB_KEYS: FB_KEYS, LEG_PAIRS: LEG_PAIRS, toDetectFrames: toDetectFrames, legSwapAt: legSwapAt,
-    relabelLegs: relabelLegs, scaleKps: scaleKps, mapPicks: mapPicks, fpsOf: fpsOf, stepInfo: stepInfo, viewWarnings: viewWarnings
+    relabelLegs: relabelLegs, scaleKps: scaleKps, mapPicks: mapPicks, fpsOf: fpsOf, stepInfo: stepInfo, viewWarnings: viewWarnings,
+    poseOrSearch: poseOrSearch, waitFor: waitFor, trackPacing: trackPacing, TARGETS: TARGETS, missingTargets: missingTargets
   };
   if (typeof document === 'undefined') return { _core: core };
 
@@ -192,6 +236,18 @@ var EslScanV2 = (function () {
      eflSyncWalkthroughLine, isViewingSaved, eflTourDone, startTour, scanInProgress, eflTfScopeOpen, tf,
      EslPoseV2, EslGaitEvents, initModel, epReanalyze, analyzePoseAtT, normalizeAndRetry, epAnalyzing, expandKey,
      epCurrentT, getVideoKeyForPhase */
+
+  // Replace all of the page's functions or none: if one is gone (renamed in the main page after
+  // this page was built), the page stays v1 throughout and says so.
+  var missing = missingTargets({
+    autoScanAll: typeof autoScanAll, analyzeCard: typeof analyzeCard, epReanalyze: typeof epReanalyze,
+    analyzePoseAtT: typeof analyzePoseAtT, normalizeAndRetry: typeof normalizeAndRetry, initModel: typeof initModel
+  });
+  if (missing.length) {
+    console.error('[esfl v2] NOT ACTIVE: the page no longer has ' + missing.join(', ') + '; this page runs v1 detection. Rebuild with esformlab/v2/build-page.js.');
+    try { document.title = '[v2 NOT ACTIVE] ' + document.title; } catch (e) {}
+    return { _core: core, inactive: missing };
+  }
 
   var byStore = new WeakMap();   // store -> {frames, diag, gait, legSwap} of its last scan
   var canvasCtx = new WeakMap(); // canvas -> {key, t}: which phase and time the canvas was drawn from
@@ -214,7 +270,7 @@ var EslScanV2 = (function () {
     var view = viewOfKey(key);
     var store = view && videoEls[view];
     if (!store || !store.ok) return null;
-    var kps = await EslPoseV2.poseAt(store, t);
+    var kps = await poseOrSearch(EslPoseV2, store, t);
     if (!kps) return null;
     var st = byStore.get(store);
     var i = store.indexAt(t);
@@ -252,7 +308,12 @@ var EslScanV2 = (function () {
 
   // ── wrappers that record which (phase, time) a canvas shows ──
   var _initModel = initModel;
-  initModel = async function () { var r = await _initModel.apply(this, arguments); installProxy(); return r; };
+  var initPromise = null;   // the page's Thunder load (initModel), so the scan can wait for it
+  initModel = function () {
+    var p = (async function (self, args) { var r = await _initModel.apply(self, args); installProxy(); return r; })(this, arguments);
+    initPromise = p;
+    return p;
+  };
 
   var _analyzeCard = analyzeCard;
   analyzeCard = function (key) {
@@ -314,7 +375,7 @@ var EslScanV2 = (function () {
     } else {
       var lastDraw = 0;
       try {
-        res = await EslPoseV2.trackClip(store, {
+        res = await EslPoseV2.trackClip(store, Object.assign({
           model: 'thunder',
           checkCancel: eflCheckCancel,
           onProgress: function (f, text) {
@@ -330,7 +391,7 @@ var EslScanV2 = (function () {
               }
             }
           }
-        });
+        }, trackPacing(IS_MOBILE_RUNNER)));
       } catch (e) {
         if (isCancel(e)) throw e;
         eflCheckCancel();
@@ -381,6 +442,13 @@ var EslScanV2 = (function () {
     clearScanWarnings();
     if (IS_MOBILE_RUNNER && scanDetectorPromise && !scanDetector) {
       try { await scanDetectorPromise; } catch (e) {}
+    }
+    // v2: wait for the page's Thunder too, so pose-v2 reuses it instead of downloading a second
+    // copy it would keep for the session (the user can upload before Thunder has loaded)
+    if (!detector && initPromise) {
+      var stepEl = document.getElementById('scan-step');
+      if (stepEl) stepEl.textContent = 'Loading the pose model…';
+      await waitFor(initPromise, eflCheckCancel, 200);
     }
     installProxy();
     var tfScopeOpen = false;

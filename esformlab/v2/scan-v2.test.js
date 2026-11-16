@@ -1,7 +1,8 @@
 // ════════════════════════════════════════════════════════════════
 // esformlab/v2/scan-v2.test.js
 //
-// Checks of scan-v2.js's pure helpers (EslScanV2._core). Run with plain node:
+// Checks of scan-v2.js's pure helpers (EslScanV2._core), its all-or-nothing
+// page hook-up (in a node vm), and build-page.js's guards. Run with plain node:
 //
 //   node esformlab/v2/scan-v2.test.js
 //
@@ -197,5 +198,141 @@ eq('legSwap: empty array', C.legSwapAt([], 0), false);
   });
 })();
 
-console.log('scan-v2: ' + (checks - failures) + ' of ' + checks + ' checks passed');
-if (failures) process.exit(1);
+// ── poseOrSearch: frames the tracker did not follow get the single-frame search ──
+// A made-up Pose: tracked frames 0-4 have an ROI and a pose, 5-9 no ROI (runner lost).
+function fakePose(trackedFrames) {
+  var calls = [];
+  return {
+    calls: calls,
+    tracked: function () { return trackedFrames ? { frames: trackedFrames } : null; },
+    poseAt: async function (store, t, opts) {
+      var i = store.indexAt(t), search = !!(opts && opts.search);
+      calls.push({ i: i, search: search });
+      if (search) return pose(100);   // the search finds someone
+      var c = trackedFrames;
+      if (!c) return pose(200);        // never tracked: poseAt itself searches
+      return c[i] && c[i].roi ? c[i].kps : null;
+    }
+  };
+}
+function fakeStore(n) {
+  return { ok: true, indexAt: function (t) { return Math.max(0, Math.min(n - 1, Math.round(t * 30))); } };
+}
+async function poseOrSearchChecks() {
+  var tracked = [];
+  for (var i = 0; i < 10; i++) tracked.push({ i: i, t: i / 30, roi: i < 5 ? [0, 0, 100] : null, kps: i < 5 ? pose(i) : null });
+  tracked[3].kps = null;   // tracked frame whose pose fell under the floor
+  var store = fakeStore(10);
+
+  var P1 = fakePose(tracked);
+  eq('poseOrSearch: a tracked pose is used as is', await C.poseOrSearch(P1, store, 2 / 30), pose(2));
+  eq('poseOrSearch: ... without a search', P1.calls, [{ i: 2, search: false }]);
+
+  var P2 = fakePose(tracked);
+  eq('poseOrSearch: a frame without an ROI gets the search', await C.poseOrSearch(P2, store, 7 / 30), pose(100));
+  eq('poseOrSearch: ... after the tracked answer', P2.calls, [{ i: 7, search: false }, { i: 7, search: true }]);
+
+  var P3 = fakePose(tracked);
+  eq('poseOrSearch: a tracked frame with no pose stays no pose', await C.poseOrSearch(P3, store, 3 / 30), null);
+  eq('poseOrSearch: ... and is not searched', P3.calls.length, 1);
+
+  var none = tracked.map(function (f) { return { i: f.i, t: f.t, roi: null, kps: null }; });
+  var P4 = fakePose(none);
+  ok('poseOrSearch: clip with no runner tracked: every frame can still be posed',
+    (await C.poseOrSearch(P4, store, 0)) && (await C.poseOrSearch(P4, store, 9 / 30)));
+
+  var P5 = fakePose(null);
+  eq('poseOrSearch: an untracked clip is posed by poseAt alone', await C.poseOrSearch(P5, store, 1 / 30), pose(200));
+  eq('poseOrSearch: ... one call', P5.calls.length, 1);
+}
+
+// ── waitFor ──
+async function waitForChecks() {
+  eq('waitFor: resolves with the value', await C.waitFor(Promise.resolve(7), function () {}, 5), 7);
+  eq('waitFor: a failed load resolves with undefined', await C.waitFor(Promise.reject(new Error('x')), null, 5), undefined);
+  var cancel = { eflCancelled: true }, n = 0, got = null;
+  try { await C.waitFor(new Promise(function () {}), function () { if (++n >= 2) throw cancel; }, 5); } catch (e) { got = e; }
+  ok('waitFor: a cancel while waiting rejects with the cancel', got === cancel);
+}
+
+// ── trackPacing and missingTargets ──
+eq('trackPacing: phones pause as v1 did', C.trackPacing(true), { yieldEvery: 10, pauseMs: 60 });
+eq('trackPacing: desktop uses trackClip defaults', C.trackPacing(false), {});
+(function () {
+  var all = {};
+  C.TARGETS.forEach(function (n) { all[n] = 'function'; });
+  eq('missingTargets: none missing', C.missingTargets(all), []);
+  all.analyzePoseAtT = 'undefined';
+  eq('missingTargets: a renamed function is reported', C.missingTargets(all), ['analyzePoseAtT']);
+})();
+
+// ── browser part: all of the page's functions are replaced, or none ──
+function runBrowserPart(omit) {
+  var vm = require('vm'), fs = require('fs');
+  var orig = {};
+  var ctx = { console: { error: function () {}, warn: function () {}, log: function () {} }, document: { title: 'esFormLab v2' },
+    detector: null, Promise: Promise, setTimeout: setTimeout, clearInterval: clearInterval, setInterval: setInterval };
+  ['autoScanAll', 'analyzeCard', 'epReanalyze', 'analyzePoseAtT', 'normalizeAndRetry', 'initModel'].forEach(function (n) {
+    if (n === omit) return;
+    orig[n] = ctx[n] = n === 'initModel' ? async function () { ctx.detector = { estimatePoses: function () {} }; } : function () {};
+  });
+  vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, 'scan-v2.js'), 'utf8'), ctx);
+  return { ctx: ctx, orig: orig };
+}
+async function browserPartChecks() {
+  var r = runBrowserPart('analyzePoseAtT');
+  ok('browser part, a page function missing: nothing replaced', Object.keys(r.orig).every(function (n) { return r.ctx[n] === r.orig[n]; }));
+  ok('browser part, a page function missing: the tab title says so', /NOT ACTIVE/.test(r.ctx.document.title));
+  eq('browser part, a page function missing: reported', r.ctx.EslScanV2.inactive, ['analyzePoseAtT']);
+
+  var r2 = runBrowserPart(null);
+  ok('browser part, all present: every function replaced', Object.keys(r2.orig).every(function (n) { return r2.ctx[n] !== r2.orig[n]; }));
+  await r2.ctx.initModel();
+  ok('browser part: initModel installs the detector proxy', r2.ctx.detector && r2.ctx.detector.eslV2Proxy === true);
+  eq('browser part: the title is untouched', r2.ctx.document.title, 'esFormLab v2');
+}
+
+// ── build-page.js guards (made-up page snippets) ──
+function buildChecks() {
+  var B = require(path.join(__dirname, 'build-page.js'));
+  var inp = B.readInputs();
+  function fails(label, src, v2, modules, re) {
+    var msg = null;
+    try { B.build(src, v2 || inp.v2, modules || inp.modules); } catch (e) { msg = e.message; }
+    ok(label, msg && re.test(msg), msg);
+  }
+  var out = B.build(inp.src, inp.v2, inp.modules);
+  ok('build: phase labels say detector v2', /isCorrect: !!isCorrect,\n    detector: 'v2',\n/.test(out));
+  B.V2_SCRIPTS.forEach(function (f) {
+    ok('build: ' + f + ' loads with its content hash', out.indexOf('<script src="' + f + '?v=' + B.sha(inp.v2[f]) + '"></script>') >= 0);
+  });
+  eq('build: no stray relative paths', B.strayRelativeUrls(out), []);
+
+  fails('build: a new local script on the main page fails',
+    inp.src.replace(/(<script src="gait-engine\.js[^"]*"><\/script>)/, '$1\n<script src="phase-helpers.js"></script>'), null, null, /phase-helpers\.js/);
+  fails('build: a new relative link fails',
+    inp.src.replace('</head>', '<link rel="icon" href="favicon.png">\n</head>'), null, null, /favicon\.png/);
+  ok('build: url(), absolute and anchor paths are fine',
+    B.strayRelativeUrls('<a href="#x"></a><img src="/a.png"><a href="https://x.y/">' +
+      '<div style="background:url(../b.png)"></div><script>x.innerHTML = \'<img src="\' + u + \'">\';</script>').length === 0);
+  eq('build: url() with a relative path is caught', B.strayRelativeUrls('<div style="background:url(c.png)"></div>'), ['c.png']);
+
+  fails('build: a renamed global the v2 scripts use fails',
+    inp.src.replace(/\nasync function analyzePoseAtT\(/, '\nasync function analysePoseAtT('), null, null, /analyzePoseAtT/);
+  fails('build: a changed autoScanAll fails until the v2 copy is reviewed',
+    inp.src.replace('\nasync function autoScanAll(){\n', '\nasync function autoScanAll(){\n  // a new line\n'), null, null, /autoScanAll .*changed/);
+  ok('declares: comma-list let', B.declares('let a=1, phases={};\n', 'phases'));
+  ok('declares: function', B.declares('async function foo(x){\n}\n', 'foo'));
+  ok('declares: not a property', !B.declares('  obj.foo = 1;\n', 'foo'));
+  ok('declares: not a nested function', !B.declares('  function foo(){}\n', 'foo'));
+}
+
+(async function () {
+  await poseOrSearchChecks();
+  await waitForChecks();
+  await browserPartChecks();
+  buildChecks();
+  console.log('scan-v2: ' + (checks - failures) + ' of ' + checks + ' checks passed');
+  if (failures) process.exit(1);
+})().catch(function (e) { console.log('  FAIL threw: ' + (e && e.stack || e)); process.exit(1); });

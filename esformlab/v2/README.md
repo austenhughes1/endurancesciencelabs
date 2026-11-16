@@ -15,7 +15,7 @@ How today's detection works, and why it fails, is in `docs/esformlab.md`
 | file | what it is |
 |---|---|
 | `index.html` | GENERATED from `../index.html` by `build-page.js`. Never edit it by hand. |
-| `build-page.js` | Makes `index.html`: the main page with `../` paths, a "v2" tab title, noindex, and the three scripts below loaded after the inline script and before `initModel()`. `--check` (run by `npm test`) fails if `index.html` is out of date. After any change to `esformlab/index.html`, run `node esformlab/v2/build-page.js` and commit both. |
+| `build-page.js` | Makes `index.html`: the main page with `../` paths, a "v2" tab title, noindex, and the three scripts below loaded after the inline script and before `initModel()`. `--check` (run by `npm test`) fails if `index.html` is out of date. After any change to `esformlab/index.html` or to a v2 script (they load with `?v=<content hash>`), run `node esformlab/v2/build-page.js` and commit both. The build also fails when the main page stops fitting v2: a global the v2 scripts use is no longer declared, `autoScanAll` changed (`scan-v2.js` holds a copy of its body; update the copy, then `AUTO_SCAN_ALL_SHA`), or a relative path no edit rewrites would load from `/esformlab/v2/`. |
 | `pose-v2.js` | `EslPoseV2`: finds the runner in every stored frame and poses a square crop around them, with no state carried between calls. |
 | `gait-events.js` | `EslGaitEvents.detect`: picks the phase frames from a whole clip's per-frame pose. Pure maths, no DOM; also runs in node. |
 | `scan-v2.js` | Wires the two into the page: replaces `autoScanAll` and routes every later pose (cards, inspector) through the tracked poses. |
@@ -56,7 +56,22 @@ runner", "posing frame k of n"); the preview shows frames about once a second
 while posing; "Side poses" in scan details counts posed stored frames; cards
 analyse almost instantly because poses are cached; Rescan reuses the cached poses.
 New scan warnings appear when another moving person is in the clip, when a clip
-has few strides, or when a pick was placed from the surrounding steps.
+has few strides, or when a pick was placed from the surrounding steps. A frame the
+user picks where the tracker did not follow the runner (or any frame of a clip
+where no runner was tracked) is posed by a single-frame search, as v1 posed any
+chosen frame. If the user uploads before Thunder has loaded, the scan waits for
+it ("Loading the pose model…") rather than downloading a second copy. On phones
+tracking pauses 60 ms every 10 model calls, as v1's phone scan did.
+
+**What v2 writes.** The same documents as the main page, with one addition: admin
+`phase_labels` docs carry `detector: 'v2'` (main-page docs have no `detector`
+field), so the two detectors' labels can be told apart. Saved analyses are not
+tagged, because the main page's own modules build them.
+
+**If the page changed under v2.** `scan-v2.js` replaces or wraps `autoScanAll`,
+`analyzeCard`, `epReanalyze`, `analyzePoseAtT`, `normalizeAndRetry` and
+`initModel` all together or not at all. If one is missing it replaces none, logs
+an error and prefixes the tab title with "[v2 NOT ACTIVE]".
 
 ## How it was measured
 

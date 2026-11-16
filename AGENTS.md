@@ -70,17 +70,17 @@ node functions/garmin-lib.test.js
 node functions/garmin.test.js
 node functions/garmin-series.test.js
 node functions/es-mcp.test.js
+node esformlab/v2/build-page.js --check   # v2/index.html is current and the main page still fits v2
 node esformlab/v2/pose-v2.test.js
 node esformlab/v2/gait-events.test.js
 node esformlab/v2/scan-v2.test.js
-node esformlab/v2/build-page.js --check   # v2/index.html matches the main page
 ```
 
 There is no lint, typecheck or build. Page behaviour in a browser is not
 covered by any test: say what you checked and how, or that you could not.
 
 Baseline (2026-11-16): all green. 267, 17, 40, 56, 830, 140, 64, 631, 81, 68,
-184, 461 and 84 checks, in that order. The FIT and MCP-handshake sections need
+184, 461 and 121 checks, in that order. The FIT and MCP-handshake sections need
 `npm install` in functions/; without it they print SKIPPED.
 
 ## Conventions

@@ -2361,6 +2361,7 @@ async function writePhaseLabelDoc(phaseKey, frameData, isCorrect){
     kps: frameData.kps,
     metrics: frameData.metrics || null,
     isCorrect: !!isCorrect,
+    detector: 'v2',
     userUid: currentUser ? currentUser.uid : null,
     userEmail: currentUser ? (currentUser.email || null) : null,
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -3459,9 +3460,9 @@ document.addEventListener('keydown', function(e) {
 
 </script>
 <!-- esFormLab v2: detection scripts (see v2/README.md). Built by v2/build-page.js. -->
-<script src="gait-events.js"></script>
-<script src="pose-v2.js"></script>
-<script src="scan-v2.js"></script>
+<script src="gait-events.js?v=ea6dcb8a60f5f6d7"></script>
+<script src="pose-v2.js?v=72bf1dbe0686a7eb"></script>
+<script src="scan-v2.js?v=0c0c694083402a9d"></script>
 <script>initModel();</script>
 </body>
 </html>
