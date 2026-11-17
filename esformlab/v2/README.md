@@ -39,11 +39,12 @@ samples scored by which ankle is lower). v2 uses every frame:
 
 - Side view: first contact and toe-off come from each foot's motion relative to the
   hips plus the foot stopping on the ground, with fixed offsets in seconds. Foot
-  strike is not first contact: it is the frame where the foot starts taking load,
-  about 50 ms after first touch (the owner's definition, and the moment his elite
-  reference frames were picked at). The detector places it 0.07 s after its
-  first-contact estimate, never past mid-stance, on the nearest frame;
-  `contacts[].strike` stays first contact and `contacts[].load` is the foot strike.
+  strike is the frame where the foot first fully contacts the ground (the owner's
+  definition, and the moment his elite reference frames were picked at). A shoe,
+  thick-soled ones especially, can look grounded a frame or two before it truly is,
+  so the detector places foot strike 0.07 s after its earliest-touch estimate, never
+  past mid-stance, on the nearest frame. `contacts[].strike` is the earliest-touch
+  estimate and `contacts[].load` (the name is historical) is the foot strike.
   Legs are identified by continuity (MoveNet swaps left/right ankle labels on a few
   percent of frames), and anatomical left/right comes from the inferred facing
   direction. When a clip has several strides, the stride whose frame lands closest
@@ -88,9 +89,9 @@ The previous and the v2 detection were then driven headless through upload, scan
 the same clips and scored against those labels. A pick counts as correct when it
 is within 2 frames of the labelled event on the correct leg; mid-stance counts
 when it lies within 30-70% of a labelled stance of the correct leg. The labels mark
-first contact; since foot strike became load onset, a foot-strike pick is scored
-against the frame nearest the labelled first contact + 0.07 s. The table below was
-measured before that change, when foot strike was first contact.
+the first frame the shoe appears to touch; a foot-strike pick is scored against the
+frame nearest that frame + 0.07 s (first full contact). The table below was
+measured before that change, when foot strike was the earliest touch.
 
 | | previous | v2 |
 |---|---|---|

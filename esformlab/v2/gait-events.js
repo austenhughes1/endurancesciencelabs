@@ -4,8 +4,8 @@
 //
 // Picks the gait-phase frames of one clip from per-frame MoveNet keypoints:
 //
-//   side view:        l_foot, r_foot  (foot strike of each leg: the frame where the foot
-//                                      starts taking load, not the first touch; see C.LOAD_DELAY)
+//   side view:        l_foot, r_foot  (foot strike of each leg: the frame where the foot first
+//                                      FULLY contacts the ground; see C.LOAD_DELAY)
 //                     l_toe,  r_toe   (toe-off of each leg)
 //                     mid             (mid-stance)
 //   front/back view:  l, r            (mid-stance of each leg)
@@ -191,11 +191,13 @@ var EslGaitEvents = (function () {
     // the biases are the measured mean offsets of hand-labelled events from those extrema.
     STRIKE_BIAS: 0.01,     // tau_strike = time of max forward ankle reach (hip-relative) + bias, s
     TOE_BIAS: -0.054,      // tau_toeoff = time of max backward ankle reach + bias, s
-    // Foot strike is reported as LOAD ONSET, not first contact. The owner, a running coach, defines
-    // it: "The instant the foot touches the ground isn't necessarily foot strike; foot strike is when
-    // the foot actually starts seeing load, not when the rubber touches the ground." His elite
-    // reference ranges (overstriding and the other foot-strike metrics) were measured on frames he
-    // picked that way, so a user's foot strike must be the same moment. Loading instant
+    // Foot strike is reported as the moment the foot first FULLY contacts the ground, not the first
+    // picture where the shoe seems to touch it: a shoe (thick-soled ones especially) can look
+    // grounded a frame or two before it truly is. That is the owner's (a running coach's)
+    // definition, and his elite reference ranges (overstriding and the other foot-strike metrics)
+    // were measured on frames he picked that way, so a user's foot strike must be the same moment.
+    // (The names tau_load / contacts[].load are historical: this is full contact, not load onset.)
+    // Full-contact instant
     // tau_load = tau_strike + LOAD_DELAY, never later than mid-stance (load builds toward a peak at
     // mid-stance). tau_strike stays the first-contact estimate: stance windows, mid-stance, toe-off
     // and leg logic use it, and contacts[].strike reports it. On his own labelled clips his
@@ -412,7 +414,7 @@ var EslGaitEvents = (function () {
     return { dir: dir, swaps: rep.swaps, swapState: rep.st, spikes: spikes, P: P, contacts: contacts };
   }
 
-  // Loading instant (the reported foot strike) of a contact that starts at first contact tS and
+  // Full-contact instant (the reported foot strike) of a contact that starts at first contact tS and
   // lasts `stance` seconds (null when unknown): LOAD_DELAY after first contact, capped at
   // mid-stance.
   function loadTime(tS, stance) {
@@ -486,7 +488,7 @@ var EslGaitEvents = (function () {
     // before its first-contact picture
     function loadQ(c) { return Math.max(frameAt(S, c.tL, 'near'), frameAt(S, c.tS, 'strike')); }
     res.contacts.forEach(function (c) {
-      // strike = first contact, load = the reported foot strike (load onset), toeOff = toe-off
+      // strike = earliest touch, load = the reported foot strike (first full contact), toeOff = toe-off
       var o = { leg: LEG[c.leg], strike: c.tS != null ? S.i[frameAt(S, c.tS, 'strike')] : null, load: c.tL != null ? S.i[loadQ(c)] : null, toeOff: c.tT != null ? S.i[frameAt(S, c.tT, 'toe')] : null };
       contacts.push(o); c.out = o;
     });

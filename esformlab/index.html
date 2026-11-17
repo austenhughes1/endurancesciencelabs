@@ -231,7 +231,7 @@
           <div class="instr-step-num">3</div>
           <div class="instr-step-text">
             <div class="instr-step-title">Make sure each frame matches its description</div>
-            <div class="instr-step-desc">Each card describes what the frame should look like (for example, "the moment the left foot contacts the ground"). If the auto-selected frame does not match, <strong>use the frame step buttons (&#8722;1f / +1f / &#8722;5f / +5f / &#8722;1s / +1s) to find the right moment</strong> and click Analyze again.</div>
+            <div class="instr-step-desc">Each card describes what the frame should look like (for example, "the moment the left foot first fully contacts the ground"). If the auto-selected frame does not match, <strong>use the frame step buttons (&#8722;1f / +1f / &#8722;5f / +5f / &#8722;1s / +1s) to find the right moment</strong> and click Analyze again.</div>
           </div>
         </div>
         <div class="instr-step">
@@ -668,7 +668,7 @@
 <script src="report-render.js?v=20261016b"></script>
 <script src="saved-analyses.js?v=20261029"></script>
 <script src="auth-paywall.js?v=20261029"></script>
-<script src="gait-data.js?v=20261016b"></script>
+<script src="gait-data.js?v=20261116"></script>
 <script src="gait-engine.js"></script>
 
 <script>
@@ -2512,8 +2512,8 @@ var EXAMPLE_SETS = {
   foot: {
     title: 'Foot strike: correct vs. wrong frames',
     angleWarn: true,
-    instruction: 'Scrub to the <strong>first</strong> frame where the foot touches the ground. If you go back one frame, that foot should still be in the air. Don’t pick a frame where the foot has already rolled onto mid-foot or where the runner is fully loaded into stance.',
-    good: [{src:'foostrike_correct.png', cap:'Foot just touching down'}],
+    instruction: 'Scrub to the <strong>first</strong> frame where the foot fully contacts the ground. A thick-soled shoe can look grounded a frame or two before it really is, so if you go back one frame, that foot should not yet be fully on the ground. Don’t pick a frame where the foot has already rolled onto mid-foot or where the runner is fully loaded into stance.',
+    good: [{src:'foostrike_correct.png', cap:'Foot first fully on the ground'}],
     bad:  [{src:'footstrike_wrong.png',  cap:'Already past initial contact'},
            {src:'footstrike_wrong_2.png',cap:'Loaded into stance – too late'}].concat(SIDE_WRONG_ANGLE_EXAMPLES)
   },
@@ -3458,7 +3458,7 @@ document.addEventListener('keydown', function(e) {
 
 </script>
 <!-- esFormLab v2 detection (esformlab/v2/README.md). Tags kept current by esformlab/v2/build-page.js. -->
-<script src="v2/gait-events.js?v=ea859a4cf178cdfb"></script>
+<script src="v2/gait-events.js?v=64c4baa6f165c909"></script>
 <script src="v2/pose-v2.js?v=72bf1dbe0686a7eb"></script>
 <script src="v2/scan-v2.js?v=e06b97157286429e"></script>
 <!-- /esFormLab v2 detection -->

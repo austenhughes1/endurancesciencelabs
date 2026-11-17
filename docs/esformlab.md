@@ -11,8 +11,9 @@ is stored, and where phase detection goes wrong.
 load time. Sections 5.2-5.4, 6, 13 and 14 describe the previous detection, which is
 still in `index.html` and runs when the page URL has `?detector=v1`. Everything else
 here (UI, metrics, rules, report, data) is unchanged. One definition differs: v2's
-foot strike is the frame where the foot starts taking load, about 50 ms after first
-touch, not the first frame of ground contact.
+foot strike is the frame where the foot first fully contacts the ground, placed 0.07 s
+after the earliest frame where the shoe appears to touch it (a thick-soled shoe looks
+grounded before it truly is). The page's foot-strike copy says the same.
 
 How this was produced: everything is read from the code
 at commit `01274f4`. Nothing here was run in a browser, and esFormLab has no test
@@ -482,7 +483,7 @@ the tool's own definition of the target frame:
 
 | Phases | Instruction shown |
 |---|---|
-| Foot strike | "Scrub to the **first** frame where the foot touches the ground. If you go back one frame, that foot should still be in the air. Don't pick a frame where the foot has already rolled onto mid-foot or where the runner is fully loaded into stance." |
+| Foot strike | "Scrub to the **first** frame where the foot fully contacts the ground. A thick-soled shoe can look grounded a frame or two before it really is, so if you go back one frame, that foot should not yet be fully on the ground. Don't pick a frame where the foot has already rolled onto mid-foot or where the runner is fully loaded into stance." |
 | Toe-off | "Scrub to the **last** frame where the trail foot is still touching the ground. The correct frame shows the forefoot in contact with the ground; the very next frame should show that foot fully in the air." |
 | Mid-stance (side) | "Pick the frame where the supporting foot is **directly under your center of mass** — not in front of the body (still loading) and not behind it (starting to push off)." |
 | Mid-stance (front) | "Pick a frame where the foot is firmly **planted directly underneath the body**. Avoid frames where the foot has just touched down, or where the runner is rolling onto the toes about to leave the ground." |
@@ -1037,8 +1038,8 @@ the rules and the outputs.
 
 | # | Key | Label | Clip | One-line description | Target frame, in the tool's own words |
 |---|---|---|---|---|---|
-| 1 | `l_foot` | L foot strike | side | Left initial contact with ground | "The instant the left foot first contacts the ground." |
-| 2 | `r_foot` | R foot strike | side | Right initial contact with ground | "The instant the right foot first contacts the ground." |
+| 1 | `l_foot` | L foot strike | side | Left foot first fully contacts ground | "The instant the left foot first fully contacts the ground." |
+| 2 | `r_foot` | R foot strike | side | Right foot first fully contacts ground | "The instant the right foot first fully contacts the ground." |
 | 3 | `l_toe` | L toe-off | side | Left foot leaving the ground | "The moment the left foot pushes off. Hip extension is at maximum." Checks include "Left heel visibly raised". |
 | 4 | `r_toe` | R toe-off | side | Right foot leaving the ground | "The moment the right foot pushes off." |
 | 5 | `mid` | Mid-stance | side | Body directly over support foot | "The body passes directly over the supporting foot." |
