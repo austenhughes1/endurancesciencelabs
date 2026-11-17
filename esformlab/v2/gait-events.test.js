@@ -11,7 +11,7 @@
 // contacts and toe-offs are known to the millisecond, plus small keypoint noise.
 // Foot strike is LOAD ONSET (the owner's definition: when the foot starts seeing
 // load, not when the rubber touches the ground); for the synthetic runner that
-// is its first contact + LOAD_DELAY (70 ms), so l_foot/r_foot are checked
+// is its first contact + LOAD_DELAY (55 ms), so l_foot/r_foot are checked
 // against that instant and contacts[].strike stays first contact.
 // Side views (facing left and right), front and back views; 15, 30 and 60 fps;
 // duplicated frames; a run of frames with MoveNet's left/right labels swapped;
@@ -52,8 +52,8 @@ function rng(seed) {
 function gauss(r) { return Math.sqrt(-2 * Math.log(r() + 1e-12)) * Math.cos(2 * Math.PI * r()); }
 
 // ── synthetic runner ──────────────────────────────────────────────
-// the synthetic runner's loading instant: 70 ms after first contact (gait-events.js C.LOAD_DELAY)
-var LOAD_DELAY = 0.07;
+// the synthetic runner's loading instant: 55 ms after first contact (gait-events.js C.LOAD_DELAY)
+var LOAD_DELAY = 0.055;
 // o: view 'side'|'front'|'back', facing +1 (image right) / -1 (side only), fps (container rate),
 //    dur (s), P (stride, s), Tc (stance, s), t0 (first left strike, s), dupEvery (every Nth frame
 //    repeats the previous picture), swap: [t_from, t_to] pictures whose leg labels MoveNet swaps,

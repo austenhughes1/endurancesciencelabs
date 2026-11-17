@@ -205,7 +205,11 @@ var EslGaitEvents = (function () {
     // the first picture with the foot down; delays of 0.065-0.075 s fit them equally well. A fixed
     // delay matched them more closely than a fraction of stance or any pose signal (knee starting
     // to flex, ankle stopping, hip dropping fastest).
-    LOAD_DELAY: 0.07,      // s after tau_strike
+    // SETTING (owner's choice, 2026-11-16): 0.055 s, which lands foot strike about 35 ms after the
+    // first picture with the foot down. 0.07 s (about 50 ms) matched his own hand-picked frames best
+    // (median offset 0 ms vs about 17 ms early at 0.055 s; within one frame 54 vs 53 of 63). If
+    // foot-strike frames are consistently picked too early, set this back to 0.07.
+    LOAD_DELAY: 0.055,     // s after tau_strike
     EXT_HALF: 0.025        // half-window of the local quadratic used for sub-frame extremum, s (>= 1.5 frames)
   };
 

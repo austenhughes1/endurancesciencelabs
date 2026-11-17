@@ -42,9 +42,13 @@ samples scored by which ankle is lower). v2 uses every frame:
   strike is the frame where the foot first fully contacts the ground (the owner's
   definition, and the moment his elite reference frames were picked at). A shoe,
   thick-soled ones especially, can look grounded a frame or two before it truly is,
-  so the detector places foot strike 0.07 s after its earliest-touch estimate, never
+  so the detector places foot strike 0.055 s after its earliest-touch estimate, never
   past mid-stance, on the nearest frame. `contacts[].strike` is the earliest-touch
   estimate and `contacts[].load` (the name is historical) is the foot strike.
+  That lands about 35 ms after the first frame where the shoe seems to touch (the
+  owner's chosen setting). 0.07 s, about 50 ms, matched his own hand-picked frames
+  more closely; if foot strikes come out consistently too early, set `LOAD_DELAY`
+  back to 0.07.
   Legs are identified by continuity (MoveNet swaps left/right ankle labels on a few
   percent of frames), and anatomical left/right comes from the inferred facing
   direction. When a clip has several strides, the stride whose frame lands closest

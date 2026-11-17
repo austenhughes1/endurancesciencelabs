@@ -11,10 +11,12 @@ is stored, and where phase detection goes wrong.
 load time. Sections 5.2-5.4, 6, 13 and 14 describe the previous detection, which is
 still in `index.html` and runs when the page URL has `?detector=v1`. Everything else
 here (UI, metrics, rules, report, data) is unchanged. One definition differs: v2's
-foot strike is the frame where the foot first fully contacts the ground, about 50 ms
+foot strike is the frame where the foot first fully contacts the ground, about 35 ms
 after the first frame where the shoe appears to touch it (a thick-soled shoe looks
-grounded before it truly is). The detector places it 0.07 s after its own
-earliest-touch estimate, which falls between frames and runs slightly early. The
+grounded before it truly is). The detector places it 0.055 s after its own
+earliest-touch estimate, which falls between frames and runs slightly early; 0.07 s
+(about 50 ms) matched the coach's own picks more closely and is the setting to go
+back to if foot strikes come out too early (esformlab/v2/README.md). The
 page's foot-strike copy says the same.
 
 How this was produced: everything is read from the code
