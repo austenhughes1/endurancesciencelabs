@@ -151,6 +151,14 @@ body.esfl-has-session #nav-mobile-new-analysis{display:block}
 .dz-loaded-info{display:none;margin-top:2px;font-size:13px;font-weight:600;color:var(--text);font-family:var(--mono);word-break:break-all;line-height:1.45}
 .drop-zone.loaded .dz-loaded-info{display:block}
 .drop-zone.loaded .dz-required{display:none}
+/* Optional front clip: a muted OPTIONAL pill, and a cell holding the zone plus its Remove button
+   (beside the zone, because the zone is itself role=button). */
+.dz-optional{display:inline-block;font:700 10px/1.3 var(--mono);letter-spacing:.5px;text-transform:uppercase;padding:3px 8px;border-radius:6px;border:1px solid var(--border2);white-space:nowrap;color:var(--muted2);background:var(--hover);margin-top:8px}
+.drop-zone.loaded .dz-optional{display:none}
+.dz-cell{display:flex;flex-direction:column;gap:8px;min-width:0}
+.dz-cell>.drop-zone{flex:1}
+.dz-remove{align-self:center}
+.dz-remove[hidden]{display:none}
 .btn-main{display:inline-flex;align-items:center;justify-content:center;gap:7px;margin-top:18px;min-height:36px;padding:7px 16px;background:var(--cyan);color:var(--on-accent,#000);font:700 13px/1.2 var(--ui);border:1px solid transparent;border-radius:8px;cursor:pointer;transition:opacity .15s}
 .btn-main:hover{opacity:.85}
 .btn-main:disabled{opacity:.35;cursor:not-allowed}

@@ -1352,7 +1352,8 @@ async function verifyActivePass(uid) {
 // ═══════════════════════════════════════════════════════════
 //  generateFormReport — server-rendered PDF. The client sends
 //  the analysis payload (phases + detected issues + sex +
-//  athlete name); we verify the caller has an active pass and
+//  athlete name + noFront when the session had no front
+//  clip); we verify the caller has an active pass and
 //  render the PDF using a Node port of the old browser
 //  downloadReport(). Returns the PDF as base64 for the client
 //  to save as a Blob.
@@ -1384,6 +1385,9 @@ exports.generateFormReport = onCall({ cors: true, memory: "512MiB" }, async (req
   const sessionDate = typeof data.sessionDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(data.sessionDate)
     ? data.sessionDate : "";
   const generatedISO = localDateISO(data.tzOffsetMin);
+  // Optional (newer clients): true when the session had no front clip, so the PDF leaves
+  // out arms crossing and the front columns. Older clients omit it: three clips.
+  const noFront = data.noFront === true;
 
   // Optional per-phase captured-frame screenshots (JPEG data URLs), passed in the
   // request payload rather than persisted. Validate shape/size so a malformed or
@@ -1432,7 +1436,7 @@ exports.generateFormReport = onCall({ cors: true, memory: "512MiB" }, async (req
   try {
     buf = renderReport({
       athleteName, sessionName, sessionDate, generatedISO, rangeMeta,
-      selectedSex, phases, lastIssues, liveRanges, images,
+      selectedSex, phases, lastIssues, liveRanges, images, noFront,
     });
   } catch (e) {
     console.error("renderReport failed:", e);

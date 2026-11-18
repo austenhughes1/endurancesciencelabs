@@ -50,8 +50,11 @@ function cmpSevText(issue, key) {
 /**
  * @param {object} input
  * @param {object} input.dA   Saved-analysis data blob for session A
- *                            ({ name, date, sex, issues, phases })
- * @param {object} input.dB   Saved-analysis data blob for session B
+ *                            ({ name, date, sex, issues, phases, noFront }).
+ *                            noFront is true when the session had no front
+ *                            clip (no front phases, no arms-crossing check);
+ *                            older docs have no noFront field (three clips).
+ * @param {object} input.dB   Saved-analysis data blob for session B (same shape)
  * @param {object} input.liveRanges  { male, female, combined } from
  *                                   Firestore computed_ranges; used
  *                                   only to anchor the per-metric
@@ -124,6 +127,8 @@ function renderComparisonReport(input) {
   // Issue comparison table
   y = pdfH1(doc, "Issue comparison", y, margins);
 
+  // Arms crossing needs a front clip: when either session had none, the row is left out.
+  const noFront = dA.noFront === true || dB.noFront === true;
   const issueKeys = [
     { key: "overstriding", title: "Overstriding" },
     { key: "hipDrop", title: "Hip drop" },
@@ -131,7 +136,7 @@ function renderComparisonReport(input) {
     { key: "torsoPosition", title: "Torso position" },
     { key: "armAngle", title: "Arm angle" },
     { key: "kneeValgus", title: "Knee valgus" },
-  ];
+  ].filter((ik) => !(noFront && ik.key === "armsCrossing"));
 
   const colIssueW = 40, colAW = 38, colBW = 38;
   const headerRowH = 9;

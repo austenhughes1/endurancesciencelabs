@@ -1,8 +1,9 @@
 # esFormLab v2: gait-phase detection
 
-esFormLab (`/esformlab/`) finds the nine phase frames with the v2 detection in this
-folder. The UI, copy, report, saving and checkout are the page's own code; v2 changes
-only how the phase frames are found and how each card's pose is computed.
+esFormLab (`/esformlab/`) finds the nine phase frames (seven when the session has no
+front clip, which is optional) with the v2 detection in this folder. The UI, copy,
+report, saving and checkout are the page's own code; v2 changes only how the phase
+frames are found and how each card's pose is computed.
 
 The previous detection is still in `esformlab/index.html` (its scan functions are
 replaced at load time, not deleted). Add `?detector=v1` to the page URL to run it,
@@ -76,7 +77,10 @@ tracking pauses 60 ms every 10 model calls, as v1's phone scan did.
 
 **What v2 writes.** The same documents as before, with one addition: admin
 `phase_labels` docs carry `detector: 'v2'` (or `'v1'` under `?detector=v1`; docs
-written before v2 shipped have no `detector` field). Saved analyses are not tagged.
+written before v2 shipped have no `detector` field). Saved analyses are not tagged
+with the detector. Since the front clip became optional they carry `noFront` (`true`
+when the session had no front clip, which then has no front phases); older docs have
+no `noFront` field and are three-clip sessions.
 
 **If the page changed under v2.** `scan-v2.js` replaces or wraps `autoScanAll`,
 `analyzeCard`, `epReanalyze`, `analyzePoseAtT`, `normalizeAndRetry` and
@@ -126,5 +130,5 @@ labellers agreed, which makes them a somewhat easier test.
 
 - `reference-data/index.html` (the admin reference tool) has its own copy of the previous
   `findPhases` and `refineLegPlateau`; it does not use v2.
-- Saved analyses use the same Firestore schema as before. Admin frame labels
-  (`phase_labels`) record `detector: 'v2'` or `'v1'`.
+- Saved analyses use the same Firestore schema as before, plus `noFront` (see "What
+  v2 writes"). Admin frame labels (`phase_labels`) record `detector: 'v2'` or `'v1'`.

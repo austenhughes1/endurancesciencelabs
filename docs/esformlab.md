@@ -19,9 +19,19 @@ earliest-touch estimate, which falls between frames and runs slightly early; 0.0
 back to if foot strikes come out too early (esformlab/v2/README.md). The
 page's foot-strike copy says the same.
 
+**The front clip is optional** (since 2026-11-18): on a treadmill the console blocks
+the front view. Side and back are required. A session without a front clip has seven
+phases instead of nine (no `mid_front_l` / `mid_front_r`), runs five issue rules
+instead of six (no arms crossing), takes hip drop and knee valgus from the back view,
+and is saved with `noFront: true`. Both the v2 scan and the `?detector=v1` scan
+handle it. Section 5.7 has the mechanics; the sections below say where the two kinds
+of session differ. Those passages cite functions rather than line numbers.
+
 How this was produced: everything is read from the code
-at commit `01274f4`. Nothing here was run in a browser, and esFormLab has no test
-suite. Behaviour of the pose library was checked against the un-minified source of
+at commit `01274f4`. Nothing here was run in a browser. esFormLab had no test suite
+then; `esformlab/detect-issues.test.js` now checks the optional front clip (the phase
+helpers, `detectIssues` and the on-screen report) in node, and the v2 suites cover the
+v2 scan. Behaviour of the pose library was checked against the un-minified source of
 the exact version the page loads (`@tensorflow-models/pose-detection@2.1.3`).
 Section 16 lists what the code cannot tell us.
 
@@ -52,19 +62,23 @@ Contents
 
 ## 1. What esFormLab is and who can do what
 
-A runner uploads three short video clips of themselves running: one from the side,
-one from the front, one from the back. The page decodes each clip into still frames
+A runner uploads short video clips of themselves running: one from the side, one
+from the back and, if they can film it, one from the front (optional; on a treadmill
+the console is in the way). The page decodes each clip into still frames
 in the browser, runs a pose model (MoveNet) over a sample of those frames, and picks
-one frame for each of nine gait phases (moments in the stride, listed in section 6).
-On each picked frame it measures joint angles. The user reviews the nine frames,
+one frame for each of nine gait phases (moments in the stride, listed in section 6),
+or seven without a front clip.
+On each picked frame it measures joint angles. The user reviews the frames,
 corrects any that are wrong, and presses Complete analysis. Six rules then turn the
 measurements into findings (overstriding, hip drop, arms crossing, torso position,
-arm angle, knee valgus), shown as an on-page report and available as a PDF.
+arm angle, knee valgus), shown as an on-page report and available as a PDF. Without
+a front clip there are five: arms crossing needs the front view and is left out.
 
 The videos never leave the browser. What does leave it:
 
 - the numbers of a saved session (Firestore, section 11);
-- up to nine downscaled JPEG frames attached to a PDF request, which the server uses
+- up to nine (seven without a front clip) downscaled JPEG frames attached to a PDF
+  request, which the server uses
   for that PDF and does not store (`functions/index.js:1360-1447`);
 - feedback messages typed into the feedback form;
 - admin frame labels (admin account only).
@@ -105,12 +119,13 @@ global scope.
 |---|---|---|
 | `esformlab/index.html` | 3461 | Markup for every screen and overlay (lines 1-650) and the main inline script (lines 674-3459): boot, global state, model loading, upload, scan orchestration, phase detection, review cards, frame inspector, admin labelling, examples, guided tour, PDF request, re-scan and reset, feedback. |
 | `esformlab/frame-store.js` | 477 | `FrameStore.prime` and `FrameStore.extract`: plays each clip once and caches its frames as JPEGs. Every frame the tool shows or poses comes from here. |
-| `esformlab/gait-data.js` | 246 | Data: `PHASE_DEFS` (the nine phases and their guide text), `PHASE_GROUPS`, `METRIC_ROWS`, `PHASE_METRICS`, `DEFAULTS` (reference ranges), `METRIC_BIO` (the inspector's one-sentence metric explanations), range lookups, `setSex`, `MIN_CONF`, and the keypoint side sets and `SKELETON` used for drawing. |
-| `esformlab/gait-engine.js` | 751 | Maths and drawing: `isSideView`, `drawPose`, `calcAngle`, `computeMetrics`, `computeFrontBackMetrics`, `normalizeAndRetry`, `isWeakDetection`, `addFunctionalMetrics`, `REPORT_DATA` (report copy), `detectIssues` (the six rules). |
-| `esformlab/report-render.js` | 406 | On-screen report: issue cards and breakdowns, the teaser banner for unpaid users, the side-view summary table, the front/back table. |
+| `esformlab/gait-data.js` | 246 | Data: `PHASE_DEFS` (the nine phases and their guide text), `PHASE_GROUPS`, `METRIC_ROWS`, `PHASE_METRICS`, `DEFAULTS` (reference ranges), `METRIC_BIO` (the inspector's one-sentence metric explanations), range lookups, `setSex`, `MIN_CONF`, and the keypoint side sets and `SKELETON` used for drawing. Also the optional-front-clip state `eflNoFront` and its helpers `eflActivePhaseDefs`, `eflPhaseNum`, `eflActivePhaseGroups`, `eflPhaseCopy` (section 5.7). |
+| `esformlab/gait-engine.js` | 751 | Maths and drawing: `isSideView`, `drawPose`, `calcAngle`, `computeMetrics`, `computeFrontBackMetrics`, `normalizeAndRetry`, `isWeakDetection`, `addFunctionalMetrics`, `REPORT_DATA` (report copy), `detectIssues` (the six rules; five without a front clip). |
+| `esformlab/report-render.js` | 406 | On-screen report: issue cards and breakdowns, the teaser banner for unpaid users, the side-view summary table, the front/back table (back columns only without a front clip). |
 | `esformlab/saved-analyses.js` | 653 | Save, My Sessions, viewing a saved session, comparing two sessions, comparison PDF request, `startNewSession`. |
 | `esformlab/auth-paywall.js` | 290 | Paywall blur, pass chip, checkout with autosave and resume, sign-in UI toggles, fetch of the live reference ranges, profile gender preselect. |
 | `esformlab/esformlab.css` | 1256 | Page styles. Colours and shared components come from `shared/site.css`. |
+| `esformlab/detect-issues.test.js` | 428 | Node checks of the optional front clip, with and without one: the phase helpers, `detectIssues`, and the on-screen report and banner. The three scripts run in a node `vm` with a fake document; every measurement is made up. Part of `npm test`. |
 
 Outside the folder:
 
@@ -149,8 +164,9 @@ inline script re-seeds `currentUser` and re-runs the profile load to cover that
 
 | Term | Meaning here |
 |---|---|
-| Clip, view | One of the three uploaded videos: `side`, `front`, `back`. |
-| Phase | One of nine named moments in the stride, each tied to one clip (section 6). Phase keys: `l_foot`, `r_foot`, `l_toe`, `r_toe`, `mid`, `mid_front_l`, `mid_front_r`, `mid_back_l`, `mid_back_r`. |
+| Clip, view | One of the uploaded videos: `side`, `back` and the optional `front`. |
+| Phase | One of nine named moments in the stride, each tied to one clip (section 6). Phase keys: `l_foot`, `r_foot`, `l_toe`, `r_toe`, `mid`, `mid_front_l`, `mid_front_r`, `mid_back_l`, `mid_back_r`. A session without a front clip has seven: the two `mid_front_*` phases do not exist. |
+| No front clip | `eflNoFront === true`: the session has no front clip (section 5.7). |
 | Frame store | The object `FrameStore.extract` returns for a clip: its frames as JPEG blobs keyed by presentation time. Held in `videoEls.side/front/back`. Despite the variable's name these are not `<video>` elements. |
 | Stored frame | A frame kept in the frame store. Smaller and possibly sparser than the source video: longest side capped at 1280 px (960 on phones), at most 60 frames per second (30 on phones). "One frame" in the UI means one stored frame. |
 | Keypoints (`kps`) | MoveNet's 17 body points, each `{x, y, score}`: 0 nose, 1/2 eyes, 3/4 ears, 5/6 shoulders, 7/8 elbows, 9/10 wrists, 11/12 hips, 13/14 knees, 15/16 ankles. Odd index is left, even is right. There are no heel or toe points; the ankle is the lowest point the code sees. `x`, `y` are pixels of whatever canvas was posed. |
@@ -190,7 +206,7 @@ siblings of `<main>` shown by adding class `open`.
 3. The sign-in gate (`#esfl-gate`) shows a spinner while auth restores, the sign-in
    card when there is no user, and hides when there is one. Its copy: eyebrow
    "◉ Free to try", headline "Try esFormLab on your run", four bullets (upload and scan
-   at no cost with all 9 gait phases scanned; gender-specific reference data; save your
+   at no cost with every gait phase scanned; gender-specific reference data; save your
    sessions; videos never leave your browser), and a footer saying the full report and
    PDF unlock with a one-time 90-day pass, plus "Not medical advice"
    (`index.html:698-713`).
@@ -213,8 +229,8 @@ Privacy and Terms links is present on every screen (`index.html:632-636`).
 
 What the user sees, top to bottom:
 
-1. "Analyze your running form" and "Upload a side, front and back clip. The scan runs
-   in your browser — nothing is uploaded."
+1. "Analyze your running form" and "Upload a side and a back clip, plus a front clip if
+   you can film one. The scan runs in your browser — nothing is uploaded."
 2. On viewports 700 px wide or less, a notice: "Works on your phone — desktop is a
    little more precise", explaining that phones check fewer frames and step 60 fps
    clips two frames at a time.
@@ -223,14 +239,25 @@ What the user sees, top to bottom:
    gender?" paragraph explains that angles are graded against runners of the same
    gender. A status line reports "✓ Live <sex> ranges loaded" or that defaults are in
    use.
-4. Step 2, "Upload videos (all three required)":
+4. Step 2, "Upload videos (side and back required, front optional)":
    - a must-read box: keep each clip to 8 seconds or less; the camera must be at the
      correct angle for the entire clip;
-   - three drop zones (Side view, Front view, Back view), each with filming guidance.
-     A zone accepts a click, Enter or Space, or a dropped file;
-   - "Analyze all three →", disabled until all three zones hold a file, with the line
-     "MP4 / MOV / WebM · fully private · no data uploaded" under it;
-   - seven recording tips and a privacy note.
+   - three drop zones (Side view, Front view, Back view), each with filming guidance
+     (side and back include a treadmill line). A zone accepts a click, Enter or Space,
+     or a dropped file. Side and back are marked REQUIRED. The front zone reads
+     "Optional — skip it on a treadmill", carries an OPTIONAL pill, and says it adds
+     the arms-crossing check and a second look at hip drop and knee alignment;
+   - once a front clip is chosen, a "Remove front clip" button under the front zone
+     (`removeFrontClip`): it clears the file and any decoded front frames, resets the
+     zone, hides itself and puts focus back on the zone. It sits beside the zone in the
+     markup, not inside it, because the zone is itself a button;
+   - the Analyze button, disabled until the side and back zones hold a file. Its label
+     follows the files (`checkAllUploaded`): "Analyze all three →" whenever a front clip
+     is chosen, "Analyze side + back →" when side and back are chosen without one, and
+     "Analyze videos →" otherwise. Under it: "Side and back required · front optional ·
+     MP4 / MOV / WebM · fully private · no data uploaded";
+   - seven recording tips (the treadmill ones say to skip the front clip there, which
+     leaves out the arms-crossing check) and a privacy note.
 5. Below the upload card, a banner linking to the metabolic power profile tool
    (`/esmetaboliclab/power-profile/`, `index.html:158-168`).
 
@@ -248,17 +275,21 @@ What happens on a pick (`acceptPickedFile`, `index.html:1156-1164`; `loadFile`,
 
 That is all the validation at this point. There is no size, duration, codec or
 resolution check, and the file is not opened until the scan starts. The 8-second rule
-is advice only. There is no single-view mode: all three clips are required.
+is advice only. Side and back are required and the front clip is optional; there is
+no single-view mode. Whether the session has a front clip is settled when Analyze is
+pressed, from whether the front zone holds a file (section 5.7).
 
 ### 4.3 Scanning screen (`#screen-scanning`, `index.html:172-190`)
 
-Pressing Analyze (`startAllVideos`, `index.html:1215-1229`) hides the upload screen,
+Pressing Analyze (`startAllVideos`, `index.html:1215-1229`) sets `eflNoFront` from
+whether a front file was chosen, hides the upload screen,
 shows the scanning card, adds the "New analysis" nav button, primes the shared
 `<video>` element inside the click (needed on iOS), and starts loading then scanning.
 
 The card shows a title ("Scanning stride phases"), a stage line, a static hint, a
 16:9 preview box, a progress bar, a step line, a "Cancel scan" button, live warnings,
-a list of the nine phases and a diagnostics line.
+a list of the session's phases (nine, or seven without a front clip) and a
+diagnostics line.
 
 | Stage | Stage line | Preview | Step line | Bar |
 |---|---|---|---|---|
@@ -271,6 +302,11 @@ a list of the nine phases and a diagnostics line.
 | Back scan | "Scanning back view for L and R mid-stance frames..." | sampled frames with skeletons | "Back view: frame 12 of 50" | 87 to 100% |
 | Finish | "Scan complete" | | "Done — all 3 videos scanned" | 100% |
 
+Without a front clip only the side and back clips are loaded ("(1 of 2)", 15% of the
+bar per clip); the front scan and the cool-down after it are skipped; the back scan
+fills 75 to 100%; the step line ends "Done — side and back videos scanned"; and the
+diagnostics line has no Front entry.
+
 The phase list starts with every row showing "--". After the side scan and
 refinement the five side rows update together: a detected phase turns green with its
 time ("3.47s"); an undetected one turns amber and reads "manual". The front and back
@@ -281,7 +317,7 @@ before you review":
 
 | Warning | Trigger |
 |---|---|
-| "<Views> video(s) couldn't be decoded by this browser (phone clips are often HEVC / H.265). Re-export as H.264 .mp4 or try Safari / Chrome — scanning continues with whatever loaded." | a frame store has no frames (`index.html:1359-1373`) |
+| "<Views> video(s) couldn't be decoded by this browser (phone clips are often HEVC / H.265). Re-export as H.264 .mp4 or try Safari / Chrome — scanning continues with whatever loaded." | a frame store has no frames (`index.html:1359-1373`). No front clip is not a failure; a front clip that was chosen and failed to decode is. |
 | "The <view> clip is very short (N s) — a few seconds of steady running gives the scan full strides to work with." | fewer than 45 stored frames, or duration under 2 s (`:1382-1389`) |
 | "The side clip's first poses look front- or back-facing — side-view angles need a dead-on side view." | the first pose found in the side clip fails the side-view test (`:1437-1439`) |
 | "Only part of the <view> (N% of frames) video could be loaded — re-exporting as H.264 .mp4 usually fixes this." | a clip's frame coverage is under 90% (`:1541-1547`) |
@@ -294,7 +330,8 @@ the scanning card (`index.html:1549-1553`).
 Cancel: "Cancel scan" sets a flag that the scan checks between samples and between
 stages. The button is disabled and reads "Cancelling…", and the step line reads
 "Stopping the scan…", until the scan unwinds; then the page returns
-to the upload screen with the three files still selected, a toast "Scan cancelled —
+to the upload screen with the chosen files still selected (a front clip can still be
+added or removed), a toast "Scan cancelled —
 your videos are still selected.", and the decoded frames dropped
 (`index.html:1242-1277`). A clip that has started loading finishes loading first, and
 both leg refinements finish first; those are the longest waits. Pressing Analyze
@@ -312,13 +349,16 @@ Top to bottom:
    below range).
 2. "Check these before you review": the scan warnings, if any.
 3. "⟳ Re-scan videos" (desktop only).
-4. A collapsed "Scan details · D of 9 auto-detected" line with each clip's source
+4. A collapsed "Scan details · D of 9 auto-detected" line (D of 7 without a front
+   clip) with each uploaded clip's source
    size (or "failed"), the side clip's duration, "Side poses: found/N", the
    auto-detected count and which ranges are in use. It opens by default, flagged
    "check these", when a clip failed or fewer than 15 side poses were found; a failed
    clip also adds a line repeating the HEVC / H.264 advice (`index.html:1559-1578`). D
    is counted from `detected` before any card is analysed.
-5. The nine phase cards in three groups (`gait-data.js:207-211`):
+5. The phase cards in three groups (`gait-data.js:207-211`). Without a front clip the
+   two front cards are not built and the back cards are numbered 6 and 7
+   (`eflActivePhaseGroups`, `eflPhaseNum`):
 
    | Group | Cards |
    |---|---|
@@ -330,12 +370,14 @@ Top to bottom:
 
 Each card shows its number, name, one-line description, a Side / Front / Back tag, a
 status badge, "Detects: …", then a frame or a placeholder, the frame time, a hint, and
-up to three measurements. A card is built in one of three forms
+up to three measurements. Without a front clip the back cards' "Detects" line reads
+"Hip drop (L), knee valgus (L)" (or R) instead of "Hip drop (L), confirms the front
+view" (`eflPhaseCopy`). A card is built in one of three forms
 (`buildPhaseGroups`, `index.html:2058-2104`):
 
 | Condition | Card body | Badge | Hint |
 |---|---|---|---|
-| The clip did not decode | "Video couldn't be loaded / Re-export as H.264 .mp4 and start a new analysis" | "no video" | "↗ Details" |
+| The clip did not decode (a front clip that was chosen but failed included) | "Video couldn't be loaded / Re-export as H.264 .mp4 and start a new analysis" | "no video" | "↗ Details" |
 | Phase detected | the frame at the picked time | "pending" | "↗ Click to adjust" |
 | Phase not detected | "Not auto-detected / Click to manually select a frame" (amber pulsing border) | "manual" | "↗ Select frame" |
 
@@ -353,7 +395,8 @@ An analysed side card can also carry a line "⚠ Possible wrong leg — open to 
 (section 7.7). The measurements on a side card are the first three of its relevant
 metrics, each with a ▸ ▴ ▾ symbol for within, above or below the reference range. A
 front or back card shows hip drop with the measured stance side, "Arm crossing:
-detected" (front only, when either wrist crosses by more than 5% of shoulder width),
+detected" (front cards only, so never without a front clip; when either wrist
+crosses by more than 5% of shoulder width),
 stance knee valgus when above 3°, or the average confidence if none of those apply
 (`index.html:2174-2199`).
 
@@ -404,8 +447,8 @@ Left column:
   slider and no keyboard shortcut for stepping; these buttons are the only way to
   move;
 - "↻ Analyze this frame", "⇄ Swap L/R", "✕ Clear overlay";
-- "jump to:" nine pills, one per phase, the open one highlighted and undetected ones
-  in orange;
+- "jump to:" one pill per phase of the session (nine, or seven without a front clip,
+  numbered as the cards are), the open one highlighted and undetected ones in orange;
 - the admin label panel (admin only).
 
 Right column:
@@ -419,7 +462,9 @@ Right column:
 - a wrong-leg warning when one applies;
 - "What to look for": the phase's description, four "Confirm this frame shows" checks
   and a tip, from `PHASE_DEFS[].guide`. Side phases add a warning that the runner must
-  be dead-on side;
+  be dead-on side. Without a front clip the back phases' description ends "Measures
+  left-stance hip drop and knee valgus." (or right) instead of confirming the front
+  view (`eflPhaseCopy`);
 - "Did this catch the right moment? Compare to these.": one correct example photo and
   the wrong ones, with "See full annotated guide ↗" opening a larger examples overlay;
 - the overlay colour key;
@@ -429,10 +474,18 @@ Right column:
   side-on; on a front or back phase, hip drop with the stance side and which hip is
   lower, L and R wrist crossing as a percentage of shoulder width (front only),
   stance-knee valgus (FPPA) and the average keypoint confidence, with no range grading
-  (`renderExpandMetricsFrontBack`, `index.html:3109-3148`).
+  (`renderExpandMetricsFrontBack`, `index.html:3109-3148`). On a back phase the hip
+  drop note reads "This back view is used to confirm hip drop findings from the front
+  view.", or "With no front clip, hip drop is measured from this back view."; the
+  valgus note says which value grades that leg: "The back view offers a second look
+  at the same anatomy; detection uses the front-view value." when the leg's front
+  frame has a reading, "The front view had no reading for this
+  leg, so detection uses this back-view value." when it has none, and "With no front
+  clip, detection uses this back-view value." without a front clip.
 
 Opening (`openExpand`, `index.html:2215-2293`) shows the phase's committed frame at
-`ph.t` with its stored keypoints. No pose estimation runs on open. For a phase that
+`ph.t` with its stored keypoints; it does nothing for a phase the session doesn't
+have (a front phase without a front clip). No pose estimation runs on open. For a phase that
 was not detected, the inspector opens at a placeholder time (mid-clip for side
 phases; 35% or 65% through the clip for front and back phases) with the notice "We
 couldn't find this moment automatically / We've started you mid-clip. Step to the
@@ -505,18 +558,23 @@ is open), except while the tour runs. Focus returns to the card on close.
 ### 4.7 Complete analysis
 
 The fixed bar at the bottom (`#complete-analysis-bar`) appears as soon as three of
-the nine phases are analysed (`checkAllAnalyzed`, `index.html:1037-1057`). Its text:
+the session's phases are analysed (`checkAllAnalyzed`, `index.html:1037-1057`). Its
+text, with T the session's phase count (9, or 7 without a front clip):
 
-- "All 9 phases analyzed — ready to build your report", or "D of 9 phases analyzed — N
-  still need a frame";
-- "S of 9 have strong detection · press Complete analysis to build your report".
+- "All T phases analyzed — ready to build your report", or "D of T phases analyzed —
+  N still need a frame";
+- "S of T have strong detection · press Complete analysis to build your report".
 
-Nothing requires all nine phases or any quality level. A side phase showing "Needs
+Its title in the markup, before `checkAllAnalyzed` first fills it, is "Review your
+frames".
+
+Nothing requires every phase or any quality level. A side phase showing "Needs
 side view" and a phase with a weak pose both count as analysed. The bar is hidden by
 CSS while the inspector is open.
 
 "◉ Complete analysis →" (`completeAnalysis`, `index.html:1059-1097`) ends the tour if
-it is running, closes the inspector, runs the six issue rules, renders the report, shows the save form, the
+it is running, closes the inspector, runs the issue rules (six, or five without a
+front clip), renders the report, shows the save form, the
 report, the measurement tables, the coaching call-to-action and the footnotes below
 the cards, applies the paywall, scrolls to the report, and hides the bar. The cards
 stay on the page above; the user can scroll up and change a frame. Doing so brings
@@ -536,12 +594,16 @@ In page order:
    crossing midline, Torso position, Arm angle too open, Knee valgus. Each has a chip:
    Notable, Mild, ✓ Clear, or Not measured (the rule had no input at all). Detected
    issues can carry a tag "Left side only", "Right side only" or "Both sides" ("arm" /
-   "arms" for arms crossing) and a link to their breakdown.
+   "arms" for arms crossing) and a link to their breakdown. Without a front clip there
+   are five: the arms-crossing card is left out, not shown as Not measured. A front
+   clip that was chosen but failed to decode keeps the card, as Not measured.
 6. "Detailed breakdowns": one collapsible block per detected issue with What this
    means, Why it matters, Why this might be happening, Form cues, and a confidence
    note. The copy is `REPORT_DATA` in `gait-engine.js:325-491`.
 7. A panel above the cards when nothing was detected: "No major gait-pattern flags
-   detected", or "N of 6 checks couldn't be run" when some rules had no input.
+   detected" (its sentence leaves out "excessive arm crossover" without a front clip),
+   or "N of 6 checks couldn't be run" ("N of 5" without a front clip) when some rules
+   had no input.
 8. "Four universal principles": a static card with an expandable deep dive.
 9. "Side view measurements": a table with one column per side phase and one row per
    metric, each cell showing the value, a range symbol and Within / Above / Below
@@ -550,7 +612,11 @@ In page order:
 10. "Front/back view measurements", inside the same section as item 9 and shown only
     when at least one front or back phase has measurements: stance side, hip drop,
     stance-knee FPPA and left/right wrist crossing for the four front and back phases
-    (`renderFrontBackTable`, `report-render.js:319-351`).
+    (`renderFrontBackTable`, `report-render.js:319-351`). Its note says hip drop blends
+    the two views and knee valgus uses the front view, or the back view for a leg the
+    front view could not measure. Without a front clip it is titled "Back view
+    measurements", has only the two back columns (numbered 6 and 7) and no
+    wrist-crossing rows, and its note says hip drop and knee valgus use the back view.
 11. Coaching call-to-action (swapped for "You have a coach" copy when the user has an
     active or trialing Standard or Full Access coaching subscription,
     `auth-paywall.js:111-126`).
@@ -575,8 +641,8 @@ Locked:
   means, why it might matter, and the form cues to work on.";
 - a teaser banner shows how many issues were found without naming them ("N issues
   detected in your form"), or "Clean run — but there's more behind that result", or
-  "Your scan is incomplete — N of 9 phases have no usable frame" with a link back to
-  the cards (`report-render.js:96-146`);
+  "Your scan is incomplete — N of 9 phases have no usable frame" ("of 7" without a
+  front clip) with a link back to the cards (`report-render.js:96-146`);
 - the paywall card shows "Unlock your full report", $90, "90-DAY PASS · UNLIMITED
   ANALYSES" and an "Unlock pass" button.
 
@@ -604,7 +670,8 @@ Locked:
 ### 4.10 Save, My Sessions, saved view, Compare (`saved-analyses.js`)
 
 Save form: session name, date (defaults to today), "Save analysis". Both fields are
-required. The save writes one document (schema in section 11), shows "Saved
+required. The save writes one document (schema in section 11, including `noFront`),
+shows "Saved
 successfully!", and re-enables the button after 3 s; each further press writes
 another document, so the same analysis can be saved more than once. A note "No pass
 yet? Save it anyway." shows for unpaid users. Under the form, "Start a new analysis"
@@ -619,6 +686,9 @@ sessions; nothing filters or removes them.
 
 Viewing a saved session (`viewSavedAnalysis`, `saved-analyses.js:299-387`):
 
+- does nothing while a scan is running, apart from the toast "Wait for the scan to
+  finish, or cancel it, before opening a saved session." (the scan writes into
+  `phases` and reads `eflNoFront`, both of which opening a session replaces);
 - asks first if live work (a report or analysed phases) would be replaced, unless it
   was saved during this run;
 - shows a sticky "Saved session" banner with the name and date and buttons "All
@@ -626,9 +696,13 @@ Viewing a saved session (`viewSavedAnalysis`, `saved-analyses.js:299-387`):
 - shows the report, the measurement tables, the coaching call-to-action and the
   footnotes, and hides the instruction banner, scan warnings, Re-scan, scan details,
   cards, Complete bar and save form;
-- rebuilds `phases` from the saved numbers with no keypoints. The cards are hidden and
-  the column headers are plain text, so there is no way into the inspector. The live
-  session's decoded frames are not released;
+- sets `eflNoFront` from the document's `noFront` before anything is built; a
+  document saved before the front clip was optional has no `noFront` and opens as a
+  three-clip session;
+- rebuilds `phases` from the saved numbers with no keypoints, for the session's phases
+  only (front phases left over from the session shown before are dropped). The cards
+  are hidden and the column headers are plain text, so there is no way into the
+  inspector. The live session's decoded frames are not released;
 - switches the grading sex to the saved session's sex (the live choice is restored
   when the user leaves through New analysis);
 - renders the report from the saved `issues` object as stored; the rules are not
@@ -639,7 +713,9 @@ earlier session (by entered date, then save time) as Session A. Two pickers, "Se
 A (earlier)" and "Session B (later)", let the user choose any two saved sessions; a
 pair picked the wrong way round is swapped with the note "Swapped so Session A is the
 earlier one". It shows a six-row "Issue changes" grid (severity in A and in B, and
-Improved / Same / Worsened, from the saved `issues`), and a collapsed "Angle
+Improved / Same / Worsened, from the saved `issues`; five rows when either session has
+`noFront: true`, because its missing arms-crossing issue would read Clear and could
+show a false Improved), and a collapsed "Angle
 measurements detail" table of side-view measurements with the change coloured green
 when B moved closer to the middle of the reference range, amber when further, grey
 when the change is under 0.5. The range used is the one for the sex currently
@@ -659,11 +735,20 @@ JPEG per detected phase that has keypoints (at most 640 px wide, quality 0.62, t
 committed frame with its overlay), then calls `generateFormReport` with the save
 form's session name (sent as both `athleteName` and `sessionName`, empty if the field
 is empty) and date (today if empty), the selected sex, `{metrics}` for each phase that
-has `metrics`, the current issues object and the images. It sends no `tzOffsetMin`.
+has `metrics`, the current issues object, the images and `noFront` (`eflNoFront ===
+true`). It sends no `tzOffsetMin`.
 In a saved session the name and date come from the saved document instead. The PDF
 comes back base64-encoded and is downloaded. Failures show an alert: a pass message
 for `permission-denied`, a sign-in message for `unauthenticated`, otherwise "Could not
 generate the PDF…".
+
+With `noFront: true` the server's PDF leaves out arms crossing (its row, and "excessive
+arm crossover" in the all-clear sentence), shows only the two back columns of the
+measurements table, titled "Back-view measurements" with no wrist-crossing rows, and
+draws no front frames. This needs the `functions` code deployed. Until then the live
+server ignores `noFront`: it already drops the arms-crossing row (the issue is
+missing), but keeps "excessive arm crossover" in the all-clear sentence and the
+four-column "Front/back-view measurements" table, its front columns showing dashes.
 
 From a saved session the PDF has no frame images, because no keypoints were saved. It
 also has no front/back measurements: the saved front and back phases hold their
@@ -674,7 +759,9 @@ the autosaved session.
 
 The comparison PDF (`downloadComparisonPDF`, `saved-analyses.js:606-653`) sends only
 the two session ids (plus the athlete's uid as `ownerUid` when the admin is acting as
-them); the server reads both documents itself.
+them); the server reads both documents itself, and leaves the arms-crossing row out
+when either has `noFront: true`. That too needs the `functions` deploy; the live
+server shows the row as "Not measured" for a session without a front clip.
 
 ### 4.12 Re-scan, New analysis
 
@@ -692,8 +779,9 @@ New analysis (`startNewSession`, `saved-analyses.js:113-165`; `resetApp`,
   page;
 - on phones: confirms if there is analysed work, then always reloads the page;
 - on desktop: confirms if there is analysed work, then resets in place: frames
-  released, files cleared, drop zones reset, save form cleared, back to the upload
-  screen. The selected sex is kept.
+  released, files cleared, drop zones reset (the "Remove front clip" button hidden),
+  `eflNoFront` back to false, the Analyze button disabled with its label reset, save
+  form cleared, back to the upload screen. The selected sex is kept.
 - from a saved session there is no confirmation; leaving restores the sex that was
   selected before the saved session opened.
 
@@ -723,8 +811,8 @@ Behaviour that follows the user-agent test (`IS_MOBILE_RUNNER`):
 | TF.js backend | automatic choice | WebGL forced, automatic if that fails (`index.html:1107-1115`) |
 | Coarse scan model | Thunder | Lightning (Thunder if Lightning failed to load) |
 | Side coarse samples | 150 | 75 |
-| Front and back samples | 50 each | 25 each |
-| Pauses | none | 60 ms every 10 samples; 1.5 s between views |
+| Front and back samples | 50 each | 25 each (back only without a front clip) |
+| Pauses | none | 60 ms every 10 samples; 1.5 s between views (once, before the back scan, without a front clip) |
 | TF.js memory | no scope | one engine scope opened before the scan and closed after the card analysis, releasing the tensors made in between (`index.html:1340-1351`, `:1588-1596`) |
 | Refinement, cards, inspector | Thunder | Thunder |
 | Re-scan button | shown | hidden |
@@ -733,8 +821,8 @@ Behaviour that follows the user-agent test (`IS_MOBILE_RUNNER`):
 Layout that follows viewport width (CSS): nav extras in the hamburger at 1140 px and
 below; one drop zone per row at 768 px; the phone notice on the upload screen and the
 full-screen single-column inspector at 700 px (and in windows 500 px tall or less);
-one card per row, and a sticky Analyze button once all three files are chosen, at
-600 px; stacked controls at 480 px.
+one card per row, and a sticky Analyze button once the side and back files are chosen,
+at 600 px; stacked controls at 480 px.
 
 Because one is a user-agent test and the other a width test, a tablet in landscape
 gets phone sampling with the desktop layout and without the upload-screen notice,
@@ -745,10 +833,10 @@ and a narrow desktop window gets the notice with desktop sampling.
 ## 5. Processing pipeline, end to end
 
 ```
-three files (uploadedFiles.side / front / back)
+two or three files (uploadedFiles.side / back, and front when one was chosen)
   │  FrameStore.extract, one clip at a time on one <video>
   ▼
-three frame stores (videoEls.side / front / back)
+a frame store per file (videoEls.side / front / back; front stays null without a front clip)
   │  side coarse scan: 150 samples (75 on phones), canvas at most 400 px wide
   │  body-scale filter, then findPhases
   ▼
@@ -756,9 +844,10 @@ l_foot, r_foot, l_toe, r_toe, mid: time + detected flag
   │  refineLegPlateau('left'), then ('right'): 33 ms steps, full stored frame, Thunder
   ▼
 l_foot / l_toe and r_foot / r_toe overwritten with refined times
-  │  front scan, then back scan: 50 samples each (25 on phones), same small canvas
+  │  front scan (skipped without a front clip), then back scan: 50 samples each
+  │  (25 on phones), same small canvas
   ▼
-mid_front_l, mid_front_r, mid_back_l, mid_back_r: time + detected flag
+mid_front_l, mid_front_r (front clip only), mid_back_l, mid_back_r: time + detected flag
   │  review screen built; analyzeCard per detected phase (Thunder, full stored frame)
   ▼
 per phase: keypoints, metrics, sideView, frontBackMetrics, quality badge
@@ -767,7 +856,7 @@ per phase: keypoints, metrics, sideView, frontBackMetrics, quality badge
 per phase: user-committed time, keypoints, metrics
   │  Complete analysis: detectIssues() then renderReport()
   ▼
-lastIssues (six findings)  ──►  on-screen report, save, PDF
+lastIssues (six findings, five without a front clip)  ──►  on-screen report, save, PDF
 ```
 
 Two separate questions are answered at different points. *Which frame* belongs to a
@@ -868,7 +957,8 @@ Things that follow from this and matter downstream:
 - `image(t)` never signals a hole. Across a gap, every requested time returns the
   same older frame.
 - Poses are always estimated on downscaled JPEG frames, never on the source pixels.
-- All frames of all three clips stay in memory as JPEG blobs until a reset or cancel.
+- All frames of every loaded clip stay in memory as JPEG blobs until a reset or
+  cancel.
 
 Two helpers are the only readers (`index.html:739-748`): `getVideoFrame(store, t)`
 and `drawVideoFrame(store, t, ctx, w, h)`.
@@ -920,12 +1010,15 @@ Every pose-estimation call site:
 
 ### 5.3 Scan orchestration (`autoScanAll`, `index.html:1325-1604`)
 
-1. Clear warnings. On phones, wait for Lightning if it is still loading and open a
-   TF.js engine scope that is closed after the cards are analysed.
-2. Warn about clips that did not decode.
-3. `initPhases(sideDur / 2)`: every phase becomes
+1. Clear warnings and set `eflNoFront = !uploadedFiles.front` (a re-scan comes here
+   directly, so it is set again). On phones, wait for Lightning if it is still loading
+   and open a TF.js engine scope that is closed after the cards are analysed.
+2. Warn about clips that did not decode (no front clip is not one).
+3. `initPhases(sideDur / 2)`: every phase of the session (`eflActivePhaseDefs()`) becomes
    `{key, label, desc, videoKey, side, detectsIssue, guide, t, detected: false, kps: null, metrics: null, frontBackMetrics: null, sideView: true}`
-   with `t` at the middle of the side clip (`index.html:793-798`). The four front and
+   with `t` at the middle of the side clip (`index.html:793-798`); `detectsIssue` and
+   `guide` come through `eflPhaseCopy`. Without a front clip `phases.mid_front_l` and
+   `mid_front_r` are never created. The front (when there is one) and
    back phases are then given `t` at 35% (left) and 65% (right) of their own clip
    (`:1396-1399`). A duration that is not a positive finite number is taken as 30 s
    (for the side clip, after one 500 ms wait and a second read).
@@ -935,11 +1028,12 @@ Every pose-estimation call site:
    phones every coarse loop, here and in step 7, yields 60 ms after each 10 samples.
 6. `refineLegPlateau('left')`, then `('right')` (section 6.5).
 7. Front scan, then back scan (section 6.6). On phones a 1.5 s pause comes before
-   each of them (`index.html:1504-1508`, `:1518-1522`).
+   each of them (`index.html:1504-1508`, `:1518-1522`). Without a front clip the front
+   scan and the pause before it are skipped and the back scan takes the bar from 75%.
 8. Diagnostics line and the partial-coverage warning (a decoded clip whose
    `coverage` is under 0.9).
 9. 700 ms pause; show the review screen; build the cards and the summary table.
-10. For each phase in card order, if `detected`, `await analyzeCard(key)`.
+10. For each phase of the session in card order, if `detected`, `await analyzeCard(key)`.
 11. Start the tour on a first visit. `scanInProgress = false`.
 
 The cancel flag is checked before each clip is loaded, at the top of every coarse
@@ -958,7 +1052,8 @@ the review screen is already showing and the remaining cards stay at "pending".
 
 Runs once per detected phase, after the review screen is visible, one at a time in
 card order: `l_foot, r_foot, l_toe, r_toe, mid, mid_front_l, mid_front_r,
-mid_back_l, mid_back_r`. It is called from nowhere else.
+mid_back_l, mid_back_r` (without the two front phases when there is no front clip).
+It is called from nowhere else.
 
 1. Draw the stored frame at `ph.t` on the card canvas at full stored size. If no frame
    comes back the canvas is left blank and still posed.
@@ -1026,13 +1121,48 @@ overlay never change `t`.
 
 ### 5.6 From measurements to report
 
-`detectIssues()` (`gait-engine.js:502-751`) reads `phases` and `selectedSex` and
-returns an object with six keys. It runs when Complete analysis is pressed
+`detectIssues()` (`gait-engine.js:502-751`) reads `phases`, `selectedSex` and
+`eflNoFront` and returns an object with six keys, or five without a front clip (no
+`armsCrossing`). It runs when Complete analysis is pressed
 (`completeAnalysis`, `index.html:1066`). Its result is kept in `lastIssues` and is
 what the on-screen report, the save and the PDF all use. Two other call sites exist
 and rarely fire (section 15). Changing the selected sex re-grades the
 summary table's range symbols but does not re-run the rules. Sections 8 and 10 cover
 the rules and the outputs.
+
+### 5.7 Sessions without a front clip (`gait-data.js`)
+
+The front clip is optional because a treadmill console blocks the front view. One
+global says whether a session has one:
+
+- `eflNoFront` is `true` when the session has no front clip. `startAllVideos` and
+  `autoScanAll` set it from the upload (`!uploadedFiles.front`), never from decode
+  success: a front clip that was chosen but failed to decode still counts as present,
+  so its cards show "Video couldn't be loaded" and arms crossing reads Not measured.
+  `viewSavedAnalysis` sets it from the document's `noFront`; `resetApp` sets it back
+  to `false`.
+- `loadAllVideos` decodes only the clips that were chosen, so without a front clip
+  `videoEls.front` stays `null` (never an empty store, which would read as a failed
+  decode), and `getVideoElForPhase` returns `null` for a front phase rather than
+  falling back to the side clip.
+
+Every phase list, count, number and phase description the user sees comes from these
+helpers, so a session without a front clip shows seven phases and numbers the back
+phases 6 and 7:
+
+| Helper | Returns |
+|---|---|
+| `eflActivePhaseDefs()` | `PHASE_DEFS`, without the two `videoKey: 'front'` phases when `eflNoFront` |
+| `eflPhaseNum(key)` | the phase's number as shown: 1-based and consecutive over the active phases |
+| `eflActivePhaseGroups()` | `PHASE_GROUPS` without the phases the session doesn't have (an emptied group would be dropped) |
+| `eflPhaseCopy(def)` | `{detectsIssue, guide}` for the card and the inspector. Without a front clip the back phases use `detectsIssueNoFront` and `guideDescNoFront`, which say what the back view measures instead of "confirms the front view" |
+
+What changes without a front clip: the front phases are never built, scanned, saved
+or sent; arms crossing is not checked and has no key in `issues` (section 8); hip drop
+and knee valgus are measured from the back frames; the save writes `noFront: true`
+(section 11.1); the PDF request sends `noFront: true` (section 10.3). Anything that
+loops over `PHASE_DEFS` or `PHASE_GROUPS` directly would show front phases the
+session doesn't have.
 
 ---
 
@@ -1054,6 +1184,12 @@ the rules and the outputs.
 
 Section 4.6 quotes the stricter frame definitions shown with the example photos
 (foot strike is the first frame of ground contact; toe-off is the last).
+
+Without a front clip phases 6 and 7 do not exist and the back phases are shown as 6
+and 7 (`eflPhaseNum`). Their "Detects" line becomes "Hip drop (L), knee valgus (L)"
+and their description "A rear view at the moment the left foot is planted directly
+underneath the body. Measures left-stance hip drop and knee valgus." (mirrored for
+the right), from `detectsIssueNoFront` and `guideDescNoFront` (section 5.7).
 
 Image coordinates: x grows to the right, y grows downward. "Ankle lowest in the
 frame" therefore means the largest ankle y.
@@ -1188,7 +1324,9 @@ Consequences visible in the code:
 
 ### 6.6 Front and back clips: `scanBestStanceFrames` (`index.html:1612-1715`)
 
-The same function runs unchanged for the front clip and for the back clip.
+The same function runs unchanged for the front clip and for the back clip. Without a
+front clip only the back clip is scanned; given no clip, the function returns no
+frames and `applyStanceFrame` ignores a phase the session doesn't have.
 
 `NFRAMES` = 50 on desktop, 25 on phones, evenly spaced:
 `t = min((i + 0.5) · dur / NFRAMES, dur − 0.05)`. The canvas is the same
@@ -1274,7 +1412,7 @@ Individually:
 
 A detected phase can still fail at the card: "no pose", "Needs side view", a
 wrong-leg warning, or simply the wrong moment. The "D of 9 auto-detected" count
-covers only the scan's `detected` flags.
+(D of 7 without a front clip) covers only the scan's `detected` flags.
 
 ### 6.9 Detection constants
 
@@ -1421,7 +1559,7 @@ Uses the scores of ten keypoints: shoulders, elbows, hips, knees, ankles (5 to 8
 | Weak | anything else |
 
 Used for the card badge, the inspector's pill and quality card, the "S of 9 have
-strong detection" count and the saved `quality` field.
+strong detection" count (of 7 without a front clip) and the saved `quality` field.
 
 ### 7.6 Weak-pose retry (`gait-engine.js:218-256`)
 
@@ -1477,14 +1615,18 @@ separates them (section 10.1). `details` is the rule's clear sentence when nothi
 flags, otherwise a text line of the per-side values, z-scores or degrees and the
 baseline; it is saved, but nothing on the page or in either PDF displays it.
 
+Without a front clip five rules run: rule 3 is skipped and `issues` has no
+`armsCrossing` key. Hip drop and knee valgus then come from the back frames alone
+(rules 2 and 6).
+
 | # | Rule | Reads | Value graded | Mild | Notable |
 |---|---|---|---|---|---|
 | 1 | Overstriding | `l_foot`, `r_foot` | each side's `leadFoot` as a z-score against one pooled left+right baseline | z > 1 | z > 2 |
 | 2 | Hip drop | `mid_front_l/r`, `mid_back_l/r` | `hipDropDeg` per stance side, front and back blended | > 8° (female > 9°) | > 12° (female > 13°) |
-| 3 | Arms crossing midline | `mid_front_l`, `mid_front_r` | each wrist's largest crossing across the two front frames | > 0.05 of shoulder width | > 0.15 |
+| 3 | Arms crossing midline | `mid_front_l`, `mid_front_r`; not run without a front clip | each wrist's largest crossing across the two front frames | > 0.05 of shoulder width | > 0.15 |
 | 4 | Torso position | all five side phases | mean z-score of `trunk` across phases | mean z beyond ±1 | mean z beyond ±2 |
 | 5 | Arm angle too open | `l_toe`, `r_toe` | mean `nearElbow` of the two toe-off frames | > mean + 2 SD | > mean + 4 SD |
-| 6 | Knee valgus | `mid_front_l`, `mid_front_r` | signed FPPA of the stance knee per side | > 6° (female > 7°) | > 10° (female > 11°) |
+| 6 | Knee valgus | `mid_front_l`, `mid_front_r`; per leg `mid_back_l`, `mid_back_r` when the front has no reading | signed FPPA of the stance knee per side | > 6° (female > 7°) | > 10° (female > 11°) |
 
 Details per rule:
 
@@ -1498,6 +1640,7 @@ above 0.20.
 **2. Hip drop** (`:556-618`). Per stance side, `blendCPD(front, back)`: only one
 view present gives that view's value; both present gives `(2 · front + back) / 3` if
 the back frame's `avgConfidence` is at least 0.4, otherwise the front value alone.
+Without a front clip every value is the back view's.
 Asymmetry: when both sides exist and differ by 3° or more, the higher side is raised
 one level (mild to notable; clear to mild only if its value is above 4°). The
 thresholds with no sex selected are the 8° / 12° pair. Because `hipDropDeg` is
@@ -1505,7 +1648,11 @@ unsigned, the rule grades the size of pelvic tilt in that frame whichever way it
 tilts.
 
 **3. Arms crossing** (`:620-639`). Front clip only. Graded only when at least one
-front phase has `frontBackMetrics`; a missing wrist counts as 0.
+front phase has `frontBackMetrics`; a missing wrist counts as 0. Without a front clip
+(`eflNoFront`) the rule does not run and `issues` gets no `armsCrossing` key, so the
+report, the PDF and Compare leave it out rather than call it Not measured. A front
+clip that was chosen but failed to decode still gets `{detected: false}`, shown as
+Not measured.
 
 **4. Torso position** (`:641-671`). For each side phase with a `trunk` value,
 `z = (trunk − mean) / sd` against that phase's own stats (section 9). The mean z
@@ -1520,10 +1667,15 @@ one that has a value is used alone. The
 baseline is the sex-combined `arm_drive` stats (section 9). One-directional. With
 the default stats (80 ± 20): mild above 120°, notable above 160°.
 
-**6. Knee valgus** (`:707-748`). Front clip only. The left value is
-`mid_front_l`'s `lKneeValgusDeg`; the right value is `mid_front_r`'s
-`rKneeValgusDeg`. Each exists only if `computeFrontBackMetrics` judged that same leg
-to be the stance leg in that frame; otherwise that side is "no data". Varus never
+**6. Knee valgus** (`:707-748`). Per leg, from that leg's front frame, or from its
+back frame when the front frame has no reading (always the case without a front
+clip). The left value is `mid_front_l`'s `lKneeValgusDeg`, else `mid_back_l`'s; the
+right value is `mid_front_r`'s `rKneeValgusDeg`, else `mid_back_r`'s. A value exists
+only if `computeFrontBackMetrics` judged that same leg to be the stance leg in that
+frame; with neither, that side is "no data". FPPA's sign test does not depend on the
+camera being in front or behind, so a back-view value reads the same way. `details`
+names the view each side's value came from, and `views` (`{L, R}`: `'front'`,
+`'back'` or null) records it for the report (section 10.1). Varus never
 flags. Asymmetry works as in hip drop (3° gap, 4° floor) on the signed values.
 
 ---
@@ -1590,25 +1742,37 @@ hip drop and knee valgus use the lower (non-female) thresholds.
 ### 10.1 On-screen report (`report-render.js`)
 
 `renderReport(issues)` draws the six cards from the issues object and the copy in
-`REPORT_DATA`. Two display-only helpers decide wording:
+`REPORT_DATA`; without a front clip it leaves the arms-crossing card out and draws
+five. Two display-only helpers decide wording:
 
-- `eflCheckMeasured(key)` (`:67-86`): whether the rule had at least one input. A rule
+- `eflCheckMeasured(key, issue)` (`:67-86`): whether the rule had at least one input. A rule
   with no input shows "Not measured" and "This check couldn't run — <its frames> had
-  no usable measurement." instead of "Clear".
+  no usable measurement." instead of "Clear". Knee valgus reads the stored result:
+  `detectIssues` records which view graded each leg in `kneeValgus.views`
+  (`{L, R}`, each `'front'`, `'back'` or null), and the check counts as measured when
+  either leg has a view. A result with no `views` (saved before the back-view
+  fallback) was graded from the front frames only, so only front readings count for
+  it, and the front/back table's subtitle leaves out the back-view clause. `eflCheckInputs(key)` names
+  the frames: knee valgus reads "the front and back mid-stance frames", and without a
+  front clip hip drop and knee valgus read "the back mid-stance frames".
 - `eflPhaseUsable(def)` (`:57-62`): a phase is usable when it is not `noPose` and has
   metrics (and, for side phases, passed the side-view test). The count of unusable
-  phases feeds the anomaly banner, which only a user without a pass sees: with
+  phases among the session's phases feeds the anomaly banner, which only a user
+  without a pass sees: with
   nothing flagged it reads "Your scan is incomplete — N of 9 phases have no usable
-  frame"; with findings it appends "Note: N of 9 phases have no usable frame".
+  frame"; with findings it appends "Note: N of 9 phases have no usable frame". Both
+  say "of 7" without a front clip.
 
 When nothing is flagged and at least one rule is "Not measured", the cards are
-headed "N of 6 checks couldn't be run" instead of "No major gait-pattern flags
-detected" (`report-render.js:299-311`).
+headed "N of 6 checks couldn't be run" ("N of 5" without a front clip) instead of
+"No major gait-pattern flags detected" (`report-render.js:299-311`).
 
 `buildSummaryTable()` and `updateSummaryCol(key)` (`:378-406`) fill the side-view
 table from each phase's `metrics`. `renderFrontBackTable()` (`:319-351`) fills the
 front/back table from `frontBackMetrics`. The stance-side row shows the side measured
-from the frame when there is one, else the side in the phase's name.
+from the frame when there is one, else the side in the phase's name. Without a front
+clip the table has only the two back columns, no wrist-crossing rows, and the title
+"Back view measurements". Both tables number their column headers with `eflPhaseNum`.
 
 ### 10.2 Save
 
@@ -1626,7 +1790,8 @@ Client (`downloadReport`, `index.html:3190-3275`) sends to the callable
 { athleteName, sessionName, sessionDate, selectedSex,
   phases: { [phaseKey]: { metrics } },      every phase with truthy metrics
   lastIssues,
-  images: { [phaseKey]: 'data:image/jpeg;base64,…' } }
+  images: { [phaseKey]: 'data:image/jpeg;base64,…' },
+  noFront }                                 true when the session has no front clip
 ```
 
 `athleteName` and `sessionName` are the same string: the saved session's `name` when
@@ -1654,6 +1819,14 @@ returns `{pdfBase64, filename}`, the filename being
 `esformlab-report-<name slug>-<sessionDate or generated date>.pdf`. It writes
 nothing.
 
+`noFront` counts only when it is `true`; older clients omit it and get the
+three-clip PDF. With it the renderer leaves out arms crossing (the row and its words
+in the all-clear sentence), shows only the back columns of the front/back table under
+the title "Back-view measurements" with no wrist rows, and skips front frames. The
+`noFront` handling in `functions/index.js` and `functions/report-renderer.js` takes
+effect only once the functions are deployed; section 4.11 says what the deployed
+server does meanwhile.
+
 ### 10.4 Comparison PDF
 
 Client (`downloadComparisonPDF`, `saved-analyses.js:606-653`) sends `{idA, idB}`
@@ -1663,7 +1836,9 @@ pair, uses `ownerUid` only when the caller is the admin (anyone else gets their 
 uid), reads both documents from `users/{ownerUid}/analyses` (not-found if either is
 missing), reads the `computed_ranges` documents, and renders with
 `functions/comparison-renderer.js` (`functions/index.js:1457-1516`). The filename is
-`esformlab-comparison-<dateA>-vs-<dateB>.pdf`. It writes nothing.
+`esformlab-comparison-<dateA>-vs-<dateB>.pdf`. It writes nothing. The renderer leaves
+the arms-crossing row out when either document has `noFront: true` (once deployed,
+as above).
 
 ---
 
@@ -1690,20 +1865,26 @@ name        string, the session name ('Pre-checkout autosave' for autosaves)
 date        'YYYY-MM-DD', user-entered (autosaves: the local date at checkout)
 createdAt   server timestamp
 sex         'male' | 'female' | null
+noFront     true | false          true when the session had no front clip; absent on
+                                  documents saved before the front clip was optional,
+                                  which are three-clip sessions
 issues      { overstriding, hipDrop, armsCrossing, torsoPosition, armAngle, kneeValgus }
             each { detected, severity, details, sideSev?, sideTagLabel?, cueKey? }
-            (autosaves: {} when no report had been built)
+            (no armsCrossing when noFront is true;
+            autosaves: {} when no report had been built)
 phases      { [phaseKey]: {
                 t                 seconds
                 detected          true
                 metrics           side phases only: that phase's relevant metric keys
                 frontBackMetrics  front/back phases: the full object from section 7.4
                 quality           'strong' | 'fair' | 'weak' | null
-            } }                   phases with detected false are omitted
+            } }                   phases with detected false are omitted, and the
+                                  front phases when noFront is true
 autosave    true                  pre-checkout autosaves only
 ```
 
 `saveAnalysis` strips `undefined` values before writing; the autosave path does not.
+Both write `noFront` as `eflNoFront === true`, so it is always a boolean.
 Rules: the owner can read and write; the admin uid can read and write
 (`firestore.rules.txt:99-106`).
 
@@ -1748,6 +1929,7 @@ Try again."
 | `window.__eflSavedThisRun` | global | set after a successful save, cleared by `resetApp`; suppresses the "hasn't been saved" confirm when opening a saved session (the New analysis confirm ignores it) |
 | `window.__eflLiveSex` | global | the live sex choice while a saved session is on screen |
 | `currentSavedId` | global | id of the saved session on screen, else `null`; picks the PDF's name and date and is the session resumed after checkout |
+| `eflNoFront` | global (`gait-data.js`) | `true` when the session on screen has no front clip; set at Analyze and at the start of every scan from the upload, from `noFront` when a saved session opens, `false` after `resetApp` (section 5.7) |
 | `phaseLabels` | global | per phase, the admin labels written this page load (`{good: [], bad: []}`), behind the panel count and the card chip |
 | `SESSION_ID` | global | one random id per page load, written into admin labels; not regenerated by re-scan or reset |
 
@@ -1824,7 +2006,8 @@ buttons; the comparison PDF button is outside it and the server accepts the call
 
 ## 13. The contract between detection and the rest of the page
 
-"Detection" here means the code that turns three frame stores into a time and a
+"Detection" here means the code that turns the frame stores (three, or two without a
+front clip) into a time and a
 `detected` flag per phase: the scan part of `autoScanAll`, `findPhases`,
 `refineLegPlateau`, `scanBestStanceFrames` and `applyStanceFrame`
 (`index.html:1325-2023`). Nothing in that range reads sign-in, pass or admin state.
@@ -1835,16 +2018,20 @@ before the tour.
 
 | Input | Source |
 |---|---|
-| `videoEls.side / front / back` | frame stores from `loadAllVideos`; a failed clip is a store with `ok: false`, `videoWidth: 0` and possibly `NaN` duration |
+| `videoEls.side / front / back` | frame stores from `loadAllVideos`; a failed clip is a store with `ok: false`, `videoWidth: 0` and possibly `NaN` duration; without a front clip `videoEls.front` is `null` |
+| `uploadedFiles.front` | whether a front clip was chosen; `autoScanAll` sets `eflNoFront` from it |
 | `detector`, `scanDetector`, `scanDetectorPromise` | `initModel` |
 | `PHASE_DEFS`, `MIN_CONF`, `IS_MOBILE_RUNNER`, `LOAD_BAR_PCT` | constants |
+| `eflActivePhaseDefs`, `eflPhaseCopy` | the session's phases and their copy (section 5.7) |
 | `getVideoFrame`, `drawVideoFrame`, `isSideView`, `calcAngle`, `drawMiniSkeleton` | helpers |
 | `eflCheckCancel()` | throws the cancel sentinel; called between units of work |
 | `pushScanWarning(msg)` | adds a warning to the scanning card and the review screen |
 
 ### 13.2 What detection writes
 
-To `phases[key]`, for all nine keys:
+To `phases[key]`, for every key of the session (`eflActivePhaseDefs()`): all nine, or
+seven without a front clip, when `mid_front_l` and `mid_front_r` are not written at
+all and stay `undefined`. Detection also writes the global `eflNoFront`.
 
 | Field | What the page needs |
 |---|---|
@@ -1858,7 +2045,7 @@ posed on every coarse sample), `#scan-bar` width, `#scan-sub-text`, `#scan-step`
 `#scan-label`, `#scan-phase-list` rows `spl-<key>` and `spl-t-<key>` with classes
 `found` / `not-found`, `#scan-warn-live`, `#scan-diag`, and class `loading` on
 `.scan-preview`. The progress bar budget is 0 to 30% loading, 30 to 75% side, 75 to
-87% front, 87 to 100% back.
+87% front, 87 to 100% back; without a front clip, 75 to 100% back.
 
 To globals: `scanWarnings`, `scanInProgress` (set false at the end), `eflTfScopeOpen`
 on phones.
@@ -1866,8 +2053,9 @@ on phones.
 ### 13.3 What happens with it next
 
 Fixed order at hand-off (`index.html:1552-1583`): show the review screen; count
-`detected` for "D of 9 auto-detected"; `buildPhaseGroups()`; `buildSummaryTable()`;
-then `analyzeCard(key)` for each detected phase in `PHASE_DEFS` order.
+`detected` for "D of 9 auto-detected" (of 7 without a front clip);
+`buildPhaseGroups()`; `buildSummaryTable()`; then `analyzeCard(key)` for each
+detected phase in `eflActivePhaseDefs()` order.
 
 Readers of the hand-off fields:
 
@@ -1885,7 +2073,14 @@ Readers of the hand-off fields:
   means the leg Thunder labels left in the full-frame pose at `t`.
 - **Front and back keys carry the stance side for the rules.** `detectIssues` reads
   `mid_front_l` as the left-stance frame (`gait-engine.js:561-577`, `:713-714`), while
-  `computeFrontBackMetrics` works out the stance side from the pose on its own.
+  `computeFrontBackMetrics` works out the stance side from the pose on its own. Knee
+  valgus reads `mid_back_l` / `mid_back_r` for a leg whose front frame has no
+  reading, which is every leg without a front clip, so the back keys carry the stance
+  side for valgus as well as hip drop.
+- **The front phases may not exist.** Without a front clip `phases.mid_front_l` and
+  `mid_front_r` are `undefined` and `videoEls.front` is `null`. Code that lists,
+  counts or numbers phases goes through the section 5.7 helpers; looping over
+  `PHASE_DEFS` directly would show phases the session doesn't have.
 - **`analyzeCard` needs the card canvas**, which exists only for detected phases on a
   decoded clip.
 - **The pose that is measured is not the scan's pose.** Metrics come from a fresh
@@ -1908,7 +2103,7 @@ Readers of the hand-off fields:
   auto-picking each gait phase (and step 60fps clips two frames at a time)"
   (`index.html:42`); "the scan spreads a fixed number of samples across the whole
   clip, so extra footage means fewer samples per stride" (`:136`); "MoveNet Thunder"
-  on the loader; "all 9 gait phases scanned" on the gate; "Review your 9 frames" on
+  on the loader; "every gait phase scanned" on the gate; "Review your frames" on
   the bar; and the tour and quality tips saying a repeat Analyze can change the
   result.
 - **A second copy of `findPhases` and `refineLegPlateau` lives in
@@ -1940,7 +2135,9 @@ r_toe, mid, mid_front_l, mid_front_r, mid_back_l, mid_back_r`, then whatever the
 user analyses. So the first refinement frame is cropped where the runner was at the
 end of the clip, the first front frame where the side-view runner was, the first
 back frame where the front-view runner was, and the first card where the back-view
-runner was. On phones Lightning holds one chain (side, front, back) and Thunder
+runner was. Without a front clip the front samples and cards drop out of the chain,
+so the first back frame is cropped where the side-view runner was. On phones
+Lightning holds one chain (side, front, back) and Thunder
 another (refinement, cards, inspector). When the carried crop does not contain the
 runner, the pose is wrong or is rejected. The same frame can therefore give
 different keypoints depending on what was posed before it. This is the variation
@@ -2129,8 +2326,9 @@ The scan decides the side from which ankle is lower in the small scan pose. The 
 then works out the stance side again from the full-frame pose, independently of the
 phase's name. The two can disagree: a card titled "L mid-stance" can display "Hip
 drop (right stance)". Hip drop is still read from that card as the left-stance value.
-Knee valgus for a side exists only when the two agree; otherwise that side is "no
-data".
+Knee valgus for a leg exists only when the two agree in that leg's front frame or,
+failing that, in its back frame (the only one without a front clip); otherwise that
+side is "no data".
 
 ### After the scan
 
@@ -2143,7 +2341,8 @@ holes.
 **14.22 Nothing after the scan checks the moment.** The card analysis grades
 keypoint confidence and applies the side-view test; the wrong-leg check only warns.
 A phase with a Strong badge can be the wrong moment, and the quality card says so.
-"D of 9 auto-detected" counts `detected` flags before any card is analysed, so it
+"D of 9 auto-detected" (of 7 without a front clip) counts `detected` flags before any
+card is analysed, so it
 includes mid-stance fallbacks, re-marked toe-offs and frames that go on to show "no
 pose" or "Needs side view".
 
@@ -2205,8 +2404,9 @@ Scan and session:
   replays reposition on step change, scroll and resize only. Arrow keys do nothing
   while focus is on the Next button, which every step focuses.
 
-Comments in the code that do not match the code: "all 11 phases" and "7 side phases"
-(`index.html:1401`, `:1406`, `:3277`; there are 9, 5 from the side); "native fps" for
+Comments in the code that do not match the code: "all 7 side-view phases"
+(`index.html:3277`; there are 5 side phases; the scan's "all 11 phases" and "7 side
+phases" comments were corrected with the optional front clip); "native fps" for
 the 33 ms refinement step (`:1482`); "best LOCAL peak per side" for a global maximum
 (`:1623-1624`); "Scan ~20 frames" (`:1606`); "avoids … mixed phases from unrelated
 strides" (`:1733-1735`); the `phaseLabels` shape (`:777`; the code uses

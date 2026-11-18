@@ -6,9 +6,11 @@
 // phases, lastIssues, selectedSex, PHASE_DEFS, METRIC_ROWS, isRelevant,
 // metricSideLabel, getRange, detectIssues, renderReport, resetApp,
 // signInWithGoogle, IS_MOBILE_RUNNER, the firebase compat object)
-// remain defined in the main inline script. Both scripts share the
-// global scope; this file is loaded after the inline block so the
-// function declarations are hoisted before any user interaction.
+// remain defined in the main inline script; eflNoFront,
+// eflActivePhaseDefs and eflPhaseCopy come from gait-data.js. Both
+// scripts share the global scope; this file is loaded after the
+// inline block so the function declarations are hoisted before any
+// user interaction.
 // ════════════════════════════════════════════════════════════════
 
 // ==============================================================
@@ -68,11 +70,13 @@ async function saveAnalysis() {
     date: dateVal,
     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     sex: selectedSex,
+    // True when the session has no front clip: no front phases, no arms-crossing check.
+    noFront: eflNoFront === true,
     phases: {},
     issues: lastIssues || detectIssues()
   };
 
-  PHASE_DEFS.forEach(function(def) {
+  eflActivePhaseDefs().forEach(function(def) {
     var ph = phases[def.key];
     if (!ph || !ph.detected) return;
     var entry = { t: ph.t, detected: true };
@@ -297,6 +301,11 @@ async function deleteAnalysis(id) {
 }
 
 async function viewSavedAnalysis(id) {
+  // A running scan writes into phases and reads eflNoFront, both of which opening a session replaces.
+  if (typeof scanInProgress !== 'undefined' && scanInProgress) {
+    if (window.esLabs && esLabs.toast) esLabs.toast('Wait for the scan to finish, or cancel it, before opening a saved session.');
+    return;
+  }
   if (typeof tourState !== 'undefined' && tourState.active) endTour(true);
   var item = savedAnalysesList.find(function(a) { return a.id === id; });
   if (!item) return;
@@ -305,6 +314,9 @@ async function viewSavedAnalysis(id) {
   if (!isViewingSaved && hasLiveWork && !window.__eflSavedThisRun &&
       !confirm('Open this saved session? Your current analysis hasn\u2019t been saved and will be replaced.')) return;
   var d = item.data;
+  // The session's own front-clip state, before anything below builds phases or renders.
+  // Docs saved before the front clip was optional have no noFront field: three clips.
+  eflNoFront = d.noFront === true;
   if (!isViewingSaved) window.__eflLiveSex = selectedSex;
   currentSavedId = id;
   var rpmVS = document.getElementById('report-print-meta');
@@ -345,12 +357,16 @@ async function viewSavedAnalysis(id) {
   // Set sex
   setSex(d.sex || null);
 
-  // Populate phases from saved data
-  PHASE_DEFS.forEach(function(def) {
+  // Populate phases from saved data. With no front clip the front phases don't exist,
+  // so drop any left over from the session shown before.
+  var activeDefs = eflActivePhaseDefs();
+  PHASE_DEFS.forEach(function(def) { if (activeDefs.indexOf(def) === -1) delete phases[def.key]; });
+  activeDefs.forEach(function(def) {
     var saved = d.phases ? d.phases[def.key] : null;
+    var copy = eflPhaseCopy(def);
     phases[def.key] = {
       key: def.key, label: def.label, desc: def.desc, videoKey: def.videoKey,
-      side: def.side, detectsIssue: def.detectsIssue, guide: def.guide,
+      side: def.side, detectsIssue: copy.detectsIssue, guide: copy.guide,
       t: saved ? saved.t : 0, detected: saved ? saved.detected : false,
       kps: null, metrics: saved ? saved.metrics : null,
       frontBackMetrics: saved ? saved.frontBackMetrics : null,
@@ -518,6 +534,11 @@ function runCompare() {
     { key: 'armAngle', title: 'Arm angle' },
     { key: 'kneeValgus', title: 'Knee valgus' }
   ];
+  // Arms crossing needs a front clip. When either session had none, leave the row out
+  // (its missing issue would read "Clear", and a false "Improved").
+  if (dA.noFront === true || dB.noFront === true) {
+    issueKeys = issueKeys.filter(function(ik) { return ik.key !== 'armsCrossing'; });
+  }
 
   var nameA = escSaved(dA.name || 'Session A'), nameB = escSaved(dB.name || 'Session B');
   var passOk = !(window.esLabs && esLabs.getPassState) || !!(esLabs.getPassState() || {}).unlocked;

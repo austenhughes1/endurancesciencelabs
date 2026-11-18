@@ -543,7 +543,7 @@ main{display:block}
   <div class="thr-hdr">
     <div class="thr-hdr-txt">
       <h2 class="thr-title">Anomaly detection thresholds</h2>
-      <p class="thr-sub">The 6 gait anomalies the public analyzer flags, and the ranges it uses to decide mild vs notable. Live rows update as new reference sessions are added; fixed rows come from the running gait literature or clinical convention. Detections that have left/right structure (overstriding, hip drop, knee valgus, arms crossing) flag each side independently and surface a side tag on the report.</p>
+      <p class="thr-sub">The 6 gait anomalies the public analyzer flags (5 when the runner skips the optional front clip, which arms crossing needs), and the ranges it uses to decide mild vs notable. Live rows update as new reference sessions are added; fixed rows come from the running gait literature or clinical convention. Detections that have left/right structure (overstriding, hip drop, knee valgus, arms crossing) flag each side independently and surface a side tag on the report.</p>
     </div>
     <div class="thr-toggle" role="group" aria-label="Reference population">
       <button id="thr-btn-male"   type="button" aria-pressed="false" onclick="setThresholdsSex('male')">♂ Male</button>
@@ -885,7 +885,7 @@ function renderThresholds() {
     const notableT = sex === 'female' ? 13 : 12;
     rows.push({
       anomaly: 'Hip drop',
-      meta: 'Pelvic obliquity at mid-stance (degrees, front view). L-stance and R-stance graded separately against literature thresholds (Bramah 2018, Dingenen 2019). Asymmetry \u22653\u00b0 flags the higher side as mild when it exceeds the 4\u00b0 noise floor, and upgrades an existing mild to notable.',
+      meta: 'Pelvic obliquity at mid-stance (degrees): front view blended 2:1 with the back view, or the back view alone when the front has no reading (always, with no front clip). L-stance and R-stance graded separately against literature thresholds (Bramah 2018, Dingenen 2019). Asymmetry \u22653\u00b0 flags the higher side as mild when it exceeds the 4\u00b0 noise floor, and upgrades an existing mild to notable.',
       source: 'fixed',
       mild:    'side &gt; ' + mildT + '\u00b0',
       notable: 'side &gt; ' + notableT + '\u00b0',
@@ -900,7 +900,7 @@ function renderThresholds() {
   // 3. ARMS CROSSING MIDLINE -- fixed ratios
   rows.push({
     anomaly: 'Arms crossing midline',
-    meta: 'Per-arm peak wrist cross past midline (% of inter-shoulder width, front view). L and R graded independently; max across both front frames per arm. Asymmetric crossing surfaces in the side tag.',
+    meta: 'Per-arm peak wrist cross past midline (% of inter-shoulder width, front view). L and R graded independently; max across both front frames per arm. Asymmetric crossing surfaces in the side tag. Needs the front clip: left out of the report when none was uploaded.',
     source: 'fixed',
     mild:    'arm &gt; 5.0%',
     notable: 'arm &gt; 15.0%',
@@ -958,7 +958,7 @@ function renderThresholds() {
     const notableT = sex === 'female' ? 11 : 10;
     rows.push({
       anomaly: 'Knee valgus',
-      meta: '2D Frontal Plane Projection Angle (FPPA) at peak knee flexion during stance, front view. L-stance and R-stance graded separately against running-specific literature thresholds (Bramah 2018, Maykut 2015, Powers 2010 framework). Asymmetry \u22653\u00b0 flags the higher side as mild when it exceeds the 4\u00b0 noise floor, and upgrades an existing mild to notable.',
+      meta: '2D Frontal Plane Projection Angle (FPPA) at peak knee flexion during stance: per leg from the front view, or the back view when the front has no reading for that leg (always, with no front clip). L-stance and R-stance graded separately against running-specific literature thresholds (Bramah 2018, Maykut 2015, Powers 2010 framework). Asymmetry \u22653\u00b0 flags the higher side as mild when it exceeds the 4\u00b0 noise floor, and upgrades an existing mild to notable.',
       source: 'fixed',
       mild:    'side &gt; ' + mildT + '\u00b0',
       notable: 'side &gt; ' + notableT + '\u00b0',

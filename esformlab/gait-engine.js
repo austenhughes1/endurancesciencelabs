@@ -555,7 +555,8 @@ function detectIssues() {
 
   // 2. HIP DROP -- per-stance pelvic obliquity (degrees), bilateral asymmetry.
   // Computes CPD angle at L-stance and R-stance from the front frame, blended 2:1 with the
-  // back frame for that same stance side when available. Thresholds are in degrees and
+  // back frame for that same stance side when available, or from the back frame alone when
+  // the front has no reading (always the case with no front clip). Thresholds are in degrees and
   // derived from the CPD literature (Bramah 2018, Dingenen 2019, Willson & Davis 2008).
   // Females run ~1-2 deg higher average pelvic obliquity, so thresholds get a +1 deg bump.
   var frontL_FBM = phases.mid_front_l && phases.mid_front_l.frontBackMetrics ? phases.mid_front_l.frontBackMetrics : null;
@@ -622,20 +623,26 @@ function detectIssues() {
   // mid-stance; left arm forward at R mid-stance), so take the max for each arm across
   // both available front frames. Per-arm severity surfaces asymmetric arm swing, which
   // can reflect compensatory trunk rotation from a lower-body issue.
-  var crossAt = function(fbm, key){ return fbm && fbm[key] !== null && fbm[key] !== undefined ? fbm[key] : 0; };
-  var hasFront = !!(frontL_FBM || frontR_FBM);
-  var peakLCross = Math.max(crossAt(frontL_FBM, 'lWristCross'), crossAt(frontR_FBM, 'lWristCross'));
-  var peakRCross = Math.max(crossAt(frontL_FBM, 'rWristCross'), crossAt(frontR_FBM, 'rWristCross'));
-  var gradeCross = function(v){ if(v > 0.15) return 'notable'; if(v > 0.05) return 'mild'; return null; };
-  var sevLArm = hasFront ? gradeCross(peakLCross) : null;
-  var sevRArm = hasFront ? gradeCross(peakRCross) : null;
-  var topArmSev = worstCPD(sevLArm, sevRArm);
-  if(topArmSev) {
-    var fmtArm = function(v, sev){ return (v*100).toFixed(1)+'% '+(sev||'clear'); };
-    var armDetail = 'L arm: '+fmtArm(peakLCross, sevLArm)+' \u00b7 R arm: '+fmtArm(peakRCross, sevRArm);
-    issues.armsCrossing = {detected:true, severity:topArmSev, details:armDetail, sideSev:{L:sevLArm, R:sevRArm}, sideTagLabel:'arm'};
-  } else {
-    issues.armsCrossing = {detected:false, severity:null, details:COACHING_CUES.armsCrossing.clear};
+  // Only the front view shows it. With no front clip (eflNoFront) the check is left out:
+  // issues has no armsCrossing key, so the report and PDF drop it rather than call it
+  // "Not measured". A front clip that failed to decode still gets {detected:false}.
+  var noFrontClip = typeof eflNoFront !== 'undefined' && eflNoFront === true;
+  if(!noFrontClip) {
+    var crossAt = function(fbm, key){ return fbm && fbm[key] !== null && fbm[key] !== undefined ? fbm[key] : 0; };
+    var hasFront = !!(frontL_FBM || frontR_FBM);
+    var peakLCross = Math.max(crossAt(frontL_FBM, 'lWristCross'), crossAt(frontR_FBM, 'lWristCross'));
+    var peakRCross = Math.max(crossAt(frontL_FBM, 'rWristCross'), crossAt(frontR_FBM, 'rWristCross'));
+    var gradeCross = function(v){ if(v > 0.15) return 'notable'; if(v > 0.05) return 'mild'; return null; };
+    var sevLArm = hasFront ? gradeCross(peakLCross) : null;
+    var sevRArm = hasFront ? gradeCross(peakRCross) : null;
+    var topArmSev = worstCPD(sevLArm, sevRArm);
+    if(topArmSev) {
+      var fmtArm = function(v, sev){ return (v*100).toFixed(1)+'% '+(sev||'clear'); };
+      var armDetail = 'L arm: '+fmtArm(peakLCross, sevLArm)+' \u00b7 R arm: '+fmtArm(peakRCross, sevRArm);
+      issues.armsCrossing = {detected:true, severity:topArmSev, details:armDetail, sideSev:{L:sevLArm, R:sevRArm}, sideTagLabel:'arm'};
+    } else {
+      issues.armsCrossing = {detected:false, severity:null, details:COACHING_CUES.armsCrossing.clear};
+    }
   }
 
   // 4. TORSO POSITION -- z-score average across all side-view phases that measure trunk lean.
@@ -704,14 +711,22 @@ function detectIssues() {
     }
   }
 
-  // 6. KNEE VALGUS -- per-stance 2D FPPA in degrees from each side's front frame.
+  // 6. KNEE VALGUS -- per-stance 2D FPPA in degrees, per leg from that leg's front frame,
+  // or from its back frame when the front has no reading (always, so with no front clip
+  // every reading comes from the back view; same fallback as blendCPD's front-null case).
+  // FPPA's sign test is mirror-invariant, so a back-view reading means the same thing.
   // Thresholds from running-specific FPPA literature (NOT SLS/DVJ -- those allow much
   // greater knee flexion and run 13deg+, which would miss runners). Sex bump +1deg
   // (Nakagawa 2012: females show ~3.9deg greater knee abduction in SLS). Asymmetry
   // >= 3deg with the higher side exceeding the 4deg 2D noise floor flags the higher
   // side as mild and upgrades an existing mild to notable -- same pattern as hip drop.
-  var lValgusDeg = frontL_FBM && frontL_FBM.lKneeValgusDeg !== null && frontL_FBM.lKneeValgusDeg !== undefined ? frontL_FBM.lKneeValgusDeg : null;
-  var rValgusDeg = frontR_FBM && frontR_FBM.rKneeValgusDeg !== null && frontR_FBM.rKneeValgusDeg !== undefined ? frontR_FBM.rKneeValgusDeg : null;
+  var fppaNum = function(fbm, key){ return fbm && fbm[key] !== null && fbm[key] !== undefined && isFinite(fbm[key]) ? fbm[key] : null; };
+  var lValgusFront = fppaNum(frontL_FBM, 'lKneeValgusDeg');
+  var rValgusFront = fppaNum(frontR_FBM, 'rKneeValgusDeg');
+  var lValgusDeg = lValgusFront !== null ? lValgusFront : fppaNum(backL_FBM, 'lKneeValgusDeg');
+  var rValgusDeg = rValgusFront !== null ? rValgusFront : fppaNum(backR_FBM, 'rKneeValgusDeg');
+  var lValgusView = lValgusFront !== null ? 'front' : 'back';
+  var rValgusView = rValgusFront !== null ? 'front' : 'back';
   var vMildT    = isFemale ? 7  : 6;   // degrees
   var vNotableT = isFemale ? 11 : 10;  // degrees
   var vAsymT    = 3;
@@ -722,6 +737,9 @@ function detectIssues() {
     if(deg > vMildT) return 'mild';
     return null;
   };
+  // Which view graded each leg (null = no reading). Saved with the issue, so the report can
+  // tell results graded this way from older saved ones, which read the front frames only.
+  var valgusViews = {L: lValgusDeg !== null ? lValgusView : null, R: rValgusDeg !== null ? rValgusView : null};
   var sevLV = gradeFPPA(lValgusDeg);
   var sevRV = gradeFPPA(rValgusDeg);
   var vAsymFlag = false;
@@ -739,12 +757,12 @@ function detectIssues() {
   }
   var topValgusSev = worstCPD(sevLV, sevRV);
   if(topValgusSev) {
-    var fmtV = function(deg, sev){ if(deg===null) return 'no data'; return deg.toFixed(1)+'\u00b0 '+(sev||'clear'); };
-    var vDetail = 'L-stance: '+fmtV(lValgusDeg, sevLV)+' \u00b7 R-stance: '+fmtV(rValgusDeg, sevRV);
+    var fmtV = function(deg, sev, view){ if(deg===null) return 'no data'; return deg.toFixed(1)+'\u00b0 '+(sev||'clear')+' ('+view+' view)'; };
+    var vDetail = 'L-stance: '+fmtV(lValgusDeg, sevLV, lValgusView)+' \u00b7 R-stance: '+fmtV(rValgusDeg, sevRV, rValgusView);
     if(vAsymFlag) vDetail += ' \u00b7 asymmetry '+Math.abs(lValgusDeg-rValgusDeg).toFixed(1)+'\u00b0';
-    issues.kneeValgus = {detected:true, severity:topValgusSev, details:vDetail, sideSev:{L:sevLV, R:sevRV}};
+    issues.kneeValgus = {detected:true, severity:topValgusSev, details:vDetail, sideSev:{L:sevLV, R:sevRV}, views:valgusViews};
   } else {
-    issues.kneeValgus = {detected:false, severity:null, details:COACHING_CUES.kneeValgus.clear};
+    issues.kneeValgus = {detected:false, severity:null, details:COACHING_CUES.kneeValgus.clear, views:valgusViews};
   }
 
   return issues;

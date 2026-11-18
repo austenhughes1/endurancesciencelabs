@@ -722,6 +722,16 @@ function pdfDrawPrinciples(doc, margins, opts) {
 // ────────────────────────────────────────────────────────────────
 
 const FRONT_BACK_KEYS = ["mid_front_l", "mid_front_r", "mid_back_l", "mid_back_r"];
+const FRONT_BACK_HEADERS = {
+  mid_front_l: "L stance (front)",
+  mid_front_r: "R stance (front)",
+  mid_back_l: "L stance (back)",
+  mid_back_r: "R stance (back)",
+};
+
+function isFrontPhase(pk) {
+  return /^mid_front_/.test(pk);
+}
 
 function finiteOrNull(v) {
   return typeof v === "number" && isFinite(v) ? v : null;
@@ -766,10 +776,14 @@ function frontBackValue(row, phases, pk) {
  * @param {object} input.phases    Map phaseKey -> { metrics, frontBackMetrics, ... }
  * @param {object} input.lastIssues  Map issueKey -> { detected, severity, cueKey?, ... }
  * @param {object} input.liveRanges  { male, female, combined } from Firestore computed_ranges
+ * @param {boolean} [input.noFront]  True when the session had no front clip: arms crossing
+ *                                   is left out and the front/back table shows only the
+ *                                   back columns. Older clients omit it (three clips).
  * @returns {Buffer} PDF bytes
  */
 function renderReport(input) {
   const { athleteName, sessionName, sessionDate, generatedISO, rangeMeta, selectedSex, liveRanges, images } = input;
+  const noFront = input.noFront === true;
   const phases = input.phases && typeof input.phases === "object" ? input.phases : {};
   const lastIssues = input.lastIssues && typeof input.lastIssues === "object" ? input.lastIssues : {};
   const imgs = images && typeof images === "object" ? images : {};
@@ -864,6 +878,7 @@ function renderReport(input) {
   // ====== What we found (summary) ======
   y = pdfH1(doc, "What we found", y, margins);
 
+  // Arms crossing needs a front clip; without one it is not part of the report at all.
   const issueList = [
     { key: "overstriding", dataKey: "overstriding" },
     { key: "hipDrop", dataKey: "hipDrop" },
@@ -871,7 +886,7 @@ function renderReport(input) {
     { key: "torsoPosition", dataKey: null },
     { key: "armAngle", dataKey: "armAngle" },
     { key: "kneeValgus", dataKey: "kneeValgus" },
-  ];
+  ].filter((item) => !(noFront && item.key === "armsCrossing"));
 
   // Classify first so an all-clear headline can lead, above the rows.
   const summaryRows = [];
@@ -892,7 +907,7 @@ function renderReport(input) {
   if (!anyDetected) {
     y = pdfCheckPage(doc, y, 25, margins);
     y = pdfH2(doc, "No major gait-pattern flags detected", y, margins);
-    y = drawWrapped("Your stride did not show meaningful signs of overstriding, hip drop, excessive arm crossover, overly upright torso position, overly open arm angle, or knee valgus in the analyzed clips. Most measured angles fell within the reference ranges used by this tool.",
+    y = drawWrapped("Your stride did not show meaningful signs of overstriding, hip drop, " + (noFront ? "" : "excessive arm crossover, ") + "overly upright torso position, overly open arm angle, or knee valgus in the analyzed clips. Most measured angles fell within the reference ranges used by this tool.",
       margins.left, y, contentW, 9, "normal", C.muted, 4) + 3;
     y = drawWrapped('This does not mean your running form is "perfect" or that no improvement is possible. It means this analysis did not detect clear issues in these specific categories from the selected videos and frames.',
       margins.left, y, contentW, 9, "normal", C.muted, 4) + 6;
@@ -1082,22 +1097,25 @@ function renderReport(input) {
 
   pdfDrawAngleTable(null, SUMMARY_COL_ORDER);
 
-  // Front/back-view measurements: hip drop, stance-knee FPPA, wrist crossing.
-  const fbCols = FRONT_BACK_KEYS.filter((pk) => FRONT_BACK_ROWS.some((r) => frontBackValue(r, phases, pk) !== null));
+  // Front/back-view measurements: hip drop, stance-knee FPPA, wrist crossing. With no
+  // front clip only the two back columns show (so no wrist rows), titled for the back view.
+  const fbKeys = noFront ? FRONT_BACK_KEYS.filter((pk) => !isFrontPhase(pk)) : FRONT_BACK_KEYS;
+  const fbCols = fbKeys.filter((pk) => FRONT_BACK_ROWS.some((r) => frontBackValue(r, phases, pk) !== null));
   if (fbCols.length) {
-    const fbRows = FRONT_BACK_ROWS.filter((r) => FRONT_BACK_KEYS.some((pk) => frontBackValue(r, phases, pk) !== null));
+    const fbRows = FRONT_BACK_ROWS.filter((r) => fbKeys.some((pk) => frontBackValue(r, phases, pk) !== null));
     y = pdfCheckPage(doc, y + 4, 70, margins);
-    y = pdfH1(doc, "Front/back-view measurements", y, margins);
-    y = drawWrapped("Hip drop and stance-knee FPPA (frontal plane projection angle: positive = medial (valgus), negative = lateral (varus)) are in degrees. Wrist crossing is how far each wrist crosses the body midline, as a % of shoulder width (front view only). A dash (–) means it was not measured in that frame.",
+    y = pdfH1(doc, noFront ? "Back-view measurements" : "Front/back-view measurements", y, margins);
+    y = drawWrapped("Hip drop and stance-knee FPPA (frontal plane projection angle: positive = medial (valgus), negative = lateral (varus)) are in degrees. " +
+      (noFront ? "" : "Wrist crossing is how far each wrist crosses the body midline, as a % of shoulder width (front view only). ") +
+      "A dash (–) means it was not measured in that frame.",
       margins.left, y, contentW, 9, "normal", C.muted, 3.8) + 4;
 
     const labelColW = 36;
-    const dataCellW = (contentW - labelColW) / FRONT_BACK_KEYS.length;
+    const dataCellW = (contentW - labelColW) / fbKeys.length;
     const cellH = 7;
     const headerH = 9;
     const tableX = margins.left;
-    const colEdges = [0, labelColW].concat(FRONT_BACK_KEYS.slice(1).map((_, i) => labelColW + (i + 1) * dataCellW));
-    const fbHeaders = ["L stance (front)", "R stance (front)", "L stance (back)", "R stance (back)"];
+    const colEdges = [0, labelColW].concat(fbKeys.slice(1).map((_, i) => labelColW + (i + 1) * dataCellW));
 
     function drawFbHeader() {
       doc.setFillColor(...C.headFill);
@@ -1108,7 +1126,7 @@ function renderReport(input) {
       doc.line(tableX, y + headerH, tableX + contentW, y + headerH);
       pdfSetText(doc, 8, "bold", C.text);
       doc.text("Measure", tableX + 2, y + 5.8);
-      fbHeaders.forEach((h, i) => doc.text(h, tableX + labelColW + i * dataCellW + dataCellW / 2, y + 5.8, { align: "center" }));
+      fbKeys.forEach((pk, i) => doc.text(FRONT_BACK_HEADERS[pk], tableX + labelColW + i * dataCellW + dataCellW / 2, y + 5.8, { align: "center" }));
       y += headerH;
     }
 
@@ -1123,7 +1141,7 @@ function renderReport(input) {
       }
       pdfSetText(doc, 8.5, "normal", C.text);
       doc.text(row.label, tableX + 2, y + cellH - 2.2);
-      FRONT_BACK_KEYS.forEach((pk, ci) => {
+      fbKeys.forEach((pk, ci) => {
         const cx = tableX + labelColW + ci * dataCellW + dataCellW / 2;
         const v = frontBackValue(row, phases, pk);
         if (v === null) {
@@ -1148,8 +1166,9 @@ function renderReport(input) {
   // cell width with their angles listed underneath; front/back frames start a
   // new row, with their measurements beside the frame. Row height comes from
   // the real images. Images arrive in the request payload (never persisted);
-  // a phase with no image is skipped (graceful fallback for older sessions).
-  const shotKeys = PHASE_DEFS.map((d) => d.key).filter((k) => typeof imgs[k] === "string");
+  // a phase with no image is skipped (graceful fallback for older sessions). With no
+  // front clip there are no front phases, so no front frames either.
+  const shotKeys = PHASE_DEFS.map((d) => d.key).filter((k) => typeof imgs[k] === "string" && !(noFront && isFrontPhase(k)));
   if (shotKeys.length) {
     newPage();
     y = pdfH1(doc, "Captured frames", y, margins);

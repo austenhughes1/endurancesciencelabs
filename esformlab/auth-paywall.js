@@ -12,7 +12,7 @@
 //   currentUser, auth2, selectedSex, liveRanges, MIN_N, PHASE_DEFS,
 //   METRIC_ROWS, isRelevant, phases, lastIssues, savedAnalysesList,
 //   setSex, viewSavedAnalysis, loadAnalysesList, updateRangesStatus,
-//   getDetectionQuality.
+//   getDetectionQuality, eflNoFront, eflActivePhaseDefs.
 // ════════════════════════════════════════════════════════════════
 
 // -- Read-only fetch of the computed_ranges reference data --------
@@ -218,11 +218,13 @@ async function autosaveAnalysisForResume() {
     date: now.toLocaleDateString('en-CA'),
     createdAt: esLabs.firebase.firestore.FieldValue.serverTimestamp(),
     sex: selectedSex,
+    // Always a boolean: this write skips stripUndefinedDeep.
+    noFront: eflNoFront === true,
     phases: {},
     issues: lastIssues || {},
     autosave: true,
   };
-  PHASE_DEFS.forEach(function (def) {
+  eflActivePhaseDefs().forEach(function (def) {
     var ph = phases[def.key];
     if (!ph || !ph.detected) return;
     var entry = { t: ph.t, detected: true };

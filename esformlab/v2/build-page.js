@@ -32,7 +32,7 @@ const V1_MODULES = ['frame-store', 'report-render', 'saved-analyses', 'auth-payw
 // the sampling and detection core changed. When the page's autoScanAll changes,
 // this hash stops matching and the check fails until the copy in scan-v2.js has
 // been brought up to date; then put the new hash here.
-const AUTO_SCAN_ALL_SHA = '1030104c5e6fc7da';
+const AUTO_SCAN_ALL_SHA = 'ef34252c22103e1c';
 
 // Names in the v2 scripts' /* global */ comments that are not the main page's.
 const NOT_V1_GLOBALS = ['EslPoseV2', 'EslGaitEvents', 'EslScanV2', 'tf', 'poseDetection', 'location'];

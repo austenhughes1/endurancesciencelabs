@@ -15,7 +15,8 @@
 //                 time, detected: true, kps: that frame's pose}. Everything the
 //                 user sees (stages, bar shares, step text, phase list, warnings,
 //                 phone cool-downs and TF scope, diag line, summary bar, cards,
-//                 tour, cancel) is v1's.
+//                 tour, cancel) is v1's. Without a front clip only the side and
+//                 back clips are scanned and the front phases are left out.
 //   detector      after initModel loads Thunder, the global becomes a thin proxy.
 //                 Its estimatePoses(canvas) answers with the tracked pose of the
 //                 (clip, time) the canvas was drawn from (EslPoseV2.poseAt),
@@ -236,7 +237,7 @@ var EslScanV2 = (function () {
      applyStanceFrame, showScanWarningsSummary, buildPhaseGroups, buildSummaryTable, analyzeCard, selectedSex,
      eflSyncWalkthroughLine, isViewingSaved, eflTourDone, startTour, scanInProgress, eflTfScopeOpen, tf,
      EslPoseV2, EslGaitEvents, initModel, epReanalyze, analyzePoseAtT, normalizeAndRetry, epAnalyzing, expandKey,
-     epCurrentT, getVideoKeyForPhase */
+     epCurrentT, getVideoKeyForPhase, eflNoFront, uploadedFiles, eflActivePhaseDefs */
 
   // ?detector=v1 in the page URL keeps the previous detection (still in the main page's code) for
   // comparison: nothing is replaced.
@@ -450,6 +451,8 @@ var EslScanV2 = (function () {
   // ── autoScanAll: v1's body, with the sampling and detection core replaced ──
   autoScanAll = async function () {
     clearScanWarnings();
+    // No front clip chosen: only the side and back clips are scanned (rescan comes here directly).
+    eflNoFront = !uploadedFiles.front;
     if (IS_MOBILE_RUNNER && scanDetectorPromise && !scanDetector) {
       try { await scanDetectorPromise; } catch (e) {}
     }
@@ -474,12 +477,13 @@ var EslScanV2 = (function () {
       }
     }
     var sideVid = videoEls.side;
-    var frontVid = videoEls.front;
+    var frontVid = eflNoFront ? null : videoEls.front;   // null with no front clip
     var backVid = videoEls.back;
 
+    // no front clip: nothing to warn about (one that was uploaded but failed to decode still warns)
     var loadStatus = {
       side: (sideVid.videoWidth || 0) > 0,
-      front: (frontVid.videoWidth || 0) > 0,
+      front: eflNoFront || (frontVid.videoWidth || 0) > 0,
       back: (backVid.videoWidth || 0) > 0
     };
     var failedLabels = [];
@@ -508,16 +512,18 @@ var EslScanV2 = (function () {
       }
     });
 
-    var frontDur = frontVid.duration;
-    if (!isFinite(frontDur) || isNaN(frontDur) || frontDur <= 0) frontDur = 30;
+    if (!eflNoFront) {
+      var frontDur = frontVid.duration;
+      if (!isFinite(frontDur) || isNaN(frontDur) || frontDur <= 0) frontDur = 30;
+      phases.mid_front_l.t = frontDur * 0.35;
+      phases.mid_front_r.t = frontDur * 0.65;
+    }
     var backDur = backVid.duration;
     if (!isFinite(backDur) || isNaN(backDur) || backDur <= 0) backDur = 30;
-    phases.mid_front_l.t = frontDur * 0.35;
-    phases.mid_front_r.t = frontDur * 0.65;
     phases.mid_back_l.t = backDur * 0.35;
     phases.mid_back_r.t = backDur * 0.65;
 
-    document.getElementById('scan-phase-list').innerHTML = PHASE_DEFS.map(function (p) {
+    document.getElementById('scan-phase-list').innerHTML = eflActivePhaseDefs().map(function (p) {
       return '<div class="spl-item" id="spl-' + p.key + '"><div class="spl-dot"></div><span class="spl-name">' + p.label + '</span><span class="spl-time" id="spl-t-' + p.key + '">--</span></div>';
     }).join('');
 
@@ -558,8 +564,8 @@ var EslScanV2 = (function () {
       await new Promise(function (r) { setTimeout(r, 1500); });
     }
 
-    // ---- STEPS 2 and 3: front and back clips ----
-    var fbStages = [['front', frontVid, 75, 87], ['back', backVid, 87, 100]];
+    // ---- STEPS 2 and 3: front and back clips (no front clip: the back scan fills 75-100%) ----
+    var fbStages = eflNoFront ? [['back', backVid, 75, 100]] : [['front', frontVid, 75, 87], ['back', backVid, 87, 100]];
     for (var s = 0; s < fbStages.length; s++) {
       var view = fbStages[s][0];
       if (s > 0 && IS_MOBILE_RUNNER) {
@@ -578,14 +584,14 @@ var EslScanV2 = (function () {
 
     // Finalize (v1 from here on)
     document.getElementById('scan-bar').style.width = '100%';
-    document.getElementById('scan-step').textContent = 'Done — all 3 videos scanned';
+    document.getElementById('scan-step').textContent = eflNoFront ? 'Done — side and back videos scanned' : 'Done — all 3 videos scanned';
     document.getElementById('scan-sub-text').textContent = 'Scan complete';
 
     var diag = document.getElementById('scan-diag'); diag.style.display = 'block';
     var fmtClip = function (v) { return v.ok ? (v.nativeWidth + 'x' + v.nativeHeight + (v.fps ? ' ' + v.fps + 'fps' : '')) : 'failed'; };
-    diag.textContent = 'Side: ' + fmtClip(sideVid) + ' ' + sideDur.toFixed(1) + 's | Front: ' + fmtClip(frontVid) + ' | Back: ' + fmtClip(backVid);
+    diag.textContent = 'Side: ' + fmtClip(sideVid) + ' ' + sideDur.toFixed(1) + 's' + (eflNoFront ? '' : ' | Front: ' + fmtClip(frontVid)) + ' | Back: ' + fmtClip(backVid);
 
-    var partial = [['Side', sideVid], ['Front', frontVid], ['Back', backVid]].filter(function (p) { return p[1].ok && p[1].coverage < 0.9; });
+    var partial = [['Side', sideVid], ['Front', frontVid], ['Back', backVid]].filter(function (p) { return p[1] && p[1].ok && p[1].coverage < 0.9; });
     if (partial.length) {
       var partialMsg = 'Only part of the ' + partial.map(function (p) { return p[0].toLowerCase() + ' (' + Math.round(p[1].coverage * 100) + '% of frames)'; }).join(', ') +
         ' video could be loaded — re-exporting as H.264 .mp4 usually fixes this.';
@@ -602,27 +608,28 @@ var EslScanV2 = (function () {
     var reviewActionsEl = document.getElementById('review-actions');
     if (reviewActionsEl) reviewActionsEl.style.display = IS_MOBILE_RUNNER ? 'none' : '';
     showScanWarningsSummary();
-    var detected = PHASE_DEFS.filter(function (d) { return phases[d.key] && phases[d.key].detected; }).length;
+    var activeDefs = eflActivePhaseDefs();
+    var detected = activeDefs.filter(function (d) { return phases[d.key] && phases[d.key].detected; }).length;
     var sb = document.getElementById('scan-summary-bar'); sb.style.display = 'flex';
     var sexInfo = selectedSex ? '<span class="ss-item ' + selectedSex + '">Ranges: <strong>' + selectedSex + '</strong></span>' : '<span class="ss-item">Ranges: <strong>default</strong></span>';
     var fmtDim = function (v) { return v.ok ? (v.nativeWidth + 'x' + v.nativeHeight) : 'failed'; };
     var sideFailed = (sideVid.videoWidth || 0) === 0;
-    var frontFailed = (frontVid.videoWidth || 0) === 0;
+    var frontFailed = !eflNoFront && (frontVid.videoWidth || 0) === 0;
     var backFailed = (backVid.videoWidth || 0) === 0;
     var ssWarn = sideFailed || frontFailed || backFailed || posesFound < 15;
-    sb.innerHTML = '<details class="ss-details"' + (ssWarn ? ' open' : '') + '><summary>Scan details &middot; ' + detected + ' of ' + PHASE_DEFS.length + ' auto-detected' + (ssWarn ? ' &middot; <span class="ss-warn-flag">check these</span>' : '') + '</summary><div class="ss-items">' +
+    sb.innerHTML = '<details class="ss-details"' + (ssWarn ? ' open' : '') + '><summary>Scan details &middot; ' + detected + ' of ' + activeDefs.length + ' auto-detected' + (ssWarn ? ' &middot; <span class="ss-warn-flag">check these</span>' : '') + '</summary><div class="ss-items">' +
       '<span class="ss-item ' + (sideFailed ? 'warn' : '') + '">Side: <strong>' + fmtDim(sideVid) + '</strong></span>' +
-      '<span class="ss-item ' + (frontFailed ? 'warn' : '') + '">Front: <strong>' + fmtDim(frontVid) + '</strong></span>' +
+      (eflNoFront ? '' : '<span class="ss-item ' + (frontFailed ? 'warn' : '') + '">Front: <strong>' + fmtDim(frontVid) + '</strong></span>') +
       '<span class="ss-item ' + (backFailed ? 'warn' : '') + '">Back: <strong>' + fmtDim(backVid) + '</strong></span>' +
       '<span class="ss-item">Duration: <strong>' + sideDur.toFixed(1) + 's</strong></span>' +
       '<span class="ss-item ' + (posesFound < 15 ? 'warn' : '') + '">Side poses: <strong>' + posesFound + '/' + N + '</strong></span>' +
-      '<span class="ss-item">Auto-detected: <strong>' + detected + '/' + PHASE_DEFS.length + '</strong></span>' + sexInfo + '</div></details>';
+      '<span class="ss-item">Auto-detected: <strong>' + detected + '/' + activeDefs.length + '</strong></span>' + sexInfo + '</div></details>';
     if (sideFailed || frontFailed || backFailed) {
       sb.innerHTML += '<span class="ss-item warn" style="flex-basis:100%">&#9888; A video could not be decoded by this browser (phone clips are often HEVC / H.265) — re-export it as H.264 .mp4 or try Safari / Chrome.</span>';
     }
     buildPhaseGroups(); buildSummaryTable();
-    for (var di = 0; di < PHASE_DEFS.length; di++) {
-      var dKey = PHASE_DEFS[di].key;
+    for (var di = 0; di < activeDefs.length; di++) {
+      var dKey = activeDefs[di].key;
       if (phases[dKey] && phases[dKey].detected) await analyzeCard(dKey);
     }
     if (tfScopeOpen) {

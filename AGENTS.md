@@ -28,7 +28,8 @@ verified, stop and say so in the report.
 ```
 index.html, coaching/, shockwave/, privacy/, terms/  public pages
 account/, admin/users/                              signed-in account and admin pages
-esformlab/          running form analysis (no test suite for the live page)
+esformlab/          running form analysis (detect-issues.test.js checks its rules and
+                    report in node; nothing tests the live page in a browser)
 esformlab/v2/       the analyzer's phase detection (runner tracking + gait events),
                     loaded by esformlab/index.html; see esformlab/v2/README.md
 esmetaboliclab/     lactate and power profiles; js/lib/ engines, js/ui/ views,
@@ -53,7 +54,7 @@ docs/               design notes
 From the repo root. Nothing to install.
 
 ```bash
-npm test     # syntax-checks functions/*.js, runs all thirteen suites, checks the v2 script tags; must exit 0
+npm test     # syntax-checks functions/*.js, runs all fourteen suites, checks the v2 script tags; must exit 0
 ```
 
 The suites one by one:
@@ -73,13 +74,14 @@ node esformlab/v2/build-page.js --check   # v2 script tags in esformlab/index.ht
 node esformlab/v2/pose-v2.test.js
 node esformlab/v2/gait-events.test.js
 node esformlab/v2/scan-v2.test.js
+node esformlab/detect-issues.test.js
 ```
 
 There is no lint, typecheck or build. Page behaviour in a browser is not
 covered by any test: say what you checked and how, or that you could not.
 
-Baseline (2026-11-16): all green. 267, 17, 40, 56, 830, 140, 64, 631, 81, 68,
-184, 537 and 125 checks, in that order. The FIT and MCP-handshake sections need
+Baseline (2026-11-18): all green. 267, 17, 40, 56, 830, 140, 64, 631, 81, 68,
+184, 537, 181 and 123 checks, in that order. The FIT and MCP-handshake sections need
 `npm install` in functions/; without it they print SKIPPED.
 
 ## Conventions

@@ -4,7 +4,9 @@
 // Extracted from the main esformlab/index.html inline <script>.
 // Owns the static data tables (DEFAULTS, METRIC_BIO, PHASE_DEFS,
 // PHASE_GROUPS, SUMMARY_COL_ORDER, GROUP_STARTS, METRIC_ROWS,
-// PHASE_METRICS) plus the range/stats lookup helpers (getRange,
+// PHASE_METRICS), the optional-front-clip state and helpers
+// (eflNoFront, eflActivePhaseDefs, eflPhaseNum, eflActivePhaseGroups,
+// eflPhaseCopy), plus the range/stats lookup helpers (getRange,
 // positionLabel, positionSymbol, getRangeStats, getCombinedStats,
 // getPooledStats, isRelevant), pose-detection constants (LEFT_KPS,
 // RIGHT_KPS, MIN_CONF, SKELETON, MIN_N), and the sex-card UI
@@ -200,8 +202,8 @@ const PHASE_DEFS = [
   {key:'mid',       label:'Mid-stance',         desc:'Body directly over support foot',          videoKey:'side',  side:'center', detectsIssue:'Torso position', guide:{title:'Mid-stance',        desc:'The body passes directly over the supporting foot.',checks:['Stance foot roughly under the hip','Swing leg in mid-flight','Trunk vertical or slightly forward','Arms in natural opposite-arm swing'],tip:'Key frame for trunk lean and hip drop.'}},
   {key:'mid_front_l', label:'L mid-stance (front)', desc:'Left foot planted under body, front view', videoKey:'front', side:'left',  detectsIssue:'Hip drop (L), arms crossing, knee valgus (L)', guide:{title:'Left foot mid-stance (front view)', desc:'A frontal view at the moment the left foot is planted directly underneath the body.',checks:['Left foot planted flat on the ground','Left foot directly underneath the body -- not ahead or behind','Right leg is in mid-swing','Hips clearly visible for drop measurement'],tip:"Look for the instant the runner's body passes directly over the left stance foot."}},
   {key:'mid_front_r', label:'R mid-stance (front)', desc:'Right foot planted under body, front view', videoKey:'front', side:'right', detectsIssue:'Hip drop (R), arms crossing, knee valgus (R)', guide:{title:'Right foot mid-stance (front view)', desc:'A frontal view at the moment the right foot is planted directly underneath the body.',checks:['Right foot planted flat on the ground','Right foot directly underneath the body -- not ahead or behind','Left leg is in mid-swing','Hips clearly visible for drop measurement'],tip:"Look for the instant the runner's body passes directly over the right stance foot."}},
-  {key:'mid_back_l',  label:'L mid-stance (back)',  desc:'Left foot planted under body, rear view',  videoKey:'back',  side:'left',  detectsIssue:'Hip drop (L), confirms the front view', guide:{title:'Left foot mid-stance (back view)', desc:'A rear view at the moment the left foot is planted directly underneath the body. Confirms left-stance hip drop from the front view.',checks:['Left foot planted flat on the ground','Left foot directly underneath the body','Right leg in mid-swing','PSIS / lower back clearly visible'],tip:"Pick the instant the body passes directly over the left stance foot, viewed from behind."}},
-  {key:'mid_back_r',  label:'R mid-stance (back)',  desc:'Right foot planted under body, rear view', videoKey:'back',  side:'right', detectsIssue:'Hip drop (R), confirms the front view', guide:{title:'Right foot mid-stance (back view)', desc:'A rear view at the moment the right foot is planted directly underneath the body. Confirms right-stance hip drop from the front view.',checks:['Right foot planted flat on the ground','Right foot directly underneath the body','Left leg in mid-swing','PSIS / lower back clearly visible'],tip:"Pick the instant the body passes directly over the right stance foot, viewed from behind."}},
+  {key:'mid_back_l',  label:'L mid-stance (back)',  desc:'Left foot planted under body, rear view',  videoKey:'back',  side:'left',  detectsIssue:'Hip drop (L), confirms the front view', detectsIssueNoFront:'Hip drop (L), knee valgus (L)', guideDescNoFront:'A rear view at the moment the left foot is planted directly underneath the body. Measures left-stance hip drop and knee valgus.', guide:{title:'Left foot mid-stance (back view)', desc:'A rear view at the moment the left foot is planted directly underneath the body. Confirms left-stance hip drop from the front view.',checks:['Left foot planted flat on the ground','Left foot directly underneath the body','Right leg in mid-swing','PSIS / lower back clearly visible'],tip:"Pick the instant the body passes directly over the left stance foot, viewed from behind."}},
+  {key:'mid_back_r',  label:'R mid-stance (back)',  desc:'Right foot planted under body, rear view', videoKey:'back',  side:'right', detectsIssue:'Hip drop (R), confirms the front view', detectsIssueNoFront:'Hip drop (R), knee valgus (R)', guideDescNoFront:'A rear view at the moment the right foot is planted directly underneath the body. Measures right-stance hip drop and knee valgus.', guide:{title:'Right foot mid-stance (back view)', desc:'A rear view at the moment the right foot is planted directly underneath the body. Confirms right-stance hip drop from the front view.',checks:['Right foot planted flat on the ground','Right foot directly underneath the body','Left leg in mid-swing','PSIS / lower back clearly visible'],tip:"Pick the instant the body passes directly over the right stance foot, viewed from behind."}},
 ];
 
 const PHASE_GROUPS = [
@@ -209,6 +211,37 @@ const PHASE_GROUPS = [
   {label:'Posture & trunk', keys:['mid']},
   {label:'Hip & lateral mechanics', keys:['mid_front_l','mid_front_r','mid_back_l','mid_back_r']},
 ];
+
+// -- Optional front clip --
+// The front clip is optional: on a treadmill the console blocks it. eflNoFront is true
+// when the session has no front clip. A scan sets it from the upload (never from decode
+// success, so a front clip that fails to decode still counts as present and arms crossing
+// reads "Not measured"); a saved session sets it from its noFront field. With no front
+// clip the two front phases are never built and arms crossing is not checked at all.
+// Every phase list, count and number shown to the user comes from the helpers below, so
+// the back phases read 6 and 7 when there is no front clip.
+var eflNoFront = false;
+function eflActivePhaseDefs() {
+  return eflNoFront ? PHASE_DEFS.filter(function(d){ return d.videoKey !== 'front'; }) : PHASE_DEFS;
+}
+// The phase's number as shown to the user: 1-based and consecutive over the active phases.
+function eflPhaseNum(key) {
+  return eflActivePhaseDefs().findIndex(function(d){ return d.key === key; }) + 1;
+}
+// PHASE_GROUPS without the phases this session doesn't have (a group left empty is dropped).
+function eflActivePhaseGroups() {
+  if (!eflNoFront) return PHASE_GROUPS;
+  var keys = eflActivePhaseDefs().map(function(d){ return d.key; });
+  return PHASE_GROUPS.map(function(g){
+    return {label: g.label, keys: g.keys.filter(function(k){ return keys.indexOf(k) !== -1; })};
+  }).filter(function(g){ return g.keys.length > 0; });
+}
+// The card and guide copy for a phase in this session: with no front view, the back
+// phases say what they measure instead of "confirms the front view".
+function eflPhaseCopy(def) {
+  if (!eflNoFront || !def.detectsIssueNoFront) return {detectsIssue: def.detectsIssue, guide: def.guide};
+  return {detectsIssue: def.detectsIssueNoFront, guide: Object.assign({}, def.guide, {desc: def.guideDescNoFront || def.guide.desc})};
+}
 
 const SUMMARY_COL_ORDER = ['l_foot','r_foot','l_toe','r_toe','mid'];
 const GROUP_STARTS       = new Set(['l_foot','l_toe','mid']);
