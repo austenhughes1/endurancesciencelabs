@@ -735,7 +735,8 @@ JPEG per detected phase that has keypoints (at most 640 px wide, quality 0.62, t
 committed frame with its overlay), then calls `generateFormReport` with the save
 form's session name (sent as both `athleteName` and `sessionName`, empty if the field
 is empty) and date (today if empty), the selected sex, `{metrics}` for each phase that
-has `metrics`, the current issues object, the images and `noFront` (`eflNoFront ===
+has `metrics` (or `{frontBackMetrics}` for a phase that has only those, as a saved
+front or back phase does), the current issues object, the images and `noFront` (`eflNoFront ===
 true`). It sends no `tzOffsetMin`.
 In a saved session the name and date come from the saved document instead. The PDF
 comes back base64-encoded and is downloaded. Failures show an alert: a pass message
@@ -745,23 +746,18 @@ generate the PDF…".
 With `noFront: true` the server's PDF leaves out arms crossing (its row, and "excessive
 arm crossover" in the all-clear sentence), shows only the two back columns of the
 measurements table, titled "Back-view measurements" with no wrist-crossing rows, and
-draws no front frames. This needs the `functions` code deployed. Until then the live
-server ignores `noFront`: it already drops the arms-crossing row (the issue is
-missing), but keeps "excessive arm crossover" in the all-clear sentence and the
-four-column "Front/back-view measurements" table, its front columns showing dashes.
+draws no front frames.
 
-From a saved session the PDF has no frame images, because no keypoints were saved. It
-also has no front/back measurements: the saved front and back phases hold their
-numbers in `frontBackMetrics`, not `metrics`, and the payload carries only `metrics`,
-although `functions/report-renderer.js:730-733` would read `frontBackMetrics`. The
-PDF downloaded right after checkout is in this state, because it is produced from
-the autosaved session.
+From a saved session the PDF has no frame images, because no keypoints were saved.
+Its front/back measurements table is filled from the saved phases' `frontBackMetrics`,
+which `frontBackMetricsOf` in `functions/report-renderer.js` reads when `metrics` is
+absent. The PDF downloaded right after checkout comes from the autosaved session, so
+the same applies to it.
 
 The comparison PDF (`downloadComparisonPDF`, `saved-analyses.js:606-653`) sends only
 the two session ids (plus the athlete's uid as `ownerUid` when the admin is acting as
 them); the server reads both documents itself, and leaves the arms-crossing row out
-when either has `noFront: true`. That too needs the `functions` deploy; the live
-server shows the row as "Not measured" for a session without a front clip.
+when either has `noFront: true`.
 
 ### 4.12 Re-scan, New analysis
 
@@ -1822,10 +1818,7 @@ nothing.
 `noFront` counts only when it is `true`; older clients omit it and get the
 three-clip PDF. With it the renderer leaves out arms crossing (the row and its words
 in the all-clear sentence), shows only the back columns of the front/back table under
-the title "Back-view measurements" with no wrist rows, and skips front frames. The
-`noFront` handling in `functions/index.js` and `functions/report-renderer.js` takes
-effect only once the functions are deployed; section 4.11 says what the deployed
-server does meanwhile.
+the title "Back-view measurements" with no wrist rows, and skips front frames.
 
 ### 10.4 Comparison PDF
 
@@ -1837,8 +1830,7 @@ uid), reads both documents from `users/{ownerUid}/analyses` (not-found if either
 missing), reads the `computed_ranges` documents, and renders with
 `functions/comparison-renderer.js` (`functions/index.js:1457-1516`). The filename is
 `esformlab-comparison-<dateA>-vs-<dateB>.pdf`. It writes nothing. The renderer leaves
-the arms-crossing row out when either document has `noFront: true` (once deployed,
-as above).
+the arms-crossing row out when either document has `noFront: true`.
 
 ---
 

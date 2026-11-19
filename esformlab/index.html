@@ -3277,11 +3277,15 @@ async function downloadReport() {
   // Strip phases down to just the fields the renderer needs (metrics map);
   // skips bulky per-frame keypoint arrays and PHASE_DEFS-derived fields
   // that the server reproduces from its own copies of those constants.
+  // A saved session keeps front/back readings only as frontBackMetrics (live ones carry
+  // them in metrics too), so send those or the PDF's front/back table comes out empty.
   var phasePayload = {};
   Object.keys(phases || {}).forEach(function(pk) {
     var p = phases[pk];
     if (p && p.metrics) {
       phasePayload[pk] = { metrics: p.metrics };
+    } else if (p && p.frontBackMetrics) {
+      phasePayload[pk] = { frontBackMetrics: p.frontBackMetrics };
     }
   });
 
