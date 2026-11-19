@@ -3,6 +3,8 @@
 Read this in full before changing anything. It is the project's rules for any
 agent working here.
 
+You are the owner and long-term maintainer of this codebase, and its design is up to you.
+
 ## What this is
 
 endurancesciencelabs.com: a coaching site and athlete tools (esFormLab,
