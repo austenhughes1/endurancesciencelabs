@@ -242,11 +242,13 @@ What the user sees, top to bottom:
 4. Step 2, "Upload videos (side and back required, front optional)":
    - a must-read box: keep each clip to 8 seconds or less; the camera must be at the
      correct angle for the entire clip;
-   - three drop zones (Side view, Front view, Back view), each with filming guidance
-     (side and back include a treadmill line). A zone accepts a click, Enter or Space,
-     or a dropped file. Side and back are marked REQUIRED. The front zone reads
-     "Optional — skip it on a treadmill", carries an OPTIONAL pill, and says it adds
-     the arms-crossing check and a second look at hip drop and knee alignment;
+   - three drop zones in the order Side view, Back view, Front view (the optional one
+     last: on the right on desktop, at the bottom on a phone), each with filming
+     guidance (side and back include a treadmill line). A zone accepts a click, Enter
+     or Space, or a dropped file. Side and back are marked REQUIRED. The front zone
+     reads "Optional — skip it on a treadmill", carries an OPTIONAL pill, and says it
+     adds the arms-crossing check and becomes the main view for hip drop and knee
+     alignment;
    - once a front clip is chosen, a "Remove front clip" button under the front zone
      (`removeFrontClip`): it clears the file and any decoded front frames, resets the
      zone, hides itself and puts focus back on the zone. It sits beside the zone in the
